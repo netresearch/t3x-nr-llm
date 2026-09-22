@@ -402,6 +402,12 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
             $options + ['fields' => ['ratio' => 1.7]],
             'must be at least 1.5; the CMS compares it rounded down',
         ];
+        // The DataHandler stores a decimal with two places; a third would be
+        // rounded away while the model and the card named it.
+        yield 'decimal with more than two places' => [
+            $options + ['fields' => ['price' => 1.234]],
+            'the value for "price" has more than two decimal places',
+        ];
         yield 'check the cms unchecks when enough records carry it' => [
             $options + ['fields' => ['featured' => true]],
             '"featured" cannot be set through "fields": TYPO3 unchecks it in silence once enough other records carry it',
@@ -444,6 +450,36 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         yield 'text at the min'        => [['note' => 'abcde']];
         yield 'input within string bounds' => [['label' => 'abcdefgh']];
         yield 'decimal the cms keeps' => [['ratio' => 5.25]];
+        yield 'decimal with two places' => [['price' => 4.25]];
+    }
+
+    /**
+     * The DataHandler rounds a decimal to two places BEFORE it compares it
+     * with the range (typo3/cms-core 14.3.7, checkValueForNumber()): 1.996
+     * becomes 2.00 and is above a lower bound of 1.5, 10.001 becomes 10.00
+     * and is below an upper bound of 10.5. Such a value is not out of range,
+     * so the refusal it gets is the one for its third decimal place.
+     *
+     * @return iterable<string, array{float, string}>
+     */
+    public static function decimalsInRangeOnceRounded(): iterable
+    {
+        yield 'rounded up into the lower bound'   => [1.996, 'must be at least'];
+        yield 'rounded down into the upper bound' => [10.001, 'must be at most'];
+    }
+
+    #[Test]
+    #[DataProvider('decimalsInRangeOnceRounded')]
+    public function aDecimalIsComparedWithTheRangeRoundedToTwoPlaces(float $value, string $rangeRefusal): void
+    {
+        $result = $this->tool->execute(
+            ['page' => 1, 'type' => 'options', 'header' => 'x', 'fields' => ['ratio' => $value]],
+            $this->contextFor($this->liveUser()),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringNotContainsString($rangeRefusal, $result->content);
+        self::assertStringContainsString('the value for "ratio" has more than two decimal places', $result->content);
     }
 
     /**

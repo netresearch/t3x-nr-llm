@@ -1556,9 +1556,10 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
 
     /**
      * A `number` value: a whole number unless the column declares
-     * `format: decimal`, within the TCA `range` where one is declared. The
-     * DataHandler would clamp an out-of-range value in silence, and the
-     * read-back would then blame a grant.
+     * `format: decimal`, then with at most two decimal places, within the TCA
+     * `range` where one is declared. The DataHandler would round a third
+     * place away and clamp an out-of-range value in silence, and the
+     * read-back would accept the first and blame a grant for the second.
      *
      * @param array<array-key, mixed> $config
      *
@@ -1577,13 +1578,15 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         }
 
         // The DataHandler's own comparison (typo3/cms-core 14.3.7,
-        // checkValueForNumber()): the value rounded up against the upper
-        // bound and rounded down against the lower, the bounds cast to an
-        // integer for a whole-number column — and a value outside is clamped.
-        // A decimal inside a fractional bound can still be clamped that way.
-        $range = is_array($config['range'] ?? null) ? $config['range'] : [];
-        $lower = $range['lower'] ?? null;
-        if (is_numeric($lower) && floor($number) < ($decimal ? (float)$lower : (float)(int)$lower)) {
+        // checkValueForNumber()): a decimal first rounded to the two places
+        // it stores, then rounded up against the upper bound and down against
+        // the lower, the bounds cast to an integer for a whole-number column —
+        // and a value outside is clamped. A decimal inside a fractional bound
+        // can still be clamped that way.
+        $rounded = $decimal ? (float)number_format($number, 2, '.', '') : $number;
+        $range   = is_array($config['range'] ?? null) ? $config['range'] : [];
+        $lower   = $range['lower'] ?? null;
+        if (is_numeric($lower) && floor($rounded) < ($decimal ? (float)$lower : (float)(int)$lower)) {
             return sprintf(
                 'Refused: the value for "%s" must be at least %s%s.',
                 $column,
@@ -1593,12 +1596,23 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         }
 
         $upper = $range['upper'] ?? null;
-        if (is_numeric($upper) && ceil($number) > ($decimal ? (float)$upper : (float)(int)$upper)) {
+        if (is_numeric($upper) && ceil($rounded) > ($decimal ? (float)$upper : (float)(int)$upper)) {
             return sprintf(
                 'Refused: the value for "%s" must be at most %s%s.',
                 $column,
                 self::toStr($upper),
                 $decimal ? '; the CMS compares it rounded up' : '',
+            );
+        }
+
+        // The DataHandler stores two decimals and rounds a third away, so the
+        // element would hold a value neither the model nor the approver named.
+        if ($rounded !== $number) {
+            return sprintf(
+                'Refused: the value for "%s" has more than two decimal places, and the CMS stores it rounded to %s. '
+                . 'Give it with at most two.',
+                $column,
+                number_format($number, 2, '.', ''),
             );
         }
 

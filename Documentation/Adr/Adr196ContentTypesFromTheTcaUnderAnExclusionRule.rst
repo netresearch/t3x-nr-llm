@@ -124,10 +124,12 @@ A value is validated against the column's TCA type, the way the DataHandler
 reads it: a select against its static items, and against the acting user's
 ``explicit_allowdeny`` where the column declares ``authMode`` — for any
 select, not only ``CType``; a check as a boolean; a number as a whole number
-(or a decimal where the column says so) within the TCA range, compared as the
-DataHandler compares it, rounded up against the upper bound and rounded down
-against the lower, so a decimal inside a fractional bound that the
-DataHandler would clamp is refused; a datetime as anything PHP reads; an
+(or a decimal where the column says so, with at most the two places the
+DataHandler stores) within the TCA range, compared as the DataHandler
+compares it — a decimal first rounded to two places, then rounded up against
+the upper bound and rounded down against the lower — so a decimal inside a
+fractional bound that the DataHandler would clamp is refused; a datetime as
+anything PHP reads; an
 input or text within the TCA ``max`` or the tool's own bound, and an input or
 a text without the RTE not below the TCA ``min``, a bound given as a numeric
 string counting as the integer; a colour with an alpha pair only where the
