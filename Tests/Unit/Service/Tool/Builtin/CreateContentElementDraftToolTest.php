@@ -372,6 +372,7 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         ];
         yield 'radio outside its items' => [$options + ['fields' => ['align' => 'center']], 'must be one of: "left", "right"'];
         yield 'date the cms cannot read' => [$options + ['fields' => ['date' => 'the day after']], 'must be a date or time the CMS can read'];
+        yield 'date that does not exist' => [$options + ['fields' => ['date' => '2026-02-30']], 'must be a date or time the CMS can read'];
         yield 'decimal that is not a number' => [$options + ['fields' => ['price' => 'ten']], 'must be a number'];
         yield 'fraction on a whole-number column' => [$options + ['fields' => ['width' => 12.5]], 'must be a whole number'];
         yield 'number below the range' => [$options + ['fields' => ['width' => 0]], 'must be at least 1'];

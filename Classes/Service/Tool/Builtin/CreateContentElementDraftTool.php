@@ -1383,14 +1383,24 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
                 return [(int)$text];
             }
 
+            $unreadable = sprintf(
+                'Refused: the value for "%s" must be a date or time the CMS can read, such as 2026-09-21 or '
+                . '2026-09-21T14:30:00+02:00.',
+                $column,
+            );
+
             try {
                 $moment = is_numeric($text) ? (new DateTimeImmutable())->setTimestamp((int)$text) : new DateTimeImmutable($text);
             } catch (Exception) {
-                return sprintf(
-                    'Refused: the value for "%s" must be a date or time the CMS can read, such as 2026-09-21 or '
-                    . '2026-09-21T14:30:00+02:00.',
-                    $column,
-                );
+                return $unreadable;
+            }
+
+            // PHP rolls a date that does not exist over into the next month
+            // (2026-02-30 becomes 2026-03-02) and only records a warning; the
+            // rolled-over moment would be stored and read back as correct.
+            $problems = DateTimeImmutable::getLastErrors();
+            if (is_array($problems) && ($problems['warning_count'] > 0 || $problems['error_count'] > 0)) {
+                return $unreadable;
             }
 
             return [$this->datetimeForDataHandler($moment, $config)];
