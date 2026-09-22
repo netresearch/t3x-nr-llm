@@ -253,9 +253,10 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             $removed = $this->discard($plan['table'], $newUid, $user);
 
             return ToolResult::error(sprintf(
-                'Record %s:%d was created but did not carry what was asked for (%s), so it %s. The DataHandler '
-                . 'drops a value it does not accept for the acting backend user without an error — most likely a '
-                . 'missing field-level ("exclude field") grant, or a missing "explicitly allow" grant on a select.',
+                'Record %s:%d was created but did not carry what was asked for (%s), so it %s. The value was dropped '
+                . 'or rewritten by TYPO3 without an error — a missing field-level ("exclude field") grant or '
+                . '"explicitly allow" grant on a select for the acting backend user, or a hook or evaluation of the '
+                . 'installation that changes the record on the way in.',
                 $plan['table'],
                 $newUid,
                 implode('; ', $wrong),
@@ -745,6 +746,16 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
                 );
             }
 
+            $evaluation = $this->rewritingEvaluation($kind, $config);
+            if ($evaluation !== null) {
+                return sprintf(
+                    'Refused: "%s" carries eval "%s", which TYPO3 applies to the value on the way in — it rewrites '
+                    . 'the value or makes it unique — so the record would not carry the value the approver read.',
+                    $column,
+                    $evaluation,
+                );
+            }
+
             if (!in_array($column, $type['shown'], true)) {
                 return sprintf(
                     'Refused: "%s" is not shown for record type "%s" of %s, so the backend form could not set it either.',
@@ -799,6 +810,41 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
     }
 
     /**
+     * The first `eval` token the DataHandler would apply to a value of this
+     * column other than `trim`, or null where there is none.
+     *
+     * `trim` is the one evaluation the tool applies itself. Every other token
+     * of an `input` rewrites the value (`upper`, `lower`, `nospace`, `alpha`,
+     * `num`, `alphanum`, `alphanum_x`, `is_in`, `domainname`), drops it
+     * (`md5`), makes it unique (`unique`, `uniqueInPid`) or hands it to an
+     * extension's evaluation class ({@see DataHandler::checkValue_input_Eval()});
+     * a `text` knows only `trim` and such classes; an `email` only the two
+     * uniqueness tokens. The read-back would find the stored value differs and
+     * delete a record the DataHandler merely normalised, so the column is
+     * refused before the write.
+     *
+     * @param array<array-key, mixed> $config
+     */
+    private function rewritingEvaluation(string $kind, array $config): ?string
+    {
+        if (!in_array($kind, ['input', 'text', 'email'], true)) {
+            return null;
+        }
+
+        foreach (GeneralUtility::trimExplode(',', self::toStr($config['eval'] ?? ''), true) as $token) {
+            if ($token === 'trim') {
+                continue;
+            }
+
+            if ($kind !== 'email' || in_array($token, ['unique', 'uniqueInPid'], true)) {
+                return $token;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * The value the DataHandler receives and the text the approver reads,
      * WRAPPED in a two-element list — or the refusal message.
      *
@@ -817,7 +863,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             'datetime'        => $this->checkDatetime($column, $config, $value),
             'select', 'radio' => $this->checkChoice($column, $config, $value),
             'email'           => $this->checkEmail($column, $config, $value),
-            'color'           => $this->checkColor($column, $value),
+            'color'           => $this->checkColor($column, $config, $value),
             default           => $this->checkText($column, $kind, $config, $value),
         };
     }
@@ -870,15 +916,20 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             }
         }
 
+        // As the DataHandler compares it (checkValueForNumber()): rounded up
+        // against the upper bound and down against the lower one, so a decimal
+        // inside the range can still be clamped to a bound. For an integer the
+        // rounding changes nothing.
         $range = is_array($config['range'] ?? null) ? $config['range'] : [];
         $lower = is_numeric($range['lower'] ?? null) ? (float)$range['lower'] : null;
         $upper = is_numeric($range['upper'] ?? null) ? (float)$range['upper'] : null;
-        if (($lower !== null && $number < $lower) || ($upper !== null && $number > $upper)) {
+        if (($lower !== null && floor($number) < $lower) || ($upper !== null && ceil($number) > $upper)) {
             return sprintf(
-                'Refused: the value for "%s" is outside the range %s..%s.',
+                'Refused: the value for "%s" is outside the range %s..%s%s.',
                 $column,
                 self::toStr($range['lower'] ?? ''),
                 self::toStr($range['upper'] ?? ''),
+                is_float($number) ? ' as TYPO3 checks a decimal — rounded up against the upper bound, down against the lower one' : '',
             );
         }
 
@@ -971,12 +1022,18 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
     }
 
     /**
+     * Six hexadecimal digits, or eight where the column declares `opacity` —
+     * the DataHandler cuts any other colour to seven characters.
+     *
+     * @param array<array-key, mixed> $config
+     *
      * @return list{string, string}|string
      */
-    private function checkColor(string $column, mixed $value): array|string
+    private function checkColor(string $column, array $config, mixed $value): array|string
     {
-        $text = is_string($value) ? trim($value) : null;
-        if ($text === null || ($text !== '' && preg_match('/^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/', $text) !== 1)) {
+        $pattern = $this->flag($config['opacity'] ?? false) ? '/^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/' : '/^#[0-9A-Fa-f]{6}$/';
+        $text    = is_string($value) ? trim($value) : null;
+        if ($text === null || ($text !== '' && preg_match($pattern, $text) !== 1)) {
             return sprintf('Refused: the value for "%s" must be a hexadecimal colour such as #2f99a4.', $column);
         }
 
@@ -1003,6 +1060,13 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             : ($kind === 'text' ? self::MAX_TEXT_LENGTH : self::MAX_INPUT_LENGTH);
         if (mb_strlen($text) > $max) {
             return sprintf('Refused: the value for "%s" exceeds %d characters.', $column, $max);
+        }
+
+        // The DataHandler stores a shorter value as '' in silence
+        // (checkValueForInput(), checkValueForText()); rich text is exempt there.
+        $min = is_numeric($config['min'] ?? null) ? (int)$config['min'] : 0;
+        if ($text !== '' && $min > 0 && mb_strlen($text) < $min && !$this->flag($config['enableRichtext'] ?? false)) {
+            return sprintf('Refused: the value for "%s" must be at least %d characters long; TYPO3 would store a shorter one empty.', $column, $min);
         }
 
         return [$text, $text];

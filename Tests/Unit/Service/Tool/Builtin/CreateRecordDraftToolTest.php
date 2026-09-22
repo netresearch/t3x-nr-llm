@@ -88,7 +88,7 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
                     'enablecolumns'         => ['disabled' => 'hidden', 'starttime' => 'starttime', 'fe_group' => 'fe_group'],
                 ],
                 'types' => [
-                    'note'  => ['showitem' => 'title, teaser, kind, --palette--;;timing, --div--;More, featured, contact, tone, related, colour, rank, topic, section'],
+                    'note'  => ['showitem' => 'title, teaser, kind, --palette--;;timing, --div--;More, featured, contact, tone, related, colour, rank, topic, section, code, handle, alias, reply_to, shade, summary, lede, story, rating'],
                     'story' => ['showitem' => 'title, kind, --palette--;;timing'],
                 ],
                 'palettes' => [
@@ -117,6 +117,18 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
                     'rank'             => ['label' => 'Rank', 'exclude' => 1, 'config' => ['type' => 'number']],
                     // Static items AND a foreign table: the value may be a uid.
                     'topic'            => ['label' => 'Topic', 'config' => ['type' => 'select', 'renderType' => 'selectSingle', 'items' => [['label' => 'None', 'value' => 0]], 'foreign_table' => 'tx_demo_topic']],
+                    // What the DataHandler rewrites on the way in (ADR-197):
+                    // evaluations, uniqueness, a colour cut to 7 characters,
+                    // a value below `min` stored empty, a decimal clamped.
+                    'code'             => ['label' => 'Code', 'config' => ['type' => 'input', 'eval' => 'trim,upper']],
+                    'handle'           => ['label' => 'Handle', 'config' => ['type' => 'input', 'eval' => 'uniqueInPid']],
+                    'alias'            => ['label' => 'Alias', 'config' => ['type' => 'text', 'eval' => 'trim,tx_demo_evaluation']],
+                    'reply_to'         => ['label' => 'Reply to', 'config' => ['type' => 'email', 'eval' => 'unique']],
+                    'shade'            => ['label' => 'Shade', 'config' => ['type' => 'color', 'opacity' => true]],
+                    'summary'          => ['label' => 'Summary', 'config' => ['type' => 'input', 'min' => 5, 'eval' => 'trim']],
+                    'lede'             => ['label' => 'Lede', 'config' => ['type' => 'text', 'min' => 8]],
+                    'story'            => ['label' => 'Story', 'config' => ['type' => 'text', 'min' => 8, 'enableRichtext' => true]],
+                    'rating'           => ['label' => 'Rating', 'config' => ['type' => 'number', 'format' => 'decimal', 'range' => ['lower' => 0.5, 'upper' => 4.5]]],
                     'section'          => ['label' => 'Section', 'config' => ['type' => 'select', 'renderType' => 'selectSingle', 'items' => [['label' => 'Group', 'value' => '--div--'], ['label' => 'A', 'value' => 'a']]]],
                 ],
             ],
@@ -281,6 +293,15 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
         yield 'title not a string'     => [$call(['title' => ['x']]), 'must be a string'];
         yield 'title over max'         => [$call(['title' => str_repeat('a', 101)]), 'exceeds 100 characters'];
         yield 'teaser over the bound'  => [$call($valid + ['teaser' => str_repeat('a', 20001)]), 'exceeds 20000 characters'];
+        yield 'an input eval that rewrites' => [$call($valid + ['code' => 'abc']), 'eval "upper"'];
+        yield 'an input eval that uniquifies' => [$call($valid + ['handle' => 'abc']), 'eval "uniqueInPid"'];
+        yield 'a text eval of an extension' => [$call($valid + ['alias' => 'abc']), 'eval "tx_demo_evaluation"'];
+        yield 'an email eval that uniquifies' => [$call($valid + ['reply_to' => 'a@example.com']), 'eval "unique"'];
+        yield 'an 8-digit colour without opacity' => [$call($valid + ['colour' => '#2f99a4cc']), 'hexadecimal colour such as #2f99a4'];
+        yield 'an input below min'     => [$call($valid + ['summary' => 'abcd']), 'at least 5 characters'];
+        yield 'a text below min'       => [$call($valid + ['lede' => 'short']), 'at least 8 characters'];
+        yield 'a decimal TYPO3 clamps up' => [$call($valid + ['rating' => 4.2]), 'outside the range 0.5..4.5'];
+        yield 'a decimal TYPO3 clamps down' => [$call($valid + ['rating' => 0.8]), 'outside the range 0.5..4.5'];
         yield 'required missing'       => [$call(['teaser' => 'x']), '"title" is required'];
         yield 'required empty'         => [$call(['title' => '  ']), '"title" is required'];
     }
@@ -309,6 +330,35 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
 
         self::assertCount(1, $lines);
         self::assertStringContainsString($expectedFragment, $lines[0]);
+    }
+
+    /**
+     * The other direction of each rule: what TYPO3 stores unchanged passes the
+     * rule and is stopped only by the invalid `kind` behind it.
+     *
+     * @return iterable<string, array{array<string, mixed>}>
+     */
+    public static function valuesTypo3StoresUnchanged(): iterable
+    {
+        yield 'an 8-digit colour with opacity'  => [['shade' => '#2f99a4cc']];
+        yield 'an input at min'                 => [['summary' => 'abcde']];
+        yield 'an empty input below min'        => [['summary' => '']];
+        yield 'rich text below min'             => [['story' => 'Hi']];
+        yield 'a decimal that stays in range'   => [['rating' => 4.0]];
+        yield 'a decimal at the lower bound'    => [['rating' => 1]];
+    }
+
+    /**
+     * @param array<string, mixed> $fields
+     */
+    #[Test]
+    #[DataProvider('valuesTypo3StoresUnchanged')]
+    public function aValueTypo3StoresUnchangedPassesTheRule(array $fields): void
+    {
+        $result = $this->tool->execute($this->call(['title' => 'x'] + $fields + ['kind' => 'novel']), $this->contextFor($this->liveUser()));
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('must be one of', $result->content);
     }
 
     #[Test]

@@ -89,7 +89,7 @@ return [
         'teaser' => [
             'label'  => 'Teaser',
             // `min`: the DataHandler resets a shorter value to '' without an
-            // errorLog entry — the silent rewrite the read-back test relies on.
+            // errorLog entry, so the tool refuses one before the write.
             'config' => ['type' => 'text', 'rows' => 3, 'min' => 8],
         ],
         'kind' => [

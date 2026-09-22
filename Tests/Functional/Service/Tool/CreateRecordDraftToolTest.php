@@ -35,11 +35,12 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
  *
  * The table comes from the fixture extension under
  * Tests/Functional/Fixtures/Extensions/nrllm_writer_fixture: one column of
- * every scalar type the tool may set, one relation it may not, a record type
- * with two showitem lists, a palette, a required column, an exclude column, an
- * authMode select and a text column with a `min`. The assertion this file
- * exists for is that the record is HIDDEN and carries exactly the fields the
- * approver read.
+ * every scalar type the tool may set, one relation it may not, record types
+ * with their own showitem lists and one with `columnsOverrides`, a palette, a
+ * required column, an exclude column, an authMode select, a text column with
+ * a `min` and a decimal. A DataHandler hook fixture rewrites a row after every
+ * check, for the read-back. The assertion this file exists for is that the
+ * record is HIDDEN and carries exactly the fields the approver read.
  */
 #[CoversClass(CreateRecordDraftTool::class)]
 final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
@@ -328,7 +329,8 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         yield 'an invalid email'           => [$valid + ['contact' => 'nobody'], 'not a valid e-mail address'];
         yield 'an unparseable datetime'    => [$valid + ['published_at' => 'yesterday-ish'], 'UNIX timestamp or an ISO 8601'];
         yield 'a title over max'           => [['title' => str_repeat('a', 101)], 'exceeds 100 characters'];
-        yield 'required column missing'    => [['teaser' => 'x'], '"title" is required'];
+        yield 'a teaser below its min'     => [$valid + ['teaser' => 'short'], 'at least 8 characters'];
+        yield 'required column missing'    => [['teaser' => 'A teaser long enough'], '"title" is required'];
         yield 'required column empty'      => [['title' => '   '], '"title" is required'];
     }
 
@@ -548,6 +550,7 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
 
         self::assertTrue($result->isError, $result->content);
         self::assertStringContainsString($expectedFragment, $result->content);
+        self::assertStringContainsString('rewritten by TYPO3', $result->content);
         self::assertStringContainsString('was deleted again', $result->content);
         self::assertSame(1, $this->recordCount(), 'the row exists, flagged deleted');
         self::assertSame(0, $this->undeletedRecordCount());
