@@ -319,7 +319,9 @@ What holds for all of them:
    Sets a fixed set of descriptive fields on one page. Editable: ``title``,
    ``subtitle``, ``nav_title``, ``abstract``, ``description``, ``keywords``
    and — when EXT:seo is installed — ``seo_title``, ``og_title``,
-   ``og_description``, ``twitter_title``, ``twitter_description``. Anything
+   ``og_description``, ``twitter_title``, ``twitter_description`` and
+   ``twitter_card``. The last one is a select: its value must be one of the
+   items the TCA declares, and the refusal names them. Anything
    else (``slug``, ``hidden``, ``doktype``, ``fe_group``, ``perms_*``,
    ``no_index``, the image relations …) is refused. Authorised by the acting
    user's page-edit right; the DataHandler then enforces ``tables_modify`` and
@@ -351,12 +353,13 @@ What holds for all of them:
 ``update_fal_asset_meta``
    Sets the **title** and the **description** (``sys_file_metadata.title``,
    ``sys_file_metadata.description``) of one managed file, identified by its
-   ``sys_file`` uid. Either field may be given, or both; at least one is
+   ``sys_file`` uid, and the **copyright** notice where EXT:filemetadata
+   provides the column. Any of the fields may be given; at least one is
    required.
 
    It is a second tool rather than a wider ``set_file_alternative_text``
    because the two are deliberately **field-disjoint**: this one does not
-   write the alternative text and that one does not write these two, so no
+   write the alternative text and that one writes nothing else, so no
    file field has two writers and an approver never has to work out which of
    two cards won.
 
@@ -440,6 +443,16 @@ What holds for all of them:
      (a plugin), ``html``, ``shortcut`` — are out of reach.
    - The field set is fixed: headline, body text, column, language, position.
      This is not a generic record API.
+
+   In a language other than the default one the element is created
+   **standalone**, without a translation parent. That is refused on a page
+   which already holds connected translations in that language
+   (:ref:`ADR-193 <adr-193>`): a standalone element beside them is what the
+   page module reports as *Inconsistent content detected*. The refusal sends
+   the model to the default language and to ``create_translation_draft``. A
+   page whose TSconfig sets
+   ``mod.web_layout.allowInconsistentLanguageHandling`` is exempt, as it is
+   from core's warning.
 
    ``bodytext`` reaches the DataHandler and its RTE transformation exactly as an
    editor's input does. It is bounded in length and not otherwise filtered — an

@@ -117,6 +117,7 @@ final class UpdatePageMetadataToolTest extends AbstractUnitTestCase
         // EXT:seo is absent from the fixture TCA, so its fields must not be
         // offered — a call naming them could only ever fail.
         self::assertArrayNotHasKey('og_title', $properties);
+        self::assertArrayNotHasKey('twitter_card', $properties);
         // Never offered at all, TCA or not.
         self::assertArrayNotHasKey('slug', $properties);
         self::assertArrayNotHasKey('hidden', $properties);
@@ -183,6 +184,7 @@ final class UpdatePageMetadataToolTest extends AbstractUnitTestCase
         yield 'non-numeric uid'   => [['uid' => 'all', 'title' => 'x'], 'exactly one page'];
         yield 'no field at all'   => [['uid' => 1], 'name at least one field'];
         yield 'field not in TCA'  => [['uid' => 1, 'og_title' => 'x'], 'not an editable page metadata field'];
+        yield 'select not in TCA' => [['uid' => 1, 'twitter_card' => 'summary'], 'not an editable page metadata field'];
         yield 'never-allowed slug'   => [['uid' => 1, 'slug' => '/evil'], 'not an editable page metadata field'];
         yield 'never-allowed hidden' => [['uid' => 1, 'hidden' => '1'], 'not an editable page metadata field'];
         yield 'never-allowed perms'  => [['uid' => 1, 'perms_everybody' => '31'], 'not an editable page metadata field'];
@@ -246,6 +248,116 @@ final class UpdatePageMetadataToolTest extends AbstractUnitTestCase
 
         self::assertTrue($result->isError);
         self::assertStringContainsString('exceeds 2000 characters', $result->content);
+    }
+
+    /**
+     * `twitter_card` is a TCA `select` (ADR-194): the spec tells the model which
+     * values the LIVE TCA declares. In the description and not as a JSON-schema
+     * `enum`, because the empty string is one of them and Gemini refuses a
+     * function declaration whose `enum` holds an empty string.
+     */
+    #[Test]
+    public function theSpecNamesTheValuesTheTcaDeclaresForASelectField(): void
+    {
+        $this->declareTwitterCard(['', 'summary', 'summary_large_image']);
+
+        $properties = $this->tool->getSpec()->parameters['properties'] ?? null;
+        self::assertIsArray($properties);
+
+        $property = $properties['twitter_card'] ?? null;
+        self::assertIsArray($property);
+        self::assertSame('string', $property['type'] ?? null);
+        self::assertArrayNotHasKey('enum', $property);
+
+        $description = $property['description'] ?? null;
+        self::assertIsString($description);
+        self::assertStringContainsString('"", "summary", "summary_large_image"', $description);
+        // A plain text field carries no such list.
+        self::assertIsArray($properties['title'] ?? null);
+        self::assertStringNotContainsString('one of', $this->toStringValue($properties['title']['description'] ?? null));
+    }
+
+    #[Test]
+    public function aSelectFieldRefusesAValueTheTcaDoesNotDeclareAndListsTheOnesItDoes(): void
+    {
+        $this->declareTwitterCard(['', 'summary', 'summary_large_image']);
+
+        $result = $this->tool->execute(
+            ['uid' => 1, 'twitter_card' => 'player'],
+            $this->contextFor($this->liveUser()),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertSame(
+            'Refused: the value for "twitter_card" must be one of: "", "summary", "summary_large_image".',
+            $result->content,
+        );
+    }
+
+    /**
+     * The empty string is a value like any other: it clears the field only
+     * where the TCA declares it as an item. That a declared value — the empty
+     * string included — is WRITTEN needs a database and is asserted in the
+     * functional test; every test here stops before one.
+     */
+    #[Test]
+    public function aSelectFieldRefusesTheEmptyStringWhereTheTcaDoesNotDeclareIt(): void
+    {
+        $this->declareTwitterCard(['summary', 'summary_large_image']);
+
+        $result = $this->tool->execute(
+            ['uid' => 1, 'twitter_card' => ''],
+            $this->contextFor($this->liveUser()),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertSame(
+            'Refused: the value for "twitter_card" must be one of: "summary", "summary_large_image".',
+            $result->content,
+        );
+    }
+
+    /**
+     * A divider is an entry of `items` and not a value an editor can pick.
+     */
+    #[Test]
+    public function aDividerItemIsNotAnAllowedValue(): void
+    {
+        $this->declareTwitterCard(['summary', '--div--', 'summary_large_image']);
+
+        $result = $this->tool->execute(
+            ['uid' => 1, 'twitter_card' => '--div--'],
+            $this->contextFor($this->liveUser()),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('must be one of: "summary", "summary_large_image".', $result->content);
+    }
+
+    /**
+     * EXT:seo's `pages.twitter_card`, with the given item values.
+     *
+     * @param list<string> $values
+     */
+    private function declareTwitterCard(array $values): void
+    {
+        self::assertIsArray($GLOBALS['TCA']);
+        $GLOBALS['TCA']['pages']['columns']['twitter_card'] = [
+            'exclude' => true,
+            'config'  => [
+                'type'       => 'select',
+                'renderType' => 'selectSingle',
+                'items'      => array_map(
+                    static fn(string $value): array => ['label' => $value, 'value' => $value],
+                    $values,
+                ),
+            ],
+        ];
+    }
+
+    private function toStringValue(mixed $value): string
+    {
+        return is_string($value) ? $value : '';
     }
 
     /**

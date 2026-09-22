@@ -9,6 +9,7 @@ ADR-192: The eighth writer describes an asset, and stays out of the seventh's fi
 :Status: Accepted
 :Date: 2026-09-16
 :Amends: :ref:`ADR-135 <adr-135>` (a second writer on ``sys_file_metadata``)
+:Amended: 2026-09-21 by :ref:`ADR-194 <adr-194>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-192-context:
@@ -46,6 +47,8 @@ writers after it to.
 
 It writes ``title`` and ``description``, either or both, on one file's live
 default-language metadata record. It does **not** write ``alternative``.
+:ref:`ADR-194 <adr-194>` added ``copyright`` where EXT:filemetadata declares
+the column.
 
 .. _adr-192-disjoint:
 
@@ -67,8 +70,9 @@ present it means *another tool does*, which is actionable. So the two tools are
 description names ``set_file_alternative_text`` rather than only declining, so a
 model told "not here" is not left to guess where.
 
-The cost is named rather than hidden: an assistant setting all three fields
-makes two calls and costs two approvals. That is the same trade
+The cost is named rather than hidden: an assistant setting every field of a
+file — the alternative text and the fields of this tool — makes two calls and
+costs two approvals. That is the same trade
 :ref:`ADR-180 <adr-180>` made for "page plus first element", for the same
 reason — one card, one thing.
 

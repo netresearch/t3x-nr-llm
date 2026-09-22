@@ -98,11 +98,14 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
     /**
      * The fields a model may set.
      *
-     * Every entry is a plain `input`/`text` column carrying descriptive prose and
-     * nothing else: no relation, no routing, no visibility, no access control.
-     * The SEO group exists only when EXT:seo is installed, which is why the list
-     * is intersected with the live TCA in {@see self::editableFields()} rather
-     * than trusted as written.
+     * Every entry but one is a plain `input`/`text` column carrying descriptive
+     * prose and nothing else: no relation, no routing, no visibility, no access
+     * control. The one exception is `twitter_card` (ADR-194), a `select` whose
+     * value is checked against the items the live TCA declares
+     * ({@see self::allowedValuesFor()}) — a length bound says nothing about a
+     * select. The SEO group exists only when EXT:seo is installed, which is why
+     * the list is intersected with the live TCA in {@see self::editableFields()}
+     * rather than trusted as written.
      *
      * Deliberately NOT here: `slug`, `shortcut`, `url`, `target` and
      * `canonical_link` (they decide where a URL points); `doktype`, `hidden`,
@@ -128,6 +131,7 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
         'og_description',
         'twitter_title',
         'twitter_description',
+        'twitter_card',
     ];
 
     /**
@@ -154,9 +158,21 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
         ];
 
         foreach ($this->editableFields() as $field) {
+            $allowed = $this->allowedValuesFor($field);
+
+            // The allowed values of a select go into the description and not
+            // into a JSON-schema `enum`: the empty string is a legitimate value
+            // ("no card type"), and Gemini rejects a function declaration whose
+            // `enum` holds an empty string (ADR-194).
             $properties[$field] = [
                 'type'        => 'string',
-                'description' => sprintf('New value for the page field "%s". Omit to leave it unchanged.', $field),
+                'description' => $allowed === null
+                    ? sprintf('New value for the page field "%s". Omit to leave it unchanged.', $field)
+                    : sprintf(
+                        'New value for the page field "%s", one of: %s. Omit to leave it unchanged.',
+                        $field,
+                        $this->listed($allowed),
+                    ),
             ];
         }
 
@@ -450,6 +466,13 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
                 );
             }
 
+            $allowed = $this->allowedValuesFor($key);
+            if ($allowed !== null && !in_array($text, $allowed, true)) {
+                // The refused value is not echoed back; the allowed ones are
+                // configuration, not instance data.
+                return sprintf('Refused: the value for "%s" must be one of: %s.', $key, $this->listed($allowed));
+            }
+
             $max = $this->maxLengthFor($key);
             if (mb_strlen($text) > $max) {
                 return sprintf('Refused: the value for "%s" exceeds %d characters.', $key, $max);
@@ -491,6 +514,54 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
 
         // The DataHandler's own truthiness test, mirrored.
         return is_array($config) && (bool)($config['required'] ?? false);
+    }
+
+    /**
+     * The values the live TCA declares for a `select` column, or null for every
+     * other column type (ADR-194).
+     *
+     * Read from `$GLOBALS['TCA']` at call time and never written down here: the
+     * items of `pages.twitter_card` are EXT:seo's, an installation may add to
+     * them, and the backend form offers exactly this list. The DataHandler does
+     * not compare a static select's value with its items, so without this check
+     * any string up to the length bound would be stored and the backend form
+     * would then show it as an invalid value.
+     *
+     * The empty string is allowed where an item declares it, and only there. A
+     * divider (`--div--`) is an entry of `items` and not a value. A select
+     * without static items yields an empty list, so every value is refused.
+     *
+     * @return list<string>|null
+     */
+    private function allowedValuesFor(string $field): ?array
+    {
+        $column = $this->tcaColumnsFor(self::TABLE)[$field] ?? null;
+        $config = is_array($column) ? ($column['config'] ?? null) : null;
+        if (!is_array($config) || ($config['type'] ?? null) !== 'select') {
+            return null;
+        }
+
+        $values = [];
+        foreach (is_array($config['items'] ?? null) ? $config['items'] : [] as $item) {
+            if (!is_array($item) || !array_key_exists('value', $item) || $item['value'] === '--div--') {
+                continue;
+            }
+
+            $values[] = self::toStr($item['value']);
+        }
+
+        return $values;
+    }
+
+    /**
+     * Allowed values as they appear in the spec and in a refusal: each one
+     * quoted, so the empty string stays visible as `""`.
+     *
+     * @param list<string> $values
+     */
+    private function listed(array $values): string
+    {
+        return implode(', ', array_map(static fn(string $value): string => '"' . $value . '"', $values));
     }
 
     /**

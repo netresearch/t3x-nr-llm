@@ -130,6 +130,29 @@ final class UpdateFalAssetMetaToolTest extends AbstractUnitTestCase
         // only, which is the record the preview reads back (ADR-135).
         self::assertArrayNotHasKey('language', $properties);
         self::assertArrayNotHasKey('sys_language_uid', $properties);
+        // EXT:filemetadata is absent from the fixture TCA, so its column is not
+        // offered — a call naming it could only fail (ADR-194).
+        self::assertArrayNotHasKey('copyright', $properties);
+        self::assertStringNotContainsString('copyright', $spec->description);
+    }
+
+    /**
+     * `sys_file_metadata.copyright` exists only where EXT:filemetadata is
+     * installed (ADR-194), so the spec follows the live TCA.
+     */
+    #[Test]
+    public function theSpecOffersTheCopyrightWhereTheColumnExists(): void
+    {
+        $this->declareCopyright();
+
+        $spec       = $this->tool->getSpec();
+        $properties = $spec->parameters['properties'] ?? null;
+        self::assertIsArray($properties);
+
+        self::assertArrayHasKey('copyright', $properties);
+        self::assertStringContainsString('"copyright"', $spec->description);
+        // Still field-disjoint from the alternative-text tool.
+        self::assertArrayNotHasKey('alternative', $properties);
     }
 
     /**
@@ -242,6 +265,97 @@ final class UpdateFalAssetMetaToolTest extends AbstractUnitTestCase
         self::assertStringContainsString($expectedFragment, $lines[0]);
     }
 
+    /**
+     * Without EXT:filemetadata the column does not exist, and the argument is
+     * refused like every other argument the tool does not know.
+     */
+    #[Test]
+    public function theCopyrightIsAnUnknownArgumentWhereTheColumnDoesNotExist(): void
+    {
+        $arguments = ['uid' => 1, 'title' => 'x', 'copyright' => '© Example'];
+
+        $result = $this->tool->execute($arguments, $this->contextFor($this->grantedUser()));
+
+        self::assertTrue($result->isError);
+        self::assertSame(
+            'Refused: "copyright" is not an argument of this tool. It sets "title" and "description" on one file; '
+            . 'allowed: uid, title, description.',
+            $result->content,
+        );
+        self::assertSame([$result->content], $this->tool->previewCall($arguments, $this->contextFor($this->grantedUser())));
+    }
+
+    /**
+     * @return iterable<string, array{array<string, mixed>, string}>
+     */
+    public static function refusedCopyrightArguments(): iterable
+    {
+        yield 'null copyright'     => [['uid' => 1, 'copyright' => null], 'passed as null'];
+        yield 'array copyright'    => [['uid' => 1, 'copyright' => ['a']], 'must be a string'];
+        yield 'overlong copyright' => [['uid' => 1, 'copyright' => str_repeat('a', 2001)], 'exceeds 2000 characters'];
+        // The refusal vocabulary follows the fields this installation has.
+        yield 'no field at all'    => [['uid' => 1], 'at least one of "title", "description" or "copyright"'];
+        yield 'an unknown argument' => [
+            ['uid' => 1, 'copyright' => 'x', 'alternative' => 'y'],
+            'It sets "title", "description" and "copyright" on one file; allowed: uid, title, description, copyright.',
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $arguments
+     */
+    #[Test]
+    #[DataProvider('refusedCopyrightArguments')]
+    public function theCopyrightIsValidatedLikeTheOtherTwoFields(array $arguments, string $expectedFragment): void
+    {
+        $this->declareCopyright();
+
+        $result = $this->tool->execute($arguments, $this->contextFor($this->grantedUser()));
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString($expectedFragment, $result->content);
+    }
+
+    /**
+     * The other direction: where the column exists, a call setting the
+     * copyright alone is a complete call. The stub connection resolves no file,
+     * so it ends in the neutral refusal — the write itself is asserted against
+     * a real database in the functional test.
+     */
+    #[Test]
+    public function aCallSettingOnlyTheCopyrightPassesValidationWhereTheColumnExists(): void
+    {
+        $this->declareCopyright();
+
+        $result = $this->tool->execute(['uid' => 1, 'copyright' => '© Example'], $this->contextFor($this->grantedUser()));
+
+        self::assertTrue($result->isError, 'the stub connection cannot resolve a file');
+        self::assertSame('Asset not found or not permitted.', $result->content);
+    }
+
+    /**
+     * EXT:filemetadata ships the column with the `exclude` flag, so the grant
+     * check that protects `title` covers it without knowing its name.
+     */
+    #[Test]
+    public function aMissingCopyrightGrantRefusesTheWholeCallBeforeAnythingIsWritten(): void
+    {
+        $this->declareCopyright();
+        $user                                  = $this->liveUser();
+        $user->user['admin']                   = 0;
+        $user->groupData['non_exclude_fields'] = 'sys_file_metadata:title';
+
+        $result = $this->tool->execute(
+            ['uid' => 1, 'title' => 'New title', 'copyright' => '© Example'],
+            $this->contextFor($user),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('sys_file_metadata:copyright', $result->content);
+        self::assertStringNotContainsString('sys_file_metadata:title', $result->content);
+        self::assertStringContainsString('Nothing was written', $result->content);
+    }
+
     #[Test]
     public function anUnknownArgumentNameIsEchoedBackStrippedOfAnythingButItsIdentifierCharacters(): void
     {
@@ -342,6 +456,19 @@ final class UpdateFalAssetMetaToolTest extends AbstractUnitTestCase
 
         self::assertTrue($result->isError);
         self::assertStringContainsString('exceeds the 120 characters', $result->content);
+    }
+
+    /**
+     * EXT:filemetadata's `sys_file_metadata.copyright`, in the shape that
+     * extension ships it: an `exclude` field, `text`, no length bound.
+     */
+    private function declareCopyright(): void
+    {
+        self::assertIsArray($GLOBALS['TCA']);
+        $GLOBALS['TCA']['sys_file_metadata']['columns']['copyright'] = [
+            'exclude' => true,
+            'config'  => ['type' => 'text', 'cols' => 40, 'rows' => 3],
+        ];
     }
 
     /**

@@ -9,7 +9,7 @@ ADR-135: The first writing tool, and the contract it actually needed
 :Status: Accepted (its non-guarantee section is closed — see :ref:`ADR-141 <adr-141>`)
 :Date: 2026-08-09
 :Amends: :ref:`ADR-122 <adr-122>` (its premise, not its reasoning)
-:Amended: 2026-08-10 by :ref:`ADR-141 <adr-141>`, :ref:`ADR-146 <adr-146>`; 2026-09-16 by :ref:`ADR-192 <adr-192>`; 2026-09-21 by :ref:`ADR-197 <adr-197>`
+:Amended: 2026-08-10 by :ref:`ADR-141 <adr-141>`, :ref:`ADR-146 <adr-146>`; 2026-09-16 by :ref:`ADR-192 <adr-192>`; 2026-09-21 by :ref:`ADR-194 <adr-194>`, :ref:`ADR-197 <adr-197>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-135-context:
@@ -64,12 +64,15 @@ The field allow-list
 
 ``title``, ``subtitle``, ``nav_title``, ``abstract``, ``description``,
 ``keywords`` — always present — and, when EXT:seo is installed, ``seo_title``,
-``og_title``, ``og_description``, ``twitter_title``, ``twitter_description``.
+``og_title``, ``og_description``, ``twitter_title``, ``twitter_description``
+and, since :ref:`ADR-194 <adr-194>`, ``twitter_card``.
 
-Every entry is a scalar ``input`` or ``text`` column carrying descriptive prose:
-no relation, no routing, no visibility, no access control. The static list is
-intersected with the live TCA, so an install without EXT:seo is never offered a
-field a call could only fail on.
+Every entry but one is a scalar ``input`` or ``text`` column carrying
+descriptive prose: no relation, no routing, no visibility, no access control.
+``twitter_card`` is a ``select``; :ref:`ADR-194 <adr-194>` checks its value
+against the items the live TCA declares. The static list is intersected with
+the live TCA, so an install without EXT:seo is never offered a field a call
+could only fail on.
 
 Excluded, with the reason:
 

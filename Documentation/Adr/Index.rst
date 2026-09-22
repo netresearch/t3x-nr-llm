@@ -575,4 +575,6 @@ Tools
    Adr190CancellationCrossesTheTransportBoundary
    Adr191ToolLevelCancellationOutcome
    Adr192TheEighthWriterDescribesAnAsset
+   Adr193ADraftElementDoesNotMixAConnectedPage
+   Adr194TwoMoreMetadataFields
    Adr197AGenericCreatorWhereNoNarrowWriterExists
