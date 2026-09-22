@@ -510,10 +510,13 @@ What holds for all of them:
      by name; ``sys_*`` tables, the tables no tool may read (``be_users``,
      ``sys_log``, the nr_llm and nr_vault tables …) and tables declared
      ``adminOnly``, ``hideTable`` or ``readOnly`` are refused as well.
-   - A table another **registered writer** declares through its editor-action
-     record types is refused and the writer named — read at call time, so an
-     extension that ships its own writer withdraws the fallback the day it is
-     installed.
+   - A table another **registered creator** declares through
+     :php:`RecordCreatorInterface::getCreatedTables()` is refused and the tool
+     named — read at call time, so an extension that ships its own creator
+     withdraws the fallback the day it is installed. The builtin creators
+     declare ``tt_content`` (``create_content_element_draft``), ``pages``
+     (``create_page_draft``) and both (``create_translation_draft``). A
+     declaration that cannot be read refuses the call and names the tool.
    - The extension configuration ``tools.createRecordDraft.deniedTables``
      (comma-separated table names, empty by default) excludes further tables
      on one installation. It can only narrow the list, never widen it, and a
@@ -527,20 +530,35 @@ What holds for all of them:
    shows. Relations, files, FlexForms, links and slugs are not arguments;
    ``hidden``, ``uid``, ``pid``, the language, timing, ownership and
    versioning columns are refused by name. Values are checked against the
-   TCA before anything is written: the items of a select, ``max`` and
-   ``range``, 0/1 for a check, a valid address for an email. Every column the
-   TCA marks required must be given.
+   record type's TCA — its ``columnsOverrides`` included — before anything is
+   written: the items of a select, ``max`` and ``range``, 0/1 for a check, a
+   valid address for an email. Every column the record type marks required
+   must be given. A value the DataHandler would rewrite is refused rather
+   than written: a column with an ``eval`` other than ``trim`` (``upper``,
+   ``alphanum``, ``unique``, ``uniqueInPid`` …), an eight-digit colour on a
+   column without ``opacity``, a text shorter than its ``min``, a decimal the
+   range check would clamp. So is what the page's TSconfig takes out of the
+   backend form: a column ``TCEFORM.<table>.<column>.disabled`` hides, a
+   select value ``keepItems`` or ``removeItems`` filters out, and a record
+   type its type field does not offer on that page — the refusal names the
+   rule.
 
    The record is **always hidden** and **always in the default language**.
    Authorised by the acting user's ``tables_modify`` grant, the content-edit
    permission on the page or folder, and the field-level grants for every
    column the call sets — asked before the write, because the DataHandler
-   drops such a column in silence. What the DataHandler still rewrites is
-   read back afterwards; a record that does not carry what was approved is
-   deleted again and the columns are named.
+   drops such a column in silence. What TYPO3 still rewrites — a hook of the
+   installation, a grant the pre-check does not model — is read back
+   afterwards; a record that does not carry what was approved is deleted
+   again and the columns are named.
 
-   It declares no editor action — it owns no table — so it is reached through
-   the assistant only, never from a record's context menu.
+   The approval card names each column with its TCA label in English, never
+   in the viewer's language, because the card is compared byte for byte when
+   the run resumes: ``published_at (Published at): "2026-09-10T10:00:00+00:00"``.
+
+   It declares no editor action — it has no record an editor would select —
+   so it is reached through the assistant only, never from a record's
+   context menu.
 
 .. _administration-tools-register:
 
@@ -571,6 +589,12 @@ The interface carries ``#[AutoconfigureTag('nr_llm.tool')]``, so a class is
 to edit. :php:`ToolRegistry` collects every tagged tool through a DI iterator
 and indexes it by spec name; two tools with the **same** ``name`` is a
 developer error and fails fast at container build.
+
+A tool that **creates records** also implements
+:php:`Netresearch\\NrLlm\\Service\\Tool\\RecordCreatorInterface` and lists the
+tables its records land in from ``getCreatedTables()``. The generic
+``create_record_draft`` then steps back from those tables and names your tool
+instead (:ref:`ADR-197 <adr-197>`).
 
 When you write a tool, honour the security contract: treat ``$arguments`` as
 attacker-influenced (the model is steerable by injected skill prose),
@@ -607,7 +631,7 @@ A tool that carries an **editor action** declaration
 its translated name, one sentence written for a human, and the record types it
 addresses — instead of the wire name and the description written for the
 language model. Eight of the nine writing tools declare one —
-``create_record_draft`` owns no table and declares none
+``create_record_draft`` has no subject record and declares none
 (:ref:`ADR-197 <adr-197>`) — and the wire name stays
 visible as the technical detail the toggle acts on. A read-only tool is
 unchanged.

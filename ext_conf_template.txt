@@ -128,7 +128,7 @@ tools.dataClassEnforcement = enforce
 # Generic record creator (ADR-197)
 # =============================================================================
 
-# cat=tools; type=string; label=Tables create_record_draft never writes: Comma-separated TCA table names the generic record creator (ADR-197) refuses on this installation, on top of the tables it refuses everywhere — pages, tt_content, sys_* and the sensitive tables, tables declared adminOnly/hideTable/readOnly, and every table another writing tool owns. The list can only narrow what the tool serves, never widen it. Empty by default.
+# cat=tools; type=string; label=Tables create_record_draft never writes: Comma-separated TCA table names the generic record creator (ADR-197) refuses on this installation, on top of the tables it refuses everywhere — pages, tt_content, sys_* and the sensitive tables, tables declared adminOnly/hideTable/readOnly, and every table another tool declares it creates records in (RecordCreatorInterface). The list can only narrow what the tool serves, never widen it. Empty by default.
 tools.createRecordDraft.deniedTables =
 
 # =============================================================================

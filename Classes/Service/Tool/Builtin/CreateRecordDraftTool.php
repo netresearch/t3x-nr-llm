@@ -53,7 +53,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   a release here.
  * - **Scalar columns only**, and only those the record type shows. A relation,
  *   a file, a FlexForm, a link, a slug: not an argument. Values are checked by
- *   type before anything is written.
+ *   type, against the record type's own configuration (`columnsOverrides`),
+ *   before anything is written; a value the DataHandler would rewrite (an
+ *   `eval`, a `min`, a clamp) is refused, and so is what the page's TSconfig
+ *   (TCEFORM) takes out of the backend form.
  * - **Always hidden, always the default language, one record.** `hidden` is
  *   forced to 1 and cannot be an argument; the language columns are refused; a
  *   table without a "disabled" enable column is refused outright.
@@ -63,8 +66,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   DataHandler still drops in silence is read back, the record is deleted
  *   again and the fields are named.
  *
- * It declares no editor action: a declaration names the tables a writer OWNS
- * (ADR-152), and this one owns none. It is reached through the assistant only.
+ * It declares no editor action: an editor action is offered on a record of the
+ * table it names (ADR-152), and this tool has no such subject. It is reached
+ * through the assistant only.
  */
 final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface
 {
@@ -160,7 +164,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             . 'tables such as a news record. The record is always created HIDDEN and in the default language, so a '
             . 'human must review and unhide it before it is visible. Writes through the TYPO3 DataHandler as the '
             . 'acting backend user, in the live workspace. Refused: pages and tt_content (use create_page_draft and '
-            . 'create_content_element_draft), system and sensitive tables, tables another writing tool owns, and '
+            . 'create_content_element_draft), system and sensitive tables, tables another tool creates records in, and '
             . 'tables the installation excludes. Only scalar columns the record type shows can be set — input, '
             . 'text, number, email, color, datetime, check, radio and select with static items; relations, files, '
             . "links, FlexForms and slugs cannot, and every required column must be given. Read the table's TCA "

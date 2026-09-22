@@ -66,33 +66,46 @@ decision. Removing one reopens ADR-135's argument.
    (:php:`TableReadAccessService::SENSITIVE_TABLES` and the prefixes
    ``tx_nrllm``, ``tx_nrvault``), must not be ``adminOnly`` or ``hideTable`` or
    ``readOnly`` in its ``ctrl``, must not be a ``sys_*`` table, and must not be
-   the target of another registered writer. A writer declares its tables
-   through :php:`EditorAction::$recordTypes`; the fallback iterates the tools
-   registered through the ``nr_llm.tool`` tag at call time — the set
-   :php:`ToolRegistry` indexes, an extension's own writer included — and
-   steps back wherever a declaration names the table. ``pages`` and
-   ``tt_content`` are named in the fallback itself, because their writers
-   declare the SUBJECT an editor selects, the page, rather than the table
-   they write (:ref:`ADR-152 <adr-152>`). A tool an MCP provider supplies
-   never declares an editor action and is not consulted. An installation
-   narrows further through the extension configuration
+   a table another registered tool creates records in. A creator declares
+   those tables through :php:`RecordCreatorInterface::getCreatedTables()`;
+   the fallback iterates the tools registered through the ``nr_llm.tool`` tag
+   at call time — the set :php:`ToolRegistry` indexes, an extension's own
+   creator included — and steps back from a table exactly when such a
+   declaration lists it, naming that tool. A declaration that throws refuses
+   the call and names the tool (its class, where its spec cannot be read
+   either): it may be the one covering the table. The editor-action record
+   types are not the declaration: they name the SUBJECT an action's arguments
+   identify (:ref:`ADR-152 <adr-152>`), so a content-element creator declares
+   ``pages`` there, and an updater of a table declares that table without
+   creating in it. The builtin creators implement the interface —
+   ``create_content_element_draft`` (``tt_content``), ``create_page_draft``
+   (``pages``), ``create_translation_draft`` (both) — and ``pages`` and
+   ``tt_content`` are refused by name in the fallback as well. A tool an MCP
+   provider supplies never implements the interface and is not consulted. An
+   installation narrows further through the extension configuration
    ``tools.createRecordDraft.deniedTables``; it cannot widen, and a
-   configuration that cannot be read refuses every table.
+   configuration that is present but cannot be read — not a comma-separated
+   string, or a path to it that is not a list of settings — refuses every
+   table. Only an absent setting excludes nothing.
 
 2. **The acting user's rights, checked before the write and reported after
    it.** ``tables_modify`` for the table; the content-edit permission
    (:php:`Permission::CONTENT_EDIT`) on the page or folder the ``pid`` names,
    which is what :php:`DataHandler::hasPermissionToInsert()` asks for every
    table but ``pages`` — a record at the root level (``pid`` 0) is not
-   created; ``non_exclude_fields`` for every column the call sets, the hidden
-   column included, because the DataHandler drops such a column in silence;
+   created, and a page outside the user's web mounts yields no permission
+   (:php:`BackendUserAuthentication::calcPerms()`); ``non_exclude_fields``
+   for every column the call sets whose ``exclude`` flag is truthy, the
+   hidden column included, because the DataHandler drops such a column in
+   silence;
    ``checkLanguageAccess`` for the default language; the live workspace only,
-   through :php:`WritesThroughDataHandlerTrait`. What the DataHandler still
-   rewrites or drops in silence — a ``min`` it resets, a hook, a grant the
-   pre-check does not model — is read back column by column; on a mismatch
-   the record is deleted again and the columns are named, as the creating
-   sibling writers do with a record they cannot vouch for. A rich-text
-   column, whose stored form the RTE rewrites, is checked for presence only.
+   through :php:`WritesThroughDataHandlerTrait`. What TYPO3 still rewrites or
+   drops in silence — a hook of the installation, a grant the pre-check does
+   not model — is read back column by column; on a mismatch the record is
+   deleted again, the columns are named and the refusal says the value was
+   dropped or rewritten by TYPO3, as the creating sibling writers do with a
+   record they cannot vouch for. A rich-text column, whose stored form the
+   RTE rewrites, is checked for presence only.
 
 3. **Scalar columns only.** A column can be set when its TCA type is
    ``input``, ``text``, ``number``, ``email``, ``color``, ``datetime``,
@@ -119,7 +132,22 @@ decision. Removing one reopens ADR-135's argument.
    as the timestamp; an email as a valid address; a color as a hexadecimal
    value. The DataHandler would clamp a value outside ``range`` in
    silence; the tool refuses it, so the approver never reads a value the
-   record will not carry.
+   record will not carry. Every check reads the column's configuration for
+   the chosen record type — the base column with the type's
+   ``columnsOverrides`` merged over it, as core builds a sub-schema field and
+   the DataHandler validates against it — so a ``required``, a ``max``, the
+   items or ``enableRichtext`` of one type only are honoured. A value the
+   DataHandler would normalise, which the read-back would then call wrong, is
+   refused before the write for the same reason: a column whose ``eval``
+   holds a token other than ``trim`` (an ``input``'s ``upper``, ``lower``,
+   ``nospace``, ``alpha``, ``num``, ``alphanum``, ``alphanum_x``, ``is_in``,
+   ``domainname``, ``md5``, ``unique``, ``uniqueInPid`` or an extension's
+   evaluation class; an ``email``'s ``unique`` or ``uniqueInPid``); an
+   eight-digit colour on a column without ``opacity``, which is cut to seven
+   characters; a non-empty ``input`` or ``text`` below its ``min``, which is
+   stored empty (rich text is exempt, as in core); a number the range check
+   would clamp, which compares the value rounded up against ``upper`` and
+   rounded down against ``lower`` — 4.2 in 0.5..4.5 becomes 4.5.
 
 4. **Column deny-list regardless of type.** ``uid``, ``pid`` (an argument of
    its own, never a field), the ``ctrl`` columns for delete, versioning,
@@ -134,12 +162,17 @@ decision. Removing one reopens ADR-135's argument.
    is created with its ``enablecolumns.disabled`` column set; a table without
    one is refused, because nothing this extension writes is visible before a
    human unhides it (:ref:`ADR-135 <adr-135>`). The tool declares
-   ``NON_IDEMPOTENT_WRITE`` so the pause applies. The preview is built from
-   the TCA labels of the table and its columns in the viewer's language, one
-   line per field, so the approver reads "Datum: 2026-09-21" rather than a
-   column name and a raw value. It is a function of the arguments, the
-   current TCA and the title of the page the ``pid`` names — the inputs the
-   sibling writers' previews read — which is what ADR-184's comparison needs.
+   ``NON_IDEMPOTENT_WRITE`` so the pause applies. The preview names each
+   field by its column and the column's TCA label resolved in English, one
+   line per field, with a timestamp as an ISO 8601 date-time in UTC and a
+   select or radio value with its item's English label — the approver reads
+   ``published_at (Published at): "2026-09-21T08:00:00+00:00"`` rather than a
+   raw timestamp. English, never the viewer's language: the lines are
+   compared byte for byte when the run resumes (ADR-184), and a resume can
+   run in another request, worker or language. The preview is a function of
+   the arguments, the current TCA, the page's TSconfig and the title of the
+   page the ``pid`` names — the inputs the sibling writers' previews read,
+   in the fixed English their previews use.
 
 6. **Required columns are required here.** A column the TCA marks
    ``required`` for the chosen record type must be present in the call and
@@ -158,6 +191,19 @@ decision. Removing one reopens ADR-135's argument.
    ``checkLanguageAccess(0)`` is still asserted against the acting user, as
    :ref:`ADR-135 <adr-135>` does for the file writers.
 
+8. **What the page's form does not offer is not written.** Page TSconfig
+   ``TCEFORM`` is enforced by FormEngine alone; the DataHandler writes a
+   column the form hides and a value it does not list without a word. After
+   the ``pid`` is authorised the tool reads the page's TSconfig the way
+   FormEngine does (:php:`BackendUtility::getPagesTSconfig()`) and refuses a
+   column ``TCEFORM.<table>.<column>.disabled`` hides, a select value outside
+   its ``keepItems`` or inside its ``removeItems``, and a record type the
+   type field does not offer there, whether the call names it or it is the
+   column's default. A ``types.<type>.`` block overrides the column's own
+   rule for that record type, as :php:`PageTsConfigMerged` merges it. The
+   refusal names the rule. Radio items are not filtered, because FormEngine
+   applies neither rule to them.
+
 What the fallback does not do, and why: it does not update or delete (the
 safety line of ADR-135 and ADR-180 stands for those; a wrong CREATE leaves a
 hidden record to delete, a wrong UPDATE overwrites work); it does not create
@@ -169,17 +215,24 @@ review is still open); it does not publish.
 Relation to the narrow writers and to extension-shipped writers
 ===============================================================
 
-The narrow writers stay first. Where one exists for a table, the fallback
-refuses that table and names the writer. Where an extension registers a
-writer for its table, the same rule applies from the day it is installed:
-the catalogue lookup is at call time, so the fallback withdraws without a
-release of this extension.
+The narrow writers stay first. Where a creator exists for a table, the
+fallback refuses that table and names the creator. Where an extension
+registers a creator for its table, the same rule applies from the day it is
+installed: the declarations are read at call time, so the fallback withdraws
+without a release of this extension.
+
+An extension declares the tables it creates records in through
+:php:`RecordCreatorInterface`, next to :php:`ToolInterface`: its
+``getCreatedTables()`` lists the tables the tool's rows land in. It is an
+``@api`` extension point (:ref:`ADR-127 <adr-127>`), separate from the editor
+action on purpose — an editor action answers "what can I do with this
+record?" and names its subject, a creator declaration answers "where does a
+new row land?".
 
 The fallback declares no editor action at all: a declaration must name at
-least one record type (:php:`EditorAction` refuses an empty list), and a
-record type is a table a writer truly owns. So it is not offered from a
-record's context menu, only through the assistant, and
-:php:`EditorAction::$recordTypes` stays a list of owned tables.
+least one record type (:php:`EditorAction` refuses an empty list), and the
+fallback has no subject record an editor would select. So it is not offered
+from a record's context menu, only through the assistant.
 
 .. _adr-197-consequences:
 
@@ -215,8 +268,9 @@ serves is a backend job.
 Revisit when
 ============
 
-An extension ships a writer for a table the fallback served, and the
-withdrawal does not happen as described. Or a table with scalar fields only
+An extension ships a creator for a table the fallback served, implements
+:php:`RecordCreatorInterface`, and the withdrawal does not happen as
+described. Or a table with scalar fields only
 turns out to carry meaning the DataHandler cannot guard — then it goes on the
 deny-list, and this record gets the reason. Or a translation is wanted for a
 table the fallback serves — the language then needs a rule of its own, as
