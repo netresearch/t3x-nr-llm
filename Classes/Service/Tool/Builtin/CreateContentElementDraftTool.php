@@ -268,7 +268,12 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         // without logging. For `hidden` that is not a reporting problem but a
         // safety one — the element would be live on the page, which is the one
         // outcome this tool exists to prevent.
-        $stored = $this->fetchElement($newUid, ...array_keys($plan['fields']));
+        $further = array_keys($plan['fields']);
+        if ($plan['bodytext'] !== null) {
+            $further[] = 'bodytext';
+        }
+
+        $stored = $this->fetchElement($newUid, ...$further);
         if ($stored === null) {
             $removed = $this->discard($newUid, $user);
 
@@ -279,13 +284,20 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             ));
         }
 
-        // Every column the call set — the tool's own and the `fields` — is
-        // compared. The grants were asked before the write, so a column that
+        // Every column the call set is compared: the tool's own five by
+        // value, and the two text arguments by the rule the `fields` follow,
+        // under the config the type gives them — an RTE body is read for
+        // presence. The grants were asked before the write, so a column that
         // still did not take names a second silence, and the element goes
         // with it: an approver agreed to the whole draft.
+        $texts = ['header' => $plan['header']];
+        if ($plan['bodytext'] !== null) {
+            $texts['bodytext'] = $plan['bodytext'];
+        }
+
         $notTaken = [
             ...$this->ownColumnsThatDidNotTake($stored, $plan),
-            ...$this->fieldsThatDidNotTake($stored, $plan['fields'], $plan['type']),
+            ...$this->fieldsThatDidNotTake($stored, [...$texts, ...$plan['fields']], $plan['type']),
         ];
         if ($notTaken !== []) {
             // Take it back. A half-made element nobody approved is worse than
@@ -1219,7 +1231,8 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
     }
 
     /**
-     * The `fields` columns whose stored value is not the one asked for.
+     * The columns set through `fields` — and the two text arguments, handed
+     * in with them — whose stored value is not the one asked for.
      *
      * Compared as strings, which is how a check, a number and an integer
      * select item come back from the database; a decimal is compared as a

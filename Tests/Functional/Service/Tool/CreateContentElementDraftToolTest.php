@@ -293,6 +293,41 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
         self::assertSame(1, $this->undeletedElementCount());
     }
 
+    /**
+     * The same silence on the two text arguments. The header is how a human
+     * recognises the draft (ADR-146), so an element that came into being
+     * without it is taken back like one that came into being visible; the
+     * body is read for presence, because the RTE rewrites it.
+     */
+    #[Test]
+    public function anElementWhoseHeaderOrBodyDidNotTakeIsDeletedAgain(): void
+    {
+        $tca = $GLOBALS['TCA'];
+        self::assertIsArray($tca);
+        $tca            = array_replace_recursive($tca, ['tt_content' => ['columns' => [
+            'header'   => ['displayCond' => 'HIDE_FOR_NON_ADMINS'],
+            'bodytext' => ['displayCond' => 'HIDE_FOR_NON_ADMINS'],
+        ]]]);
+        $GLOBALS['TCA'] = $tca;
+        $this->getService(TcaSchemaFactory::class)->rebuild($tca);
+
+        $editor                                  = $this->setUpBackendUser(2);
+        $editor->groupData['tables_modify']      = 'tt_content';
+        $editor->groupData['explicit_allowdeny'] = 'tt_content:CType:text';
+        $editor->groupData['non_exclude_fields'] = 'tt_content:hidden';
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE_OPEN, 'type' => 'text', 'header' => 'Q3 results', 'bodytext' => '<p>Up 12 %.</p>'],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString('header, bodytext did not carry the value asked for', $result->content);
+        self::assertStringContainsString('was deleted again', $result->content);
+        self::assertStringContainsString('tt_content:header, tt_content:bodytext', $result->content);
+        self::assertSame(1, $this->undeletedElementCount());
+    }
+
     #[Test]
     public function anAnchorOnAnotherPageIsRefusedAndNothingIsCreated(): void
     {
