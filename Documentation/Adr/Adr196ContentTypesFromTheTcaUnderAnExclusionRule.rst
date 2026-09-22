@@ -114,7 +114,8 @@ column. A string is not that shape: 13.4's ``DataHandler`` reads it as UTC
 wall time and subtracts the server's offset, so a day given as ``2026-09-21``
 would land on the evening before on any server outside UTC, while 14.3 reads
 an offset correctly. A column with a native ``dbType`` takes unqualified local
-wall time, which both cores write back unchanged.
+wall time, which both cores store in the column's own format — the date, the
+time, or both — without shifting it.
 
 **The exclude-field grant is asked before the write**, per column, the way
 :ref:`ADR-192 <adr-192>` asks it: the DataHandler drops an ``exclude`` column

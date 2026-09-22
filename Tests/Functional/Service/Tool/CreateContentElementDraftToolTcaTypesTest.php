@@ -59,9 +59,13 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
     /**
      * Scalar as well, with columns the DataHandler rewrites on purpose: an
      * `input` with `eval` and `min`, a `number` stored as a decimal, a
-     * `datetime` stored as seconds of the day.
+     * `datetime` stored as seconds of the day, and one stored in a native
+     * `TIME` column.
      */
     private const REWRITTEN_TYPE = 'nrllm_rewritten';
+
+    /** The native `TIME` column; core declares none on `tt_content`. */
+    private const NATIVE_TIME_COLUMN = 'nrllm_opens';
 
     /** The upper bound of the `number` range the scalar test type declares. */
     private const WIDTH_UPPER = 4000;
@@ -93,6 +97,7 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         ]);
         $groups->update('be_users', ['usergroup' => '7', 'options' => 3], ['uid' => 2]);
 
+        $this->addNativeTimeColumn();
         $this->declareTestContentTypes();
 
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('default');
@@ -533,6 +538,47 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
     }
 
     /**
+     * Midnight on a native `time` column is stored as `00:00:00`, which is a
+     * value there and not the column's emptiness — core keeps it where it
+     * nulls the other native empty values. The read-back reads it as held.
+     */
+    #[Test]
+    public function aMidnightOnANativeTimeColumnIsReadBackAsHeld(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE, 'type' => self::REWRITTEN_TYPE, 'header' => 'x', 'fields' => [self::NATIVE_TIME_COLUMN => '00:00']],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame('00:00:00', $this->createdElement()[self::NATIVE_TIME_COLUMN] ?? null);
+    }
+
+    /**
+     * The other direction: a native `time` column the DataHandler dropped
+     * reads back `NULL`, which is its emptiness, and the element is taken
+     * back.
+     */
+    #[Test]
+    public function aNativeTimeColumnTheDataHandlerDroppedIsReportedAndTheElementIsDeletedAgain(): void
+    {
+        $this->overrideTca(['columns' => [self::NATIVE_TIME_COLUMN => ['displayCond' => 'HIDE_FOR_NON_ADMINS']]]);
+        $editor = $this->editorFor(self::REWRITTEN_TYPE);
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE, 'type' => self::REWRITTEN_TYPE, 'header' => 'x', 'fields' => [self::NATIVE_TIME_COLUMN => '14:30']],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString(self::NATIVE_TIME_COLUMN . ' did not carry the value asked for', $result->content);
+        self::assertStringContainsString('was deleted again', $result->content);
+        self::assertSame(0, $this->undeletedElementCount(), 'nothing undeleted may be left behind');
+    }
+
+    /**
      * An `input` column with `eval` is rewritten by the DataHandler on
      * purpose (`upper` here), so the read-back checks that it took, not that
      * it is byte-equal.
@@ -674,6 +720,15 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
                 'foreign_field' => 'uid_foreign',
             ],
         ];
+        // Written, into the column {@see self::addNativeTimeColumn()} adds.
+        $columns[self::NATIVE_TIME_COLUMN] = [
+            'label'  => 'Opens',
+            'config' => [
+                'type'   => 'datetime',
+                'dbType' => 'time',
+                'format' => 'time',
+            ],
+        ];
 
         // The `headers` palette carries `date` (format `date`) for every type.
         $types[self::SCALAR_TYPE] = [
@@ -695,7 +750,7 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
             'columnsOverrides' => ['imagewidth' => ['config' => ['format' => 'unknown']]],
         ];
         $types[self::REWRITTEN_TYPE] = [
-            'showitem'         => '--palette--;;headers, table_caption, imagewidth',
+            'showitem'         => '--palette--;;headers, table_caption, imagewidth, ' . self::NATIVE_TIME_COLUMN,
             'columnsOverrides' => [
                 'table_caption' => ['config' => ['eval' => 'upper', 'min' => 3]],
                 // The database column is an integer, so the value asked for
@@ -719,6 +774,23 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         $GLOBALS['TCA']    = $tca;
 
         $this->getService(TcaSchemaFactory::class)->rebuild($tca);
+    }
+
+    /**
+     * The native `TIME` column for {@see self::REWRITTEN_TYPE}. The schema
+     * is built before the types above are declared, so the column is added
+     * by hand — per test, because the framework restores a pristine SQLite
+     * file before every test but the first, and only where it is missing,
+     * because on MariaDB it survives the truncation.
+     */
+    private function addNativeTimeColumn(): void
+    {
+        $connection = $this->connectionPool->getConnectionForTable('tt_content');
+        if (isset($connection->createSchemaManager()->listTableColumns('tt_content')[self::NATIVE_TIME_COLUMN])) {
+            return;
+        }
+
+        $connection->executeStatement('ALTER TABLE tt_content ADD COLUMN ' . self::NATIVE_TIME_COLUMN . ' TIME DEFAULT NULL');
     }
 
     /**

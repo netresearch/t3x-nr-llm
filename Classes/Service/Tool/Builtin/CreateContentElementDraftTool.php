@@ -1262,9 +1262,13 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
 
             if ($this->isRewrittenOnPurpose($tcaType, $config)) {
                 // Midnight, as seconds of the day, and the epoch are both `0`
-                // and read back exactly as an empty column does.
+                // and read back exactly as an empty column does. A native
+                // `time` column stores midnight as `00:00:00`, which core
+                // keeps where it nulls the other native empty values, so it
+                // is read as held — and on such a column without `nullable`
+                // a dropped value reads the same and is read as held too.
                 $asked = !in_array((string)$value, ['', '0'], true);
-                $held  = !in_array($storedText, ['', '0', '0000-00-00', '0000-00-00 00:00:00', '00:00:00'], true);
+                $held  = !in_array($storedText, ['', '0', '0000-00-00', '0000-00-00 00:00:00'], true);
                 if ($asked !== $held) {
                     $notTaken[] = $column;
                 }
