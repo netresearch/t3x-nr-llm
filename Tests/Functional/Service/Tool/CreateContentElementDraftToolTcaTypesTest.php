@@ -790,6 +790,74 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
     }
 
     /**
+     * The header is written on every call, and FormEngine hides it the same
+     * way it hides any other column. The call is refused rather than created
+     * without one: the header is a required argument.
+     */
+    #[Test]
+    public function aHeaderThePagesTsConfigDisablesRefusesTheCall(): void
+    {
+        $this->pageWithTsConfig('TCEFORM.tt_content.header.types.table.disabled = 1');
+        $this->assertRefusedAndNothingCreated(
+            ['page' => self::TSCONFIG_PAGE, 'type' => 'table', 'header' => 'x'],
+            '"header" is not shown on page [3] by its page TSconfig (TCEFORM.tt_content.header.types.table.disabled)',
+        );
+        $this->assertRefusedAndNothingCreated(
+            ['page' => self::TSCONFIG_PAGE, 'type' => 'table', 'header' => 'x'],
+            '"header" is a required argument',
+        );
+    }
+
+    /**
+     * `colPos` is a static select, and FormEngine filters its items by the
+     * page's `keepItems` and `removeItems` like any other select's. The
+     * `column` argument is that value.
+     */
+    #[Test]
+    public function aColumnPositionThePagesTsConfigRemovesIsRefused(): void
+    {
+        $this->pageWithTsConfig('TCEFORM.tt_content.colPos.removeItems = 2');
+        $this->assertRefusedAndNothingCreated(
+            ['page' => self::TSCONFIG_PAGE, 'type' => 'table', 'header' => 'x', 'column' => 2],
+            'column 2 is not offered on page [3] by its page TSconfig (TCEFORM.tt_content.colPos.removeItems)',
+        );
+
+        $this->pageWithTsConfig('TCEFORM.tt_content.colPos.types.table.keepItems = 0');
+        $this->assertRefusedAndNothingCreated(
+            ['page' => self::TSCONFIG_PAGE, 'type' => 'table', 'header' => 'x', 'column' => 1],
+            '(TCEFORM.tt_content.colPos.types.table.keepItems)',
+        );
+    }
+
+    #[Test]
+    public function aColumnPositionThePagesTsConfigKeepsIsCreated(): void
+    {
+        $this->pageWithTsConfig('TCEFORM.tt_content.colPos.keepItems = 0');
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            ['page' => self::TSCONFIG_PAGE, 'type' => 'table', 'header' => 'x', 'column' => 0],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(1, $this->undeletedElementCount());
+    }
+
+    /**
+     * The language selector is filtered by the same two rules (TcaLanguage).
+     */
+    #[Test]
+    public function aLanguageThePagesTsConfigRemovesIsRefused(): void
+    {
+        $this->pageWithTsConfig('TCEFORM.tt_content.sys_language_uid.removeItems = 1');
+        $this->assertRefusedAndNothingCreated(
+            ['page' => self::TSCONFIG_PAGE, 'type' => 'table', 'header' => 'x', 'language' => 1],
+            'language 1 is not offered on page [3] by its page TSconfig (TCEFORM.tt_content.sys_language_uid.removeItems)',
+        );
+    }
+
+    /**
      * Core's EXT:frontend ships
      * `TCEFORM.tt_content.imageorient.types.image.removeItems = 8,9,10,17,18,25,26`
      * as global page TSconfig. On an `image` element those positions are

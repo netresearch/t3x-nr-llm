@@ -142,10 +142,14 @@ authorised, and so after the neutral refusal, the tool reads the page's
 TSconfig as FormEngine reads it (``BackendUtility::getPagesTSconfig()``, with
 ``<column>.types.<CType>.`` merged over ``<column>.``) and refuses a type that
 ``CType.keepItems`` or ``CType.removeItems`` takes out of the selector, a
-``fields`` key or a body whose column ``disabled`` hides, and a ``select``
-value its column's ``keepItems`` or ``removeItems`` removes; the refusal names
-the rule. Like FormEngine, it does not apply the item rules to ``radio`` or
-``check``. Core itself ships one such rule —
+``fields`` key, a body or a header whose column ``disabled`` hides — the
+header is written on every call, so a hidden header refuses every call of
+that type on that page — and a ``select`` value, a ``column`` or a
+``language`` that the ``keepItems`` or ``removeItems`` of its column (for the
+last two ``colPos`` and ``sys_language_uid``, which FormEngine filters in
+``TcaSelectItems`` and ``TcaLanguage``) removes; the refusal names the rule.
+``addItems`` is not read. Like FormEngine, it does not apply the item rules to
+``radio`` or ``check``. Core itself ships one such rule —
 ``TCEFORM.tt_content.imageorient.types.image.removeItems = 8,9,10,17,18,25,26``.
 The type list in the tool description is the TCA-level set and does not
 depend on a page; TCEFORM narrows it per page at call time.

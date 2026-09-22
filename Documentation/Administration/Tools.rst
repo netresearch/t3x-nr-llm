@@ -513,10 +513,14 @@ What holds for all of them:
      tool's own columns included — before the write; a ``datetime`` is handed
      over as the integer both supported cores store. The page's TSconfig
      narrows all of this per page, as it narrows the backend form:
-     ``TCEFORM.tt_content.CType.keepItems`` and ``removeItems``, a column's
-     ``disabled``, and a select column's ``keepItems`` and ``removeItems`` —
-     also under ``types.<CType>`` — are honoured, and the refusal names the
-     rule. This is still not a generic record API: the table is fixed and a
+     ``TCEFORM.tt_content.CType.keepItems`` and ``removeItems``; ``disabled``
+     on a ``fields`` column, on ``bodytext`` and on ``header`` — a hidden
+     header refuses the call, since the header is required; and
+     ``keepItems`` and ``removeItems`` on a select column in ``fields``, on
+     ``colPos`` for the ``column`` argument and on ``sys_language_uid`` for
+     the ``language`` argument — each also under ``types.<CType>`` — are
+     honoured, and the refusal names the rule. ``addItems`` is not read. This
+     is still not a generic record API: the table is fixed and a
      relation is never an argument.
 
    In a language other than the default one the element is created

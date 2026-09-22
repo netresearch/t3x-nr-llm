@@ -614,7 +614,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         }
 
         // After the neutral refusal, because this one names the page.
-        $narrowed = $this->pageTsConfigRefusal($pageUid, $type, $fields, $bodytext !== null);
+        $narrowed = $this->pageTsConfigRefusal($pageUid, $type, $fields, $bodytext !== null, $column, $language);
         if ($narrowed !== null) {
             return $narrowed;
         }
@@ -679,18 +679,21 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      *
      * - `CType.keepItems` / `CType.removeItems` take the chosen type out of
      *   the selector;
-     * - `<column>.disabled` hides a column, so it is not set through `fields`
-     *   and the body is not set where `bodytext` is hidden;
+     * - `<column>.disabled` hides a column, so it is not set through `fields`,
+     *   the body is not set where `bodytext` is hidden, and the call is
+     *   refused where `header` is hidden — the tool always writes it;
      * - `<column>.keepItems` / `<column>.removeItems` take an item out of a
-     *   `select`, as `AbstractItemProvider` does; FormEngine does not apply
-     *   them to `radio` or `check`, and neither does this.
+     *   `select`, as `AbstractItemProvider` does — a `fields` value, and the
+     *   `column` and `language` arguments against `colPos` and
+     *   `sys_language_uid`; FormEngine does not apply them to `radio` or
+     *   `check`, and neither does this.
      *
      * The type list in the spec is page-independent — the TCA-level set —
      * and this narrows it at call time.
      *
      * @param array<non-empty-string, string|int> $fields
      */
-    private function pageTsConfigRefusal(int $pageUid, string $type, array $fields, bool $withBody): ?string
+    private function pageTsConfigRefusal(int $pageUid, string $type, array $fields, bool $withBody, int $position, int $language): ?string
     {
         $tsConfig = BackendUtility::getPagesTSconfig($pageUid);
         $tceForm  = is_array($tsConfig['TCEFORM.'] ?? null) ? $tsConfig['TCEFORM.'] : [];
@@ -709,7 +712,8 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             );
         }
 
-        $shown = array_keys($fields);
+        // The header is written on every call, so it is asked on every call.
+        $shown = ['header', ...array_keys($fields)];
         if ($withBody) {
             $shown[] = 'bodytext';
         }
@@ -718,8 +722,25 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             $rule = $this->tceFormDisabling($rules, $column, $type);
             if ($rule !== null) {
                 return sprintf(
-                    'Refused: "%s" is not shown on page [%d] by its page TSconfig (%s). Nothing was written.',
+                    'Refused: "%s" is not shown on page [%d] by its page TSconfig (%s).%s Nothing was written.',
                     $column,
+                    $pageUid,
+                    $rule,
+                    $column === 'header' ? $this->headerRequiredNote($type) : '',
+                );
+            }
+        }
+
+        // The two positions the tool writes from its own arguments are static
+        // selects to FormEngine — `colPos` filtered in TcaSelectItems, the
+        // language in TcaLanguage — and both apply the item rules to them.
+        foreach (['colPos' => ['column', $position], 'sys_language_uid' => ['language', $language]] as $name => [$label, $value]) {
+            $rule = $this->tceFormRuleRemoving($rules, $name, $type, (string)$value);
+            if ($rule !== null) {
+                return sprintf(
+                    'Refused: %s %d is not offered on page [%d] by its page TSconfig (%s). Nothing was written.',
+                    $label,
+                    $value,
                     $pageUid,
                     $rule,
                 );
@@ -746,6 +767,18 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         }
 
         return null;
+    }
+
+    /**
+     * What a refusal of the header adds: the header is a required argument, so
+     * there is no call that avoids it.
+     */
+    private function headerRequiredNote(string $type): string
+    {
+        return sprintf(
+            ' "header" is a required argument, so this tool cannot create a "%s" element here.',
+            $type,
+        );
     }
 
     /**
