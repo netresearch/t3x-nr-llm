@@ -229,8 +229,9 @@ options, through one tool — where four could be.
 ✓ The exclusions are in one place and are read once: the constants at the
 top of the tool, quoted above.
 
-✓ ``textmedia``, ``textpic`` and ``image`` are offered as before, media
-attached later; core's ``table`` becomes reachable on a stock installation.
+✓ ``textmedia`` is offered as before, media attached later; ``textpic``,
+``image`` and core's ``table`` become reachable on a stock installation.
+ADR-146's list had ``header``, ``text``, ``textmedia`` and ``bullets`` only.
 
 ✕ The description a model receives is now installation-specific, and so is
 the set of columns a call may carry. Two installations running the same
