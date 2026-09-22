@@ -22,10 +22,12 @@ use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeRecordCreatorTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionProperty;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 
@@ -396,7 +398,9 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertFalse($result->isError, $result->content);
-        self::assertEqualsWithDelta(1.23, (float)($this->createdRecord()['rating'] ?? 0), 0.0001);
+        $rating = $this->createdRecord()['rating'] ?? null;
+        self::assertIsNumeric($rating);
+        self::assertEqualsWithDelta(1.23, (float)$rating, 0.0001);
     }
 
     /**
@@ -437,9 +441,10 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
 
         self::assertFalse($result->isError, $result->content);
         self::assertSame(1, $this->undeletedRecordCount());
-        $row = $this->createdRecord();
-        self::assertStringContainsString('One', (string)($row['body'] ?? ''));
-        self::assertStringContainsString('Two', (string)($row['body'] ?? ''));
+        $body = $this->createdRecord()['body'] ?? null;
+        self::assertIsString($body);
+        self::assertStringContainsString('One', $body);
+        self::assertStringContainsString('Two', $body);
     }
 
     #[Test]
@@ -557,26 +562,68 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function thePreviewUsesTheTcaLabelsAndWritesNothing(): void
+    public function thePreviewNamesTheColumnsWithTheirEnglishLabelsAndWritesNothing(): void
     {
         $admin = $this->setUpBackendUser(1);
 
         $lines = $this->tool->previewCall(
-            $this->call(['title' => 'Proposed', 'priority' => 4, 'published_at' => self::PUBLISHED_AT]),
+            $this->call(['title' => 'Proposed', 'kind' => 'note', 'priority' => 4, 'published_at' => self::PUBLISHED_AT]),
             ToolExecutionContext::fromBackendUser($admin),
         );
 
-        self::assertCount(6, $lines, implode("\n", $lines));
-        self::assertStringContainsString('Fixture item', $lines[0]);
-        self::assertStringContainsString('on page [2] "Open"', $lines[0]);
-        // `title` carries a `LLL:` label; it is resolved, not printed raw.
-        self::assertSame('Title: "Proposed"', $lines[1]);
-        self::assertSame('Priority: "4"', $lines[2]);
-        self::assertSame('Published at: "' . self::PUBLISHED_AT . '"', $lines[3]);
-        self::assertSame('language: default', $lines[4]);
-        self::assertStringContainsString('hidden', $lines[5]);
+        self::assertSame([
+            'New "Fixture item" record (' . self::TABLE . ') on page [2] "Open":',
+            // `title` carries a `LLL:` label; it is resolved in English, not printed raw.
+            'title (Title): "Proposed"',
+            // A select shows its value and the item's label.
+            'kind (Kind): "note" (Note)',
+            'priority (Priority): "4"',
+            // A timestamp as an ISO 8601 date-time in UTC.
+            'published_at (Published at): "2026-09-10T10:00:00+00:00"',
+            'language: default',
+            'visibility: hidden — a human must unhide it before anyone sees it',
+        ], $lines);
 
         self::assertSame(0, $this->recordCount(), 'a preview must not create anything');
+    }
+
+    /**
+     * ADR-184 compares the preview lines byte for byte on resume, and a resume
+     * can run in another request, another worker, for another viewer. The
+     * labels must therefore not come from the ambient language service.
+     */
+    #[Test]
+    public function thePreviewDoesNotDependOnTheAmbientLanguage(): void
+    {
+        $admin     = $this->setUpBackendUser(1);
+        $arguments = $this->call(['title' => 'Proposed', 'kind' => 'note', 'published_at' => self::PUBLISHED_AT]);
+
+        $before = $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($admin));
+
+        $ambient = self::createStub(LanguageService::class);
+        $ambient->method('sL')->willReturn('Label in the viewer language');
+        $GLOBALS['LANG'] = $ambient;
+
+        self::assertSame($before, $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($admin)));
+    }
+
+    /**
+     * The English labels come from the language service factory the
+     * constructor takes as an optional argument; a tool the container wired
+     * without it would print column names only, in silence. The container's
+     * own tool cannot preview the fixture table (the fixture extension's
+     * creator claims it), so the wiring is read directly.
+     */
+    #[Test]
+    public function theContainerBuiltToolResolvesLabelsInEnglish(): void
+    {
+        $registry = $this->get(ToolRegistry::class);
+        self::assertInstanceOf(ToolRegistry::class, $registry);
+        $tool = $registry->get('create_record_draft');
+        self::assertInstanceOf(CreateRecordDraftTool::class, $tool);
+
+        $factory = (new ReflectionProperty(CreateRecordDraftTool::class, 'languageServiceFactory'))->getValue($tool);
+        self::assertInstanceOf(LanguageServiceFactory::class, $factory);
     }
 
     #[Test]
@@ -619,11 +666,15 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     {
         $this->setDeniedTables($deniedTables);
 
+        $languageServiceFactory = $this->get(LanguageServiceFactory::class);
+        self::assertInstanceOf(LanguageServiceFactory::class, $languageServiceFactory);
+
         return new CreateRecordDraftTool(
             $this->connectionPool,
             new TableReadAccessService(),
             $writers,
             new ExtensionConfiguration(),
+            $languageServiceFactory,
         );
     }
 

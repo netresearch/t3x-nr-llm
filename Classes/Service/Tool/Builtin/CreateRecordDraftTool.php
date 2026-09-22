@@ -29,6 +29,7 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -71,7 +72,6 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
     use WritesThroughDataHandlerTrait;
     // The shape the ADR-146 writers share.
     use PlansOneEditorialWriteTrait;
-    use ResolvesLanguageLabelTrait;
 
     /**
      * One string for "no such page", "deleted" and "you may not edit content
@@ -148,6 +148,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         #[AutowireIterator(ToolInterface::TAG_NAME)]
         private iterable $tools = [],
         private ?ExtensionConfiguration $extensionConfiguration = null,
+        private ?LanguageServiceFactory $languageServiceFactory = null,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -276,10 +277,13 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
     /**
      * What this call would create, as the approver reads it (ADR-136).
      *
-     * One line per field, labelled the way the backend form labels the column
-     * in the viewer's language, so the approver reads "Published at: …" rather
-     * than a column name. Authorised exactly like {@see self::execute()} and
-     * against the same EXPLICIT acting user, down to the neutral refusal string.
+     * One line per field: the column name with its TCA label in English, the
+     * value as the record will carry it — a timestamp as an ISO 8601 date-time
+     * in UTC, a select or radio value with its item's English label. English,
+     * never the viewer's language: ADR-184 compares these lines byte for byte
+     * on resume, which can run in another request, worker or language.
+     * Authorised exactly like {@see self::execute()} and against the same
+     * EXPLICIT acting user, down to the neutral refusal string.
      *
      * NOT checked here, deliberately: the live-workspace and backend-environment
      * refusals, which describe the process performing the write.
@@ -308,7 +312,15 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             $this->excerpt($plan['pageTitle']),
         )];
         foreach ($plan['display'] as $column => $value) {
-            $lines[] = sprintf('%s: %s', $plan['labels'][$column] ?? $column, $this->quoted($value));
+            $label   = $plan['labels'][$column] ?? '';
+            $note    = $plan['notes'][$column] ?? '';
+            $lines[] = sprintf(
+                '%s%s: %s%s',
+                $column,
+                $label !== '' ? ' (' . $label . ')' : '',
+                $this->quoted($value),
+                $note !== '' ? ' (' . $note . ')' : '',
+            );
         }
 
         if ($plan['languageField'] !== null) {
@@ -360,7 +372,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{table:non-empty-string, tableLabel:string, recordType:string, pid:int, pageTitle:string, values:array<string, int|float|string>, display:array<string, string>, labels:array<string, string>, hiddenField:string, languageField:string|null}|string
+     * @return array{table:non-empty-string, tableLabel:string, recordType:string, pid:int, pageTitle:string, values:array<string, int|float|string>, display:array<string, string>, labels:array<string, string>, notes:array<string, string>, hiddenField:string, languageField:string|null}|string
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
@@ -454,6 +466,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             'values'        => $collected['values'],
             'display'       => $collected['display'],
             'labels'        => $collected['labels'],
+            'notes'         => $collected['notes'],
             'hiddenField'   => $hiddenField,
             'languageField' => $this->languageFieldOf($table),
         ];
@@ -701,13 +714,14 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      * for the first one that does not hold.
      *
      * `values` is what the DataHandler receives (a datetime as its timestamp),
-     * `display` what the approver reads (the value as given), `labels` the
-     * column labels in the viewer's language.
+     * `display` what the approver reads (a datetime as an ISO 8601 date-time),
+     * `labels` the column labels in English, `notes` the English label of the
+     * item a select or radio value names.
      *
      * @param array{name:string, shown:list<string>} $type
      * @param array<array-key, mixed>                $fields
      *
-     * @return array{values:array<string, int|float|string>, display:array<string, string>, labels:array<string, string>}|string
+     * @return array{values:array<string, int|float|string>, display:array<string, string>, labels:array<string, string>, notes:array<string, string>}|string
      */
     private function collectValues(string $table, array $type, array $fields): array|string
     {
@@ -716,6 +730,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         $values  = [];
         $display = [];
         $labels  = [];
+        $notes   = [];
         foreach ($fields as $name => $value) {
             $column = self::toStr($name);
             if (preg_match(self::COLUMN_NAME, $column) !== 1) {
@@ -773,9 +788,12 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             $values[$column]  = $checked[0];
             $display[$column] = $checked[1];
             $labels[$column]  = $this->labelOf($table, $column);
+            if ($kind === 'select' || $kind === 'radio') {
+                $notes[$column] = $this->itemLabelOf($config, $checked[1]);
+            }
         }
 
-        return ['values' => $values, 'display' => $display, 'labels' => $labels];
+        return ['values' => $values, 'display' => $display, 'labels' => $labels, 'notes' => $notes];
     }
 
     /**
@@ -973,7 +991,9 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             return sprintf('Refused: the value for "%s" is outside the range the TCA allows.', $column);
         }
 
-        return [$timestamp, $text ?? (string)$timestamp];
+        // Shown in UTC, whatever the server's zone: the preview is compared
+        // byte for byte on resume.
+        return [$timestamp, (new DateTimeImmutable('@' . $timestamp))->format(DATE_ATOM)];
     }
 
     /**
@@ -1262,23 +1282,59 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
     }
 
     /**
-     * The column's TCA label in the viewer's language, the column name where
-     * the TCA declares none.
+     * The column's TCA label in English, or '' where the TCA declares none.
      */
     private function labelOf(string $table, string $column): string
     {
         $definition = $this->tcaColumnsFor($table)[$column] ?? null;
-        $label      = is_array($definition) ? $this->resolveLabel(self::toStr($definition['label'] ?? '')) : '';
+        $label      = is_array($definition) ? $this->englishLabel(self::toStr($definition['label'] ?? '')) : '';
 
-        return $label !== '' ? rtrim($label, ':') : $column;
+        return rtrim($label, ':');
     }
 
     private function tableLabelOf(string $table): string
     {
         $ctrl  = $this->tcaCtrlFor($table) ?? [];
-        $label = $this->resolveLabel(self::toStr($ctrl['title'] ?? ''));
+        $label = $this->englishLabel(self::toStr($ctrl['title'] ?? ''));
 
         return $label !== '' ? $label : $table;
+    }
+
+    /**
+     * The English label of the static item whose value is `$value`, or ''.
+     *
+     * @param array<array-key, mixed> $config
+     */
+    private function itemLabelOf(array $config, string $value): string
+    {
+        foreach (is_array($config['items'] ?? null) ? $config['items'] : [] as $item) {
+            if (is_array($item) && array_key_exists('value', $item) && self::toStr($item['value']) === $value) {
+                return $this->englishLabel(self::toStr($item['label'] ?? ''));
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * A TCA label in English: a literal as written, an `LLL:` reference
+     * resolved through an English language service — never the ambient one
+     * (`$GLOBALS['LANG']`), which belongs to whoever happens to run the call.
+     * '' where an `LLL:` reference cannot be resolved, so a raw key never
+     * reaches the approver.
+     */
+    private function englishLabel(string $label): string
+    {
+        $label = trim($label);
+        if (!str_starts_with($label, 'LLL:')) {
+            return $label;
+        }
+
+        if (!$this->languageServiceFactory instanceof LanguageServiceFactory) {
+            return '';
+        }
+
+        return trim($this->languageServiceFactory->create('default')->sL($label));
     }
 
     /**
