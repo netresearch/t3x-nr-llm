@@ -49,8 +49,8 @@ use TYPO3\CMS\Core\Utility\MathUtility;
  * - **The content types are read from the live TCA under an exclusion rule
  *   (ADR-196).** Every `CType` an installation declares is offered unless it is
  *   on the deny-list — `list` (the legacy plugin element), `html` (raw output),
- *   `shortcut`, `div`, every `menu_*` — or its item sits in the `plugins` group
- *   `addPlugin()` registers a plugin in, or its form holds a column whose
+ *   `shortcut`, `div`, every `menu_*` — or it is a plugin, known by its Extbase
+ *   registration or its `plugins` or `forms` item group, or its form holds a column whose
  *   payload is not prose: a FlexForm, inline children, a group or folder
  *   reference, a slug, a password. File, category and link relations do not
  *   exclude a type; the draft leaves them empty (`textmedia` gets its media
@@ -111,12 +111,15 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
     private const DENIED_TYPE_PREFIX = 'menu_';
 
     /**
-     * The `CType` item group a plugin registers in. Since TYPO3 v13 a plugin
-     * is a content type of its own, and one registered without a FlexForm
-     * carries the scalar form `addPlugin()` copies from `header` — so the
-     * group is what marks it, not its columns.
+     * The `CType` item groups plugins register in: `plugins`, the default of
+     * `registerPlugin()`, and `forms`, where core registers indexed_search,
+     * felogin and form. Since TYPO3 v13 a plugin is a content type of its own,
+     * and one registered without a FlexForm carries the scalar form
+     * `addPlugin()` copies from `header` — so its columns do not mark it. An
+     * Extbase plugin is also known by its registration, whatever its group
+     * ({@see self::registeredPluginSignatures()}).
      */
-    private const DENIED_ITEM_GROUP = 'plugins';
+    private const DENIED_ITEM_GROUPS = ['plugins', 'forms'];
 
     /**
      * TCA column types a model may fill through `fields`. A `select` counts
@@ -760,7 +763,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
 
     /**
      * The content types the live TCA declares that pass the exclusion rule
-     * (ADR-196): not on the deny-list, not in the plugin item group, a form of
+     * (ADR-196): not on the deny-list, not a plugin, a form of
      * their own, and no column in it whose payload is something other than
      * prose.
      *
@@ -797,8 +800,9 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      * Whether one declared type passes the exclusion rule.
      *
      * The deny-list is asked first and by name, so `html` stays out of reach
-     * on an installation where its form happens to be scalar; the item group
-     * is asked next, so a plugin whose form is scalar stays out too. Then
+     * on an installation where its form happens to be scalar; the plugin
+     * registration and the item group are asked next, so a plugin whose form
+     * is scalar stays out too. Then
      * every column of the type's form that is not a system column decides: one
      * excluding column excludes the type. A type without a form is excluded
      * too — nothing says what it holds.
@@ -811,7 +815,9 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             return false;
         }
 
-        if ($itemGroup === self::DENIED_ITEM_GROUP) {
+        if (in_array($itemGroup, self::DENIED_ITEM_GROUPS, true)
+            || in_array($type, $this->registeredPluginSignatures(), true)
+        ) {
             return false;
         }
 
@@ -827,6 +833,38 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         }
 
         return true;
+    }
+
+    /**
+     * The `CType` values of every Extbase plugin the installation registers.
+     *
+     * `ExtensionUtility::configurePlugin()` records each plugin under
+     * `EXTCONF.extbase.extensions.<ExtensionName>.plugins.<PluginName>`, with
+     * the extension name in UpperCamelCase, and derives the content type as
+     * `strtolower(<ExtensionName> . '_' . <PluginName>)` — read in
+     * typo3/cms-extbase 14.3.7 and 13.4.35, where the keys and the
+     * derivation are the same. `registerPlugin()` names the group the item
+     * goes into, so a plugin registered outside `plugins` and `forms` is
+     * still found here.
+     *
+     * @return list<string>
+     */
+    private function registeredPluginSignatures(): array
+    {
+        $confVars   = is_array($GLOBALS['TYPO3_CONF_VARS'] ?? null) ? $GLOBALS['TYPO3_CONF_VARS'] : [];
+        $extConf    = is_array($confVars['EXTCONF'] ?? null) ? $confVars['EXTCONF'] : [];
+        $extbase    = is_array($extConf['extbase'] ?? null) ? $extConf['extbase'] : [];
+        $extensions = is_array($extbase['extensions'] ?? null) ? $extbase['extensions'] : [];
+
+        $signatures = [];
+        foreach ($extensions as $extensionName => $extension) {
+            $plugins = is_array($extension) && is_array($extension['plugins'] ?? null) ? $extension['plugins'] : [];
+            foreach (array_keys($plugins) as $pluginName) {
+                $signatures[] = strtolower($extensionName . '_' . $pluginName);
+            }
+        }
+
+        return $signatures;
     }
 
     /**

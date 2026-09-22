@@ -56,11 +56,19 @@ the type list and the field list come from.
   every ``menu_*`` type. They reference records or pages, or run code, and
   the deny-list is asked by name before the form is read, so ``html`` stays
   out of reach on an installation where its form happens to be scalar;
-- its item sits in the **``plugins`` item group**. Since v13 a plugin is a
-  content type of its own, registered through
-  ``ExtensionManagementUtility::addPlugin()``, which puts the item in that
-  group on both supported cores and, where no FlexForm is given, copies
-  ``header``'s scalar form onto the type — so the form alone would offer it;
+- it is a **plugin**. Since v13 a plugin is a content type of its own,
+  registered through ``ExtensionManagementUtility::addPlugin()``, which puts
+  the item in the group its caller names and, where no FlexForm is given,
+  copies ``header``'s scalar form onto the type — so the form alone would
+  offer it. ``registerPlugin()`` defaults to the ``plugins`` group, but
+  core's own indexed_search, felogin and form register into ``forms``, and
+  indexed_search's ``indexedsearch_pi2`` has no FlexForm. A type is therefore
+  a plugin when its item sits in the ``plugins`` or the ``forms`` group, or
+  when Extbase registered it: ``ExtensionUtility::configurePlugin()`` records
+  every plugin under
+  ``$GLOBALS['TYPO3_CONF_VARS']['EXTCONF']['extbase']['extensions'][<Extension>]['plugins'][<Plugin>]``
+  and derives the content type as ``strtolower(<Extension> . '_' . <Plugin>)``
+  — the same keys and derivation in ``typo3/cms-extbase`` 14.3.7 and 13.4.35;
 - its **form holds an excluding column**. The form is the type's ``showitem``
   with every palette expanded — after core's ``TcaPreparation`` has added the
   general, language, hidden and access palettes — and each column is
@@ -159,7 +167,8 @@ Why a rule bounds the tool as well as a list did
 ADR-135's argument was never that the list had to be short; it was that what
 the tool can do wrong must be readable in the diff and reviewed once. A rule
 satisfies that when its exclusions are explicit and finite, and here they are:
-four type names, one prefix and one item group; twelve column types, the
+four type names, one prefix, two item groups and the Extbase plugin
+registration; twelve column types, the
 record-backed
 ``select`` and every type the tool does not know; seventeen column names and
 one prefix, the disabled column under whatever name ``ctrl.enablecolumns``
@@ -186,9 +195,9 @@ Plugins, raw HTML (``html``), shortcuts, dividers and menus
    can place a plugin can place any plugin; an assistant that can write raw
    HTML can write a script. The legacy ``list`` element, ``html``,
    ``shortcut``, ``div`` and the menus are denied by name, whatever the form
-   says. A plugin content type is excluded by the ``plugins`` item group its
-   registration puts it in: without a FlexForm its form is ``header``'s and
-   would pass the column rule.
+   says. A plugin content type is excluded by its Extbase registration or by
+   the ``plugins`` or ``forms`` item group: without a FlexForm its form is
+   ``header``'s and would pass the column rule.
 
 FlexForm columns
    Configuration, not prose, and its schema depends on a pointer field the
@@ -248,10 +257,11 @@ accepts ``0`` and ``1`` only.
 ``eval`` beyond ``trim`` are verified for presence, not for value. A column
 the DataHandler clamped to its range reads back as present.
 
-✕ The plugin exclusion rests on the ``CType`` item group, which is a grouping
-of the type selector: ``registerPlugin()`` takes a group of its own, and a
-plugin registered into another group is judged by its form alone — excluded
-when it carries a FlexForm, offered when it does not.
+✕ A plugin that is not an Extbase plugin — registered through
+``ExtensionManagementUtility::addPlugin()`` directly — and whose item sits in
+a group other than ``plugins`` or ``forms`` is judged by its form alone:
+excluded when it carries a FlexForm, offered when it does not. Nothing in the
+TCA marks such a type as a plugin.
 
 ✕ ``category`` and ``link`` columns were meant to exclude a type and cannot:
 core's own TCA puts ``categories`` on every content type and ``header_link``

@@ -439,8 +439,9 @@ What holds for all of them:
    - The content types are read from the installation's TCA at call time,
      under an exclusion rule (:ref:`ADR-196 <adr-196>`). A type is offered
      unless it is denied by name — ``list`` (the legacy plugin element),
-     ``html``, ``shortcut``, ``div``, every ``menu_*`` — or its item sits in
-     the ``plugins`` group a plugin is registered in, or its form holds a
+     ``html``, ``shortcut``, ``div``, every ``menu_*`` — or it is a plugin,
+     known by its Extbase registration or by the ``plugins`` or ``forms``
+     item group, or its form holds a
      column whose payload is not prose: a FlexForm, inline children, a group
      or folder reference, a slug, a password. File, category and link
      relations do not exclude a type; the draft leaves them empty, so

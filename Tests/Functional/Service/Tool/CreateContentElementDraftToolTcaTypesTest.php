@@ -39,7 +39,7 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctionalTestCase
 {
     /** @var non-empty-string[] */
-    protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'frontend'];
+    protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'frontend', 'indexed_search'];
 
     /** A page every backend user may edit content on. */
     private const PAGE = 2;
@@ -131,7 +131,9 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         }
 
         // The plugin type has `header`'s scalar form and is excluded by its item group.
-        foreach (['shortcut', 'div', 'html', 'list', 'uploads', 'menu_pages', self::FLEX_TYPE, self::INLINE_TYPE, self::PLUGIN_TYPE] as $excluded) {
+        // indexed_search registers its plugin into the `forms` group, without
+        // a FlexForm, so its form is `header`'s as well.
+        foreach (['shortcut', 'div', 'html', 'list', 'uploads', 'menu_pages', 'indexedsearch_pi2', self::FLEX_TYPE, self::INLINE_TYPE, self::PLUGIN_TYPE] as $excluded) {
             self::assertDoesNotMatchRegularExpression('/\b' . $excluded . '\b/', $description, $excluded . ' must not be offered');
         }
 
@@ -230,6 +232,20 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
     {
         $this->assertRefusedAndNothingCreated(
             ['page' => self::PAGE, 'type' => self::PLUGIN_TYPE, 'header' => 'x'],
+            'is not a content type this tool creates',
+        );
+    }
+
+    /**
+     * Core's indexed_search registers `indexedsearch_pi2` into the `forms`
+     * item group without a FlexForm, so its form is `header`'s. It is a
+     * plugin by its Extbase registration and by that group, and it stays out.
+     */
+    #[Test]
+    public function coreIndexedSearchPluginIsRefusedAndNothingIsWritten(): void
+    {
+        $this->assertRefusedAndNothingCreated(
+            ['page' => self::PAGE, 'type' => 'indexedsearch_pi2', 'header' => 'Search'],
             'is not a content type this tool creates',
         );
     }

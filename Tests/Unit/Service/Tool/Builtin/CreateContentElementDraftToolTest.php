@@ -45,9 +45,10 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         parent::setUp();
 
         $this->globalsBackup = [
-            'TCA'     => $GLOBALS['TCA'] ?? null,
-            'LANG'    => $GLOBALS['LANG'] ?? null,
-            'BE_USER' => $GLOBALS['BE_USER'] ?? null,
+            'TCA'              => $GLOBALS['TCA'] ?? null,
+            'LANG'             => $GLOBALS['LANG'] ?? null,
+            'BE_USER'          => $GLOBALS['BE_USER'] ?? null,
+            'TYPO3_CONF_VARS'  => $GLOBALS['TYPO3_CONF_VARS'] ?? null,
         ];
 
         // Seven declared types, of which three pass the exclusion rule
@@ -61,7 +62,9 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         // genuinely read from this TCA. `header` narrows `subheader` through
         // `columnsOverrides`, the way core narrows `bodytext` per type.
         // `options` carries one column of every further scalar kind the tool
-        // validates.
+        // validates. `form_like` sits in the `forms` item group core's own
+        // plugins register in; `myext_listing` sits in no plugin group and is a
+        // plugin by registration — Extbase's configurePlugin() entry below.
         $GLOBALS['TCA'] = ['tt_content' => [
             'ctrl'    => ['enablecolumns' => ['disabled' => 'hidden']],
             'columns' => [
@@ -73,6 +76,8 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
                     ['label' => 'Plugin-like', 'value' => 'plugin_like'],
                     ['label' => 'Record-like', 'value' => 'record_like'],
                     ['label' => 'Plugin with a scalar form', 'value' => 'plugin_scalar', 'group' => 'plugins'],
+                    ['label' => 'Search form', 'value' => 'form_like', 'group' => 'forms'],
+                    ['label' => 'Listing', 'value' => 'myext_listing', 'group' => 'default'],
                 ]]],
                 'header'       => ['config' => ['type' => 'input']],
                 'subheader'    => ['config' => ['type' => 'input', 'max' => 40]],
@@ -113,8 +118,15 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
                 'record_like' => ['showitem' => 'header, records, hidden'],
                 // What addPlugin() leaves behind without a FlexForm: `header`'s form.
                 'plugin_scalar' => ['showitem' => '--palette--;;headers, --div--;Appearance, layout, sectionIndex, hidden'],
+                'form_like'     => ['showitem' => '--palette--;;headers, --div--;Appearance, layout, sectionIndex, hidden'],
+                'myext_listing' => ['showitem' => '--palette--;;headers, --div--;Appearance, layout, sectionIndex, hidden'],
             ],
         ]];
+        // What ExtensionUtility::configurePlugin('Myext', 'Listing', …) leaves
+        // on both supported cores; the CType is `myext_listing`.
+        $GLOBALS['TYPO3_CONF_VARS']['EXTCONF']['extbase']['extensions']['Myext']['plugins']['Listing'] = [
+            'controllers' => [],
+        ];
         $GLOBALS['LANG']    = self::createStub(LanguageService::class);
         $GLOBALS['BE_USER'] = $this->liveUser();
 
@@ -251,6 +263,18 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         // `header` — and still a plugin: its item sits in the `plugins` group.
         yield 'plugin type with a scalar form' => [
             ['page' => 1, 'type' => 'plugin_scalar', 'header' => 'x'],
+            'not a content type this tool creates',
+        ];
+        // The same form, in the `forms` group core's indexed_search, felogin
+        // and form register their plugins in.
+        yield 'plugin in the forms group' => [
+            ['page' => 1, 'type' => 'form_like', 'header' => 'x'],
+            'not a content type this tool creates',
+        ];
+        // The same form, in no plugin group, and a plugin by its Extbase
+        // registration.
+        yield 'plugin by registration' => [
+            ['page' => 1, 'type' => 'myext_listing', 'header' => 'x'],
             'not a content type this tool creates',
         ];
         // Absent from the fixture TCA, so this installation cannot render it
@@ -411,6 +435,8 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         self::assertStringNotContainsString('html', $description);
         self::assertStringNotContainsString('plugin_like', $description);
         self::assertStringNotContainsString('plugin_scalar', $description);
+        self::assertStringNotContainsString('form_like', $description);
+        self::assertStringNotContainsString('myext_listing', $description);
         self::assertStringNotContainsString('record_like', $description);
         self::assertStringNotContainsString('textmedia', $description);
     }
