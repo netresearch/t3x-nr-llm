@@ -38,16 +38,17 @@ non-admin users.
 The built-in tools
 ==================
 
-nr-llm ships forty-one read-only tools and eight writing tools. Each is a
+nr-llm ships forty-one read-only tools and nine writing tools. Each is a
 reference implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
 redacted or gated behind a separate ``_raw`` variant. Thirty-eight ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
-``get_php_info_raw`` and ``list_be_users_raw``) and all eight writing tools
+``get_php_info_raw`` and ``list_be_users_raw``) and all nine writing tools
 (``update_page_metadata``, ``set_file_alternative_text``,
 ``update_fal_asset_meta``, ``move_content_element``,
 ``create_content_element_draft``, ``create_page_draft``,
-``create_translation_draft``, ``attach_file_to_content_element``) ship
+``create_translation_draft``, ``attach_file_to_content_element``,
+``create_record_draft``) ship
 **disabled** and must be enabled deliberately.
 Many require admin; the read-only structure, content
 and file tools (``get_pagetree``, ``get_tca``, ``get_full_tca``,
@@ -284,15 +285,15 @@ The remaining tools follow the same pattern:
 The writing tools
 =================
 
-Eight tools change anything at all: ``update_page_metadata``,
+Nine tools change anything at all: ``update_page_metadata``,
 ``set_file_alternative_text``, ``update_fal_asset_meta``,
 ``move_content_element``, ``create_content_element_draft``,
-``create_page_draft``, ``create_translation_draft`` and
-``attach_file_to_content_element``. All eight
+``create_page_draft``, ``create_translation_draft``,
+``attach_file_to_content_element`` and ``create_record_draft``. All nine
 write through the TYPO3 DataHandler, as
 the acting backend user, in the live workspace only, on exactly **one** record
 per call (:ref:`ADR-135 <adr-135>`, :ref:`ADR-146 <adr-146>`,
-:ref:`ADR-180 <adr-180>`).
+:ref:`ADR-180 <adr-180>`, :ref:`ADR-197 <adr-197>`).
 
 What holds for all of them:
 
@@ -487,6 +488,47 @@ What holds for all of them:
    the approval card says so on its own line. Whether the target language exists
    for the record's site is core's check, not a second implementation here.
 
+``create_record_draft``
+   Creates one record in a TCA table that has **no dedicated writer** — the
+   fallback for extension tables such as a news record
+   (:ref:`ADR-197 <adr-197>`). It serves a table by exclusion:
+
+   - ``pages`` and ``tt_content`` have writers of their own and are refused
+     by name; ``sys_*`` tables, the tables no tool may read (``be_users``,
+     ``sys_log``, the nr_llm and nr_vault tables …) and tables declared
+     ``adminOnly``, ``hideTable`` or ``readOnly`` are refused as well.
+   - A table another **registered writer** declares through its editor-action
+     record types is refused and the writer named — read at call time, so an
+     extension that ships its own writer withdraws the fallback the day it is
+     installed.
+   - The extension configuration ``tools.createRecordDraft.deniedTables``
+     (comma-separated table names, empty by default) excludes further tables
+     on one installation. It can only narrow the list, never widen it, and a
+     configuration that cannot be read refuses every table.
+   - A table without a "disabled" enable column is refused, because nothing
+     this extension writes may be visible before a human unhides it.
+
+   Only **scalar** columns can be set — ``input``, ``text``, ``number``,
+   ``email``, ``color``, ``datetime`` (as a timestamp), ``check``, ``radio``
+   and ``select`` with static items — and only those the record type's form
+   shows. Relations, files, FlexForms, links and slugs are not arguments;
+   ``hidden``, ``uid``, ``pid``, the language, timing, ownership and
+   versioning columns are refused by name. Values are checked against the
+   TCA before anything is written: the items of a select, ``max`` and
+   ``range``, 0/1 for a check, a valid address for an email. Every column the
+   TCA marks required must be given.
+
+   The record is **always hidden** and **always in the default language**.
+   Authorised by the acting user's ``tables_modify`` grant, the content-edit
+   permission on the page or folder, and the field-level grants for every
+   column the call sets — asked before the write, because the DataHandler
+   drops such a column in silence. What the DataHandler still rewrites is
+   read back afterwards; a record that does not carry what was approved is
+   deleted again and the columns are named.
+
+   It declares no editor action — it owns no table — so it is reached through
+   the assistant only, never from a record's context menu.
+
 .. _administration-tools-register:
 
 Registering a tool
@@ -551,7 +593,9 @@ A tool that carries an **editor action** declaration
 (:ref:`ADR-152 <adr-152>`) reads differently in that list: it shows an icon,
 its translated name, one sentence written for a human, and the record types it
 addresses — instead of the wire name and the description written for the
-language model. All eight writing tools declare one, and the wire name stays
+language model. Eight of the nine writing tools declare one —
+``create_record_draft`` owns no table and declares none
+(:ref:`ADR-197 <adr-197>`) — and the wire name stays
 visible as the technical detail the toggle acts on. A read-only tool is
 unchanged.
 
@@ -574,7 +618,7 @@ opens the catalogue narrowed to the actions that address that record.
 An editor is offered an action only when all of the following hold, and every
 one of them is an administrator's decision:
 
-* the writing tool is enabled in this module (all five ship **disabled**);
+* the writing tool is enabled in this module (all nine ship **disabled**);
 * its group — ``editing`` — is enabled, and where the default LLM
   configuration restricts tool groups, ``editing`` is among them;
 * the tool's data class is within the configured provider's trust-zone ceiling;
@@ -677,7 +721,8 @@ Group              Tools
 ``editing``        ``update_page_metadata``, ``set_file_alternative_text``,
                    ``move_content_element``,
                    ``create_content_element_draft``, ``create_page_draft``,
-                   ``create_translation_draft`` — the only WRITING group
+                   ``create_translation_draft``, ``create_record_draft``
+                   — the only WRITING group
 =================  ============================================================
 
 Groups can be switched on three levels, and the result cascades

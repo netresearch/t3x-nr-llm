@@ -575,3 +575,4 @@ Tools
    Adr190CancellationCrossesTheTransportBoundary
    Adr191ToolLevelCancellationOutcome
    Adr192TheEighthWriterDescribesAnAsset
+   Adr197AGenericCreatorWhereNoNarrowWriterExists
