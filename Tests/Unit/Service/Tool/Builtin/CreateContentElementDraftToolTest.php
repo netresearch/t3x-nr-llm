@@ -26,8 +26,10 @@ use TYPO3\CMS\Core\Localization\LanguageService;
  * Argument validation of the fourth writing tool — the first that creates a
  * record (ADR-146).
  *
- * Every assertion here stops the call BEFORE the database is touched, so a stub
- * {@see ConnectionPool} is enough. The creation itself — page permissions, the
+ * Every assertion here stops the call BEFORE the database is touched, and the
+ * {@see ConnectionPool} double fails the test if a call gets that far — so a
+ * refusal that stopped working is an assertion failure, not a PHP error on the
+ * way to the database. The creation itself — page permissions, the
  * new uid, the hidden state, the read-back — is exercised against a real
  * database in
  * {@see \Netresearch\NrLlm\Tests\Functional\Service\Tool\CreateContentElementDraftToolTest}.
@@ -163,7 +165,15 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         $GLOBALS['LANG']    = self::createStub(LanguageService::class);
         $GLOBALS['BE_USER'] = $this->liveUser();
 
-        $this->tool = new CreateContentElementDraftTool(self::createStub(ConnectionPool::class));
+        // Every test here must stop before the tool reads the page, let alone
+        // writes. A defect that lets a call through reaches the pool, and the
+        // expectation then fails the test on an assertion — not on the null a
+        // stub's query builder would hand the next line.
+        $connectionPool = $this->createMock(ConnectionPool::class);
+        $connectionPool->expects(self::never())->method('getQueryBuilderForTable');
+        $connectionPool->expects(self::never())->method('getConnectionForTable');
+
+        $this->tool = new CreateContentElementDraftTool($connectionPool);
     }
 
     protected function tearDown(): void
