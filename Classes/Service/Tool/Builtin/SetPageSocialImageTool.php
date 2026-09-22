@@ -59,6 +59,10 @@ use TYPO3\CMS\Core\Utility\StringUtility;
  *   like the other FAL writer's, and a translation's own image is a page
  *   properties decision (`allowLanguageSynchronization`) this tool does not
  *   make.
+ * - **A page translated into a language the user may not edit.** Core saves a
+ *   page's translations along with the page (`DataMapProcessor`), and the
+ *   DataHandler refuses that record for the language — after the reference
+ *   row is written. Asked before the write instead, naming the translation.
  * - **A page the user may not edit, a file the user may not reach.** One
  *   neutral string for all of them, so a refusal never confirms that a uid
  *   exists.
@@ -484,6 +488,30 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             );
         }
 
+        // Core saves a page's translations along with the page: the
+        // DataMapProcessor puts every live translation into the datamap, in
+        // whatever state its fields are, and the DataHandler then refuses that
+        // record for a language the user may not edit — after the reference
+        // row is written. Asked here instead, so the card shows it and nothing
+        // is written to be taken back. Hidden translations count; core
+        // synchronises them too.
+        $outOfReach = [];
+        foreach ($this->translationsOf($pageUid) as $translation) {
+            if (!$user->checkLanguageAccess($translation['language'])) {
+                $outOfReach[] = sprintf('page [%d] in language [%d]', $translation['uid'], $translation['language']);
+            }
+        }
+
+        if ($outOfReach !== []) {
+            return sprintf(
+                'Refused: page [%d] is translated into a language you may not edit content in (%s). TYPO3 saves a '
+                . "page's translations along with the page, so the DataHandler would refuse the write. Nothing was "
+                . 'written.',
+                $pageUid,
+                implode(', ', $outOfReach),
+            );
+        }
+
         $file = $this->fetchFile($fileUid);
         if ($file === null) {
             return self::NOT_PERMITTED;
@@ -600,6 +628,43 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         );
         $restore->process_datamap();
         $restore->process_cmdmap();
+    }
+
+    /**
+     * The live translations of this page in the live workspace, hidden ones
+     * included — the records core's `DataMapProcessor` adds to the datamap
+     * beside the page (`fetchDependentElements()` applies the deleted and the
+     * workspace restriction, no other).
+     *
+     * @return list<array{uid:int, language:int}>
+     */
+    private function translationsOf(int $pageUid): array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::PAGES_TABLE);
+        $queryBuilder->getRestrictions()->removeAll();
+
+        /** @var list<array<string, mixed>> $rows */
+        $rows = $queryBuilder
+            ->select('uid', 'sys_language_uid')
+            ->from(self::PAGES_TABLE)
+            ->where(
+                $queryBuilder->expr()->eq('l10n_parent', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)),
+                $queryBuilder->expr()->gt('sys_language_uid', $queryBuilder->createNamedParameter(self::DEFAULT_LANGUAGE, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter(self::LIVE_WORKSPACE, Connection::PARAM_INT)),
+            )
+            ->orderBy('sys_language_uid', 'ASC')
+            ->addOrderBy('uid', 'ASC')
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        return array_map(
+            static fn(array $row): array => [
+                'uid'      => self::toInt($row['uid'] ?? 0),
+                'language' => self::toInt($row['sys_language_uid'] ?? 0),
+            ],
+            $rows,
+        );
     }
 
     /**

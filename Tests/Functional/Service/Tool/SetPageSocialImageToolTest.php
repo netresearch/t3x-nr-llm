@@ -900,6 +900,56 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
         self::assertSame(1, $this->counter('og_image'), 'the page counts the one reference that is still live');
     }
 
+    /**
+     * Core saves a page's translations along with the page — the
+     * `DataMapProcessor` puts every live translation into the datamap whatever
+     * state its fields are in — and the DataHandler refuses that record for a
+     * language the editor may not edit, AFTER the reference row was written.
+     * Asked before the write instead: nothing is written, not even to be taken
+     * back, the refusal names the translation and the language, and the
+     * preview shows the same refusal.
+     */
+    #[Test]
+    public function anEditorWhoMayNotEditALanguageThePageIsTranslatedIntoIsRefusedBeforeAnythingIsWritten(): void
+    {
+        $this->connectionPool->getConnectionForTable('be_groups')
+            ->update('be_groups', ['allowed_languages' => '0'], ['uid' => self::EDITOR_GROUP]);
+        $arguments = ['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE];
+
+        $result = $this->set($arguments, userUid: 2);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('page [' . self::PAGE_TRANSLATED . '] in language [1]', $result->content);
+        self::assertStringContainsString('translations along with the page', $result->content);
+        self::assertSame([], $this->references('og_image'), 'nothing was written, not even to be taken back');
+        self::assertSame([], $this->references('og_image', self::PAGE_TRANSLATED));
+        self::assertSame(0, $this->counter('og_image'));
+
+        self::assertSame(
+            [$result->content],
+            $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($this->actor(2))),
+        );
+    }
+
+    /**
+     * The other direction: the restriction bites only where a translation
+     * exists. Without one, an editor allowed the default language alone sets
+     * the image like any other.
+     */
+    #[Test]
+    public function anEditorAllowedTheDefaultLanguageAloneSetsTheImageOnAPageWithoutTranslations(): void
+    {
+        $this->connectionPool->getConnectionForTable('pages')->delete('pages', ['uid' => self::PAGE_TRANSLATED]);
+        $this->connectionPool->getConnectionForTable('be_groups')
+            ->update('be_groups', ['allowed_languages' => '0'], ['uid' => self::EDITOR_GROUP]);
+
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE], userUid: 2);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame([['uid' => 1, 'uid_local' => self::FILE_ONE, 'deleted' => 0]], $this->references('og_image'));
+        self::assertSame(1, $this->counter('og_image'));
+    }
+
     #[Test]
     public function itRefusesOutsideTheLiveWorkspace(): void
     {

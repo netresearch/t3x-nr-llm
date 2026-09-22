@@ -207,6 +207,35 @@ writes default-language pages only and refuses a translation, naming its
 default-language page — whether a translation follows its parent or carries
 its own image is a page-properties decision the editor makes, not the tool.
 
+**A translation is saved with the page, in whatever language it is in.**
+:php:`DataMapProcessor::finishTranslationItem()` (``typo3/cms-core`` 14.3.7
+line 417; 13.4.26 line 375) puts every live translation of the page into the
+datamap with its ``l10n_state`` — hidden ones too, and whether or not the
+field being written is in the ``parent`` state — and
+:php:`DataHandler::process_datamap()` then checks that record against the
+acting user's ``allowed_languages`` (14.3.7 line 898 through
+:php:`checkRecordEditAccess()`; 13.4.26 lines 895–896 through
+``recordEditAccessInternals()``) and refuses it: "Language was not allowed".
+The default-language row itself was writable, so an editor allowed the
+default language alone is refused on every page that has a translation —
+after the reference row is written, at the cost of a discard and two error
+rows in ``sys_log``, and with a preview that showed nothing wrong, because the
+preview never reaches the DataHandler. Measured on the fixture: the plain and
+the replace call both came back with that message and nothing written.
+
+The decision is to refuse **before** the write, in :php:`plan()`, when the
+page has a live translation in a language the acting user may not edit. The
+refusal names the translation, its language and the synchronisation that is
+the cause, and the approval card shows it because :php:`plan()` is the
+preview's too. Two alternatives were rejected. Accepting the DataHandler's
+per-record independence and reporting the default-language write as done would
+leave the translation without its synchronised copy of the reference, behind
+a parent it is declared to follow. Restricting the pre-check to translations
+whose field is in the ``parent`` state would refuse less, but core does not
+make that distinction — the ``l10n_state`` record is written for every
+translation — so the pre-check would let through exactly the calls the
+DataHandler still refuses.
+
 .. _adr-195-availability:
 
 Without EXT:seo
@@ -247,6 +276,12 @@ EXT:seo would render — cannot get one from this tool.
 ✕ A non-admin who may edit the page but holds no ``non_exclude_fields`` grant
 for the column is refused outright rather than told which administrator to
 ask; the refusal names the grant, and that is as far as a tool can go.
+
+✕ An editor whose ``allowed_languages`` leaves out a language the page is
+translated into cannot set the image on that page, although the
+default-language row is theirs to edit: core saves the translation with the
+page. The refusal names the translation and the language; an editor allowed
+that language, or an administrator, can.
 
 .. _adr-195-revisit:
 

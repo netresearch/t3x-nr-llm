@@ -357,7 +357,10 @@ What holds for all of them:
    - **Default-language pages only.** A translated page is refused and the
      default-language page named; whether a translation follows its parent or
      carries its own image is a page-properties decision
-     (``allowLanguageSynchronization``) the tool leaves to the editor.
+     (``allowLanguageSynchronization``) the tool leaves to the editor. And
+     because TYPO3 saves a page's translations along with the page, an editor
+     whose allowed languages leave out a language the page is translated into
+     is refused before anything is written; the refusal names the translation.
 
    The page's own reference count is re-read afterwards, because EXT:seo reads
    it before it looks for the file: a reference the page does not count is one
