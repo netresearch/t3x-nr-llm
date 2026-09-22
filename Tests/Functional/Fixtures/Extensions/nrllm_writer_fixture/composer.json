@@ -1,0 +1,11 @@
+{
+    "name": "netresearch/nrllm-writer-fixture",
+    "description": "Two TCA tables no narrow writer covers, for the functional tests of create_record_draft (ADR-197). Not shipped.",
+    "type": "typo3-cms-extension",
+    "license": "GPL-2.0-or-later",
+    "extra": {
+        "typo3/cms": {
+            "extension-key": "nrllm_writer_fixture"
+        }
+    }
+}
