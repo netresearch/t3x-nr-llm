@@ -284,8 +284,10 @@ parent afterwards — ``pages`` declares no TCA column for them. An editor who
 holds ``PAGE_EDIT`` on the page but not on its translation was therefore
 refused after the reference row existed, and the put-back's own datamap made
 core add the translation again, so the message carried the same complaint
-twice. A review measured it on the fixture with the translation's group and
-everybody bits at ``PAGE_SHOW``. The pre-check above asks
+twice. A review measured it on the fixture; the functional test pins it with
+the translation's group and everybody bits at ``PAGE_SHOW``, because the
+fixture grants everybody ``ALL`` and :php:`calcPerms()` ORs the two. The
+pre-check above asks
 :php:`doesUserHaveAccess()` with ``PAGE_EDIT`` on each translation — the call
 :php:`plan()` already makes for the page — and refuses naming the translation,
 with the language check first where both would fire.
