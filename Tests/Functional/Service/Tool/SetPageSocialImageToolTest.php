@@ -1213,6 +1213,42 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
         self::assertSame(1, $this->counter('og_image'));
     }
 
+    /**
+     * The same synchronisation, a different bar: the DataHandler asks
+     * PAGE_EDIT on every translation it saves with the page, against the
+     * translation's OWN permission bits — core creates a translation as a new
+     * page row (`localizePage()`), which takes the new-page defaults, and
+     * nothing copies `perms_*` from the parent. An editor who may edit the
+     * page but not its translation is refused before the write, naming the
+     * translation, rather than by the DataHandler after the reference exists.
+     */
+    #[Test]
+    public function anEditorWhoMayNotEditATranslationOfThePageIsRefusedBeforeAnythingIsWritten(): void
+    {
+        // The fixture grants the translation ALL to the group AND to everybody;
+        // `calcPerms()` ORs the two, so both come down to PAGE_SHOW here.
+        $this->connectionPool->getConnectionForTable('pages')->update(
+            'pages',
+            ['perms_group' => Permission::PAGE_SHOW, 'perms_everybody' => Permission::PAGE_SHOW],
+            ['uid' => self::PAGE_TRANSLATED],
+        );
+        $arguments = ['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE];
+
+        $result = $this->set($arguments, userUid: 2);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('translated into a page you may not edit (page [' . self::PAGE_TRANSLATED . '])', $result->content);
+        self::assertStringContainsString('translations along with the page', $result->content);
+        self::assertSame([], $this->references('og_image'), 'nothing was written, not even to be taken back');
+        self::assertSame([], $this->references('og_image', self::PAGE_TRANSLATED));
+        self::assertSame(0, $this->counter('og_image'));
+
+        self::assertSame(
+            [$result->content],
+            $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($this->actor(2))),
+        );
+    }
+
     #[Test]
     public function itRefusesOutsideTheLiveWorkspace(): void
     {

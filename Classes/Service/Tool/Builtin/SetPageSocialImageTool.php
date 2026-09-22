@@ -60,10 +60,12 @@ use TYPO3\CMS\Core\Utility\StringUtility;
  *   like the other FAL writer's, and a translation's own image is a page
  *   properties decision (`allowLanguageSynchronization`) this tool does not
  *   make.
- * - **A page translated into a language the user may not edit.** Core saves a
- *   page's translations along with the page (`DataMapProcessor`), and the
- *   DataHandler refuses that record for the language — after the reference
- *   row is written. Asked before the write instead, naming the translation.
+ * - **A page translated into a language, or a page, the user may not edit.**
+ *   Core saves a page's translations along with the page (`DataMapProcessor`),
+ *   and the DataHandler refuses that record for the language, or for a
+ *   translation whose own `perms_*` bits withhold PAGE_EDIT — after the
+ *   reference row is written. Both asked before the write instead, naming the
+ *   translation.
  * - **A page the user may not edit, a file the user may not reach.** One
  *   neutral string for all of them, so a refusal never confirms that a uid
  *   exists.
@@ -491,11 +493,20 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         // record for a language the user may not edit — after the reference
         // row is written. Asked here instead, so the card shows it and nothing
         // is written to be taken back. Hidden translations count; core
-        // synchronises them too.
-        $outOfReach = [];
+        // synchronises them too. The same run asks PAGE_EDIT on each
+        // translation against its OWN permission bits (`hasPermissionToUpdate`
+        // for `pages`): a translation is a new page row when core creates it
+        // and nothing copies `perms_*` from the parent, so the page and its
+        // translation can differ. Asked with the same call as the page above.
+        $outOfReach  = [];
+        $notEditable = [];
         foreach ($this->translationsOf($pageUid) as $translation) {
-            if (!$user->checkLanguageAccess($translation['language'])) {
-                $outOfReach[] = sprintf('page [%d] in language [%d]', $translation['uid'], $translation['language']);
+            $translationUid = self::toInt($translation['uid'] ?? 0);
+            $language       = self::toInt($translation['sys_language_uid'] ?? 0);
+            if (!$user->checkLanguageAccess($language)) {
+                $outOfReach[] = sprintf('page [%d] in language [%d]', $translationUid, $language);
+            } elseif (!$user->doesUserHaveAccess($translation, Permission::PAGE_EDIT)) {
+                $notEditable[] = sprintf('page [%d]', $translationUid);
             }
         }
 
@@ -506,6 +517,15 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
                 . 'written.',
                 $pageUid,
                 implode(', ', $outOfReach),
+            );
+        }
+
+        if ($notEditable !== []) {
+            return sprintf(
+                'Refused: page [%d] is translated into a page you may not edit (%s). TYPO3 saves a page\'s '
+                . 'translations along with the page, so the DataHandler would refuse the write. Nothing was written.',
+                $pageUid,
+                implode(', ', $notEditable),
             );
         }
 
@@ -754,7 +774,12 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      * beside the page (`fetchDependentElements()` applies the deleted and the
      * workspace restriction, no other).
      *
-     * @return list<array{uid:int, language:int}>
+     * Each row carries what {@see BackendUserAuthentication::doesUserHaveAccess()}
+     * reads: the five `perms_*` columns for `calcPerms()`, and the version and
+     * translation pointers `isInWebMount()` resolves the mount through without
+     * a second fetch.
+     *
+     * @return list<array<string, mixed>>
      */
     private function translationsOf(int $pageUid): array
     {
@@ -763,7 +788,17 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
 
         /** @var list<array<string, mixed>> $rows */
         $rows = $queryBuilder
-            ->select('uid', 'sys_language_uid')
+            ->select(
+                'uid',
+                'sys_language_uid',
+                'l10n_parent',
+                't3ver_oid',
+                'perms_userid',
+                'perms_user',
+                'perms_groupid',
+                'perms_group',
+                'perms_everybody',
+            )
             ->from(self::PAGES_TABLE)
             ->where(
                 $queryBuilder->expr()->eq('l10n_parent', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)),
@@ -776,13 +811,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             ->executeQuery()
             ->fetchAllAssociative();
 
-        return array_map(
-            static fn(array $row): array => [
-                'uid'      => self::toInt($row['uid'] ?? 0),
-                'language' => self::toInt($row['sys_language_uid'] ?? 0),
-            ],
-            $rows,
-        );
+        return $rows;
     }
 
     /**

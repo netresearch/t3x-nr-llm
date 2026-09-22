@@ -272,6 +272,24 @@ make that distinction — the ``l10n_state`` record is written for every
 translation — so the pre-check would let through exactly the calls the
 DataHandler still refuses.
 
+**A translation carries its own permission bits, and the same run asks
+them.** The DataHandler checks ``PAGE_EDIT`` on every translation it saves
+with the page (:php:`DataHandler::hasPermissionToUpdate()` for ``pages``,
+14.3.7 line 7470; :php:`checkRecordUpdateAccess()` in 13.4.26 asks the same
+bit) against the translation's own ``perms_*`` columns. Those can differ from
+the parent's: core creates a translation as a new page row
+(:php:`DataHandler::localizePage()`, 14.3.7 lines 5034–5063), which takes the
+new-page permission defaults, and nothing synchronises ``perms_*`` from the
+parent afterwards — ``pages`` declares no TCA column for them. An editor who
+holds ``PAGE_EDIT`` on the page but not on its translation was therefore
+refused after the reference row existed, and the put-back's own datamap made
+core add the translation again, so the message carried the same complaint
+twice. A review measured it on the fixture with the translation's group and
+everybody bits at ``PAGE_SHOW``. The pre-check above asks
+:php:`doesUserHaveAccess()` with ``PAGE_EDIT`` on each translation — the call
+:php:`plan()` already makes for the page — and refuses naming the translation,
+with the language check first where both would fire.
+
 .. _adr-195-availability:
 
 Without EXT:seo
@@ -314,10 +332,12 @@ for the column is refused outright rather than told which administrator to
 ask; the refusal names the grant, and that is as far as a tool can go.
 
 ✕ An editor whose ``allowed_languages`` leaves out a language the page is
-translated into cannot set the image on that page, although the
+translated into, or who holds ``PAGE_EDIT`` on the page but not on one of its
+translations, cannot set the image on that page, although the
 default-language row is theirs to edit: core saves the translation with the
-page. The refusal names the translation and the language; an editor allowed
-that language, or an administrator, can.
+page. The refusal names the translation, and the language where that is the
+cause; an editor allowed that language and that translation, or an
+administrator, can.
 
 .. _adr-195-revisit:
 
