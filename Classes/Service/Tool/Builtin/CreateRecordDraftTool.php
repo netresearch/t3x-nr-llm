@@ -522,8 +522,11 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
     /**
      * The tables the installation excludes, or null when the configuration
      * could not be read — which refuses every table, the fail-closed direction
-     * the rest of the runtime takes. A tool constructed without the
-     * configuration service (tests) has the shipped default: no exclusions.
+     * the rest of the runtime takes. Only an ABSENT setting means "no
+     * exclusions"; a setting that is present but not a comma-separated string,
+     * or a path to it that is not a list of settings, cannot be read. A tool
+     * constructed without the configuration service (tests) has the shipped
+     * default: no exclusions.
      *
      * @return list<string>|null
      */
@@ -539,11 +542,20 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             return null;
         }
 
-        $tools = is_array($config) ? ($config['tools'] ?? null) : null;
-        $entry = is_array($tools) ? ($tools['createRecordDraft'] ?? null) : null;
-        $list  = is_array($entry) ? ($entry['deniedTables'] ?? null) : null;
+        $node = $config;
+        foreach (['tools', 'createRecordDraft', 'deniedTables'] as $key) {
+            if (!is_array($node)) {
+                return null;
+            }
 
-        return is_string($list) ? array_values(GeneralUtility::trimExplode(',', $list, true)) : [];
+            if (!array_key_exists($key, $node)) {
+                return [];
+            }
+
+            $node = $node[$key];
+        }
+
+        return is_string($node) ? array_values(GeneralUtility::trimExplode(',', $node, true)) : null;
     }
 
     /**
@@ -1071,7 +1083,8 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         $ungranted = [];
         foreach (array_unique($columns) as $column) {
             $definition = $definitions[$column] ?? null;
-            $excluded   = is_array($definition) && ($definition['exclude'] ?? false) === true;
+            // Any truthy value, as core reads it (AbstractFieldType::supportsAccessControl()).
+            $excluded = is_array($definition) && (bool)($definition['exclude'] ?? false);
             if ($excluded && !$user->check('non_exclude_fields', $table . ':' . $column)) {
                 $ungranted[] = $column;
             }

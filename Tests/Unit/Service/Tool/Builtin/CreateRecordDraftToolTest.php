@@ -82,7 +82,7 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
                     'enablecolumns'         => ['disabled' => 'hidden', 'starttime' => 'starttime', 'fe_group' => 'fe_group'],
                 ],
                 'types' => [
-                    'note'  => ['showitem' => 'title, teaser, kind, --palette--;;timing, --div--;More, featured, contact, tone, related, colour'],
+                    'note'  => ['showitem' => 'title, teaser, kind, --palette--;;timing, --div--;More, featured, contact, tone, related, colour, rank'],
                     'story' => ['showitem' => 'title, kind, --palette--;;timing'],
                 ],
                 'palettes' => [
@@ -106,6 +106,9 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
                     'related'          => ['label' => 'Related', 'config' => ['type' => 'group', 'allowed' => 'pages']],
                     'colour'           => ['label' => 'Colour', 'config' => ['type' => 'color']],
                     'archived_on'      => ['label' => 'Archived on', 'config' => ['type' => 'datetime', 'format' => 'date']],
+                    // `exclude` written the pre-boolean way: core treats any
+                    // truthy value as access-controlled.
+                    'rank'             => ['label' => 'Rank', 'exclude' => 1, 'config' => ['type' => 'number']],
                 ],
             ],
         ];
@@ -310,6 +313,68 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function aColumnMarkedExcludeWithATruthyValueNeedsTheFieldGrant(): void
+    {
+        $editor                                  = $this->liveUser();
+        $editor->user                            = ['uid' => 5, 'admin' => 0];
+        $editor->groupData['allowed_languages']  = '0';
+        $editor->groupData['tables_modify']      = self::TABLE;
+        $editor->groupData['non_exclude_fields'] = self::TABLE . ':hidden';
+
+        $result = $this->tool->execute($this->call(['title' => 'x', 'rank' => 3]), $this->contextFor($editor));
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('exclude field', $result->content);
+        self::assertStringContainsString(self::TABLE . ':rank', $result->content);
+    }
+
+    /**
+     * Present but unreadable refuses every table; only an ABSENT setting
+     * means "no exclusions".
+     *
+     * @return iterable<string, array{mixed}>
+     */
+    public static function unreadableDenyLists(): iterable
+    {
+        yield 'deniedTables is a list'       => [['tools' => ['createRecordDraft' => ['deniedTables' => [self::TABLE]]]]];
+        yield 'deniedTables is a number'     => [['tools' => ['createRecordDraft' => ['deniedTables' => 7]]]];
+        yield 'createRecordDraft is a string' => [['tools' => ['createRecordDraft' => 'deniedTables=' . self::TABLE]]];
+        yield 'tools is a string'            => [['tools' => 'createRecordDraft']];
+        yield 'the configuration is a string' => ['tools.createRecordDraft.deniedTables=' . self::TABLE];
+    }
+
+    #[Test]
+    #[DataProvider('unreadableDenyLists')]
+    public function aDenyListThatIsPresentButNotAStringRefusesEveryTable(mixed $configuration): void
+    {
+        $result = $this->toolReading($configuration)->execute($this->call(['title' => 'x']), $this->contextFor($this->liveUser()));
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('could not be read', $result->content);
+    }
+
+    /**
+     * @return iterable<string, array{mixed}>
+     */
+    public static function absentDenyLists(): iterable
+    {
+        yield 'no tools key'            => [[]];
+        yield 'no createRecordDraft key' => [['tools' => []]];
+        yield 'no deniedTables key'     => [['tools' => ['createRecordDraft' => []]]];
+    }
+
+    #[Test]
+    #[DataProvider('absentDenyLists')]
+    public function anAbsentDenyListExcludesNothing(mixed $configuration): void
+    {
+        // Stopped by a column rule, past every table rule.
+        $result = $this->toolReading($configuration)->execute($this->call(['title' => 'x', 'kind' => 'novel']), $this->contextFor($this->liveUser()));
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('must be one of', $result->content);
+    }
+
+    #[Test]
     public function itRefusesATableTheExtensionConfigurationDenies(): void
     {
         $denied = $this->toolWith(deniedTables: ' tx_other , ' . self::TABLE . ' ');
@@ -483,6 +548,19 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
             new TableReadAccessService(),
             $writers,
             new ExtensionConfiguration(),
+        );
+    }
+
+    private function toolReading(mixed $configuration): CreateRecordDraftTool
+    {
+        $extensionConfiguration = self::createStub(ExtensionConfiguration::class);
+        $extensionConfiguration->method('get')->willReturn($configuration);
+
+        return new CreateRecordDraftTool(
+            self::createStub(ConnectionPool::class),
+            new TableReadAccessService(),
+            [],
+            $extensionConfiguration,
         );
     }
 

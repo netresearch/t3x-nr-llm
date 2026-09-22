@@ -436,6 +436,24 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * The folder grants content edit to everybody, but it lies outside the
+     * editor's web mounts — the backend never shows it to them, and page
+     * permissions alone must not open it.
+     */
+    #[Test]
+    public function anEditorOutsideTheirWebMountsIsRefusedWithTheNeutralWords(): void
+    {
+        $editor                         = $this->editorWithEveryGrant();
+        $editor->groupData['webmounts'] = (string)self::FOLDER_CLOSED;
+
+        $result = $this->tool->execute($this->call(['title' => 'x']), ToolExecutionContext::fromBackendUser($editor));
+
+        self::assertTrue($result->isError);
+        self::assertSame('Page not found or not permitted.', $result->content);
+        self::assertSame(0, $this->recordCount());
+    }
+
+    /**
      * @return iterable<string, array{string, string}>
      */
     public static function missingExcludeFieldGrants(): iterable
