@@ -163,6 +163,24 @@ anything is written. The read-back stays as the backstop: it requires the row
 on the named page, field and file, exactly one live default-language reference
 on that field, and a page counter of one.
 
+Whether a column is subject to that grant, and whether it is dropped for a
+different reason, is decided with the DataHandler's own predicates
+(:php:`DataHandler::fillInFieldArray()`, ``typo3/cms-core`` 14.3.7 lines
+1118–1123; :php:`DataHandler::getExcludeListArray()` in 13.4.21 is the same
+pair). Core reads the flag as ``(bool)($config['exclude'] ?? false)``
+(:php:`AbstractFieldType::supportsAccessControl()`), so an installation's
+``'exclude' => 1`` puts the column under the grant, and it skips a column
+whose ``displayCond`` is exactly the string ``HIDE_FOR_NON_ADMINS`` for every
+non-admin, grant or no grant — also in silence. The first version of the tool
+tested ``=== true`` and did not know the second shape; a review measured both
+against the running DataHandler and found the reference row created and the
+page's side dropped, with the pre-check passed. Both predicates are now
+mirrored, and the second refusal names the display condition rather than a
+grant the editor holds. The TCA is read from ``$GLOBALS['TCA']`` as the
+sibling writers read it (:ref:`ADR-192 <adr-192>`): core compiles its schema
+from that array, so both sides see the same shape without a second dependency
+on the schema factory.
+
 **A translation that follows its parent gets its own copy, on its own uid.**
 Both columns declare ``allowLanguageSynchronization``, and a translated page in
 the ``parent`` state is synchronised by core's :php:`DataMapProcessor`: the

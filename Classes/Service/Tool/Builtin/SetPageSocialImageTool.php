@@ -76,8 +76,11 @@ use TYPO3\CMS\Core\Utility\StringUtility;
  * `'exclude' => true`. For a user without the `non_exclude_fields` grant the
  * DataHandler would still create the reference row and drop the page's side of
  * the relation in silence, with an empty `errorLog` — a reference EXT:seo never
- * renders, because it reads the page's counter first. The grant is asked
- * through the same method the DataHandler asks it with (ADR-192), and the whole
+ * renders, because it reads the page's counter first. The same silent drop hits
+ * every non-admin on a column whose `displayCond` is `HIDE_FOR_NON_ADMINS`.
+ * Both shapes are decided with the DataHandler's own predicates — the flag cast
+ * to bool, the condition compared by string identity — and the grant is asked
+ * through the same method the DataHandler asks it with (ADR-192); the whole
  * call is refused.
  *
  * Effect: {@see ToolEffect::NON_IDEMPOTENT_WRITE}. Without `replace` a second
@@ -416,9 +419,23 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             return 'Refused: you may not edit content in the default language.';
         }
 
-        // Asked BEFORE anything is written, and through the same method the
-        // DataHandler asks it with, so the two cannot drift (ADR-192). Note
+        // The two shapes the DataHandler drops from the page row without an
+        // error, asked BEFORE anything is written and with the predicates it
+        // uses (`DataHandler::fillInFieldArray()`): a column hidden from
+        // non-admins is skipped for every non-admin whatever they hold, and an
+        // `exclude` column for a user without the grant. The grant is asked
+        // through the same method the DataHandler asks it with (ADR-192); note
         // that `check()` tests isset($groupData[$type]) before isAdmin().
+        if (!$user->isAdmin() && $this->isHiddenFromNonAdmins($field)) {
+            return sprintf(
+                'Refused: %s:%s is hidden from non-administrators on this installation (displayCond '
+                . "HIDE_FOR_NON_ADMINS). The DataHandler would create the reference and drop the page's side of it in "
+                . 'silence, so nothing was written.',
+                self::PAGES_TABLE,
+                $field,
+            );
+        }
+
         if ($this->isExcludeField($field) && !$user->check('non_exclude_fields', self::PAGES_TABLE . ':' . $field)) {
             return sprintf(
                 'Refused: the acting backend user holds no field-level ("exclude field") grant for %s:%s. The '
@@ -647,13 +664,29 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
 
     /**
      * Whether the live TCA marks the column `exclude` — what core's schema
-     * reports as supportsAccessControl(), read here without a schema dependency.
+     * reports as supportsAccessControl(), read here without a schema dependency
+     * and with the same cast: `(bool)($config['exclude'] ?? false)`, so an
+     * installation's `'exclude' => 1` is the grant it is to the DataHandler.
      */
     private function isExcludeField(string $field): bool
     {
         $column = ($this->tcaColumnsFor(self::PAGES_TABLE) ?? [])[$field] ?? null;
 
-        return is_array($column) && ($column['exclude'] ?? false) === true;
+        return is_array($column) && (bool)($column['exclude'] ?? false);
+    }
+
+    /**
+     * Whether the live TCA hides the column from non-admins — the one
+     * `displayCond` the DataHandler evaluates itself, by string identity
+     * (`getDisplayConditions() === 'HIDE_FOR_NON_ADMINS'`), and skips the field
+     * for. An array-form condition never matches, exactly as it never does
+     * there.
+     */
+    private function isHiddenFromNonAdmins(string $field): bool
+    {
+        $column = ($this->tcaColumnsFor(self::PAGES_TABLE) ?? [])[$field] ?? null;
+
+        return is_array($column) && ($column['displayCond'] ?? null) === 'HIDE_FOR_NON_ADMINS';
     }
 
     /**

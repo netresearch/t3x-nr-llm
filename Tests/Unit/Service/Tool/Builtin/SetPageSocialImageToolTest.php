@@ -295,6 +295,63 @@ final class SetPageSocialImageToolTest extends AbstractUnitTestCase
         self::assertStringContainsString('pages:og_image', $result->content);
     }
 
+    /**
+     * Core casts the flag (`(bool)($config['exclude'] ?? false)`), so an
+     * installation's `'exclude' => 1` is the same grant as `true`.
+     */
+    #[Test]
+    public function anIntegerExcludeFlagIsTheSameGrantAsTheBooleanOne(): void
+    {
+        $this->declareOpenGraphColumn(['exclude' => 1]);
+
+        $ungranted                                  = $this->liveUser();
+        $ungranted->user                            = ['uid' => 5, 'admin' => 0];
+        $ungranted->groupData['non_exclude_fields'] = 'pages:twitter_image';
+
+        $result = $this->tool->execute(['page' => 1, 'field' => 'og_image', 'file' => 1], $this->contextFor($ungranted));
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('exclude field', $result->content);
+        self::assertStringContainsString('pages:og_image', $result->content);
+    }
+
+    /**
+     * The DataHandler skips a column whose `displayCond` is exactly
+     * `HIDE_FOR_NON_ADMINS` for every non-admin, whatever grants they hold, and
+     * says nothing. The pre-check refuses the same shape and names the
+     * condition — not a grant the user does hold.
+     */
+    #[Test]
+    public function aNonAdminIsRefusedOnAColumnHiddenFromNonAdminsEvenWithTheGrant(): void
+    {
+        $this->declareOpenGraphColumn(['displayCond' => 'HIDE_FOR_NON_ADMINS']);
+
+        $granted                                  = $this->liveUser();
+        $granted->user                            = ['uid' => 5, 'admin' => 0];
+        $granted->groupData['non_exclude_fields'] = 'pages:og_image,pages:twitter_image';
+
+        $result = $this->tool->execute(['page' => 1, 'field' => 'og_image', 'file' => 1], $this->contextFor($granted));
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('HIDE_FOR_NON_ADMINS', $result->content);
+        self::assertStringContainsString('pages:og_image', $result->content);
+        self::assertStringNotContainsString('exclude field', $result->content);
+    }
+
+    /**
+     * @param array<string, mixed> $overrides column keys to set on `pages.og_image`, `config` left alone
+     */
+    private function declareOpenGraphColumn(array $overrides): void
+    {
+        $tca = $GLOBALS['TCA'];
+        self::assertIsArray($tca);
+        self::assertIsArray($tca['pages']);
+        self::assertIsArray($tca['pages']['columns']);
+        self::assertIsArray($tca['pages']['columns']['og_image']);
+        $tca['pages']['columns']['og_image'] = array_replace($tca['pages']['columns']['og_image'], $overrides);
+        $GLOBALS['TCA']                      = $tca;
+    }
+
     private function liveUser(): BackendUserAuthentication
     {
         $user            = new BackendUserAuthentication();

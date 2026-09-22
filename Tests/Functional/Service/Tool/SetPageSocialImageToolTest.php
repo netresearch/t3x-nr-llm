@@ -22,6 +22,7 @@ use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
+use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -245,6 +246,35 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
         self::assertIsArray($row);
 
         return $row;
+    }
+
+    /**
+     * Give `pages.og_image` the TCA shape an installation's override can, the
+     * way {@see SetFileAlternativeTextToolFileMountTest} does for its column.
+     *
+     * Mutating `$GLOBALS['TCA']` alone is not enough: the DataHandler asks the
+     * COMPILED schema, so the schema is rebuilt from the changed array and both
+     * the tool's pre-check and the DataHandler read the same shape.
+     *
+     * @param array<string, mixed> $overrides column keys to set, `config` left alone
+     */
+    private function overrideTheOpenGraphColumn(array $overrides): void
+    {
+        $tca = $GLOBALS['TCA'];
+        self::assertIsArray($tca);
+        $table = $tca['pages'] ?? null;
+        self::assertIsArray($table);
+        $columns = $table['columns'] ?? null;
+        self::assertIsArray($columns);
+        $column = $columns['og_image'] ?? null;
+        self::assertIsArray($column);
+
+        $columns['og_image'] = array_replace($column, $overrides);
+        $table['columns']    = $columns;
+        $tca['pages']        = $table;
+        $GLOBALS['TCA']      = $tca;
+
+        $this->getService(TcaSchemaFactory::class)->rebuild($tca);
     }
 
     private function counter(string $field, int $pageUid = self::PAGE_OPEN): int
@@ -519,6 +549,62 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('pages:og_image', $result->content);
         self::assertSame([], $this->references('og_image'));
         self::assertSame(0, $this->counter('og_image'));
+    }
+
+    /**
+     * Core decides "exclude" with a `(bool)` cast (`supportsAccessControl()`),
+     * so an installation that writes `'exclude' => 1` puts the column under the
+     * same grant. The pre-check has to see that shape too, or the DataHandler
+     * drops the page's side for a user the pre-check let through.
+     */
+    #[Test]
+    public function anIntegerExcludeFlagRefusesLikeTheBooleanOne(): void
+    {
+        $this->overrideTheOpenGraphColumn(['exclude' => 1]);
+        $this->connectionPool->getConnectionForTable('be_groups')
+            ->update('be_groups', ['non_exclude_fields' => ''], ['uid' => self::EDITOR_GROUP]);
+
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE], userUid: 2);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('exclude field', $result->content);
+        self::assertSame([], $this->references('og_image'));
+        self::assertSame(0, $this->counter('og_image'));
+    }
+
+    /**
+     * The second shape the DataHandler drops in silence: a column whose
+     * `displayCond` is exactly `HIDE_FOR_NON_ADMINS` is skipped for every
+     * non-admin, grant or no grant. The refusal names the condition, not a
+     * grant the editor holds.
+     */
+    #[Test]
+    public function aColumnHiddenFromNonAdminsIsRefusedBeforeAnythingIsWrittenEvenWithTheGrant(): void
+    {
+        $this->overrideTheOpenGraphColumn(['displayCond' => 'HIDE_FOR_NON_ADMINS']);
+
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE], userUid: 2);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('HIDE_FOR_NON_ADMINS', $result->content);
+        self::assertStringNotContainsString('exclude field', $result->content, 'the editor holds the grant; that is not the cause');
+        self::assertSame([], $this->references('og_image'));
+        self::assertSame(0, $this->counter('og_image'));
+    }
+
+    /**
+     * The other direction of the same rule: the condition hides nothing from an admin.
+     */
+    #[Test]
+    public function anAdminSetsTheImageOnAColumnHiddenFromNonAdmins(): void
+    {
+        $this->overrideTheOpenGraphColumn(['displayCond' => 'HIDE_FOR_NON_ADMINS']);
+
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE]);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame([['uid' => 1, 'uid_local' => self::FILE_ONE, 'deleted' => 0]], $this->references('og_image'));
+        self::assertSame(1, $this->counter('og_image'));
     }
 
     /**

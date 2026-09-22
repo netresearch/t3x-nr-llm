@@ -340,7 +340,10 @@ What holds for all of them:
    also needs the field-level grants ``pages:og_image`` /
    ``pages:twitter_image`` — without them the whole call is refused **before**
    anything is written, because the DataHandler would otherwise create the
-   reference and drop the page's side of it in silence.
+   reference and drop the page's side of it in silence. A column an
+   installation hides from non-admins (``displayCond`` of
+   ``HIDE_FOR_NON_ADMINS``) is refused for every non-admin the same way, and
+   the refusal names the condition.
 
    Three things worth knowing before enabling it:
 
