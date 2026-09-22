@@ -932,6 +932,28 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A hidden translation is saved with the page like a visible one — core's
+     * `fetchDependentElements()` applies the deleted and the workspace
+     * restriction and no other — so the pre-check has to count it, or the
+     * DataHandler refuses the hidden page row after the reference exists.
+     */
+    #[Test]
+    public function aHiddenTranslationInALanguageTheEditorMayNotEditIsRefusedBeforeAnythingIsWritten(): void
+    {
+        $this->connectionPool->getConnectionForTable('pages')->update('pages', ['hidden' => 1], ['uid' => self::PAGE_TRANSLATED]);
+        $this->connectionPool->getConnectionForTable('be_groups')
+            ->update('be_groups', ['allowed_languages' => '0'], ['uid' => self::EDITOR_GROUP]);
+
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE], userUid: 2);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('page [' . self::PAGE_TRANSLATED . '] in language [1]', $result->content);
+        self::assertSame([], $this->references('og_image'), 'nothing was written, not even to be taken back');
+        self::assertSame([], $this->references('og_image', self::PAGE_TRANSLATED));
+        self::assertSame(0, $this->counter('og_image'));
+    }
+
+    /**
      * The other direction: the restriction bites only where a translation
      * exists. Without one, an editor allowed the default language alone sets
      * the image like any other.
