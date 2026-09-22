@@ -30,7 +30,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Set the title and the description of ONE managed file (`sys_file`), through
- * the DataHandler, as the acting backend user — the eighth writing tool.
+ * the DataHandler, as the acting backend user — the eighth writing tool. Where
+ * EXT:filemetadata is installed it also sets the copyright notice (ADR-194):
+ * that column is not core's, so it is offered only where the live TCA declares
+ * it ({@see self::writableFields()}).
  *
  * It exists because those two fields had no writer. `set_file_alternative_text`
  * writes `alternative` and refuses every other argument by name, so an assistant
@@ -150,8 +153,8 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
 
     private const DESCRIPTION = 'description';
 
-    /** The fields this tool writes; `alternative` is another tool's. */
-    private const FIELDS = [self::TITLE, self::DESCRIPTION];
+    /** EXT:filemetadata's column; absent from an installation without it. */
+    private const COPYRIGHT = 'copyright';
 
     /**
      * The `title` column is `tinytext`, which holds 255 BYTES. Checked against
@@ -161,11 +164,12 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
     private const MAX_TITLE_BYTES = 255;
 
     /**
-     * The tool's bound for `description`. The column is `text` and the TCA
-     * declares no `max`, so nothing else bounds a model-chosen argument — and a
-     * file description is a paragraph, not an article.
+     * The tool's bound for `description` and `copyright`. Both columns are
+     * `text` and their TCA declares no `max`, so nothing else bounds a
+     * model-chosen argument — and a file description is a paragraph, not an
+     * article.
      */
-    private const MAX_DESCRIPTION_LENGTH = 2000;
+    private const MAX_TEXT_LENGTH = 2000;
 
     public function __construct(
         private ConnectionPool $connectionPool,
@@ -174,32 +178,42 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
 
     public function getSpec(): ToolSpec
     {
+        $fields = $this->writableFields();
+
+        $properties = [
+            'uid' => [
+                'type'        => 'integer',
+                'description' => 'The sys_file uid of the single file to describe.',
+            ],
+            self::TITLE => [
+                'type'        => 'string',
+                'description' => 'The new title. An empty string clears it, and the backend then falls back '
+                    . 'to showing the file name.',
+            ],
+            self::DESCRIPTION => [
+                'type'        => 'string',
+                'description' => 'The new description — a longer caption for editors. An empty string clears it.',
+            ],
+        ];
+        if (in_array(self::COPYRIGHT, $fields, true)) {
+            $properties[self::COPYRIGHT] = [
+                'type'        => 'string',
+                'description' => 'The new copyright notice. An empty string clears it.',
+            ];
+        }
+
         return ToolSpec::function(
             'update_fal_asset_meta',
-            'Set the title and/or the description of ONE managed file (sys_file), identified by its uid. '
+            'Set ' . $this->enumerated($fields, 'and/or') . ' of ONE managed file (sys_file), identified by its uid. '
             . 'Writes sys_file_metadata through the TYPO3 DataHandler as the acting backend user, in the live '
-            . 'workspace and in the default language only. Pass either field or both; at least one is required, '
+            . 'workspace and in the default language only. Pass one field or several; at least one is required, '
             . 'and a field left out keeps its current value. The file must already carry a metadata record — this '
             . 'tool never creates one — and must lie in a permitted storage inside the acting user\'s file mounts. '
             . 'It does NOT write the alternative text: use set_file_alternative_text for that.',
             [
                 'type'       => 'object',
-                'properties' => [
-                    'uid' => [
-                        'type'        => 'integer',
-                        'description' => 'The sys_file uid of the single file to describe.',
-                    ],
-                    self::TITLE => [
-                        'type'        => 'string',
-                        'description' => 'The new title. An empty string clears it, and the backend then falls back '
-                            . 'to showing the file name.',
-                    ],
-                    self::DESCRIPTION => [
-                        'type'        => 'string',
-                        'description' => 'The new description — a longer caption for editors. An empty string clears it.',
-                    ],
-                ],
-                'required' => ['uid'],
+                'properties' => $properties,
+                'required'   => ['uid'],
             ],
         );
     }
@@ -371,10 +385,12 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
+        $fields = $this->writableFields();
+
         $unknown = $this->refuseUnknownArguments(
             $arguments,
-            ['uid', self::TITLE, self::DESCRIPTION],
-            sprintf('sets "%s" and "%s" on one file', self::TITLE, self::DESCRIPTION),
+            ['uid', ...$fields],
+            sprintf('sets %s on one file', $this->enumerated($fields, 'and')),
         );
         if ($unknown !== null) {
             return $unknown;
@@ -385,7 +401,7 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
             return 'Refused: "uid" must be the positive sys_file uid of exactly one file.';
         }
 
-        $values = $this->collectValues($arguments);
+        $values = $this->collectValues($arguments, $fields);
         if (is_string($values)) {
             return $values;
         }
@@ -394,7 +410,7 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
         if ($ungranted !== []) {
             return sprintf(
                 'Refused: the acting backend user holds no field-level ("exclude field") grant for %s. Nothing was '
-                . 'written — a call that set the other field and reported a failure would leave the asset half '
+                . 'written — a call that set the remaining fields and reported a failure would leave the asset half '
                 . 'described.',
                 implode(', ', array_map(
                     static fn(string $field): string => self::METADATA_TABLE . ':' . $field,
@@ -403,7 +419,9 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
             );
         }
 
-        $target = $this->resolveFalAsset($user, $uid, self::TITLE, self::DESCRIPTION);
+        // Only the columns this installation has: naming `copyright` on a
+        // database without EXT:filemetadata would be a query error.
+        $target = $this->resolveFalAsset($user, $uid, ...$fields);
         if ($target === null) {
             return self::NOT_PERMITTED;
         }
@@ -433,15 +451,16 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
      * erase the description, which is the one way a metadata writer destroys
      * work nobody asked it to touch.
      *
-     * @param array<string, mixed> $arguments
+     * @param array<string, mixed>             $arguments
+     * @param non-empty-list<non-empty-string> $fields    the fields this installation has ({@see self::writableFields()})
      *
      * @return array<string, string>|string
      */
-    private function collectValues(array $arguments): array|string
+    private function collectValues(array $arguments, array $fields): array|string
     {
         $values = [];
 
-        foreach (self::FIELDS as $field) {
+        foreach ($fields as $field) {
             if (!array_key_exists($field, $arguments)) {
                 continue;
             }
@@ -469,10 +488,9 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
 
         if ($values === []) {
             return sprintf(
-                'Refused: pass at least one of "%s" or "%s". A call that sets neither would change nothing and '
+                'Refused: pass at least one of %s. A call that sets none of them would change nothing and '
                 . 'would still cost an approval.',
-                self::TITLE,
-                self::DESCRIPTION,
+                $this->enumerated($fields, 'or'),
             );
         }
 
@@ -483,11 +501,11 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
      * The refusal when a value exceeds what the column or the TCA allows, or
      * null when it fits.
      *
-     * `title` is measured in BYTES against `tinytext`'s 255; `description` in
-     * characters against this tool's own bound. A TCA `max` an installation
-     * declares is narrower than both and wins — it is what the backend form
-     * enforces, so a tool that accepted more would write what an editor could
-     * not.
+     * `title` is measured in BYTES against `tinytext`'s 255; `description` and
+     * `copyright` in characters against this tool's own bound. A TCA `max` an
+     * installation declares is narrower than both and wins — it is what the
+     * backend form enforces, so a tool that accepted more would write what an
+     * editor could not.
      */
     private function refuseOverlongValue(string $field, string $value): ?string
     {
@@ -511,9 +529,48 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
                 : null;
         }
 
-        return mb_strlen($value) > self::MAX_DESCRIPTION_LENGTH
-            ? sprintf('Refused: the value for "%s" exceeds %d characters.', $field, self::MAX_DESCRIPTION_LENGTH)
+        return mb_strlen($value) > self::MAX_TEXT_LENGTH
+            ? sprintf('Refused: the value for "%s" exceeds %d characters.', $field, self::MAX_TEXT_LENGTH)
             : null;
+    }
+
+    /**
+     * The fields this tool writes in THIS installation; `alternative` is
+     * another tool's.
+     *
+     * `title` and `description` are core's and always there. `copyright`
+     * belongs to EXT:filemetadata (ADR-194): without that extension neither the
+     * TCA column nor the database column exists, so the field is offered only
+     * where the live TCA declares it, and a call naming it elsewhere is refused
+     * as the unknown argument it is. With no TCA loaded it is not offered
+     * either — {@see self::previewCall()} reads the named columns without the
+     * backend-environment guard, and a column that may not exist must not be
+     * named in that query.
+     *
+     * @return non-empty-list<non-empty-string>
+     */
+    private function writableFields(): array
+    {
+        $fields = [self::TITLE, self::DESCRIPTION];
+        if (isset($this->tcaColumnsFor(self::METADATA_TABLE)[self::COPYRIGHT])) {
+            $fields[] = self::COPYRIGHT;
+        }
+
+        return $fields;
+    }
+
+    /**
+     * Field names as one phrase: `"title" and "description"`, or
+     * `"title", "description" and "copyright"`.
+     *
+     * @param non-empty-list<non-empty-string> $fields
+     */
+    private function enumerated(array $fields, string $conjunction): string
+    {
+        $quoted = array_map(static fn(string $field): string => '"' . $field . '"', $fields);
+        $last   = array_pop($quoted);
+
+        return $quoted === [] ? $last : implode(', ', $quoted) . ' ' . $conjunction . ' ' . $last;
     }
 
     /**

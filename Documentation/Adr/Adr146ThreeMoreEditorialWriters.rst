@@ -6,10 +6,10 @@
 ADR-146: Three more editorial writers, and what the third one reviewed
 ============================================================================
 
-:Status: Accepted (its "revisit at the sixth writer" trigger fired — see :ref:`ADR-180 <adr-180>`)
+:Status: Accepted (its "revisit at the sixth writer" trigger fired — see :ref:`ADR-180 <adr-180>`; the free-mode element is refused on a connected page — see :ref:`ADR-193 <adr-193>`)
 :Date: 2026-08-10
 :Amends: :ref:`ADR-135 <adr-135>` (its "revisit at the third writer" trigger)
-:Amended: 2026-08-20 by :ref:`ADR-180 <adr-180>`; 2026-09-21 by :ref:`ADR-196 <adr-196>`
+:Amended: 2026-08-20 by :ref:`ADR-180 <adr-180>`; 2026-09-21 by :ref:`ADR-193 <adr-193>`; 2026-09-21 by :ref:`ADR-196 <adr-196>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-146-context:
@@ -246,6 +246,10 @@ one.
 non-default language, which is legitimate but is not a translation. The tool
 description says so on the wire and points at ``create_translation_draft``; a
 model that ignores both produces an element an editor has to clean up.
+:ref:`ADR-193 <adr-193>` narrowed this after it happened: the call is now
+refused on a page that already holds connected translations in that language,
+where the free element made the page module report inconsistent content. On
+every other page the sentence above still holds.
 
 .. _adr-146-revisit:
 
