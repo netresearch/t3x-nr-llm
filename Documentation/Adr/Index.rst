@@ -577,3 +577,4 @@ Tools
    Adr192TheEighthWriterDescribesAnAsset
    Adr193ADraftElementDoesNotMixAConnectedPage
    Adr194TwoMoreMetadataFields
+   Adr195TheNinthWriterSetsAPageSocialImage

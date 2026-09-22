@@ -68,6 +68,7 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
 {
     use SafeCastTrait;
     use WritesThroughDataHandlerTrait;
+    use FetchesSysFileRowTrait;
 
     /**
      * One string for "no such element", "no such file", "not in a permitted
@@ -80,8 +81,6 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
     private const CONTENT_TABLE = 'tt_content';
 
     private const PAGES_TABLE = 'pages';
-
-    private const FILE_TABLE = 'sys_file';
 
     private const REFERENCE_TABLE = 'sys_file_reference';
 
@@ -704,32 +703,6 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
         $restore = GeneralUtility::makeInstance(DataHandler::class);
         $restore->start([self::CONTENT_TABLE => [$elementUid => [$field => implode(',', $survivors)]]], [], $user);
         $restore->process_datamap();
-    }
-
-    /**
-     * `sys_file` carries no `deleted` column, so it gets its own reader rather
-     * than a flag on the shared one — a soft-delete predicate against a table
-     * that has no such field is an SQL error, not a narrower query.
-     *
-     * @return array<string, mixed>|null
-     */
-    private function fetchFile(int $uid): ?array
-    {
-        if ($uid < 1) {
-            return null;
-        }
-
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::FILE_TABLE);
-        $queryBuilder->getRestrictions()->removeAll();
-
-        $row = $queryBuilder
-            ->select('uid', 'storage', 'identifier', 'name', 'extension')
-            ->from(self::FILE_TABLE)
-            ->where($queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)))
-            ->executeQuery()
-            ->fetchAssociative();
-
-        return is_array($row) ? $row : null;
     }
 
     /**

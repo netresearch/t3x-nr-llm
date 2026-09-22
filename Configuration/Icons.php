@@ -104,6 +104,10 @@ return [
         'provider' => SvgIconProvider::class,
         'source' => 'EXT:nr_llm/Resources/Public/Icons/editor-action-attach-file.svg',
     ],
+    'nrllm-editor-action-page-social-image' => [
+        'provider' => SvgIconProvider::class,
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/editor-action-page-social-image.svg',
+    ],
     'nrllm-editor-action-move-content' => [
         'provider' => SvgIconProvider::class,
         'source' => 'EXT:nr_llm/Resources/Public/Icons/editor-action-move-content.svg',
