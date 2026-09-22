@@ -116,6 +116,21 @@ pair only where the column declares ``opacity``, an email as a valid address.
 The first wrong key or value refuses the whole call before anything is
 written, and the refusal names the columns the type does offer.
 
+**Page TSconfig narrows the form per page, and the tool honours it.**
+``TCEFORM.tt_content`` is applied by FormEngine only — the DataHandler stores
+a type or an item the form would not have offered. After the page is
+authorised, and so after the neutral refusal, the tool reads the page's
+TSconfig as FormEngine reads it (``BackendUtility::getPagesTSconfig()``, with
+``<column>.types.<CType>.`` merged over ``<column>.``) and refuses a type that
+``CType.keepItems`` or ``CType.removeItems`` takes out of the selector, a
+``fields`` key or a body whose column ``disabled`` hides, and a ``select``
+value its column's ``keepItems`` or ``removeItems`` removes; the refusal names
+the rule. Like FormEngine, it does not apply the item rules to ``radio`` or
+``check``. Core itself ships one such rule —
+``TCEFORM.tt_content.imageorient.types.image.removeItems = 8,9,10,17,18,25,26``.
+The type list in the tool description is the TCA-level set and does not
+depend on a page; TCEFORM narrows it per page at call time.
+
 **A ``datetime`` is handed to the DataHandler as the integer both supported
 cores store verbatim** — a Unix timestamp, or seconds of the day on a ``time``
 column. A string is not that shape: 13.4's ``DataHandler`` reads it as UTC

@@ -458,9 +458,13 @@ What holds for all of them:
      the type offers. The chosen type is checked against the acting user's
      explicit allow-list, and the exclude-field grants per column — the
      tool's own columns included — before the write; a ``datetime`` is handed
-     over as the integer both supported cores store. This is still not a
-     generic record API: the table is fixed and a relation is never an
-     argument.
+     over as the integer both supported cores store. The page's TSconfig
+     narrows all of this per page, as it narrows the backend form:
+     ``TCEFORM.tt_content.CType.keepItems`` and ``removeItems``, a column's
+     ``disabled``, and a select column's ``keepItems`` and ``removeItems`` —
+     also under ``types.<CType>`` — are honoured, and the refusal names the
+     rule. This is still not a generic record API: the table is fixed and a
+     relation is never an argument.
 
    In a language other than the default one the element is created
    **standalone**, without a translation parent. That is refused on a page

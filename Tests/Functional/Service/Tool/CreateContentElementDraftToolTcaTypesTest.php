@@ -17,6 +17,8 @@ use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Cache\CacheManager;
+use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
@@ -66,6 +68,9 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
 
     /** The native `TIME` column; core declares none on `tt_content`. */
     private const NATIVE_TIME_COLUMN = 'nrllm_opens';
+
+    /** A page whose TSconfig narrows the form, created per test by {@see self::pageWithTsConfig()}. */
+    private const TSCONFIG_PAGE = 3;
 
     /** The upper bound of the `number` range the scalar test type declares. */
     private const WIDTH_UPPER = 4000;
@@ -672,6 +677,121 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         self::assertSame(0, $this->undeletedElementCount(), 'nothing undeleted may be left behind');
     }
 
+    /**
+     * `TCEFORM.tt_content.CType.keepItems` and `.removeItems` narrow the type
+     * selector per page. FormEngine applies them; the DataHandler does not,
+     * so the tool asks them itself, after the page is authorised.
+     */
+    #[Test]
+    public function aTypeThePagesTsConfigTakesOutOfTheSelectorIsRefused(): void
+    {
+        $this->pageWithTsConfig('TCEFORM.tt_content.CType.keepItems = text');
+        $this->assertRefusedAndNothingCreated(
+            ['page' => self::TSCONFIG_PAGE, 'type' => 'table', 'header' => 'x'],
+            'content type "table" is not offered on page [3] by its page TSconfig (TCEFORM.tt_content.CType.keepItems)',
+        );
+
+        $this->pageWithTsConfig('TCEFORM.tt_content.CType.removeItems = bullets, table');
+        $this->assertRefusedAndNothingCreated(
+            ['page' => self::TSCONFIG_PAGE, 'type' => 'table', 'header' => 'x'],
+            '(TCEFORM.tt_content.CType.removeItems)',
+        );
+    }
+
+    /**
+     * A select item page TSconfig removes, at column level or for the
+     * chosen type, is not a value the form offers there.
+     */
+    #[Test]
+    public function aSelectItemThePagesTsConfigRemovesIsRefused(): void
+    {
+        $this->pageWithTsConfig('TCEFORM.tt_content.layout.removeItems = 1,2,3');
+        $this->assertRefusedAndNothingCreated(
+            ['page' => self::TSCONFIG_PAGE, 'type' => 'table', 'header' => 'x', 'fields' => ['layout' => '1']],
+            'the value "1" for "layout" is not offered on page [3] by its page TSconfig (TCEFORM.tt_content.layout.removeItems)',
+        );
+
+        $this->pageWithTsConfig('TCEFORM.tt_content.layout.keepItems = 0,2');
+        $this->assertRefusedAndNothingCreated(
+            ['page' => self::TSCONFIG_PAGE, 'type' => 'table', 'header' => 'x', 'fields' => ['layout' => '1']],
+            '(TCEFORM.tt_content.layout.keepItems)',
+        );
+
+        $this->pageWithTsConfig('TCEFORM.tt_content.layout.types.table.removeItems = 2');
+        $this->assertRefusedAndNothingCreated(
+            ['page' => self::TSCONFIG_PAGE, 'type' => 'table', 'header' => 'x', 'fields' => ['layout' => '2']],
+            '(TCEFORM.tt_content.layout.types.table.removeItems)',
+        );
+    }
+
+    #[Test]
+    public function aColumnThePagesTsConfigDisablesIsRefused(): void
+    {
+        $this->pageWithTsConfig('TCEFORM.tt_content.subheader.disabled = 1');
+        $this->assertRefusedAndNothingCreated(
+            ['page' => self::TSCONFIG_PAGE, 'type' => 'table', 'header' => 'x', 'fields' => ['subheader' => 'Sub']],
+            '"subheader" is not shown on page [3] by its page TSconfig (TCEFORM.tt_content.subheader.disabled)',
+        );
+
+        // The body is an argument of its own and is hidden the same way.
+        $this->pageWithTsConfig('TCEFORM.tt_content.bodytext.types.table.disabled = 1');
+        $this->assertRefusedAndNothingCreated(
+            ['page' => self::TSCONFIG_PAGE, 'type' => 'table', 'header' => 'x', 'bodytext' => 'a|b'],
+            '"bodytext" is not shown on page [3] by its page TSconfig (TCEFORM.tt_content.bodytext.types.table.disabled)',
+        );
+    }
+
+    /**
+     * Core's EXT:frontend ships
+     * `TCEFORM.tt_content.imageorient.types.image.removeItems = 8,9,10,17,18,25,26`
+     * as global page TSconfig. On an `image` element those positions are
+     * refused; on `textpic`, which the rule does not name, and for a
+     * position it keeps, the element is created.
+     */
+    #[Test]
+    public function coresImageorientDefaultIsHonoured(): void
+    {
+        $this->assertRefusedAndNothingCreated(
+            ['page' => self::PAGE, 'type' => 'image', 'header' => 'x', 'fields' => ['imageorient' => 8]],
+            '(TCEFORM.tt_content.imageorient.types.image.removeItems)',
+        );
+
+        $admin   = $this->setUpBackendUser(1);
+        $context = ToolExecutionContext::fromBackendUser($admin);
+
+        $kept = $this->tool->execute(
+            ['page' => self::PAGE, 'type' => 'image', 'header' => 'x', 'fields' => ['imageorient' => 1]],
+            $context,
+        );
+        self::assertFalse($kept->isError, $kept->content);
+
+        $otherType = $this->tool->execute(
+            ['page' => self::PAGE, 'type' => 'textpic', 'header' => 'y', 'fields' => ['imageorient' => 8]],
+            $context,
+        );
+        self::assertFalse($otherType->isError, $otherType->content);
+        self::assertSame(2, $this->undeletedElementCount());
+    }
+
+    /**
+     * The page TSconfig names the page, so it is read only after the page
+     * is authorised: a user without access gets the neutral refusal.
+     */
+    #[Test]
+    public function thePagesTsConfigIsNotReportedToAUserWithoutAccessToThePage(): void
+    {
+        $this->pageWithTsConfig('TCEFORM.tt_content.CType.keepItems = text');
+        $editor = $this->editorFor('table');
+
+        $result = $this->tool->execute(
+            ['page' => self::TSCONFIG_PAGE, 'type' => 'table', 'header' => 'x'],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertSame('Page not found or not permitted.', $result->content);
+    }
+
     #[Test]
     public function thePreviewNamesEveryFieldTheCallWouldSet(): void
     {
@@ -810,6 +930,27 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         }
 
         $connection->executeStatement('ALTER TABLE tt_content ADD COLUMN ' . self::NATIVE_TIME_COLUMN . ' TIME DEFAULT NULL');
+    }
+
+    /**
+     * Page {@see self::TSCONFIG_PAGE}, outside the editors' mount, carrying
+     * the given page TSconfig — replaced when it already exists, so one test
+     * can try several rules. The runtime cache of page TSconfig is flushed.
+     */
+    private function pageWithTsConfig(string $tsConfig): void
+    {
+        $pages = $this->connectionPool->getConnectionForTable('pages');
+        $pages->delete('pages', ['uid' => self::TSCONFIG_PAGE]);
+        $pages->insert('pages', [
+            'uid' => self::TSCONFIG_PAGE, 'pid' => 0, 'title' => 'Narrowed', 'doktype' => 1, 'slug' => '/narrowed',
+            'sorting' => 2, 'TSconfig' => $tsConfig,
+            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => 0,
+        ]);
+
+        $runtimeCache = $this->get(CacheManager::class)->getCache('runtime');
+        self::assertInstanceOf(FrontendInterface::class, $runtimeCache);
+        $runtimeCache->flush();
     }
 
     /**

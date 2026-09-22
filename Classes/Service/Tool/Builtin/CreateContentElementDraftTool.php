@@ -600,6 +600,12 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         }
 
         // After the neutral refusal, because this one names the page.
+        $narrowed = $this->pageTsConfigRefusal($pageUid, $type, $fields, $bodytext !== null);
+        if ($narrowed !== null) {
+            return $narrowed;
+        }
+
+        // After the neutral refusal, because this one names the page.
         if ($language > 0
             && $this->holdsConnectedTranslations($pageUid, $language)
             && !$this->allowsInconsistentLanguageHandling($pageUid)
@@ -644,6 +650,150 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             // negative one is "directly after the record with that uid".
             'destination' => $afterUid > 0 ? -$afterUid : $pageUid,
         ];
+    }
+
+    /**
+     * The refusal the page's TSconfig gives this call, or null.
+     *
+     * `TCEFORM.tt_content` narrows the form per page, and only FormEngine
+     * applies it — the DataHandler stores a type or an item the form would
+     * not have offered. So the tool asks what FormEngine asks: the page
+     * TSconfig as {@see \TYPO3\CMS\Backend\Form\FormDataProvider\PageTsConfig}
+     * reads it, with `<column>.types.<CType>.` merged over `<column>.` as
+     * {@see \TYPO3\CMS\Backend\Form\FormDataProvider\PageTsConfigMerged}
+     * merges it (typo3/cms-backend 14.3.7):
+     *
+     * - `CType.keepItems` / `CType.removeItems` take the chosen type out of
+     *   the selector;
+     * - `<column>.disabled` hides a column, so it is not set through `fields`
+     *   and the body is not set where `bodytext` is hidden;
+     * - `<column>.keepItems` / `<column>.removeItems` take an item out of a
+     *   `select`, as `AbstractItemProvider` does; FormEngine does not apply
+     *   them to `radio` or `check`, and neither does this.
+     *
+     * The type list in the spec is page-independent — the TCA-level set —
+     * and this narrows it at call time.
+     *
+     * @param array<non-empty-string, string|int> $fields
+     */
+    private function pageTsConfigRefusal(int $pageUid, string $type, array $fields, bool $withBody): ?string
+    {
+        $tsConfig = BackendUtility::getPagesTSconfig($pageUid);
+        $tceForm  = is_array($tsConfig['TCEFORM.'] ?? null) ? $tsConfig['TCEFORM.'] : [];
+        $rules    = is_array($tceForm[self::TABLE . '.'] ?? null) ? $tceForm[self::TABLE . '.'] : [];
+        if ($rules === []) {
+            return null;
+        }
+
+        $rule = $this->tceFormRuleRemoving($rules, 'CType', $type, $type);
+        if ($rule !== null) {
+            return sprintf(
+                'Refused: content type "%s" is not offered on page [%d] by its page TSconfig (%s). Nothing was written.',
+                $type,
+                $pageUid,
+                $rule,
+            );
+        }
+
+        $shown = array_keys($fields);
+        if ($withBody) {
+            $shown[] = 'bodytext';
+        }
+
+        foreach ($shown as $column) {
+            $rule = $this->tceFormDisabling($rules, $column, $type);
+            if ($rule !== null) {
+                return sprintf(
+                    'Refused: "%s" is not shown on page [%d] by its page TSconfig (%s). Nothing was written.',
+                    $column,
+                    $pageUid,
+                    $rule,
+                );
+            }
+        }
+
+        $columns = $this->columnsOfType($type);
+        foreach ($fields as $column => $value) {
+            if (self::toStr($columns[$column]['type'] ?? '') !== 'select') {
+                continue;
+            }
+
+            $rule = $this->tceFormRuleRemoving($rules, $column, $type, (string)$value);
+            if ($rule !== null) {
+                return sprintf(
+                    'Refused: the value "%s" for "%s" is not offered on page [%d] by its page TSconfig (%s). Nothing '
+                    . 'was written.',
+                    (string)$value,
+                    $column,
+                    $pageUid,
+                    $rule,
+                );
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The path of the `keepItems` or `removeItems` rule that takes `$value`
+     * out of the column's items for the type, or null when none does. A
+     * `types.<CType>.` key overrides the column's own, as FormEngine merges
+     * them; a `keepItems` that is set but empty keeps nothing.
+     *
+     * @param array<array-key, mixed> $rules the page's `TCEFORM.tt_content.`
+     */
+    private function tceFormRuleRemoving(array $rules, string $column, string $type, string $value): ?string
+    {
+        [$columnRules, $typeRules] = $this->tceFormRulesOf($rules, $column, $type);
+        $prefix                    = 'TCEFORM.' . self::TABLE . '.' . $column . '.';
+
+        foreach (['keepItems', 'removeItems'] as $key) {
+            $list = array_key_exists($key, $typeRules) ? $typeRules[$key] : ($columnRules[$key] ?? null);
+            if (!is_string($list)) {
+                continue;
+            }
+
+            $items   = GeneralUtility::trimExplode(',', $list, true);
+            $removed = $key === 'keepItems' ? !in_array($value, $items, true) : in_array($value, $items, true);
+            if ($removed) {
+                return $prefix . (array_key_exists($key, $typeRules) ? 'types.' . $type . '.' : '') . $key;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The path of the `disabled` rule that hides the column for the type, or
+     * null when it is shown.
+     *
+     * @param array<array-key, mixed> $rules the page's `TCEFORM.tt_content.`
+     */
+    private function tceFormDisabling(array $rules, string $column, string $type): ?string
+    {
+        [$columnRules, $typeRules] = $this->tceFormRulesOf($rules, $column, $type);
+        $fromType                  = array_key_exists('disabled', $typeRules);
+        if (!(bool)($fromType ? $typeRules['disabled'] : ($columnRules['disabled'] ?? false))) {
+            return null;
+        }
+
+        return 'TCEFORM.' . self::TABLE . '.' . $column . '.' . ($fromType ? 'types.' . $type . '.' : '') . 'disabled';
+    }
+
+    /**
+     * The column's own TCEFORM rules and those for the type, apart.
+     *
+     * @param array<array-key, mixed> $rules
+     *
+     * @return array{array<array-key, mixed>, array<array-key, mixed>}
+     */
+    private function tceFormRulesOf(array $rules, string $column, string $type): array
+    {
+        $columnRules = is_array($rules[$column . '.'] ?? null) ? $rules[$column . '.'] : [];
+        $types       = is_array($columnRules['types.'] ?? null) ? $columnRules['types.'] : [];
+        $typeRules   = is_array($types[$type . '.'] ?? null) ? $types[$type . '.'] : [];
+
+        return [$columnRules, $typeRules];
     }
 
     /**
