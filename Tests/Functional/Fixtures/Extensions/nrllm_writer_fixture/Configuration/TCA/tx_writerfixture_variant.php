@@ -11,7 +11,10 @@ declare(strict_types=1);
  * A table whose type column declares no default: the record type comes from
  * core's own fallback ("0", then "1"). create_record_draft writes that type,
  * so the record carries it instead of the column's database default ('') and
- * the read-back finds what was checked (ADR-197).
+ * the read-back finds what was checked (ADR-197). The type column is an
+ * exclude field, so a user without its grant exercises the branch where the
+ * tool leaves the column to the DataHandler; type "2" is what a folder's
+ * `TCAdefaults` gives.
  */
 return [
     'ctrl' => [
@@ -25,6 +28,7 @@ return [
     ],
     'types' => [
         '1' => ['showitem' => 'title, variant'],
+        '2' => ['showitem' => 'title, variant'],
     ],
     'columns' => [
         'hidden' => [
@@ -36,11 +40,12 @@ return [
             'config' => ['type' => 'input', 'max' => 100],
         ],
         'variant' => [
-            'label'  => 'Variant',
-            'config' => [
+            'exclude' => true,
+            'label'   => 'Variant',
+            'config'  => [
                 'type'       => 'select',
                 'renderType' => 'selectSingle',
-                'items'      => [['label' => 'Standard', 'value' => '1']],
+                'items'      => [['label' => 'Standard', 'value' => '1'], ['label' => 'Special', 'value' => '2']],
             ],
         ],
     ],

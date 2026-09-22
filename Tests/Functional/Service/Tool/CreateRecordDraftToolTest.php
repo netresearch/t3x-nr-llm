@@ -89,6 +89,11 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     /** A folder whose `TCAdefaults` names a value that is no record type of the table. */
     private const FOLDER_UNDECLARED_DEFAULT = 9;
 
+    /** A folder whose `TCAdefaults` give tx_writerfixture_variant records type "2". */
+    private const FOLDER_VARIANT_DEFAULTS = 10;
+
+    private const VARIANT_TABLE = 'tx_writerfixture_variant';
+
     private const PUBLISHED_AT = 1789034400;
 
     private CreateRecordDraftTool $tool;
@@ -127,6 +132,7 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
             self::FOLDER_READ_ONLY => "TCEFORM.tx_writerfixture_item {\n  tone.config.readOnly = 1\n  priority.types.story.config.readOnly = 1\n  featured.config.readOnly = 0\n  mood.config.readOnly = 1\n  locked.config.readOnly = 0\n}",
             self::FOLDER_TCA_DEFAULTS       => 'TCAdefaults.tx_writerfixture_item.kind = story',
             self::FOLDER_UNDECLARED_DEFAULT => 'TCAdefaults.tx_writerfixture_item.kind = novel',
+            self::FOLDER_VARIANT_DEFAULTS   => 'TCAdefaults.tx_writerfixture_variant.variant = 2',
         ];
         foreach ($tceform as $uid => $tsConfig) {
             $pages->insert('pages', [
@@ -139,7 +145,7 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
 
         $groups = $this->connectionPool->getConnectionForTable('be_groups');
         $groups->insert('be_groups', [
-            'uid' => 7, 'pid' => 0, 'title' => 'Editors', 'db_mountpoints' => '1,2',
+            'uid' => 7, 'pid' => 0, 'title' => 'Editors', 'db_mountpoints' => '1,2,' . self::FOLDER_VARIANT_DEFAULTS,
         ]);
         $groups->update('be_users', ['usergroup' => '7', 'options' => 3], ['uid' => 2]);
 
@@ -765,6 +771,45 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * The record type the tool writes without an argument naming it is written
+     * only where the acting user may write the type column. Without the
+     * field-level grant the DataHandler would drop the column in silence, so
+     * the tool leaves it out and reads back what the DataHandler stores itself:
+     * the `TCAdefaults` type, which it applies to a new record either way, or
+     * the column's database default where the type is core's own fallback —
+     * which the read-back then does not compare.
+     *
+     * @return iterable<string, array{bool, int, string}>
+     */
+    public static function recordTypesByTypeColumnGrant(): iterable
+    {
+        yield "core's fallback, without the grant" => [false, self::FOLDER_OPEN, ''];
+        yield "core's fallback, with the grant"    => [true, self::FOLDER_OPEN, '1'];
+        yield 'TCAdefaults, without the grant'     => [false, self::FOLDER_VARIANT_DEFAULTS, '2'];
+    }
+
+    #[Test]
+    #[DataProvider('recordTypesByTypeColumnGrant')]
+    public function theRecordTypeIsWrittenOnlyWhereTheUserMayWriteItAndTheRecordIsKept(bool $granted, int $pid, string $stored): void
+    {
+        $editor                                  = $this->setUpBackendUser(2);
+        $editor->groupData['tables_modify']      = self::VARIANT_TABLE;
+        $editor->groupData['non_exclude_fields'] = $granted ? self::VARIANT_TABLE . ':variant' : '';
+
+        $result = $this->tool->execute(
+            ['table' => self::VARIANT_TABLE, 'pid' => $pid, 'fields' => ['title' => 'x']],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        $rows = $this->variantRows();
+        self::assertCount(1, $rows);
+        self::assertSame(0, (int)($rows[0]['deleted'] ?? 1), 'the record is kept');
+        self::assertSame(1, (int)($rows[0]['hidden'] ?? 0));
+        self::assertSame($stored, $rows[0]['variant'] ?? null);
+    }
+
+    /**
      * Page TSconfig `TCAdefaults` gives a new record its type where the call
      * does not (DataHandler::applyDefaultsForFieldArray()). The tool resolves
      * the same type and writes it, so the read-back finds it and the record
@@ -1141,6 +1186,23 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         self::assertCount(1, $rows, 'exactly one record must have been created');
 
         return $rows[0];
+    }
+
+    /**
+     * Every row of the variant fixture table, deleted and hidden ones included.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function variantRows(): array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::VARIANT_TABLE);
+        $queryBuilder->getRestrictions()->removeAll();
+
+        return $queryBuilder
+            ->select('uid', 'deleted', 'hidden', 'variant')
+            ->from(self::VARIANT_TABLE)
+            ->executeQuery()
+            ->fetchAllAssociative();
     }
 
     private function recordCount(): int

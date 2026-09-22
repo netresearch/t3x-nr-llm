@@ -102,10 +102,21 @@ decision. Removing one reopens ADR-135's argument.
    through :php:`WritesThroughDataHandlerTrait`. What TYPO3 still rewrites or
    drops in silence — a hook of the installation, a grant the pre-check does
    not model — is read back column by column, and so are the two values the
-   tool writes without an argument naming them: the default language it
-   forces and the record type it resolved (condition 3), which it writes
-   explicitly for the same reason, so the record carries the type its fields
-   were checked against in every branch; on a mismatch the record is
+   record carries without an argument naming them: the default language the
+   tool forces and the record type it resolved (condition 3). The record type
+   is not refused for a missing grant, because no argument names it: the tool
+   writes it explicitly only where the acting user may write the type column
+   — an admin, or the column is not ``exclude`` or is granted in
+   ``non_exclude_fields``, and on a select with ``authMode``
+   :php:`BackendUserAuthentication::checkAuthMode()` passes for the value —
+   so the record carries the type its fields were checked against. Otherwise
+   the column stays out of the datamap, since the DataHandler would drop it
+   in silence (:php:`DataHandler::fillInFieldArray()`,
+   :php:`DataHandler::checkValueForSelect()`), and the read-back expects what
+   the DataHandler stores itself: the resolved type where ``TCAdefaults`` or
+   the TCA default gave it, which :php:`DataHandler::newFieldArray()` applies
+   to a new record either way; nothing where it is core's fallback, which
+   leaves the column at its database default. On a mismatch the record is
    deleted again, the columns are named and the refusal says the value was
    dropped or rewritten by TYPO3, as the creating sibling writers do with a
    record they cannot vouch for. A rich-text column, whose stored form the

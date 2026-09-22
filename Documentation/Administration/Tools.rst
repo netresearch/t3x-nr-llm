@@ -589,7 +589,9 @@ What holds for all of them:
    valid address for an email. The record type is the one the DataHandler
    gives the record — the call's value for the type column, else
    ``TCAdefaults`` from the page's TSconfig, then from the acting user's, else
-   the column's default — and the tool writes it explicitly; a ``TCAdefaults``
+   the column's default — and the tool writes it explicitly where the acting
+   user may write the type column, leaving it to the DataHandler otherwise; a
+   ``TCAdefaults``
    value that names no record type of the table is refused. Every column the
    record type marks required must be given. A value the DataHandler would rewrite is refused rather
    than written: a column with an ``eval`` the DataHandler acts on
@@ -611,7 +613,8 @@ What holds for all of them:
    column the call sets — asked before the write, because the DataHandler
    drops such a column in silence. What TYPO3 still rewrites — a hook of the
    installation, a grant the pre-check does not model — is read back
-   afterwards, the default language and the record type included; a record
+   afterwards, the default language included, and the record type unless it
+   is core's fallback type and the tool could not write it; a record
    that does not carry what was approved is deleted again and the columns are
    named.
 
