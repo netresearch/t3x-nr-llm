@@ -31,7 +31,7 @@ return [
         ],
     ],
     'types' => [
-        'note'  => ['showitem' => 'title, teaser, kind, --palette--;;timing, --div--;More, featured, contact, tone, related'],
+        'note'  => ['showitem' => 'title, teaser, kind, --palette--;;timing, --div--;More, featured, contact, tone, rating, related'],
         'story' => ['showitem' => 'title, kind, --palette--;;timing, featured'],
         // Per-type configuration the DataHandler validates against
         // (`columnsOverrides`): `teaser` is required and `body` is rich text
@@ -138,6 +138,12 @@ return [
                     ['label' => 'Loud', 'value' => 'loud'],
                 ],
             ],
+        ],
+        'rating' => [
+            'label'  => 'Rating',
+            // The DataHandler stores two decimals and clamps by ceil/floor
+            // against the range, so 4.2 would come out as 4.5.
+            'config' => ['type' => 'number', 'format' => 'decimal', 'range' => ['lower' => 0, 'upper' => 4.5], 'default' => 0],
         ],
         'related' => [
             'label'  => 'Related',

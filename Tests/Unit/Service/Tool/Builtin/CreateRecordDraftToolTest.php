@@ -70,6 +70,12 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
             'tx_demo_hidden'     => ['ctrl' => ['hideTable' => true, 'enablecolumns' => ['disabled' => 'hidden']], 'columns' => []],
             'tx_demo_read_only'  => ['ctrl' => ['readOnly' => true, 'enablecolumns' => ['disabled' => 'hidden']], 'columns' => []],
             'tx_demo_no_hidden'  => ['ctrl' => ['delete' => 'deleted'], 'columns' => ['title' => ['config' => ['type' => 'input']]]],
+            // The record type lives in a related record (`field:field`).
+            'tx_demo_foreign_type' => [
+                'ctrl'    => ['type' => 'parent:kind', 'enablecolumns' => ['disabled' => 'hidden']],
+                'types'   => ['0' => ['showitem' => 'title']],
+                'columns' => ['title' => ['config' => ['type' => 'input']]],
+            ],
             self::TABLE => [
                 'ctrl' => [
                     'title'                 => 'Demo item',
@@ -82,7 +88,7 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
                     'enablecolumns'         => ['disabled' => 'hidden', 'starttime' => 'starttime', 'fe_group' => 'fe_group'],
                 ],
                 'types' => [
-                    'note'  => ['showitem' => 'title, teaser, kind, --palette--;;timing, --div--;More, featured, contact, tone, related, colour, rank'],
+                    'note'  => ['showitem' => 'title, teaser, kind, --palette--;;timing, --div--;More, featured, contact, tone, related, colour, rank, topic, section'],
                     'story' => ['showitem' => 'title, kind, --palette--;;timing'],
                 ],
                 'palettes' => [
@@ -109,6 +115,9 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
                     // `exclude` written the pre-boolean way: core treats any
                     // truthy value as access-controlled.
                     'rank'             => ['label' => 'Rank', 'exclude' => 1, 'config' => ['type' => 'number']],
+                    // Static items AND a foreign table: the value may be a uid.
+                    'topic'            => ['label' => 'Topic', 'config' => ['type' => 'select', 'renderType' => 'selectSingle', 'items' => [['label' => 'None', 'value' => 0]], 'foreign_table' => 'tx_demo_topic']],
+                    'section'          => ['label' => 'Section', 'config' => ['type' => 'select', 'renderType' => 'selectSingle', 'items' => [['label' => 'Group', 'value' => '--div--'], ['label' => 'A', 'value' => 'a']]]],
                 ],
             ],
         ];
@@ -232,6 +241,7 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
         yield 'hideTable table'        => [$call($valid, table: 'tx_demo_hidden'), 'hideTable'];
         yield 'readOnly table'         => [$call($valid, table: 'tx_demo_read_only'), 'readOnly'];
         yield 'no disabled column'     => [$call($valid, table: 'tx_demo_no_hidden'), 'no "disabled" enable column'];
+        yield 'type in a related record' => [$call($valid, table: 'tx_demo_foreign_type'), 'depends on a related record'];
         yield 'zero pid'               => [$call($valid, pid: 0), 'positive uid of exactly one page'];
         yield 'negative pid'           => [$call($valid, pid: -3), 'positive uid of exactly one page'];
         yield 'no fields'              => [['table' => self::TABLE, 'pid' => 7], '"fields" must be an object'];
@@ -253,6 +263,8 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
         yield 'a column name with odd chars' => [$call($valid + ['title;x' => 'x']), 'not a valid identifier'];
         yield 'relation column'        => [$call($valid + ['related' => '1']), 'only scalar columns'];
         yield 'date-only datetime'     => [$call($valid + ['archived_on' => 1]), 'only scalar columns'];
+        yield 'select with a foreign table' => [$call($valid + ['topic' => 0]), 'only scalar columns'];
+        yield 'a divider as a value'   => [$call($valid + ['section' => '--div--']), 'must be one of: "a".'];
         yield 'not in the showitem'    => [$call($valid + ['kind' => 'story', 'teaser' => 'x']), 'not shown for record type "story"'];
         yield 'select outside items'   => [$call($valid + ['kind' => 'novel']), 'must be one of'];
         yield 'radio outside items'    => [$call($valid + ['tone' => 'shrill']), 'must be one of'];

@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RewritesTheWriterFixtureItemHook;
 use Netresearch\NrLlm\Tests\Fixtures\Tool\WriterFixtureItemCreatorTool;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeRecordCreatorTool;
@@ -364,6 +365,38 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         self::assertSame(2, (int)($this->createdRecord()['priority'] ?? 0));
     }
 
+    #[Test]
+    public function anIsoDateTimeIsStoredAsItsTimestamp(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            $this->call(['title' => 'x', 'published_at' => '2026-09-21T10:00:00+02:00']),
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(1789977600, (int)($this->createdRecord()['published_at'] ?? 0));
+    }
+
+    /**
+     * The DataHandler stores a decimal with two places; the read-back compares
+     * it as a number, so 1.234 stored as 1.23 is the record that was asked for.
+     */
+    #[Test]
+    public function aDecimalIsStoredWithTwoPlacesAndKept(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            $this->call(['title' => 'x', 'rating' => 1.234]),
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertEqualsWithDelta(1.23, (float)($this->createdRecord()['rating'] ?? 0), 0.0001);
+    }
+
     /**
      * `teaser` is required only through the `event` type's columnsOverrides.
      * The DataHandler validates against that per-type configuration and drops
@@ -483,27 +516,38 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * A silent rewrite the pre-checks do not model: a `text` column with a
-     * TCA `min` is reset to '' by the DataHandler when the value is shorter,
-     * without an errorLog entry (`checkValueForText()`). The read-back must
-     * name the field, and the half-made record must not stay.
+     * @return iterable<string, array{array<string, mixed>, string}>
+     */
+    public static function rewrittenRecords(): iterable
+    {
+        yield 'the hidden flag' => [['title' => 'rewrite:hidden'], 'it is not hidden'];
+        yield 'the page'        => [['title' => 'rewrite:pid'], 'the page differs'];
+        yield 'a field'         => [['title' => 'rewrite:teaser', 'teaser' => 'A teaser long enough'], 'these fields did not take: teaser'];
+    }
+
+    /**
+     * A silent rewrite no pre-check can model: an installation's own
+     * DataHandler hook changes the row after every check. The read-back must
+     * name what differs, and the record nobody approved in that shape must not
+     * stay — least of all a visible one.
      *
-     * An `authMode` violation is not usable as the lever here: on the core
-     * this repository resolves, the DataHandler refuses the whole record with
-     * a logged error, which the errorLog check catches before any read-back.
+     * @param array<string, mixed> $fields
      */
     #[Test]
-    public function theReadBackNamesAFieldTheDataHandlerDroppedAndDeletesTheRecord(): void
+    #[DataProvider('rewrittenRecords')]
+    public function theReadBackNamesWhatWasRewrittenAndDeletesTheRecord(array $fields, string $expectedFragment): void
     {
         $admin = $this->setUpBackendUser(1);
+        $this->registerRewritingHook();
 
-        $result = $this->tool->execute(
-            $this->call(['title' => 'x', 'teaser' => 'short']),
-            ToolExecutionContext::fromBackendUser($admin),
-        );
+        try {
+            $result = $this->tool->execute($this->call($fields), ToolExecutionContext::fromBackendUser($admin));
+        } finally {
+            $this->unregisterRewritingHook();
+        }
 
         self::assertTrue($result->isError, $result->content);
-        self::assertStringContainsString('teaser', $result->content);
+        self::assertStringContainsString($expectedFragment, $result->content);
         self::assertStringContainsString('was deleted again', $result->content);
         self::assertSame(1, $this->recordCount(), 'the row exists, flagged deleted');
         self::assertSame(0, $this->undeletedRecordCount());
@@ -612,6 +656,63 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         $extensions['nr_llm']        = $nrLlm;
         $confVars['EXTENSIONS']      = $extensions;
         $GLOBALS['TYPO3_CONF_VARS']  = $confVars;
+    }
+
+    private function registerRewritingHook(): void
+    {
+        $hooks   = $this->dataHandlerHooks();
+        $hooks[] = RewritesTheWriterFixtureItemHook::class;
+        $this->storeDataHandlerHooks($hooks);
+    }
+
+    private function unregisterRewritingHook(): void
+    {
+        $this->storeDataHandlerHooks(array_values(array_filter(
+            $this->dataHandlerHooks(),
+            static fn(mixed $className): bool => $className !== RewritesTheWriterFixtureItemHook::class,
+        )));
+    }
+
+    /**
+     * The `processDatamapClass` hook list, narrowed step by step — `$GLOBALS`
+     * is untyped.
+     *
+     * @return array<array-key, mixed>
+     */
+    private function dataHandlerHooks(): array
+    {
+        $confVars = $GLOBALS['TYPO3_CONF_VARS'] ?? [];
+        $options  = is_array($confVars) ? ($confVars['SC_OPTIONS'] ?? []) : [];
+        $tcemain  = is_array($options) ? ($options['t3lib/class.t3lib_tcemain.php'] ?? []) : [];
+        $hooks    = is_array($tcemain) ? ($tcemain['processDatamapClass'] ?? []) : [];
+
+        return is_array($hooks) ? $hooks : [];
+    }
+
+    /**
+     * @param array<array-key, mixed> $hooks
+     */
+    private function storeDataHandlerHooks(array $hooks): void
+    {
+        $confVars = $GLOBALS['TYPO3_CONF_VARS'] ?? [];
+        if (!is_array($confVars)) {
+            $confVars = [];
+        }
+
+        $options = $confVars['SC_OPTIONS'] ?? [];
+        if (!is_array($options)) {
+            $options = [];
+        }
+
+        $tcemain = $options['t3lib/class.t3lib_tcemain.php'] ?? [];
+        if (!is_array($tcemain)) {
+            $tcemain = [];
+        }
+
+        $tcemain['processDatamapClass']           = $hooks;
+        $options['t3lib/class.t3lib_tcemain.php'] = $tcemain;
+        $confVars['SC_OPTIONS']                   = $options;
+        $GLOBALS['TYPO3_CONF_VARS']               = $confVars;
     }
 
     /**
