@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -234,15 +235,14 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         // it was before the complaint is reported.
         $refused = $this->refuseOnDataHandlerErrors($dataHandler);
         if ($refused instanceof ToolResult) {
-            $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $user);
-
-            return $refused;
+            return ToolResult::error($refused->content . ' ' . $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $user));
         }
 
         if ($newUid < 1) {
-            $this->discard(0, $plan['page'], $plan['field'], $survivors, $user);
-
-            return ToolResult::error('The reference was not created, and the DataHandler reported no error.');
+            return ToolResult::error(
+                'The reference was not created, and the DataHandler reported no error. '
+                . $this->discard(0, $plan['page'], $plan['field'], $survivors, $user),
+            );
         }
 
         // Read back BEFORE the replaced references are deleted. The row must
@@ -253,9 +253,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         // are still live to be put back, because the cmdmap has not run yet.
         $mismatch = $this->readBack($plan['page'], $plan['field'], $newUid, $plan['file']);
         if ($mismatch !== null) {
-            $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $user);
-
-            return ToolResult::error($mismatch . ' The reference was taken back and the page left as it was.');
+            return ToolResult::error($mismatch . ' ' . $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $user));
         }
 
         if ($cmdmap !== []) {
@@ -270,16 +268,15 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         // the page counts those (measured, not read).
         $live = array_map(static fn(array $reference): int => $reference['uid'], $this->existingReferences($plan['page'], $plan['field']));
         if ($live !== [$newUid]) {
-            $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $user);
-
             return ToolResult::error(sprintf(
                 'Reference [%d] was created, but page [%d] still carries %d other live reference(s) in "%s": the previous '
-                . 'reference(s) were not removed. The new reference was taken back and the page left as it was.%s',
+                . 'reference(s) were not removed.%s %s',
                 $newUid,
                 $plan['page'],
                 count(array_diff($live, [$newUid])),
                 $plan['field'],
                 $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . $this->summariseErrors($dataHandler->errorLog),
+                $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $user),
             ));
         }
 
@@ -567,11 +564,25 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      * was set to the new reference alone. A page whose side the DataHandler
      * dropped without an error still counts what it counted before: 0 for a
      * fresh field, the previous count for a replaced one. That count is 1 when
-     * exactly one reference was there, and this check cannot tell it from the
-     * new one — the run then ends with the new row as the single live, counted
-     * reference, which is the state asked for. The limit is stated rather than
-     * closed: the only stricter signal would be the DataHandler's own history
-     * of the page row (`historyRecords`), which the tool does not read.
+     * exactly one reference was there — and since this tool leaves every field
+     * it sets at exactly one reference, 1 is the previous count of every
+     * replace on a field the tool set before, the tool's own steady state
+     * rather than an edge. The counter cannot tell that stale 1 from the new
+     * one.
+     *
+     * The second signal covers the steady state on a translated page. A
+     * translation that follows its parent gets a copy of the new reference,
+     * minted in the same run and moved onto the translation's uid when the
+     * translation's page row is written. A copy still on THIS page is one that
+     * move never reached — the translation's side was dropped along with the
+     * page's — and the cmdmap would go on to delete the copy the translation
+     * still holds, leaving it counting an image it does not have. On a page
+     * without translations no copy is minted, so a dropped side at a previous
+     * count of 1 stays undetectable there: the run ends with the new row as
+     * the single live, counted reference, which is the state asked for. That
+     * limit is stated rather than closed; the only stricter signal would be
+     * the DataHandler's own history of the page row (`historyRecords`), which
+     * the tool does not read.
      *
      * The grant is NOT named here: both silent-drop shapes the DataHandler has
      * are refused by {@see self::plan()} before the write, so when this fires
@@ -601,6 +612,18 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             );
         }
 
+        $copies = $this->localizedCopiesLeftOn($pageUid, $field, $referenceUid);
+        if ($copies !== []) {
+            return sprintf(
+                'Reference [%d] was created, but the copy TYPO3 minted of it for a translation of page [%d] '
+                . '(reference [%s]) stayed on the page instead of moving to the translation, so the translation '
+                . "would count an image it does not hold: the translation's side of the relation was not written.",
+                $referenceUid,
+                $pageUid,
+                implode(', ', $copies),
+            );
+        }
+
         return null;
     }
 
@@ -616,9 +639,30 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      * it would need CONTENT_EDIT, which the user who just passed PAGE_EDIT does
      * not necessarily hold — and the orphan would stay.
      *
+     * The two halves run under their own guards. Writing the field back makes
+     * core's `DataMapProcessor` synchronise every parent-following translation
+     * of the page, and where a survivor has to be localised for one and
+     * `localize()` refuses — the translation's language is not in the site
+     * configuration, or the acting user may not insert the copy — it throws
+     * out of `process_datamap()` (`RuntimeException` 1486233164). The delete
+     * of the new reference has to run regardless, and it does: the DataHandler
+     * still holds the page row in its datamap, so the delete is checked
+     * against PAGE_EDIT as before.
+     *
+     * What the page holds afterwards decides what is reported, not what the
+     * DataHandler said: the new reference and the copies minted of it must no
+     * longer be live, and the page must count exactly the default-language
+     * references that are. Anything the DataHandler threw or logged is named
+     * as well, so a put-back that landed on the page while a translation could
+     * not be re-synchronised is never reported as clean.
+     *
      * @param list<string> $survivors the reference uids the page had before this call
+     *
+     * @return string the sentence that follows the complaint: the page is back
+     *                as the call found it, or which part of the put-back did
+     *                not land
      */
-    private function discard(int $referenceUid, int $pageUid, string $field, array $survivors, BackendUserAuthentication $user): void
+    private function discard(int $referenceUid, int $pageUid, string $field, array $survivors, BackendUserAuthentication $user): string
     {
         $restore = GeneralUtility::makeInstance(DataHandler::class);
         $restore->start(
@@ -626,8 +670,82 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             $referenceUid > 0 ? [self::REFERENCE_TABLE => [$referenceUid => ['delete' => 1]]] : [],
             $user,
         );
-        $restore->process_datamap();
-        $restore->process_cmdmap();
+
+        $reported = [];
+        try {
+            $restore->process_datamap();
+        } catch (Throwable $throwable) {
+            $reported[] = $throwable->getMessage();
+        }
+
+        try {
+            $restore->process_cmdmap();
+        } catch (Throwable $throwable) {
+            $reported[] = $throwable->getMessage();
+        }
+
+        foreach ($restore->errorLog as $entry) {
+            $reported[] = self::toStr($entry);
+        }
+
+        $report = $reported === [] ? '' : ' TYPO3 reported while putting it back: ' . $this->summariseErrors($reported);
+
+        $live    = array_map(static fn(array $reference): int => $reference['uid'], $this->existingReferences($pageUid, $field));
+        $counter = self::toInt($this->fetchRowByUid(self::PAGES_TABLE, $pageUid)[$field] ?? 0);
+
+        $notLanded = [];
+        if ($referenceUid > 0 && in_array($referenceUid, $live, true)) {
+            $notLanded[] = sprintf('reference [%d] is still live on page [%d]', $referenceUid, $pageUid);
+        }
+
+        if ($referenceUid > 0 && $this->localizedCopiesLeftOn($pageUid, $field, $referenceUid) !== []) {
+            $notLanded[] = sprintf('a translated copy of reference [%d] is still live on page [%d]', $referenceUid, $pageUid);
+        }
+
+        if ($counter !== count($live)) {
+            $notLanded[] = sprintf('page [%d] counts %d reference(s) in "%s" while %d is/are live', $pageUid, $counter, $field, count($live));
+        }
+
+        if ($notLanded !== []) {
+            return sprintf('Taking the write back did not land: %s.%s', implode('; ', $notLanded), $report);
+        }
+
+        return 'The reference was taken back and the page left as it was.' . $report;
+    }
+
+    /**
+     * The live copies of one reference that core minted for a translation of
+     * the page and that still sit on the page itself: language above the
+     * default, `l10n_parent` the reference, `uid_foreign` the page. In a
+     * healthy run each such copy is moved onto its translation's uid before
+     * the run ends; one left here is the tell that the translation's page row
+     * was dropped.
+     *
+     * @return list<int>
+     */
+    private function localizedCopiesLeftOn(int $pageUid, string $field, int $referenceUid): array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::REFERENCE_TABLE);
+        $queryBuilder->getRestrictions()->removeAll();
+
+        /** @var list<array<string, mixed>> $rows */
+        $rows = $queryBuilder
+            ->select('uid')
+            ->from(self::REFERENCE_TABLE)
+            ->where(
+                $queryBuilder->expr()->eq('uid_foreign', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('tablenames', $queryBuilder->createNamedParameter(self::PAGES_TABLE)),
+                $queryBuilder->expr()->eq('fieldname', $queryBuilder->createNamedParameter($field)),
+                $queryBuilder->expr()->gt('sys_language_uid', $queryBuilder->createNamedParameter(self::DEFAULT_LANGUAGE, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('l10n_parent', $queryBuilder->createNamedParameter($referenceUid, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter(self::LIVE_WORKSPACE, Connection::PARAM_INT)),
+            )
+            ->orderBy('uid', 'ASC')
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        return array_map(static fn(array $row): int => self::toInt($row['uid'] ?? 0), $rows);
     }
 
     /**

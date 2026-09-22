@@ -365,7 +365,11 @@ What holds for all of them:
    The page's own reference count is re-read afterwards, because EXT:seo reads
    it before it looks for the file: a reference the page does not count is one
    nothing renders. When that check fails, the new reference is deleted again
-   and the page is left as the call found it.
+   and the page is written back to what it held; the tool then reads the page
+   once more and the message says whether it is back as the call found it or
+   what is still there, and names anything TYPO3 reported while putting it
+   back — on a translated page that can be a translation it could not
+   re-synchronise, which the tool reports rather than repairs.
 
 ``set_file_alternative_text``
    Sets the alternative text (``sys_file_metadata.alternative``) of one managed

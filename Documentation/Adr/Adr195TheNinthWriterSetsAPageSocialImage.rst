@@ -162,20 +162,56 @@ as :ref:`ADR-192 <adr-192>` does), and the whole call is refused before
 anything is written. The read-back stays as the backstop, and when it fails
 it **takes the write back**. The row on the named page, field and file and a
 page counter of one are checked before the replaced references are deleted,
-so the page can be put back exactly as the call found it: the new reference
-is deleted and the previous ones, still live, are written back into the
-page's field. That the field holds exactly one live default-language reference
-is checked after the cmdmap, where whatever else is live is a previous
-reference the delete did not remove; the new one is taken back the same way,
-and of the list written back the DataHandler relates only the rows still
-live (measured on the fixture with a partly removed list). The first version
-reported the mismatch and left the new row in place, arguing that a repair
-would have to guess which of two rows to keep — it does not, because the plan
-names the rows that were there. One limit is stated rather than closed: a
-replaced field whose previous count was exactly one still reads 1 after a
-dropped page side, and the read-back cannot tell that stale count from the new
-one; the run then ends with the new row as the single live, counted reference,
-which is the state asked for.
+so the page can be put back as the call found it: the new reference is
+deleted and the previous ones, still live, are written back into the page's
+field. That the field holds exactly one live default-language reference is
+checked after the cmdmap, where whatever else is live is a previous reference
+the delete did not remove; the new one is taken back the same way, and of the
+list written back the DataHandler relates only the rows still live (measured
+on the fixture with a partly removed list). The first version reported the
+mismatch and left the new row in place, arguing that a repair would have to
+guess which of two rows to keep — it does not, because the plan names the
+rows that were there.
+
+**What the put-back guarantees, and on which page.** The default-language
+page: after the put-back the tool reads it again and reports from what it
+holds, not from what the DataHandler said — the new reference and the copies
+core minted of it are no longer live, and the page counts exactly the
+default-language references that are. Where that is not the case the message
+says what is still there, never "left as it was". The translation is not
+verified. Writing the field back makes core's :php:`DataMapProcessor`
+synchronise every parent-following translation, and where the translation no
+longer holds a copy of a survivor — an administrator's dropped run deletes
+those copies; an editor's cannot, because the delete is checked against
+``CONTENT_EDIT`` without the page in that run's datamap — core issues a
+``localize`` command for it. That command needs the translation's language on
+the page's site and refuses for a deleted record, and when it refuses core
+throws out of the datamap (``RuntimeException`` 1486233164; the first version
+of the put-back let it escape with the new reference still live). Each half
+of the put-back therefore runs under its own guard, the delete runs whatever
+the datamap did, and whatever core threw or logged is named in the message.
+Measured on the fixture: an editor's failed replace on a translated page
+leaves both pages as they were; an administrator's re-mints the translation's
+copies where the site declares the language, and where it does not the
+translation is left counting references it no longer holds, which the message
+reports and the tool does not repair.
+
+**The counter's limit is this tool's steady state, not an edge.** The tool
+leaves every field it sets at exactly one reference, so every replace on a
+field it set before has a previous count of one, and a page side dropped on
+such a replace leaves the counter at 1 — the read-back cannot tell that stale
+count from the new one. On a translated page the second signal catches it: a
+parent-following translation gets a copy of the new reference in the same
+run, moved onto the translation's uid when the translation's page row is
+written, so a copy still on the default-language page means the translation's
+side was dropped too — the cmdmap would then delete the copy the translation
+still holds and leave it counting an image it does not have. The read-back
+treats such a copy as a mismatch and both pages go back to what they held. On
+a page without translations no copy is minted, and there a dropped side at a
+previous count of one stays undetectable: the run ends with the new row as
+the single live, counted reference, which is the state asked for. The only
+stricter signal would be the DataHandler's own history of the page row, which
+the tool does not read.
 
 Whether a column is subject to that grant, and whether it is dropped for a
 different reason, is decided with the DataHandler's own predicates

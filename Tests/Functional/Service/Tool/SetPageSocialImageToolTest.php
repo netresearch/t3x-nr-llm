@@ -14,17 +14,21 @@ use Netresearch\NrLlm\Service\Tool\Builtin\SetPageSocialImageTool;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\DropsThePageImageFieldsHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\DropsThePutBackDeleteCommandHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\DropsTheReferenceDeleteCommandHook;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Cache\CacheManager;
+use TYPO3\CMS\Core\Configuration\SiteConfiguration;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
+use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -175,8 +179,43 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
     {
         $this->stopDroppingThePageImageFields();
         $this->stopDroppingTheReferenceDeleteCommand();
+        $this->stopDroppingThePutBackDeleteCommand();
         unset($GLOBALS['TYPO3_REQUEST'], $GLOBALS['LANG']);
         parent::tearDown();
+    }
+
+    /**
+     * Give the instance a site whose languages are the two the fixture's
+     * pages are in. Core's `localize` command — which the run that puts a
+     * page back issues for a survivor the translation has no copy of — needs
+     * the target language declared on the page's site, and refuses otherwise.
+     *
+     * The site is written per test: the testing framework removes the
+     * directory and the compiled site cache in its tearDown, and builds a
+     * fresh container for every test, so a site declared here cannot reach a
+     * test that declares none.
+     */
+    private function declareSiteLanguages(): void
+    {
+        $siteDir = $this->instancePath . '/typo3conf/sites/social';
+        GeneralUtility::mkdir_deep($siteDir);
+        file_put_contents($siteDir . '/config.yaml', <<<YAML
+            rootPageId: 1
+            base: 'http://localhost:59999/'
+            languages:
+              - languageId: 0
+                title: English
+                locale: en_US.UTF-8
+                base: /
+              - languageId: 1
+                title: Deutsch
+                locale: de_DE.UTF-8
+                base: /de/
+            YAML);
+        // Read the file into the runtime cache now, and drop the root-page
+        // mapping the SiteFinder may have derived before the file existed.
+        $this->getService(SiteConfiguration::class)->resolveAllExistingSites(false);
+        $this->getService(CacheManager::class)->getCache('runtime')->remove('sites-root-id-to-identifier');
     }
 
     /**
@@ -207,6 +246,21 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
     private function stopDroppingTheReferenceDeleteCommand(): void
     {
         $this->unregisterDataHandlerHook('processCmdmapClass', DropsTheReferenceDeleteCommandHook::class);
+    }
+
+    /**
+     * Make the run that takes a failed write back skip its delete of the new
+     * reference in silence — the state the check after the put-back exists to
+     * report; see the hook.
+     */
+    private function dropThePutBackDeleteCommand(): void
+    {
+        $this->registerDataHandlerHook('processCmdmapClass', DropsThePutBackDeleteCommandHook::class);
+    }
+
+    private function stopDroppingThePutBackDeleteCommand(): void
+    {
+        $this->unregisterDataHandlerHook('processCmdmapClass', DropsThePutBackDeleteCommandHook::class);
     }
 
     private function registerDataHandlerHook(string $list, string $className): void
@@ -278,6 +332,36 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
             'tablenames' => 'pages', 'fieldname' => $field, 'sorting_foreign' => $uid,
             'sys_language_uid' => 0, 'l10n_parent' => 0, 'deleted' => 0,
         ]);
+    }
+
+    /**
+     * Two references on the open page's `og_image`, as FormEngine leaves them
+     * (the TCA permits several), each with the copy core minted for the
+     * translated page when they were saved: rows 1 and 2 on page 1, rows 3
+     * and 4 on page 3, both pages counting two.
+     */
+    private function seedTwoReferencesWithTheirTranslationCopies(): void
+    {
+        $this->seedReference(1, self::FILE_ONE, 'og_image');
+        $this->seedReference(2, self::FILE_TWO, 'og_image');
+        $this->seedReference(3, self::FILE_ONE, 'og_image', ['uid_foreign' => self::PAGE_TRANSLATED, 'sys_language_uid' => 1, 'l10n_parent' => 1]);
+        $this->seedReference(4, self::FILE_TWO, 'og_image', ['uid_foreign' => self::PAGE_TRANSLATED, 'sys_language_uid' => 1, 'l10n_parent' => 2]);
+        $this->connectionPool->getConnectionForTable('pages')->update('pages', ['og_image' => 2], ['uid' => self::PAGE_OPEN]);
+        $this->connectionPool->getConnectionForTable('pages')->update('pages', ['og_image' => 2], ['uid' => self::PAGE_TRANSLATED]);
+    }
+
+    /**
+     * The files the live rows on a page's field point at, in uid order — what
+     * a page holds regardless of which uids core minted for the rows.
+     *
+     * @return list<int>
+     */
+    private function liveFiles(string $field, int $pageUid = self::PAGE_OPEN): array
+    {
+        return array_values(array_map(
+            static fn(array $row): int => $row['uid_local'],
+            array_filter($this->references($field, $pageUid), static fn(array $row): bool => $row['deleted'] === 0),
+        ));
     }
 
     private function actor(int $uid): BackendUserAuthentication
@@ -748,6 +832,8 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
 
         self::assertTrue($result->isError);
         self::assertStringContainsString('counts 0 reference(s)', $result->content);
+        self::assertStringContainsString('left as it was', $result->content);
+        self::assertStringNotContainsString('TYPO3 reported', $result->content, 'the put-back had nothing to complain about');
         self::assertStringNotContainsString('exclude field', $result->content, 'the editor holds the grant; that is not the cause');
         self::assertStringNotContainsString('previous reference', $result->content, 'there was none');
         self::assertSame(
@@ -756,6 +842,8 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
             'no live reference in any language is left on the page',
         );
         self::assertSame(0, $this->counter('og_image'));
+        self::assertSame([], $this->liveFiles('og_image', self::PAGE_TRANSLATED));
+        self::assertSame(0, $this->counter('og_image', self::PAGE_TRANSLATED));
 
         $this->stopDroppingThePageImageFields();
 
@@ -777,35 +865,144 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
      * TCA permits them, FormEngine writes them — so the stale counter cannot
      * pass for the expected one by coincidence.
      *
-     * Without the translated page: putting pre-existing children back makes
-     * core's `DataMapProcessor` localise them for a parent-following
-     * translation, and `localize` needs a site language this fixture does not
-     * declare. In an installation those copies exist from the save that wrote
-     * the children; the claim here is about the default-language page alone.
+     * With the translated page, and the copies core minted for it when the
+     * two were saved. The run whose page side is dropped tries to delete those
+     * copies (the translation is synchronised to the new reference alone), and
+     * for this editor core refuses that — the copy sits on a page they hold
+     * PAGE_EDIT on, and a delete issued without the page in the datamap asks
+     * CONTENT_EDIT — so the translation still holds them when the field is
+     * written back, and nothing has to be localised again. The page and its
+     * translation end as the call found them, and the message says so without
+     * a complaint. The two `sys_log` error rows of that refused delete are
+     * core's, from the run that created the reference.
      */
     #[Test]
     public function aFailedReadBackInAReplaceCallKeepsThePreviousReferences(): void
     {
-        $this->connectionPool->getConnectionForTable('pages')->delete('pages', ['uid' => self::PAGE_TRANSLATED]);
-        $this->seedReference(1, self::FILE_ONE, 'og_image');
-        $this->seedReference(2, self::FILE_TWO, 'og_image');
-        $this->connectionPool->getConnectionForTable('pages')->update('pages', ['og_image' => 2], ['uid' => self::PAGE_OPEN]);
+        $this->seedTwoReferencesWithTheirTranslationCopies();
         $this->dropThePageImageFields();
 
         $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE, 'replace' => true], userUid: 2);
 
         self::assertTrue($result->isError);
         self::assertStringContainsString('counts 2 reference(s)', $result->content);
+        self::assertStringContainsString('left as it was', $result->content);
+        self::assertStringNotContainsString('TYPO3 reported', $result->content);
         self::assertStringNotContainsString('previous reference', $result->content);
         self::assertSame(
             [
                 ['uid' => 1, 'uid_local' => self::FILE_ONE, 'deleted' => 0],
                 ['uid' => 2, 'uid_local' => self::FILE_TWO, 'deleted' => 0],
-                ['uid' => 3, 'uid_local' => self::FILE_ONE, 'deleted' => 1],
+            ],
+            array_values(array_filter($this->references('og_image'), static fn(array $row): bool => $row['deleted'] === 0)),
+            'the two previous references are the only live rows on the page, in any language',
+        );
+        self::assertCount(4, $this->references('og_image'), 'the new reference and the copy minted of it are still there, deleted');
+        self::assertSame(2, $this->counter('og_image'));
+
+        self::assertSame(
+            [
+                ['uid' => 3, 'uid_local' => self::FILE_ONE, 'deleted' => 0],
+                ['uid' => 4, 'uid_local' => self::FILE_TWO, 'deleted' => 0],
+            ],
+            $this->references('og_image', self::PAGE_TRANSLATED),
+            'the translation keeps the copies it had',
+        );
+        self::assertSame(2, $this->counter('og_image', self::PAGE_TRANSLATED));
+    }
+
+    /**
+     * The same failure for an administrator, whom core lets delete the
+     * translation's copies in the run that creates the reference. Writing the
+     * two previous references back then makes core localise them for the
+     * translation again — a `localize` command, which needs the translation's
+     * language on the page's site — so the translation ends with fresh copies
+     * of the same two files, counting two, and the page as the call found it.
+     */
+    #[Test]
+    public function anAdminsFailedReplaceReLocalisesThePreviousReferencesForTheTranslation(): void
+    {
+        $this->declareSiteLanguages();
+        $this->seedTwoReferencesWithTheirTranslationCopies();
+        $this->dropThePageImageFields();
+
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE, 'replace' => true]);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('counts 2 reference(s)', $result->content);
+        self::assertStringContainsString('left as it was', $result->content);
+        self::assertStringNotContainsString('TYPO3 reported', $result->content, 'with the site language declared, the put-back has nothing to complain about');
+        self::assertSame([self::FILE_ONE, self::FILE_TWO], $this->liveFiles('og_image'));
+        self::assertSame(2, $this->counter('og_image'));
+
+        self::assertSame(1, $this->references('og_image', self::PAGE_TRANSLATED)[0]['deleted'], 'the copy core deleted stays deleted');
+        self::assertSame(1, $this->references('og_image', self::PAGE_TRANSLATED)[1]['deleted']);
+        self::assertSame([self::FILE_ONE, self::FILE_TWO], $this->liveFiles('og_image', self::PAGE_TRANSLATED), 'fresh copies of both files');
+        self::assertSame(2, $this->counter('og_image', self::PAGE_TRANSLATED));
+    }
+
+    /**
+     * Where that `localize` refuses — here because no site declares the
+     * translation's language — core throws out of the put-back's datamap
+     * (`RuntimeException` 1486233164), and the first version of the put-back
+     * let it escape with the new reference still live. The delete still runs,
+     * the page is verifiably back as the call found it, and what core
+     * reported is named in the message: the translation counts two references
+     * and holds none, which the tool cannot repair and does not hide.
+     */
+    #[Test]
+    public function aPutBackThatCannotReLocaliseForTheTranslationReportsIt(): void
+    {
+        self::assertSame([], $this->getService(SiteFinder::class)->getAllSites(), 'the case rests on no site declaring language 1');
+        $this->seedTwoReferencesWithTheirTranslationCopies();
+        $this->dropThePageImageFields();
+
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE, 'replace' => true]);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('counts 2 reference(s)', $result->content);
+        self::assertStringContainsString('left as it was', $result->content);
+        self::assertStringContainsString('TYPO3 reported while putting it back', $result->content);
+        self::assertStringContainsString('Language ID', $result->content, "core's own reason for refusing the localize");
+        self::assertSame([self::FILE_ONE, self::FILE_TWO], $this->liveFiles('og_image'));
+        self::assertCount(4, $this->references('og_image'), 'the new reference and the copy minted of it are still there, deleted');
+        self::assertSame(2, $this->counter('og_image'));
+
+        self::assertSame([], $this->liveFiles('og_image', self::PAGE_TRANSLATED));
+        self::assertSame(2, $this->counter('og_image', self::PAGE_TRANSLATED), 'the translation is left counting what it no longer holds — reported, not repaired');
+    }
+
+    /**
+     * The other direction of the put-back: when it does not land, the message
+     * says what is still there instead of "left as it was". The run that takes
+     * the write back skips its delete in silence; the new reference and the
+     * copy minted of it stay live while the page's field was written back to
+     * nothing, and all three facts are named.
+     */
+    #[Test]
+    public function aPutBackThatDoesNotLandIsReportedWithWhatIsStillThere(): void
+    {
+        $this->dropThePageImageFields();
+        $this->dropThePutBackDeleteCommand();
+
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE], userUid: 2);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('counts 0 reference(s)', $result->content);
+        self::assertStringContainsString('did not land', $result->content);
+        self::assertStringContainsString('reference [1] is still live on page [' . self::PAGE_OPEN . ']', $result->content);
+        self::assertStringContainsString('a translated copy of reference [1] is still live', $result->content);
+        self::assertStringContainsString('counts 0 reference(s) in "og_image" while 1 is/are live', $result->content);
+        self::assertStringNotContainsString('left as it was', $result->content);
+        self::assertSame(
+            [
+                ['uid' => 1, 'uid_local' => self::FILE_ONE, 'deleted' => 0],
+                ['uid' => 2, 'uid_local' => self::FILE_ONE, 'deleted' => 0],
             ],
             $this->references('og_image'),
+            'the new reference and the copy minted of it are both still live on the page',
         );
-        self::assertSame(2, $this->counter('og_image'));
+        self::assertSame(0, $this->counter('og_image'));
     }
 
     /**
@@ -843,6 +1040,42 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * The tool's own steady state: a field it set before holds exactly one
+     * reference, so a replace on it has a previous count of 1 and a dropped
+     * page side leaves the counter at 1 — the count cannot tell. On a
+     * translated page the harm is real: the translation's copy of the old
+     * reference goes with the old reference, while the copy minted of the new
+     * one never moves to the translation, and the translation ends counting
+     * an image it does not hold. The copy left on the page is the tell; the
+     * page and its translation go back to what they held.
+     *
+     * The healthy direction — the copy moves onto the translation — is
+     * {@see self::aNonAdminEditorReplacesUnderPageEditAlone()}.
+     */
+    #[Test]
+    public function aDroppedTranslationSideInTheSteadyStateIsCaughtAndBothPagesPutBack(): void
+    {
+        self::assertFalse($this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE], userUid: 2)->isError);
+        self::assertSame([self::FILE_ONE], $this->liveFiles('og_image', self::PAGE_TRANSLATED), 'the translation follows its parent');
+        $this->dropThePageImageFields();
+
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_TWO, 'replace' => true], userUid: 2);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('copy TYPO3 minted of it for a translation', $result->content);
+        self::assertStringContainsString("translation's side of the relation was not written", $result->content);
+        self::assertStringContainsString('left as it was', $result->content);
+        self::assertSame(
+            [['uid' => 1, 'uid_local' => self::FILE_ONE, 'deleted' => 0]],
+            array_values(array_filter($this->references('og_image'), static fn(array $row): bool => $row['deleted'] === 0)),
+            'the previous reference is the only live row on the page, in any language',
+        );
+        self::assertSame(1, $this->counter('og_image'));
+        self::assertSame([self::FILE_ONE], $this->liveFiles('og_image', self::PAGE_TRANSLATED), 'the translation keeps its copy of the previous reference');
+        self::assertSame(1, $this->counter('og_image', self::PAGE_TRANSLATED));
+    }
+
+    /**
      * The other half of the read-back, asked after the cmdmap: a replaced
      * reference the delete did not remove is still live beside the new one.
      * The new one is taken back, the previous one stays counted, and the
@@ -873,31 +1106,39 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
      * rest, the list the call found goes back into the page's field, and the
      * page ends up counting what is still live: the DataHandler relates only
      * the live rows of that list. Two references written past the tool, as
-     * FormEngine leaves them; without the translated page, for the reason the
-     * replace case gives.
+     * FormEngine leaves them, with their copies on the translated page.
+     *
+     * The list written back names the deleted reference too, and core tries
+     * to localise it for the translation — the translation's copy of it went
+     * with it — which `localize` refuses for a deleted record and throws. The
+     * page is still put back (the delete of the new reference runs, and the
+     * one live survivor is what the page counts), the translation keeps the
+     * copy of that survivor, and the refusal is named in the message.
      */
     #[Test]
     public function aPartlyRemovedListLeavesThePageCountingWhatIsStillLive(): void
     {
-        $this->connectionPool->getConnectionForTable('pages')->delete('pages', ['uid' => self::PAGE_TRANSLATED]);
-        $this->seedReference(1, self::FILE_ONE, 'og_image');
-        $this->seedReference(2, self::FILE_TWO, 'og_image');
-        $this->connectionPool->getConnectionForTable('pages')->update('pages', ['og_image' => 2], ['uid' => self::PAGE_OPEN]);
+        $this->seedTwoReferencesWithTheirTranslationCopies();
         $this->dropTheReferenceDeleteCommand();
 
         $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE, 'replace' => true], userUid: 2);
 
         self::assertTrue($result->isError);
         self::assertStringContainsString('still carries 1 other live reference(s)', $result->content);
+        self::assertStringContainsString('taken back', $result->content);
+        self::assertStringContainsString('TYPO3 reported while putting it back', $result->content);
         self::assertSame(
             [
                 ['uid' => 1, 'uid_local' => self::FILE_ONE, 'deleted' => 0],
                 ['uid' => 2, 'uid_local' => self::FILE_TWO, 'deleted' => 1],
-                ['uid' => 3, 'uid_local' => self::FILE_ONE, 'deleted' => 1],
+                ['uid' => 5, 'uid_local' => self::FILE_ONE, 'deleted' => 1],
             ],
             $this->references('og_image'),
         );
         self::assertSame(1, $this->counter('og_image'), 'the page counts the one reference that is still live');
+
+        self::assertSame([self::FILE_ONE], $this->liveFiles('og_image', self::PAGE_TRANSLATED), 'the copy of the surviving reference');
+        self::assertSame(1, $this->counter('og_image', self::PAGE_TRANSLATED));
     }
 
     /**
