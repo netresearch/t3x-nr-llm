@@ -105,6 +105,8 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
     // The shape the ADR-146 writers share; ADR-180 asks the writers after it to use it.
     use PlansOneEditorialWriteTrait;
 
+    use FetchesSysFileRowTrait;
+
     /**
      * One string for "no such page", "you may not edit it", "no such file",
      * "not in a permitted storage" and "outside your file mounts", so a refusal
@@ -113,8 +115,6 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
     private const NOT_PERMITTED = 'Page or file not found, or not permitted.';
 
     private const PAGES_TABLE = 'pages';
-
-    private const FILE_TABLE = 'sys_file';
 
     private const REFERENCE_TABLE = 'sys_file_reference';
 
@@ -958,31 +958,5 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         $config = is_array($column) ? ($column['config'] ?? null) : null;
 
         return is_array($config) ? $config : [];
-    }
-
-    /**
-     * `sys_file` carries no `deleted` column, so it gets its own reader rather
-     * than the trait's — a soft-delete predicate against a table that has no
-     * such field is an SQL error, not a narrower query.
-     *
-     * @return array<string, mixed>|null
-     */
-    private function fetchFile(int $uid): ?array
-    {
-        if ($uid < 1) {
-            return null;
-        }
-
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::FILE_TABLE);
-        $queryBuilder->getRestrictions()->removeAll();
-
-        $row = $queryBuilder
-            ->select('uid', 'storage', 'identifier', 'name', 'extension')
-            ->from(self::FILE_TABLE)
-            ->where($queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)))
-            ->executeQuery()
-            ->fetchAssociative();
-
-        return is_array($row) ? $row : null;
     }
 }
