@@ -533,6 +533,33 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
     }
 
     /**
+     * The end-of-day hint belongs to an hour of 24 only: a nonexistent date at
+     * 24 minutes past, or a time-of-day column, where there is no next day,
+     * must not be told to write 00:00 of the next day.
+     *
+     * @return iterable<string, array{array<string, mixed>}>
+     */
+    public static function refusalsWithoutTheMidnightHint(): iterable
+    {
+        $options = ['page' => 1, 'type' => 'options', 'header' => 'x'];
+        yield 'nonexistent date at 24 minutes past' => [$options + ['fields' => ['date' => '2026-02-30T10:24:00']]];
+        yield 'hour 24 on a time-of-day column' => [$options + ['fields' => ['starts' => '24:00']]];
+    }
+
+    /**
+     * @param array<string, mixed> $arguments
+     */
+    #[Test]
+    #[DataProvider('refusalsWithoutTheMidnightHint')]
+    public function theMidnightHintIsGivenOnlyForAnHourOf24OnADate(array $arguments): void
+    {
+        $result = $this->tool->execute($arguments, $this->contextFor($this->liveUser()));
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringNotContainsString('00:00 of the next day', $result->content);
+    }
+
+    /**
      * @param array<string, mixed> $arguments
      */
     #[Test]

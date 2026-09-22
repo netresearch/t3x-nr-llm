@@ -523,7 +523,9 @@ What holds for all of them:
      ``keepItems`` and ``removeItems`` on a select column in ``fields``, on
      ``colPos`` for the ``column`` argument and on ``sys_language_uid`` for
      the ``language`` argument — each also under ``types.<CType>`` — are
-     honoured, and the refusal names the rule. ``addItems`` is not read. This
+     honoured, and the refusal names the rule. ``addItems`` is not read,
+     and a column that is ``readOnly`` in the TCA stays refused even where
+     a page sets ``config.readOnly = 0``. This
      is still not a generic record API: the table is fixed and a
      relation is never an argument.
 
