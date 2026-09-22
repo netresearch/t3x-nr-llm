@@ -383,6 +383,12 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         yield 'radio outside its items' => [$options + ['fields' => ['align' => 'center']], 'must be one of: "left", "right"'];
         yield 'date the cms cannot read' => [$options + ['fields' => ['date' => 'the day after']], 'must be a date or time the CMS can read'];
         yield 'date that does not exist' => [$options + ['fields' => ['date' => '2026-02-30']], 'must be a date or time the CMS can read'];
+        // ISO 8601 allows 24:00 for the end of a day; PHP reads it with a
+        // warning, so it is refused — with the way to write it.
+        yield 'end of day as 24:00' => [
+            $options + ['fields' => ['date' => '2026-09-21 24:00:00']],
+            'write midnight at the end of a day as 00:00 of the next day',
+        ];
         yield 'decimal that is not a number' => [$options + ['fields' => ['price' => 'ten']], 'must be a number'];
         yield 'fraction on a whole-number column' => [$options + ['fields' => ['width' => 12.5]], 'must be a whole number'];
         yield 'number below the range' => [$options + ['fields' => ['width' => 0]], 'must be at least 1'];

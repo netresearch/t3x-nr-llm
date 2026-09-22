@@ -1416,10 +1416,14 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
                 return [(int)$text];
             }
 
+            // ISO 8601's end of day, 24:00, is one PHP reads only with a
+            // warning, so it is refused below like any invalid time — and
+            // the refusal says how to write it instead.
             $unreadable = sprintf(
                 'Refused: the value for "%s" must be a date or time the CMS can read, such as 2026-09-21 or '
-                . '2026-09-21T14:30:00+02:00.',
+                . '2026-09-21T14:30:00+02:00%s.',
                 $column,
+                str_contains($text, '24:00') ? '; write midnight at the end of a day as 00:00 of the next day' : '',
             );
 
             try {
