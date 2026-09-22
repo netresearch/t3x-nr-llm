@@ -9,11 +9,14 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateContentElementDraftTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
@@ -49,6 +52,19 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
 
     /** Scalar as well, with a `number` column whose override the DataHandler cannot evaluate. */
     private const DROPPING_TYPE = 'nrllm_dropping';
+
+    /** Scalar as well, in the `plugins` item group — what `addPlugin()` leaves without a FlexForm. */
+    private const PLUGIN_TYPE = 'nrllm_plugin';
+
+    /**
+     * Scalar as well, with columns the DataHandler rewrites on purpose: an
+     * `input` with `eval` and `min`, a `number` stored as a decimal, a
+     * `datetime` stored as seconds of the day.
+     */
+    private const REWRITTEN_TYPE = 'nrllm_rewritten';
+
+    /** The upper bound of the `number` range the scalar test type declares. */
+    private const WIDTH_UPPER = 4000;
 
     private CreateContentElementDraftTool $tool;
 
@@ -104,12 +120,13 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
 
         // `textmedia`, `textpic` and `image` carry a `file` column and stay
         // offered; `uploads` carries `file_collections` (type `group`) and does not.
-        foreach (['header', 'text', 'textmedia', 'textpic', 'image', 'bullets', 'table', self::SCALAR_TYPE] as $offered) {
+        foreach (['header', 'text', 'textmedia', 'textpic', 'image', 'bullets', 'table', self::SCALAR_TYPE, self::REWRITTEN_TYPE] as $offered) {
             self::assertMatchesRegularExpression('/\b' . $offered . '\b/', $description, $offered . ' must be offered');
             self::assertMatchesRegularExpression('/\b' . $offered . '\b/', $spec->description, $offered . ' must be offered');
         }
 
-        foreach (['shortcut', 'div', 'html', 'list', 'uploads', 'menu_pages', self::FLEX_TYPE, self::INLINE_TYPE] as $excluded) {
+        // The plugin type has `header`'s scalar form and is excluded by its item group.
+        foreach (['shortcut', 'div', 'html', 'list', 'uploads', 'menu_pages', self::FLEX_TYPE, self::INLINE_TYPE, self::PLUGIN_TYPE] as $excluded) {
             self::assertDoesNotMatchRegularExpression('/\b' . $excluded . '\b/', $description, $excluded . ' must not be offered');
         }
 
@@ -199,6 +216,20 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
     }
 
     /**
+     * A plugin registered without a FlexForm has `header`'s scalar form —
+     * `ExtensionManagementUtility::addPlugin()` copies it — and sits in the
+     * `plugins` item group. The group excludes it; the form would not.
+     */
+    #[Test]
+    public function aPluginWithAScalarFormIsRefused(): void
+    {
+        $this->assertRefusedAndNothingCreated(
+            ['page' => self::PAGE, 'type' => self::PLUGIN_TYPE, 'header' => 'x'],
+            'is not a content type this tool creates',
+        );
+    }
+
+    /**
      * Both carry a scalar-only showitem in this instance — `html` from core,
      * `list` from this test — and both stay out of reach: the deny-list is
      * checked before the showitem is read.
@@ -225,12 +256,20 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         );
     }
 
+    /**
+     * The range is the one the type declares through `columnsOverrides`, not
+     * the column's own — core's differs between 13.4 and 14.3.
+     */
     #[Test]
     public function aNumberOutsideTheTcaRangeIsRefused(): void
     {
         $this->assertRefusedAndNothingCreated(
             ['page' => self::PAGE, 'type' => self::SCALAR_TYPE, 'header' => 'x', 'fields' => ['imagewidth' => 0]],
             'the value for "imagewidth" must be at least 1',
+        );
+        $this->assertRefusedAndNothingCreated(
+            ['page' => self::PAGE, 'type' => self::SCALAR_TYPE, 'header' => 'x', 'fields' => ['imagewidth' => self::WIDTH_UPPER + 1]],
+            'the value for "imagewidth" must be at most ' . self::WIDTH_UPPER,
         );
     }
 
@@ -298,6 +337,225 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
     }
 
     /**
+     * `tt_content.CType` is an `authMode` column. The DataHandler drops a
+     * value outside the acting user's `explicit_allowdeny` without an error
+     * and creates the element as the default type; the tool asks the same
+     * question before the write.
+     */
+    #[Test]
+    public function aContentTypeOutsideTheEditorsAllowListIsRefusedBeforeTheWrite(): void
+    {
+        $editor = $this->editorFor('text');
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE, 'type' => self::SCALAR_TYPE, 'header' => 'x'],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString('not allowed content type "' . self::SCALAR_TYPE . '"', $result->content);
+        self::assertStringContainsString('tt_content:CType:' . self::SCALAR_TYPE, $result->content);
+        self::assertSame(0, $this->elementCount(), 'nothing may have been created');
+    }
+
+    /**
+     * Core marks `exclude` with a boolean; an extension may write the integer
+     * `1`, which the schema reads as the same flag. The grant is asked either
+     * way, before the write.
+     */
+    #[Test]
+    public function anIntegerExcludeFlagIsReadAsTheFlag(): void
+    {
+        $this->overrideTca(['columns' => ['table_caption' => ['exclude' => 1]]]);
+        $editor = $this->editorFor(self::SCALAR_TYPE);
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE, 'type' => self::SCALAR_TYPE, 'header' => 'x', 'fields' => ['table_caption' => 'Caption']],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString('no field-level ("exclude field") grant for tt_content:table_caption', $result->content);
+        self::assertSame(0, $this->elementCount(), 'nothing may have been created');
+    }
+
+    /**
+     * `sys_language_uid` is an `exclude` column (core's TcaEnrichment). The
+     * DataHandler drops it for an editor without the grant and the element
+     * lands in the default language while the call asked for another. The
+     * columns the tool writes itself are asked before the write too, where
+     * the value differs from what the silence would leave.
+     */
+    #[Test]
+    public function aMissingGrantForTheLanguageColumnRefusesTheWholeCall(): void
+    {
+        $editor = $this->editorFor(self::SCALAR_TYPE);
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE, 'type' => self::SCALAR_TYPE, 'header' => 'x', 'language' => 1],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString('no field-level ("exclude field") grant for tt_content:sys_language_uid', $result->content);
+        self::assertSame(0, $this->elementCount(), 'nothing may have been created');
+    }
+
+    /**
+     * The read-back behind that check. The DataHandler also drops, silently,
+     * a column whose `displayCond` is `HIDE_FOR_NON_ADMINS` — a silence the
+     * grant check cannot see. The element then carries the default position
+     * and language, not the ones asked for; the read-back compares both and
+     * takes the element back.
+     */
+    #[Test]
+    public function anElementThatLandedInAnotherColumnOrLanguageIsDeletedAgain(): void
+    {
+        $this->overrideTca(['columns' => [
+            'colPos'           => ['displayCond' => 'HIDE_FOR_NON_ADMINS'],
+            'sys_language_uid' => ['displayCond' => 'HIDE_FOR_NON_ADMINS'],
+        ]]);
+        $editor = $this->editorFor(self::SCALAR_TYPE, 'tt_content:sys_language_uid');
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE, 'type' => self::SCALAR_TYPE, 'header' => 'x', 'column' => 1, 'language' => 1],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString('colPos, sys_language_uid did not carry the value asked for', $result->content);
+        self::assertStringContainsString('was deleted again', $result->content);
+        self::assertSame(0, $this->undeletedElementCount(), 'nothing undeleted may be left behind');
+    }
+
+    /**
+     * A date is handed to the DataHandler as the integer both cores store,
+     * not as a string: 13.4 reads a string as UTC wall time and shifts it by
+     * the server's offset, so a day would land on the evening before. The
+     * container runs in UTC, where the two agree, so the zone is set here.
+     *
+     * 14.3 reads an offset string correctly, so on this core only the card —
+     * which shows the value as it is handed over — tells the two shapes
+     * apart; the row tells them apart on the 13.4 matrix cell.
+     */
+    #[Test]
+    public function aDateLandsOnTheDayAskedForInTheServersTimezone(): void
+    {
+        $admin     = $this->setUpBackendUser(1);
+        $context   = ToolExecutionContext::fromBackendUser($admin);
+        $arguments = ['page' => self::PAGE, 'type' => self::SCALAR_TYPE, 'header' => 'x', 'fields' => ['date' => '2026-09-21']];
+        $zone      = date_default_timezone_get();
+        date_default_timezone_set('Europe/Berlin');
+
+        try {
+            $lines  = $this->tool->previewCall($arguments, $context);
+            $result = $this->tool->execute($arguments, $context);
+        } finally {
+            date_default_timezone_set($zone);
+        }
+
+        $midnight = (new DateTimeImmutable('2026-09-21', new DateTimeZone('Europe/Berlin')))->getTimestamp();
+        self::assertContains('date: "' . $midnight . '"', $lines, 'the card shows the integer handed over');
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame($midnight, (int)($this->createdElement()['date'] ?? 0), 'the day must not shift');
+    }
+
+    /**
+     * An integer on a `time` column is seconds of the day to both cores, not
+     * a Unix timestamp, and is handed over as it is. Read as a timestamp it
+     * would shift by the server's offset, so the zone is set here.
+     */
+    #[Test]
+    public function aTimeGivenAsSecondsOfTheDayIsStoredAsItIs(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        $zone  = date_default_timezone_get();
+        date_default_timezone_set('Europe/Berlin');
+
+        try {
+            $result = $this->tool->execute(
+                ['page' => self::PAGE, 'type' => self::REWRITTEN_TYPE, 'header' => 'x', 'fields' => ['date' => 14 * 3600 + 30 * 60]],
+                ToolExecutionContext::fromBackendUser($admin),
+            );
+        } finally {
+            date_default_timezone_set($zone);
+        }
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(14 * 3600 + 30 * 60, (int)($this->createdElement()['date'] ?? 0), 'the time must not shift');
+    }
+
+    /**
+     * A `time` column stores seconds of the day, and both cores read an
+     * integer as that.
+     */
+    #[Test]
+    public function aTimeIsStoredAsSecondsOfTheDay(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE, 'type' => self::REWRITTEN_TYPE, 'header' => 'x', 'fields' => ['date' => '14:30']],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(14 * 3600 + 30 * 60, (int)($this->createdElement()['date'] ?? 0));
+    }
+
+    /**
+     * An `input` column with `eval` is rewritten by the DataHandler on
+     * purpose (`upper` here), so the read-back checks that it took, not that
+     * it is byte-equal.
+     */
+    #[Test]
+    public function anEvaluatedInputColumnIsAcceptedAsTheDataHandlerRewritesIt(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE, 'type' => self::REWRITTEN_TYPE, 'header' => 'x', 'fields' => ['table_caption' => 'abc']],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame('ABC', $this->createdElement()['table_caption'] ?? null);
+    }
+
+    /**
+     * Below `min` the DataHandler stores '' in silence; the value is refused
+     * instead, before the write.
+     */
+    #[Test]
+    public function anInputBelowTheTcaMinIsRefused(): void
+    {
+        $this->assertRefusedAndNothingCreated(
+            ['page' => self::PAGE, 'type' => self::REWRITTEN_TYPE, 'header' => 'x', 'fields' => ['table_caption' => 'ab']],
+            'the value for "table_caption" must be at least 3 characters',
+        );
+    }
+
+    /**
+     * A decimal is handed over with two decimals and comes back from the
+     * database as the database renders it; the read-back compares numbers.
+     */
+    #[Test]
+    public function aDecimalIsComparedAsANumberOnTheReadBack(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE, 'type' => self::REWRITTEN_TYPE, 'header' => 'x', 'fields' => ['imagewidth' => 12]],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        $stored = $this->createdElement()['imagewidth'] ?? null;
+        self::assertIsNumeric($stored);
+        self::assertSame(12.0, (float)$stored);
+    }
+
+    /**
      * The backstop behind the grant check. `checkValueForNumber()` returns no
      * value for a `format` it does not know, without an `errorLog` entry, so
      * the element comes into being without the column. The read-back reports
@@ -347,9 +605,13 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
     }
 
     /**
-     * Four types beside core's, added the way an installation's TCA overrides
+     * Six types beside core's, added the way an installation's TCA overrides
      * add theirs. The DataHandler reads the compiled schema, so it is rebuilt
      * from the changed array (see {@see SetFileAlternativeTextToolFileMountTest}).
+     *
+     * Every column a test type writes is a core column, so it has a database
+     * column; what the test types change is the config the DataHandler
+     * applies to it, through `columnsOverrides`.
      */
     private function declareTestContentTypes(): void
     {
@@ -368,9 +630,11 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         $types = $table['types'] ?? null;
         self::assertIsArray($types);
 
-        foreach ([self::SCALAR_TYPE, self::FLEX_TYPE, self::INLINE_TYPE, self::DROPPING_TYPE, 'list'] as $value) {
+        foreach ([self::SCALAR_TYPE, self::FLEX_TYPE, self::INLINE_TYPE, self::DROPPING_TYPE, self::REWRITTEN_TYPE, 'list'] as $value) {
             $items[] = ['label' => $value, 'value' => $value];
         }
+
+        $items[] = ['label' => self::PLUGIN_TYPE, 'value' => self::PLUGIN_TYPE, 'group' => 'plugins'];
 
         // Nothing writes this column, so it needs no database column.
         $columns['nrllm_children'] = [
@@ -382,9 +646,14 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
             ],
         ];
 
+        // The `headers` palette carries `date` (format `date`) for every type.
         $types[self::SCALAR_TYPE] = [
             'showitem' => '--palette--;;headers, bodytext, bullets_type, sectionIndex, table_caption, imagewidth,'
                 . ' --div--;core.form.tabs:categories, categories',
+            // A range of the type's own: core's `imagewidth` declares a lower
+            // bound of 0 on 13.4 and 1 on 14.3, so the bound under test is
+            // this one, and the tool has to read it from the type.
+            'columnsOverrides' => ['imagewidth' => ['config' => ['range' => ['lower' => 1, 'upper' => self::WIDTH_UPPER]]]],
         ];
         $types[self::FLEX_TYPE] = [
             'showitem' => '--palette--;;headers, pi_flexform',
@@ -396,7 +665,19 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
             'showitem'         => '--palette--;;headers, imagewidth',
             'columnsOverrides' => ['imagewidth' => ['config' => ['format' => 'unknown']]],
         ];
-        $types['list'] = [
+        $types[self::REWRITTEN_TYPE] = [
+            'showitem'         => '--palette--;;headers, table_caption, imagewidth',
+            'columnsOverrides' => [
+                'table_caption' => ['config' => ['eval' => 'upper', 'min' => 3]],
+                // The database column is an integer, so the value asked for
+                // in the test is a whole one; what is under test is that the
+                // read-back compares the two decimals as numbers.
+                'imagewidth' => ['config' => ['format' => 'decimal', 'range' => ['lower' => 1]]],
+                'date'       => ['config' => ['format' => 'time']],
+            ],
+        ];
+        $types[self::PLUGIN_TYPE] = $types['header'];
+        $types['list']            = [
             'showitem' => '--palette--;;headers, bodytext',
         ];
 
@@ -409,6 +690,37 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         $GLOBALS['TCA']    = $tca;
 
         $this->getService(TcaSchemaFactory::class)->rebuild($tca);
+    }
+
+    /**
+     * A change to the TCA one test needs, applied over the declarations
+     * above, with the schema rebuilt.
+     *
+     * @param array<string, mixed> $patch a partial `tt_content` definition
+     */
+    private function overrideTca(array $patch): void
+    {
+        $tca = $GLOBALS['TCA'];
+        self::assertIsArray($tca);
+        $tca            = array_replace_recursive($tca, ['tt_content' => $patch]);
+        $GLOBALS['TCA'] = $tca;
+
+        $this->getService(TcaSchemaFactory::class)->rebuild($tca);
+    }
+
+    /**
+     * A non-admin who may create the given type, hide it, and set `bullets_type`.
+     *
+     * @param non-empty-string ...$furtherGrants further `non_exclude_fields` entries
+     */
+    private function editorFor(string $type, string ...$furtherGrants): BackendUserAuthentication
+    {
+        $editor                                  = $this->setUpBackendUser(2);
+        $editor->groupData['tables_modify']      = 'tt_content';
+        $editor->groupData['explicit_allowdeny'] = 'tt_content:CType:' . $type;
+        $editor->groupData['non_exclude_fields'] = implode(',', ['tt_content:hidden', ...$furtherGrants]);
+
+        return $editor;
     }
 
     /**

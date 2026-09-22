@@ -435,13 +435,15 @@ What holds for all of them:
      that let the tool run approved a draft.
    - The content types are read from the installation's TCA at call time,
      under an exclusion rule (:ref:`ADR-196 <adr-196>`). A type is offered
-     unless it is denied by name — ``list`` (a plugin), ``html``, ``shortcut``,
-     ``div``, every ``menu_*`` — or its form holds a column whose payload is
-     not prose: a FlexForm, inline children, a group or folder reference, a
-     slug, a password. File, category and link relations do not exclude a
-     type; the draft leaves them empty, so ``textmedia`` is offered and gets
-     its media through ``attach_file_to_content_element``. The tool
-     description lists what the installation offers.
+     unless it is denied by name — ``list`` (the legacy plugin element),
+     ``html``, ``shortcut``, ``div``, every ``menu_*`` — or its item sits in
+     the ``plugins`` group a plugin is registered in, or its form holds a
+     column whose payload is not prose: a FlexForm, inline children, a group
+     or folder reference, a slug, a password. File, category and link
+     relations do not exclude a type; the draft leaves them empty, so
+     ``textmedia`` is offered and gets its media through
+     ``attach_file_to_content_element``. The tool description lists what the
+     installation offers.
    - The field set is the type's own scalar columns: headline, body text,
      column, language and position as arguments, and every further ``input``,
      ``text``, ``select`` (static items), ``check``, ``number``, ``datetime``,
@@ -449,9 +451,12 @@ What holds for all of them:
      ``fields``, validated against its TCA type. Identity, position,
      visibility, publication, audience and translation columns are refused by
      name; a wrong key or value refuses the whole call and names the columns
-     the type offers. The acting user's exclude-field grants are checked per
-     column before the write. This is still not a generic record API: the
-     table is fixed and a relation is never an argument.
+     the type offers. The chosen type is checked against the acting user's
+     explicit allow-list, and the exclude-field grants per column — the
+     tool's own columns included — before the write; a ``datetime`` is handed
+     over as the integer both supported cores store. This is still not a
+     generic record API: the table is fixed and a relation is never an
+     argument.
 
    ``bodytext`` reaches the DataHandler and its RTE transformation exactly as an
    editor's input does. It is bounded in length and not otherwise filtered — an

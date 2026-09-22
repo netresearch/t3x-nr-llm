@@ -17,6 +17,7 @@ use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
+use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 
 /**
@@ -187,6 +188,9 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
         $editor                                  = $this->setUpBackendUser(2);
         $editor->groupData['tables_modify']      = 'tt_content';
         $editor->groupData['explicit_allowdeny'] = 'tt_content:CType:text';
+        // The grant for `hidden` is asked before the page is, so it is held
+        // here: the refusal under test is the page's.
+        $editor->groupData['non_exclude_fields'] = 'tt_content:hidden';
 
         $result = $this->tool->execute(
             ['page' => self::PAGE_CLOSED, 'type' => 'text', 'header' => 'Sneaky'],
@@ -226,17 +230,55 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
      * without an errorLog entry. For `hidden` that would mean a machine-drafted
      * element live on the page.
      *
-     * The read-back catches it and the element is taken back again, so the
-     * refusal is the whole outcome rather than half of one.
+     * The grant is asked before the write, like every other column the tool
+     * sets itself, so nothing is written at all.
      */
     #[Test]
-    public function anElementThatCouldNotBeHiddenIsDeletedAgain(): void
+    public function anEditorWithoutTheHiddenGrantIsRefusedBeforeTheWrite(): void
     {
         $editor                             = $this->setUpBackendUser(2);
         $editor->groupData['tables_modify'] = 'tt_content';
         $editor->groupData['explicit_allowdeny'] = 'tt_content:CType:text';
         // Deliberately WITHOUT `tt_content:hidden`.
         $editor->groupData['non_exclude_fields'] = 'tt_content:header';
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE_OPEN, 'type' => 'text', 'header' => 'Would have been visible'],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('no field-level ("exclude field") grant for tt_content:hidden', $result->content);
+        self::assertStringContainsString('Nothing was written', $result->content);
+
+        // Nothing besides the fixture element.
+        self::assertSame(1, $this->elementCount());
+    }
+
+    /**
+     * The backstop behind that grant check: the DataHandler also drops, for a
+     * non-admin, a column whose `displayCond` is `HIDE_FOR_NON_ADMINS` — a
+     * silence the grant check cannot see, so the element comes into being
+     * VISIBLE although the grant is held.
+     *
+     * The read-back catches it and the element is taken back again, so the
+     * refusal is the whole outcome rather than half of one.
+     */
+    #[Test]
+    public function anElementThatCouldNotBeHiddenIsDeletedAgain(): void
+    {
+        $tca = $GLOBALS['TCA'];
+        self::assertIsArray($tca);
+        $tca            = array_replace_recursive($tca, ['tt_content' => ['columns' => ['hidden' => ['displayCond' => 'HIDE_FOR_NON_ADMINS']]]]);
+        $GLOBALS['TCA'] = $tca;
+        // The DataHandler reads the compiled schema, so it is rebuilt.
+        $this->getService(TcaSchemaFactory::class)->rebuild($tca);
+
+        $editor                             = $this->setUpBackendUser(2);
+        $editor->groupData['tables_modify'] = 'tt_content';
+        $editor->groupData['explicit_allowdeny'] = 'tt_content:CType:text';
+        // The grant IS held; the column is dropped regardless.
+        $editor->groupData['non_exclude_fields'] = 'tt_content:hidden';
 
         $result = $this->tool->execute(
             ['page' => self::PAGE_OPEN, 'type' => 'text', 'header' => 'Would have been visible'],

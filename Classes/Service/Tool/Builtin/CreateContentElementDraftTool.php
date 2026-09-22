@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use DateTimeImmutable;
-use DateTimeInterface;
+use DateTimeZone;
 use Exception;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
@@ -29,6 +29,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
+use TYPO3\CMS\Core\Utility\MathUtility;
 
 /**
  * Create ONE hidden content element on a page, through the DataHandler, as the
@@ -44,12 +45,13 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   separate act with a separate audience, and this tool does not perform it.
  * - **The content types are read from the live TCA under an exclusion rule
  *   (ADR-196).** Every `CType` an installation declares is offered unless it is
- *   on the deny-list — `list` (a plugin), `html` (raw output), `shortcut`,
- *   `div`, every `menu_*` — or its form holds a column whose payload is not
- *   prose: a FlexForm, inline children, a group or folder reference, a slug, a
- *   password. File, category and link relations do not exclude a type; the
- *   draft leaves them empty (`textmedia` gets its media from
- *   {@see AttachFileToContentElementTool}).
+ *   on the deny-list — `list` (the legacy plugin element), `html` (raw output),
+ *   `shortcut`, `div`, every `menu_*` — or its item sits in the `plugins` group
+ *   `addPlugin()` registers a plugin in, or its form holds a column whose
+ *   payload is not prose: a FlexForm, inline children, a group or folder
+ *   reference, a slug, a password. File, category and link relations do not
+ *   exclude a type; the draft leaves them empty (`textmedia` gets its media
+ *   from {@see AttachFileToContentElementTool}).
  * - **The field set is the type's own scalar columns.** Header, body text,
  *   column, language and position as arguments; every other scalar column of
  *   the chosen type's form through `fields`, validated against its TCA type.
@@ -89,13 +91,21 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
 
     /**
      * Content types no installation may offer through this tool, whatever
-     * their form holds (ADR-196): a plugin, raw HTML, a record shortcut, a
-     * divider — and, by prefix, every menu. Their payload references records
-     * or pages, or runs code.
+     * their form holds (ADR-196): the legacy plugin element, raw HTML, a
+     * record shortcut, a divider — and, by prefix, every menu. Their payload
+     * references records or pages, or runs code.
      */
     private const DENIED_TYPES = ['list', 'html', 'shortcut', 'div'];
 
     private const DENIED_TYPE_PREFIX = 'menu_';
+
+    /**
+     * The `CType` item group a plugin registers in. Since TYPO3 v13 a plugin
+     * is a content type of its own, and one registered without a FlexForm
+     * carries the scalar form `addPlugin()` copies from `header` — so the
+     * group is what marks it, not its columns.
+     */
+    private const DENIED_ITEM_GROUP = 'plugins';
 
     /**
      * TCA column types a model may fill through `fields`. A `select` counts
@@ -259,32 +269,28 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         // safety one — the element would be live on the page, which is the one
         // outcome this tool exists to prevent.
         $stored = $this->fetchElement($newUid, ...array_keys($plan['fields']));
-        if ($stored === null
-            || self::toInt($stored['pid'] ?? 0) !== $plan['page']
-            || self::toStr($stored['CType'] ?? '') !== $plan['type']
-            || self::toInt($stored[$this->hiddenField()] ?? 0) !== 1
-        ) {
-            // Take it back. A half-made element nobody approved is worse than
-            // no element, and leaving it for a human to find is not a remedy
-            // when the failure mode is "it is already visible".
+        if ($stored === null) {
             $removed = $this->discard($newUid, $user);
 
             return ToolResult::error(sprintf(
-                'Content element [%d] was created but did not carry what was asked for (page, type or hidden '
-                . 'state differ), so it %s. The acting backend user is most likely missing the field-level '
-                . '("exclude field") grant for %s:%s.',
+                'Content element [%d] was created but could not be read back, so it %s.',
                 $newUid,
                 $removed ? 'was deleted again' : 'COULD NOT BE DELETED and may be visible — remove it by hand',
-                self::TABLE,
-                $this->hiddenField(),
             ));
         }
 
-        // The same silence for a `fields` column: the grant was asked before the
-        // write, so a column that still did not take is reported, and the
-        // element goes with it — an approver agreed to the whole draft.
-        $notTaken = $this->fieldsThatDidNotTake($stored, $plan['fields'], $plan['type']);
+        // Every column the call set — the tool's own and the `fields` — is
+        // compared. The grants were asked before the write, so a column that
+        // still did not take names a second silence, and the element goes
+        // with it: an approver agreed to the whole draft.
+        $notTaken = [
+            ...$this->ownColumnsThatDidNotTake($stored, $plan),
+            ...$this->fieldsThatDidNotTake($stored, $plan['fields'], $plan['type']),
+        ];
         if ($notTaken !== []) {
+            // Take it back. A half-made element nobody approved is worse than
+            // no element, and leaving it for a human to find is not a remedy
+            // when the failure mode is "it is already visible".
             $removed = $this->discard($newUid, $user);
 
             return ToolResult::error(sprintf(
@@ -293,7 +299,11 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
                 . 'missing the field-level ("exclude field") grant for %s.',
                 $newUid,
                 implode(', ', $notTaken),
-                $removed ? 'was deleted again' : 'COULD NOT BE DELETED — remove it by hand',
+                $removed
+                    ? 'was deleted again'
+                    : (in_array($this->hiddenField(), $notTaken, true)
+                        ? 'COULD NOT BE DELETED and may be visible — remove it by hand'
+                        : 'COULD NOT BE DELETED — remove it by hand'),
                 implode(', ', array_map(static fn(string $column): string => self::TABLE . ':' . $column, $notTaken)),
             ));
         }
@@ -454,6 +464,22 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             );
         }
 
+        // Core declares `CType` with `authMode`, and the DataHandler then drops
+        // a value outside the acting user's `explicit_allowdeny` without an
+        // error and creates the element as the DEFAULT type — which the
+        // read-back would catch and delete again, blaming a grant. Asked here
+        // under the same condition the DataHandler uses, so an installation
+        // without `authMode` is not refused what the DataHandler would take.
+        if ($this->cTypeHasAuthMode() && !$user->checkAuthMode(self::TABLE, 'CType', $type)) {
+            return sprintf(
+                'Refused: the acting backend user is not allowed content type "%s" (no explicit allow for %s:CType:%s). '
+                . 'Nothing was written.',
+                $type,
+                self::TABLE,
+                $type,
+            );
+        }
+
         $fields = $this->collectFields($arguments, $type);
         if (is_string($fields)) {
             return $fields;
@@ -503,6 +529,35 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         $column = self::toInt($arguments['column'] ?? 0);
         if ($column < 0) {
             return 'Refused: "column" must be zero or a positive backend-layout column (colPos).';
+        }
+
+        // The columns the tool writes itself go through the same question,
+        // where the DataHandler's silence would change the row: core marks
+        // `sys_language_uid` and the hidden column `exclude`, so without the
+        // grant the element lands in the default language while the answer
+        // names another — or lands VISIBLE. Position and language are asked
+        // only when they differ from the default `0` the silence would leave.
+        // The read-back compares the hidden state again whatever the grants say.
+        $own = ['header', $this->hiddenField()];
+        if ($bodytext !== null) {
+            $own[] = 'bodytext';
+        }
+
+        if ($column !== 0) {
+            $own[] = 'colPos';
+        }
+
+        if ($language !== 0) {
+            $own[] = 'sys_language_uid';
+        }
+
+        $ungranted = $this->fieldsTheUserMayNotWrite($user, $own);
+        if ($ungranted !== []) {
+            return sprintf(
+                'Refused: the acting backend user holds no field-level ("exclude field") grant for %s. Nothing was '
+                . 'written.',
+                implode(', ', array_map(static fn(string $column): string => self::TABLE . ':' . $column, $ungranted)),
+            );
         }
 
         $page = $this->fetchPage($pageUid);
@@ -591,9 +646,22 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
     }
 
     /**
+     * Whether `tt_content.CType` declares `authMode` — the condition under
+     * which the DataHandler asks {@see BackendUserAuthentication::checkAuthMode()}.
+     */
+    private function cTypeHasAuthMode(): bool
+    {
+        $column = $this->tcaColumnsFor(self::TABLE)['CType'] ?? null;
+        $config = is_array($column) ? ($column['config'] ?? null) : null;
+
+        return is_array($config) && self::toStr($config['authMode'] ?? '') !== '';
+    }
+
+    /**
      * The content types the live TCA declares that pass the exclusion rule
-     * (ADR-196): not on the deny-list, a form of their own, and no column in it
-     * whose payload is something other than prose.
+     * (ADR-196): not on the deny-list, not in the plugin item group, a form of
+     * their own, and no column in it whose payload is something other than
+     * prose.
      *
      * Empty when no TCA is loaded — there is no list to fall back to, and the
      * refusal for a missing backend environment is the one that fires then.
@@ -611,8 +679,12 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
 
         $available = [];
         foreach ($items as $item) {
-            $type = is_array($item) ? ($item['value'] ?? null) : null;
-            if (is_string($type) && $type !== '--div--' && $this->isOffered($type)) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $type = $item['value'] ?? null;
+            if (is_string($type) && $type !== '--div--' && $this->isOffered($type, self::toStr($item['group'] ?? ''))) {
                 $available[] = $type;
             }
         }
@@ -624,14 +696,21 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      * Whether one declared type passes the exclusion rule.
      *
      * The deny-list is asked first and by name, so `html` stays out of reach
-     * on an installation where its form happens to be scalar. Then every column
-     * of the type's form that is not a system column decides: one excluding
-     * column excludes the type. A type without a form is excluded too — nothing
-     * says what it holds.
+     * on an installation where its form happens to be scalar; the item group
+     * is asked next, so a plugin whose form is scalar stays out too. Then
+     * every column of the type's form that is not a system column decides: one
+     * excluding column excludes the type. A type without a form is excluded
+     * too — nothing says what it holds.
+     *
+     * @param string $itemGroup the `group` of the type's `CType` item, '' when it has none
      */
-    private function isOffered(string $type): bool
+    private function isOffered(string $type, string $itemGroup): bool
     {
         if (in_array($type, self::DENIED_TYPES, true) || str_starts_with($type, self::DENIED_TYPE_PREFIX)) {
+            return false;
+        }
+
+        if ($itemGroup === self::DENIED_ITEM_GROUP) {
             return false;
         }
 
@@ -878,9 +957,12 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      * Mirrors what the DataHandler checks, and refuses where it would silently
      * bend the value: a `select` value outside the static items would be
      * stored and shown as invalid; a `number` outside `range` would be clamped;
-     * an invalid `email` would be emptied. A `datetime` is anything the
-     * DataHandler itself reads — an integer timestamp or an ISO 8601 date —
-     * and is handed over as such.
+     * an invalid `email` would be emptied; an `input` below `min` would be
+     * stored as ''; a nine-digit `color` would be cut to seven unless the
+     * column declares `opacity`. A `datetime` is anything PHP reads — an
+     * integer timestamp (seconds of the day on a `time` column) or an ISO 8601
+     * date — and is handed over in the shape both cores store
+     * ({@see self::datetimeForDataHandler()}).
      *
      * @param array<array-key, mixed> $config
      *
@@ -929,6 +1011,12 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
                 return [''];
             }
 
+            // An integer on a `time` column is seconds of the day to both
+            // cores, not a Unix timestamp, and is handed over as it is.
+            if ($this->isTimeOfDay($config) && MathUtility::canBeInterpretedAsInteger($text)) {
+                return [(int)$text];
+            }
+
             try {
                 $moment = is_numeric($text) ? (new DateTimeImmutable())->setTimestamp((int)$text) : new DateTimeImmutable($text);
             } catch (Exception) {
@@ -939,15 +1027,30 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
                 );
             }
 
-            return [$moment->format(DateTimeInterface::ATOM)];
+            return [$this->datetimeForDataHandler($moment, $config)];
         }
 
         if ($type === 'email' && $text !== '' && !GeneralUtility::validEmail($text)) {
             return sprintf('Refused: the value for "%s" must be a valid e-mail address.', $column);
         }
 
-        if ($type === 'color' && $text !== '' && preg_match('/^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/', $text) !== 1) {
-            return sprintf('Refused: the value for "%s" must be a colour such as #1a2b3c.', $column);
+        // The DataHandler cuts a colour to seven characters unless the column
+        // declares `opacity`, so a nine-digit value would be stored shortened.
+        if ($type === 'color' && $text !== '') {
+            $opacity = (bool)($config['opacity'] ?? false);
+            if (preg_match($opacity ? '/^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/' : '/^#[0-9A-Fa-f]{6}$/', $text) !== 1) {
+                return sprintf(
+                    'Refused: the value for "%s" must be a colour such as #1a2b3c%s.',
+                    $column,
+                    $opacity ? ' or #1a2b3c80' : '',
+                );
+            }
+        }
+
+        // Below `min` the DataHandler stores '' instead of the value.
+        $min = self::toInt($config['min'] ?? 0);
+        if ($type === 'input' && $min > 0 && $text !== '' && mb_strlen($text) < $min) {
+            return sprintf('Refused: the value for "%s" must be at least %d characters.', $column, $min);
         }
 
         $max = $config['max'] ?? null;
@@ -957,6 +1060,65 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         }
 
         return [$text];
+    }
+
+    /**
+     * A `datetime` value in the one shape both supported cores store without
+     * reinterpreting it.
+     *
+     * A string is NOT that shape: 13.4's DataHandler reads a string as UTC
+     * wall time and subtracts the server's offset from it, so a day given as
+     * `2026-09-21` lands on the evening before on any server outside UTC;
+     * 14.3 reads the offset. An integer is taken verbatim by both — a Unix
+     * timestamp for a date or a moment, seconds of the day for a `time` or
+     * `timesec` column, which 14.3 reads as exactly that. A column stored in
+     * a native `dbType` takes unqualified local wall time, which 13.4 parses
+     * as UTC and writes back with `gmdate()`, and 14.3 parses and writes in
+     * the server's zone — the same string either way.
+     *
+     * @param array<array-key, mixed> $config
+     */
+    private function datetimeForDataHandler(DateTimeImmutable $moment, array $config): string|int
+    {
+        $local = $moment->setTimezone(new DateTimeZone(date_default_timezone_get()));
+
+        if ($this->isNativeDateTime($config)) {
+            return $local->format('Y-m-d H:i:s');
+        }
+
+        if ($this->isTimeOfDay($config)) {
+            return (int)$local->format('H') * 3600 + (int)$local->format('i') * 60 + (int)$local->format('s');
+        }
+
+        return $moment->getTimestamp();
+    }
+
+    /**
+     * Whether the column is stored in a native `dbType` — a `DATE`, `DATETIME`
+     * or `TIME` column rather than an integer.
+     *
+     * @param array<array-key, mixed> $config
+     */
+    private function isNativeDateTime(array $config): bool
+    {
+        return in_array(self::toStr($config['dbType'] ?? ''), ['date', 'datetime', 'time'], true);
+    }
+
+    /**
+     * Whether the column stores seconds of the day: a `time` or `timesec`
+     * format in an integer column.
+     *
+     * @param array<array-key, mixed> $config
+     */
+    private function isTimeOfDay(array $config): bool
+    {
+        if ($this->isNativeDateTime($config)) {
+            return false;
+        }
+
+        $format = self::toStr($config['format'] ?? 'datetime');
+
+        return $format === 'time' || $format === 'timesec';
     }
 
     /**
@@ -998,10 +1160,11 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
     }
 
     /**
-     * The `fields` columns among `$columns` this user may not write, because
-     * the TCA marks them `exclude` and the user holds no `non_exclude_fields`
-     * grant — the same question the DataHandler asks, through the same method,
-     * as {@see UpdateFalAssetMetaTool} asks it.
+     * The columns among `$columns` this user may not write, because the TCA
+     * marks them `exclude` and the user holds no `non_exclude_fields` grant —
+     * the same question the DataHandler asks, through the same method, as
+     * {@see UpdateFalAssetMetaTool} asks it. `exclude` is read as core's
+     * schema reads it, as a boolean cast, so an extension's integer `1` counts.
      *
      * @param list<string> $columns
      *
@@ -1014,7 +1177,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         $ungranted = [];
         foreach ($columns as $column) {
             $definition = $tcaColumns[$column] ?? null;
-            $excluded   = is_array($definition) && ($definition['exclude'] ?? false) === true;
+            $excluded   = is_array($definition) && (bool)($definition['exclude'] ?? false);
             if ($excluded && !$user->check('non_exclude_fields', self::TABLE . ':' . $column)) {
                 $ungranted[] = $column;
             }
@@ -1024,14 +1187,49 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
     }
 
     /**
+     * The columns the tool wrote itself whose stored value is not the one
+     * asked for: the page, the type, the hidden state, the column and the
+     * language. The DataHandler drops any of them in silence where the acting
+     * user lacks a grant or the column is hidden from non-admins, and the
+     * element then carries the default instead.
+     *
+     * @param array<string, mixed>                                   $stored
+     * @param array{page:int, type:string, column:int, language:int} $plan
+     *
+     * @return list<string>
+     */
+    private function ownColumnsThatDidNotTake(array $stored, array $plan): array
+    {
+        $asked = [
+            'pid'                => $plan['page'],
+            'CType'              => $plan['type'],
+            $this->hiddenField() => 1,
+            'colPos'             => $plan['column'],
+            'sys_language_uid'   => $plan['language'],
+        ];
+
+        $notTaken = [];
+        foreach ($asked as $column => $value) {
+            if (self::toStr($stored[$column] ?? '') !== (string)$value) {
+                $notTaken[] = $column;
+            }
+        }
+
+        return $notTaken;
+    }
+
+    /**
      * The `fields` columns whose stored value is not the one asked for.
      *
      * Compared as strings, which is how a check, a number and an integer
-     * select item come back from the database. Two kinds are checked for
-     * presence rather than equality, because the DataHandler rewrites them on
-     * purpose: a `datetime` is normalised to its `format` and clamped to its
-     * `range`, and a `text` column with `enableRichtext` passes through the
-     * RTE transformation. For those, a dropped column reads back as the
+     * select item come back from the database; a decimal is compared as a
+     * number, because the database renders `12.00` as it likes. Three kinds
+     * are checked for presence rather than equality, because the DataHandler
+     * rewrites them on purpose: a `datetime` is normalised to its `format` and
+     * clamped to its `range`; a `text` column with `enableRichtext` passes
+     * through the RTE transformation; an `input` column with an `eval` beyond
+     * `trim` (`upper`, `lower`, `nospace`, `alphanum`, `unique`, …) is
+     * transformed by it. For those, a dropped column reads back as the
      * column's empty value, and that is what is tested.
      *
      * @param array<string, mixed>                $stored
@@ -1049,10 +1247,20 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             $tcaType    = self::toStr($config['type'] ?? '');
             $storedText = self::toStr($stored[$column] ?? '');
 
-            if ($tcaType === 'datetime' || ($tcaType === 'text' && (bool)($config['enableRichtext'] ?? false))) {
-                $asked = (string)$value !== '';
+            if ($this->isRewrittenOnPurpose($tcaType, $config)) {
+                // Midnight, as seconds of the day, and the epoch are both `0`
+                // and read back exactly as an empty column does.
+                $asked = !in_array((string)$value, ['', '0'], true);
                 $held  = !in_array($storedText, ['', '0', '0000-00-00', '0000-00-00 00:00:00', '00:00:00'], true);
                 if ($asked !== $held) {
+                    $notTaken[] = $column;
+                }
+
+                continue;
+            }
+
+            if ($tcaType === 'number' && self::toStr($config['format'] ?? 'integer') === 'decimal') {
+                if (!is_numeric($storedText) || number_format((float)$storedText, 2, '.', '') !== (string)$value) {
                     $notTaken[] = $column;
                 }
 
@@ -1065,6 +1273,31 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         }
 
         return $notTaken;
+    }
+
+    /**
+     * Whether the DataHandler stores a column of this kind in a shape other
+     * than the one handed over — see {@see self::fieldsThatDidNotTake()}.
+     *
+     * @param array<array-key, mixed> $config
+     */
+    private function isRewrittenOnPurpose(string $tcaType, array $config): bool
+    {
+        if ($tcaType === 'datetime') {
+            return true;
+        }
+
+        if ($tcaType === 'text') {
+            return (bool)($config['enableRichtext'] ?? false);
+        }
+
+        if ($tcaType === 'input') {
+            $evals = array_filter(array_map('trim', explode(',', self::toStr($config['eval'] ?? ''))));
+
+            return array_diff($evals, ['trim']) !== [];
+        }
+
+        return false;
     }
 
     /**
