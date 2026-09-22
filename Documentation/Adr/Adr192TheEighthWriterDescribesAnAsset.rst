@@ -70,8 +70,9 @@ present it means *another tool does*, which is actionable. So the two tools are
 description names ``set_file_alternative_text`` rather than only declining, so a
 model told "not here" is not left to guess where.
 
-The cost is named rather than hidden: an assistant setting all three fields
-makes two calls and costs two approvals. That is the same trade
+The cost is named rather than hidden: an assistant setting every field of a
+file — the alternative text and the fields of this tool — makes two calls and
+costs two approvals. That is the same trade
 :ref:`ADR-180 <adr-180>` made for "page plus first element", for the same
 reason — one card, one thing.
 

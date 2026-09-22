@@ -358,7 +358,7 @@ What holds for all of them:
 
    It is a second tool rather than a wider ``set_file_alternative_text``
    because the two are deliberately **field-disjoint**: this one does not
-   write the alternative text and that one does not write these two, so no
+   write the alternative text and that one writes nothing else, so no
    file field has two writers and an approver never has to work out which of
    two cards won.
 
