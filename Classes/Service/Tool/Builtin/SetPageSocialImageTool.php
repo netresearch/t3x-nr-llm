@@ -149,7 +149,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             . "permitted storage inside the acting user's file mounts, and its extension must be one the field "
             . 'accepts. When the field already holds an image the call is refused, unless "replace" is true — '
             . 'which DELETES the existing reference and sets the new one. The file fields of a content element '
-            . 'are attach_file_to_content_element\'s, not this tool\'s.',
+            . "are attach_file_to_content_element's, not this tool's.",
             [
                 'type'       => 'object',
                 'properties' => [
@@ -522,7 +522,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
 
         if ($notEditable !== []) {
             return sprintf(
-                'Refused: page [%d] is translated into a page you may not edit (%s). TYPO3 saves a page\'s '
+                "Refused: page [%d] is translated into a page you may not edit (%s). TYPO3 saves a page's "
                 . 'translations along with the page, so the DataHandler would refuse the write. Nothing was written.',
                 $pageUid,
                 implode(', ', $notEditable),
