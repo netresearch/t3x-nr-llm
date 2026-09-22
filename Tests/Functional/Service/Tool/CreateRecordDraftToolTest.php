@@ -9,14 +9,15 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
-use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateRecordDraftTool;
+use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Tests\Fixtures\Tool\WriterFixtureItemCreatorTool;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
-use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeEditorActionTool;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeRecordCreatorTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -196,24 +197,73 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function aTableAnotherRegisteredWriterDeclaresIsRefused(): void
+    public function aTableAnotherRegisteredCreatorDeclaresIsRefused(): void
     {
         $admin = $this->setUpBackendUser(1);
-        $tool  = $this->toolWith(deniedTables: '', writers: [$this->writerDeclaring('fixture_writer', [self::TABLE])]);
+        $tool  = $this->toolWith(deniedTables: '', writers: [new FakeRecordCreatorTool('fixture_creator', [self::TABLE])]);
 
         $result = $tool->execute($this->call(['title' => 'x']), ToolExecutionContext::fromBackendUser($admin));
 
         self::assertTrue($result->isError);
-        self::assertStringContainsString('fixture_writer', $result->content);
+        self::assertStringContainsString('fixture_creator', $result->content);
         self::assertSame(0, $this->recordCount());
 
-        // The other direction: a writer declaring some other table does not
+        // The other direction: a creator declaring some other table does not
         // stand in the way.
-        $other  = $this->toolWith(deniedTables: '', writers: [$this->writerDeclaring('other_writer', [self::PLAIN_TABLE])]);
+        $other  = $this->toolWith(deniedTables: '', writers: [new FakeRecordCreatorTool('other_creator', [self::PLAIN_TABLE])]);
         $result = $other->execute($this->call(['title' => 'x']), ToolExecutionContext::fromBackendUser($admin));
 
         self::assertFalse($result->isError, $result->content);
         self::assertSame(1, $this->recordCount());
+    }
+
+    /**
+     * The withdrawal is only real if the tool the CONTAINER builds sees a
+     * creator another extension registers through the `nr_llm.tool` tag. The
+     * fixture extension registers one for this very table in its
+     * Configuration/Services.yaml; the hand-built tools of the other tests
+     * cannot show that the tagged iterator is wired.
+     */
+    #[Test]
+    public function theContainerBuiltToolStepsBackFromATableAnExtensionCreatorDeclares(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $registry = $this->get(ToolRegistry::class);
+        self::assertInstanceOf(ToolRegistry::class, $registry);
+        $tool = $registry->get('create_record_draft');
+        self::assertInstanceOf(CreateRecordDraftTool::class, $tool);
+
+        $result = $tool->execute($this->call(['title' => 'x']), ToolExecutionContext::fromBackendUser($admin));
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString(WriterFixtureItemCreatorTool::NAME, $result->content);
+        self::assertSame(0, $this->recordCount());
+    }
+
+    /**
+     * @return iterable<string, array{string, list<string>}>
+     */
+    public static function builtinCreators(): iterable
+    {
+        yield 'content element' => ['create_content_element_draft', ['tt_content']];
+        yield 'page'            => ['create_page_draft', ['pages']];
+        yield 'translation'     => ['create_translation_draft', ['pages', 'tt_content']];
+    }
+
+    /**
+     * @param list<string> $tables
+     */
+    #[Test]
+    #[DataProvider('builtinCreators')]
+    public function theBuiltinCreatorsDeclareTheTablesTheyCreateIn(string $name, array $tables): void
+    {
+        $registry = $this->get(ToolRegistry::class);
+        self::assertInstanceOf(ToolRegistry::class, $registry);
+
+        $creator = $registry->get($name);
+        self::assertInstanceOf(RecordCreatorInterface::class, $creator);
+        self::assertSame($tables, $creator->getCreatedTables());
     }
 
     #[Test]
@@ -501,16 +551,6 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         $extensions['nr_llm']        = $nrLlm;
         $confVars['EXTENSIONS']      = $extensions;
         $GLOBALS['TYPO3_CONF_VARS']  = $confVars;
-    }
-
-    /**
-     * A registered writer that declares the given tables as its own.
-     *
-     * @param list<string> $tables
-     */
-    private function writerDeclaring(string $name, array $tables): FakeEditorActionTool
-    {
-        return new FakeEditorActionTool($name, 'editing', new EditorAction('LLL:fake.label', 'LLL:fake.description', 'fake-icon', $tables));
     }
 
     /**

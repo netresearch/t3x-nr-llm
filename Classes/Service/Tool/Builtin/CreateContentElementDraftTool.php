@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
+use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -68,7 +69,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * sanitised: an editor may write the same markup by hand, and a tool that
  * filtered it would be enforcing a rule the CMS itself does not have.
  */
-final readonly class CreateContentElementDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, EditorActionInterface
+final readonly class CreateContentElementDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, EditorActionInterface, RecordCreatorInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -309,6 +310,14 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         // elements, not one. A reaped run that may already have created the
         // element must fail terminally rather than draft it again.
         return ToolEffect::NON_IDEMPOTENT_WRITE;
+    }
+
+    /**
+     * The table the element lands in — not the page `getEditorAction()` names as its subject (ADR-152). The generic `create_record_draft` steps back from it (ADR-197).
+     */
+    public function getCreatedTables(): array
+    {
+        return [self::TABLE];
     }
 
     /**

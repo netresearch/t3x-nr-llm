@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
+use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -61,7 +62,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * one card. A model that wants both calls this tool and then
  * {@see CreateContentElementDraftTool} on the page it was given.
  */
-final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, EditorActionInterface
+final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, EditorActionInterface, RecordCreatorInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -276,6 +277,14 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
         // pages, not one. A reaped run that may already have created the page
         // must fail terminally rather than draft it again.
         return ToolEffect::NON_IDEMPOTENT_WRITE;
+    }
+
+    /**
+     * The table the new page lands in. The generic `create_record_draft` steps back from it (ADR-197).
+     */
+    public function getCreatedTables(): array
+    {
+        return [self::TABLE];
     }
 
     /**

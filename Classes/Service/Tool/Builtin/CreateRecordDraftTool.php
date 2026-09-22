@@ -16,7 +16,7 @@ use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
-use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
+use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -44,10 +44,11 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   denylist ({@see TableReadAccessService}) and the `sys_*` prefix are out;
  *   so is a table declared `adminOnly`, `hideTable` or `readOnly`; an
  *   installation narrows further through `tools.createRecordDraft.deniedTables`
- *   and cannot widen. The tool steps back wherever another REGISTERED writer
- *   declares the table ({@see EditorActionInterface}), read at call time from
- *   the tagged tool set, so an extension that ships its own writer withdraws
- *   this one without a release here.
+ *   and cannot widen. The tool steps back wherever another REGISTERED tool
+ *   declares that it creates records in the table
+ *   ({@see RecordCreatorInterface}), read at call time from the tagged tool
+ *   set, so an extension that ships its own creator withdraws this one without
+ *   a release here.
  * - **Scalar columns only**, and only those the record type shows. A relation,
  *   a file, a FlexForm, a link, a slug: not an argument. Values are checked by
  *   type before anything is written.
@@ -82,9 +83,10 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
     private const PAGES_TABLE = 'pages';
 
     /**
-     * Tables whose writers declare the SUBJECT an editor selects — the page —
-     * rather than the table they write (ADR-152), so the catalogue lookup
-     * below cannot see them. Named here, with the tool to use instead.
+     * The core tables with creators of their own, refused by name as well as
+     * through their {@see RecordCreatorInterface} declarations, so the refusal
+     * holds even where those creators are not registered, and names the tool
+     * to use instead.
      */
     private const TABLES_WITH_A_WRITER = [
         'pages'      => 'create_page_draft',
@@ -499,9 +501,9 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             );
         }
 
-        $owner = $this->writerOwning($table);
-        if ($owner !== null) {
-            return sprintf('Refused: %s is written by the tool %s — use that tool.', $table, $owner);
+        $creator = $this->refuseForAnotherCreator($table);
+        if ($creator !== null) {
+            return $creator;
         }
 
         if ($this->hiddenFieldOf($table) === null) {
@@ -544,33 +546,57 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
     }
 
     /**
-     * The name of the registered writer that declares the table, or null.
+     * The refusal for a table another registered tool creates records in, or
+     * null when none declares it.
      *
-     * A declaration names the tables a writer owns (ADR-152). Read at call
-     * time from the tagged tool set, so a writer another extension ships is
-     * seen the day it is installed. A declaration that throws is treated as
-     * {@see \Netresearch\NrLlm\Service\Tool\ToolAvailabilityService} treats
-     * it — as no declaration.
+     * The declaration is {@see RecordCreatorInterface::getCreatedTables()}: the
+     * table a row lands in. Not the editor-action record types, which name the
+     * SUBJECT an editor selects (ADR-152) — a content-element creator declares
+     * `pages` there, an updater of a table declares that table without creating
+     * in it. Read at call time from the tagged tool set, so a creator another
+     * extension ships is seen the day it is installed.
+     *
+     * A declaration that throws refuses the call and names the tool: it may be
+     * the one that covers this table, and skipping it would let the fallback
+     * write where a narrow creator exists. Nothing a registered tool throws
+     * leaves this method — its name falls back to its class.
      */
-    private function writerOwning(string $table): ?string
+    private function refuseForAnotherCreator(string $table): ?string
     {
         foreach ($this->tools as $tool) {
-            if (!$tool instanceof EditorActionInterface) {
+            if (!$tool instanceof RecordCreatorInterface) {
                 continue;
             }
 
             try {
-                $recordTypes = $tool->getEditorAction()->recordTypes;
+                $tables = $tool->getCreatedTables();
             } catch (Throwable) {
-                continue;
+                return sprintf(
+                    'Refused: the tables the tool %s creates records in could not be read, so this tool does not know '
+                    . 'whether %s has a creator of its own and writes nothing.',
+                    $this->nameOf($tool),
+                    $table,
+                );
             }
 
-            if (in_array($table, $recordTypes, true)) {
-                return $tool->getSpec()->name;
+            if (in_array($table, $tables, true)) {
+                return sprintf('Refused: records in %s are created by the tool %s — use that tool.', $table, $this->nameOf($tool));
             }
         }
 
         return null;
+    }
+
+    /**
+     * A registered tool's wire name, or its class where the spec cannot be read.
+     */
+    private function nameOf(ToolInterface $tool): string
+    {
+        try {
+            return $tool->getSpec()->name;
+        } catch (Throwable) {
+            return $tool::class;
+        }
     }
 
     /**

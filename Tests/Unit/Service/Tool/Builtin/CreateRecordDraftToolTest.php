@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeEditorActionTool;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeRecordCreatorTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -356,30 +357,80 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function itRefusesATableAnotherRegisteredWriterDeclaresAndNamesIt(): void
+    public function itRefusesATableAnotherRegisteredCreatorDeclaresAndNamesIt(): void
     {
         $tool = $this->toolWith(deniedTables: '', writers: [
-            $this->writerDeclaring('other_writer', ['tx_other']),
-            $this->writerDeclaring('demo_item_writer', ['tx_other', self::TABLE]),
+            new FakeRecordCreatorTool('other_creator', ['tx_other']),
+            new FakeRecordCreatorTool('demo_item_creator', ['tx_other', self::TABLE]),
         ]);
 
         $result = $tool->execute($this->call(['title' => 'x']), $this->contextFor($this->liveUser()));
 
         self::assertTrue($result->isError);
-        self::assertStringContainsString('demo_item_writer', $result->content);
-        self::assertStringNotContainsString('other_writer', $result->content);
+        self::assertStringContainsString('demo_item_creator', $result->content);
+        self::assertStringNotContainsString('other_creator', $result->content);
     }
 
     #[Test]
-    public function aWriterDeclaringOtherTablesDoesNotStandInTheWay(): void
+    public function aCreatorDeclaringOtherTablesDoesNotStandInTheWay(): void
     {
-        $tool = $this->toolWith(deniedTables: '', writers: [$this->writerDeclaring('other_writer', ['tx_other'])]);
+        $tool = $this->toolWith(deniedTables: '', writers: [new FakeRecordCreatorTool('other_creator', ['tx_other'])]);
 
         $result = $tool->execute($this->call(['title' => 'x', 'kind' => 'novel']), $this->contextFor($this->liveUser()));
 
         self::assertTrue($result->isError);
-        self::assertStringNotContainsString('other_writer', $result->content);
+        self::assertStringNotContainsString('other_creator', $result->content);
         self::assertStringContainsString('must be one of', $result->content);
+    }
+
+    /**
+     * An editor action names the SUBJECT its arguments identify (ADR-152), not
+     * the table it writes: a writer that updates the table, or creates in
+     * another one from a record of it, must not take the fallback away.
+     */
+    #[Test]
+    public function aWriterNamingTheTableOnlyAsItsEditorActionSubjectDoesNotBlock(): void
+    {
+        $tool = $this->toolWith(deniedTables: '', writers: [
+            new FakeEditorActionTool('demo_item_updater', 'editing', new EditorAction('LLL:fake.label', 'LLL:fake.description', 'fake-icon', [self::TABLE])),
+        ]);
+
+        $result = $tool->execute($this->call(['title' => 'x', 'kind' => 'novel']), $this->contextFor($this->liveUser()));
+
+        self::assertTrue($result->isError);
+        self::assertStringNotContainsString('demo_item_updater', $result->content);
+        self::assertStringContainsString('must be one of', $result->content);
+    }
+
+    /**
+     * A declaration that cannot be read may be the one covering the table, so
+     * it refuses rather than being skipped — and the refusal names the tool
+     * even when its spec cannot be read either, without throwing out of the
+     * call or the preview.
+     *
+     * @return iterable<string, array{FakeRecordCreatorTool, string}>
+     */
+    public static function unreadableCreators(): iterable
+    {
+        yield 'the declaration throws'              => [new FakeRecordCreatorTool('broken_creator', null), 'broken_creator'];
+        yield 'the declaration and the spec throw' => [new FakeRecordCreatorTool('broken_creator', null, true), FakeRecordCreatorTool::class];
+    }
+
+    #[Test]
+    #[DataProvider('unreadableCreators')]
+    public function aCreatorWhoseDeclarationCannotBeReadRefusesTheCall(FakeRecordCreatorTool $creator, string $named): void
+    {
+        $tool = $this->toolWith(deniedTables: '', writers: [$creator]);
+
+        $result = $tool->execute($this->call(['title' => 'x']), $this->contextFor($this->liveUser()));
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('could not be read', $result->content);
+        self::assertStringContainsString($named, $result->content);
+
+        $lines = $tool->previewCall($this->call(['title' => 'x']), $this->contextFor($this->liveUser()));
+        self::assertCount(1, $lines);
+        self::assertStringContainsString($named, $lines[0]);
     }
 
     #[Test]
@@ -433,16 +484,6 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
             $writers,
             new ExtensionConfiguration(),
         );
-    }
-
-    /**
-     * A registered writer that declares the given tables as its own.
-     *
-     * @param list<string> $tables
-     */
-    private function writerDeclaring(string $name, array $tables): FakeEditorActionTool
-    {
-        return new FakeEditorActionTool($name, 'editing', new EditorAction('LLL:fake.label', 'LLL:fake.description', 'fake-icon', $tables));
     }
 
     private function liveUser(): BackendUserAuthentication
