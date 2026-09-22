@@ -252,6 +252,22 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         self::assertStringNotContainsString('list', $description);
     }
 
+    /**
+     * The refusal itself needs a database and is exercised in the functional
+     * test; what a model can act on BEFORE it calls is what the spec says.
+     */
+    #[Test]
+    public function theSpecNamesTheMixedModeRefusalAndTheWayAroundIt(): void
+    {
+        $spec = $this->tool->getSpec();
+        self::assertStringContainsString('already holds connected translations', $spec->description);
+
+        $language = $spec->parameters['properties']['language']['description'] ?? '';
+        self::assertIsString($language);
+        self::assertStringContainsString('already holds connected translations', $language);
+        self::assertStringContainsString('create_translation_draft', $language);
+    }
+
     #[Test]
     public function anUnknownArgumentNameIsEchoedBackStrippedOfAnythingButItsIdentifierCharacters(): void
     {
