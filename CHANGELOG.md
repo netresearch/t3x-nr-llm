@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-09-23
+
 ### Changed
 
 - **Writing tools act on live rows only, and a field's before/after binds the whole value (ADR-198).** In the live workspace the DataHandler writes to whatever uid it is handed, and the writers looked rows up with the deleted restriction alone, so a workspace draft named by uid could be written, copied into live and shown on an approval card. Every writer that addresses a page, a content element or a file reference by uid — `update_page_metadata`, `set_page_social_image`, `attach_file_to_content_element`, `move_content_element`, the three draft writers and `create_record_draft` included — now reads only rows whose `t3ver_wsid`, `t3ver_oid` and `t3ver_state` are 0, and treats a draft as not there. `update_page_metadata`'s approval card, like `update_content_element`'s, no longer shows two 120-character excerpts: two short values are shown in full, otherwise the differing section, where it starts, and the length and a short SHA-256 of both values, so a change past the excerpt (an appended link) shows and ADR-184's resume comparison sees it; a character a reader cannot see (a no-break or zero-width space, a direction mark, a control or tag character) forces that form and is written as its code point; ADR-198 amends ADR-184 for these two writers.
@@ -4049,7 +4051,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.35.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.36.0...HEAD
+[0.36.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.35.0...v0.36.0
 [0.35.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.34.0...v0.35.0
 [0.34.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.33.0...v0.34.0
 [0.33.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.32.0...v0.33.0
