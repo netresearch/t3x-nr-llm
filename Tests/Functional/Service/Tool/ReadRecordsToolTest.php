@@ -31,6 +31,9 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 #[CoversClass(ReadRecordsTool::class)]
 final class ReadRecordsToolTest extends AbstractFunctionalTestCase
 {
+    /** A page title the demo held twice: the page and its translation (NEXT-167). */
+    private const TRANSLATED_TITLE = 'Unternehmenspartnerschaften und Projekte';
+
     private ReadRecordsTool $tool;
 
     protected function setUp(): void
@@ -163,26 +166,26 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
         $pages = $this->get(ConnectionPool::class)->getConnectionForTable('pages');
         self::assertInstanceOf(Connection::class, $pages);
         $pages->insert('pages', [
-            'uid' => 10041, 'pid' => 1, 'title' => 'Unternehmenspartnerschaften und Projekte', 'doktype' => 1,
+            'uid' => 10041, 'pid' => 1, 'title' => self::TRANSLATED_TITLE, 'doktype' => 1,
             'sorting' => 3, 'perms_userid' => 1, 'perms_user' => 31,
         ]);
         $pages->insert('pages', [
-            'uid' => 10042, 'pid' => 1, 'title' => 'Unternehmenspartnerschaften und Projekte', 'doktype' => 1,
+            'uid' => 10042, 'pid' => 1, 'title' => self::TRANSLATED_TITLE, 'doktype' => 1,
             'sorting' => 3, 'sys_language_uid' => 1, 'l10n_parent' => 10041,
             'perms_userid' => 1, 'perms_user' => 31,
         ]);
 
         $output = $this->tool->execute([
             'table'        => 'pages',
-            'where_equals' => ['title' => 'Unternehmenspartnerschaften und Projekte'],
+            'where_equals' => ['title' => self::TRANSLATED_TITLE],
         ], $this->contextFor($this->setUpBackendUser(1)))->content;
 
         self::assertStringContainsString(
-            "- pages:10041\n  pid: 1\n  title: Unternehmenspartnerschaften und Projekte\n  sys_language_uid: 0\n  l10n_parent: 0",
+            "- pages:10041\n  pid: 1\n  title: " . self::TRANSLATED_TITLE . "\n  sys_language_uid: 0\n  l10n_parent: 0",
             $output,
         );
         self::assertStringContainsString(
-            "- pages:10042\n  pid: 1\n  title: Unternehmenspartnerschaften und Projekte\n  sys_language_uid: 1\n  l10n_parent: 10041",
+            "- pages:10042\n  pid: 1\n  title: " . self::TRANSLATED_TITLE . "\n  sys_language_uid: 1\n  l10n_parent: 10041",
             $output,
         );
     }
