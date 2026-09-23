@@ -1658,6 +1658,9 @@ Netresearch\NrLlm\Service\Retrieval\SourceReference (class)
   property readonly backend: string
   property readonly parts: array
 
+Netresearch\NrLlm\Service\Tool\RecordCreatorInterface (interface)
+  method getCreatedTables(): array
+
 Netresearch\NrLlm\Service\Tool\RunAugmentation (class)
   constructor(array $forcedSkills = …, array $forcedSnippets = …, bool $dryRun = …, array $droppedSources = …)
   method injectedContext(): Netresearch\NrLlm\Domain\ValueObject\InjectedContext

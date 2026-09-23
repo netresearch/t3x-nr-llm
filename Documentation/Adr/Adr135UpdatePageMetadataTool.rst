@@ -6,10 +6,10 @@
 ADR-135: The first writing tool, and the contract it actually needed
 ============================================================================
 
-:Status: Accepted (its non-guarantee section is closed — see :ref:`ADR-141 <adr-141>`)
+:Status: Accepted (its non-guarantee section is closed — see :ref:`ADR-141 <adr-141>`; its refusal of a generic writer is narrowed for CREATE only — see :ref:`ADR-197 <adr-197>`)
 :Date: 2026-08-09
 :Amends: :ref:`ADR-122 <adr-122>` (its premise, not its reasoning)
-:Amended: 2026-08-10 by :ref:`ADR-141 <adr-141>`, :ref:`ADR-146 <adr-146>`; 2026-09-16 by :ref:`ADR-192 <adr-192>`; 2026-09-21 by :ref:`ADR-194 <adr-194>`; 2026-09-22 by :ref:`ADR-195 <adr-195>`
+:Amended: 2026-08-10 by :ref:`ADR-141 <adr-141>`, :ref:`ADR-146 <adr-146>`; 2026-09-16 by :ref:`ADR-192 <adr-192>`; 2026-09-21 by :ref:`ADR-194 <adr-194>`, :ref:`ADR-197 <adr-197>`; 2026-09-22 by :ref:`ADR-195 <adr-195>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-135-context:
@@ -53,6 +53,11 @@ A narrow tool moves the decision from runtime to review time. What
 ``update_page_metadata`` can do wrong is bounded by its allow-list, and the
 allow-list is in the diff. A second narrow writer is a second small review; a
 generic writer is a permanent one.
+
+Amended by :ref:`ADR-197 <adr-197>` for the CREATE case only: a generic
+``create_record_draft`` exists as a fallback for tables no narrow writer
+covers, hidden, under a reviewed list of exclusions and the acting user's own
+rights. The argument above stands unchanged for UPDATE and DELETE.
 
 The field allow-list
 --------------------

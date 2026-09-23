@@ -62,6 +62,9 @@ final class EditorActionDeclarationTest extends TestCase
     ];
 
     /**
+     * `create_record_draft` (ADR-197) is absent on purpose: it owns no table
+     * and declares no editor action.
+     *
      * @return array<string, array{class-string<ToolInterface>, list<string>}>
      */
     public static function writers(): array

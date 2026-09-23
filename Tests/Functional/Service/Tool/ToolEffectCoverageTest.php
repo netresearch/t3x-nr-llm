@@ -51,13 +51,15 @@ final class ToolEffectCoverageTest extends AbstractFunctionalTestCase
      * uid, so a repeat lands it in the same place (IDEMPOTENT_WRITE), while
      * `create_content_element_draft` and `create_translation_draft` bring a
      * record into being and cannot be repeated without either doubling it or
-     * discarding work (NON_IDEMPOTENT_WRITE).
+     * discarding work (NON_IDEMPOTENT_WRITE). `create_record_draft` (ADR-197)
+     * creates too, in any table no narrow writer covers, and follows them.
      *
      * @var list<string>
      */
     private const DECLARED_WRITERS = [
         'create_content_element_draft',
         'create_page_draft',
+        'create_record_draft',
         'create_translation_draft',
         'attach_file_to_content_element',
         'move_content_element',

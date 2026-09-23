@@ -579,3 +579,4 @@ Tools
    Adr194TwoMoreMetadataFields
    Adr195TheNinthWriterSetsAPageSocialImage
    Adr196ContentTypesFromTheTcaUnderAnExclusionRule
+   Adr197AGenericCreatorWhereNoNarrowWriterExists

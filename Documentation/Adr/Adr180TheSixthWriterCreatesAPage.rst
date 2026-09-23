@@ -6,9 +6,10 @@
 ADR-180: The sixth writer creates a page, and the one-record rule holds
 ============================================================================
 
-:Status: Accepted
+:Status: Accepted (its rejected generic-writer alternative is re-evaluated — see :ref:`ADR-197 <adr-197>`)
 :Date: 2026-08-20
 :Amends: :ref:`ADR-146 <adr-146>` (its "revisit at the sixth writer" trigger)
+:Amended: 2026-09-21 by :ref:`ADR-197 <adr-197>` (the rejected generic-writer alternative, re-evaluated as a builtin)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-180-context:
@@ -35,6 +36,9 @@ whole TCA — the shape :ref:`ADR-135 <adr-135>` refuses — it writes into a
 workspace of its own choosing with no way to publish from here, and as a remote
 tool it is admin-only by this extension's own rule. The page writer is a
 purpose-built action on the terms every other writer already meets.
+:ref:`ADR-197 <adr-197>` re-evaluated the generic shape as a builtin rather
+than a remote tool and accepted it for CREATE only, under conditions that
+record states; the three objections above are what those conditions answer.
 
 .. _adr-180-decision:
 

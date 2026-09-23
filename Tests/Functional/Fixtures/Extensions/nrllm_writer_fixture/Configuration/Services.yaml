@@ -1,0 +1,8 @@
+services:
+  # The creator a third-party extension would ship for its own table
+  # (ADR-197). Tagged explicitly: this extension's services are not
+  # autoconfigured, and the tag is the whole point of the fixture.
+  Netresearch\NrLlm\Tests\Fixtures\Tool\WriterFixtureItemCreatorTool:
+    public: false
+    tags:
+      - name: nr_llm.tool

@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
+use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -63,7 +64,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * The permission bar is NOT left to core: `localize()` asks only for
  * {@see Permission::PAGE_SHOW}, which is far too weak for a write.
  */
-final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, EditorActionInterface
+final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, EditorActionInterface, RecordCreatorInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -283,6 +284,14 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         // have started editing between the two attempts. Both are wrong answers
         // an at-least-once runtime must not produce on its own.
         return ToolEffect::NON_IDEMPOTENT_WRITE;
+    }
+
+    /**
+     * `localize` creates the translation in the table of its source record. The generic `create_record_draft` steps back from it (ADR-197).
+     */
+    public function getCreatedTables(): array
+    {
+        return self::TABLES;
     }
 
     /**
