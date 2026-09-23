@@ -56,6 +56,18 @@ final class HtmlTextExtractorTest extends TestCase
     }
 
     #[Test]
+    public function keepsTheArticleHeaderAndAPageWrappedInOneForm(): void
+    {
+        $result = (new HtmlTextExtractor())->extract(
+            '<body><form id="aspnetForm"><header>Site logo</header><article><header><h1>Headline</h1></header>'
+            . '<p>Story.</p><footer>By Jane</footer></article><input value="x"></form></body>',
+            'https://example.org/',
+        );
+
+        self::assertSame("# Headline\nStory.\nBy Jane", $result['text']);
+    }
+
+    #[Test]
     public function toleratesBrokenMarkup(): void
     {
         $result = (new HtmlTextExtractor())->extract('<p>Unclosed <b>bold<div>next</p></i>', 'https://example.org/');

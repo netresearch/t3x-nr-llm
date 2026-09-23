@@ -181,7 +181,9 @@ final readonly class FetchExternalUrlTool implements ToolInterface
             }
 
             if ($status >= 400 || $status < 200) {
-                return ToolResult::error(sprintf('Fetch of %s failed: HTTP %d %s.', $this->displayUrl($target->url), $status, $fetched['response']->getReasonPhrase()));
+                // Status code only: the reason phrase is server-chosen text, and an
+                // error result is not fenced.
+                return ToolResult::error(sprintf('Fetch of %s failed: HTTP %d.', $this->displayUrl($target->url), $status));
             }
 
             return ToolResult::text($this->render($target->url, $redirects, $fetched['response'], $fetched['body'], $fetched['truncated']));
@@ -288,7 +290,7 @@ final readonly class FetchExternalUrlTool implements ToolInterface
         if ($status >= 200 && $status < 300 && self::readableType($response) === null) {
             throw new ExternalFetchException(sprintf(
                 'the content type "%s" is not a readable text format (HTML or plain text).',
-                self::mediaType($response) ?: 'none',
+                self::echoableMediaType($response),
             ), 1013226122);
         }
     }
@@ -333,7 +335,7 @@ final readonly class FetchExternalUrlTool implements ToolInterface
         $status = sprintf(
             'fetch_external_url: HTTP %d, %s, %d bytes read',
             $response->getStatusCode(),
-            self::mediaType($response),
+            self::echoableMediaType($response),
             strlen($body),
         );
         $head = $this->neutralizeFenceMarkers(implode("\n", $fenced));
@@ -417,6 +419,20 @@ final readonly class FetchExternalUrlTool implements ToolInterface
     private static function mediaType(ResponseInterface $response): string
     {
         return strtolower(trim(explode(';', $response->getHeaderLine('Content-Type'))[0]));
+    }
+
+    /**
+     * The media type as it may appear outside the fence: the header is
+     * server-chosen text, so only a well-formed `type/subtype` is echoed.
+     */
+    private static function echoableMediaType(ResponseInterface $response): string
+    {
+        $type = self::mediaType($response);
+        if ($type === '') {
+            return 'none';
+        }
+
+        return preg_match('#^[a-z0-9!\#$&^_.+-]{1,64}/[a-z0-9!\#$&^_.+-]{1,64}$#', $type) === 1 ? $type : 'unrecognised';
     }
 
     private static function readableType(ResponseInterface $response): ?string

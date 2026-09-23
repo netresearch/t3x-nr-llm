@@ -28,7 +28,7 @@ namespace Netresearch\NrLlm\Service\Tool\Web;
  *   224/4 (multicast), 240/4 (reserved, including the broadcast address).
  * - IPv6: ::, ::1, fc00::/7 (ULA, including the AWS metadata address
  *   fd00:ec2::254), fe80::/10, fec0::/10, ff00::/8, 100::/64, 2001:db8::/32,
- *   64:ff9b::/96 (NAT64), and every form that embeds an IPv4 address whose
+ *   64:ff9b::/96 and 64:ff9b:1::/48 (NAT64), and every form that embeds an IPv4 address whose
  *   IPv4 is refused: IPv4-mapped ::ffff:0:0/96, IPv4-compatible ::/96,
  *   6to4 2002::/16, Teredo 2001::/32.
  *
@@ -106,6 +106,7 @@ final readonly class IpAddressClassifier
 
         $zeroes = str_repeat("\x00", 16);
         if (substr($packed, 0, 12) === "\x00\x64\xff\x9b" . str_repeat("\x00", 8)   // 64:ff9b::/96 NAT64
+            || str_starts_with($packed, "\x00\x64\xff\x9b\x00\x01")                   // 64:ff9b:1::/48 local-use NAT64
             || substr($packed, 0, 8) === "\x01\x00" . str_repeat("\x00", 6)         // 100::/64 discard
             || str_starts_with($packed, "\x20\x01\x0d\xb8")                         // 2001:db8::/32 documentation
         ) {

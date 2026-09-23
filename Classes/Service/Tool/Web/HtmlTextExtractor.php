@@ -31,8 +31,8 @@ use Throwable;
  *   URL, http(s) targets only.
  *
  * What is dropped: script, style, noscript, template, svg, canvas, iframe,
- * object, embed, form controls, and the page chrome — nav, header, footer,
- * aside. When the page has a `<main>` (or, failing that, one `<article>`),
+ * object, embed, form controls, and the page chrome — nav, aside, and header
+ * and footer outside `<main>` and `<article>`. When the page has a `<main>` (or, failing that, one `<article>`),
  * only that element is read.
  *
  * No readability library is used: the heuristics of one (Readability.php and
@@ -43,8 +43,15 @@ final readonly class HtmlTextExtractor
 {
     private const DROPPED_ELEMENTS = [
         'script', 'style', 'noscript', 'template', 'svg', 'canvas', 'iframe', 'object', 'embed',
-        'form', 'button', 'select', 'input', 'textarea', 'nav', 'header', 'footer', 'aside', 'head',
+        'button', 'select', 'input', 'textarea', 'nav', 'aside', 'head',
     ];
+
+    /**
+     * Page chrome only outside the content: an article's own `<header>` holds
+     * its headline. `form` is not dropped at all — ASP.NET WebForms pages wrap
+     * the whole body in one; its controls are dropped one by one above.
+     */
+    private const CHROME_QUERY = '//header[not(ancestor::main or ancestor::article)] | //footer[not(ancestor::main or ancestor::article)]';
 
     private const BLOCK_ELEMENTS = [
         'address', 'article', 'blockquote', 'dd', 'details', 'div', 'dl', 'dt', 'figcaption', 'figure',
@@ -68,8 +75,8 @@ final readonly class HtmlTextExtractor
         $titleNode = $this->first($xpath, '//title');
         $title     = $titleNode instanceof DOMNode ? $this->collapse($titleNode->textContent) : '';
 
-        foreach (self::DROPPED_ELEMENTS as $name) {
-            $nodes = $xpath->query('//' . $name);
+        foreach ([...array_map(static fn(string $name): string => '//' . $name, self::DROPPED_ELEMENTS), self::CHROME_QUERY] as $query) {
+            $nodes = $xpath->query($query);
             if ($nodes === false) {
                 continue;
             }

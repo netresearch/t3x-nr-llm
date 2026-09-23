@@ -980,7 +980,9 @@ Two extension settings narrow where it may go
 
 ``tools.fetchExternalUrl.allowedHosts``
    Comma-separated ``example.org``, ``*.example.org`` (subdomains, not the
-   apex) or ``example.org:8443``. When set, only these hosts are fetched.
+   apex) or ``example.org:8443`` (that host on port 8443 only; list
+   ``example.org`` as well to keep its default port). When set, only these
+   hosts are fetched.
    Empty (default) allows every public host.
 
 ``tools.fetchExternalUrl.deniedHosts``
