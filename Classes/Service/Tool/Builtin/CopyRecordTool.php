@@ -314,16 +314,20 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         }
 
         if ($plan['translations'] > 0) {
-            // Core decides from the target's SITE (DataHandler::
-            // copyL10nOverlayRecords()): outside a site no translation is
-            // copied; inside one, a translation whose language the site does
-            // not have — or, for an element, into which the target page is not
-            // translated — fails the call, and the copy is taken back.
+            // Which translations core copies is core's decision
+            // (DataHandler::copyL10nOverlayRecords()), and it differs by
+            // version: TYPO3 14 and the current 13.4 releases copy only into a
+            // site that has the language and log a refusal for one they cannot
+            // place, which takes the copy back; outside a site they copy none.
+            // Earlier 13.4 releases have no site check and drop an element
+            // translation the target page is not translated into in silence.
+            // Whatever core copied is hidden and counted in the answer.
             $lines[] = sprintf(
-                "with its %d translation(s), copied where the target's site has their language%s; one the site "
-                . 'cannot place fails the copy, which is then taken back; outside a site none is copied',
+                'with its %d translation(s), as far as core copies them to the target: current TYPO3 releases copy a '
+                . 'translation only into a site that has its language%s, take the copy back where core refuses one, '
+                . 'and copy none outside a site; the answer says how many were copied',
                 $plan['translations'],
-                $plan['table'] === self::PAGES_TABLE ? '' : ' and the target page is translated into it',
+                $plan['table'] === self::PAGES_TABLE ? '' : ' and onto a target page translated into it',
             );
         }
 

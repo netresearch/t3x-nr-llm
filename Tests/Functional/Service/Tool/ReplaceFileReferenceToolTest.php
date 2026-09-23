@@ -242,7 +242,50 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
             ToolExecutionContext::fromBackendUser($this->actor(1)),
         );
 
-        self::assertContains('with 1 translated reference(s) [111] on translated element(s) [12], which core deletes with it', $lines);
+        self::assertContains(
+            'with 1 translated reference(s) [111] on translated element(s) [12], which core deletes with it; each '
+            . "translated element's reference count is then updated",
+            $lines,
+        );
+    }
+
+    #[Test]
+    public function anOrphanedTranslatedReferenceIsNamedAndGoesAlong(): void
+    {
+        $this->orphanTheOverlayOfSecond();
+
+        $lines = $this->tool->previewCall(
+            ['reference' => self::SECOND, 'action' => 'remove'],
+            ToolExecutionContext::fromBackendUser($this->actor(1)),
+        );
+        self::assertContains(
+            'with 1 translated reference(s) [111] on translated element(s) (an element that is gone), which core deletes '
+            . "with it; each translated element's reference count is then updated",
+            $lines,
+        );
+
+        $result = $this->change(['reference' => self::SECOND, 'action' => 'remove']);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(1, (int)($this->referenceRow(self::OVERLAY_OF_SECOND)['deleted'] ?? 0));
+        self::assertSame([self::FIRST], $this->liveReferences(self::ELEMENT));
+    }
+
+    #[Test]
+    public function anOrphanedTranslatedReferenceInALanguageTheEditorMayNotEditIsRefused(): void
+    {
+        $this->orphanTheOverlayOfSecond();
+        $editor                                 = $this->actor(2);
+        $editor->groupData['allowed_languages'] = '0';
+
+        $result = $this->tool->execute(
+            ['reference' => self::SECOND, 'action' => 'remove'],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('has a translated reference in language 1', $result->content);
+        self::assertSame(0, (int)($this->referenceRow(self::OVERLAY_OF_SECOND)['deleted'] ?? 1));
     }
 
     #[Test]
@@ -338,7 +381,8 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
             "alternative: the file's own (not carried over from the old reference)",
             "description: the file's own (not carried over from the old reference)",
             'with 1 translated reference(s) [112] on translated element(s) [12], which core deletes with the old '
-            . 'reference; the translations get no reference to the new file',
+            . "reference; the translations get no reference to the new file, and each translated element's reference "
+            . 'count is then updated',
         ], $lines);
         self::assertSame([self::FIRST, self::SECOND], $this->liveReferences(self::ELEMENT));
     }
@@ -350,6 +394,16 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
 
         self::assertTrue($this->tool->mayViewerReadPreview($arguments, $this->actor(1)));
         self::assertFalse($this->tool->mayViewerReadPreview($arguments, $this->actor(2)));
+    }
+
+    /**
+     * The overlay of SECOND loses its element: it points at one that does
+     * not exist.
+     */
+    private function orphanTheOverlayOfSecond(): void
+    {
+        $this->connectionPool->getConnectionForTable('sys_file_reference')
+            ->update('sys_file_reference', ['uid_foreign' => 999], ['uid' => self::OVERLAY_OF_SECOND]);
     }
 
     private function actor(int $uid): BackendUserAuthentication

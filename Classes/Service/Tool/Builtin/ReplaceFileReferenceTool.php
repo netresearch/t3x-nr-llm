@@ -196,7 +196,8 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             $lines[] = sprintf('remove: file [%d] "%s" — the file itself stays', $plan['oldFile'], $this->excerpt($plan['oldFileName']));
             $lines[] = sprintf('references in %s: %d → %d', $plan['field'], $count, $count - 1);
             if ($plan['translated'] !== []) {
-                $lines[] = $this->translatedLine($plan['translated']) . ', which core deletes with it';
+                $lines[] = $this->translatedLine($plan['translated'])
+                    . ", which core deletes with it; each translated element's reference count is then updated";
             }
 
             return $lines;
@@ -217,7 +218,8 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
 
         if ($plan['translated'] !== []) {
             $lines[] = $this->translatedLine($plan['translated'])
-                . ', which core deletes with the old reference; the translations get no reference to the new file';
+                . ', which core deletes with the old reference; the translations get no reference to the new file, and '
+                . "each translated element's reference count is then updated";
         }
 
         return $lines;
@@ -232,7 +234,10 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             'with %d translated reference(s) %s on translated element(s) %s',
             count($translated),
             implode(', ', array_map(static fn(array $t): string => '[' . $t['reference'] . ']', $translated)),
-            implode(', ', array_unique(array_map(static fn(array $t): string => '[' . $t['element'] . ']', $translated))),
+            implode(', ', array_unique(array_map(
+                static fn(array $t): string => $t['element'] > 0 ? '[' . $t['element'] . ']' : '(an element that is gone)',
+                $translated,
+            ))),
         );
     }
 
@@ -397,8 +402,27 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         $translated = [];
         foreach ($this->translatedReferencesOf($referenceUid, $field) as $overlay) {
             $translatedElement = $this->fetchRowByUid(self::CONTENT_TABLE, self::toInt($overlay['uid_foreign'] ?? 0));
-            $translatedPage    = $translatedElement === null ? null : $this->fetchRowByUid(self::PAGES_TABLE, self::toInt($translatedElement['pid'] ?? 0));
-            if ($translatedElement === null || $translatedPage === null
+            $overlayLanguage   = self::toInt($overlay['sys_language_uid'] ?? 0);
+            if ($translatedElement === null) {
+                // An orphan: its element is gone or not live. Core deletes it
+                // with the reference all the same, and there is no element to
+                // settle — only its language is the user's question.
+                if (!$user->checkLanguageAccess($overlayLanguage)) {
+                    return sprintf(
+                        'Refused: reference [%d] has a translated reference in language %d, which the acting backend user '
+                        . 'may not edit, and core deletes it with this one. Nothing was written.',
+                        $referenceUid,
+                        $overlayLanguage,
+                    );
+                }
+
+                $translated[] = ['reference' => self::toInt($overlay['uid'] ?? 0), 'element' => 0, 'language' => $overlayLanguage];
+
+                continue;
+            }
+
+            $translatedPage = $this->fetchRowByUid(self::PAGES_TABLE, self::toInt($translatedElement['pid'] ?? 0));
+            if ($translatedPage === null
                 || !$user->doesUserHaveAccess($translatedPage, Permission::CONTENT_EDIT)
                 || !$this->mayEditRecord(self::CONTENT_TABLE, $translatedElement, $user)
                 || $this->columnsTheUserMayNotSet($user, self::CONTENT_TABLE, [$field]) !== []
@@ -658,7 +682,10 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             return '';
         }
 
-        $elements = array_values(array_unique(array_map(static fn(array $t): int => $t['element'], $plan['translated'])));
+        $elements = array_values(array_filter(
+            array_unique(array_map(static fn(array $t): int => $t['element'], $plan['translated'])),
+            static fn(int $element): bool => $element > 0,
+        ));
         $datamap  = [];
         foreach ($elements as $elementUid) {
             $datamap[$elementUid] = [$plan['field'] => implode(',', $this->liveReferenceUids($elementUid, $plan['field']))];

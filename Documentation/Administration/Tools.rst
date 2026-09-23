@@ -326,10 +326,11 @@ What holds for all of them:
   element or a file reference is not there for them: it is not written,
   copied, counted or shown on an approval card, even when its uid is named
   (:ref:`ADR-198 <adr-198>`).
-- Where a tool shows a field's before and after, the line binds the whole
-  value: two short values in full, otherwise the section that differs, where
-  it starts, and the length and a short hash of both values — so a change
-  past the visible part, such as an appended link, still shows.
+- ``update_page_metadata`` and ``update_content_element`` bind a field's
+  before and after to the whole value: two short values in full, otherwise
+  the section that differs, where it starts, and the length and a short hash
+  of both values — so a change past the visible part, such as an appended
+  link, still shows.
 
 ``update_page_metadata``
    Sets a fixed set of descriptive fields on one page. Editable: ``title``,
@@ -725,7 +726,10 @@ What holds for all of them:
    will break. Needs delete rights on a page (and on every page of its branch),
    content-edit rights for an element, and the right to edit every translation
    that goes along; for a page, also ``tables_modify`` for every table with
-   records on it and the languages of the content on it.
+   records on it and the languages of the content on it. A delete that would
+   discard a workspace draft — of the record, of a translation going with it,
+   or of a record on the deleted pages — is refused: core discards such
+   drafts for good. Publish or discard them in their workspace first.
 
 ``copy_record``
    Copies one content element to a page and column, or one page under a
@@ -734,11 +738,14 @@ What holds for all of them:
    ``hideAtCopy``, the user's preferences and page TSconfig say, and a page is
    **always copied without its subpages**: core would hide only the top page
    of a copied branch. What happens to the translations of a
-   default-language record is decided by the target's **site**: outside a
-   site none is copied; inside one, a translation is copied where the site
-   has its language (for an element, where the target page is translated
-   into it), and one the site cannot place fails the copy, which is then
-   taken back. A page's content is copied with the page. A translation is
+   default-language record depends on the TYPO3 release and the target's
+   **site**: current releases copy none outside a site and, inside one, a
+   translation only where the site has its language (for an element, where
+   the target page is translated into it); one the site cannot place fails
+   the copy, which is then taken back. Some 13.4 patch releases — 13.4.24
+   among them — do not ask the site, and drop an element translation the
+   target page is not translated into without an error. The answer says how many were
+   copied. A page's content is copied with the page. A translation is
    refused by itself, as are a page translation as target, a site root, and
    a standalone element beside connected translations on the target page
    (:ref:`ADR-193 <adr-193>`).
@@ -748,7 +755,7 @@ What holds for all of them:
    sibling. Its content, translations and subpages move with it, and it keeps
    its uid and its URL path — core does not regenerate the slug on a move.
    The approval card says so, counts the subpages that move along, and warns
-   when the page moves into another site. Asks the permissions core asks:
+   when the page moves into another site or out of every site. Asks the permissions core asks:
    delete rights on the page and new-page rights on the new parent for a new
    parent, edit rights within the same parent. A site root, a translation, a
    page translation as parent and a target inside the page's own branch are

@@ -195,15 +195,15 @@ final class WorkspaceVersionRowsAreRefusedTest extends AbstractFunctionalTestCas
     }
 
     /**
-     * Every row of the three tables, all columns but the timestamps a refused
-     * call could never touch anyway.
+     * Every row of the tables the calls address, the writer fixture's
+     * included, which `create_record_draft` writes to.
      *
      * @return array<string, list<array<string, mixed>>>
      */
     private function snapshot(): array
     {
         $snapshot = [];
-        foreach (['pages', 'tt_content', 'sys_file_reference'] as $table) {
+        foreach (['pages', 'tt_content', 'sys_file_reference', 'tx_writerfixture_variant'] as $table) {
             $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
             $queryBuilder->getRestrictions()->removeAll();
             /** @var list<array<string, mixed>> $rows */

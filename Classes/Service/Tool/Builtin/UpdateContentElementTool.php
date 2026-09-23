@@ -158,22 +158,23 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
             }
         }
 
-        if ($notTaken === [] && $complaints === '') {
+        // Every asked value is stored: the update is done, whatever TYPO3
+        // may have reported beside it.
+        if ($notTaken === []) {
             return ToolResult::text(sprintf(
-                'Updated content element [%d] "%s": %s.',
+                'Updated content element [%d] "%s": %s.%s',
                 $plan['uid'],
                 $this->excerpt($plan['header']),
                 implode(', ', array_keys($plan['fields'])),
+                $complaints,
             ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::UPDATED);
         }
 
-        $notTakenText = $notTaken === []
-            ? ''
-            : sprintf(
-                ' Did not take: %s — the DataHandler dropped or changed the value, under a rule of the column this tool '
-                . 'does not check or a hook of the installation.',
-                implode(', ', $notTaken),
-            );
+        $notTakenText = sprintf(
+            ' Did not take: %s — the DataHandler dropped or changed the value, under a rule of the column this tool '
+            . 'does not check or a hook of the installation.',
+            implode(', ', $notTaken),
+        );
 
         if ($changed === []) {
             return ToolResult::error(sprintf(

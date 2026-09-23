@@ -222,9 +222,18 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
             ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
         );
 
-        self::assertTrue($result->isError);
-        self::assertStringContainsString('The copy was deleted again.', $result->content);
-        self::assertSame($before, $this->rowCount('tt_content', ['pid' => self::TARGET_PAGE]));
+        // Current cores log a refusal for the translation, and the tool takes
+        // the copy back. A 13.4 release before the site check drops the
+        // translation in silence instead; then the copy stands, hidden, with
+        // no translation. Either way no visible row and no stray translation.
+        if ($result->isError) {
+            self::assertStringContainsString('The copy was deleted again.', $result->content);
+            self::assertSame($before, $this->rowCount('tt_content', ['pid' => self::TARGET_PAGE]));
+        } else {
+            $copyUid = (int)$result->writeTarget?->uid;
+            self::assertSame(1, (int)($this->row('tt_content', $copyUid)['hidden'] ?? 0));
+            self::assertSame(0, $this->rowCount('tt_content', ['l18n_parent' => $copyUid]));
+        }
     }
 
     #[Test]
@@ -365,12 +374,29 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
         self::assertSame([
             'Copy tt_content [20] "Original", language 0',
             'to: page [3] "Target", column 2, directly after element [22] "Anchor"',
-            "with its 1 translation(s), copied where the target's site has their language and the target page is "
-            . 'translated into it; one the site cannot place fails the copy, which is then taken back; outside a site '
-            . 'none is copied',
+            'with its 1 translation(s), as far as core copies them to the target: current TYPO3 releases copy a '
+            . 'translation only into a site that has its language and onto a target page translated into it, take '
+            . 'the copy back where core refuses one, and copy none outside a site; the answer says how many were copied',
             'visibility: the copy and every copied translation are hidden — a human must unhide them before anyone sees them',
         ], $lines);
         self::assertSame($before, $this->rowCount('tt_content', []));
+    }
+
+    #[Test]
+    public function aWorkspaceDraftOfATranslationIsNotCounted(): void
+    {
+        $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
+            'uid' => 60, 'pid' => self::SOURCE_PAGE, 'colPos' => 0, 'CType' => 'text', 'header' => 'Entwurf',
+            'sys_language_uid' => 2, 'l18n_parent' => self::ELEMENT,
+            't3ver_wsid' => 1, 't3ver_oid' => 0, 't3ver_state' => 1,
+        ]);
+
+        $lines = $this->tool->previewCall(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'target_page' => self::TARGET_PAGE],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertStringStartsWith('with its 1 translation(s),', $lines[2]);
     }
 
     #[Test]

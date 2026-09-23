@@ -161,7 +161,18 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
 
         // What core deletes from the pages themselves, table by table.
         foreach ($this->recordCountsOn($plan['pageUids']) as $table => $left) {
-            $survivors[] = sprintf('%d %s record(s) on the deleted page(s)', $left, $table);
+            if ($left > 0) {
+                $survivors[] = sprintf('%d %s record(s) on the deleted page(s)', $left, $table);
+            }
+        }
+
+        // A page translation takes the content of its language on the
+        // default-language page with it.
+        if ($plan['translationOf'] > 0) {
+            $left = $this->contentCountOn([$plan['translationOf']], $plan['language']);
+            if ($left > 0) {
+                $survivors[] = sprintf('%d content element(s) in language %d on page [%d]', $left, $plan['language'], $plan['translationOf']);
+            }
         }
 
         $recordGone = $this->fetchRowByUid($plan['table'], $plan['uid'], 'uid') === null;
@@ -261,7 +272,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
                     );
                 $counts  = [];
                 foreach ($plan['recordCounts'] as $table => $count) {
-                    $counts[] = sprintf('%s %d', $table, $count);
+                    $counts[] = $count < 0 ? sprintf('%s (could not be counted)', $table) : sprintf('%s %d', $table, $count);
                 }
 
                 $lines[] = $counts === []
@@ -311,7 +322,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{table:'pages'|'tt_content', uid:int, label:string, page:int, pageTitle:string, language:int, translations:list<array{non-empty-string, int}>, subpages:list<array{non-empty-string, int}>, subpageTranslations:list<array{non-empty-string, int}>, pageUids:list<int>, recordCounts:array<string, int>, contentCount:int, referencedBy:int}|string
+     * @return array{table:'pages'|'tt_content', uid:int, label:string, page:int, pageTitle:string, language:int, translations:list<array{non-empty-string, int}>, subpages:list<array{non-empty-string, int}>, subpageTranslations:list<array{non-empty-string, int}>, pageUids:list<int>, recordCounts:array<string, int>, translationOf:int, contentCount:int, referencedBy:int}|string
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
@@ -440,6 +451,27 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
             }
         }
 
+        // Core discards the workspace versions of what it deletes, and in the
+        // live workspace every row on a deleted page, drafts of other
+        // workspaces included — for good; the recycler cannot bring a
+        // discarded draft back. This tool does not throw away another
+        // workspace's work as a side effect (ADR-198). Counted, never named.
+        $drafts = $this->draftCount(
+            $table,
+            [$uid, ...array_column($translations, 1), ...array_column($subpages, 1), ...array_column($subpageTranslations, 1)],
+            $table === self::PAGES_TABLE && $parent === 0 ? $pageUids : [],
+        ) + ($table === self::PAGES_TABLE && $parent > 0 ? $this->contentDraftCountOn($parent, $language) : 0);
+        if ($drafts > 0) {
+            return sprintf(
+                'Refused: deleting %s [%d] would discard %d workspace draft(s) with it for good — core throws away the '
+                . 'drafts of what it deletes, and the recycler cannot bring them back. Publish or discard them in their '
+                . 'workspace first. Nothing was written.',
+                $table,
+                $uid,
+                $drafts,
+            );
+        }
+
         return [
             'table'        => $table,
             'uid'          => $uid,
@@ -459,6 +491,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
             },
             'referencedBy' => $this->referencingRecordCount($table, $uid, [[$table, $uid], ...$translations, ...$subpages]),
             'subpageTranslations' => $subpageTranslations,
+            'translationOf'       => $table === self::PAGES_TABLE ? $parent : 0,
             'pageUids'            => $table === self::PAGES_TABLE && $parent === 0 ? $pageUids : [],
             'recordCounts'        => $table === self::PAGES_TABLE && $parent === 0 ? $this->recordCountsOn($pageUids) : [],
         ];
@@ -634,7 +667,8 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
     /**
      * The live, undeleted records stored on the pages, table by table —
      * every table of the TCA but `pages`, whose translations are counted on
-     * their own. Tables without such records are left out. These are counts,
+     * their own. Tables without such records are left out; a table that
+     * cannot be queried is listed as -1, "could not be counted". These are counts,
      * never titles or uids: they include records the acting user cannot see
      * (ADR-198), and the approver needs to know how much goes, not what.
      *
@@ -669,6 +703,10 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
                     ->executeQuery()
                     ->fetchOne());
             } catch (Throwable) {
+                // Said on the card rather than left out: an approver must not
+                // read a short list as a complete one.
+                $counts[$table] = -1;
+
                 continue;
             }
 
@@ -680,6 +718,85 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
         ksort($counts);
 
         return $counts;
+    }
+
+    /**
+     * How many workspace draft rows a delete would discard: versions (in any
+     * workspace) of the given records, and — for a page delete — every
+     * draft row of any table stored on the pages, a new page of another
+     * workspace included, which core's `getSubPagesOfPage()` takes along.
+     *
+     * @param list<int> $uids     the records the delete removes, of `$table`
+     * @param list<int> $pageUids the pages whose content goes with them, [] for none
+     */
+    private function draftCount(string $table, array $uids, array $pageUids): int
+    {
+        $count = $this->countDrafts($table, 't3ver_oid', $uids);
+
+        if ($pageUids !== []) {
+            $tca = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
+            foreach ($tca as $name => $definition) {
+                $ctrl = is_array($definition) && is_array($definition['ctrl'] ?? null) ? $definition['ctrl'] : [];
+                if ((bool)($ctrl['versioningWS'] ?? false)) {
+                    $count += $this->countDrafts(self::toStr($name), 'pid', $pageUids);
+                }
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * The content drafts of one language on a page, in any workspace — what
+     * core's deleteSpecificPage() takes along with a page translation. A
+     * draft keeps the page of its live record, and a new one sits there too.
+     */
+    private function contentDraftCountOn(int $page, int $language): int
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::CONTENT_TABLE);
+        $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+
+        return self::toInt($queryBuilder
+            ->count('uid')
+            ->from(self::CONTENT_TABLE)
+            ->where(
+                $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($page, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter($language, Connection::PARAM_INT)),
+                $queryBuilder->expr()->gt('t3ver_wsid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+            )
+            ->executeQuery()
+            ->fetchOne());
+    }
+
+    /**
+     * Undeleted rows of a workspace-aware table in any workspace but live
+     * whose `$column` is one of `$values`. A table that cannot be queried
+     * counts none here; the DataHandler meets it again in the delete.
+     *
+     * @param list<int> $values
+     */
+    private function countDrafts(string $table, string $column, array $values): int
+    {
+        if ($values === [] || $table === '') {
+            return 0;
+        }
+
+        try {
+            $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+            $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+
+            return self::toInt($queryBuilder
+                ->count('uid')
+                ->from($table)
+                ->where(
+                    $queryBuilder->expr()->in($column, $queryBuilder->createNamedParameter($values, Connection::PARAM_INT_ARRAY)),
+                    $queryBuilder->expr()->gt('t3ver_wsid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                )
+                ->executeQuery()
+                ->fetchOne());
+        } catch (Throwable) {
+            return 0;
+        }
     }
 
     /**

@@ -204,8 +204,29 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertContains(
-            'moves into another site: from the site of root page [1] to the site of root page [11] — its address '
-            . 'follows the other site from then on',
+            'moves into another site: from the site of root page [1] to the site of root page [11] — its address follows '
+            . 'the site it lies in from then on',
+            $lines,
+        );
+    }
+
+    #[Test]
+    public function thePreviewNamesASideOutsideEverySite(): void
+    {
+        $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
+            'uid' => 12, 'pid' => 0, 'title' => 'Storage', 'doktype' => 254, 'slug' => '/storage',
+            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
+        ]);
+
+        $lines = $this->tool->previewCall(
+            ['uid' => self::MOVED, 'parent' => 12],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertContains(
+            'moves into another site: from the site of root page [1] to outside every site — its address follows the '
+            . 'site it lies in from then on',
             $lines,
         );
     }

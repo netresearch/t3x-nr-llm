@@ -219,10 +219,9 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
 
         if ($plan['siteRootBefore'] !== $plan['siteRootAfter']) {
             $lines[] = sprintf(
-                'moves into another site: from the site of root page [%d] to the site of root page [%d] — its address '
-                . 'follows the other site from then on',
-                $plan['siteRootBefore'],
-                $plan['siteRootAfter'],
+                'moves into another site: from %s to %s — its address follows the site it lies in from then on',
+                $this->siteRootText($plan['siteRootBefore']),
+                $this->siteRootText($plan['siteRootAfter']),
             );
         }
 
@@ -473,6 +472,11 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
         }
 
         return $count;
+    }
+
+    private function siteRootText(int $siteRoot): string
+    {
+        return $siteRoot === 0 ? 'outside every site' : sprintf('the site of root page [%d]', $siteRoot);
     }
 
     /**

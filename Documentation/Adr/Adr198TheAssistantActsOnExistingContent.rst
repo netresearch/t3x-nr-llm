@@ -8,7 +8,7 @@ ADR-198: The assistant acts on existing pages and content elements
 
 :Status: Accepted
 :Date: 2026-09-23
-:Amends: :ref:`ADR-135 <adr-135>` (its safety line against writers that update, publish or delete existing records, for ``pages`` and ``tt_content`` under the rails below), :ref:`ADR-197 <adr-197>` (its "does not update or delete" paragraph, which stated that line)
+:Amends: :ref:`ADR-135 <adr-135>` (its safety line against writers that update, publish or delete existing records, for ``pages`` and ``tt_content`` under the rails below), :ref:`ADR-184 <adr-184>` (its "beyond the excerpt" paragraph, for the two updating writers' field changes), :ref:`ADR-197 <adr-197>` (its "does not update or delete" paragraph, which stated that line)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-198-context:
@@ -80,6 +80,10 @@ decision; removing one reopens ADR-135's argument.
    translations of the subpages and the records stored on the pages, table
    by table. These counts include records the acting user cannot see; they
    are aggregates only, never titles or uids of records beyond the branch.
+   A delete that would discard a workspace draft — of the record, of a
+   translation core deletes with it, or of a record on the deleted pages —
+   is refused: core's delete takes such drafts along, and the card could not
+   show them (rail 3).
 
 ``copy_record`` and ``move_page``
    Structural acts: a copy of one element or page, a page moved to another
@@ -126,10 +130,12 @@ The rails every one of them carries:
    and the ones before them that address a record by uid — reads a row only
    where ``t3ver_wsid``, ``t3ver_oid`` and ``t3ver_state`` are all 0 on a
    workspace-aware table, so a draft is not there for it: not written, not
-   copied, not counted and not shown on an approval card. Two counts keep
+   copied, not counted and not shown on an approval card. Three counts keep
    every workspace on purpose: core's non-admin table check before a page
-   delete, which core makes the same way, and the ADR-193 check for connected
-   translations, where a draft counts because it becomes live when published.
+   delete, which core makes the same way; the ADR-193 check for connected
+   translations, where a draft counts because it becomes live when published;
+   and ``delete_record``'s count of the drafts a delete would discard, which
+   refuses the delete when it is not 0.
 4. **Language as ADR-193 left it.** A translation core moves, copies or
    deletes together with its default-language record is refused by itself
    and the refusal names that record; every translation core carries along
@@ -142,11 +148,13 @@ The rails every one of them carries:
    (:ref:`ADR-193 <adr-193>`).
 5. **Approval before, read-back after.** Each declares a write effect, so
    every call pauses for a human (ADR-134), and the card is the plan the write
-   executes (ADR-136, ADR-184). A field's before and after is bound to the whole
+   executes (ADR-136, ADR-184). On the cards of ``update_content_element`` and
+   ``update_page_metadata`` a field's before and after is bound to the whole
    value: two short values are shown in full; otherwise the card shows the
    section that differs, where it starts, and the length and a short SHA-256 of
    both values, so a change past any excerpt — an appended link — changes the
-   card and is compared on resume. After the write the result is read back
+   card and is compared on resume. This amends ADR-184's rule that only the
+   excerpt binds, for these two writers. After the write the result is read back
    whatever the DataHandler's error log says, and the answer states what is
    actually the case: what did not take is named, a record that came into being
    wrong is deleted again and the answer says whether that worked, and a delete
@@ -186,8 +194,8 @@ and the updating writer; a type that becomes unsafe to create becomes
 unsafe to edit in the same change.
 
 ✕ A wrong approval now changes or removes live content. The approval card is the
-control: it shows every column's change bound to the whole value, what a delete
-takes along and what still points at it. The delete is recoverable from the
+control: it shows every column's change bound to the whole value (for the two
+updating writers), what a delete takes along and what still points at it. The delete is recoverable from the
 recycler; an overwritten text is recoverable from the record history.
 
 ✕ ``update_content_element`` leaves what did take written when one column

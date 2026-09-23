@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\DeleteRecordTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
@@ -319,6 +320,49 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
         );
     }
 
+    /**
+     * @return iterable<string, array{array<string, mixed>, array<string, mixed>}>
+     */
+    public static function deletesThatWouldDiscardADraft(): iterable
+    {
+        yield 'a version of the element' => [
+            ['table' => 'tt_content', 'uid' => self::ELEMENT],
+            ['pid' => self::PAGE_OPEN, 't3ver_oid' => self::ELEMENT, 't3ver_state' => 0, 'sys_language_uid' => 0],
+        ];
+        yield 'a version of its translation' => [
+            ['table' => 'tt_content', 'uid' => self::ELEMENT],
+            ['pid' => self::PAGE_OPEN, 't3ver_oid' => self::TRANSLATION, 't3ver_state' => 0, 'sys_language_uid' => 1],
+        ];
+        yield 'a new element in the branch' => [
+            ['table' => 'pages', 'uid' => self::PAGE_WITH_BRANCH, 'include_subpages' => true],
+            ['pid' => self::SUBPAGE, 't3ver_oid' => 0, 't3ver_state' => 1, 'sys_language_uid' => 0],
+        ];
+        yield 'content of the language of a page translation' => [
+            ['table' => 'pages', 'uid' => self::PAGE_OPEN_TRANSLATION],
+            ['pid' => self::PAGE_OPEN, 't3ver_oid' => self::TRANSLATION, 't3ver_state' => 0, 'sys_language_uid' => 1],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $arguments
+     * @param array<string, mixed> $draft
+     */
+    #[Test]
+    #[DataProvider('deletesThatWouldDiscardADraft')]
+    public function aDeleteThatWouldDiscardAWorkspaceDraftIsRefused(array $arguments, array $draft): void
+    {
+        $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
+            'uid' => 50, 'colPos' => 0, 'CType' => 'text', 'header' => 'Draft', 't3ver_wsid' => 1, ...$draft,
+        ]);
+
+        $result = $this->tool->execute($arguments, ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)));
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString('would discard 1 workspace draft(s)', $result->content);
+        self::assertSame(0, $this->deletedOf($this->toTable($arguments), $this->toUid($arguments)));
+        self::assertSame(0, $this->deletedOf('tt_content', 50));
+    }
+
     #[Test]
     public function aSiteRootIsNeverDeleted(): void
     {
@@ -379,6 +423,22 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
 
         self::assertTrue($this->tool->mayViewerReadPreview($arguments, $this->setUpBackendUser(1)));
         self::assertFalse($this->tool->mayViewerReadPreview($arguments, $this->editor()));
+    }
+
+    /**
+     * @param array<string, mixed> $arguments
+     */
+    private function toTable(array $arguments): string
+    {
+        return is_string($arguments['table'] ?? null) ? $arguments['table'] : '';
+    }
+
+    /**
+     * @param array<string, mixed> $arguments
+     */
+    private function toUid(array $arguments): int
+    {
+        return is_int($arguments['uid'] ?? null) ? $arguments['uid'] : 0;
     }
 
     private function editor(): BackendUserAuthentication

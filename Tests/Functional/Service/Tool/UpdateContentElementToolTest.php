@@ -159,6 +159,45 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function anUpdateThatTookIsReportedAsWrittenThoughTypo3Complained(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$complain = true;
+
+        $result = $this->tool->execute(
+            ['uid' => self::TEXT, 'fields' => ['header' => 'New header']],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringStartsWith('Updated content element [20] "Old header": header. TYPO3 reported:', $result->content);
+        self::assertStringContainsString('A test hook complains and carries on', $result->content);
+        self::assertSame(WriteKind::UPDATED, $result->writeKind);
+        self::assertSame('New header', $this->elementRow(self::TEXT)['header'] ?? null);
+    }
+
+    #[Test]
+    public function thePreviewNamesACharacterAReaderCannotSee(): void
+    {
+        $lines = $this->tool->previewCall(
+            ['uid' => self::TEXT, 'fields' => ['header' => "Old\u{00A0}header"]],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        // A no-break space looks like the space it replaces; shown as
+        // "Old header" → "Old header" the card would hide the change.
+        self::assertStringStartsWith('header: changed from character 4: " " → "\u{00A0}"', $lines[1]);
+
+        // A zero-width space is no whitespace to the excerpt, and would
+        // otherwise pass as a short value shown in full.
+        $lines = $this->tool->previewCall(
+            ['uid' => self::TEXT, 'fields' => ['header' => "Old header\u{200B}"]],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+        self::assertStringStartsWith('header: changed from character 11: (nothing) → "\u{200B}"', $lines[1]);
+    }
+
+    #[Test]
     public function anEditorWithoutTheFieldGrantIsRefusedBeforeTheWrite(): void
     {
         $result = $this->tool->execute(

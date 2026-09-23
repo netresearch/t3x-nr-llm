@@ -65,6 +65,13 @@ trait WritesThroughDataHandlerTrait
     private const PREVIEW_EXCERPT_LENGTH = 120;
 
     /**
+     * Characters a reader of the approval card cannot see: no-break and
+     * other Unicode spaces, zero-width and direction marks, line and
+     * paragraph separators, the byte-order mark.
+     */
+    private const INVISIBLE_CHARACTERS = '/[\x{00A0}\x{1680}\x{2000}-\x{200F}\x{2028}-\x{202F}\x{205F}-\x{2064}\x{3000}\x{FEFF}]/u';
+
+    /**
      * Refuse when the process lacks the backend environment the DataHandler
      * declares, naming which piece is missing — or null when it is complete.
      *
@@ -260,8 +267,9 @@ trait WritesThroughDataHandlerTrait
             return sprintf('unchanged (%s)', $this->quoted($new));
         }
 
-        $fitsWhole = mb_strlen($old) <= self::PREVIEW_EXCERPT_LENGTH && mb_strlen($new) <= self::PREVIEW_EXCERPT_LENGTH;
-        if ($fitsWhole && $this->quoted($old) !== $this->quoted($new)) {
+        // Shown in full only where the card shows each value exactly as it is:
+        // short, and nothing the excerpt would flatten or a reader could not see.
+        if ($this->showsAsItIs($old) && $this->showsAsItIs($new)) {
             return sprintf('%s → %s', $this->quoted($old), $this->quoted($new));
         }
 
@@ -298,6 +306,19 @@ trait WritesThroughDataHandlerTrait
     }
 
     /**
+     * Whether a value appears on the card exactly as it is: within the
+     * excerpt length, no whitespace but single inner spaces, and no
+     * character a reader cannot see (a no-break or zero-width space, a line
+     * or paragraph separator, a byte-order mark).
+     */
+    private function showsAsItIs(string $value): bool
+    {
+        return mb_strlen($value) <= self::PREVIEW_EXCERPT_LENGTH
+            && $this->excerpt($value) === $value
+            && preg_match(self::INVISIBLE_CHARACTERS, $value) !== 1;
+    }
+
+    /**
      * The differing section of a value as the card shows it. Its whitespace
      * is made visible rather than collapsed: a change that IS whitespace must
      * not read as nothing.
@@ -309,6 +330,11 @@ trait WritesThroughDataHandlerTrait
         }
 
         $visible = strtr($part, ["\r" => '\\r', "\n" => '\\n', "\t" => '\\t']);
+        $visible = preg_replace_callback(
+            self::INVISIBLE_CHARACTERS,
+            static fn(array $match): string => sprintf('\\u{%04X}', mb_ord($match[0])),
+            $visible,
+        ) ?? $visible;
 
         return '"' . (mb_strlen($visible) > self::PREVIEW_EXCERPT_LENGTH
             ? mb_substr($visible, 0, self::PREVIEW_EXCERPT_LENGTH) . '…'
