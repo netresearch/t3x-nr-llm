@@ -71,7 +71,7 @@ final readonly class ExternalFetchSettings
     {
         $value = $this->value($key);
 
-        return $value === true || $value === 1 || $value === '1';
+        return in_array($value, [true, 1, '1'], true);
     }
 
     /**
