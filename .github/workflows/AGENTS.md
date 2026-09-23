@@ -13,7 +13,7 @@ GitHub Actions workflows and CI/CD automation. **This repository defines no work
 |------|---------|
 | `auto-merge-deps.yml` | Auto-merge dependency PRs |
 | `check-template-drift.yml` | Template drift against the org's typo3-extension template |
-| `checks.yml` | Security, gitleaks, zizmor, fuzz, licence audit, CodeQL, scorecard, dependency review, PR quality |
+| `checks.yml` | Security, betterleaks, zizmor, fuzz, licence audit, CodeQL, scorecard, dependency review, PR quality |
 | `ci.yml` | Lint, PHPStan, unit/functional tests, Rector, fuzz + weekly mutation, docs |
 | `community.yml` | Community health |
 | `dco.yml` | DCO sign-off |

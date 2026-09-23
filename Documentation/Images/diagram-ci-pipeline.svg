@@ -52,7 +52,7 @@
   <text class="h" x="544" y="114">Security and supply chain</text>
   <text class="m" x="544" y="134">security / Composer Audit</text>
   <text class="m" x="544" y="152">security / SAST (Opengrep)</text>
-  <text class="m" x="544" y="170">codeql · gitleaks · zizmor</text>
+  <text class="m" x="544" y="170">codeql · betterleaks · zizmor</text>
   <text class="m" x="544" y="188">scorecard · dependency-review</text>
   <text class="m" x="544" y="206">license-check / PHP License Audit</text>
 

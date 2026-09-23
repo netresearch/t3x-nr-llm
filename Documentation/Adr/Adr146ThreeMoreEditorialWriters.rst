@@ -9,7 +9,7 @@ ADR-146: Three more editorial writers, and what the third one reviewed
 :Status: Accepted (its "revisit at the sixth writer" trigger fired — see :ref:`ADR-180 <adr-180>`; the free-mode element is refused on a connected page — see :ref:`ADR-193 <adr-193>`)
 :Date: 2026-08-10
 :Amends: :ref:`ADR-135 <adr-135>` (its "revisit at the third writer" trigger)
-:Amended: 2026-08-20 by :ref:`ADR-180 <adr-180>`; 2026-09-21 by :ref:`ADR-193 <adr-193>`
+:Amended: 2026-08-20 by :ref:`ADR-180 <adr-180>`; 2026-09-21 by :ref:`ADR-193 <adr-193>`; 2026-09-21 by :ref:`ADR-196 <adr-196>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-146-context:
@@ -76,7 +76,12 @@ vocabulary that never confirms a uid exists.
      ``header``, ``text``, ``textmedia``, ``bullets``, and only those an
      installation declares. Types whose payload is configuration rather than
      prose — ``list``, ``html``, ``shortcut`` — are unreachable.
+     *Amended by* :ref:`ADR-196 <adr-196>`: the list is now read from the
+     live TCA under an exclusion rule; ``list``, ``html`` and ``shortcut``
+     stay unreachable by name.
    - **The field set is fixed**: headline, body, column, language, position.
+     *Amended by* :ref:`ADR-196 <adr-196>`: the chosen type's further scalar
+     columns are set through ``fields``.
 
    ``bodytext`` reaches the ``DataHandler`` and its RTE transformation exactly
    as an editor's input does. It is bounded in length and not otherwise
