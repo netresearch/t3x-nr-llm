@@ -313,10 +313,7 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
 
         $lines = [sprintf('Page [%d] "%s" — %d field(s):', $uid, $this->excerpt(self::toStr($page['title'] ?? '')), count($values))];
         foreach ($values as $field => $new) {
-            $old = self::toStr($page[$field] ?? '');
-            $lines[] = $old === $new
-                ? sprintf('%s: unchanged (%s)', $field, $this->quoted($new))
-                : sprintf('%s: %s → %s', $field, $this->quoted($old), $this->quoted($new));
+            $lines[] = sprintf('%s: %s', $field, $this->beforeAfter(self::toStr($page[$field] ?? ''), $new));
         }
 
         return $lines;

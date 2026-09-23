@@ -137,33 +137,60 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
         $dataHandler->start([self::TABLE => [$plan['uid'] => $plan['fields']]], [], $user);
         $dataHandler->process_datamap();
 
-        $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-        if ($refused instanceof ToolResult) {
-            return $refused;
-        }
-
-        // Read back before reporting success. An empty errorLog is no proof:
+        // Read back whatever the error log says: an empty one is no proof —
         // the DataHandler drops a column it will not take from this user, and
-        // rewrites a value under a rule of the column, without a word.
+        // rewrites a value under a rule of the column, without a word — and a
+        // non-empty one does not mean nothing was written.
         $stored   = $this->fetchRowByUid(self::TABLE, $plan['uid']);
         $notTaken = $stored === null
             ? array_keys($plan['fields'])
             : [...$this->fieldsThatDidNotTake($stored, $plan['fields'], $plan['type']), ...$this->unchangedThoughAsked($stored, $plan)];
-        $notTaken = array_values(array_unique($notTaken));
-        if ($notTaken !== []) {
-            return ToolResult::error(sprintf(
-                'The update did not take on content element [%d] for: %s. The DataHandler dropped or changed the value '
-                . 'without complaint — a rule of the column this tool does not check, or a hook of the installation.',
+        $notTaken   = array_values(array_unique($notTaken));
+        $complaints = $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . $this->summariseErrors($dataHandler->errorLog);
+
+        // What this call changed on the row: the columns that took and did
+        // not already hold the value.
+        $changed = [];
+        foreach ($plan['fields'] as $column => $value) {
+            if (!in_array($column, $notTaken, true) && (string)$value !== self::toStr($plan['before'][$column] ?? '')) {
+                $changed[] = $column;
+            }
+        }
+
+        if ($notTaken === [] && $complaints === '') {
+            return ToolResult::text(sprintf(
+                'Updated content element [%d] "%s": %s.',
                 $plan['uid'],
+                $this->excerpt($plan['header']),
+                implode(', ', array_keys($plan['fields'])),
+            ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::UPDATED);
+        }
+
+        $notTakenText = $notTaken === []
+            ? ''
+            : sprintf(
+                ' Did not take: %s — the DataHandler dropped or changed the value, under a rule of the column this tool '
+                . 'does not check or a hook of the installation.',
                 implode(', ', $notTaken),
+            );
+
+        if ($changed === []) {
+            return ToolResult::error(sprintf(
+                'The update did not take on content element [%d].%s%s',
+                $plan['uid'],
+                $notTakenText,
+                $complaints,
             ));
         }
 
+        // Part of it took: the row changed, so the answer names it as written.
         return ToolResult::text(sprintf(
-            'Updated content element [%d] "%s": %s.',
+            'Updated content element [%d] "%s" in part: %s took.%s%s',
             $plan['uid'],
             $this->excerpt($plan['header']),
-            implode(', ', array_keys($plan['fields'])),
+            implode(', ', $changed),
+            $notTakenText,
+            $complaints,
         ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::UPDATED);
     }
 
@@ -206,11 +233,9 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
         foreach ($plan['fields'] as $column => $new) {
             $config = $columns[$column] ?? [];
             $old    = $plan['before'][$column] ?? '';
-            $before = $this->shownValue(is_int($old) ? $old : self::toStr($old), $config);
-            $after  = $this->shownValue($new, $config);
-            $lines[] = $before === $after
-                ? sprintf('%s: unchanged (%s)', $column, $this->quoted($after))
-                : sprintf('%s: %s → %s', $column, $this->quoted($before), $this->quoted($after));
+            $before  = $this->shownValue(is_int($old) ? $old : self::toStr($old), $config);
+            $after   = $this->shownValue($new, $config);
+            $lines[] = sprintf('%s: %s', $column, $this->beforeAfter($before, $after));
         }
 
         return $lines;

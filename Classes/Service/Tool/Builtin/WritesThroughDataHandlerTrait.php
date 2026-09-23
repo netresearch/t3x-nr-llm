@@ -209,6 +209,88 @@ trait WritesThroughDataHandlerTrait
     }
 
     /**
+     * How an approval card shows one field's change, bound to the WHOLE value.
+     *
+     * Two short values are shown in full, `"old" → "new"`. Where either is
+     * longer than the excerpt, or the two differ only in what the excerpt
+     * flattens (whitespace), showing two excerpts would hide the change: an
+     * appended link past the cut reads as "no change". So the line shows the
+     * section that differs — the common start and end stripped, with the
+     * character it starts at — and the length and a short hash of both whole
+     * values. The hash is what makes the approval bind the whole value: a
+     * change anywhere in it changes the line, and ADR-184 compares the lines
+     * when the run resumes.
+     */
+    private function beforeAfter(string $old, string $new): string
+    {
+        if ($old === $new) {
+            return sprintf('unchanged (%s)', $this->quoted($new));
+        }
+
+        $fitsWhole = mb_strlen($old) <= self::PREVIEW_EXCERPT_LENGTH && mb_strlen($new) <= self::PREVIEW_EXCERPT_LENGTH;
+        if ($fitsWhole && $this->quoted($old) !== $this->quoted($new)) {
+            return sprintf('%s → %s', $this->quoted($old), $this->quoted($new));
+        }
+
+        // Split once: character-by-character mb_substr() is quadratic on a
+        // body text of thousands of characters.
+        $oldCharacters = mb_str_split($old);
+        $newCharacters = mb_str_split($new);
+        $oldLength     = count($oldCharacters);
+        $newLength     = count($newCharacters);
+        $shorter       = min($oldLength, $newLength);
+
+        $prefix = 0;
+        while ($prefix < $shorter && $oldCharacters[$prefix] === $newCharacters[$prefix]) {
+            $prefix++;
+        }
+
+        $suffix = 0;
+        while ($suffix < $shorter - $prefix
+            && $oldCharacters[$oldLength - $suffix - 1] === $newCharacters[$newLength - $suffix - 1]
+        ) {
+            $suffix++;
+        }
+
+        return sprintf(
+            'changed from character %d: %s → %s (before: %d characters, %s; after: %d characters, %s)',
+            $prefix + 1,
+            $this->section(implode('', array_slice($oldCharacters, $prefix, $oldLength - $prefix - $suffix))),
+            $this->section(implode('', array_slice($newCharacters, $prefix, $newLength - $prefix - $suffix))),
+            $oldLength,
+            $this->shortHash($old),
+            $newLength,
+            $this->shortHash($new),
+        );
+    }
+
+    /**
+     * The differing section of a value as the card shows it. Its whitespace
+     * is made visible rather than collapsed: a change that IS whitespace must
+     * not read as nothing.
+     */
+    private function section(string $part): string
+    {
+        if ($part === '') {
+            return '(nothing)';
+        }
+
+        $visible = strtr($part, ["\r" => '\\r', "\n" => '\\n', "\t" => '\\t']);
+
+        return '"' . (mb_strlen($visible) > self::PREVIEW_EXCERPT_LENGTH
+            ? mb_substr($visible, 0, self::PREVIEW_EXCERPT_LENGTH) . '…'
+            : $visible) . '"';
+    }
+
+    /**
+     * The first twelve hex digits of a value's SHA-256.
+     */
+    private function shortHash(string $value): string
+    {
+        return 'sha256:' . substr(hash('sha256', $value), 0, 12);
+    }
+
+    /**
      * One line's worth of a value: whitespace collapsed (a `text` column carries
      * newlines, and a preview line must stay one line) and truncated.
      */

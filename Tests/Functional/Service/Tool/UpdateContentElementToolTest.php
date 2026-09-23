@@ -12,6 +12,8 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdateContentElementTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\InterferesWithAnUpdateHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheInterferingHookTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -30,6 +32,8 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 #[CoversClass(UpdateContentElementTool::class)]
 final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
 {
+    use RegistersTheInterferingHookTrait;
+
     /** @var non-empty-string[] */
     protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'frontend'];
 
@@ -102,6 +106,7 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
 
     protected function tearDown(): void
     {
+        $this->unregisterInterferingHook();
         unset($GLOBALS['LANG']);
         parent::tearDown();
     }
@@ -134,6 +139,23 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
 
         self::assertFalse($result->isError, $result->content);
         self::assertSame('A subheader', $this->elementRow(self::TEXT)['subheader'] ?? null);
+    }
+
+    #[Test]
+    public function aColumnDroppedAfterTheChecksIsNamedAndWhatTookIsReportedAsWritten(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$dropColumn = 'subheader';
+
+        $result = $this->tool->execute(
+            ['uid' => self::TEXT, 'fields' => ['header' => 'New header', 'subheader' => 'A subheader']],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('in part: header took. Did not take: subheader', $result->content);
+        self::assertSame(self::TEXT, $result->writeTarget?->uid);
+        self::assertSame('New header', $this->elementRow(self::TEXT)['header'] ?? null);
     }
 
     #[Test]
@@ -280,6 +302,23 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
             'bodytext: unchanged ("Old body")',
         ], $lines);
         self::assertSame('Old header', $this->elementRow(self::TEXT)['header'] ?? null);
+    }
+
+    #[Test]
+    public function thePreviewShowsAChangeInsideALongBodyAndBindsTheWholeValue(): void
+    {
+        $body = rtrim(str_repeat('Paragraph text that runs well past the excerpt. ', 5));
+        $this->connectionPool->getConnectionForTable('tt_content')
+            ->update('tt_content', ['bodytext' => $body], ['uid' => self::TEXT]);
+        $changed = substr_replace($body, '[X](https://evil.example)', 180, 0);
+
+        $lines = $this->tool->previewCall(
+            ['uid' => self::TEXT, 'fields' => ['bodytext' => $changed]],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertStringStartsWith('bodytext: changed from character 181: (nothing) → "[X](https://evil.example)"', $lines[1]);
+        self::assertStringContainsString('sha256:' . substr(hash('sha256', $changed), 0, 12), $lines[1]);
     }
 
     #[Test]

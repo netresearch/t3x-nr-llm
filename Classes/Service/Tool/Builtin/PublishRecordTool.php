@@ -128,33 +128,32 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
         $dataHandler->start([$plan['table'] => [$plan['uid'] => [$plan['hiddenColumn'] => 0]]], [], $user);
         $dataHandler->process_datamap();
 
-        $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-        if ($refused instanceof ToolResult) {
-            return $refused;
-        }
-
-        // Read back before reporting success: an empty errorLog is no proof,
-        // and "published" about a record that is still hidden would send a
-        // human to look for a page that nobody can see.
-        $stored = $this->fetchRowByUid($plan['table'], $plan['uid'], 'uid', $plan['hiddenColumn']);
+        // Read back whatever the error log says: an empty one is no proof,
+        // and a non-empty one does not mean the flag stayed. "Published" about
+        // a record that is still hidden would send a human to look for a page
+        // nobody can see; "refused" about one that is live would hide that it is.
+        $complaints = $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . $this->summariseErrors($dataHandler->errorLog);
+        $stored     = $this->fetchRowByUid($plan['table'], $plan['uid'], 'uid', $plan['hiddenColumn']);
         if ($stored === null || self::toInt($stored[$plan['hiddenColumn']] ?? 1) !== 0) {
             return ToolResult::error(sprintf(
-                'The hidden flag of %s [%d] did not clear. The acting backend user is most likely missing the '
+                'The hidden flag of %s [%d] did not clear.%s The acting backend user is most likely missing the '
                 . 'field-level ("exclude field") grant for %s:%s, or a hook of the installation kept it set.',
                 $plan['table'],
                 $plan['uid'],
+                $complaints,
                 $plan['table'],
                 $plan['hiddenColumn'],
             ));
         }
 
         return ToolResult::text(sprintf(
-            'Cleared the hidden flag of %s [%d] "%s" on page [%d].%s',
+            'Cleared the hidden flag of %s [%d] "%s" on page [%d].%s%s',
             $plan['table'],
             $plan['uid'],
             $this->excerpt($plan['label']),
             $plan['page'],
             $plan['restrictions'] === [] ? '' : ' What may still restrict it: ' . implode('; ', $plan['restrictions']) . '.',
+            $complaints,
         ))->withWriteTarget(new RecordReference($plan['table'], $plan['uid']), WriteKind::UPDATED);
     }
 

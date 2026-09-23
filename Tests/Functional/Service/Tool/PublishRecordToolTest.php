@@ -12,6 +12,8 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Service\Tool\Builtin\PublishRecordTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\InterferesWithAnUpdateHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheInterferingHookTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -30,6 +32,8 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 #[CoversClass(PublishRecordTool::class)]
 final class PublishRecordToolTest extends AbstractFunctionalTestCase
 {
+    use RegistersTheInterferingHookTrait;
+
     /** @var non-empty-string[] */
     protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'frontend'];
 
@@ -108,6 +112,7 @@ final class PublishRecordToolTest extends AbstractFunctionalTestCase
 
     protected function tearDown(): void
     {
+        $this->unregisterInterferingHook();
         unset($GLOBALS['LANG']);
         parent::tearDown();
     }
@@ -210,6 +215,25 @@ final class PublishRecordToolTest extends AbstractFunctionalTestCase
         self::assertTrue($result->isError);
         self::assertSame('Record not found or not permitted.', $result->content);
         self::assertSame(1, $this->hiddenOf('tt_content', self::TRANSLATED_ELEMENT));
+    }
+
+    #[Test]
+    public function aComplaintOfTheDataHandlerDoesNotHideThatTheFlagCleared(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$complain = true;
+
+        $result = $this->tool->execute(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT_ON_OPEN],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        // The record IS published: the answer says so, names it as written,
+        // and passes the complaint on.
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('TYPO3 reported: ', $result->content);
+        self::assertSame(self::ELEMENT_ON_OPEN, $result->writeTarget?->uid);
+        self::assertSame(0, $this->hiddenOf('tt_content', self::ELEMENT_ON_OPEN));
     }
 
     #[Test]

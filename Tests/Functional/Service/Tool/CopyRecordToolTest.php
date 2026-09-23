@@ -12,6 +12,8 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Service\Tool\Builtin\CopyRecordTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\InterferesWithAnUpdateHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheInterferingHookTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -29,6 +31,8 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 #[CoversClass(CopyRecordTool::class)]
 final class CopyRecordToolTest extends AbstractFunctionalTestCase
 {
+    use RegistersTheInterferingHookTrait;
+
     /** @var non-empty-string[] */
     protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'frontend'];
 
@@ -113,6 +117,7 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
 
     protected function tearDown(): void
     {
+        $this->unregisterInterferingHook();
         unset($GLOBALS['LANG']);
         parent::tearDown();
     }
@@ -156,6 +161,24 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
 
         self::assertFalse($result->isError, $result->content);
         self::assertSame(1, (int)($this->row('tt_content', (int)$result->writeTarget?->uid)['hidden'] ?? 0));
+    }
+
+    #[Test]
+    public function aCopyThatStaysVisibleIsTakenBackAndTheAnswerSaysSo(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$keepVisible = true;
+        $before = $this->rowCount('tt_content', ['pid' => self::TARGET_PAGE]);
+
+        $result = $this->tool->execute(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'target_page' => self::TARGET_PAGE],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('it is not hidden', $result->content);
+        self::assertStringContainsString('The copy was deleted again.', $result->content);
+        self::assertSame($before, $this->rowCount('tt_content', ['pid' => self::TARGET_PAGE]));
     }
 
     #[Test]
