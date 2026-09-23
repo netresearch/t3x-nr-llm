@@ -173,6 +173,86 @@ final class GetPageContentToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function theOtherLanguagesOfThePageAreNamedAndATranslationNamesItsSource(): void
     {
+        $this->insertTranslatedPage();
+
+        $context = $this->contextFor($this->setUpBackendUser(1));
+
+        $default = $this->tool->execute(['uid' => 10017], $context)->content;
+        self::assertStringContainsString('[10042] colPos=0 text · Full-Time MBA [hidden]', $default);
+        self::assertStringContainsString('Content in other languages on this page: language 1 (1).', $default);
+
+        $german = $this->tool->execute(['uid' => 10017, 'language' => 1], $context)->content;
+        self::assertStringContainsString('[10043] colPos=0 text · Full-Time MBA · translation of [10042]', $german);
+        self::assertStringContainsString('Content in other languages on this page: language 0 (1).', $german);
+    }
+
+    /**
+     * A translated page owns no content rows; its translated elements sit on
+     * the page it translates. Asked for the translation's own uid, the tool
+     * reads them from there instead of reporting an empty page.
+     */
+    #[Test]
+    public function aTranslatedPageListsTheContentOfThePageItTranslates(): void
+    {
+        $this->insertTranslatedPage();
+
+        $output = $this->tool->execute(['uid' => 10018, 'language' => 1], $this->contextFor($this->setUpBackendUser(1)))->content;
+
+        self::assertStringContainsString('(doktype 1, slug /mbs-demo-fiktiv/full-time-mba-programmueberblick, language 1, translation of page [10017])', $output);
+        self::assertStringContainsString('[10043] colPos=0 text · Full-Time MBA · translation of [10042]', $output);
+        self::assertStringContainsString('Content in other languages on this page: language 0 (1).', $output);
+    }
+
+    /**
+     * An editor restricted to the default language is not told that the page
+     * has content in a language they may not read.
+     */
+    #[Test]
+    public function anEditorIsNotToldAboutALanguageTheyMayNotAccess(): void
+    {
+        $this->insertTranslatedPage(visibleToEveryone: true);
+        $this->get(ConnectionPool::class)->getConnectionForTable('tt_content')->update(
+            'tt_content',
+            ['hidden' => 0],
+            ['uid' => 10042],
+        );
+
+        $this->setUpBackendUser(2);
+        $editor = $GLOBALS['BE_USER'] ?? null;
+        self::assertInstanceOf(BackendUserAuthentication::class, $editor);
+        $editor->groupData['webmounts']         = '10017';
+        $editor->groupData['allowed_languages'] = '0';
+
+        $output = $this->tool->execute(['uid' => 10017], $this->contextFor($editor))->content;
+
+        self::assertStringContainsString('[10042] colPos=0 text · Full-Time MBA', $output);
+        self::assertStringNotContainsString('other languages', $output);
+    }
+
+    /**
+     * Elements for all languages (-1) cannot be listed by any call — a
+     * negative language reads as 0 — so they are not named as another language.
+     */
+    #[Test]
+    public function elementsForAllLanguagesAreNotNamedAsAnotherLanguage(): void
+    {
+        $this->get(ConnectionPool::class)->getConnectionForTable('tt_content')->insert('tt_content', [
+            'uid' => 23, 'pid' => 1, 'colPos' => 0, 'sorting' => 9, 'CType' => 'text',
+            'header' => 'Everywhere', 'sys_language_uid' => -1,
+        ]);
+
+        $output = $this->tool->execute(['uid' => 1], $this->contextFor($this->setUpBackendUser(1)))->content;
+
+        self::assertStringNotContainsString('language -1', $output);
+        self::assertStringNotContainsString('other languages', $output);
+    }
+
+    /**
+     * NEXT-167, demo conversation 91: page 10017, its translation 10018, the
+     * hidden default element 10042 and its visible translation 10043.
+     */
+    private function insertTranslatedPage(bool $visibleToEveryone = false): void
+    {
         $pool  = $this->get(ConnectionPool::class);
         $pages = $pool->getConnectionForTable('pages');
         self::assertInstanceOf(Connection::class, $pages);
@@ -199,18 +279,9 @@ final class GetPageContentToolTest extends AbstractFunctionalTestCase
             'sys_language_uid' => 1, 'l18n_parent' => 10042,
         ]);
 
-        $context = $this->contextFor($this->setUpBackendUser(1));
-
-        $default = $this->tool->execute(['uid' => 10017], $context)->content;
-        self::assertStringContainsString('[10042] colPos=0 text · Full-Time MBA [hidden]', $default);
-        self::assertStringContainsString('Content in other languages on this page: language 1 (1).', $default);
-
-        $german = $this->tool->execute(['uid' => 10017, 'language' => 1], $context)->content;
-        self::assertStringContainsString('[10043] colPos=0 text · Full-Time MBA · translation of [10042]', $german);
-        self::assertStringContainsString('Content in other languages on this page: language 0 (1).', $german);
-
-        $translatedPage = $this->tool->execute(['uid' => 10018, 'language' => 1], $context)->content;
-        self::assertStringContainsString('(doktype 1, slug /mbs-demo-fiktiv/full-time-mba-programmueberblick, language 1, translation of page [10017])', $translatedPage);
+        if ($visibleToEveryone) {
+            $pages->update('pages', ['pid' => 0, 'perms_everybody' => Permission::ALL], ['uid' => 10017]);
+        }
     }
 
     #[Test]

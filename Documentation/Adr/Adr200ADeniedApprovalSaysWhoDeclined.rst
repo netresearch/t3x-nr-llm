@@ -46,8 +46,9 @@ who declined and what the model should tell the user::
     person you are talking to. Nothing was executed. Tell them that they
     declined the approval themselves ...
 
-``decided_by`` takes three values, exposed as constants on
-:php:`ToolLoopService`:
+``decided_by`` takes three values, exposed with the reason token as
+constants on the ``@api`` interface :php:`ToolLoopServiceInterface`, so the
+API-surface snapshot guards the exact strings:
 
 ``run_owner``
     The decider is the backend user the run belongs to.

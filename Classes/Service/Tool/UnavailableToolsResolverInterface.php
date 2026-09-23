@@ -27,8 +27,15 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  *
  * The decision per tool is {@see ToolCallPolicyInterface::decide()}; this only
  * runs it over every registered tool rather than over the enabled ones, so a
- * disabled tool is reported too. A tool the trust-zone gate would refuse while
- * enforcement is in observe mode IS offered, and is therefore not listed.
+ * disabled tool is reported too. A builtin tool the trust-zone gate would
+ * refuse while enforcement is in observe mode IS offered, and is therefore not
+ * listed. A remote tool (an MCP server's) is always enforced by that gate, in
+ * observe mode too ({@see ToolCallPolicy::decide()}), so when the ceiling
+ * refuses it, it is listed with `trustZone` in either mode.
+ *
+ * Remote tools are listed for administrators only: their names come from
+ * operator configuration, not from this extension, and an editor is shown
+ * builtin tools alone.
  *
  * @api
  */

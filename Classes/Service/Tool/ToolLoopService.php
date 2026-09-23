@@ -72,19 +72,6 @@ use Throwable;
  */
 final readonly class ToolLoopService implements ToolLoopServiceInterface
 {
-    /**
-     * The fixed reason token a denied approval's tool result leads with, and
-     * the three values of its `decided_by` (ADR-200). Tokens, not prose, so a
-     * consumer or a model can tell a human "no" apart from any other refusal.
-     */
-    public const APPROVAL_DENIED = 'approval_denied';
-
-    public const DECIDED_BY_RUN_OWNER = 'run_owner';
-
-    public const DECIDED_BY_OTHER_USER = 'other_user';
-
-    public const DECIDED_BY_UNKNOWN = 'unknown';
-
     public function __construct(
         private LlmServiceManagerInterface $mgr,
         private ToolRegistry $registry,

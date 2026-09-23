@@ -1707,6 +1707,10 @@ Netresearch\NrLlm\Service\Tool\ToolInterface (interface)
   method requiresAdmin(): bool
 
 Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface (interface)
+  const APPROVAL_DENIED = "approval_denied"
+  const DECIDED_BY_OTHER_USER = "other_user"
+  const DECIDED_BY_RUN_OWNER = "run_owner"
+  const DECIDED_BY_UNKNOWN = "unknown"
   method resume(Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState $state, bool $approved, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunTrace $runTrace = …, ?int $beUserUid = …): Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult
   method resumeWithInput(Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState $state, array $inputData, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunTrace $runTrace = …, ?int $beUserUid = …): Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult
   method runLoop(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context, ?array $allowedToolNames, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunTrace $runTrace = …, ?Netresearch\NrLlm\Service\Tool\RunAugmentation $augmentation = …, bool $skipAssembly = …, int $seedIterations = …, int $seedPromptTokens = …, int $seedCompletionTokens = …): Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult

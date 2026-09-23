@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\WorkspaceRestriction;
 use TYPO3\CMS\Core\Schema\SearchableSchemaFieldsCollector;
@@ -137,7 +138,7 @@ final readonly class SearchRecordsTool implements ToolInterface
             }
 
             $languageField = $this->languageFields($table)[0];
-            foreach ($this->searchTable($table, $searchFields, $query, $remaining) as $row) {
+            foreach ($this->searchTable($table, $searchFields, $query, $remaining, $isAdmin ? null : $this->allowedLanguages($user, $languageField)) as $row) {
                 // Non-admins only see hits on pages they may show (fail-closed).
                 if (!$isAdmin && !$this->pageIsReadable($table, $row, $permsClause, $pidAccess)) {
                     continue;
@@ -222,11 +223,13 @@ final readonly class SearchRecordsTool implements ToolInterface
      * LIKE across the table's search fields with default restrictions
      * (deleted/hidden/timed rows excluded for every user).
      *
-     * @param list<string> $searchFields
+     * @param list<string>                        $searchFields
+     * @param array{0: string, 1: list<int>}|null $languages    the language column and the languages the acting
+     *                                                          user may read; null when the rows are not restricted
      *
      * @return list<array<string, mixed>>
      */
-    private function searchTable(string $table, array $searchFields, string $query, int $limit): array
+    private function searchTable(string $table, array $searchFields, string $query, int $limit, ?array $languages = null): array
     {
         $labelField   = $this->labelField($table);
         $selectFields = array_values(array_unique(array_merge(
@@ -251,10 +254,22 @@ final readonly class SearchRecordsTool implements ToolInterface
             );
         }
 
-        $rows = $queryBuilder
+        $queryBuilder
             ->select(...$selectFields)
             ->from($table)
-            ->where($queryBuilder->expr()->or(...$orConditions))
+            ->where($queryBuilder->expr()->or(...$orConditions));
+
+        // In the query, not only in the loop after it: the limit applies here,
+        // and rows in a forbidden language would otherwise use it up and leave
+        // permitted matches unfetched.
+        if ($languages !== null) {
+            $queryBuilder->andWhere($queryBuilder->expr()->in(
+                $languages[0],
+                $queryBuilder->createNamedParameter($languages[1], Connection::PARAM_INT_ARRAY),
+            ));
+        }
+
+        $rows = $queryBuilder
             ->orderBy('uid', 'ASC')
             ->setMaxResults($limit)
             ->executeQuery()
@@ -340,6 +355,27 @@ final readonly class SearchRecordsTool implements ToolInterface
         }
 
         return $line;
+    }
+
+    /**
+     * The language column and the languages the acting user may read, or null
+     * when every language is readable (the table has no language column, or
+     * the user's language list is empty — core's checkLanguageAccess() reads
+     * an empty list as "all"). -1, "all languages", is always readable.
+     *
+     * @return array{0: string, 1: list<int>}|null
+     */
+    private function allowedLanguages(BackendUserAuthentication $user, ?string $languageField): ?array
+    {
+        $allowed = trim(self::toStr($user->groupData['allowed_languages'] ?? ''));
+        if ($languageField === null || $allowed === '') {
+            return null;
+        }
+
+        $languages = array_map(static fn(string $id): int => (int)$id, GeneralUtility::trimExplode(',', $allowed, true));
+        $languages[] = -1;
+
+        return [$languageField, array_values(array_unique($languages))];
     }
 
     /**

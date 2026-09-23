@@ -149,9 +149,20 @@ final readonly class GetPageContentTool implements ToolInterface
             self::toInt($page['hidden'] ?? 0) === 1 ? ' [hidden]' : '',
         );
 
-        $otherLanguages = $this->otherLanguagesLine($uid, $language, $isAdmin, $user);
+        // A translated page owns no content rows: its translated elements sit
+        // on the default-language page, the one it translates. Reading them by
+        // the translation's own uid found nothing and read as an empty page.
+        $contentPage = $pageParent > 0 ? $pageParent : $uid;
+        if ($contentPage !== $uid && !$isAdmin) {
+            $permsClause = self::toStr($user->getPagePermsClause(Permission::PAGE_SHOW));
+            if (!is_array(BackendUtility::readPageAccess($contentPage, $permsClause))) {
+                return ToolResult::text(self::NOT_PERMITTED);
+            }
+        }
 
-        $rows = $this->fetchContent($uid, $language, $isAdmin);
+        $otherLanguages = $this->otherLanguagesLine($contentPage, $language, $isAdmin, $user);
+
+        $rows = $this->fetchContent($contentPage, $language, $isAdmin);
         if ($rows === []) {
             $lines[] = sprintf('No content elements (language %d).', $language);
             if ($otherLanguages !== '') {
@@ -197,6 +208,11 @@ final readonly class GetPageContentTool implements ToolInterface
      * visible translation of it sat next to it (demo conversation 91). Only
      * languages the acting user may access are counted, with the same
      * restrictions the element list itself uses.
+     *
+     * Elements for all languages (`sys_language_uid = -1`) are left out: the
+     * tool cannot be asked for language -1 (a negative argument reads as 0),
+     * and no element list of it includes them, so naming them here would send
+     * the model after a language it can never read.
      */
     private function otherLanguagesLine(int $pageUid, int $language, bool $isAdmin, BackendUserAuthentication $user): string
     {
@@ -219,6 +235,7 @@ final readonly class GetPageContentTool implements ToolInterface
                     'sys_language_uid',
                     $queryBuilder->createNamedParameter($language, Connection::PARAM_INT),
                 ),
+                $queryBuilder->expr()->gte('sys_language_uid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
             )
             ->groupBy('sys_language_uid')
             ->orderBy('sys_language_uid', 'ASC')

@@ -49,10 +49,20 @@ The ordering of the gate is unchanged: a tool that is both disabled and above
 the ceiling reports ``toolDisabled``, so the list never reveals a trust-zone
 axis to a caller an earlier gate already stopped.
 
-A trust-zone refusal while enforcement is in ``observe`` mode
+A builtin tool's trust-zone refusal while enforcement is in ``observe`` mode
 (:ref:`ADR-115 <adr-115>`) is not listed: the tool IS offered in that mode, so
 it is available. Enforcing, the same tool is withheld and listed with
-``trustZone``.
+``trustZone``. A remote tool never benefits from observe mode — the gate
+enforces the ceiling on it in both modes (``ToolCallPolicy::decide()``, per
+ADR-115) — so a remote tool above the ceiling is listed with ``trustZone``
+whatever the setting says.
+
+Remote tools — the ones an MCP server contributes (:ref:`ADR-116 <adr-116>`),
+named ``mcp_*`` — are listed for administrators only. Their names come from
+operator configuration rather than from this extension, and an editor has no
+use for the catalogue of a server they cannot configure; an administrator
+does, to tell a tool the gate holds back from one that is missing. Builtin
+tools are listed for everyone.
 
 What the consumer does with the list is its own decision. The chat of
 ``nr_mcp_agent`` puts it into the system prompt, compact — one name and one
@@ -74,15 +84,18 @@ without re-deriving any gate.
 
 ✓ The list and the gate cannot drift: the list IS the gate's output.
 
-✕ The model, and through it the user, learns the names of tools they cannot
-use, including admin-only ones and the fact that a trust-zone ceiling applies.
+✕ The model, and through it the user, learns the names of builtin tools they
+cannot use, including admin-only ones and the fact that a trust-zone ceiling
+applies. Remote tool names reach only an administrator's model.
 Tool names and reason codes are policy facts, not instance data
 (:php:`ToolPolicyDecision::message()` says the same of its own text); the
 consumer decides whether to pass them on.
 
-✕ One gate evaluation per registered tool per call, and each evaluation reads
-the tool-state and group-state overrides — two small queries per tool, the
-cost the gate already pays per enabled tool at the start of every run.
+✕ One gate evaluation per registered tool per call. The enabled set (two
+small queries, the tool-state and group-state overrides) and the
+configuration's allow-list are resolved once per call and shared by every
+evaluation, which :php:`ToolCallPolicyInterface::explain()` now does for
+every caller.
 
 .. _adr-201-revisit:
 

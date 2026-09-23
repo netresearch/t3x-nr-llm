@@ -9,8 +9,11 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewComparator;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreatePageDraftTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -323,7 +326,7 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
 
         self::assertCount(7, $lines);
         self::assertSame(
-            'Warning: page [10073] with this exact title already exists under this parent (hidden). Approving creates a second page with the same title.',
+            'Warning: page [10073] with the same title already exists under this parent (hidden). Approving creates a second page with that title.',
             $lines[0],
         );
         self::assertStringContainsString('New page under page [2] "Open"', $lines[1]);
@@ -345,6 +348,68 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
 
         self::assertCount(6, $lines);
         self::assertStringStartsWith('New page under page [2]', $lines[0]);
+    }
+
+    /**
+     * Being allowed to create pages under a parent is not being allowed to
+     * see every page there: a sibling the editor may not show is not named.
+     */
+    #[Test]
+    public function thePreviewDoesNotNameASiblingTheEditorMayNotSee(): void
+    {
+        $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
+            'uid' => 33, 'pid' => self::PARENT_OPEN, 'title' => 'Private twin', 'doktype' => 1, 'sorting' => 4,
+            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => 0,
+        ]);
+        $editor                                = $this->setUpBackendUser(2);
+        $editor->groupData['tables_modify']    = 'pages';
+        $editor->groupData['pagetypes_select'] = '1';
+
+        $lines = $this->tool->previewCall(
+            ['parent' => self::PARENT_OPEN, 'title' => 'Private twin'],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertStringStartsWith('New page under page [2]', $lines[0] ?? '');
+        self::assertStringNotContainsString('[33]', implode("\n", $lines));
+    }
+
+    /**
+     * Two runs draft the same page. The first is approved and creates it; the
+     * second's preview, shown before that, carried no warning. ADR-184's
+     * comparison at approval re-previews the call, now finds the warning, and
+     * hands the run back with the fresh preview instead of executing it — so
+     * the second approver sees the warning after all.
+     */
+    #[Test]
+    public function aConcurrentDraftOfTheSamePageBouncesTheSecondApprovalWithTheWarning(): void
+    {
+        $admin     = $this->setUpBackendUser(1);
+        $context   = ToolExecutionContext::fromBackendUser($admin);
+        $arguments = ['parent' => self::PARENT_OPEN, 'title' => 'Twice drafted'];
+        $registry  = new ToolRegistry([$this->tool]);
+        $comparator = new ApprovalPreviewComparator($registry);
+
+        $shown = $comparator->bound($this->tool->previewCall($arguments, $context));
+        self::assertStringStartsWith('New page under page [2]', $shown[0] ?? '');
+        $suspended = new SuspendedRunState(
+            messages: [],
+            pendingCalls: [['id' => 'call_2', 'type' => 'function', 'function' => ['name' => 'create_page_draft', 'arguments' => $arguments]]],
+            iterations: 1,
+            promptTokens: 0,
+            completionTokens: 0,
+            callPreviews: [['index' => 0, 'tool' => 'create_page_draft', 'lines' => $shown, 'failed' => false]],
+        );
+
+        // The first run's draft is approved and written.
+        self::assertFalse($this->tool->execute($arguments, $context)->isError);
+
+        $bounced = $comparator->compare($suspended, $suspended->toolCalls(), ['create_page_draft'], $context);
+
+        self::assertInstanceOf(SuspendedRunState::class, $bounced);
+        self::assertSame([0], $bounced->staleCallIndexes);
+        self::assertStringStartsWith('Warning: page [', $bounced->callPreviews[0]['lines'][0] ?? '');
     }
 
     /**

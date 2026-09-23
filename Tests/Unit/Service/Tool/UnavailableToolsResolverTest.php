@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\UnavailableToolsResolver;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeRemoteTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -92,6 +93,54 @@ final class UnavailableToolsResolverTest extends TestCase
         self::assertSame(
             [],
             $this->resolver($registry, enforcement: 'observe')->unavailable($configuration, $this->admin()),
+        );
+    }
+
+    /**
+     * A remote (MCP) tool's name is operator configuration. It is listed for an
+     * administrator, never for an editor; builtins are listed for both.
+     */
+    #[Test]
+    public function aRemoteToolIsListedForAnAdministratorOnly(): void
+    {
+        $registry = new ToolRegistry([
+            new FakeTool('read_source', 'ok', true, false, 'code'),
+            new FakeRemoteTool('mcp_deepwiki_ask_question', 'code'),
+        ]);
+        $configuration = $this->configuration(TrustZone::LOCAL);
+        $configuration->setAllowedToolGroups('content');
+        $resolver = $this->resolver($registry);
+
+        self::assertSame(
+            ['read_source' => ToolDenialReason::CONFIGURATION_GROUP],
+            $this->byName($resolver->unavailable($configuration, $this->editor())),
+        );
+        self::assertSame(
+            ['read_source' => ToolDenialReason::CONFIGURATION_GROUP],
+            $this->byName($resolver->unavailable($configuration, null)),
+        );
+        self::assertSame(
+            [
+                'read_source'               => ToolDenialReason::CONFIGURATION_GROUP,
+                'mcp_deepwiki_ask_question' => ToolDenialReason::CONFIGURATION_GROUP,
+            ],
+            $this->byName($resolver->unavailable($configuration, $this->admin())),
+        );
+    }
+
+    /**
+     * Observe mode never covers a remote tool (ADR-115), so above the ceiling
+     * it is listed with trustZone in either mode — for an administrator.
+     */
+    #[Test]
+    public function aRemoteToolAboveTheCeilingIsListedEvenInObserveMode(): void
+    {
+        $registry      = new ToolRegistry([new FakeRemoteTool('mcp_logs_fetch', 'system')]);
+        $configuration = $this->configuration(TrustZone::EXTERNAL_GLOBAL);
+
+        self::assertSame(
+            ['mcp_logs_fetch' => ToolDenialReason::TRUST_ZONE],
+            $this->byName($this->resolver($registry, enforcement: 'observe')->unavailable($configuration, $this->admin())),
         );
     }
 

@@ -140,6 +140,44 @@ final class SearchRecordsToolTest extends AbstractFunctionalTestCase
         self::assertStringNotContainsString('translated', $output);
     }
 
+    /**
+     * Rows in a forbidden language must not use up the limit: with limit 1 and
+     * the forbidden row first by uid, the permitted one is still found.
+     */
+    #[Test]
+    public function rowsInAForbiddenLanguageDoNotUseUpTheLimit(): void
+    {
+        $pool  = $this->get(ConnectionPool::class);
+        $pages = $pool->getConnectionForTable('pages');
+        self::assertInstanceOf(Connection::class, $pages);
+        $pages->insert('pages', [
+            'uid' => 7, 'pid' => 0, 'title' => 'Public', 'doktype' => 1,
+            'sorting' => 7, 'perms_everybody' => Permission::PAGE_SHOW,
+        ]);
+        $content = $pool->getConnectionForTable('tt_content');
+        $content->insert('tt_content', [
+            'uid' => 40, 'pid' => 7, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
+            'header' => 'Limitmarker translated', 'sys_language_uid' => 1,
+        ]);
+        $content->insert('tt_content', [
+            'uid' => 41, 'pid' => 7, 'colPos' => 0, 'sorting' => 2, 'CType' => 'text',
+            'header' => 'Limitmarker default', 'sys_language_uid' => 0,
+        ]);
+
+        $editor = $this->setUpBackendUser(2);
+        $editor->groupData['tables_select']     = 'tt_content';
+        $editor->groupData['webmounts']         = '7';
+        $editor->groupData['allowed_languages'] = '0';
+
+        $output = $this->tool->execute(
+            ['query' => 'Limitmarker', 'table' => 'tt_content', 'limit' => 1],
+            ToolExecutionContext::fromBackendUser($editor),
+        )->content;
+
+        self::assertStringContainsString('tt_content:41', $output);
+        self::assertStringNotContainsString('tt_content:40', $output);
+    }
+
     #[Test]
     public function hiddenRowsNeverReachTheOutput(): void
     {

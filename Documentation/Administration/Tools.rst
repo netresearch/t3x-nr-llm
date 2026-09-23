@@ -731,8 +731,10 @@ the tools one configuration and one backend user will NOT be offered, each
 with the gate that holds it back — ``toolDisabled``, ``requiresAdmin``,
 ``configurationGroup`` or ``trustZone`` — and pass that to the model, which
 can then say "there is a tool for that, it is not enabled for you"
-(:ref:`ADR-201 <adr-201>`). A tool the trust-zone gate only observes is
-offered, and is not in that list.
+(:ref:`ADR-201 <adr-201>`). A builtin tool the trust-zone gate only
+observes is offered, and is not in that list; a remote (MCP) tool is always
+enforced by that gate, so above the ceiling it is listed in either mode.
+Remote tools are listed for administrators only.
 
 .. figure:: /Images/ToolsModule.png
    :alt: The Tools management module listing each built-in tool with an
