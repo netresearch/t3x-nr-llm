@@ -26,6 +26,7 @@ use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
+use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -315,25 +316,45 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
 
         if ($plan['translations'] > 0) {
             // Which translations core copies is core's decision
-            // (DataHandler::copyL10nOverlayRecords()), and it differs by
-            // version: TYPO3 14 and the current 13.4 releases copy only into a
-            // site that has the language and log a refusal for one they cannot
-            // place, which takes the copy back; outside a site they copy none.
-            // Earlier 13.4 releases have no site check and drop an element
-            // translation the target page is not translated into in silence.
-            // Whatever core copied is hidden and counted in the answer.
+            // (DataHandler::copyL10nOverlayRecords()), and it changed in
+            // 13.4.25: from then on core copies only into a site that has the
+            // language and logs a refusal for one it cannot place, which takes
+            // the copy back, and outside a site it copies none. Before, it
+            // asked no site: page translations were copied whatever the site,
+            // and an element translation the target page is not translated
+            // into was dropped in silence. The card says what THIS core does.
             $lines[] = sprintf(
-                'with its %d translation(s), as far as core copies them to the target: current TYPO3 releases copy a '
-                . 'translation only into a site that has its language%s, take the copy back where core refuses one, '
-                . 'and copy none outside a site; the answer says how many were copied',
+                'with its %d translation(s), as far as core copies them to the target: %s; the answer says how many '
+                . 'were copied',
                 $plan['translations'],
-                $plan['table'] === self::PAGES_TABLE ? '' : ' and onto a target page translated into it',
+                $this->translationRule($plan['table']),
             );
         }
 
         $lines[] = 'visibility: the copy and every copied translation are hidden — a human must unhide them before anyone sees them';
 
         return $lines;
+    }
+
+    /**
+     * What the running core does with the translations of a copied record.
+     */
+    private function translationRule(string $table): string
+    {
+        $version = new Typo3Version();
+        if ($version->getMajorVersion() === 13 && version_compare($version->getVersion(), '13.4.25', '<')) {
+            return $table === self::PAGES_TABLE
+                ? 'this TYPO3 release (before 13.4.25) asks no site and copies every translation, into a site without '
+                    . 'its language and outside a site too'
+                : 'this TYPO3 release (before 13.4.25) asks no site, copies a translation onto a target page translated '
+                    . 'into its language and drops the others without an error';
+        }
+
+        return $table === self::PAGES_TABLE
+            ? 'a translation is copied only into a site that has its language — where the site does not, core refuses '
+                . 'it and the copy is taken back — and none outside a site'
+            : 'a translation is copied only into a site that has its language and onto a target page translated into '
+                . 'it — where core refuses one, the copy is taken back — and none outside a site';
     }
 
     public function isEnabledByDefault(): bool

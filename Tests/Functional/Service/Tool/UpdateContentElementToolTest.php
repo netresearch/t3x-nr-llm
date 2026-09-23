@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Tests\Fixtures\DataHandler\InterferesWithAnUpdateHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheInterferingHookTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
@@ -176,25 +177,39 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
         self::assertSame('New header', $this->elementRow(self::TEXT)['header'] ?? null);
     }
 
+    /**
+     * @return iterable<string, array{string, non-empty-string}>
+     */
+    public static function changesAReaderCannotSee(): iterable
+    {
+        // Shown as "Old header" → "Old header", each of these would hide the
+        // change it is.
+        yield 'a no-break space for a space' => ["Old\u{00A0}header", 'header: changed from character 4: " " → "\\u{00A0}"'];
+        yield 'a zero-width space, no whitespace to the excerpt' => ["Old header\u{200B}", 'header: changed from character 11: (nothing) → "\\u{200B}"'];
+        yield 'a bidi isolate' => ["Old header\u{2066}", 'header: changed from character 11: (nothing) → "\\u{2066}"'];
+        yield 'a tag character' => ["Old header\u{E0041}", 'header: changed from character 11: (nothing) → "\\u{E0041}"'];
+        yield 'a soft hyphen' => ["Old head\u{00AD}er", 'header: changed from character 9: (nothing) → "\\u{00AD}"'];
+        yield 'a backspace' => ["Old header\x08", 'header: changed from character 11: (nothing) → "\\u{0008}"'];
+        // And a value that spells an escape out is not taken for one.
+        yield 'a spelled-out escape beside a real one' => [
+            "Old header\\u{00A0}\u{00A0}",
+            'header: changed from character 11: (nothing) → "\\\\u{00A0}\\u{00A0}"',
+        ];
+    }
+
+    /**
+     * @param non-empty-string $expected
+     */
     #[Test]
-    public function thePreviewNamesACharacterAReaderCannotSee(): void
+    #[DataProvider('changesAReaderCannotSee')]
+    public function thePreviewNamesACharacterAReaderCannotSee(string $header, string $expected): void
     {
         $lines = $this->tool->previewCall(
-            ['uid' => self::TEXT, 'fields' => ['header' => "Old\u{00A0}header"]],
+            ['uid' => self::TEXT, 'fields' => ['header' => $header]],
             ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
         );
 
-        // A no-break space looks like the space it replaces; shown as
-        // "Old header" → "Old header" the card would hide the change.
-        self::assertStringStartsWith('header: changed from character 4: " " → "\u{00A0}"', $lines[1]);
-
-        // A zero-width space is no whitespace to the excerpt, and would
-        // otherwise pass as a short value shown in full.
-        $lines = $this->tool->previewCall(
-            ['uid' => self::TEXT, 'fields' => ['header' => "Old header\u{200B}"]],
-            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
-        );
-        self::assertStringStartsWith('header: changed from character 11: (nothing) → "\u{200B}"', $lines[1]);
+        self::assertStringStartsWith($expected, $lines[1]);
     }
 
     #[Test]

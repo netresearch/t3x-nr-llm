@@ -80,10 +80,16 @@ decision; removing one reopens ADR-135's argument.
    translations of the subpages and the records stored on the pages, table
    by table. These counts include records the acting user cannot see; they
    are aggregates only, never titles or uids of records beyond the branch.
-   A delete that would discard a workspace draft — of the record, of a
-   translation core deletes with it, or of a record on the deleted pages —
-   is refused: core's delete takes such drafts along, and the card could not
-   show them (rail 3).
+   A delete that would take a workspace draft along is refused (rail 3).
+   Core's delete in the live workspace discards for good the versions — a
+   move version on another page included — and the new workspace
+   translations of every live row it deletes: the record, its translations,
+   the records on deleted pages, the records of a deleted page translation's
+   language, and the inline and file children of each. It strands the other
+   drafts it meets: a new page or record of another workspace on a deleted
+   page, a draft in a deleted page translation's language, a new workspace
+   translation of a deleted page. The tool counts both kinds, each draft
+   once, and refuses as well when a table cannot be asked.
 
 ``copy_record`` and ``move_page``
    Structural acts: a copy of one element or page, a page moved to another
@@ -95,7 +101,7 @@ decision; removing one reopens ADR-135's argument.
    inside the page's own branch or under a page translation, and says on the
    card how many subpages move along, that the page keeps its URL path —
    core does not regenerate ``slug`` on a move — and when it moves into
-   another site.
+   another site, into a site or out of every site.
 
 ``replace_file_reference``
    Replaces the file of one existing reference on a content element's
@@ -134,8 +140,8 @@ The rails every one of them carries:
    every workspace on purpose: core's non-admin table check before a page
    delete, which core makes the same way; the ADR-193 check for connected
    translations, where a draft counts because it becomes live when published;
-   and ``delete_record``'s count of the drafts a delete would discard, which
-   refuses the delete when it is not 0.
+   and ``delete_record``'s count of the drafts a delete would take along,
+   which refuses the delete when it is not 0.
 4. **Language as ADR-193 left it.** A translation core moves, copies or
    deletes together with its default-language record is refused by itself
    and the refusal names that record; every translation core carries along
@@ -153,7 +159,8 @@ The rails every one of them carries:
    value: two short values are shown in full; otherwise the card shows the
    section that differs, where it starts, and the length and a short SHA-256 of
    both values, so a change past any excerpt — an appended link — changes the
-   card and is compared on resume. This amends ADR-184's rule that only the
+   card and is compared on resume; a character a reader cannot see is
+   written as its code point. This amends ADR-184's rule that only the
    excerpt binds, for these two writers. After the write the result is read back
    whatever the DataHandler's error log says, and the answer states what is
    actually the case: what did not take is named, a record that came into being
@@ -195,8 +202,9 @@ unsafe to edit in the same change.
 
 ✕ A wrong approval now changes or removes live content. The approval card is the
 control: it shows every column's change bound to the whole value (for the two
-updating writers), what a delete takes along and what still points at it. The delete is recoverable from the
-recycler; an overwritten text is recoverable from the record history.
+updating writers), what a delete takes along and what still points at it. The
+delete is recoverable from the recycler; an overwritten text is recoverable from
+the record history.
 
 ✕ ``update_content_element`` leaves what did take written when one column
 did not, as ``update_page_metadata`` does. The answer reports the record as

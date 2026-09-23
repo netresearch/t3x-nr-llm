@@ -259,8 +259,7 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
             ToolExecutionContext::fromBackendUser($this->actor(1)),
         );
         self::assertContains(
-            'with 1 translated reference(s) [111] on translated element(s) (an element that is gone), which core deletes '
-            . "with it; each translated element's reference count is then updated",
+            'with 1 translated reference(s) [111] (1 of them on an element that is gone), which core deletes with it',
             $lines,
         );
 
@@ -381,8 +380,8 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
             "alternative: the file's own (not carried over from the old reference)",
             "description: the file's own (not carried over from the old reference)",
             'with 1 translated reference(s) [112] on translated element(s) [12], which core deletes with the old '
-            . "reference; the translations get no reference to the new file, and each translated element's reference "
-            . 'count is then updated',
+            . "reference; the translations get no reference to the new file; each translated element's reference count "
+            . 'is then updated',
         ], $lines);
         self::assertSame([self::FIRST, self::SECOND], $this->liveReferences(self::ELEMENT));
     }

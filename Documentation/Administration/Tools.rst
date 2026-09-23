@@ -330,7 +330,8 @@ What holds for all of them:
   before and after to the whole value: two short values in full, otherwise
   the section that differs, where it starts, and the length and a short hash
   of both values — so a change past the visible part, such as an appended
-  link, still shows.
+  link, still shows. A character a reader cannot see, such as a zero-width
+  space or a direction mark, is written as its code point.
 
 ``update_page_metadata``
    Sets a fixed set of descriptive fields on one page. Editable: ``title``,
@@ -727,9 +728,10 @@ What holds for all of them:
    content-edit rights for an element, and the right to edit every translation
    that goes along; for a page, also ``tables_modify`` for every table with
    records on it and the languages of the content on it. A delete that would
-   discard a workspace draft — of the record, of a translation going with it,
-   or of a record on the deleted pages — is refused: core discards such
-   drafts for good. Publish or discard them in their workspace first.
+   take a workspace draft along is refused: core discards the versions and
+   new workspace translations of what it deletes for good, and strands the
+   other drafts on a deleted page. Publish or discard them in their workspace
+   first.
 
 ``copy_record``
    Copies one content element to a page and column, or one page under a
@@ -739,15 +741,16 @@ What holds for all of them:
    **always copied without its subpages**: core would hide only the top page
    of a copied branch. What happens to the translations of a
    default-language record depends on the TYPO3 release and the target's
-   **site**: current releases copy none outside a site and, inside one, a
-   translation only where the site has its language (for an element, where
-   the target page is translated into it); one the site cannot place fails
-   the copy, which is then taken back. Some 13.4 patch releases — 13.4.24
-   among them — do not ask the site, and drop an element translation the
-   target page is not translated into without an error. The answer says how many were
-   copied. A page's content is copied with the page. A translation is
-   refused by itself, as are a page translation as target, a site root, and
-   a standalone element beside connected translations on the target page
+   **site**: TYPO3 14 and 13.4.25 or later copy none outside a site and,
+   inside one, a translation only where the site has its language (for an
+   element, where the target page is translated into it); one core refuses
+   fails the copy, which is then taken back. Before 13.4.25, core asks no
+   site: it copies every page translation, and drops an element translation
+   the target page is not translated into without an error. The card states
+   the rule of the running core. The answer says how many were copied. A
+   page's content is copied with the page. A translation is refused by
+   itself, as are a page translation as target, a site root, and a
+   standalone element beside connected translations on the target page
    (:ref:`ADR-193 <adr-193>`).
 
 ``move_page``
@@ -755,11 +758,11 @@ What holds for all of them:
    sibling. Its content, translations and subpages move with it, and it keeps
    its uid and its URL path — core does not regenerate the slug on a move.
    The approval card says so, counts the subpages that move along, and warns
-   when the page moves into another site or out of every site. Asks the permissions core asks:
-   delete rights on the page and new-page rights on the new parent for a new
-   parent, edit rights within the same parent. A site root, a translation, a
-   page translation as parent and a target inside the page's own branch are
-   refused.
+   when the page moves into another site, into a site or out of every site.
+   Asks the permissions core asks: delete rights on the page and new-page
+   rights on the new parent for a new parent, edit rights within the same
+   parent. A site root, a translation, a page translation as parent and a
+   target inside the page's own branch are refused.
 
 ``replace_file_reference``
    Points one existing file reference on a content element's ``image``,

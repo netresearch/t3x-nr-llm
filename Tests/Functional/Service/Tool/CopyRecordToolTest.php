@@ -21,6 +21,7 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Configuration\SiteWriter;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 
@@ -371,12 +372,20 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
             ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
         );
 
+        // Core's handling of translations changed in 13.4.25; the card
+        // states the rule of the core it runs on.
+        $version = new Typo3Version();
+        $rule    = $version->getMajorVersion() === 13 && version_compare($version->getVersion(), '13.4.25', '<')
+            ? 'this TYPO3 release (before 13.4.25) asks no site, copies a translation onto a target page translated into '
+                . 'its language and drops the others without an error'
+            : 'a translation is copied only into a site that has its language and onto a target page translated into it '
+                . '— where core refuses one, the copy is taken back — and none outside a site';
+
         self::assertSame([
             'Copy tt_content [20] "Original", language 0',
             'to: page [3] "Target", column 2, directly after element [22] "Anchor"',
-            'with its 1 translation(s), as far as core copies them to the target: current TYPO3 releases copy a '
-            . 'translation only into a site that has its language and onto a target page translated into it, take '
-            . 'the copy back where core refuses one, and copy none outside a site; the answer says how many were copied',
+            'with its 1 translation(s), as far as core copies them to the target: ' . $rule
+            . '; the answer says how many were copied',
             'visibility: the copy and every copied translation are hidden — a human must unhide them before anyone sees them',
         ], $lines);
         self::assertSame($before, $this->rowCount('tt_content', []));

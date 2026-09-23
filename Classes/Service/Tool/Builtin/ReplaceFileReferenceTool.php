@@ -196,8 +196,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             $lines[] = sprintf('remove: file [%d] "%s" — the file itself stays', $plan['oldFile'], $this->excerpt($plan['oldFileName']));
             $lines[] = sprintf('references in %s: %d → %d', $plan['field'], $count, $count - 1);
             if ($plan['translated'] !== []) {
-                $lines[] = $this->translatedLine($plan['translated'])
-                    . ", which core deletes with it; each translated element's reference count is then updated";
+                $lines[] = $this->translatedLine($plan['translated'], 'which core deletes with it');
             }
 
             return $lines;
@@ -217,27 +216,45 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         }
 
         if ($plan['translated'] !== []) {
-            $lines[] = $this->translatedLine($plan['translated'])
-                . ', which core deletes with the old reference; the translations get no reference to the new file, and '
-                . "each translated element's reference count is then updated";
+            $lines[] = $this->translatedLine(
+                $plan['translated'],
+                'which core deletes with the old reference; the translations get no reference to the new file',
+            );
         }
 
         return $lines;
     }
 
     /**
+     * The card line for the translated references core deletes along: where
+     * they sit, and what happens to the translated elements afterwards.
+     *
      * @param non-empty-list<array{reference:int, element:int, language:int}> $translated
      */
-    private function translatedLine(array $translated): string
+    private function translatedLine(array $translated, string $whatCoreDoes): string
     {
+        $elements = array_values(array_unique(array_filter(
+            array_map(static fn(array $t): int => $t['element'], $translated),
+            static fn(int $element): bool => $element > 0,
+        )));
+        $orphans = count(array_filter($translated, static fn(array $t): bool => $t['element'] === 0));
+
+        $where = [];
+        if ($elements !== []) {
+            $where[] = 'on translated element(s) ' . implode(', ', array_map(static fn(int $element): string => '[' . $element . ']', $elements));
+        }
+
+        if ($orphans > 0) {
+            $where[] = sprintf('(%d of them on an element that is gone)', $orphans);
+        }
+
         return sprintf(
-            'with %d translated reference(s) %s on translated element(s) %s',
+            'with %d translated reference(s) %s %s, %s%s',
             count($translated),
             implode(', ', array_map(static fn(array $t): string => '[' . $t['reference'] . ']', $translated)),
-            implode(', ', array_unique(array_map(
-                static fn(array $t): string => $t['element'] > 0 ? '[' . $t['element'] . ']' : '(an element that is gone)',
-                $translated,
-            ))),
+            implode(' ', $where),
+            $whatCoreDoes,
+            $elements === [] ? '' : "; each translated element's reference count is then updated",
         );
     }
 

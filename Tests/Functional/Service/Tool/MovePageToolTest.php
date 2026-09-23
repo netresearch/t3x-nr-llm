@@ -205,7 +205,7 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
 
         self::assertContains(
             'moves into another site: from the site of root page [1] to the site of root page [11] — its address follows '
-            . 'the site it lies in from then on',
+            . 'the other site from then on',
             $lines,
         );
     }
@@ -225,8 +225,25 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertContains(
-            'moves into another site: from the site of root page [1] to outside every site — its address follows the '
-            . 'site it lies in from then on',
+            'moves out of its site: from the site of root page [1] to outside every site — outside a site the page has '
+            . 'no frontend address',
+            $lines,
+        );
+
+        $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
+            'uid' => 13, 'pid' => 12, 'title' => 'Stored', 'doktype' => 1, 'slug' => '/storage/stored',
+            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
+        ]);
+
+        $lines = $this->tool->previewCall(
+            ['uid' => 13, 'parent' => self::SECTION_B],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertContains(
+            'moves into a site: from outside every site to the site of root page [1] — its address follows that site '
+            . 'from then on',
             $lines,
         );
     }

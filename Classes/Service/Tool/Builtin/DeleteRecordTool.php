@@ -451,21 +451,33 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
             }
         }
 
-        // Core discards the workspace versions of what it deletes, and in the
-        // live workspace every row on a deleted page, drafts of other
-        // workspaces included — for good; the recycler cannot bring a
-        // discarded draft back. This tool does not throw away another
-        // workspace's work as a side effect (ADR-198). Counted, never named.
-        $drafts = $this->draftCount(
+        // Core discards the workspace drafts of what it deletes for good —
+        // the recycler cannot bring a discarded draft back — and leaves other
+        // drafts behind on a page it deletes. This tool does not do either to
+        // another workspace's work as a side effect (ADR-198). Counted, never
+        // named.
+        $drafts = $this->workspaceDraftsTouched(
             $table,
-            [$uid, ...array_column($translations, 1), ...array_column($subpages, 1), ...array_column($subpageTranslations, 1)],
+            $uid,
+            array_column($translations, 1),
             $table === self::PAGES_TABLE && $parent === 0 ? $pageUids : [],
-        ) + ($table === self::PAGES_TABLE && $parent > 0 ? $this->contentDraftCountOn($parent, $language) : 0);
+            array_column($subpageTranslations, 1),
+            $table === self::PAGES_TABLE && $parent > 0 ? [$parent, $language] : null,
+        );
+        if ($drafts === null) {
+            return sprintf(
+                'Refused: the workspace drafts deleting %s [%d] would take along could not be counted, so the delete is '
+                . 'not offered. Nothing was written.',
+                $table,
+                $uid,
+            );
+        }
+
         if ($drafts > 0) {
             return sprintf(
-                'Refused: deleting %s [%d] would discard %d workspace draft(s) with it for good — core throws away the '
-                . 'drafts of what it deletes, and the recycler cannot bring them back. Publish or discard them in their '
-                . 'workspace first. Nothing was written.',
+                'Refused: deleting %s [%d] would take along %d workspace draft(s) — core discards the versions and new '
+                . 'translations of what it deletes for good, and strands the other drafts without their page or record. '
+                . 'Publish or discard them in their workspace first. Nothing was written.',
                 $table,
                 $uid,
                 $drafts,
@@ -721,82 +733,222 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
     }
 
     /**
-     * How many workspace draft rows a delete would discard: versions (in any
-     * workspace) of the given records, and — for a page delete — every
-     * draft row of any table stored on the pages, a new page of another
-     * workspace included, which core's `getSubPagesOfPage()` takes along.
+     * How many workspace draft rows a delete takes along, or null when a
+     * table could not be asked.
      *
-     * @param list<int> $uids     the records the delete removes, of `$table`
-     * @param list<int> $pageUids the pages whose content goes with them, [] for none
+     * Mirrors what core's delete does in the live workspace. It discards,
+     * for every live row it deletes — the record, its translations, the
+     * records on deleted pages, the language's records behind a deleted page
+     * translation, and the inline and file children of each (linked by
+     * `foreign_field`) — the row's versions in any workspace, a move version
+     * on another page included, and the new workspace translations of it.
+     * It strands the other draft rows it meets: on a deleted page, a draft
+     * row of any table stored there (a new page or record of another
+     * workspace); behind a deleted page translation, a draft row of its
+     * language; and a new workspace translation of a deleted page. Each
+     * draft row is counted once.
+     *
+     * @param list<int>            $translations        the live translations deleted with the record
+     * @param list<int>            $pageUids            for a default-language page: the page and its branch
+     * @param list<int>            $subpageTranslations the live translations of the subpages
+     * @param array{int, int}|null $pageTranslation     for a page translation: its default-language page and language
      */
-    private function draftCount(string $table, array $uids, array $pageUids): int
-    {
-        $count = $this->countDrafts($table, 't3ver_oid', $uids);
+    private function workspaceDraftsTouched(
+        string $table,
+        int $uid,
+        array $translations,
+        array $pageUids,
+        array $subpageTranslations,
+        ?array $pageTranslation,
+    ): ?int {
+        try {
+            $deleted = [$table => [$uid, ...$translations]];
+            if ($pageUids !== []) {
+                $deleted[self::PAGES_TABLE] = [...$pageUids, ...$translations, ...$subpageTranslations];
+            }
 
-        if ($pageUids !== []) {
-            $tca = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
-            foreach ($tca as $name => $definition) {
-                $ctrl = is_array($definition) && is_array($definition['ctrl'] ?? null) ? $definition['ctrl'] : [];
-                if ((bool)($ctrl['versioningWS'] ?? false)) {
-                    $count += $this->countDrafts(self::toStr($name), 'pid', $pageUids);
+            foreach ($this->workspaceTables() as $other) {
+                if ($other === self::PAGES_TABLE) {
+                    continue;
                 }
+
+                if ($pageUids !== []) {
+                    $deleted[$other] = [...($deleted[$other] ?? []), ...$this->liveUids($other, [['pid', $pageUids]])];
+                } elseif ($pageTranslation !== null && ($languageField = $this->ctrlColumn($other, 'languageField')) !== null) {
+                    $deleted[$other] = [
+                        ...($deleted[$other] ?? []),
+                        ...$this->liveUids($other, [['pid', [$pageTranslation[0]]], [$languageField, [$pageTranslation[1]]]]),
+                    ];
+                }
+            }
+
+            $deleted = $this->withInlineChildren($deleted);
+
+            $drafts = [];
+            foreach ($deleted as $name => $uids) {
+                if ($uids === [] || !$this->isWorkspaceAware($name)) {
+                    continue;
+                }
+
+                $drafts[$name] = [...($drafts[$name] ?? []), ...$this->draftUids($name, [['t3ver_oid', $uids]])];
+                $originPointer = $this->ctrlColumn($name, 'transOrigPointerField');
+                if ($originPointer !== null) {
+                    $drafts[$name] = [...$drafts[$name], ...$this->draftUids($name, [[$originPointer, $uids], ['t3ver_state', [1]]])];
+                }
+            }
+
+            foreach ($this->workspaceTables() as $name) {
+                if ($pageUids !== []) {
+                    $drafts[$name] = [...($drafts[$name] ?? []), ...$this->draftUids($name, [['pid', $pageUids]])];
+                } elseif ($pageTranslation !== null && $name !== self::PAGES_TABLE
+                    && ($languageField = $this->ctrlColumn($name, 'languageField')) !== null
+                ) {
+                    $drafts[$name] = [
+                        ...($drafts[$name] ?? []),
+                        ...$this->draftUids($name, [['pid', [$pageTranslation[0]]], [$languageField, [$pageTranslation[1]]]]),
+                    ];
+                }
+            }
+        } catch (Throwable) {
+            return null;
+        }
+
+        return array_sum(array_map(static fn(array $uids): int => count(array_unique($uids)), $drafts));
+    }
+
+    /**
+     * The given live rows and, table by table, the live inline and file
+     * children core deletes with them, down every level.
+     *
+     * @param array<string, list<int>> $deleted
+     *
+     * @return array<string, list<int>>
+     */
+    private function withInlineChildren(array $deleted): array
+    {
+        $pending = $deleted;
+        while ($pending !== []) {
+            $next = [];
+            foreach ($pending as $parentTable => $parentUids) {
+                foreach ($this->inlineRelationsOf($parentTable) as [$childTable, $foreignField, $tableField]) {
+                    $constraints = [[$foreignField, $parentUids]];
+                    $children    = $this->liveUids($childTable, $constraints, $tableField === null ? null : [$tableField, $parentTable]);
+                    $new         = array_values(array_diff($children, $deleted[$childTable] ?? []));
+                    if ($new !== []) {
+                        $deleted[$childTable] = [...($deleted[$childTable] ?? []), ...$new];
+                        $next[$childTable]    = [...($next[$childTable] ?? []), ...$new];
+                    }
+                }
+            }
+
+            $pending = $next;
+        }
+
+        return $deleted;
+    }
+
+    /**
+     * The inline and file columns of a table that link their children by
+     * `foreign_field`: child table, foreign field, foreign table field.
+     *
+     * @return list<array{non-empty-string, non-empty-string, non-empty-string|null}>
+     */
+    private function inlineRelationsOf(string $table): array
+    {
+        $tca     = $GLOBALS['TCA'] ?? null;
+        $columns = is_array($tca) && is_array($tca[$table] ?? null) && is_array($tca[$table]['columns'] ?? null) ? $tca[$table]['columns'] : [];
+
+        $relations = [];
+        foreach ($columns as $column) {
+            $config = is_array($column) && is_array($column['config'] ?? null) ? $column['config'] : [];
+            $type   = $config['type'] ?? null;
+            if ($type !== 'inline' && $type !== 'file') {
+                continue;
+            }
+
+            $childTable   = self::toStr($config['foreign_table'] ?? ($type === 'file' ? 'sys_file_reference' : ''));
+            $foreignField = self::toStr($config['foreign_field'] ?? ($type === 'file' ? 'uid_foreign' : ''));
+            $tableField   = self::toStr($config['foreign_table_field'] ?? ($type === 'file' ? 'tablenames' : ''));
+            if ($childTable !== '' && $foreignField !== '') {
+                $relations[$childTable . "\0" . $foreignField . "\0" . $tableField] = [$childTable, $foreignField, $tableField === '' ? null : $tableField];
             }
         }
 
-        return $count;
+        return array_values($relations);
     }
 
     /**
-     * The content drafts of one language on a page, in any workspace — what
-     * core's deleteSpecificPage() takes along with a page translation. A
-     * draft keeps the page of its live record, and a new one sits there too.
+     * Every table of the TCA that declares workspace versioning.
+     *
+     * @return list<non-empty-string>
      */
-    private function contentDraftCountOn(int $page, int $language): int
+    private function workspaceTables(): array
     {
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::CONTENT_TABLE);
+        $tca = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
+
+        return array_values(array_filter(
+            array_map(self::toStr(...), array_keys($tca)),
+            fn(string $table): bool => $table !== '' && $this->isWorkspaceAware($table),
+        ));
+    }
+
+    private function isWorkspaceAware(string $table): bool
+    {
+        return (bool)($this->ctrlOf($table)['versioningWS'] ?? false);
+    }
+
+    /**
+     * Undeleted live uids of a table matching every `[column, values]` pair.
+     *
+     * @param list<array{string, list<int>}> $constraints
+     * @param array{string, string}|null     $stringConstraint one `[column, value]` compared as a string
+     *
+     * @return list<int>
+     */
+    private function liveUids(string $table, array $constraints, ?array $stringConstraint = null): array
+    {
+        if (in_array([], array_column($constraints, 1), true)) {
+            return [];
+        }
+
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
         $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
 
-        return self::toInt($queryBuilder
-            ->count('uid')
-            ->from(self::CONTENT_TABLE)
-            ->where(
-                $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($page, Connection::PARAM_INT)),
-                $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter($language, Connection::PARAM_INT)),
-                $queryBuilder->expr()->gt('t3ver_wsid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
-            )
-            ->executeQuery()
-            ->fetchOne());
+        $where = $this->liveVersionConstraints($queryBuilder, $table);
+        foreach ($constraints as [$column, $values]) {
+            $where[] = $queryBuilder->expr()->in($column, $queryBuilder->createNamedParameter($values, Connection::PARAM_INT_ARRAY));
+        }
+
+        if ($stringConstraint !== null) {
+            $where[] = $queryBuilder->expr()->eq($stringConstraint[0], $queryBuilder->createNamedParameter($stringConstraint[1]));
+        }
+
+        return array_map(self::toInt(...), $queryBuilder->select('uid')->from($table)->where(...$where)->executeQuery()->fetchFirstColumn());
     }
 
     /**
-     * Undeleted rows of a workspace-aware table in any workspace but live
-     * whose `$column` is one of `$values`. A table that cannot be queried
-     * counts none here; the DataHandler meets it again in the delete.
+     * Undeleted uids of a workspace-aware table in any workspace but live
+     * matching every `[column, values]` pair.
      *
-     * @param list<int> $values
+     * @param list<array{string, list<int>}> $constraints
+     *
+     * @return list<int>
      */
-    private function countDrafts(string $table, string $column, array $values): int
+    private function draftUids(string $table, array $constraints): array
     {
-        if ($values === [] || $table === '') {
-            return 0;
+        if (in_array([], array_column($constraints, 1), true)) {
+            return [];
         }
 
-        try {
-            $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
-            $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+        $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
 
-            return self::toInt($queryBuilder
-                ->count('uid')
-                ->from($table)
-                ->where(
-                    $queryBuilder->expr()->in($column, $queryBuilder->createNamedParameter($values, Connection::PARAM_INT_ARRAY)),
-                    $queryBuilder->expr()->gt('t3ver_wsid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
-                )
-                ->executeQuery()
-                ->fetchOne());
-        } catch (Throwable) {
-            return 0;
+        $where = [$queryBuilder->expr()->gt('t3ver_wsid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT))];
+        foreach ($constraints as [$column, $values]) {
+            $where[] = $queryBuilder->expr()->in($column, $queryBuilder->createNamedParameter($values, Connection::PARAM_INT_ARRAY));
         }
+
+        return array_map(self::toInt(...), $queryBuilder->select('uid')->from($table)->where(...$where)->executeQuery()->fetchFirstColumn());
     }
 
     /**

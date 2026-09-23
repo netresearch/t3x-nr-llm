@@ -321,46 +321,134 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * @return iterable<string, array{array<string, mixed>, array<string, mixed>}>
+     * What core's delete would take along from another workspace, one kind
+     * per case: rows it discards and rows it strands.
+     *
+     * @return iterable<string, array{array<string, mixed>, list<array{string, array<string, mixed>}>}>
      */
-    public static function deletesThatWouldDiscardADraft(): iterable
+    public static function deletesThatWouldTakeADraftAlong(): iterable
     {
+
         yield 'a version of the element' => [
             ['table' => 'tt_content', 'uid' => self::ELEMENT],
-            ['pid' => self::PAGE_OPEN, 't3ver_oid' => self::ELEMENT, 't3ver_state' => 0, 'sys_language_uid' => 0],
+            [self::draftElement(['pid' => self::PAGE_OPEN, 't3ver_oid' => self::ELEMENT])],
         ];
         yield 'a version of its translation' => [
             ['table' => 'tt_content', 'uid' => self::ELEMENT],
-            ['pid' => self::PAGE_OPEN, 't3ver_oid' => self::TRANSLATION, 't3ver_state' => 0, 'sys_language_uid' => 1],
+            [self::draftElement(['pid' => self::PAGE_OPEN, 't3ver_oid' => self::TRANSLATION, 'sys_language_uid' => 1])],
         ];
-        yield 'a new element in the branch' => [
+        yield 'a new workspace translation of the element' => [
+            ['table' => 'tt_content', 'uid' => self::ELEMENT],
+            [self::draftElement(['pid' => self::PAGE_OPEN, 't3ver_state' => 1, 'sys_language_uid' => 2, 'l18n_parent' => self::ELEMENT])],
+        ];
+        yield 'a version of a file reference of the element' => [
+            ['table' => 'tt_content', 'uid' => self::ELEMENT],
+            [
+                self::fileReference(['uid' => 60, 'pid' => self::PAGE_OPEN, 'uid_foreign' => self::ELEMENT]),
+                self::fileReference(['uid' => 61, 'pid' => self::PAGE_OPEN, 'uid_foreign' => self::ELEMENT, 't3ver_wsid' => 1, 't3ver_oid' => 60]),
+            ],
+        ];
+        yield 'a new element in the branch, stranded' => [
             ['table' => 'pages', 'uid' => self::PAGE_WITH_BRANCH, 'include_subpages' => true],
-            ['pid' => self::SUBPAGE, 't3ver_oid' => 0, 't3ver_state' => 1, 'sys_language_uid' => 0],
+            [self::draftElement(['pid' => self::SUBPAGE, 't3ver_state' => 1])],
+        ];
+        yield 'a move version of an element in the branch, on another page' => [
+            ['table' => 'pages', 'uid' => self::PAGE_WITH_BRANCH, 'include_subpages' => true],
+            [self::draftElement(['pid' => self::PAGE_OPEN, 't3ver_oid' => self::ELEMENT_ON_SUBPAGE, 't3ver_state' => 4])],
         ];
         yield 'content of the language of a page translation' => [
             ['table' => 'pages', 'uid' => self::PAGE_OPEN_TRANSLATION],
-            ['pid' => self::PAGE_OPEN, 't3ver_oid' => self::TRANSLATION, 't3ver_state' => 0, 'sys_language_uid' => 1],
+            [self::draftElement(['pid' => self::PAGE_OPEN, 't3ver_oid' => self::TRANSLATION, 'sys_language_uid' => 1])],
+        ];
+        yield 'a new element in the language of a page translation, stranded' => [
+            ['table' => 'pages', 'uid' => self::PAGE_OPEN_TRANSLATION],
+            [self::draftElement(['pid' => self::PAGE_OPEN, 't3ver_state' => 1, 'sys_language_uid' => 1])],
+        ];
+        yield 'a move version of content in the language of a page translation, on another page' => [
+            ['table' => 'pages', 'uid' => self::PAGE_OPEN_TRANSLATION],
+            [self::draftElement(['pid' => self::PAGE_WITH_BRANCH, 't3ver_oid' => self::TRANSLATION, 't3ver_state' => 4, 'sys_language_uid' => 1])],
+        ];
+        yield 'a file reference of the language of a page translation' => [
+            ['table' => 'pages', 'uid' => self::PAGE_OPEN_TRANSLATION],
+            [
+                self::fileReference(['uid' => 62, 'pid' => self::PAGE_OPEN, 'uid_foreign' => self::TRANSLATION, 'sys_language_uid' => 1]),
+                self::fileReference(['uid' => 63, 'pid' => self::PAGE_OPEN, 'uid_foreign' => self::TRANSLATION, 'sys_language_uid' => 1, 't3ver_wsid' => 1, 't3ver_oid' => 62]),
+            ],
         ];
     }
 
     /**
-     * @param array<string, mixed> $arguments
-     * @param array<string, mixed> $draft
+     * @param array<string, mixed> $fields
+     *
+     * @return array{string, array<string, mixed>}
+     */
+    private static function draftElement(array $fields): array
+    {
+        return ['tt_content', ['uid' => 50, 'colPos' => 0, 'CType' => 'text', 'header' => 'Draft', 't3ver_wsid' => 1, ...$fields]];
+    }
+
+    /**
+     * @param array<string, mixed> $fields
+     *
+     * @return array{string, array<string, mixed>}
+     */
+    private static function fileReference(array $fields): array
+    {
+        return ['sys_file_reference', ['uid_local' => 1, 'tablenames' => 'tt_content', 'fieldname' => 'image', ...$fields]];
+    }
+
+    /**
+     * @param array<string, mixed>                      $arguments
+     * @param list<array{string, array<string, mixed>}> $rows
      */
     #[Test]
-    #[DataProvider('deletesThatWouldDiscardADraft')]
-    public function aDeleteThatWouldDiscardAWorkspaceDraftIsRefused(array $arguments, array $draft): void
+    #[DataProvider('deletesThatWouldTakeADraftAlong')]
+    public function aDeleteThatWouldTakeAWorkspaceDraftAlongIsRefused(array $arguments, array $rows): void
     {
-        $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
-            'uid' => 50, 'colPos' => 0, 'CType' => 'text', 'header' => 'Draft', 't3ver_wsid' => 1, ...$draft,
-        ]);
+        foreach ($rows as [$table, $row]) {
+            $this->connectionPool->getConnectionForTable($table)->insert($table, $row);
+        }
 
         $result = $this->tool->execute($arguments, ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)));
 
         self::assertTrue($result->isError, $result->content);
-        self::assertStringContainsString('would discard 1 workspace draft(s)', $result->content);
+        self::assertStringContainsString('would take along 1 workspace draft(s)', $result->content);
         self::assertSame(0, $this->deletedOf($this->toTable($arguments), $this->toUid($arguments)));
-        self::assertSame(0, $this->deletedOf('tt_content', 50));
+    }
+
+    #[Test]
+    public function aDraftOfAnotherRecordDoesNotStandInTheWay(): void
+    {
+        $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
+            'uid' => 50, 'pid' => self::PAGE_OPEN, 'colPos' => 0, 'CType' => 'text', 'header' => 'Draft',
+            't3ver_wsid' => 1, 't3ver_oid' => self::ELEMENT_ON_SUBPAGE,
+        ]);
+
+        $result = $this->tool->execute(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(1, $this->deletedOf('tt_content', self::ELEMENT));
+    }
+
+    #[Test]
+    public function aDraftFoundTwiceIsCountedOnce(): void
+    {
+        // A version of the subpage: a version of a deleted page, and a row
+        // stored on a deleted page.
+        $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
+            'uid' => 70, 'pid' => self::PAGE_WITH_BRANCH, 'title' => 'Leaf, drafted', 'doktype' => 1,
+            't3ver_wsid' => 1, 't3ver_oid' => self::SUBPAGE,
+        ]);
+
+        $result = $this->tool->execute(
+            ['table' => 'pages', 'uid' => self::PAGE_WITH_BRANCH, 'include_subpages' => true],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertStringContainsString('would take along 1 workspace draft(s)', $result->content);
     }
 
     #[Test]

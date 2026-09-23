@@ -16,15 +16,15 @@ ADR-199: A copy is a hidden draft, and a page is copied without its branch
 Context
 =======
 
-:ref:`ADR-180 <adr-180>` held that one call creates one record, so an
-approver judges one thing. ``copy_record`` (:ref:`ADR-198 <adr-198>`) runs
-core's copy command, and that command is more than one row: it copies the
-translations of a default-language record — in current releases only where
-the target site carries their language — the file references and inline children of every copied
-row, and for a page the records stored on it — for a non-admin, those of the
-tables in ``tables_modify``. It can also copy a page's whole branch, and it
-hides only what it copies FIRST: ``hideAtCopy`` applies to the top record,
-unless the user's ``neverHideAtCopy`` preference switches even that off.
+:ref:`ADR-180 <adr-180>` held that one call creates one record, so an approver
+judges one thing. ``copy_record`` (:ref:`ADR-198 <adr-198>`) runs core's copy
+command, and that command is more than one row: it copies the translations of a
+default-language record — since 13.4.25 only where the target site carries their
+language — the file references and inline children of every copied row, and for
+a page the records stored on it — for a non-admin, those of the tables in
+``tables_modify``. It can also copy a page's whole branch, and it hides only
+what it copies FIRST: ``hideAtCopy`` applies to the top record, unless the
+user's ``neverHideAtCopy`` preference switches even that off.
 
 .. _adr-199-decision:
 
@@ -55,17 +55,17 @@ Decision
    user's ``copyLevels`` preference, which the tool sets for the call and
    puts back without saving it; TYPO3 13 reads the DataHandler's
    ``copyTree``, which is 0 unless set.
-4. **Translations follow core, which decides by the target's site.** A
-   translation is never copied by itself. In current TYPO3 releases no
-   translation is copied outside a site; inside one, a translation is copied
-   where the site has its language (for an element, where the target page is
-   translated into it), and one core cannot place fails the call and the
-   copy is taken back (:php:`DataHandler::copyL10nOverlayRecords()`). Some
-   13.4 patch releases — 13.4.24 among them — do not ask the site, and drop
-   an element translation the target page is not translated into without an
-   error; the tool does not add the site check, it follows the core it runs
-   on. The card says so, and the answer counts the translations that
-   were placed. A page translation is no target.
+4. **Translations follow core.** A translation is never copied by itself.
+   In TYPO3 14 and 13.4.25 or later no translation is copied outside a
+   site; inside one, a translation is copied where the site has its
+   language (for an element, where the target page is translated into it),
+   and one core refuses fails the call and the copy is taken back
+   (:php:`DataHandler::copyL10nOverlayRecords()`). Before 13.4.25 core asks
+   no site: it copies every page translation, and drops an element
+   translation the target page is not translated into without an error. The
+   tool adds no rule of its own; the card states the running core's rule,
+   and the answer counts the translations that were placed. A page
+   translation is no target.
 
 .. _adr-199-consequences:
 

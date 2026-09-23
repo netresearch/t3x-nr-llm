@@ -65,11 +65,16 @@ trait WritesThroughDataHandlerTrait
     private const PREVIEW_EXCERPT_LENGTH = 120;
 
     /**
-     * Characters a reader of the approval card cannot see: no-break and
-     * other Unicode spaces, zero-width and direction marks, line and
-     * paragraph separators, the byte-order mark.
+     * Characters a reader of the approval card cannot see or cannot tell
+     * apart, escaped wherever they occur: every control, format, private-use
+     * and unassigned code point (`\p{C}` — zero-width and direction marks,
+     * bidi isolates, the soft hyphen, the byte-order mark, the tag
+     * characters), every separator but the plain space, and the characters
+     * that render as nothing although Unicode files them as letters or marks
+     * (the combining grapheme joiner, the Hangul fillers, the Khmer inherent
+     * vowels, the Mongolian and the general variation selectors).
      */
-    private const INVISIBLE_CHARACTERS = '/[\x{00A0}\x{1680}\x{2000}-\x{200F}\x{2028}-\x{202F}\x{205F}-\x{2064}\x{3000}\x{FEFF}]/u';
+    private const INVISIBLE_CHARACTERS = '/[\p{C}\p{Zl}\p{Zp}\x{034F}\x{115F}\x{1160}\x{17B4}\x{17B5}\x{180B}-\x{180F}\x{3164}\x{FE00}-\x{FE0F}\x{FFA0}\x{E0100}-\x{E01EF}]|(?! )\p{Zs}/u';
 
     /**
      * Refuse when the process lacks the backend environment the DataHandler
@@ -329,7 +334,9 @@ trait WritesThroughDataHandlerTrait
             return '(nothing)';
         }
 
-        $visible = strtr($part, ["\r" => '\\r', "\n" => '\\n', "\t" => '\\t']);
+        // A backslash is doubled first, so a value that spells out `\n` or
+        // `\u{00A0}` cannot pass for the character it names.
+        $visible = strtr($part, ['\\' => '\\\\', "\r" => '\\r', "\n" => '\\n', "\t" => '\\t']);
         $visible = preg_replace_callback(
             self::INVISIBLE_CHARACTERS,
             static fn(array $match): string => sprintf('\\u{%04X}', mb_ord($match[0])),
