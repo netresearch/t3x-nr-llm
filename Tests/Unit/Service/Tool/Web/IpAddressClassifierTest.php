@@ -81,7 +81,9 @@ final class IpAddressClassifierTest extends TestCase
             'ipv4-mapped rfc1918'          => ['::ffff:10.0.0.1'],
             'ipv4-compatible loopback'     => ['::127.0.0.1'],
             'nat64 of metadata'            => ['64:ff9b::a9fe:a9fe'],
-            'local-use nat64 of metadata'  => ['64:ff9b:1::a9fe:a9fe'],
+            // RFC 6052 /48 embedding: IPv4 bits 48-63, then 72-87.
+            'local-use nat64 of metadata'  => ['64:ff9b:1:a9fe:a9:fe00::'],
+            'local-use nat64, any address' => ['64:ff9b:1::a9fe:a9fe'],
             '6to4 of loopback'             => ['2002:7f00:0001::1'],
             'teredo server rfc1918'        => ['2001:0:0a00:0001::1'],
             'teredo client loopback'       => ['2001:0:4136:e378:8000:63bf:80ff:fffe'],
