@@ -131,7 +131,7 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
                     'editlock'         => ['config' => ['type' => 'check']],
                     'title'            => ['label' => 'Title', 'config' => ['type' => 'input', 'max' => 100, 'required' => true]],
                     'teaser'           => ['label' => 'Teaser', 'config' => ['type' => 'text']],
-                    'kind'             => ['label' => 'Kind', 'config' => ['type' => 'select', 'renderType' => 'selectSingle', 'items' => [['label' => 'Note', 'value' => 'note'], ['label' => 'Story', 'value' => 'story']], 'default' => 'note']],
+                    'kind'             => ['label' => 'Kind', 'config' => ['type' => 'select', 'renderType' => 'selectSingle', 'items' => [['label' => 'Note', 'value' => 'note'], ['label' => 'Story', 'value' => 'story'], ['label' => 'Memo', 'value' => 'memo']], 'default' => 'note']],
                     'published_at'     => ['label' => 'Published at', 'config' => ['type' => 'datetime']],
                     'priority'         => ['label' => 'Priority', 'config' => ['type' => 'number', 'range' => ['lower' => 1, 'upper' => 5]]],
                     'featured'         => ['label' => 'Featured', 'config' => ['type' => 'check']],
@@ -354,6 +354,9 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
         yield 'a divider as a value'   => [$call($valid + ['section' => '--div--']), 'must be one of: "a".'];
         yield 'not in the showitem'    => [$call($valid + ['kind' => 'story', 'teaser' => 'x']), 'not shown for record type "story"'];
         yield 'select outside items'   => [$call($valid + ['kind' => 'novel']), 'must be one of'];
+        // `memo` is an item of the type column without a `types` entry: TYPO3
+        // reads it as its fallback type (none here), never as the column default.
+        yield 'type item without a types entry' => [$call($valid + ['kind' => 'memo']), 'is no record type of'];
         yield 'radio outside items'    => [$call($valid + ['tone' => 'shrill']), 'must be one of'];
         yield 'select value not scalar' => [$call($valid + ['kind' => ['note']]), 'must be one of'];
         yield 'number below range'     => [$call($valid + ['priority' => 0]), 'outside the range 1..5'];

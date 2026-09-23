@@ -970,8 +970,9 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
 
         // Each candidate with whether the DataHandler stores it in the type
         // column of a new record on its own, when the datamap leaves it out.
-        $candidates = [];
-        $typeField  = $this->typeFieldOf($table);
+        $candidates     = [];
+        $undeclaredItem = false;
+        $typeField      = $this->typeFieldOf($table);
         $given      = $typeField !== null && array_key_exists($typeField, $fields) ? self::toStr($fields[$typeField]) : null;
         if ($typeField !== null) {
             if ($given !== null) {
@@ -1001,9 +1002,19 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
                 }
             }
 
+            // The column default applies where the datamap leaves the type out.
+            // A given value that is an item of the type column but names no
+            // type is read as core's fallback, the way
+            // BackendUtility::getTCAtypeValue() reads it, never as the column
+            // default. A value outside the items keeps the default candidate:
+            // the value check refuses it with the items it may take.
             $column = $this->tcaColumnsFor($table)[$typeField] ?? null;
             $config = is_array($column) ? ($column['config'] ?? null) : null;
-            if (is_array($config) && array_key_exists('default', $config)) {
+            $config = is_array($config) ? $config : [];
+            $undeclaredItem = $given !== null
+                && !is_array($types[$given] ?? null)
+                && in_array($given, $this->itemValues($config), true);
+            if (!$undeclaredItem && array_key_exists('default', $config)) {
                 $candidates[] = [self::toStr($config['default']), true];
             }
         }
@@ -1022,6 +1033,16 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
                     'implied' => $typeField !== null && $given === null && $stored ? $name : null,
                 ] + $this->columnsShown($table, self::toStr($type['showitem'] ?? ''));
             }
+        }
+
+        if ($given !== null && $undeclaredItem) {
+            return sprintf(
+                'Refused: "%s" is no record type of %s, and the table declares no fallback type "0" or "1" '
+                . 'the backend form would show it as; give "%s" as one of its record types.',
+                $given,
+                $table,
+                $typeField,
+            );
         }
 
         return sprintf('Refused: %s declares no record type this tool can read.', $table);
