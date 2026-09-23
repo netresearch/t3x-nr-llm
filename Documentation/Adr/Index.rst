@@ -585,3 +585,5 @@ Tools
    Adr200ADeniedApprovalSaysWhoDeclined
    Adr201TheToolsARunIsNotOffered
    Adr202APublicWebPageThroughAnAddressGuard
+   Adr203ToolCallingOnAReasoningModelGoesThroughResponses
+   Adr204ReasoningEffortIsARequestOption
