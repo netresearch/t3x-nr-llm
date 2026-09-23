@@ -67,6 +67,7 @@ final class ToolEffectCoverageTest extends AbstractFunctionalTestCase
         'move_content_element',
         'move_page',
         'publish_record',
+        'replace_file_reference',
         'set_file_alternative_text',
         'set_page_social_image',
         'update_fal_asset_meta',

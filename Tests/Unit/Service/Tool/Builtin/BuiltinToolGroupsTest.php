@@ -54,6 +54,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\PublishRecordTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadFalAssetMetaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadRecordsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadSourceTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\ReplaceFileReferenceTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ResolveUrlTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SearchCodeTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SearchFalFilesTool;
@@ -140,6 +141,7 @@ final class BuiltinToolGroupsTest extends TestCase
             'delete_record' => [DeleteRecordTool::class, 'editing'],
             'move_page' => [MovePageTool::class, 'editing'],
             'copy_record' => [CopyRecordTool::class, 'editing'],
+            'replace_file_reference' => [ReplaceFileReferenceTool::class, 'editing'],
             'site_rag_query'    => [SiteRagQueryTool::class, 'rag'],
             'site_fetch_source' => [SiteFetchSourceTool::class, 'rag'],
         ];
