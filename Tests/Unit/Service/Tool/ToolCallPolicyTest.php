@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
+use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
@@ -308,7 +309,7 @@ final class ToolCallPolicyTest extends TestCase
 
         $decisions = $policy->explain($registry->names(), $this->configuration(TrustZone::LOCAL), $this->admin());
 
-        self::assertSame([true, true, false], array_map(static fn($d): bool => $d->allowed, $decisions));
+        self::assertSame([true, true, false], array_map(static fn(ToolPolicyDecision $d): bool => $d->allowed, $decisions));
         self::assertSame(1, $availability->calls);
     }
 

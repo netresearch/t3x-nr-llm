@@ -109,6 +109,7 @@ final class UnavailableToolsResolverTest extends TestCase
         ]);
         $configuration = $this->configuration(TrustZone::LOCAL);
         $configuration->setAllowedToolGroups('content');
+
         $resolver = $this->resolver($registry);
 
         self::assertSame(
