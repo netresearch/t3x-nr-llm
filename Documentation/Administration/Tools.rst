@@ -322,6 +322,14 @@ What holds for all of them:
   part, and a record the acting user may not reach is refused with the same
   words as a record that does not exist — so a refusal never confirms that a
   uid exists.
+- They act on **live rows only**. A workspace draft of a page, a content
+  element or a file reference is not there for them: it is not written,
+  copied, counted or shown on an approval card, even when its uid is named
+  (:ref:`ADR-198 <adr-198>`).
+- Where a tool shows a field's before and after, the line binds the whole
+  value: two short values in full, otherwise the section that differs, where
+  it starts, and the length and a short hash of both values — so a change
+  past the visible part, such as an appended link, still shows.
 
 ``update_page_metadata``
    Sets a fixed set of descriptive fields on one page. Editable: ``title``,
@@ -679,19 +687,20 @@ What holds for all of them:
 ``update_content_element``
    Changes fields of one existing content element (:ref:`ADR-198 <adr-198>`).
    The field set is the one ``create_content_element_draft`` offers for a new
-   element of the same type — the scalar columns of the type's form, header
-   and body text included — checked by the same rules
-   (:ref:`ADR-196 <adr-196>`): a value outside a select's items, a number
-   outside its range, a column the page's TSconfig hides or makes read-only
-   is refused, and the refusal names the columns the type offers. An element
-   whose type the exclusion rule leaves out — raw HTML, plugins, menus,
-   shortcuts, a form holding a FlexForm or inline children — is refused
-   whole; relations and the identity, position, visibility, publication,
-   audience and translation columns are never fields. A column a translation
-   takes from its default-language element (``l10n_mode = exclude``) is
-   refused and the element to change named. The approval card shows every
-   column before and after. Authorised by content-edit rights on the page, the
-   record-level rights and the field-level grant for every column.
+   element of the same type — the scalar columns of the type's form, header and
+   body text included — checked by the same rules (:ref:`ADR-196 <adr-196>`): a
+   value outside a select's items, a number outside its range, a column the
+   page's TSconfig hides or makes read-only is refused, and the refusal names
+   the columns the type offers. An element whose type the exclusion rule leaves
+   out — raw HTML, plugins, menus, shortcuts, a form holding a FlexForm or
+   inline children — is refused whole; relations and the identity, position,
+   visibility, publication, audience and translation columns are never fields. A
+   column a translation takes from its default-language element (``l10n_mode =
+   exclude``) is refused and the element to change named. The approval card
+   shows every column's change, bound to the whole value. Where some columns
+   take and others do not, the answer says which. Authorised by content-edit
+   rights on the page, the record-level rights and the field-level grant for
+   every column.
 
 ``publish_record``
    Clears the hidden flag of one page or content element — the step after a
@@ -703,39 +712,47 @@ What holds for all of them:
    page, and the field-level grant for the hidden column.
 
 ``delete_record``
-   Deletes one page or content element with core's delete command. The row
-   is flagged ``deleted`` and stays recoverable from the recycler. What core
-   deletes with it is counted on the approval card first: the translations of
-   a default-language record, and for a page every record on it and its whole
-   branch. A page with subpages is refused unless the call sets
-   ``include_subpages``; a branch of more than 50 pages is refused outright,
-   and a site root is never deleted. The card also counts the records the
-   reference index says still point at the record — links and shortcuts that
-   will break. Needs delete rights on a page (and on every page of its
-   branch), content-edit rights for an element, and the right to edit every
-   translation that goes along; for a page, also ``tables_modify`` for every
-   table with records on it and the languages of the content on it.
+   Deletes one page or content element with core's delete command. The row is
+   flagged ``deleted`` and stays recoverable from the recycler. What core
+   deletes with it is counted on the approval card first: the translations of a
+   default-language record, and for a page its subpages (their uids, ten and
+   then "and N more"), their translations, and the records stored on the pages
+   table by table. The counts include records the acting user cannot see; they
+   are counts only, never titles. A page with subpages is refused unless the
+   call sets ``include_subpages``; a branch of more than 50 pages is refused
+   outright, and a site root is never deleted. The card also counts the records
+   the reference index says still point at the record — links and shortcuts that
+   will break. Needs delete rights on a page (and on every page of its branch),
+   content-edit rights for an element, and the right to edit every translation
+   that goes along; for a page, also ``tables_modify`` for every table with
+   records on it and the languages of the content on it.
 
 ``copy_record``
    Copies one content element to a page and column, or one page under a
    parent, with core's copy command (:ref:`ADR-199 <adr-199>`). The copy and
    every translation copied with it are **always hidden**, whatever core's
    ``hideAtCopy``, the user's preferences and page TSconfig say, and a page is
-   **always copied without its subpages**:
-   core would hide only the top page of a copied branch. Core copies the
-   translations of a default-language record where the target is translated
-   into their language, and a page's content with the page. A translation is
-   refused by itself, as is a site root and a standalone element beside
-   connected translations on the target page (:ref:`ADR-193 <adr-193>`).
+   **always copied without its subpages**: core would hide only the top page
+   of a copied branch. What happens to the translations of a
+   default-language record is decided by the target's **site**: outside a
+   site none is copied; inside one, a translation is copied where the site
+   has its language (for an element, where the target page is translated
+   into it), and one the site cannot place fails the copy, which is then
+   taken back. A page's content is copied with the page. A translation is
+   refused by itself, as are a page translation as target, a site root, and
+   a standalone element beside connected translations on the target page
+   (:ref:`ADR-193 <adr-193>`).
 
 ``move_page``
    Moves one default-language page to a new parent or directly after a
    sibling. Its content, translations and subpages move with it, and it keeps
-   its uid and its URL path — core does not regenerate the slug on a move,
-   and the approval card says so. Asks the permissions core asks: delete
-   rights on the page and new-page rights on the new parent for a new parent,
-   edit rights within the same parent. A site root, a translation and a
-   target inside the page's own branch are refused.
+   its uid and its URL path — core does not regenerate the slug on a move.
+   The approval card says so, counts the subpages that move along, and warns
+   when the page moves into another site. Asks the permissions core asks:
+   delete rights on the page and new-page rights on the new parent for a new
+   parent, edit rights within the same parent. A site root, a translation, a
+   page translation as parent and a target inside the page's own branch are
+   refused.
 
 ``replace_file_reference``
    Points one existing file reference on a content element's ``image``,
@@ -746,7 +763,10 @@ What holds for all of them:
    the old file; the card says which texts the new reference will show. The
    file itself is never changed, and the new file must lie in a permitted
    storage inside the acting user's file mounts and carry an extension the
-   field accepts.
+   field accepts. Core deletes the translated references of the old one with
+   it: the card names them, the call is refused where the acting user may
+   not change the translated element they sit on, and afterwards each
+   translated element's reference count is set and read back.
 
 .. _administration-tools-register:
 

@@ -55,10 +55,13 @@ Decision
    user's ``copyLevels`` preference, which the tool sets for the call and
    puts back without saving it; TYPO3 13 reads the DataHandler's
    ``copyTree``, which is 0 unless set.
-4. **Translations follow core.** A translation is never copied by itself; a
-   default-language record's translations are copied only where core places
-   them, and one it cannot place fails the call and the copy is taken back.
-   The answer counts the translations that were placed.
+4. **Translations follow core, which decides by the target's site.** A
+   translation is never copied by itself. Outside a site no translation is
+   copied; inside one, a translation is copied where the site has its
+   language (for an element, where the target page is translated into it),
+   and one core cannot place fails the call and the copy is taken back
+   (:php:`DataHandler::copyL10nOverlayRecords()`). The answer counts the
+   translations that were placed. A page translation is no target.
 
 .. _adr-199-consequences:
 

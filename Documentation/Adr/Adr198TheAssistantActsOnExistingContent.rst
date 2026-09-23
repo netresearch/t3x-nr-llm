@@ -76,6 +76,10 @@ decision; removing one reopens ADR-135's argument.
    refuses first what core refuses (a table outside ``tables_modify`` with
    records on the pages, a page translation the user may not edit) and one
    thing more: content on the pages in a language the user may not edit.
+   The card lists the subpage uids (ten, then "and N more") and counts the
+   translations of the subpages and the records stored on the pages, table
+   by table. These counts include records the acting user cannot see; they
+   are aggregates only, never titles or uids of records beyond the branch.
 
 ``copy_record`` and ``move_page``
    Structural acts: a copy of one element or page, a page moved to another
@@ -84,8 +88,10 @@ decision; removing one reopens ADR-135's argument.
    asks the permissions core's ``moveRecord()`` asks — ``PAGE_DELETE`` on
    the page and ``PAGE_NEW`` on the new parent for a new parent,
    ``PAGE_EDIT`` within the same parent — refuses a site root and a target
-   inside the page's own branch, and says on the card that the page keeps
-   its URL path, because core does not regenerate ``slug`` on a move.
+   inside the page's own branch or under a page translation, and says on the
+   card how many subpages move along, that the page keeps its URL path —
+   core does not regenerate ``slug`` on a move — and when it moves into
+   another site.
 
 ``replace_file_reference``
    Replaces the file of one existing reference on a content element's
@@ -95,7 +101,11 @@ decision; removing one reopens ADR-135's argument.
    DataHandler run with the datamap read back before the cmdmap, as
    :ref:`ADR-195 <adr-195>`'s writer does it. Nothing of the old reference
    is carried over: its title, alternative text, description and crop
-   described the old file.
+   described the old file. Core deletes the translated overlays of the old
+   reference with it; the tool refuses where the acting user may not change
+   a translated element they sit on, names them on the card, and afterwards
+   sets each translated element's field to the references it still carries
+   and reads the counters back.
 
 The rails every one of them carries:
 
@@ -111,7 +121,16 @@ The rails every one of them carries:
    deprecates; the field-level grant for every column a call sets, because
    the DataHandler drops such a column in silence. A missing record and a
    forbidden one get the same neutral refusal.
-3. **Language as ADR-193 left it.** A translation core moves, copies or
+3. **Live rows only.** In the live workspace the DataHandler writes to any
+   uid it is handed, a workspace draft included. Every writer — these six
+   and the ones before them that address a record by uid — reads a row only
+   where ``t3ver_wsid``, ``t3ver_oid`` and ``t3ver_state`` are all 0 on a
+   workspace-aware table, so a draft is not there for it: not written, not
+   copied, not counted and not shown on an approval card. Two counts keep
+   every workspace on purpose: core's non-admin table check before a page
+   delete, which core makes the same way, and the ADR-193 check for connected
+   translations, where a draft counts because it becomes live when published.
+4. **Language as ADR-193 left it.** A translation core moves, copies or
    deletes together with its default-language record is refused by itself
    and the refusal names that record; every translation core carries along
    must pass the same record-level check as the record itself — language,
@@ -121,19 +140,23 @@ The rails every one of them carries:
    default-language element (``l10n_mode = exclude``) is not a field; a
    standalone element is not copied beside connected translations
    (:ref:`ADR-193 <adr-193>`).
-4. **Approval before, read-back after.** Each declares a write effect, so
-   every call pauses for a human (ADR-134), and the card is the plan the
-   write executes (ADR-136, ADR-184). After the write the result is read back
+5. **Approval before, read-back after.** Each declares a write effect, so
+   every call pauses for a human (ADR-134), and the card is the plan the write
+   executes (ADR-136, ADR-184). A field's before and after is bound to the whole
+   value: two short values are shown in full; otherwise the card shows the
+   section that differs, where it starts, and the length and a short SHA-256 of
+   both values, so a change past any excerpt — an appended link — changes the
+   card and is compared on resume. After the write the result is read back
    whatever the DataHandler's error log says, and the answer states what is
-   actually the case: what did not take is named, a record that came into
-   being wrong is deleted again and the answer says whether that worked, and a
-   delete or move that happened while core refused part of it is reported as
-   done, with the part that was left behind.
-5. **Live workspace, a full backend environment, disabled by default, the
+   actually the case: what did not take is named, a record that came into being
+   wrong is deleted again and the answer says whether that worked, and a delete
+   or move that happened while core refused part of it is reported as done, with
+   the part that was left behind.
+6. **Live workspace, a full backend environment, disabled by default, the
    ``editing`` group**, not admin-only — as every writer since ADR-135. The
    data class is the ``editing`` group's default, ``EDITOR_CONTENT``: what
    the tools echo is the editorial text of the records they touch.
-6. **No editor action.** None of the six declares one
+7. **No editor action.** None of the six declares one
    (:ref:`ADR-152 <adr-152>`). An editor action is offered from a record's
    context menu and in bulk over selected records
    (:ref:`ADR-162 <adr-162>`); "delete fifty pages" as one click is a
@@ -162,13 +185,19 @@ an approval each time.
 and the updating writer; a type that becomes unsafe to create becomes
 unsafe to edit in the same change.
 
-✕ A wrong approval now changes or removes live content. The approval card
-is the control: it shows every column before and after, what a delete takes
-along and what still points at it. The delete is recoverable from the
+✕ A wrong approval now changes or removes live content. The approval card is the
+control: it shows every column's change bound to the whole value, what a delete
+takes along and what still points at it. The delete is recoverable from the
 recycler; an overwritten text is recoverable from the record history.
 
 ✕ ``update_content_element`` leaves what did take written when one column
-did not, as ``update_page_metadata`` does. The answer names the column.
+did not, as ``update_page_metadata`` does. The answer reports the record as
+written in part and names what took and what did not.
+
+✕ The delete card's counts include records the acting user cannot see, so
+an editor may learn that a branch holds more than they can see; core's
+delete requires the delete right on every page of it anyway, and the card
+shows counts, not titles.
 
 ✕ The observed outcome of a run (:ref:`ADR-185 <adr-185>`) reads the records
 a run wrote; for a deleted one, how later history is judged is ADR-185's
