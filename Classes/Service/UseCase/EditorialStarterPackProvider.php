@@ -21,9 +21,10 @@ use Netresearch\NrLlm\Service\Preset\ConfigurationPreset;
 /**
  * The Editorial Starter pack (ADR-163).
  *
- * The first pack, and for now the only one: four tasks an editor recognises,
- * two snippets that make the tone a decision instead of a habit, one
- * configuration that requires nothing but chat.
+ * The first pack, and for now the only one: everyday tasks an editor
+ * recognises — six that transform a text and three that only review it — two
+ * snippets that make the tone a decision instead of a habit, one configuration
+ * that requires nothing but chat.
  *
  * `chat` is the ONLY required capability on purpose. Every adapter in the
  * extension provides it, so the pack installs against a local Ollama exactly as
@@ -47,8 +48,9 @@ final readonly class EditorialStarterPackProvider implements UseCasePackProvider
                 identifier: 'editorial-starter',
                 useCase: UseCase::EDITORIAL,
                 name: 'Editorial Starter',
-                description: 'Four everyday editing tasks — summarise, rewrite, proofread, suggest headlines — '
-                    . 'on one configuration, with a house-style and an audience snippet composed into every prompt.',
+                description: 'Everyday editing tasks — summarise, rewrite, expand, correct, plain language, '
+                    . 'suggest headlines, and three checks (proofread, readability, gaps and tone) — on one '
+                    . 'configuration, with a house-style and an audience snippet composed into every prompt.',
                 configurationPreset: new ConfigurationPreset(
                     identifier: 'nr_llm.editorial_starter',
                     name: 'Editorial Starter',
@@ -106,6 +108,66 @@ final readonly class EditorialStarterPackProvider implements UseCasePackProvider
                         outputFormat: TaskOutputFormat::MARKDOWN,
                     ),
                     new PackTask(
+                        identifier: 'editorial-starter-expand',
+                        name: 'Expand',
+                        description: 'Develop a short text into a fuller one without adding facts it does not contain.',
+                        promptTemplate: 'Expand the text below to roughly twice its length. Develop what it already '
+                            . 'says — explain, connect, give the reasoning — but add no facts, names, numbers or '
+                            . 'claims that are not in it. Where the text is too thin to expand without inventing, '
+                            . "say so in one short line at the end. Return only the expanded text.\n\n{{input}}",
+                        category: TaskCategory::CONTENT,
+                        inputType: TaskInputType::MANUAL,
+                        outputFormat: TaskOutputFormat::MARKDOWN,
+                    ),
+                    new PackTask(
+                        identifier: 'editorial-starter-correct',
+                        name: 'Correct spelling and grammar',
+                        description: 'Return the text with spelling, grammar and punctuation corrected, nothing else changed.',
+                        promptTemplate: 'Correct the spelling, grammar and punctuation of the text below. Change '
+                            . 'nothing else: keep the wording, the style, the structure and the formatting. Return '
+                            . "only the corrected text.\n\n{{input}}",
+                        category: TaskCategory::CONTENT,
+                        inputType: TaskInputType::MANUAL,
+                        outputFormat: TaskOutputFormat::MARKDOWN,
+                    ),
+                    new PackTask(
+                        identifier: 'editorial-starter-plain-language',
+                        name: 'Plain language version',
+                        description: 'Rewrite a text in plain language: short sentences, common words, one idea per sentence.',
+                        promptTemplate: 'Rewrite the text below in plain language (in German: Einfache Sprache). Use '
+                            . 'short sentences with one idea each, common words, the active voice and no '
+                            . 'abbreviations; explain every technical term the first time it appears. Keep all '
+                            . 'facts. Write in the language of the text. Return only the rewritten '
+                            . "text.\n\n{{input}}",
+                        category: TaskCategory::CONTENT,
+                        inputType: TaskInputType::MANUAL,
+                        outputFormat: TaskOutputFormat::MARKDOWN,
+                    ),
+                    new PackTask(
+                        identifier: 'editorial-starter-readability',
+                        name: 'Check readability',
+                        description: 'Rate how easy a text is to read and name the passages that make it hard.',
+                        promptTemplate: 'Assess how easy the text below is to read for its audience. Start with '
+                            . 'one line: easy, moderate or hard. Then list up to five passages that make it hard '
+                            . '(long sentences, nested clauses, jargon, passive chains), each quoted with a '
+                            . "suggestion. Do not rewrite the whole text.\n\n{{input}}",
+                        category: TaskCategory::CONTENT,
+                        inputType: TaskInputType::MANUAL,
+                        outputFormat: TaskOutputFormat::MARKDOWN,
+                    ),
+                    new PackTask(
+                        identifier: 'editorial-starter-review',
+                        name: 'Check for gaps and tone',
+                        description: 'Point out missing or unclear information and wording that breaks the house style.',
+                        promptTemplate: 'Review the text below. List what a reader would miss or misunderstand '
+                            . '(unanswered who, what, when, where; undefined terms; claims without a source), and '
+                            . 'every passage whose tone breaks the house style. Quote each passage and say what is '
+                            . "wrong. Do not rewrite the text. If you find nothing, say so in one line.\n\n{{input}}",
+                        category: TaskCategory::CONTENT,
+                        inputType: TaskInputType::MANUAL,
+                        outputFormat: TaskOutputFormat::MARKDOWN,
+                    ),
+                    new PackTask(
                         identifier: 'editorial-starter-headlines',
                         name: 'Suggest headlines',
                         description: 'Five headline options for an existing text, each under 70 characters.',
@@ -143,8 +205,8 @@ final readonly class EditorialStarterPackProvider implements UseCasePackProvider
                 // Named so an admin knows which switch would extend the pack;
                 // enabling stays a decision in the Tools module.
                 recommendedToolGroups: ['content'],
-                // No editor action, deliberately (ADR-168). The four tasks are
-                // text transforms an editor runs in the Tasks module; none of
+                // No editor action, deliberately (ADR-168). The tasks are
+                // text transforms and reviews an editor runs in the Tasks module; none of
                 // them writes a record. And an editor action runs on the
                 // DEFAULT configuration, not on the pack's, so this pack's
                 // house-style snippet would not reach one — naming an action

@@ -70,6 +70,28 @@ final class EditorialStarterPackProviderTest extends TestCase
     }
 
     #[Test]
+    public function shipsTheEditingTasksTheDocumentationNames(): void
+    {
+        // The Tasks module, the cowriter dialog and UseCasePacks.rst name these;
+        // an installation that already has the pack gets the new ones on the
+        // next install, because the installer skips identifiers it knows.
+        self::assertSame(
+            [
+                'editorial-starter-summarise',
+                'editorial-starter-rewrite',
+                'editorial-starter-proofread',
+                'editorial-starter-expand',
+                'editorial-starter-correct',
+                'editorial-starter-plain-language',
+                'editorial-starter-readability',
+                'editorial-starter-review',
+                'editorial-starter-headlines',
+            ],
+            array_map(static fn(PackTask $task): string => $task->identifier, $this->pack()->tasks),
+        );
+    }
+
+    #[Test]
     public function requiresChatAndNothingElse(): void
     {
         // Every adapter provides chat, so the pack installs against a local

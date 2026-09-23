@@ -204,7 +204,7 @@ final class UseCasePackRenderTest extends AbstractFunctionalTestCase
     public function theShippedPackDeclaresNoEditorAction(): void
     {
         // Deliberate, and asserted so it stays deliberate: Editorial Starter's
-        // four tasks are text transforms run in the Tasks module. An editor
+        // tasks are text transforms and reviews run in the Tasks module. An editor
         // action runs on the DEFAULT configuration, not on the pack's, so its
         // house-style snippet would not reach one — declaring an action here
         // would claim a link the records do not have (ADR-168).
