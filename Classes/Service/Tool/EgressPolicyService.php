@@ -228,11 +228,19 @@ final readonly class EgressPolicyService
         foreach ($this->siteFinder->getAllSites() as $site) {
             $hosts[] = $site->getBase()->getHost();
 
-            $variants = $site->getConfiguration()['baseVariants'] ?? [];
-            foreach (is_array($variants) ? $variants : [] as $variant) {
-                $base = is_array($variant) ? ($variant['base'] ?? null) : null;
-                if (is_string($base) && $base !== '') {
-                    $hosts[] = (string)parse_url(str_contains($base, '//') ? $base : '//' . $base, PHP_URL_HOST);
+            // A site language may declare an absolute base of its own
+            // (https://example.de/), so its host is this installation too.
+            foreach ($site->getAllLanguages() as $language) {
+                $hosts[] = $language->getBase()->getHost();
+            }
+
+            $configuration = $site->getConfiguration();
+            $hosts         = [...$hosts, ...$this->variantHosts($configuration['baseVariants'] ?? [])];
+
+            $languages = $configuration['languages'] ?? [];
+            foreach (is_array($languages) ? $languages : [] as $language) {
+                if (is_array($language)) {
+                    $hosts = [...$hosts, ...$this->variantHosts($language['baseVariants'] ?? [])];
                 }
             }
         }
@@ -240,6 +248,24 @@ final readonly class EgressPolicyService
         $normalised = array_map(static fn(string $host): string => rtrim(trim(strtolower($host), '[]'), '.'), $hosts);
 
         return array_values(array_unique(array_filter($normalised, static fn(string $host): bool => $host !== '')));
+    }
+
+    /**
+     * The hosts of a `baseVariants` list, of the site or of one language.
+     *
+     * @return list<string>
+     */
+    private function variantHosts(mixed $variants): array
+    {
+        $hosts = [];
+        foreach (is_array($variants) ? $variants : [] as $variant) {
+            $base = is_array($variant) ? ($variant['base'] ?? null) : null;
+            if (is_string($base) && $base !== '') {
+                $hosts[] = (string)parse_url(str_contains($base, '//') ? $base : '//' . $base, PHP_URL_HOST);
+            }
+        }
+
+        return $hosts;
     }
 
     /**

@@ -59,11 +59,13 @@ and file tools (``get_pagetree``, ``get_tca``, ``get_full_tca``,
 ``search_records``, ``get_page_content``, ``read_records``,
 ``get_record_history``, ``resolve_url``, ``validate_tca``,
 ``list_fal_storages``, ``browse_fal_folder``, ``search_fal_files``,
-``get_fal_references``, ``find_missing_files``, ``fetch_external_url``) are
-offered to non-admin backend users — those self-enforce the acting user's TYPO3
-permissions (page-show rights, ``tables_select``) inside the tool, so a
-non-admin only ever sees what the backend already grants them (see
-:ref:`ADR-042 <adr-042>`).
+``get_fal_references``, ``find_missing_files``) are offered to non-admin
+backend users — those self-enforce the acting user's TYPO3 permissions
+(page-show rights, ``tables_select``) inside the tool, so a non-admin only
+ever sees what the backend already grants them (see
+:ref:`ADR-042 <adr-042>`). ``fetch_external_url`` is offered to non-admins
+too; it reads public web pages only, which no TYPO3 permission covers, under
+the controls in :ref:`administration-tools-external-pages`.
 
 The two tools below are the fullest illustrations of the contract:
 

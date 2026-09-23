@@ -25,6 +25,7 @@ use RuntimeException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Http\Uri;
 use TYPO3\CMS\Core\Site\Entity\Site;
+use TYPO3\CMS\Core\Site\Entity\SiteLanguage;
 use TYPO3\CMS\Core\Site\SiteFinder;
 
 /**
@@ -283,6 +284,48 @@ final class ExternalUrlGuardTest extends TestCase
         self::assertStringContainsString('host of this installation', $guard->check('web', 'https://www.own.example/secret')->reason);
         self::assertStringContainsString('host of this installation', $guard->check('web', 'https://STAGING.own.example./')->reason);
         self::assertTrue($guard->check('web', 'https://other.example/')->allowed);
+    }
+
+    #[Test]
+    public function aHostOfASiteLanguageIsRefused(): void
+    {
+        $site = self::createStub(Site::class);
+        $site->method('getBase')->willReturn(new Uri('https://www.own.example/'));
+        $site->method('getAllLanguages')->willReturn([
+            new SiteLanguage(0, 'en_US.UTF-8', new Uri('https://www.own.example/'), []),
+            new SiteLanguage(1, 'de_DE.UTF-8', new Uri('https://www.own.de/'), []),
+        ]);
+        $site->method('getConfiguration')->willReturn([
+            'base'      => 'https://www.own.example/',
+            'languages' => [
+                ['languageId' => 1, 'base' => 'https://www.own.de/', 'baseVariants' => [['base' => 'https://staging.own.de/', 'condition' => 'false']]],
+            ],
+        ]);
+        $guard = $this->guard(
+            ['www.own.de' => ['93.184.215.14'], 'staging.own.de' => ['93.184.215.15']],
+            sites: [$site],
+        );
+
+        self::assertStringContainsString('host of this installation', $guard->check('web', 'https://www.own.de/')->reason);
+        self::assertStringContainsString('host of this installation', $guard->check('web', 'https://staging.own.de/')->reason);
+    }
+
+    #[Test]
+    public function anUnreadableListEntryMakesTheListUnreadable(): void
+    {
+        $dns = ['example.org' => ['93.184.215.14']];
+
+        // Only an unparseable entry: read as "no entries", the allowlist would
+        // allow every public host.
+        $allowed = $this->guard($dns, allowed: '2001:db8:::1')->check('web', 'https://example.org/');
+        $denied  = $this->guard($dns, denied: 'example.org, [1:2]')->check('web', 'https://example.org/');
+
+        self::assertFalse($allowed->allowed);
+        self::assertStringContainsString('cannot be read', $allowed->reason);
+        self::assertFalse($denied->allowed);
+        self::assertStringContainsString('cannot be read', $denied->reason);
+        // Blank entries (a trailing comma) are not an error.
+        self::assertTrue($this->guard($dns, allowed: 'example.org, ,')->check('web', 'https://example.org/')->allowed);
     }
 
     #[Test]

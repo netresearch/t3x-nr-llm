@@ -90,10 +90,19 @@ final readonly class ExternalFetchSettings
 
         $entries = [];
         foreach (explode(',', $value) as $raw) {
-            $entry = HostListEntry::parse($raw);
-            if ($entry instanceof HostListEntry) {
-                $entries[] = $entry;
+            if (trim($raw) === '') {
+                continue;
             }
+
+            $entry = HostListEntry::parse($raw);
+            if (!$entry instanceof HostListEntry) {
+                // An entry that cannot be read must not shrink an allowlist to
+                // nothing, which the guard reads as "every public host", nor
+                // drop a host the operator meant to deny: the list is unreadable.
+                return null;
+            }
+
+            $entries[] = $entry;
         }
 
         return $entries;
