@@ -485,12 +485,49 @@ What holds for all of them:
    - It is **always hidden**. There is no argument to switch that off:
      publishing is a separate act with a separate audience, and the approval
      that let the tool run approved a draft.
-   - The content type is an allow-list (``header``, ``text``, ``textmedia``,
-     ``bullets``) intersected with what the installation's TCA actually
-     declares. Types whose payload is configuration rather than prose — ``list``
-     (a plugin), ``html``, ``shortcut`` — are out of reach.
-   - The field set is fixed: headline, body text, column, language, position.
-     This is not a generic record API.
+   - The content types are read from the installation's TCA at call time,
+     under an exclusion rule (:ref:`ADR-196 <adr-196>`). A type is offered
+     unless it is denied by name — ``list`` (the legacy plugin element),
+     ``html``, ``shortcut``, ``div``, every ``menu_*`` — or it is a plugin,
+     known by its Extbase registration or by the ``plugins`` or ``forms``
+     item group, or its form holds a
+     column whose payload is not prose: a FlexForm, inline children, a group
+     or folder reference, a slug, a password. File, category and link
+     relations do not exclude a type; the draft leaves them empty, so
+     ``textmedia`` is offered and gets its media through
+     ``attach_file_to_content_element``. The tool description lists what the
+     installation offers.
+   - The field set is the type's own scalar columns: headline, body text,
+     column, language and position as arguments, and every further ``input``,
+     ``text``, ``select`` (static items), ``check``, ``number``, ``datetime``,
+     ``radio``, ``color`` or ``email`` column of the chosen type through
+     ``fields``, validated against its TCA type as the DataHandler reads it.
+     A ``check`` with several items, a ``check`` limited by
+     ``maximumRecordsChecked`` and an ``input`` or ``email`` with ``eval``
+     ``unique`` stay in the form and are refused as keys, because TYPO3 would
+     change them in silence; so is a column the type's TCA declares
+     ``readOnly``, and a read-only ``header`` or ``bodytext`` refuses the
+     call. Identity, position,
+     visibility, publication, audience and translation columns are refused by
+     name; a wrong key or value refuses the whole call and names the columns
+     the type offers. The chosen type is checked against the acting user's
+     explicit allow-list, and the exclude-field grants per column — the
+     tool's own columns included — before the write; a ``datetime`` is handed
+     over as the integer both supported cores store. The page's TSconfig
+     narrows all of this per page, as it narrows the backend form:
+     ``TCEFORM.tt_content.CType.keepItems`` and ``removeItems``; ``disabled``
+     and ``config.readOnly`` on a ``fields`` column, on ``bodytext`` and on
+     ``header`` — a hidden or read-only header refuses the call, since the
+     header is required, and like the backend form the tool does not read
+     ``config.readOnly`` for a ``radio`` column; and
+     ``keepItems`` and ``removeItems`` on a select column in ``fields``, on
+     ``colPos`` for the ``column`` argument and on ``sys_language_uid`` for
+     the ``language`` argument — each also under ``types.<CType>`` — are
+     honoured, and the refusal names the rule. ``addItems`` is not read,
+     and a column that is ``readOnly`` in the TCA stays refused even where
+     a page sets ``config.readOnly = 0``. This
+     is still not a generic record API: the table is fixed and a
+     relation is never an argument.
 
    In a language other than the default one the element is created
    **standalone**, without a translation parent. That is refused on a page
@@ -502,8 +539,9 @@ What holds for all of them:
    ``mod.web_layout.allowInconsistentLanguageHandling`` is exempt, as it is
    from core's warning.
 
-   ``bodytext`` reaches the DataHandler and its RTE transformation exactly as an
-   editor's input does. It is bounded in length and not otherwise filtered — an
+   ``bodytext`` is refused for a type whose form does not show it, such as
+   ``header``. Otherwise it reaches the DataHandler and its RTE transformation
+   exactly as an editor's input does. It is bounded in length and not otherwise filtered — an
    editor may write the same markup by hand, and a tool enforcing a stricter
    rule than the CMS would be enforcing a rule that does not exist.
 

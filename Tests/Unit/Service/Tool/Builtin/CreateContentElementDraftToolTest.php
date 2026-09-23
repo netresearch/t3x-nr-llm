@@ -26,8 +26,10 @@ use TYPO3\CMS\Core\Localization\LanguageService;
  * Argument validation of the fourth writing tool — the first that creates a
  * record (ADR-146).
  *
- * Every assertion here stops the call BEFORE the database is touched, so a stub
- * {@see ConnectionPool} is enough. The creation itself — page permissions, the
+ * Every assertion here stops the call BEFORE the database is touched, and the
+ * {@see ConnectionPool} double fails the test if a call gets that far — so a
+ * refusal that stopped working is an assertion failure, not a PHP error on the
+ * way to the database. The creation itself — page permissions, the
  * new uid, the hidden state, the read-back — is exercised against a real
  * database in
  * {@see \Netresearch\NrLlm\Tests\Functional\Service\Tool\CreateContentElementDraftToolTest}.
@@ -45,31 +47,135 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         parent::setUp();
 
         $this->globalsBackup = [
-            'TCA'     => $GLOBALS['TCA'] ?? null,
-            'LANG'    => $GLOBALS['LANG'] ?? null,
-            'BE_USER' => $GLOBALS['BE_USER'] ?? null,
+            'TCA'              => $GLOBALS['TCA'] ?? null,
+            'LANG'             => $GLOBALS['LANG'] ?? null,
+            'BE_USER'          => $GLOBALS['BE_USER'] ?? null,
+            'TYPO3_CONF_VARS'  => $GLOBALS['TYPO3_CONF_VARS'] ?? null,
         ];
 
-        // `textmedia` and `bullets` come from fluid_styled_content and are
-        // deliberately ABSENT, so the allow-list ∩ live-TCA intersection is
-        // genuinely exercised. `html` is present and must still be unreachable.
+        // Seven declared types, of which three pass the exclusion rule
+        // (ADR-196): `header`, `text` and `options` hold scalar columns only;
+        // `html` is on the deny-list although its form is scalar;
+        // `plugin_like` carries a FlexForm column; `record_like` a select
+        // backed by a foreign table; `plugin_scalar` has the form
+        // ExtensionManagementUtility::addPlugin() copies from `header` and
+        // sits in the `plugins` item group, which is what marks it a plugin.
+        // `textmedia` and `bullets` are deliberately ABSENT, so the list is
+        // genuinely read from this TCA. `header` narrows `subheader` through
+        // `columnsOverrides`, the way core narrows `bodytext` per type.
+        // `options` carries one column of every further scalar kind the tool
+        // validates. `form_like` sits in the `forms` item group core's own
+        // plugins register in; `myext_listing` sits in no plugin group and is a
+        // plugin by registration — Extbase's configurePlugin() entry below.
         $GLOBALS['TCA'] = ['tt_content' => [
             'ctrl'    => ['enablecolumns' => ['disabled' => 'hidden']],
             'columns' => [
                 'CType' => ['config' => ['type' => 'select', 'items' => [
                     ['label' => 'Header only', 'value' => 'header'],
                     ['label' => 'Text', 'value' => 'text'],
+                    ['label' => 'Options', 'value' => 'options'],
                     ['label' => 'Raw HTML', 'value' => 'html'],
+                    ['label' => 'Plugin-like', 'value' => 'plugin_like'],
+                    ['label' => 'Record-like', 'value' => 'record_like'],
+                    ['label' => 'Plugin with a scalar form', 'value' => 'plugin_scalar', 'group' => 'plugins'],
+                    ['label' => 'Search form', 'value' => 'form_like', 'group' => 'forms'],
+                    ['label' => 'Listing', 'value' => 'myext_listing', 'group' => 'default'],
+                    ['label' => 'JSON-like', 'value' => 'json_like'],
+                    ['label' => 'Without a form', 'value' => 'formless'],
                 ]]],
-                'header'   => ['config' => ['type' => 'input']],
-                'bodytext' => ['config' => ['type' => 'text']],
-                'hidden'   => ['config' => ['type' => 'check']],
+                'header'       => ['config' => ['type' => 'input']],
+                'subheader'    => ['config' => ['type' => 'input', 'max' => 40]],
+                'bodytext'     => ['config' => ['type' => 'text']],
+                'layout'       => ['config' => ['type' => 'select', 'items' => [
+                    ['label' => 'Default', 'value' => '0'],
+                    ['label' => 'Layout 1', 'value' => '1'],
+                ]]],
+                'sectionIndex' => ['config' => ['type' => 'check']],
+                'hidden'       => ['config' => ['type' => 'check']],
+                'pi_flexform'  => ['config' => ['type' => 'flex']],
+                // A TCA type the tool does not list either way: it fails closed.
+                'payload'      => ['config' => ['type' => 'json']],
+                'records'      => ['config' => ['type' => 'select', 'foreign_table' => 'tt_address']],
+                'contact'      => ['config' => ['type' => 'email']],
+                'tint'         => ['config' => ['type' => 'color']],
+                'tint_alpha'   => ['config' => ['type' => 'color', 'opacity' => true]],
+                'align'        => ['config' => ['type' => 'radio', 'items' => [
+                    ['label' => 'Left', 'value' => 'left'],
+                    ['label' => 'Right', 'value' => 'right'],
+                ]]],
+                'date'         => ['config' => ['type' => 'datetime', 'format' => 'date']],
+                'starts'       => ['config' => ['type' => 'datetime', 'format' => 'time']],
+                'price'        => ['config' => ['type' => 'number', 'format' => 'decimal']],
+                'width'        => ['config' => ['type' => 'number', 'range' => ['lower' => 1, 'upper' => 4000]]],
+                'code'         => ['config' => ['type' => 'input', 'min' => 3, 'max' => 40]],
+                // Where the DataHandler rewrites in silence: `min` on a plain
+                // text, bounds given as strings, fractional decimal bounds.
+                'note'         => ['config' => ['type' => 'text', 'min' => 5]],
+                'note_rich'    => ['config' => ['type' => 'text', 'min' => 5, 'enableRichtext' => true]],
+                'label'        => ['config' => ['type' => 'input', 'min' => '3', 'max' => '8']],
+                'ratio'        => ['config' => ['type' => 'number', 'format' => 'decimal', 'range' => ['lower' => 1.5, 'upper' => 10.5]]],
+                'tier'         => ['config' => ['type' => 'select', 'authMode' => 'explicitAllow', 'items' => [
+                    ['label' => 'Basic', 'value' => 'basic'],
+                    ['label' => 'Premium', 'value' => 'premium'],
+                ]]],
+                // Kept in the form, refused as keys: the DataHandler unsets
+                // or rewrites them depending on other records, and a check
+                // with several items is a bitmask.
+                'featured'     => ['config' => [
+                    'type'       => 'check',
+                    'eval'       => 'maximumRecordsChecked',
+                    'validation' => ['maximumRecordsChecked' => 1],
+                ]],
+                'owner'        => ['config' => ['type' => 'email', 'eval' => 'unique']],
+                // FormEngine renders it read-only; the DataHandler stores it anyway.
+                'frozen'       => ['config' => ['type' => 'input', 'readOnly' => true]],
+                'handle'       => ['config' => ['type' => 'input', 'eval' => 'trim,uniqueInPid']],
+                'flags'        => ['config' => ['type' => 'check', 'items' => [
+                    ['label' => 'A', 'value' => ''],
+                    ['label' => 'B', 'value' => ''],
+                ]]],
+            ],
+            'palettes' => [
+                'headers' => ['showitem' => 'header, --linebreak--, subheader'],
+            ],
+            'types' => [
+                'header'      => [
+                    'showitem'         => '--palette--;;headers, --div--;Appearance, layout, sectionIndex, hidden',
+                    'columnsOverrides' => ['subheader' => ['config' => ['max' => 10]]],
+                ],
+                'text'        => ['showitem' => '--palette--;;headers, bodytext, --div--;Appearance, layout, sectionIndex, hidden'],
+                'options'     => [
+                    'showitem' => 'header, contact, tint, tint_alpha, align, date, starts, price, width, code, note, note_rich,'
+                        . ' label, ratio, tier, featured, owner, handle, flags, frozen, hidden',
+                ],
+                'html'        => ['showitem' => 'header, bodytext, hidden'],
+                'plugin_like' => ['showitem' => 'header, pi_flexform, hidden'],
+                'record_like' => ['showitem' => 'header, records, hidden'],
+                // What addPlugin() leaves behind without a FlexForm: `header`'s form.
+                'plugin_scalar' => ['showitem' => '--palette--;;headers, --div--;Appearance, layout, sectionIndex, hidden'],
+                'form_like'     => ['showitem' => '--palette--;;headers, --div--;Appearance, layout, sectionIndex, hidden'],
+                'myext_listing' => ['showitem' => '--palette--;;headers, --div--;Appearance, layout, sectionIndex, hidden'],
+                'json_like'     => ['showitem' => 'header, payload, hidden'],
+                // `formless` has no entry: nothing says what it holds.
             ],
         ]];
+        // What ExtensionUtility::configurePlugin('Myext', 'Listing', …) leaves
+        // on both supported cores; the CType is `myext_listing`.
+        $GLOBALS['TYPO3_CONF_VARS']['EXTCONF']['extbase']['extensions']['Myext']['plugins']['Listing'] = [
+            'controllers' => [],
+        ];
         $GLOBALS['LANG']    = self::createStub(LanguageService::class);
         $GLOBALS['BE_USER'] = $this->liveUser();
 
-        $this->tool = new CreateContentElementDraftTool(self::createStub(ConnectionPool::class));
+        // Every test here must stop before the tool reads the page, let alone
+        // writes. A defect that lets a call through reaches the pool, and the
+        // expectation then fails the test on an assertion — not on the null a
+        // stub's query builder would hand the next line.
+        $connectionPool = $this->createMock(ConnectionPool::class);
+        $connectionPool->expects(self::never())->method('getQueryBuilderForTable');
+        $connectionPool->expects(self::never())->method('getConnectionForTable');
+
+        $this->tool = new CreateContentElementDraftTool($connectionPool);
     }
 
     protected function tearDown(): void
@@ -183,12 +289,41 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         yield 'zero page'  => [['page' => 0, 'type' => 'text', 'header' => 'x'], 'exactly one page'];
         yield 'negative page' => [['page' => -1, 'type' => 'text', 'header' => 'x'], 'exactly one page'];
         yield 'no type'    => [['page' => 1, 'header' => 'x'], 'not a content type this tool creates'];
-        // Present in the fixture TCA and still unreachable: the allow-list is
-        // the bar, the TCA only narrows it further.
+        // Declared in the fixture TCA with a scalar form and still unreachable:
+        // the deny-list is asked before the form is read.
         yield 'html type'  => [['page' => 1, 'type' => 'html', 'header' => 'x'], 'not a content type this tool creates'];
         yield 'plugin type' => [['page' => 1, 'type' => 'list', 'header' => 'x'], 'not a content type this tool creates'];
-        // Allow-listed but absent from the fixture TCA, so this installation
-        // cannot render it and the tool must not offer it.
+        // Declared, not denied, and excluded by the FlexForm column in its form.
+        yield 'type with a flexform column' => [
+            ['page' => 1, 'type' => 'plugin_like', 'header' => 'x'],
+            'not a content type this tool creates',
+        ];
+        // Declared, not denied, and excluded by the record-backed select in its
+        // form: a `select` counts as scalar only with static items.
+        yield 'type with a foreign_table select' => [
+            ['page' => 1, 'type' => 'record_like', 'header' => 'x'],
+            'not a content type this tool creates',
+        ];
+        // Declared with a scalar form — the one addPlugin() copies from
+        // `header` — and still a plugin: its item sits in the `plugins` group.
+        yield 'plugin type with a scalar form' => [
+            ['page' => 1, 'type' => 'plugin_scalar', 'header' => 'x'],
+            'not a content type this tool creates',
+        ];
+        // The same form, in the `forms` group core's indexed_search, felogin
+        // and form register their plugins in.
+        yield 'plugin in the forms group' => [
+            ['page' => 1, 'type' => 'form_like', 'header' => 'x'],
+            'not a content type this tool creates',
+        ];
+        // The same form, in no plugin group, and a plugin by its Extbase
+        // registration.
+        yield 'plugin by registration' => [
+            ['page' => 1, 'type' => 'myext_listing', 'header' => 'x'],
+            'not a content type this tool creates',
+        ];
+        // Absent from the fixture TCA, so this installation cannot render it
+        // and the tool must not offer it.
         yield 'type not in this tca' => [
             ['page' => 1, 'type' => 'textmedia', 'header' => 'x'],
             'not a content type this tool creates',
@@ -210,6 +345,178 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         yield 'unknown argument'  => [$valid + ['hidden' => 0], 'not an argument of this tool'];
         // The one that would defeat the tool's single guarantee.
         yield 'pid smuggled in'   => [$valid + ['pid' => 5], 'not an argument of this tool'];
+        // The same guarantee, through the new argument: the visibility column
+        // is refused by name, before the type's form is consulted.
+        yield 'fields not an object' => [$valid + ['fields' => 'layout=1'], '"fields" must be an object'];
+        yield 'hidden via fields'    => [$valid + ['fields' => ['hidden' => 0]], '"hidden" cannot be set through "fields"'];
+        yield 'pid via fields'       => [$valid + ['fields' => ['pid' => 5]], '"pid" cannot be set through "fields"'];
+        yield 'header via fields'    => [$valid + ['fields' => ['header' => 'y']], 'pass it as the "header" argument'];
+        yield 'column not in the form' => [
+            $valid + ['fields' => ['nope' => 1]],
+            '"nope" is not a scalar column of content type "text". Columns this tool sets for it: subheader, layout, sectionIndex.',
+        ];
+        // A real column of the table, absent from this type's form and not
+        // scalar either: the membership test is the type's form, not the table.
+        yield 'table column outside the form' => [
+            $valid + ['fields' => ['pi_flexform' => '<T3FlexForms/>']],
+            '"pi_flexform" is not a scalar column of content type "text"',
+        ];
+        yield 'select outside its items' => [$valid + ['fields' => ['layout' => '9']], 'must be one of: "0", "1"'];
+        yield 'check that is not a boolean' => [$valid + ['fields' => ['sectionIndex' => 'yes']], 'must be true, false, 0 or 1'];
+        yield 'input over the tca max' => [$valid + ['fields' => ['subheader' => str_repeat('a', 41)]], 'exceeds 40 characters'];
+        // The same column, narrowed by the type's `columnsOverrides`: the bound
+        // is the one the DataHandler will apply for THIS type, not the column's own.
+        yield 'input over the type-overridden max' => [
+            ['page' => 1, 'type' => 'header', 'header' => 'x', 'fields' => ['subheader' => str_repeat('a', 11)]],
+            'exceeds 10 characters',
+        ];
+        // The other scalar kinds, each where the DataHandler would bend the
+        // value in silence: below `min` it stores '', an invalid address it
+        // empties, a nine-digit colour it cuts to seven, a fraction on a whole
+        // number it truncates, a value outside `range` it clamps.
+        $options = ['page' => 1, 'type' => 'options', 'header' => 'x'];
+        yield 'input below the tca min' => [$options + ['fields' => ['code' => 'ab']], 'must be at least 3 characters'];
+        yield 'email that is not an address' => [$options + ['fields' => ['contact' => 'editor at example']], 'must be a valid e-mail address'];
+        yield 'colour without the hash' => [$options + ['fields' => ['tint' => '1a2b3c']], 'must be a colour such as #1a2b3c'];
+        yield 'colour with opacity on a column without it' => [
+            $options + ['fields' => ['tint' => '#1a2b3c80']],
+            'must be a colour such as #1a2b3c',
+        ];
+        yield 'radio outside its items' => [$options + ['fields' => ['align' => 'center']], 'must be one of: "left", "right"'];
+        yield 'date the cms cannot read' => [$options + ['fields' => ['date' => 'the day after']], 'must be a date or time the CMS can read'];
+        yield 'date that does not exist' => [$options + ['fields' => ['date' => '2026-02-30']], 'must be a date or time the CMS can read'];
+        // ISO 8601 allows 24:00 for the end of a day; PHP reads it with a
+        // warning, so it is refused — with the way to write it.
+        yield 'end of day as 24:00' => [
+            $options + ['fields' => ['date' => '2026-09-21 24:00:00']],
+            'write midnight at the end of a day as 00:00 of the next day',
+        ];
+        yield 'decimal that is not a number' => [$options + ['fields' => ['price' => 'ten']], 'must be a number'];
+        yield 'fraction on a whole-number column' => [$options + ['fields' => ['width' => 12.5]], 'must be a whole number'];
+        yield 'number below the range' => [$options + ['fields' => ['width' => 0]], 'must be at least 1'];
+        yield 'number above the range' => [$options + ['fields' => ['width' => 4001]], 'must be at most 4000'];
+        // Below `min` the DataHandler empties a plain text as it empties an input.
+        yield 'text below the tca min' => [$options + ['fields' => ['note' => 'abc']], 'must be at least 5 characters'];
+        // A bound given as a string is a bound to the DataHandler, which casts it.
+        yield 'input over a max given as a string' => [$options + ['fields' => ['label' => 'abcdefghi']], 'exceeds 8 characters'];
+        yield 'input below a min given as a string' => [$options + ['fields' => ['label' => 'ab']], 'must be at least 3 characters'];
+        // The DataHandler compares a decimal rounded up against the upper
+        // bound and rounded down against the lower, and clamps.
+        yield 'decimal the cms rounds above a fractional upper bound' => [
+            $options + ['fields' => ['ratio' => 10.2]],
+            'must be at most 10.5; the CMS compares it rounded up',
+        ];
+        yield 'decimal the cms rounds below a fractional lower bound' => [
+            $options + ['fields' => ['ratio' => 1.7]],
+            'must be at least 1.5; the CMS compares it rounded down',
+        ];
+        // The DataHandler stores a decimal with two places; a third would be
+        // rounded away while the model and the card named it.
+        yield 'decimal with more than two places' => [
+            $options + ['fields' => ['price' => 1.234]],
+            'the value for "price" has more than two decimal places',
+        ];
+        yield 'check the cms unchecks when enough records carry it' => [
+            $options + ['fields' => ['featured' => true]],
+            '"featured" cannot be set through "fields": TYPO3 unchecks it in silence once enough other records carry it',
+        ];
+        yield 'email the cms rewrites when another record holds it' => [
+            $options + ['fields' => ['owner' => 'editor@example.com']],
+            '"owner" cannot be set through "fields": TYPO3 rewrites a value another record already holds',
+        ];
+        yield 'input the cms rewrites when another record on the page holds it' => [
+            $options + ['fields' => ['handle' => 'intro']],
+            '"handle" cannot be set through "fields": TYPO3 rewrites a value another record already holds',
+        ];
+        yield 'column the form shows read-only' => [
+            $options + ['fields' => ['frozen' => 'x']],
+            '"frozen" cannot be set through "fields": the backend form shows it read-only (TCA readOnly)',
+        ];
+        yield 'check with several items' => [
+            $options + ['fields' => ['flags' => 1]],
+            '"flags" cannot be set through "fields": a check with several items is a bitmask',
+        ];
+    }
+
+    /**
+     * One accepted value per scalar kind. The value passes validation and the
+     * call goes on to the next refusal.
+     *
+     * @return iterable<string, array{array<non-empty-string, mixed>}>
+     */
+    public static function acceptedFields(): iterable
+    {
+        yield 'input at the min'      => [['code' => 'abc']];
+        yield 'email'                 => [['contact' => 'editor@example.com']];
+        yield 'colour'                => [['tint' => '#1a2b3c']];
+        yield 'colour with opacity'   => [['tint_alpha' => '#1a2b3c80']];
+        yield 'radio'                 => [['align' => 'right']];
+        yield 'date as a day'         => [['date' => '2026-09-21']];
+        yield 'date as a timestamp'   => [['date' => 1789000000]];
+        yield 'time'                  => [['starts' => '14:30']];
+        yield 'decimal'               => [['price' => 12.5]];
+        yield 'decimal as a string'   => [['price' => '12.50']];
+        yield 'whole number in range' => [['width' => 320]];
+        // The RTE skips `min` in the DataHandler, so the tool does too.
+        yield 'rich text below the min' => [['note_rich' => 'abc']];
+        yield 'text at the min'        => [['note' => 'abcde']];
+        yield 'input within string bounds' => [['label' => 'abcdefgh']];
+        yield 'decimal the cms keeps' => [['ratio' => 5.25]];
+        yield 'decimal with two places' => [['price' => 4.25]];
+    }
+
+    /**
+     * The DataHandler rounds a decimal to two places BEFORE it compares it
+     * with the range (typo3/cms-core 14.3.7, checkValueForNumber()): 1.996
+     * becomes 2.00 and is above a lower bound of 1.5, 10.001 becomes 10.00
+     * and is below an upper bound of 10.5. Such a value is not out of range,
+     * so the refusal it gets is the one for its third decimal place.
+     *
+     * @return iterable<string, array{float, string}>
+     */
+    public static function decimalsInRangeOnceRounded(): iterable
+    {
+        yield 'rounded up into the lower bound'   => [1.996, 'must be at least'];
+        yield 'rounded down into the upper bound' => [10.001, 'must be at most'];
+    }
+
+    #[Test]
+    #[DataProvider('decimalsInRangeOnceRounded')]
+    public function aDecimalIsComparedWithTheRangeRoundedToTwoPlaces(float $value, string $rangeRefusal): void
+    {
+        $result = $this->tool->execute(
+            ['page' => 1, 'type' => 'options', 'header' => 'x', 'fields' => ['ratio' => $value]],
+            $this->contextFor($this->liveUser()),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringNotContainsString($rangeRefusal, $result->content);
+        self::assertStringContainsString('the value for "ratio" has more than two decimal places', $result->content);
+    }
+
+    /**
+     * The accepted direction of every value check above. The value passes,
+     * so the refusal that comes back is the one AFTER the field checks — the
+     * language the acting user may not edit — and not a field refusal. The
+     * unit fixture has no database, so the creation itself is not reached.
+     *
+     * @param array<non-empty-string, mixed> $fields
+     */
+    #[Test]
+    #[DataProvider('acceptedFields')]
+    public function itAcceptsAValidValueOfEveryScalarKind(array $fields): void
+    {
+        $restricted                                 = $this->liveUser();
+        $restricted->user                           = ['uid' => 5, 'admin' => 0];
+        $restricted->groupData['allowed_languages'] = '0';
+
+        $result = $this->tool->execute(
+            ['page' => 1, 'type' => 'options', 'header' => 'x', 'language' => 2, 'fields' => $fields],
+            $this->contextFor($restricted),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('may not edit content in language 2', $result->content);
     }
 
     /**
@@ -226,6 +533,33 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
     }
 
     /**
+     * The end-of-day hint belongs to an hour of 24 only: a nonexistent date at
+     * 24 minutes past, or a time-of-day column, where there is no next day,
+     * must not be told to write 00:00 of the next day.
+     *
+     * @return iterable<string, array{array<string, mixed>}>
+     */
+    public static function refusalsWithoutTheMidnightHint(): iterable
+    {
+        $options = ['page' => 1, 'type' => 'options', 'header' => 'x'];
+        yield 'nonexistent date at 24 minutes past' => [$options + ['fields' => ['date' => '2026-02-30T10:24:00']]];
+        yield 'hour 24 on a time-of-day column' => [$options + ['fields' => ['starts' => '24:00']]];
+    }
+
+    /**
+     * @param array<string, mixed> $arguments
+     */
+    #[Test]
+    #[DataProvider('refusalsWithoutTheMidnightHint')]
+    public function theMidnightHintIsGivenOnlyForAnHourOf24OnADate(array $arguments): void
+    {
+        $result = $this->tool->execute($arguments, $this->contextFor($this->liveUser()));
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringNotContainsString('00:00 of the next day', $result->content);
+    }
+
+    /**
      * @param array<string, mixed> $arguments
      */
     #[Test]
@@ -239,17 +573,240 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function theOfferedTypesAreTheAllowListNarrowedByTheLiveTca(): void
+    public function theOfferedTypesAreReadFromTheLiveTcaUnderTheExclusionRule(): void
     {
-        $description = $this->tool->getSpec()->parameters['properties']['type']['description'] ?? '';
+        $properties = $this->tool->getSpec()->parameters['properties'] ?? null;
+        self::assertIsArray($properties);
+        $type = $properties['type'] ?? null;
+        self::assertIsArray($type);
+        $description = $type['description'] ?? '';
         self::assertIsString($description);
 
-        // The description names the full allow-list — it is what a model should
-        // choose from across installations — while the refusal above names only
-        // what THIS installation can render.
-        self::assertStringContainsString('textmedia', $description);
+        // Exactly what THIS installation declares and the rule lets through:
+        // not the denied `html`, not the FlexForm-carrying `plugin_like`, not
+        // the plugin whose form is scalar, and not a type the TCA does not
+        // declare.
+        self::assertStringContainsString('One of: header, text, options.', $description);
         self::assertStringNotContainsString('html', $description);
-        self::assertStringNotContainsString('list', $description);
+        self::assertStringNotContainsString('plugin_like', $description);
+        self::assertStringNotContainsString('plugin_scalar', $description);
+        self::assertStringNotContainsString('form_like', $description);
+        self::assertStringNotContainsString('myext_listing', $description);
+        self::assertStringNotContainsString('json_like', $description);
+        self::assertStringNotContainsString('formless', $description);
+
+        // The tool description says what the list is — the rule's outcome,
+        // not every type with scalar columns — and that a page may narrow it.
+        $toolDescription = $this->tool->getSpec()->description;
+        self::assertStringContainsString('Only content types that pass the exclusion rule', $toolDescription);
+        self::assertStringContainsString("page's TSconfig", $toolDescription);
+        self::assertStringNotContainsString('whose form holds scalar columns', $toolDescription);
+        self::assertStringNotContainsString('record_like', $description);
+        self::assertStringNotContainsString('textmedia', $description);
+    }
+
+    /**
+     * `tt_content.CType` is an `authMode` column in core: the DataHandler
+     * drops a value the acting user's `explicit_allowdeny` does not grant,
+     * without an error, and creates the element as the default type. The
+     * tool asks the same question before the write, and only where the
+     * column declares `authMode` — the fixture above does not, so an
+     * installation without it is not refused what the DataHandler would take.
+     */
+    #[Test]
+    public function aContentTypeOutsideTheActingUsersAllowListIsRefusedBeforeTheWrite(): void
+    {
+        $this->declareCTypeAuthMode();
+        $restricted       = $this->liveUser();
+        $restricted->user = ['uid' => 5, 'admin' => 0];
+        // The default `explicit_allowdeny` is empty: nothing is allowed.
+
+        $result = $this->tool->execute(
+            ['page' => 1, 'type' => 'text', 'header' => 'x'],
+            $this->contextFor($restricted),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('not allowed content type "text"', $result->content);
+        self::assertStringContainsString('tt_content:CType:text', $result->content);
+        self::assertStringContainsString('Nothing was written', $result->content);
+    }
+
+    #[Test]
+    public function aContentTypeOnTheActingUsersAllowListPassesOnToTheNextCheck(): void
+    {
+        $this->declareCTypeAuthMode();
+        $restricted                                   = $this->liveUser();
+        $restricted->user                             = ['uid' => 5, 'admin' => 0];
+        $restricted->groupData['explicit_allowdeny']  = 'tt_content:CType:text';
+        $restricted->groupData['allowed_languages']   = '0';
+
+        $result = $this->tool->execute(
+            ['page' => 1, 'type' => 'text', 'header' => 'x', 'language' => 2],
+            $this->contextFor($restricted),
+        );
+
+        // The refusal AFTER the allow-list: the type passed it.
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('may not edit content in language 2', $result->content);
+    }
+
+    /**
+     * `authMode` is not CType's alone: the DataHandler asks every `select`
+     * that declares it and drops a value the acting user is not allowed, in
+     * silence. The tool asks the same question for a `fields` value.
+     */
+    #[Test]
+    public function aSelectValueOutsideTheActingUsersAllowListIsRefusedBeforeTheWrite(): void
+    {
+        $restricted       = $this->liveUser();
+        $restricted->user = ['uid' => 5, 'admin' => 0];
+        $restricted->groupData['explicit_allowdeny'] = 'tt_content:tier:basic';
+        $restricted->groupData['allowed_languages']  = '0';
+
+        $refused = $this->tool->execute(
+            ['page' => 1, 'type' => 'options', 'header' => 'x', 'fields' => ['tier' => 'premium']],
+            $this->contextFor($restricted),
+        );
+
+        self::assertTrue($refused->isError);
+        self::assertStringContainsString(
+            'not allowed the value "premium" for "tier" (no explicit allow for tt_content:tier:premium)',
+            $refused->content,
+        );
+
+        // The allowed value passes on to the next refusal.
+        $passed = $this->tool->execute(
+            ['page' => 1, 'type' => 'options', 'header' => 'x', 'language' => 2, 'fields' => ['tier' => 'basic']],
+            $this->contextFor($restricted),
+        );
+
+        self::assertTrue($passed->isError);
+        self::assertStringContainsString('may not edit content in language 2', $passed->content);
+    }
+
+    private function declareCTypeAuthMode(): void
+    {
+        $tca = $GLOBALS['TCA'];
+        self::assertIsArray($tca);
+        $GLOBALS['TCA'] = array_replace_recursive($tca, ['tt_content' => [
+            'columns' => ['CType' => ['config' => ['authMode' => 'explicitAllow']]],
+        ]]);
+    }
+
+    #[Test]
+    public function theSpecDeclaresFieldsAsAnObjectWithFreeKeys(): void
+    {
+        $properties = $this->tool->getSpec()->parameters['properties'] ?? null;
+        self::assertIsArray($properties);
+        $fields = $properties['fields'] ?? null;
+        self::assertIsArray($fields);
+
+        self::assertSame('object', $fields['type'] ?? null);
+        // Free keys — the allowed ones come from the chosen type's TCA and are
+        // not enumerated here — in the boolean form ReadRecordsTool ships:
+        // a type ARRAY is a union no Gemini schema expresses, and the value
+        // is validated against the TCA anyway.
+        self::assertTrue($fields['additionalProperties'] ?? null);
+        $description = $fields['description'] ?? '';
+        self::assertIsString($description);
+        self::assertStringContainsString('TCA', $description);
+
+        $required = $this->tool->getSpec()->parameters['required'] ?? null;
+        self::assertIsArray($required);
+        self::assertNotContains('fields', $required);
+    }
+
+    #[Test]
+    public function withoutATcaNoTypeIsOfferedAndTheSpecSaysSo(): void
+    {
+        unset($GLOBALS['TCA']);
+
+        $properties = $this->tool->getSpec()->parameters['properties'] ?? null;
+        self::assertIsArray($properties);
+        $type = $properties['type'] ?? null;
+        self::assertIsArray($type);
+
+        self::assertSame('The content type (CType). One of: none in this process.', $type['description'] ?? null);
+    }
+
+    /**
+     * The tool reads the disabled column's name from `ctrl.enablecolumns` for
+     * its own write, so an installation that renamed it must find that name
+     * refused as a `fields` key too — under the standard name alone, `fields`
+     * could unhide the draft in the same write that hides it.
+     */
+    #[Test]
+    public function theRenamedVisibilityColumnIsRefusedThroughFieldsUnderTheInstallationsName(): void
+    {
+        $tca = $GLOBALS['TCA'];
+        self::assertIsArray($tca);
+        $GLOBALS['TCA'] = array_replace_recursive($tca, ['tt_content' => [
+            'ctrl'    => ['enablecolumns' => ['disabled' => 'invisible']],
+            'columns' => ['invisible' => ['config' => ['type' => 'check']]],
+            'types'   => ['text' => ['showitem' => '--palette--;;headers, bodytext, invisible']],
+        ]]);
+
+        $result = $this->tool->execute(
+            ['page' => 1, 'type' => 'text', 'header' => 'x', 'fields' => ['invisible' => 0]],
+            $this->contextFor($this->liveUser()),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('"invisible" cannot be set through "fields"', $result->content);
+    }
+
+    /**
+     * A column the type's TCA declares `readOnly` is shown but not editable
+     * in the backend form, and the DataHandler stores it all the same — so
+     * the tool refuses it as it refuses a hidden one: as a `fields` key, and
+     * for the two text arguments. The header is required, so its refusal
+     * says there is no call that avoids it.
+     */
+    #[Test]
+    public function aColumnTheTypeDeclaresReadOnlyIsRefused(): void
+    {
+        $tca = $GLOBALS['TCA'];
+        self::assertIsArray($tca);
+        $GLOBALS['TCA'] = array_replace_recursive($tca, ['tt_content' => ['types' => ['text' => ['columnsOverrides' => [
+            'header'   => ['config' => ['readOnly' => true]],
+            'bodytext' => ['config' => ['readOnly' => true]],
+            'layout'   => ['config' => ['readOnly' => true]],
+        ]]]]]);
+
+        $header = $this->tool->execute(
+            ['page' => 1, 'type' => 'text', 'header' => 'x'],
+            $this->contextFor($this->liveUser()),
+        );
+        self::assertTrue($header->isError);
+        self::assertStringContainsString('"header" is read-only in the form of content type "text" (TCA readOnly)', $header->content);
+        self::assertStringContainsString('"header" is a required argument', $header->content);
+
+        $GLOBALS['TCA'] = array_replace_recursive($tca, ['tt_content' => ['types' => ['text' => ['columnsOverrides' => [
+            'bodytext' => ['config' => ['readOnly' => true]],
+            'layout'   => ['config' => ['readOnly' => true]],
+        ]]]]]);
+
+        $body = $this->tool->execute(
+            ['page' => 1, 'type' => 'text', 'header' => 'x', 'bodytext' => 'y'],
+            $this->contextFor($this->liveUser()),
+        );
+        self::assertTrue($body->isError);
+        self::assertStringContainsString('"bodytext" is read-only in the form of content type "text" (TCA readOnly)', $body->content);
+
+        $select = $this->tool->execute(
+            ['page' => 1, 'type' => 'text', 'header' => 'x', 'fields' => ['layout' => '1']],
+            $this->contextFor($this->liveUser()),
+        );
+        self::assertTrue($select->isError);
+        self::assertStringContainsString('"layout" cannot be set through "fields": the backend form shows it read-only', $select->content);
+
+        // Nor is it offered: the refusal of an unknown key lists what is.
+        $offered = $this->tool->execute(
+            ['page' => 1, 'type' => 'text', 'header' => 'x', 'fields' => ['nope' => 1]],
+            $this->contextFor($this->liveUser()),
+        );
+        self::assertStringContainsString('Columns this tool sets for it: subheader, sectionIndex.', $offered->content);
     }
 
     /**
