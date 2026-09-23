@@ -13,6 +13,7 @@ use LogicException;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\GovernanceDecision;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
+use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Skill;
@@ -33,6 +34,7 @@ use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\ContextTruncatedException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
+use Netresearch\NrLlm\Provider\OpenAi\OpenAiCallMetadata;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -234,7 +236,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         int $seedPromptTokens = 0,
         int $seedCompletionTokens = 0,
     ): ToolLoopResult {
-        $max = $maxIterations ?? $this->defaultMaxIterations;
+        // Every transcript enters here — a fresh run, a queued one read back
+        // from the database, and both resume paths — so this is the one place
+        // a stored turn carrying provider items becomes a value object again.
+        $messages = $this->rehydrateTranscript($messages);
+        $max      = $maxIterations ?? $this->defaultMaxIterations;
         // Created HERE, per run, and passed down: this service is a container
         // singleton and the queue worker outlives many runs, so a counter held
         // anywhere but a local would bound the process instead (ADR-116).
@@ -364,7 +370,15 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     );
                 }
 
-                $messages[] = ChatMessage::assistantToolCalls($resp->toolCalls ?? [], $resp->content);
+                // The provider's own items for this turn travel with it
+                // (ADR-203). On the OpenAI Responses transport they carry the
+                // reasoning the model must see again on the next step; every
+                // other adapter reports none and the turn is unchanged.
+                $messages[] = ChatMessage::assistantToolCalls(
+                    $resp->toolCalls ?? [],
+                    $resp->content,
+                    $this->providerItemsOf($resp),
+                );
 
                 // Human-in-the-loop (ADR-084/134): if any call in this turn needs
                 // approval, suspend BEFORE executing any of the turn's calls so a
@@ -387,7 +401,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     if (in_array($call->name, $allowedNames, true)
                         && ToolApprovalRule::requiresApproval($this->registry->get($call->name))) {
                         throw ToolApprovalRequiredException::fromState(new SuspendedRunState(
-                            array_map(static fn(ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m, $messages),
+                            array_map(static fn(ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toTranscriptArray() : $m, $messages),
                             array_map(static fn(ToolCall $c): array => $c->toArray(), $resp->toolCalls ?? []),
                             $iterations,
                             $promptTokens,
@@ -430,7 +444,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                         }
 
                         throw ToolInputRequiredException::fromState(new SuspendedRunState(
-                            array_map(static fn(ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m, $messages),
+                            array_map(static fn(ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toTranscriptArray() : $m, $messages),
                             array_map(static fn(ToolCall $c): array => $c->toArray(), $resp->toolCalls ?? []),
                             $iterations,
                             $promptTokens,
@@ -983,6 +997,65 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     private function elapsedMs(int $startNs): float
     {
         return (hrtime(true) - $startNs) / 1_000_000;
+    }
+
+    /**
+     * Turn the stored assistant turns that carry provider items back into
+     * value objects before a run sends anything (ADR-203).
+     *
+     * A suspended or queued transcript is stored as plain arrays, and an array
+     * reaches every adapter as it is. For an assistant turn with `provider_items` that
+     * would put the key — `encrypted_content` included — on a Chat Completions
+     * request: the closing answer a run gives when it hits its step cap, a
+     * turn whose tools were all withdrawn while it waited, or a fallback to
+     * another provider. As a {@see ChatMessage}, the same turn serialises
+     * through `toArray()`, which never emits the key, while the Responses
+     * transport still reads the items off the object.
+     *
+     * Only those turns are converted. Every other stored message stays the
+     * array it was, because some of them — a multimodal user turn — carry a
+     * shape `ChatMessage` does not model.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     *
+     * @return list<ChatMessage|array<string, mixed>>
+     */
+    private function rehydrateTranscript(array $messages): array
+    {
+        return array_map(
+            static fn(ChatMessage|array $message): ChatMessage|array => is_array($message) && array_key_exists('provider_items', $message)
+                ? ChatMessage::fromArray($message)
+                : $message,
+            $messages,
+        );
+    }
+
+    /**
+     * The provider's own items for the turn just answered, or null (ADR-203).
+     *
+     * The loop treats them as opaque and does exactly one thing with them:
+     * hand them to the assistant turn, so the next request replays them. The
+     * key is written by the OpenAI adapter on its Responses transport; every
+     * other adapter writes none, and null is what that means.
+     *
+     * @return list<array<string, mixed>>|null
+     */
+    private function providerItemsOf(CompletionResponse $response): ?array
+    {
+        $items = $response->metadata[OpenAiCallMetadata::KEY_PROVIDER_ITEMS] ?? null;
+        if (!is_array($items)) {
+            return null;
+        }
+
+        $typed = [];
+        foreach ($items as $item) {
+            if (is_array($item)) {
+                /** @var array<string, mixed> $item */
+                $typed[] = $item;
+            }
+        }
+
+        return $typed;
     }
 
     /**

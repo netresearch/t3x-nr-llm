@@ -29,9 +29,12 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  * without it.
  *
  * Messages and calls are held in their already-serialised
- * ({@see ChatMessage::toArray()} / {@see ToolCall::toArray()}) form so the state
- * is a plain JSON-encodable structure; {@see self::toolCalls()} rebuilds the
- * typed calls for execution on resume.
+ * ({@see ChatMessage::toTranscriptArray()} / {@see ToolCall::toArray()}) form so
+ * the state is a plain JSON-encodable structure; {@see self::toolCalls()}
+ * rebuilds the typed calls for execution on resume. The transcript form, not the
+ * wire form, because it keeps the provider's opaque items on the assistant turn
+ * that produced them — without them a reasoning model resumes without its
+ * reasoning (ADR-203).
  *
  * @api
  */

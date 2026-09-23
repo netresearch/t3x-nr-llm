@@ -1628,15 +1628,71 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         self::assertSame(0.9, $payload['top_p']);
     }
 
-    #[Test]
-    public function chatCompletionStripsSamplingParamsForReasoningModel(): void
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function reasoningModelProvider(): iterable
     {
-        // `gpt-5.2` is a reasoning model: buildSamplingParams() returns [] so no
-        // temperature key is emitted, while the model itself is still sent.
-        $payload = $this->captureChatCompletionPayload(['model' => 'gpt-5.2']);
+        yield 'gpt-5.2' => ['gpt-5.2'];
+        yield 'o3' => ['o3'];
+        // The replaced regex `/^(o[1-9]|gpt-5)/` let all three of these
+        // through with a temperature (#965).
+        yield 'gpt-6-astra' => ['gpt-6-astra'];
+        yield 'gpt-6-sol' => ['gpt-6-sol'];
+        yield 'gpt-6-luna' => ['gpt-6-luna'];
+    }
 
-        self::assertSame('gpt-5.2', $payload['model']);
+    #[Test]
+    #[DataProvider('reasoningModelProvider')]
+    public function chatCompletionStripsSamplingParamsForReasoningModel(string $model): void
+    {
+        // A reasoning model: buildSamplingParams() returns [] so no
+        // temperature key is emitted, while the model itself is still sent.
+        $payload = $this->captureChatCompletionPayload(['model' => $model]);
+
+        self::assertSame($model, $payload['model']);
         self::assertArrayNotHasKey('temperature', $payload);
+    }
+
+    #[Test]
+    public function chatCompletionCarriesARequestedReasoningEffort(): void
+    {
+        // A plain completion stays on chat/completions — only tools are
+        // refused there — and gains the parameter (ADR-204).
+        $payload = $this->captureChatCompletionPayload(['model' => 'gpt-6-luna', 'reasoning_effort' => 'low']);
+
+        self::assertSame('low', $payload['reasoning_effort']);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function modelsWithoutAVerifiedEffortScale(): iterable
+    {
+        yield 'gpt-5.2' => ['gpt-5.2'];
+        yield 'o1-mini' => ['o1-mini'];
+        yield 'o3' => ['o3'];
+    }
+
+    #[Test]
+    #[DataProvider('modelsWithoutAVerifiedEffortScale')]
+    public function thinkingOffSendsNoEffortToGpt5OrTheOSeries(string $model): void
+    {
+        // o1-mini takes no reasoning_effort at all and o3 has no `minimal`;
+        // neither option may send them a value, as before ADR-204.
+        $plain = $this->captureChatCompletionPayload(['model' => $model, 'think' => false]);
+        self::assertArrayNotHasKey('reasoning_effort', $plain);
+
+        $explicit = $this->captureChatCompletionPayload(['model' => $model, 'reasoning_effort' => 'low']);
+        self::assertArrayNotHasKey('reasoning_effort', $explicit);
+    }
+
+    #[Test]
+    public function chatCompletionSendsNoEffortToAModelWithoutAScale(): void
+    {
+        $payload = $this->captureChatCompletionPayload(['model' => 'gpt-4o', 'think' => false]);
+
+        self::assertArrayNotHasKey('reasoning_effort', $payload);
     }
 
     // ===== Request payload shaping (chatCompletionWithTools) =====

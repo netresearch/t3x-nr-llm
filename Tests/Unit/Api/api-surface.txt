@@ -245,6 +245,22 @@ Netresearch\NrLlm\Domain\Enum\ModelSelectionMode (enum)
   property readonly name: string
   property readonly value: string
 
+Netresearch\NrLlm\Domain\Enum\ReasoningEffort (enum)
+  case High = "high"
+  case Low = "low"
+  case Max = "max"
+  case Medium = "medium"
+  case Minimal = "minimal"
+  case None = "none"
+  case XHigh = "xhigh"
+  method rank(): int
+  method static cases(): array
+  method static from(int|string $value): static
+  method static tryFrom(int|string $value): ?static
+  method static tryFromOption(mixed $value): ?self
+  property readonly name: string
+  property readonly value: string
+
 Netresearch\NrLlm\Domain\Enum\ServiceAccountScope (enum)
   case AGENT_APPROVE = "agent:approve"
   case AGENT_CANCEL = "agent:cancel"
@@ -786,7 +802,7 @@ Netresearch\NrLlm\Domain\ValueObject\CapabilityProvenance (class)
   property readonly source: Netresearch\NrLlm\Domain\Enum\CapabilitySource
 
 Netresearch\NrLlm\Domain\ValueObject\ChatMessage (class)
-  constructor(Netresearch\NrLlm\Domain\Enum\MessageRole|string $role, string $content, ?array $toolCalls = …, ?string $toolCallId = …)
+  constructor(Netresearch\NrLlm\Domain\Enum\MessageRole|string $role, string $content, ?array $toolCalls = …, ?string $toolCallId = …, ?array $providerItems = …)
   method getRole(): Netresearch\NrLlm\Domain\Enum\MessageRole
   method isAssistant(): bool
   method isSystem(): bool
@@ -794,7 +810,7 @@ Netresearch\NrLlm\Domain\ValueObject\ChatMessage (class)
   method isUser(): bool
   method jsonSerialize(): array
   method static assistant(string $content): self
-  method static assistantToolCalls(array $toolCalls, ?string $content = …): self
+  method static assistantToolCalls(array $toolCalls, ?string $content = …, ?array $providerItems = …): self
   method static fromArray(array $data): self
   method static getValidRoles(): array
   method static system(string $content): self
@@ -802,7 +818,9 @@ Netresearch\NrLlm\Domain\ValueObject\ChatMessage (class)
   method static toolResult(string $toolCallId, string $content): self
   method static user(string $content): self
   method toArray(): array
+  method toTranscriptArray(): array
   property readonly content: string
+  property readonly providerItems: ?array
   property readonly role: string
   property readonly toolCallId: ?string
   property readonly toolCalls: ?array
@@ -1480,6 +1498,7 @@ Netresearch\NrLlm\Service\Option\ChatOptions (class)
   method getPlannedCost(): ?float
   method getPresencePenalty(): ?float
   method getProvider(): ?string
+  method getReasoningEffort(): ?Netresearch\NrLlm\Domain\Enum\ReasoningEffort
   method getResponseFormat(): ?string
   method getResponseSchema(): ?array
   method getStopSequences(): ?array
@@ -1502,6 +1521,7 @@ Netresearch\NrLlm\Service\Option\ChatOptions (class)
   method withPlannedCost(float $plannedCost): static
   method withPresencePenalty(float $presencePenalty): static
   method withProvider(string $provider): static
+  method withReasoningEffort(Netresearch\NrLlm\Domain\Enum\ReasoningEffort $reasoningEffort): static
   method withResponseFormat(string $responseFormat): static
   method withResponseSchema(array $responseSchema): static
   method withStopSequences(array $stopSequences): static

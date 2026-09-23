@@ -48,25 +48,74 @@ final readonly class ChatMessage implements JsonSerializable
     public ?array $toolCalls;
 
     /**
-     * @param string|MessageRole           $role       Either a backed enum value
-     *                                                 or its string equivalent —
-     *                                                 the legacy string form is
-     *                                                 preserved so existing call
-     *                                                 sites do not need to
-     *                                                 migrate immediately.
-     * @param array<array-key, mixed>|null $toolCalls  Tool calls of an assistant
-     *                                                 turn; every element must be
-     *                                                 a {@see ToolCall}.
-     * @param string|null                  $toolCallId The call a tool turn
-     *                                                 answers; must be non-empty
-     *                                                 when given.
+     * The provider's own response items for this turn, kept opaque (ADR-203).
+     *
+     * OpenAI's Responses API requires that every item between the last user
+     * message and a function-call output is replayed into the next request
+     * untouched, so the model keeps its reasoning across the steps of one run.
+     * Those items are the provider's format and this extension neither reads
+     * nor rewrites them — it stores them on the turn they belong to and hands
+     * them back.
+     *
+     * **This field is deliberately absent from {@see self::toArray()}.** That
+     * method is the OpenAI Chat Completions wire shape, and the Groq, Mistral,
+     * OpenRouter and Ollama adapters put its result straight into a request
+     * payload — an unknown key there would reach four live APIs.
+     * {@see self::toTranscriptArray()} is the shape that carries it, and
+     * {@see self::fromArray()} reads it back, so a suspended run resumes with
+     * its reasoning intact.
+     *
+     * `null` means the turn produced none. An empty array means the provider
+     * answered with an empty item list, which is a different fact.
+     *
+     * @var list<array<string, mixed>>|null
+     */
+    public ?array $providerItems;
+
+    /**
+     * @param string|MessageRole           $role          Either a backed enum value
+     *                                                    or its string equivalent —
+     *                                                    the legacy string form is
+     *                                                    preserved so existing call
+     *                                                    sites do not need to
+     *                                                    migrate immediately.
+     * @param array<array-key, mixed>|null $toolCalls     Tool calls of an assistant
+     *                                                    turn; every element must be
+     *                                                    a {@see ToolCall}.
+     * @param string|null                  $toolCallId    The call a tool turn
+     *                                                    answers; must be non-empty
+     *                                                    when given.
+     * @param array<array-key, mixed>|null $providerItems The provider's own
+     *                                                    items for this turn,
+     *                                                    replayed verbatim; see
+     *                                                    the property.
      */
     public function __construct(
         string|MessageRole $role,
         public string $content,
         ?array $toolCalls = null,
         public ?string $toolCallId = null,
+        ?array $providerItems = null,
     ) {
+        if ($providerItems === null) {
+            $this->providerItems = null;
+        } else {
+            $items = [];
+            foreach ($providerItems as $item) {
+                if (!is_array($item)) {
+                    throw new InvalidArgumentException(
+                        'Every element of $providerItems must be an array.',
+                        1758600001,
+                    );
+                }
+
+                /** @var array<string, mixed> $item */
+                $items[] = $item;
+            }
+
+            $this->providerItems = $items;
+        }
+
         $resolved = $role instanceof MessageRole ? $role : MessageRole::tryFrom($role);
         if ($resolved === null) {
             throw new InvalidArgumentException(
@@ -181,11 +230,18 @@ final readonly class ChatMessage implements JsonSerializable
      * `content: null` alongside tool calls — the non-nullable `$content`
      * property stores it as an empty string.
      *
-     * @param list<ToolCall> $toolCalls
+     * `$providerItems` carries the provider's own items for this turn when the
+     * adapter reported any (ADR-203); see {@see self::$providerItems}.
+     *
+     * @param list<ToolCall>                  $toolCalls
+     * @param list<array<string, mixed>>|null $providerItems
      */
-    public static function assistantToolCalls(array $toolCalls, ?string $content = null): self
-    {
-        return new self(MessageRole::ASSISTANT, $content ?? '', $toolCalls);
+    public static function assistantToolCalls(
+        array $toolCalls,
+        ?string $content = null,
+        ?array $providerItems = null,
+    ): self {
+        return new self(MessageRole::ASSISTANT, $content ?? '', $toolCalls, null, $providerItems);
     }
 
     /**
@@ -213,7 +269,11 @@ final readonly class ChatMessage implements JsonSerializable
      * through. A `content` of `null` is accepted alongside `tool_calls` —
      * providers send exactly that — and stored as an empty string.
      *
-     * @param array{role?: mixed, content?: mixed, tool_calls?: mixed, tool_call_id?: mixed} $data
+     * `provider_items` is read back when present, so a transcript written by
+     * {@see self::toTranscriptArray()} round-trips (ADR-203). A stored
+     * transcript that predates that field simply has no key.
+     *
+     * @param array{role?: mixed, content?: mixed, tool_calls?: mixed, tool_call_id?: mixed, provider_items?: mixed} $data
      */
     public static function fromArray(array $data): self
     {
@@ -274,12 +334,54 @@ final readonly class ChatMessage implements JsonSerializable
             $content = '';
         }
 
+        $providerItems = $data['provider_items'] ?? null;
+        if ($providerItems !== null && !is_array($providerItems)) {
+            throw new InvalidArgumentException(
+                'ChatMessage::fromArray() requires "provider_items" to be a list of arrays.',
+                1758600002,
+            );
+        }
+
         return new self(
             role: $data['role'],
             content: $content,
             toolCalls: $toolCalls,
             toolCallId: $toolCallId,
+            providerItems: $providerItems,
         );
+    }
+
+    /**
+     * Convert to the stored transcript shape (ADR-203).
+     *
+     * This is {@see self::toArray()} plus `provider_items`, and it exists
+     * because those two shapes have two different jobs. `toArray()` is a
+     * request payload: four adapters send its result to a live API, so it may
+     * carry no key the API does not define. This one is written to the
+     * database when a run suspends and read back by {@see self::fromArray()}
+     * when it resumes, which is the only reason the opaque items survive an
+     * approval.
+     *
+     * The key is omitted entirely when the turn carries no items, so a stored
+     * transcript from before this change reads back unchanged.
+     *
+     * @return array{
+     *     role: string,
+     *     content: string,
+     *     tool_calls?: list<array{id: string, type: string, function: array{name: string, arguments: string}}>,
+     *     tool_call_id?: string,
+     *     provider_items?: list<array<string, mixed>>,
+     * }
+     */
+    public function toTranscriptArray(): array
+    {
+        $data = $this->toArray();
+
+        if ($this->providerItems !== null) {
+            $data['provider_items'] = $this->providerItems;
+        }
+
+        return $data;
     }
 
     /**

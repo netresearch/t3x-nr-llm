@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Option;
 
+use Netresearch\NrLlm\Domain\Enum\ReasoningEffort;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -230,5 +231,46 @@ class ToolOptionsTest extends AbstractUnitTestCase
         self::assertEquals(4000, $options->getMaxTokens());
         self::assertEquals('openai', $options->getProvider());
         self::assertEquals('gpt-4o', $options->getModel());
+    }
+
+    #[Test]
+    public function aReasoningEffortReachesTheOptionsArrayAsItsBackedValue(): void
+    {
+        $options = ToolOptions::auto()->withReasoningEffort(ReasoningEffort::High);
+
+        // Plain data, not the enum: this array is persisted in a resume
+        // snapshot and merged with a configuration's options JSON (ADR-204).
+        self::assertSame('high', $options->toArray()['reasoning_effort']);
+        self::assertSame(ReasoningEffort::High, $options->getReasoningEffort());
+    }
+
+    #[Test]
+    public function aResumedRunKeepsItsReasoningEffort(): void
+    {
+        // Effort is a fluent setter, not a constructor parameter, so
+        // fromArray() has to restore it explicitly. Without that a resumed
+        // run silently falls back to the model's default — a different
+        // request from the one that was suspended.
+        $original = ToolOptions::auto()->withReasoningEffort(ReasoningEffort::Low);
+
+        $restored = ToolOptions::fromArray($original->toArray());
+
+        self::assertSame(ReasoningEffort::Low, $restored->getReasoningEffort());
+    }
+
+    #[Test]
+    public function anUnknownEffortInASnapshotIsDroppedRatherThanSent(): void
+    {
+        // A value no model accepts must not become a request parameter.
+        $restored = ToolOptions::fromArray(['reasoning_effort' => 'extreme']);
+
+        self::assertNull($restored->getReasoningEffort());
+        self::assertArrayNotHasKey('reasoning_effort', $restored->toArray());
+    }
+
+    #[Test]
+    public function withoutAnEffortNoKeyIsEmitted(): void
+    {
+        self::assertArrayNotHasKey('reasoning_effort', ToolOptions::auto()->toArray());
     }
 }

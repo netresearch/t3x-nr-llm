@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Provider;
 use Generator;
 use JsonException;
 use Netresearch\NrLlm\Attribute\AsLlmProvider;
+use Netresearch\NrLlm\Domain\Enum\ReasoningEffort;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
@@ -23,6 +24,11 @@ use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
+use Netresearch\NrLlm\Provider\OpenAi\OpenAiCallMetadata;
+use Netresearch\NrLlm\Provider\OpenAi\OpenAiModelProfile;
+use Netresearch\NrLlm\Provider\OpenAi\OpenAiModelProfiles;
+use Netresearch\NrLlm\Provider\OpenAi\ResponsesPayloadBuilder;
+use Netresearch\NrLlm\Provider\OpenAi\ResponsesResultParser;
 use Psr\Http\Message\RequestInterface;
 
 #[AsLlmProvider(priority: 100)]
@@ -44,6 +50,23 @@ final class OpenAiProvider extends AbstractProvider implements
     ];
 
     private const ENDPOINT_CHAT_COMPLETIONS = 'chat/completions';
+
+    /** The endpoint a tool call to a reasoning model uses (ADR-203). */
+    private const ENDPOINT_RESPONSES = 'responses';
+
+    /**
+     * Configuration option that overrides the transport choice, for an
+     * OpenAI-compatible endpoint whose support this extension cannot know.
+     * It is set in the configuration record's options JSON and takes the two
+     * endpoint names as its values.
+     */
+    private const OPTION_TOOLS_TRANSPORT = 'openai_tools_transport';
+
+    /**
+     * Only this host is known to serve `/v1/responses`. A compatible gateway
+     * reaches the transport through {@see self::OPTION_TOOLS_TRANSPORT}.
+     */
+    private const OPENAI_HOST = 'api.openai.com';
 
     private const DEFAULT_CHAT_MODEL = 'gpt-5.2';
 
@@ -91,7 +114,12 @@ final class OpenAiProvider extends AbstractProvider implements
     public function getAvailableModels(): array
     {
         return [
-            // GPT-5 Series (Latest)
+            // GPT-6 Series — reasoning models; their tool calls go through the
+            // Responses API (ADR-203).
+            'gpt-6-astra' => 'GPT-6 Astra (Most capable)',
+            'gpt-6-sol' => 'GPT-6 Sol (Coding & agents)',
+            'gpt-6-luna' => 'GPT-6 Luna (Efficient)',
+            // GPT-5 Series
             'gpt-5.2' => 'GPT-5.2 (Flagship)',
             'gpt-5.2-pro' => 'GPT-5.2 Pro (Extended)',
             'gpt-5.2-instant' => 'GPT-5.2 Instant (Fast)',
@@ -133,6 +161,14 @@ final class OpenAiProvider extends AbstractProvider implements
             ...$this->buildSamplingParams($model, $options),
         ];
 
+        // A plain completion honours the reasoning effort too (ADR-204). Chat
+        // Completions refuses only *tools* at a non-zero effort, so this call
+        // stays where it is and merely gains the parameter.
+        $effort = $this->resolveReasoningEffort(OpenAiModelProfiles::forModel($model), $options);
+        if ($effort instanceof ReasoningEffort) {
+            $payload['reasoning_effort'] = $effort->value;
+        }
+
         $responseFormat = $this->buildResponseFormat($options);
         if ($responseFormat !== null) {
             $payload['response_format'] = $responseFormat;
@@ -158,7 +194,13 @@ final class OpenAiProvider extends AbstractProvider implements
 
         [$content, $thinking] = $this->extractThinkingBlocks($this->getString($message, 'content'));
 
-        return $this->createCompletionResponse(
+        $metadata = [OpenAiCallMetadata::KEY_TRANSPORT => OpenAiCallMetadata::TRANSPORT_CHAT_COMPLETIONS];
+        if ($effort instanceof ReasoningEffort) {
+            $metadata[OpenAiCallMetadata::KEY_REASONING_EFFORT] = $effort->value;
+            $metadata[OpenAiCallMetadata::KEY_EFFORT_SOURCE]    = OpenAiCallMetadata::EFFORT_SOURCE_REQUEST;
+        }
+
+        return new CompletionResponse(
             content: $content,
             model: $this->getString($response, 'model', $model),
             usage: $this->createUsageStatistics(
@@ -166,6 +208,8 @@ final class OpenAiProvider extends AbstractProvider implements
                 completionTokens: $this->getInt($usage, 'completion_tokens'),
             ),
             finishReason: $this->getString($choice, 'finish_reason', 'stop'),
+            provider: $this->getIdentifier(),
+            metadata: $this->rawResponseMetadata($options, $response, $metadata),
             thinking: $thinking,
         );
     }
@@ -177,13 +221,210 @@ final class OpenAiProvider extends AbstractProvider implements
      */
     public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
     {
+        $model   = $this->getString($options, 'model', $this->getDefaultModel());
+        $profile = OpenAiModelProfiles::forModel($model);
+        $effort  = $this->resolveReasoningEffort($profile, $options);
+
+        return $this->usesResponsesTransport($profile, $options)
+            ? $this->toolsViaResponses($messages, $tools, $options, $model, $effort)
+            : $this->toolsViaChatCompletions($messages, $tools, $options, $model, $effort);
+    }
+
+    /**
+     * Which endpoint serves this tool request (ADR-203).
+     *
+     * A model that cannot take function tools on `chat/completions` is the
+     * only reason to move — GPT-6 Astra takes none there at all, and Sol and
+     * Luna take them only with reasoning switched off. Every other model,
+     * including `gpt-4.1-mini` and the GPT-5 and o-series reasoning models,
+     * keeps the endpoint it works on.
+     *
+     * The host check is the second condition and not a formality: the
+     * `openai` adapter also serves OpenAI-compatible gateways, and one of
+     * those need not implement `/v1/responses`. An operator whose gateway does
+     * says so in the configuration's options JSON.
+     *
+     * @param array<string, mixed> $options
+     */
+    private function usesResponsesTransport(OpenAiModelProfile $profile, array $options): bool
+    {
+        $forced = $this->getString($options, self::OPTION_TOOLS_TRANSPORT);
+        if ($forced === self::ENDPOINT_RESPONSES) {
+            return true;
+        }
+
+        if ($forced === self::ENDPOINT_CHAT_COMPLETIONS) {
+            return false;
+        }
+
+        return !$profile->toolsOnChatCompletions && $this->endpointIsOpenAi();
+    }
+
+    /**
+     * Whether the configured endpoint is OpenAI's own.
+     *
+     * The host is compared, not the whole URL: an empty configuration falls
+     * back to {@see self::getDefaultBaseUrl()}, and
+     * {@see \Netresearch\NrLlm\Hook\ProviderEndpointNormalizationHook} may have
+     * rewritten the string.
+     */
+    private function endpointIsOpenAi(): bool
+    {
+        $baseUrl = trim($this->baseUrl);
+        if ($baseUrl === '') {
+            $baseUrl = $this->getDefaultBaseUrl();
+        }
+
+        $forParsing = preg_match('#^[a-z][a-z0-9+.\-]*://#i', $baseUrl) === 1
+            ? $baseUrl
+            : '//' . $baseUrl;
+
+        $host = parse_url($forParsing, PHP_URL_HOST);
+
+        return is_string($host) && strtolower($host) === self::OPENAI_HOST;
+    }
+
+    /**
+     * The reasoning effort this call applies, or null to leave the model's own
+     * default in place (ADR-204).
+     *
+     * An explicit `reasoning_effort` wins over the coarse `think` switch. A
+     * `think` of false asks for no reasoning, which becomes the lowest effort
+     * the model allows — `none` where it has one, `low` on GPT-6 Astra, which
+     * rejects `none` with HTTP 400. The clamp is recorded on the response, so
+     * a request that could not be honoured as asked is readable.
+     *
+     * @param array<string, mixed> $options
+     */
+    private function resolveReasoningEffort(OpenAiModelProfile $profile, array $options): ?ReasoningEffort
+    {
+        if (!$profile->hasEffortScale()) {
+            return null;
+        }
+
+        $requested = ReasoningEffort::tryFromOption($options['reasoning_effort'] ?? null);
+
+        if (!$requested instanceof ReasoningEffort && ($options['think'] ?? null) === false) {
+            $requested = ReasoningEffort::None;
+        }
+
+        return $requested instanceof ReasoningEffort ? $profile->clamp($requested) : null;
+    }
+
+    /**
+     * Tool calling over `/v1/responses` (ADR-203).
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<ToolSpec>                         $tools
+     * @param array<string, mixed>                   $options
+     */
+    private function toolsViaResponses(
+        array $messages,
+        array $tools,
+        array $options,
+        string $model,
+        ?ReasoningEffort $effort,
+    ): CompletionResponse {
+        // The Responses builder needs the value objects, not the Chat
+        // Completions wire arrays: the opaque provider items that keep a
+        // reasoning model's thinking alive across steps live on the message
+        // object and are deliberately absent from `toArray()`.
+        // A message with list-shaped content — text and images — stays an
+        // array: ChatMessage models string content only, and the builder maps
+        // those parts to the Responses vocabulary itself.
+        $typed = array_map(
+            static fn(ChatMessage|array $m): ChatMessage|array => $m instanceof ChatMessage || is_array($m['content'] ?? null)
+                ? $m
+                : ChatMessage::fromArray($m),
+            $messages,
+        );
+
+        $builder = new ResponsesPayloadBuilder();
+
+        // Sampling parameters are empty for a reasoning model. A non-reasoning
+        // model only reaches this transport through the explicit override,
+        // and there it keeps the temperature and top_p it would have had on
+        // Chat Completions — the Responses API defines those two and no
+        // frequency or presence penalty, so the penalties are not sent.
+        $extra      = array_intersect_key(
+            $this->buildSamplingParams($model, $options),
+            ['temperature' => true, 'top_p' => true],
+        );
+        $textFormat = $builder->textFormat($this->buildResponseFormat($options));
+        if ($textFormat !== null) {
+            $extra['text'] = $textFormat;
+        }
+
+        if (isset($options['tool_choice'])) {
+            $extra['tool_choice'] = $options['tool_choice'];
+        }
+
+        $payload = $builder->build(
+            model: $model,
+            messages: array_values($typed),
+            tools: $tools,
+            maxOutputTokens: $this->getInt($options, 'max_tokens', 4096),
+            effort: $effort,
+            extra: $extra,
+        );
+
+        $response = $this->sendRequest(
+            self::ENDPOINT_RESPONSES,
+            $payload,
+            timeout: $this->resolveRequestTimeout($options),
+        );
+
+        $result = (new ResponsesResultParser())->parse($response, $model);
+
+        $metadata = [
+            OpenAiCallMetadata::KEY_TRANSPORT => OpenAiCallMetadata::TRANSPORT_RESPONSES,
+            OpenAiCallMetadata::KEY_PROVIDER_ITEMS => $result->providerItems,
+        ];
+
+        // The provider's own answer beats what was sent: a clamp, or a default
+        // this extension never chose, is only visible this way.
+        $applied = $result->appliedEffort ?? $effort;
+        if ($applied instanceof ReasoningEffort) {
+            $metadata[OpenAiCallMetadata::KEY_REASONING_EFFORT] = $applied->value;
+            $metadata[OpenAiCallMetadata::KEY_EFFORT_SOURCE]    = $result->appliedEffort instanceof ReasoningEffort
+                ? OpenAiCallMetadata::EFFORT_SOURCE_PROVIDER
+                : OpenAiCallMetadata::EFFORT_SOURCE_REQUEST;
+        }
+
+        return new CompletionResponse(
+            content: $result->content,
+            model: $result->model,
+            usage: $this->createUsageStatistics(
+                promptTokens: $result->promptTokens,
+                completionTokens: $result->completionTokens,
+            ),
+            finishReason: $result->finishReason,
+            provider: $this->getIdentifier(),
+            toolCalls: $result->toolCalls,
+            metadata: $this->rawResponseMetadata($options, $response, $metadata),
+        );
+    }
+
+    /**
+     * Tool calling over `/v1/chat/completions` — the path every non-reasoning
+     * model keeps.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<ToolSpec>                         $tools
+     * @param array<string, mixed>                   $options
+     */
+    private function toolsViaChatCompletions(
+        array $messages,
+        array $tools,
+        array $options,
+        string $model,
+        ?ReasoningEffort $effort,
+    ): CompletionResponse {
         $messages = array_map(
             static fn(ChatMessage|array $m): array
                 => $m instanceof ChatMessage ? $m->toArray() : $m,
             $messages,
         );
-
-        $model = $this->getString($options, 'model', $this->getDefaultModel());
 
         $payload = [
             'model' => $model,
@@ -192,6 +433,10 @@ final class OpenAiProvider extends AbstractProvider implements
             'max_completion_tokens' => $this->getInt($options, 'max_tokens', 4096),
             ...$this->buildSamplingParams($model, $options),
         ];
+
+        if ($effort instanceof ReasoningEffort) {
+            $payload['reasoning_effort'] = $effort->value;
+        }
 
         $responseFormat = $this->buildResponseFormat($options);
         if ($responseFormat !== null) {
@@ -225,6 +470,15 @@ final class OpenAiProvider extends AbstractProvider implements
 
         [$content, $thinking] = $this->extractThinkingBlocks($this->getString($message, 'content'));
 
+        $metadata = [OpenAiCallMetadata::KEY_TRANSPORT => OpenAiCallMetadata::TRANSPORT_CHAT_COMPLETIONS];
+
+        // Chat Completions echoes no effort back, so what was sent is what can
+        // be recorded — and the source key says so (ADR-204).
+        if ($effort instanceof ReasoningEffort) {
+            $metadata[OpenAiCallMetadata::KEY_REASONING_EFFORT] = $effort->value;
+            $metadata[OpenAiCallMetadata::KEY_EFFORT_SOURCE]    = OpenAiCallMetadata::EFFORT_SOURCE_REQUEST;
+        }
+
         return new CompletionResponse(
             content: $content,
             model: $this->getString($response, 'model', $model),
@@ -235,7 +489,7 @@ final class OpenAiProvider extends AbstractProvider implements
             finishReason: $this->getString($choice, 'finish_reason', 'stop'),
             provider: $this->getIdentifier(),
             toolCalls: $toolCalls,
-            metadata: $this->rawResponseMetadata($options, $response),
+            metadata: $this->rawResponseMetadata($options, $response, $metadata),
             thinking: $thinking,
         );
     }
@@ -461,12 +715,15 @@ final class OpenAiProvider extends AbstractProvider implements
      * Check if a model doesn't support sampling parameters
      * (temperature, top_p, frequency_penalty, presence_penalty).
      *
-     * Covers: o-series reasoning models and GPT-5.x series which
-     * only accept the default temperature value of 1.
+     * This used to be the regex `/^(o[1-9]|gpt-5)/`, which excluded the whole
+     * GPT-6 family — so `temperature` was still being sent to a reasoning
+     * model. The answer now comes from {@see OpenAiModelProfiles}, where the
+     * families are written down once and the same table decides the transport
+     * (ADR-203).
      */
     private function isReasoningModel(string $model): bool
     {
-        return (bool)preg_match('/^(o[1-9]|gpt-5)/', $model);
+        return OpenAiModelProfiles::forModel($model)->isReasoningModel;
     }
 
     // buildResponseFormat() is provided by OpenAiResponseFormatTrait

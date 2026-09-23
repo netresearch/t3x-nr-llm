@@ -57,6 +57,25 @@ final class InputGuardrailScreenerTest extends TestCase
     }
 
     #[Test]
+    public function aRedactionKeepsTheProviderItemsOfTheTurn(): void
+    {
+        // ADR-203. The screener rebuilds the immutable message to change its
+        // text; dropping the opaque items on the way would silently cut a
+        // reasoning model off from its own reasoning on the next step.
+        $items    = [['type' => 'reasoning', 'id' => 'rs_1', 'encrypted_content' => 'opaque', 'summary' => []]];
+        $screener = new InputGuardrailScreener([$this->redacting('secret', '***')]);
+
+        $result = $screener->screen([
+            ChatMessage::assistantToolCalls([new ToolCall('call_1', 'lookup', [])], 'a secret note', $items),
+        ]);
+
+        $message = $result[0];
+        self::assertInstanceOf(ChatMessage::class, $message);
+        self::assertSame('a *** note', $message->content);
+        self::assertSame($items, $message->providerItems);
+    }
+
+    #[Test]
     public function redactsALegacyArrayMessageContentPreservingOtherKeys(): void
     {
         $screener = new InputGuardrailScreener([$this->redacting('secret', '***')]);

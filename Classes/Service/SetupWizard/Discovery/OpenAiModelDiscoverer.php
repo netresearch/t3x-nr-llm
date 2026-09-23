@@ -84,6 +84,7 @@ final class OpenAiModelDiscoverer extends AbstractModelDiscoverer
     {
         // Include current-generation models
         $patterns = [
+            '/^gpt-6/',
             '/^gpt-5/',
             '/^gpt-4o/',
             '/^gpt-4-turbo/',
@@ -156,6 +157,38 @@ final class OpenAiModelDiscoverer extends AbstractModelDiscoverer
     private function openAIModelSpecs(): array
     {
         return [
+            // GPT-6, from the model pages on 2026-09-23. Costs are cents per
+            // 1M tokens: Astra $10/$50, Sol $2/$10, Luna $0.10/$0.50.
+            'gpt-6-astra' => [
+                'name' => 'GPT-6 Astra',
+                'description' => 'Most capable model for hard end-to-end work',
+                'capabilities' => ['chat', 'vision', 'tools', 'streaming'],
+                'contextLength' => 1050000,
+                'maxOutputTokens' => 128000,
+                'costInput' => 1000,
+                'costOutput' => 5000,
+                'recommended' => true,
+            ],
+            'gpt-6-sol' => [
+                'name' => 'GPT-6 Sol',
+                'description' => 'Complex coding and agentic workflows',
+                'capabilities' => ['chat', 'vision', 'tools', 'streaming'],
+                'contextLength' => 1050000,
+                'maxOutputTokens' => 128000,
+                'costInput' => 200,
+                'costOutput' => 1000,
+                'recommended' => true,
+            ],
+            'gpt-6-luna' => [
+                'name' => 'GPT-6 Luna',
+                'description' => 'Efficient model for focused, high-volume tasks',
+                'capabilities' => ['chat', 'vision', 'tools', 'streaming'],
+                'contextLength' => 1050000,
+                'maxOutputTokens' => 128000,
+                'costInput' => 10,
+                'costOutput' => 50,
+                'recommended' => true,
+            ],
             'gpt-5.5' => [
                 'name' => 'GPT-5.5',
                 'description' => 'Latest flagship model with enhanced reasoning',
@@ -369,6 +402,9 @@ final class OpenAiModelDiscoverer extends AbstractModelDiscoverer
     private function getOpenAIFallbackModels(): array
     {
         return [
+            $this->enrichOpenAIModel('gpt-6-astra'),
+            $this->enrichOpenAIModel('gpt-6-sol'),
+            $this->enrichOpenAIModel('gpt-6-luna'),
             $this->enrichOpenAIModel('gpt-5.5'),
             $this->enrichOpenAIModel('gpt-5.3'),
             $this->enrichOpenAIModel('gpt-5.3-chat-latest'),

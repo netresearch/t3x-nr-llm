@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Option;
 
+use Netresearch\NrLlm\Domain\Enum\ReasoningEffort;
+
 /**
  * Options for chat completion requests.
  *
@@ -53,6 +55,12 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
     // Same constructor constraint as suppressRequestCount.
     /** @var array<string, mixed>|null */
     private ?array $responseSchema = null;
+
+    // Same constructor constraint again, and one more reason (ADR-204):
+    // ToolOptions repeats this class's thirteen constructor parameters
+    // positionally before adding its own three, so a fourteenth here would
+    // move `toolChoice` along by one for every positional caller.
+    private ?ReasoningEffort $reasoningEffort = null;
 
     // ========================================
     // Factory Presets
@@ -226,6 +234,24 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
     }
 
     /**
+     * Ask a reasoning model for a particular amount of thinking (ADR-204).
+     *
+     * This is the precise form of {@see self::$think}, and it wins over it.
+     * Which values a model accepts is the model's business: an effort it does
+     * not allow is moved onto its own scale before the request goes out, and
+     * the value that was applied is readable on the response under
+     * {@see \Netresearch\NrLlm\Provider\OpenAi\OpenAiCallMetadata::KEY_REASONING_EFFORT}.
+     *
+     * A provider without an effort scale ignores it and writes no such key.
+     */
+    public function withReasoningEffort(ReasoningEffort $reasoningEffort): static
+    {
+        $clone                  = clone $this;
+        $clone->reasoningEffort = $reasoningEffort;
+        return $clone;
+    }
+
+    /**
      * Mark the call as a sub-call of a larger operation: it still records its
      * tokens/cost but is not counted as a separate request.
      * See {@see self::getSuppressRequestCount()}.
@@ -254,10 +280,23 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
     /**
      * Reasoning toggle for hybrid-thinking models: true forces thinking
      * on, false off, null leaves the provider/model default untouched.
+     *
+     * On a provider with a graded effort scale, `false` now selects the lowest
+     * effort that model allows rather than being ignored (ADR-204).
+     * {@see self::getReasoningEffort()} is the precise form and wins over it.
      */
     public function getThink(): ?bool
     {
         return $this->think;
+    }
+
+    /**
+     * The reasoning effort asked for, or null to leave the model's own default
+     * in place. See {@see self::withReasoningEffort()}.
+     */
+    public function getReasoningEffort(): ?ReasoningEffort
+    {
+        return $this->reasoningEffort;
     }
 
     /**
@@ -359,6 +398,13 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
         // bypasses filterNull; unset = provider/model default.
         if ($this->think !== null) {
             $options['think'] = $this->think;
+        }
+
+        // The backed value, not the enum: this array is persisted in a resume
+        // snapshot and merged with a configuration's options JSON, and both of
+        // those are plain data (ADR-204).
+        if ($this->reasoningEffort instanceof ReasoningEffort) {
+            $options['reasoning_effort'] = $this->reasoningEffort->value;
         }
 
         return $options;

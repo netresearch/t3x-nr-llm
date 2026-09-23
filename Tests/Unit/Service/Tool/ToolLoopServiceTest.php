@@ -44,6 +44,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
+use Netresearch\NrLlm\Provider\OpenAi\OpenAiCallMetadata;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
@@ -901,6 +902,135 @@ final class ToolLoopServiceTest extends TestCase
         self::assertFalse($toolSteps[0]->toolIsError);
         // Totals span the whole run: pre-suspend (5+2) + post-resume (3+4).
         self::assertSame(14, $result->usage->totalTokens);
+    }
+
+    #[Test]
+    public function providerItemsSurviveASuspendAndResume(): void
+    {
+        // ADR-203. A reasoning model's items for the turn that asked for an
+        // approval must come back on the request that continues after it —
+        // through the database, not merely through process memory.
+        $items = [
+            ['type' => 'reasoning', 'id' => 'rs_1', 'encrypted_content' => 'opaque', 'summary' => []],
+            ['type' => 'function_call', 'call_id' => 'call_1', 'name' => 'delete_thing', 'arguments' => '{}'],
+        ];
+
+        $captured = [];
+        $mgr      = self::createStub(LlmServiceManagerInterface::class);
+        $queue    = [
+            $this->responseWithProviderItems([new ToolCall('call_1', 'delete_thing', [])], $items),
+            $this->response('deleted and done'),
+        ];
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback($queue, $captured));
+        $service = $this->service($mgr, new ToolRegistry([$this->approvalTool()]));
+
+        $state = $this->suspend($service);
+
+        // The row a real suspension writes is JSON; go through it.
+        $json = json_encode($state->toArray(), JSON_THROW_ON_ERROR);
+        /** @var array<string, mixed> $decoded */
+        $decoded  = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+        $restored = SuspendedRunState::fromArray($decoded);
+
+        self::assertSame($items, $restored->messages[1]['provider_items'] ?? null);
+
+        $service->resume($restored, true, $this->localConfiguration(), ToolExecutionContext::none());
+
+        // The continuing request carries the assistant turn with its items
+        // byte for byte.
+        assert(is_array($captured) && isset($captured[1]));
+        self::assertCount(2, $captured);
+        self::assertSame($items, $this->providerItemsOnAssistantTurn($captured[1]));
+    }
+
+    #[Test]
+    public function aResumedTurnSendsItsItemsOnlyAsAValueObject(): void
+    {
+        // ADR-203. A stored transcript is plain arrays. An assistant turn with
+        // provider_items that stayed an array would reach a Chat Completions
+        // request with the key — the closing answer at the step cap, a turn
+        // whose tools were withdrawn, a fallback provider. As a ChatMessage it
+        // serialises through toArray(), which never emits the key.
+        $items = [['type' => 'reasoning', 'id' => 'rs_r', 'encrypted_content' => 'opaque-r', 'summary' => []]];
+
+        $captured = [];
+        $mgr      = self::createStub(LlmServiceManagerInterface::class);
+        $queue    = [
+            $this->responseWithProviderItems([new ToolCall('call_r', 'delete_thing', [])], $items),
+            $this->response('done'),
+        ];
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback($queue, $captured));
+        $service = $this->service($mgr, new ToolRegistry([$this->approvalTool()]));
+
+        $state = $this->suspend($service);
+        $json  = json_encode($state->toArray(), JSON_THROW_ON_ERROR);
+        /** @var array<string, mixed> $decoded */
+        $decoded = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+
+        $service->resume(SuspendedRunState::fromArray($decoded), true, $this->localConfiguration(), ToolExecutionContext::none());
+
+        assert(is_array($captured) && isset($captured[1]));
+        $assistantTurns = array_values(array_filter(
+            $captured[1],
+            static fn(mixed $m): bool => ($m instanceof ChatMessage && $m->isAssistant())
+                || (is_array($m) && ($m['role'] ?? null) === 'assistant'),
+        ));
+
+        self::assertCount(1, $assistantTurns);
+        self::assertInstanceOf(ChatMessage::class, $assistantTurns[0]);
+        self::assertSame($items, $assistantTurns[0]->providerItems);
+        self::assertArrayNotHasKey('provider_items', $assistantTurns[0]->toArray());
+    }
+
+    #[Test]
+    public function providerItemsReachTheNextRequestOfARun(): void
+    {
+        // The in-process path: no suspension, a registered tool runs, and the
+        // next request replays the items of the turn that called it.
+        $items = [
+            ['type' => 'reasoning', 'id' => 'rs_9', 'encrypted_content' => 'opaque-9', 'summary' => []],
+            ['type' => 'function_call', 'call_id' => 'call_9', 'name' => 'echo', 'arguments' => '{"text":"hi"}'],
+        ];
+
+        $captured = [];
+        $mgr      = self::createStub(LlmServiceManagerInterface::class);
+        $queue    = [
+            $this->responseWithProviderItems([new ToolCall('call_9', 'echo', ['text' => 'hi'])], $items),
+            $this->response('done'),
+        ];
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback($queue, $captured));
+        $service = $this->service($mgr, new ToolRegistry([new FakeTool('echo', 'ECHOED')]));
+
+        $result = $service->runLoop(
+            [$this->userTurn('say hi')],
+            $this->localConfiguration(),
+            ToolExecutionContext::none(),
+            null,
+        );
+
+        self::assertSame('done', $result->finalContent);
+        assert(is_array($captured) && isset($captured[1]));
+        self::assertSame($items, $this->providerItemsOnAssistantTurn($captured[1]));
+    }
+
+    #[Test]
+    public function aTurnWithoutProviderItemsCarriesNone(): void
+    {
+        // Every adapter other than OpenAI's Responses transport reports none;
+        // the assistant turn must then be exactly what it was before ADR-203.
+        $captured = [];
+        $mgr      = self::createStub(LlmServiceManagerInterface::class);
+        $queue    = [
+            $this->response('', [new ToolCall('call_2', 'echo', ['text' => 'x'])]),
+            $this->response('done'),
+        ];
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback($queue, $captured));
+        $service = $this->service($mgr, new ToolRegistry([new FakeTool('echo', 'ECHOED')]));
+
+        $service->runLoop([$this->userTurn('x')], $this->localConfiguration(), ToolExecutionContext::none(), null);
+
+        assert(is_array($captured) && isset($captured[1]));
+        self::assertNull($this->providerItemsOnAssistantTurn($captured[1]));
     }
 
     #[Test]
@@ -2432,6 +2562,56 @@ final class ToolLoopServiceTest extends TestCase
             promptSnippetRepository: $promptSnippetRepository,
             skillRepository: $skillRepository,
         );
+    }
+
+    /**
+     * @param list<ToolCall>             $toolCalls
+     * @param list<array<string, mixed>> $items
+     */
+    private function responseWithProviderItems(array $toolCalls, array $items): CompletionResponse
+    {
+        return new CompletionResponse(
+            content: '',
+            model: 'test-model',
+            usage: UsageStatistics::fromTokens(1, 1),
+            toolCalls: $toolCalls,
+            metadata: [OpenAiCallMetadata::KEY_PROVIDER_ITEMS => $items],
+        );
+    }
+
+    /**
+     * The provider items on the assistant turn of one captured request, read
+     * from whichever shape the loop handed over — a value object in process,
+     * a transcript array after a resume.
+     *
+     * @param array<array-key, mixed> $messages
+     *
+     * @return list<array<string, mixed>>|null
+     */
+    private function providerItemsOnAssistantTurn(array $messages): ?array
+    {
+        foreach ($messages as $message) {
+            if (!$message instanceof ChatMessage && !is_array($message)) {
+                continue;
+            }
+
+            if ($message instanceof ChatMessage) {
+                if ($message->isAssistant() && $message->toolCalls !== null) {
+                    return $message->providerItems;
+                }
+
+                continue;
+            }
+
+            if (($message['role'] ?? null) === 'assistant' && isset($message['tool_calls'])) {
+                /** @var list<array<string, mixed>>|null $items */
+                $items = $message['provider_items'] ?? null;
+
+                return $items;
+            }
+        }
+
+        self::fail('No assistant tool-call turn in the captured request.');
     }
 
     /**
