@@ -10,16 +10,21 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Web;
 
 use Netresearch\NrLlm\Service\Tool\EgressPolicyService;
+use Netresearch\NrLlm\Service\Tool\Web\ExternalFetchSettings;
 use Netresearch\NrLlm\Service\Tool\Web\ExternalFetchTarget;
 use Netresearch\NrLlm\Service\Tool\Web\ExternalUrlGuard;
+use Netresearch\NrLlm\Service\Tool\Web\HostListEntry;
 use Netresearch\NrLlm\Service\Tool\Web\HostResolverInterface;
 use Netresearch\NrLlm\Service\Tool\Web\IpAddressClassifier;
+use Netresearch\NrLlm\Service\Tool\Web\ProxyDetector;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
+use TYPO3\CMS\Core\Http\Uri;
+use TYPO3\CMS\Core\Site\Entity\Site;
 use TYPO3\CMS\Core\Site\SiteFinder;
 
 /**
@@ -27,15 +32,28 @@ use TYPO3\CMS\Core\Site\SiteFinder;
  */
 #[CoversClass(ExternalUrlGuard::class)]
 #[CoversClass(ExternalFetchTarget::class)]
+#[CoversClass(ExternalFetchSettings::class)]
+#[CoversClass(HostListEntry::class)]
+#[CoversClass(ProxyDetector::class)]
 final class ExternalUrlGuardTest extends TestCase
 {
     /**
      * @param array<string, list<string>> $dns
+     * @param array<string, mixed>        $settings extra keys under tools.fetchExternalUrl
+     * @param array<string, string>       $env      environment seen by the proxy detector
+     * @param list<Site>                  $sites
      */
-    private function guard(array $dns = [], string $allowed = '', string $denied = '', bool $unreadable = false): ExternalUrlGuard
-    {
+    private function guard(
+        array $dns = [],
+        string $allowed = '',
+        string $denied = '',
+        bool $unreadable = false,
+        array $settings = [],
+        array $env = [],
+        array $sites = [],
+    ): ExternalUrlGuard {
         $siteFinder = self::createStub(SiteFinder::class);
-        $siteFinder->method('getAllSites')->willReturn([]);
+        $siteFinder->method('getAllSites')->willReturn($sites);
 
         $resolver = new class ($dns) implements HostResolverInterface {
             /**
@@ -54,11 +72,23 @@ final class ExternalUrlGuardTest extends TestCase
             $configuration->method('get')->willThrowException(new RuntimeException('not configured'));
         } else {
             $configuration->method('get')->willReturn([
-                'tools' => ['fetchExternalUrl' => ['allowedHosts' => $allowed, 'deniedHosts' => $denied]],
+                'tools' => ['fetchExternalUrl' => ['allowedHosts' => $allowed, 'deniedHosts' => $denied] + $settings],
             ]);
         }
 
-        return new ExternalUrlGuard(new EgressPolicyService($siteFinder), $resolver, new IpAddressClassifier(), $configuration);
+        return new ExternalUrlGuard(
+            new EgressPolicyService($siteFinder),
+            $resolver,
+            new IpAddressClassifier(),
+            new ExternalFetchSettings($configuration),
+            new ProxyDetector($env, 'fpm-fcgi'),
+        );
+    }
+
+    protected function tearDown(): void
+    {
+        unset($GLOBALS['TYPO3_CONF_VARS']['HTTP']['proxy']);
+        parent::tearDown();
     }
 
     #[Test]
@@ -224,8 +254,95 @@ final class ExternalUrlGuardTest extends TestCase
         $resolver = self::createStub(HostResolverInterface::class);
         $resolver->method('resolve')->willReturn(['93.184.215.14']);
 
-        $guard = new ExternalUrlGuard(new EgressPolicyService($siteFinder), $resolver, new IpAddressClassifier(), $configuration);
+        $guard = new ExternalUrlGuard(
+            new EgressPolicyService($siteFinder),
+            $resolver,
+            new IpAddressClassifier(),
+            new ExternalFetchSettings($configuration),
+            new ProxyDetector([], 'fpm-fcgi'),
+        );
 
         self::assertTrue($guard->check('web', 'https://example.org/')->allowed);
+    }
+
+    #[Test]
+    public function aHostOfThisInstallationIsRefused(): void
+    {
+        // A stub: a real Site evaluates its variant conditions on construction.
+        $site = self::createStub(Site::class);
+        $site->method('getBase')->willReturn(new Uri('https://www.own.example/'));
+        $site->method('getConfiguration')->willReturn([
+            'base'         => 'https://www.own.example/',
+            'baseVariants' => [['base' => 'https://staging.own.example/', 'condition' => 'false']],
+        ]);
+        $guard = $this->guard(
+            ['www.own.example' => ['93.184.215.14'], 'staging.own.example' => ['93.184.215.15'], 'other.example' => ['93.184.215.16']],
+            sites: [$site],
+        );
+
+        self::assertStringContainsString('host of this installation', $guard->check('web', 'https://www.own.example/secret')->reason);
+        self::assertStringContainsString('host of this installation', $guard->check('web', 'https://STAGING.own.example./')->reason);
+        self::assertTrue($guard->check('web', 'https://other.example/')->allowed);
+    }
+
+    #[Test]
+    public function aConfiguredTypo3ProxyRefusesTheFetch(): void
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['HTTP']['proxy'] = 'http://proxy.corp:3128';
+
+        $target = $this->guard(['example.org' => ['93.184.215.14']])->check('web', 'https://example.org/');
+
+        self::assertFalse($target->allowed);
+        self::assertStringContainsString('HTTP proxy', $target->reason);
+    }
+
+    #[Test]
+    public function anEnvironmentProxyRefusesUnlessNoProxyExcludesTheHost(): void
+    {
+        $dns = ['example.org' => ['93.184.215.14'], 'direct.example.org' => ['93.184.215.15']];
+        $env = ['HTTPS_PROXY' => 'http://proxy.corp:3128', 'NO_PROXY' => 'direct.example.org'];
+
+        self::assertStringContainsString('HTTP proxy', $this->guard($dns, env: $env)->check('web', 'https://example.org/')->reason);
+        self::assertTrue($this->guard($dns, env: $env)->check('web', 'https://direct.example.org/')->allowed);
+        // HTTP_PROXY is not trusted outside the CLI, as nr-vault's client does.
+        self::assertTrue($this->guard($dns, env: ['HTTP_PROXY' => 'http://proxy.corp:3128'])->check('web', 'http://example.org/')->allowed);
+    }
+
+    #[Test]
+    public function theProxyIsPermittedOnlyTogetherWithAnAllowlist(): void
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['HTTP']['proxy'] = 'http://proxy.corp:3128';
+        $dns = ['example.org' => ['93.184.215.14']];
+
+        self::assertFalse($this->guard($dns, settings: ['allowViaProxy' => '1'])->check('web', 'https://example.org/')->allowed);
+        self::assertTrue($this->guard($dns, allowed: 'example.org', settings: ['allowViaProxy' => '1'])->check('web', 'https://example.org/')->allowed);
+        self::assertFalse($this->guard($dns, allowed: 'example.org')->check('web', 'https://example.org/')->allowed);
+    }
+
+    #[Test]
+    public function ipv6ListEntriesAreAddressesNotHostPorts(): void
+    {
+        $guard = $this->guard(allowed: '2606:4700:4700::1111, [2a00:1450:4001:82a::200e], [2606:4700:4700::1001]:8443');
+
+        self::assertTrue($guard->check('web', 'http://[2606:4700:4700::1111]/')->allowed);
+        self::assertTrue($guard->check('web', 'https://[2a00:1450:4001:82a::200e]/')->allowed);
+        self::assertTrue($guard->check('web', 'https://[2606:4700:4700::1001]:8443/')->allowed);
+        self::assertFalse($guard->check('web', 'https://[2606:4700:4700::1001]/')->allowed);
+        self::assertFalse($guard->check('web', 'http://[2606:4700:4700::1112]/')->allowed);
+    }
+
+    #[Test]
+    public function anAddressOnTheDenylistIsRefusedHoweverTheHostNamesIt(): void
+    {
+        $guard = $this->guard(
+            ['alias.example.org' => ['93.184.215.14'], 'other.example.org' => ['93.184.215.15']],
+            denied: '93.184.215.14, 2606:4700:4700::1111',
+        );
+
+        self::assertStringContainsString('denylist', $guard->check('web', 'https://93.184.215.14/')->reason);
+        self::assertStringContainsString('denylist', $guard->check('web', 'https://[::ffff:93.184.215.14]/')->reason);
+        self::assertStringContainsString('denylist', $guard->check('web', 'https://alias.example.org/')->reason);
+        self::assertStringContainsString('denylist', $guard->check('web', 'https://[2606:4700:4700:0::1111]/')->reason);
+        self::assertTrue($guard->check('web', 'https://other.example.org/')->allowed);
     }
 }

@@ -19,6 +19,13 @@ use Throwable;
  * nothing here and is refused, instead of being handed to curl, whose own
  * getaddrinfo() lookup would find it. The addresses returned here are pinned
  * for the connection, so curl never resolves the name itself.
+ *
+ * Not bounded in time by this class. `dns_get_record()` takes no timeout and
+ * ignores `RES_OPTIONS` in the environment (measured with glibc against an
+ * unreachable name server: 20 s with and without it). It does honour the
+ * `options timeout:N attempts:N` line of `/etc/resolv.conf` (2 s with
+ * `timeout:1 attempts:1`), which is where an operator bounds it. The tool
+ * checks its own deadline before every lookup and after it.
  */
 final readonly class DnsHostResolver implements HostResolverInterface
 {

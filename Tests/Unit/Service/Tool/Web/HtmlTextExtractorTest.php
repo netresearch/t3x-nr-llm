@@ -75,4 +75,38 @@ final class HtmlTextExtractorTest extends TestCase
         self::assertStringContainsString('Unclosed bold', $result['text']);
         self::assertStringContainsString('next', $result['text']);
     }
+
+    #[Test]
+    public function deeplyNestedMarkupIsReducedToTextWithoutParsing(): void
+    {
+        // masterminds/html5 takes about 40 s on this shape (ADR-202).
+        $html  = str_repeat('<div>', 40000) . 'deep &amp; text';
+        $start = microtime(true);
+
+        $result = (new HtmlTextExtractor())->extract($html, 'https://example.org/');
+
+        self::assertSame('deep & text', $result['text']);
+        self::assertLessThan(2.0, microtime(true) - $start);
+    }
+
+    #[Test]
+    public function onlyTheFirstPartOfAHugePageIsParsed(): void
+    {
+        $html = '<p>start</p>' . str_repeat('<p>filler</p>', 30000) . '<p>BEYOND-THE-CAP</p>';
+
+        $result = (new HtmlTextExtractor())->extract($html, 'https://example.org/');
+
+        self::assertStringStartsWith('start', $result['text']);
+        self::assertStringNotContainsString('BEYOND-THE-CAP', $result['text']);
+    }
+
+    #[Test]
+    public function unclosedParagraphsAndListItemsAreNotDeepNesting(): void
+    {
+        $html = '<main><h1>Title</h1>' . str_repeat('<p>para <li>item ', 300) . '</main>';
+
+        $result = (new HtmlTextExtractor())->extract($html, 'https://example.org/');
+
+        self::assertStringStartsWith("# Title\n", $result['text']);
+    }
 }

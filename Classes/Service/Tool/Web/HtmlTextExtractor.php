@@ -35,6 +35,12 @@ use Throwable;
  * and footer outside `<main>` and `<article>`. When the page has a `<main>` (or, failing that, one `<article>`),
  * only that element is read.
  *
+ * Bounded before the parser runs: at most {@see self::MAX_PARSE_BYTES} are
+ * parsed, and markup nested deeper than {@see self::MAX_NESTING_DEPTH} is not
+ * parsed at all but reduced to its text. PHP 8.4's `Dom\HTMLDocument` (lexbor)
+ * is not used: it is a different DOM API from the one PHP 8.2 and 8.3 offer,
+ * so it would mean a second renderer for part of the support matrix.
+ *
  * No readability library is used: the heuristics of one (Readability.php and
  * its ports) are a sizeable dependency for a TYPO3 extension, and the model
  * copes well with the whole main text once the chrome is gone.
@@ -60,14 +66,46 @@ final readonly class HtmlTextExtractor
     ];
 
     /**
+     * The most HTML handed to the parser. masterminds/html5 is quadratic in the
+     * nesting depth; with the depth bounded below, 256 KiB of the worst shape
+     * (blocks of 256 nested elements) parse in about 0.7 s.
+     */
+    public const MAX_PARSE_BYTES = 262144;
+
+    /**
+     * Deeper markup is not parsed at all; its text is taken with strip_tags(),
+     * which is linear. Also the recursion bound of {@see self::render()}.
+     */
+    public const MAX_NESTING_DEPTH = 200;
+
+    /**
+     * Elements whose end tag HTML lets an author leave out, and void elements:
+     * neither deepens the tree the way a never-closed `<div>` does, so the
+     * pre-scan does not count them.
+     */
+    private const NOT_NESTING = [
+        'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr',
+        'p', 'li', 'dt', 'dd', 'option', 'optgroup', 'tr', 'td', 'th', 'tbody', 'thead', 'tfoot', 'colgroup',
+        'rt', 'rp', 'caption', 'html', 'head', 'body',
+    ];
+
+    /**
      * @return array{title: string, text: string}
      */
     public function extract(string $html, string $pageUrl): array
     {
+        if (strlen($html) > self::MAX_PARSE_BYTES) {
+            $html = mb_strcut($html, 0, self::MAX_PARSE_BYTES, 'UTF-8');
+        }
+
+        if ($this->nestingDepth($html) > self::MAX_NESTING_DEPTH) {
+            return ['title' => '', 'text' => $this->plainText($html)];
+        }
+
         try {
             $document = (new HTML5(['disable_html_ns' => true]))->loadHTML($html);
         } catch (Throwable) {
-            return ['title' => '', 'text' => $this->collapse(strip_tags($html))];
+            return ['title' => '', 'text' => $this->plainText($html)];
         }
 
         $xpath = new DOMXPath($document);
@@ -100,7 +138,14 @@ final readonly class HtmlTextExtractor
         }
 
         $buffer = '';
-        $this->render($root, $pageUrl, $buffer);
+
+        try {
+            $this->render($root, $pageUrl, $buffer, 0);
+        } catch (Throwable) {
+            // An Error from deep recursion, or anything else the DOM throws:
+            // the page still has text.
+            return ['title' => $title, 'text' => $this->plainText($html)];
+        }
 
         $lines = [];
         foreach (preg_split('/\n+/', $buffer) ?: [] as $line) {
@@ -138,8 +183,14 @@ final readonly class HtmlTextExtractor
         return $node instanceof DOMElement ? $node : null;
     }
 
-    private function render(DOMNode $node, string $pageUrl, string &$buffer): void
+    private function render(DOMNode $node, string $pageUrl, string &$buffer, int $depth): void
     {
+        if ($depth > self::MAX_NESTING_DEPTH) {
+            $buffer .= ' ' . $node->textContent . ' ';
+
+            return;
+        }
+
         foreach ($node->childNodes as $child) {
             if ($child->nodeType === XML_TEXT_NODE || $child->nodeType === XML_CDATA_SECTION_NODE) {
                 $buffer .= $child->textContent;
@@ -191,12 +242,48 @@ final readonly class HtmlTextExtractor
                 $buffer .= ' | ';
             }
 
-            $this->render($child, $pageUrl, $buffer);
+            $this->render($child, $pageUrl, $buffer, $depth + 1);
 
             if ($isBlock) {
                 $buffer .= "\n";
             }
         }
+    }
+
+    /**
+     * The deepest element nesting of the markup, read in one linear pass over
+     * its tags — an approximation of the tree the parser would build, which
+     * errs deep (an unclosed `<div>` counts forever).
+     */
+    private function nestingDepth(string $html): int
+    {
+        // Tag-like text inside scripts is counted too; that errs deep, which
+        // only sends a page to the plain-text path.
+        if (preg_match_all('#<(/?)([a-zA-Z][a-zA-Z0-9-]*)[^>]*?(/?)>#', $html, $tags, PREG_SET_ORDER) === false) {
+            return PHP_INT_MAX;
+        }
+
+        $depth = 0;
+        $max   = 0;
+        foreach ($tags as $tag) {
+            $name = strtolower($tag[2]);
+            if (in_array($name, self::NOT_NESTING, true) || $tag[3] === '/') {
+                continue;
+            }
+
+            $depth = $tag[1] === '/' ? max(0, $depth - 1) : $depth + 1;
+            $max   = max($max, $depth);
+        }
+
+        return $max;
+    }
+
+    private function plainText(string $html): string
+    {
+        // On a backtracking limit preg_replace() returns null; keep the input.
+        $html = preg_replace('#<(script|style)\b[^>]*>.*?</\1\s*>#is', ' ', $html) ?? $html;
+
+        return $this->collapse(html_entity_decode(strip_tags((string)preg_replace('/</', ' <', $html)), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
     }
 
     private function absoluteHttpUrl(string $href, string $pageUrl): ?string

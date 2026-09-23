@@ -13,7 +13,6 @@ use GuzzleHttp\Psr7\Uri;
 use Netresearch\NrLlm\Domain\Enum\ToolEgressScope;
 use Netresearch\NrLlm\Service\Tool\EgressPolicyService;
 use Throwable;
-use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
  * The SSRF gate for URLs a model asks to fetch from the internet (ADR-202).
@@ -26,29 +25,34 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  * 2. Scheme http or https, a host, no userinfo.
  * 3. The host is normalised (lower case, no trailing dot) and must then
  *    consist of ASCII hostname characters or be an IP literal.
- * 4. The operator's denylist (`tools.fetchExternalUrl.deniedHosts`).
- * 5. The operator's allowlist (`tools.fetchExternalUrl.allowedHosts`) — when
+ * 4. The host must not be one of this installation's own site hosts, base
+ *    variants included — pages of the installation are `probe_url`'s.
+ * 5. The operator's denylist (`tools.fetchExternalUrl.deniedHosts`).
+ * 6. The operator's allowlist (`tools.fetchExternalUrl.allowedHosts`) — when
  *    it is non-empty, the host must be on it.
- * 6. The port must be the scheme's default unless an allowlist entry names
+ * 7. The port must be the scheme's default unless an allowlist entry names
  *    exactly this host and port.
- * 7. A numeric host in a legacy `inet_aton()` form is refused outright.
- * 8. An IP literal must be public; a hostname must resolve through DNS, and
- *    EVERY address it resolves to must be public. The addresses travel with
- *    the verdict so the request is pinned to them ({@see ExternalFetchTarget::resolvePin()}).
+ * 8. No HTTP proxy may apply ({@see ProxyDetector}) unless the operator
+ *    permitted it together with a non-empty allowlist: behind a proxy the
+ *    address pin does not reach the connection.
+ * 9. A numeric host in a legacy `inet_aton()` form is refused outright.
+ * 10. An IP literal must be public; a hostname must resolve through DNS, and
+ *     EVERY address it resolves to must be public and not on the denylist. The
+ *     addresses travel with the verdict so the request is pinned to them
+ *     ({@see ExternalFetchTarget::resolvePin()}).
  *
  * The lists only ever narrow. No entry on either list lets a private,
- * loopback, link-local or metadata address through: step 8 runs for an
+ * loopback, link-local or metadata address through: step 10 runs for an
  * allow-listed host exactly as for any other.
  */
 final readonly class ExternalUrlGuard
 {
-    private const CONFIG_PATH = ['tools', 'fetchExternalUrl'];
-
     public function __construct(
         private EgressPolicyService $egressPolicy,
         private HostResolverInterface $resolver,
         private IpAddressClassifier $classifier,
-        private ExtensionConfiguration $extensionConfiguration,
+        private ExternalFetchSettings $settings,
+        private ProxyDetector $proxyDetector,
     ) {}
 
     public function check(string $group, string $url): ExternalFetchTarget
@@ -76,17 +80,21 @@ final readonly class ExternalUrlGuard
             return ExternalFetchTarget::refused('the URL has no valid host name');
         }
 
+        if (in_array($host, $this->egressPolicy->siteHostNames(), true)) {
+            return ExternalFetchTarget::refused(sprintf('"%s" is a host of this installation; use probe_url or site_rag_query for its pages', $host));
+        }
+
         $defaultPort = $scheme === 'https' ? 443 : 80;
         $port        = $parts['port'] ?? $defaultPort;
 
-        $denied  = $this->configuredHosts('deniedHosts');
-        $allowed = $this->configuredHosts('allowedHosts');
+        $denied  = $this->settings->deniedHosts();
+        $allowed = $this->settings->allowedHosts();
         if ($denied === null || $allowed === null) {
             return ExternalFetchTarget::refused('the host lists of this installation cannot be read');
         }
 
-        foreach ($denied as [$pattern]) {
-            if ($this->hostMatches($host, $pattern)) {
+        foreach ($denied as $entry) {
+            if ($entry->matchesHost($host)) {
                 return ExternalFetchTarget::refused(sprintf('the host "%s" is on the denylist of this installation', $host));
             }
         }
@@ -97,6 +105,13 @@ final readonly class ExternalUrlGuard
 
         if ($port !== $defaultPort && !$this->isListed($host, $port, $defaultPort, $allowed)) {
             return ExternalFetchTarget::refused(sprintf('port %d is not permitted; only the default port of http/https is fetched', $port));
+        }
+
+        if ($this->proxyDetector->appliesTo($scheme, $host) && !$this->settings->proxyPermitted()) {
+            return ExternalFetchTarget::refused(
+                'an HTTP proxy is configured for this request, and the address checks cannot reach past it; '
+                . 'an administrator can permit fetching through the proxy together with a host allowlist',
+            );
         }
 
         if ($this->classifier->isAmbiguousNumericHost($host)) {
@@ -119,6 +134,12 @@ final readonly class ExternalUrlGuard
         foreach ($addresses as $address) {
             if (!$this->classifier->isPublic($address)) {
                 return ExternalFetchTarget::refused(sprintf('the host "%s" resolves to a private, loopback, link-local or reserved address', $host));
+            }
+
+            foreach ($denied as $entry) {
+                if ($entry->matchesAddress($address)) {
+                    return ExternalFetchTarget::refused(sprintf('the host "%s" resolves to an address on the denylist of this installation', $host));
+                }
             }
         }
 
@@ -181,76 +202,16 @@ final readonly class ExternalUrlGuard
     }
 
     /**
-     * `example.com` matches that host only; `*.example.com` matches every
-     * subdomain of it, not the apex.
-     */
-    private function hostMatches(string $host, string $pattern): bool
-    {
-        if (str_starts_with($pattern, '*.')) {
-            return str_ends_with($host, substr($pattern, 1));
-        }
-
-        return $host === $pattern;
-    }
-
-    /**
-     * @param list<array{0: string, 1: int|null}> $entries
+     * @param list<HostListEntry> $entries
      */
     private function isListed(string $host, int $port, int $defaultPort, array $entries): bool
     {
-        foreach ($entries as [$pattern, $entryPort]) {
-            if ($this->hostMatches($host, $pattern) && ($entryPort ?? $defaultPort) === $port) {
+        foreach ($entries as $entry) {
+            if ($entry->matchesHost($host) && ($entry->port ?? $defaultPort) === $port) {
                 return true;
             }
         }
 
         return false;
-    }
-
-    /**
-     * Comma-separated `host`, `*.domain` or `host:port` entries of one list,
-     * lower-cased. An absent key is an empty list. Configuration that cannot
-     * be read at all is null, and the caller refuses: an allowlist the
-     * operator set must not turn into "every public host" because it could
-     * not be loaded.
-     *
-     * @return list<array{0: string, 1: int|null}>|null
-     */
-    private function configuredHosts(string $key): ?array
-    {
-        try {
-            $node = $this->extensionConfiguration->get('nr_llm');
-        } catch (Throwable) {
-            return null;
-        }
-
-        foreach ([...self::CONFIG_PATH, $key] as $segment) {
-            if (!is_array($node) || !array_key_exists($segment, $node)) {
-                return [];
-            }
-
-            $node = $node[$segment];
-        }
-
-        if (!is_string($node)) {
-            return [];
-        }
-
-        $entries = [];
-        foreach (explode(',', $node) as $raw) {
-            $entry = strtolower(trim($raw));
-            if ($entry === '') {
-                continue;
-            }
-
-            if (preg_match('/^(.+):(\d{1,5})$/', $entry, $m) === 1) {
-                $entries[] = [rtrim($m[1], '.'), (int)$m[2]];
-                continue;
-            }
-
-            $entries[] = [rtrim($entry, '.'), null];
-        }
-
-        return $entries;
     }
 }

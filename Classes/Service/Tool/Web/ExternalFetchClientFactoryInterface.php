@@ -21,4 +21,11 @@ use GuzzleHttp\ClientInterface;
 interface ExternalFetchClientFactoryInterface
 {
     public function create(int $timeoutSeconds): ClientInterface;
+
+    /**
+     * Whether a request can be pinned to checked addresses. Without the curl
+     * handler Guzzle falls back to PHP streams, which ignore `CURLOPT_RESOLVE`
+     * and resolve the host themselves; the tool refuses then.
+     */
+    public function supportsPinning(): bool;
 }

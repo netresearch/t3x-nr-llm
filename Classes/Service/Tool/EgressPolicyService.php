@@ -213,6 +213,36 @@ final readonly class EgressPolicyService
     }
 
     /**
+     * The host names of every site base AND every base variant, without ports.
+     *
+     * The inverse use of {@see self::allowedHosts()}: `fetch_external_url` must
+     * NOT reach the installation (ADR-202), and for a refusal the wider set is
+     * the safe one — a staging variant's host is as much this installation as
+     * the active base.
+     *
+     * @return list<string>
+     */
+    public function siteHostNames(): array
+    {
+        $hosts = [];
+        foreach ($this->siteFinder->getAllSites() as $site) {
+            $hosts[] = $site->getBase()->getHost();
+
+            $variants = $site->getConfiguration()['baseVariants'] ?? [];
+            foreach (is_array($variants) ? $variants : [] as $variant) {
+                $base = is_array($variant) ? ($variant['base'] ?? null) : null;
+                if (is_string($base) && $base !== '') {
+                    $hosts[] = (string)parse_url(str_contains($base, '//') ? $base : '//' . $base, PHP_URL_HOST);
+                }
+            }
+        }
+
+        $normalised = array_map(static fn(string $host): string => rtrim(trim(strtolower($host), '[]'), '.'), $hosts);
+
+        return array_values(array_unique(array_filter($normalised, static fn(string $host): bool => $host !== '')));
+    }
+
+    /**
      * @return list<UriInterface>
      */
     private function siteBases(Site $site): array

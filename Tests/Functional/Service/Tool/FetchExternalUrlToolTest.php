@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchExternalUrlTool;
+use Netresearch\NrLlm\Service\Tool\ToolApprovalRule;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
@@ -84,5 +85,7 @@ final class FetchExternalUrlToolTest extends AbstractFunctionalTestCase
         self::assertSame('web', $this->tool->getGroup());
         self::assertFalse($this->tool->isEnabledByDefault());
         self::assertFalse($this->tool->requiresAdmin());
+        // With the shipped settings every call waits for a human (ADR-202).
+        self::assertTrue(ToolApprovalRule::requiresApproval($this->tool));
     }
 }

@@ -39,4 +39,9 @@ final readonly class ExternalFetchClientFactory implements ExternalFetchClientFa
 
         return $client;
     }
+
+    public function supportsPinning(): bool
+    {
+        return defined('CURLOPT_RESOLVE') && function_exists('curl_init');
+    }
 }

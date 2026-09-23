@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ConfigurableApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\RemoteApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\RemoteToolInterface;
 use Netresearch\NrLlm\Service\Tool\RequiresApprovalInterface;
@@ -79,6 +80,38 @@ final class ToolApprovalRuleTest extends TestCase
     {
         self::assertTrue(ToolApprovalRule::requiresApproval($this->remoteDeclaringTool(true)));
         self::assertFalse(ToolApprovalRule::requiresApproval($this->remoteDeclaringTool(false)));
+    }
+
+    #[Test]
+    public function aConfigurableReadIsDecidedByItsConfiguration(): void
+    {
+        self::assertTrue(ToolApprovalRule::requiresApproval($this->configurableTool(ToolEffect::READ_ONLY, true)));
+        self::assertFalse(ToolApprovalRule::requiresApproval($this->configurableTool(ToolEffect::READ_ONLY, false)));
+    }
+
+    #[Test]
+    public function aConfigurationCannotLiftTheApprovalOfADeclaredWrite(): void
+    {
+        // ADR-134: a write-without-approval builtin is not expressible, and
+        // ConfigurableApprovalInterface (ADR-202) must not make it so.
+        self::assertTrue(ToolApprovalRule::requiresApproval($this->configurableTool(ToolEffect::IDEMPOTENT_WRITE, false)));
+    }
+
+    private function configurableTool(ToolEffect $effect, bool $requires): ToolInterface
+    {
+        return new class ($effect, $requires) extends ApprovalRuleFixtureTool implements ToolEffectInterface, ConfigurableApprovalInterface {
+            public function __construct(private readonly ToolEffect $effect, private readonly bool $requires) {}
+
+            public function getEffect(): ToolEffect
+            {
+                return $this->effect;
+            }
+
+            public function requiresApproval(): bool
+            {
+                return $this->requires;
+            }
+        };
     }
 
     private function localTool(ToolEffect $effect): ToolInterface

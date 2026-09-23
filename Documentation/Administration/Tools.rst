@@ -952,53 +952,78 @@ the Tools module; a configuration that restricts :guilabel:`Allowed tool
 groups` must also list ``web``. It is not admin-only: public web content is
 none of the system or cross-user data the admin tier guards.
 
+**Every call waits for a human approval** by default. The URL the model
+chooses leaves the installation, and the model is steerable by the pages and
+skills it reads, so a run could be led to put data it has seen into a query
+string. The approval card shows the host and the full query string. The
+approval can be switched off only together with an allowlist (below).
+
 What it refuses, for the first URL and again for every redirect target:
 
 *  schemes other than ``http`` and ``https``, and URLs with credentials;
+*  hosts of this installation — every site base and base variant;
 *  ports other than 80/443, unless the allowlist names ``host:port``;
 *  numeric host forms such as ``2130706433`` or ``0177.0.0.1``, and host names
    with non-ASCII characters (pass the ``xn--`` form instead);
 *  any host whose DNS answer contains a private, loopback, link-local, CGNAT,
-   multicast, reserved or cloud-metadata address (``169.254.169.254``,
+   multicast, reserved, NAT64 or cloud-metadata address (``169.254.169.254``,
    ``fd00:ec2::254``), IPv4-mapped and other IPv6 forms of those included;
 *  a host that does not resolve in DNS — names that exist only in
-   ``/etc/hosts`` are unreachable on purpose.
+   ``/etc/hosts`` are unreachable on purpose;
+*  any request an HTTP proxy would carry (see below);
+*  every request when PHP's curl extension is missing, because the
+   connection could not be pinned.
 
-The connection is pinned to exactly the addresses that were checked, so a DNS
-answer that changes between the check and the connect cannot redirect it. It
-follows at most three redirects, stops the download at 2 MiB, returns at most
+The connection is pinned to addresses that were checked, so a DNS answer that
+changes between the check and the connect cannot redirect it. It follows at
+most three redirects, stops the download at 2 MiB, parses at most 256 KiB of
+HTML (deeply nested markup is reduced to its text instead), returns at most
 20,000 characters (fewer for scripts with multi-byte characters, so the whole
-result stays under 48,000 bytes) and gives up after 20 seconds in total.
+result stays under 48,000 bytes) and gives up after 20 seconds in total. One
+DNS lookup is bounded by the system resolver; set
+``options timeout:2 attempts:1`` in :file:`/etc/resolv.conf` to shorten it.
 Only HTML and plain text are read.
 
 The text comes back between ``BEGIN``/``END UNTRUSTED EXTERNAL WEB CONTENT``
-markers with a note that it is reference material, not instructions — the
-same shape skill bodies carry (:ref:`ADR-061 <adr-061>`).
+markers that carry a random value per call, with a note that it is reference
+material, not instructions — the same shape skill bodies carry
+(:ref:`ADR-061 <adr-061>`). Error messages repeat no text the remote server
+chose, apart from a redirect target, cut and labelled as untrusted.
 
-Two extension settings narrow where it may go
+The request comes from the installation's own address. A service that trusts
+that address — a partner API that allow-lists your server, an intranet reached
+through a public address — is not a private range and is not refused; put it
+on the denylist.
+
+Four extension settings govern it
 (:guilabel:`Admin Tools > Settings > Extension Configuration > nr_llm`):
 
 ``tools.fetchExternalUrl.allowedHosts``
-   Comma-separated ``example.org``, ``*.example.org`` (subdomains, not the
-   apex) or ``example.org:8443`` (that host on port 8443 only; list
-   ``example.org`` as well to keep its default port). When set, only these
-   hosts are fetched.
-   Empty (default) allows every public host.
+   Comma-separated host names (``example.org``, ``*.example.org`` for
+   subdomains but not the apex) or IP addresses (``192.0.2.10``,
+   ``2001:db8::1``, ``[2001:db8::1]``). Append ``:8443`` (after the brackets
+   for IPv6) to allow that port only; list the plain entry as well to keep
+   the default port. When set, only these hosts are fetched. Empty (default)
+   allows every public host.
 
 ``tools.fetchExternalUrl.deniedHosts``
-   Hosts that are never fetched, checked before the allowlist.
+   Hosts that are never fetched, in the same forms, checked before the
+   allowlist. A name entry matches the host name in a URL; an address entry
+   matches an IP address in a URL and every address a host name resolves to.
+
+``tools.fetchExternalUrl.skipApprovalWithAllowlist``
+   Lets calls run without approval — only while the allowlist is non-empty.
+
+``tools.fetchExternalUrl.allowViaProxy``
+   By default a fetch is refused when an HTTP proxy would carry it — the TYPO3
+   proxy setting (``$GLOBALS['TYPO3_CONF_VARS']['HTTP']['proxy']``), or
+   ``HTTPS_PROXY`` (``HTTP_PROXY`` on the command line) unless ``NO_PROXY``
+   excludes the host — because the proxy resolves the host itself and the
+   address checks cannot reach past it. This setting permits it, only while
+   the allowlist is non-empty.
 
 Neither list can admit a private address: an allow-listed host that resolves
 to one is still refused.
-
-.. warning::
-
-   The URL the model chooses leaves the installation, and the model is
-   steerable by the pages and skills it reads. A run could be led to put data
-   it has seen into a URL. Where that matters, set an allowlist. Behind the
-   TYPO3 HTTP proxy (``$GLOBALS['TYPO3_CONF_VARS']['HTTP']['proxy']``) the
-   proxy resolves the host itself, so the address pin does not reach past
-   the proxy; the address check before the request still runs.
 
 .. _administration-tools-playground:
 
