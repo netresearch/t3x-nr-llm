@@ -667,7 +667,9 @@ class ChatMessageTest extends AbstractUnitTestCase
         $this->expectException(NrLlmInvalidArgumentException::class);
         $this->expectExceptionCode(1758600001);
 
-        new ChatMessage('assistant', 'x', null, null, ['not-an-item']);
+        // Through fromArray(), whose provider_items key is untyped, so the
+        // constructor's element check is what refuses it.
+        ChatMessage::fromArray(['role' => 'assistant', 'content' => 'x', 'provider_items' => ['not-an-item']]);
     }
 
     #[Test]
