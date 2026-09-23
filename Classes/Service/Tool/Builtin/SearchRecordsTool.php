@@ -136,9 +136,18 @@ final readonly class SearchRecordsTool implements ToolInterface
                 break;
             }
 
+            $languageField = $this->languageFields($table)[0];
             foreach ($this->searchTable($table, $searchFields, $query, $remaining) as $row) {
                 // Non-admins only see hits on pages they may show (fail-closed).
                 if (!$isAdmin && !$this->pageIsReadable($table, $row, $permsClause, $pidAccess)) {
+                    continue;
+                }
+
+                // ...and in languages they may access, as read_records already
+                // enforces. The language column is selected for the hit line
+                // anyway (NEXT-167); a hit in a forbidden language must not
+                // reach the provider through the search either.
+                if (!$isAdmin && $languageField !== null && !$user->checkLanguageAccess(self::toInt($row[$languageField] ?? 0))) {
                     continue;
                 }
 
