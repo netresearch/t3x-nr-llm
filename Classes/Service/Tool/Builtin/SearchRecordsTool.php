@@ -72,8 +72,9 @@ final readonly class SearchRecordsTool implements ToolInterface
         return ToolSpec::function(
             'search_records',
             'Full-text search across the TYPO3 tables that define TCA searchFields (pages, content '
-            . 'elements, ...). Returns table:uid hits with a short excerpt around the match. '
-            . 'Deleted and hidden records are excluded.',
+            . 'elements, ...). Returns table:uid hits with a short excerpt around the match. A hit on a '
+            . 'language-aware table names its language and, for a translation, the uid of the record it '
+            . 'translates — a translation is not a duplicate. Deleted and hidden records are excluded.',
             [
                 'type'       => 'object',
                 'properties' => [
@@ -222,6 +223,7 @@ final readonly class SearchRecordsTool implements ToolInterface
         $selectFields = array_values(array_unique(array_merge(
             ['uid', 'pid'],
             $labelField !== '' ? [$labelField] : [],
+            array_values(array_filter($this->languageFields($table))),
             $searchFields,
         )));
 
@@ -291,6 +293,16 @@ final readonly class SearchRecordsTool implements ToolInterface
             self::toInt($row['pid'] ?? 0),
         );
 
+        [$languageField, $parentField] = $this->languageFields($table);
+        if ($languageField !== null) {
+            $line .= sprintf(' · language %d', self::toInt($row[$languageField] ?? 0));
+        }
+
+        $parent = $parentField !== null ? self::toInt($row[$parentField] ?? 0) : 0;
+        if ($parent > 0) {
+            $line .= sprintf(' · translation of %s:%d', $table, $parent);
+        }
+
         foreach ($searchFields as $field) {
             $value = self::toStr($row[$field] ?? '');
             if ($value === '') {
@@ -319,6 +331,29 @@ final readonly class SearchRecordsTool implements ToolInterface
         }
 
         return $line;
+    }
+
+    /**
+     * The table's language field and translation-parent field, each null when
+     * the table does not declare it (NEXT-167: a page and its translation are
+     * two hits with the same title, and without these they read as duplicates).
+     *
+     * @return array{0: string|null, 1: string|null}
+     */
+    private function languageFields(string $table): array
+    {
+        $tca        = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
+        $definition = is_array($tca[$table] ?? null) ? $tca[$table] : [];
+        $ctrl       = is_array($definition['ctrl'] ?? null) ? $definition['ctrl'] : [];
+        $columns    = is_array($definition['columns'] ?? null) ? $definition['columns'] : [];
+
+        $fields = [];
+        foreach (['languageField', 'transOrigPointerField'] as $key) {
+            $field    = $ctrl[$key] ?? null;
+            $fields[] = is_string($field) && $field !== '' && isset($columns[$field]) ? $field : null;
+        }
+
+        return [$fields[0], $fields[1]];
     }
 
     private function labelField(string $table): string

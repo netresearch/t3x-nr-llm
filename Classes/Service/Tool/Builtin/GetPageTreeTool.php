@@ -58,8 +58,9 @@ final readonly class GetPageTreeTool implements ToolInterface
     {
         return ToolSpec::function(
             'get_pagetree',
-            'Return the backend page tree (uid, title, doktype) as a depth-indented outline. '
-            . 'Deleted and hidden pages are excluded; structure only, no page content.',
+            'Return the backend page tree (uid, title, doktype) as a depth-indented outline, in the default '
+            . 'language only: every uid is a default-language page (sys_language_uid 0), and its translations '
+            . 'are not listed. Deleted and hidden pages are excluded; structure only, no page content.',
             [
                 'type'       => 'object',
                 'properties' => [
@@ -98,7 +99,15 @@ final readonly class GetPageTreeTool implements ToolInterface
             return ToolResult::text('No pages.');
         }
 
-        array_unshift($lines, sprintf('Page tree from uid %d (depth %d):', $rootUid, $depth));
+        // The language is stated in the result, not only in the description:
+        // a page and its translation share a title, and a model that meets the
+        // translation elsewhere must be able to tell that this uid is the
+        // default-language one (NEXT-167).
+        array_unshift($lines, sprintf(
+            'Page tree from uid %d (depth %d; default-language pages, sys_language_uid 0 — translations are not listed):',
+            $rootUid,
+            $depth,
+        ));
 
         return ToolResult::text(implode("\n", $lines));
     }

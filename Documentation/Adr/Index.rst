@@ -580,3 +580,5 @@ Tools
    Adr195TheNinthWriterSetsAPageSocialImage
    Adr196ContentTypesFromTheTcaUnderAnExclusionRule
    Adr197AGenericCreatorWhereNoNarrowWriterExists
+   Adr200ADeniedApprovalSaysWhoDeclined
+   Adr201TheToolsARunIsNotOffered

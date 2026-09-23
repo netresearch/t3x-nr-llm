@@ -23,7 +23,9 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Domain\Repository\PageRepository;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
@@ -193,13 +195,21 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
 
         $slug = self::toStr($stored['slug'] ?? '');
 
+        // The new uid leads, and the parent is named as what NOT to use: in the
+        // demo the element meant for a freshly created page twice landed on its
+        // parent (NEXT-167, conversations 80 and 92), and "under page [P]" next
+        // to the new uid was the only other number in the answer.
         return ToolResult::text(sprintf(
-            'Created hidden page [%d] "%s" under page [%d]%s. It is not visible until a human unhides it. '
-            . 'To put content on it, call create_content_element_draft with page %d.',
+            'New page uid: %d. Created hidden page [%d] "%s" under the parent page [%d]%s. It is not visible '
+            . 'until a human unhides it. Everything that belongs ON the new page targets page %d, not the '
+            . 'parent %d: to put content on it, call create_content_element_draft with page %d.',
+            $newUid,
             $newUid,
             $this->excerpt($plan['title']),
             $plan['parent'],
             $slug !== '' ? sprintf(' (URL segment %s)', $slug) : '',
+            $newUid,
+            $plan['parent'],
             $newUid,
         ))->withWriteTarget(new RecordReference(self::TABLE, $newUid), WriteKind::CREATED);
     }
@@ -234,6 +244,7 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
         }
 
         return [
+            ...$this->duplicateWarning($plan['parent'], $plan['title']),
             sprintf('New page under page [%d] "%s":', $plan['parent'], $this->excerpt($plan['parentTitle'])),
             sprintf('title: %s', $this->quoted($plan['title'])),
             $plan['navTitle'] === null
@@ -388,6 +399,53 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
             // negative one is "directly after the record with that uid".
             'destination' => $afterUid > 0 ? -$afterUid : $parentUid,
         ];
+    }
+
+    /**
+     * A warning line when the parent already holds a default-language page
+     * with exactly this title, hidden ones included; otherwise nothing.
+     *
+     * The approver is the last human between the model and a second copy of
+     * the same page. In the demo a follow-up message ("weiter", "habe alles
+     * freigegeben") made the model draft a page again that an earlier,
+     * already approved call had created, and both got approved (NEXT-167,
+     * conversations 79, 80 and 84). The preview states it; it does not refuse,
+     * because two pages with one title can be what the user wants.
+     *
+     * Only for the approver's eyes: the preview is authorised like the write
+     * itself, so the sibling it names is under a page the viewer may create
+     * pages under.
+     *
+     * @return list<string>
+     */
+    private function duplicateWarning(int $parent, string $title): array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+
+        $existing = $queryBuilder
+            ->select('uid', $this->hiddenField())
+            ->from(self::TABLE)
+            ->where(
+                $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($parent, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('title', $queryBuilder->createNamedParameter($title)),
+                $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+            )
+            ->orderBy('uid', 'ASC')
+            ->setMaxResults(1)
+            ->executeQuery()
+            ->fetchAssociative();
+
+        if (!is_array($existing)) {
+            return [];
+        }
+
+        return [sprintf(
+            'Warning: page [%d] with this exact title already exists under this parent%s. Approving creates a second page with the same title.',
+            self::toInt($existing['uid'] ?? 0),
+            self::toInt($existing[$this->hiddenField()] ?? 0) === 1 ? ' (hidden)' : '',
+        )];
     }
 
     /**

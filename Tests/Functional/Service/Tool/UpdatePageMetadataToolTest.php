@@ -306,6 +306,33 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
         self::assertSame('Home', $this->pageRow(self::PAGE_ADMIN_ONLY)['title'] ?? null);
     }
 
+    /**
+     * NEXT-167, demo conversation 102: the model promised the user it could fill
+     * og_image and twitter_image with this tool. The description now says it
+     * writes text fields only, and a call naming an image field is pointed at
+     * the tool that sets it.
+     */
+    #[Test]
+    public function anImageFieldIsRefusedWithThePointerToTheToolThatSetsIt(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        self::assertStringContainsString('Text fields only', $this->tool->getSpec()->description);
+        self::assertStringContainsString('set_page_social_image', $this->tool->getSpec()->description);
+
+        $result = $this->tool->execute(
+            ['uid' => self::PAGE_ADMIN_ONLY, 'og_image' => '923'],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringEndsWith(
+            '"og_image" is an image field: set it with set_page_social_image.',
+            $result->content,
+        );
+        self::assertSame('Home', $this->pageRow(self::PAGE_ADMIN_ONLY)['title'] ?? null);
+    }
+
     #[Test]
     public function aWorkspaceOtherThanLiveIsRefused(): void
     {

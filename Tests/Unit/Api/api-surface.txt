@@ -1715,6 +1715,9 @@ Netresearch\NrLlm\Service\Tool\ToolProviderInterface (interface)
   const TAG_NAME = "nr_llm.tool_provider"
   method tools(): iterable
 
+Netresearch\NrLlm\Service\Tool\UnavailableToolsResolverInterface (interface)
+  method unavailable(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $user): array
+
 Netresearch\NrLlm\Service\UsageTrackerServiceInterface (interface)
   method getCurrentMonthCost(): float
   method getTodayUsage(string $serviceType, string $provider): ?array

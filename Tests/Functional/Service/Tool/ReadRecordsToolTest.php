@@ -126,8 +126,9 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
         $artifact = $result->artifacts[0];
         self::assertSame(ArtifactType::TABLE, $artifact->type);
 
-        // Columns are exactly uid, pid and the requested field — nothing else.
-        self::assertSame(['uid', 'pid', 'header'], $artifact->data['columns']);
+        // Columns are exactly uid, pid, the requested field and the table's
+        // language pair (NEXT-167) — nothing else.
+        self::assertSame(['uid', 'pid', 'header', 'sys_language_uid', 'l18n_parent'], $artifact->data['columns']);
 
         // Rows carry the same formatted cells the text lines show.
         $rows = $artifact->data['rows'];
@@ -147,6 +148,43 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
 
         self::assertContains('Alpha', $headers);
         self::assertContains('Beta', $headers);
+    }
+
+    /**
+     * NEXT-167, demo conversation 92: asked to edit the page with a given title
+     * under page 10011, the model found "two pages with exactly this title",
+     * 10041 and 10042, and asked which one — fourteen times in that
+     * conversation. The second was the translation of the first. Every record
+     * now says which language it is in and what it translates.
+     */
+    #[Test]
+    public function aPageAndItsTranslationReadAsOneRecordAndItsTranslation(): void
+    {
+        $pages = $this->get(ConnectionPool::class)->getConnectionForTable('pages');
+        self::assertInstanceOf(Connection::class, $pages);
+        $pages->insert('pages', [
+            'uid' => 10041, 'pid' => 1, 'title' => 'Unternehmenspartnerschaften und Projekte', 'doktype' => 1,
+            'sorting' => 3, 'perms_userid' => 1, 'perms_user' => 31,
+        ]);
+        $pages->insert('pages', [
+            'uid' => 10042, 'pid' => 1, 'title' => 'Unternehmenspartnerschaften und Projekte', 'doktype' => 1,
+            'sorting' => 3, 'sys_language_uid' => 1, 'l10n_parent' => 10041,
+            'perms_userid' => 1, 'perms_user' => 31,
+        ]);
+
+        $output = $this->tool->execute([
+            'table'        => 'pages',
+            'where_equals' => ['title' => 'Unternehmenspartnerschaften und Projekte'],
+        ], $this->contextFor($this->setUpBackendUser(1)))->content;
+
+        self::assertStringContainsString(
+            "- pages:10041\n  pid: 1\n  title: Unternehmenspartnerschaften und Projekte\n  sys_language_uid: 0\n  l10n_parent: 0",
+            $output,
+        );
+        self::assertStringContainsString(
+            "- pages:10042\n  pid: 1\n  title: Unternehmenspartnerschaften und Projekte\n  sys_language_uid: 1\n  l10n_parent: 10041",
+            $output,
+        );
     }
 
     #[Test]

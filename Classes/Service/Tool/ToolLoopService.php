@@ -72,6 +72,19 @@ use Throwable;
  */
 final readonly class ToolLoopService implements ToolLoopServiceInterface
 {
+    /**
+     * The fixed reason token a denied approval's tool result leads with, and
+     * the three values of its `decided_by` (ADR-200). Tokens, not prose, so a
+     * consumer or a model can tell a human "no" apart from any other refusal.
+     */
+    public const APPROVAL_DENIED = 'approval_denied';
+
+    public const DECIDED_BY_RUN_OWNER = 'run_owner';
+
+    public const DECIDED_BY_OTHER_USER = 'other_user';
+
+    public const DECIDED_BY_UNKNOWN = 'unknown';
+
     public function __construct(
         private LlmServiceManagerInterface $mgr,
         private ToolRegistry $registry,
@@ -655,7 +668,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
 
         foreach ($pendingCalls as $call) {
             if (!$approved) {
-                $result = sprintf('Error: tool "%s" was denied by the operator.', $call->name);
+                $result = $this->approvalDeniedResult($call->name, $beUserUid, $context->actor->backendUserUid);
                 $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
             } elseif (!in_array($call->name, $offered, true)) {
                 $result = sprintf('Error: tool "%s" is no longer permitted and was not executed.', $call->name);
@@ -699,6 +712,52 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $state->iterations,
             $state->promptTokens,
             $state->completionTokens,
+        );
+    }
+
+    /**
+     * The tool result a denied approval feeds back to the model (ADR-200).
+     *
+     * It used to read "was denied by the operator", and the model passed that
+     * on as "the system or operator refused the write" — to the very person
+     * who had pressed Deny (NEXT-167, demo conversation 102). The reason and
+     * the decider now lead the result as fixed tokens, so the model can say
+     * who declined without guessing from prose.
+     *
+     * The decider is compared with the run OWNER, whose identity the resume
+     * runs under (ADR-083): in the chat that is the person the model is
+     * talking to. Anyone else is named only as "another backend user" — the
+     * model does not need a uid to answer, and the conversation partner does
+     * not need to learn it from the model.
+     */
+    private function approvalDeniedResult(string $toolName, ?int $decidedBy, int $runOwner): string
+    {
+        [$token, $who, $advice] = match (true) {
+            $decidedBy === null || $decidedBy < 1 => [
+                self::DECIDED_BY_UNKNOWN,
+                'by the human reviewer',
+                'Tell the user that the approval was declined; do not describe it as a system error.',
+            ],
+            $decidedBy === $runOwner => [
+                self::DECIDED_BY_RUN_OWNER,
+                'by the user who started this run, the person you are talking to',
+                'Tell them that they declined the approval themselves — it was not refused by the system '
+                . 'or an operator — and ask whether the change should be proposed again.',
+            ],
+            default => [
+                self::DECIDED_BY_OTHER_USER,
+                'by another backend user, not the person you are talking to',
+                'Tell the user that another backend user declined the approval.',
+            ],
+        };
+
+        return sprintf(
+            'Error: %s (decided_by: %s). The approval for tool "%s" was declined %s. Nothing was executed. %s',
+            self::APPROVAL_DENIED,
+            $token,
+            $toolName,
+            $who,
+            $advice,
         );
     }
 

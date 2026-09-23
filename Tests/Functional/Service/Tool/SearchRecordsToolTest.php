@@ -74,6 +74,31 @@ final class SearchRecordsToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('match(', $output);
     }
 
+    /**
+     * NEXT-167, demo conversation 92: a page and its translation share the
+     * title, so a title search found "two pages with exactly this title" and
+     * the model asked which one to edit. The hits now say which is which.
+     */
+    #[Test]
+    public function aHitNamesItsLanguageAndTheRecordItTranslates(): void
+    {
+        $pages = $this->get(ConnectionPool::class)->getConnectionForTable('pages');
+        self::assertInstanceOf(Connection::class, $pages);
+        $pages->insert('pages', [
+            'uid' => 10057, 'pid' => 1, 'title' => 'Prof. Dr. Erika Mustermann', 'doktype' => 1, 'sorting' => 5,
+        ]);
+        $pages->insert('pages', [
+            'uid' => 10058, 'pid' => 1, 'title' => 'Prof. Dr. Erika Mustermann', 'doktype' => 1, 'sorting' => 5,
+            'sys_language_uid' => 1, 'l10n_parent' => 10057,
+        ]);
+
+        $output = $this->tool->execute(['query' => 'Erika Mustermann', 'table' => 'pages'], $this->context)->content;
+
+        self::assertStringContainsString('pages:10057 · Prof. Dr. Erika Mustermann · pid 1 · language 0', $output);
+        self::assertStringContainsString('pages:10058 · Prof. Dr. Erika Mustermann · pid 1 · language 1 · translation of pages:10057', $output);
+        self::assertStringNotContainsString('language 0 · translation of', $output);
+    }
+
     #[Test]
     public function hiddenRowsNeverReachTheOutput(): void
     {

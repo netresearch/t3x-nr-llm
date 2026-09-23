@@ -301,6 +301,76 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
         self::assertSame(3, $this->pageCount(), 'a preview must not create anything');
     }
 
+    /**
+     * NEXT-167, demo conversation 84: after the first page of that title had
+     * been created and approved, "weiter" made the model draft it again, and
+     * the second call was approved too. The approver now sees that a sibling
+     * with this exact title exists — hidden, as every drafted page is.
+     */
+    #[Test]
+    public function thePreviewWarnsWhenTheParentAlreadyHoldsAPageWithThisTitle(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
+            'uid' => 10073, 'pid' => self::PARENT_OPEN, 'title' => 'Prof. Dr. Max Mustermann', 'doktype' => 1,
+            'hidden' => 1, 'sorting' => 3,
+        ]);
+
+        $lines = $this->tool->previewCall(
+            ['parent' => self::PARENT_OPEN, 'title' => 'Prof. Dr. Max Mustermann'],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertCount(7, $lines);
+        self::assertSame(
+            'Warning: page [10073] with this exact title already exists under this parent (hidden). Approving creates a second page with the same title.',
+            $lines[0],
+        );
+        self::assertStringContainsString('New page under page [2] "Open"', $lines[1]);
+    }
+
+    #[Test]
+    public function thePreviewDoesNotWarnForADeletedPageATranslationOrAnotherParent(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        $pages = $this->connectionPool->getConnectionForTable('pages');
+        $pages->insert('pages', ['uid' => 30, 'pid' => self::PARENT_OPEN, 'title' => 'Twin', 'doktype' => 1, 'deleted' => 1]);
+        $pages->insert('pages', ['uid' => 31, 'pid' => self::PARENT_OPEN, 'title' => 'Twin', 'doktype' => 1, 'sys_language_uid' => 1, 'l10n_parent' => 30]);
+        $pages->insert('pages', ['uid' => 32, 'pid' => self::PARENT_CLOSED, 'title' => 'Twin', 'doktype' => 1]);
+
+        $lines = $this->tool->previewCall(
+            ['parent' => self::PARENT_OPEN, 'title' => 'Twin'],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertCount(6, $lines);
+        self::assertStringStartsWith('New page under page [2]', $lines[0]);
+    }
+
+    /**
+     * NEXT-167, demo conversations 80 and 92: an element meant for a freshly
+     * created page twice landed on its parent. The result leads with the new
+     * uid and names the parent as the page NOT to use.
+     */
+    #[Test]
+    public function theResultLeadsWithTheNewUidAndWarnsOffTheParent(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            ['parent' => self::PARENT_OPEN, 'title' => self::DRAFTED_TITLE],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        $newUid = (int)($this->createdPage()['uid'] ?? 0);
+        self::assertStringStartsWith(sprintf('New page uid: %d.', $newUid), $result->content);
+        self::assertStringContainsString(
+            sprintf('targets page %d, not the parent %d', $newUid, self::PARENT_OPEN),
+            $result->content,
+        );
+    }
+
     #[Test]
     public function theViewerGateAnswersForTheViewerNotTheRun(): void
     {
