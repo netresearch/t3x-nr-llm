@@ -15,7 +15,7 @@ automated controls are enforced on all changes:
 |---------|------|-------------|
 | Static Analysis | PHPStan (level max) | CI required to pass |
 | Code Style | PHP-CS-Fixer | CI required to pass |
-| Security Scanning | CodeQL, Gitleaks | CI required to pass |
+| Security Scanning | CodeQL, Betterleaks | CI required to pass |
 | Dependency Review | dependency-review-action | Blocks PRs with vulnerabilities |
 | Test Coverage | PHPUnit + pcov | 80%+ coverage required |
 | Rector | Automated refactoring checks | CI required to pass |
@@ -23,7 +23,7 @@ automated controls are enforced on all changes:
 ### Security Scanning
 
 - **CodeQL**: Semantic code analysis on every push
-- **Gitleaks**: Secret detection in all commits
+- **Betterleaks**: Secret detection in all commits
 - **Composer Audit**: Weekly vulnerability checks
 - **Dependency Review**: PR-level CVE and license checks
 

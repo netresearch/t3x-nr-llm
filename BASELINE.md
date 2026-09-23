@@ -136,7 +136,7 @@ that endpoint alone and attested that neither reviews nor checks were required.
 | Branch protection | Rulesets on `main`, all `enforcement: active`: `main-branch-rules` (16 required status contexts, merge queue), `t3x-pull-request` (1 approval, thread resolution, stale-review dismissal), `require-signed-commits`, `Copilot review for default branch` (which also carries the no-deletion and no-force-push rules). Classic protection adds signed commits, conversation resolution, and denies force-push and deletion |
 | Dependency review | `actions/dependency-review-action` runs on every PR (via `netresearch/.github` reusable workflow) |
 | Dependency auto-merge | [.github/workflows/auto-merge-deps.yml](.github/workflows/auto-merge-deps.yml) delegates to the organisation workflow. Actual merge enforcement follows the live required contexts and bypass settings; configuration alone does not prove race-free behaviour |
-| Secret scanning | GitHub native secret scanning + Gitleaks in CI |
+| Secret scanning | GitHub native secret scanning + Betterleaks in CI |
 
 ## Known gaps
 
