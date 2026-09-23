@@ -47,6 +47,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\ListFalStoragesTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListMiddlewaresTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListSchedulerTasksTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\MoveContentElementTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\MovePageTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ProbeUrlTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\PublishRecordTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadFalAssetMetaTool;
@@ -136,6 +137,7 @@ final class BuiltinToolGroupsTest extends TestCase
             'create_translation_draft' => [CreateTranslationDraftTool::class, 'editing'],
             'publish_record' => [PublishRecordTool::class, 'editing'],
             'delete_record' => [DeleteRecordTool::class, 'editing'],
+            'move_page' => [MovePageTool::class, 'editing'],
             'site_rag_query'    => [SiteRagQueryTool::class, 'rag'],
             'site_fetch_source' => [SiteFetchSourceTool::class, 'rag'],
         ];

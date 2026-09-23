@@ -52,12 +52,11 @@ trait ActsOnAnExistingRecordTrait
     private function existingRecordTable(array $arguments): ?string
     {
         $table = $arguments['table'] ?? null;
+        if (!in_array($table, self::EXISTING_RECORD_TABLES, true)) {
+            return null;
+        }
 
-        return match ($table) {
-            'pages'      => 'pages',
-            'tt_content' => 'tt_content',
-            default      => null,
-        };
+        return $table === 'pages' ? 'pages' : 'tt_content';
     }
 
     /**
