@@ -63,6 +63,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\SetFileAlternativeTextTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetPageSocialImageTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SiteFetchSourceTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SiteRagQueryTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\UpdateContentElementTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdateFalAssetMetaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ValidateTcaTool;
@@ -142,6 +143,7 @@ final class BuiltinToolGroupsTest extends TestCase
             'move_page' => [MovePageTool::class, 'editing'],
             'copy_record' => [CopyRecordTool::class, 'editing'],
             'replace_file_reference' => [ReplaceFileReferenceTool::class, 'editing'],
+            'update_content_element' => [UpdateContentElementTool::class, 'editing'],
             'site_rag_query'    => [SiteRagQueryTool::class, 'rag'],
             'site_fetch_source' => [SiteFetchSourceTool::class, 'rag'],
         ];
