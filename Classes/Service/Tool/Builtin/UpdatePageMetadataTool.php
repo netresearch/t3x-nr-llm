@@ -318,10 +318,7 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
 
         $lines = [sprintf('Page [%d] "%s" — %d field(s):', $uid, $this->excerpt(self::toStr($page['title'] ?? '')), count($values))];
         foreach ($values as $field => $new) {
-            $old = self::toStr($page[$field] ?? '');
-            $lines[] = $old === $new
-                ? sprintf('%s: unchanged (%s)', $field, $this->quoted($new))
-                : sprintf('%s: %s → %s', $field, $this->quoted($old), $this->quoted($new));
+            $lines[] = sprintf('%s: %s', $field, $this->beforeAfter(self::toStr($page[$field] ?? ''), $new));
         }
 
         return $lines;
@@ -598,8 +595,9 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
     private function fetchPage(int $uid): ?array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        // Only the deleted restriction: a hidden or timed-out page is still a
-        // page an editor may fix the description of.
+        // The deleted restriction and live rows only: a hidden or timed-out
+        // page is still a page an editor may fix the description of, but a
+        // workspace version row is another workspace's draft (ADR-198).
         $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
 
         $row = $queryBuilder
@@ -607,6 +605,7 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
             ->from(self::TABLE)
             ->where(
                 $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
+                ...$this->liveVersionConstraints($queryBuilder, self::TABLE),
             )
             ->executeQuery()
             ->fetchAssociative();

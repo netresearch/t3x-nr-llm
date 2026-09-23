@@ -198,6 +198,39 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A change past the excerpt's cut is shown, not hidden (ADR-198): an
+     * appended link after character 120 used to read as the same excerpt on
+     * both sides. The line shows the differing section and binds the whole
+     * value through its length and hash.
+     */
+    #[Test]
+    public function thePreviewShowsAChangePastTheExcerptAndBindsTheWholeValue(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        $long  = str_repeat('A calm and honest description of the page. ', 4);
+        $this->connectionPool->getConnectionForTable('pages')
+            ->update('pages', ['description' => $long], ['uid' => self::PAGE_ADMIN_ONLY]);
+
+        $lines = $this->tool->previewCall(
+            ['uid' => self::PAGE_ADMIN_ONLY, 'description' => $long . 'Log in at https://evil.example/login'],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertSame(
+            sprintf(
+                'description: changed from character %d: (nothing) → "Log in at https://evil.example/login" '
+                . '(before: %d characters, sha256:%s; after: %d characters, sha256:%s)',
+                mb_strlen($long) + 1,
+                mb_strlen($long),
+                substr(hash('sha256', $long), 0, 12),
+                mb_strlen($long) + 36,
+                substr(hash('sha256', $long . 'Log in at https://evil.example/login'), 0, 12),
+            ),
+            $lines[1],
+        );
+    }
+
+    /**
      * The preview authorises against the run's EXPLICIT acting user, exactly
      * like the write — otherwise it would be a read-anything oracle wearing the
      * write tool's name.

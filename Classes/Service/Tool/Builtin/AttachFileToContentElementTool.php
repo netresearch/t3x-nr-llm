@@ -725,6 +725,9 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
             ->where(
                 $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
                 $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                // Live rows only: a workspace version row is another
+                // workspace's draft (ADR-198).
+                ...$this->liveVersionConstraints($queryBuilder, $table),
             )
             ->executeQuery()
             ->fetchAssociative();

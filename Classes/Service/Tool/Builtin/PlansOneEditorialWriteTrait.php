@@ -183,11 +183,13 @@ trait PlansOneEditorialWriteTrait
     }
 
     /**
-     * A row by uid, or null when no undeleted row carries it.
+     * A LIVE row by uid, or null when no undeleted live row carries it.
      *
-     * Only the deleted restriction, and that is the decision this method makes
-     * for all three tools alike: a hidden or timed-out record is still a record
-     * an editor may work on, and none of the three changes what is published.
+     * The deleted restriction and the live-version constraints
+     * ({@see WritesThroughDataHandlerTrait::liveVersionConstraints()}): a
+     * hidden or timed-out record is still a record an editor may work on, but
+     * a workspace version row is another workspace's draft and is treated as
+     * not there (ADR-198).
      *
      * @param non-empty-string $table
      * @param non-empty-string ...$columns the columns to read; none means all
@@ -208,6 +210,7 @@ trait PlansOneEditorialWriteTrait
             ->from($table)
             ->where(
                 $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
+                ...$this->liveVersionConstraints($queryBuilder, $table),
             )
             ->executeQuery()
             ->fetchAssociative();

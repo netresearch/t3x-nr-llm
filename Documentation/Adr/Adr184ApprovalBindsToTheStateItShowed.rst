@@ -10,6 +10,7 @@ ADR-184: An approval binds to the state the preview showed
 :Date: 2026-08-31
 :Amends: :ref:`ADR-136 <adr-136>` (its staleness section, answered the
     other way)
+:Amended: 2026-09-23 by :ref:`ADR-198 <adr-198>` (a field change on the card of ``update_page_metadata`` and ``update_content_element`` binds the whole value, not the excerpt)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-184-context:
@@ -69,7 +70,11 @@ record timestamp at all. An edit to a field the preview never displayed does not
 block — that would fence the approval on state nobody reasoned about, which is
 the failure ADR-136 rightly refused. The same applies to the part of a value
 beyond the 120-character excerpt the card renders: the excerpt was what was
-shown, and the fence binds what was shown.
+shown, and the fence binds what was shown. (Amended by
+:ref:`ADR-198 <adr-198>`: the cards of ``update_page_metadata`` and
+``update_content_element`` show a changed field as the section that differs
+with the length and a short hash of the whole value, so for them the whole
+value is shown and bound.)
 
 **A different subject arrives as a changed preview.** The proposal kept identity
 (workspace, language) apart from the fingerprint. Under line comparison it does
