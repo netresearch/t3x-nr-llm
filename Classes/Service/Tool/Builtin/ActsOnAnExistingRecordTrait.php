@@ -18,11 +18,12 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * What the writers of ADR-198 share because they act on a record that
  * already exists — a page or a content element the editor points at.
  *
- * {@see PublishRecordTool}, {@see DeleteRecordTool}, {@see CopyRecordTool} and
- * {@see MovePageTool} each address ONE row of `pages` or `tt_content` by uid and
- * must answer the same questions about it before their own: which of the two
- * tables, which language, which translations hang off it, which column hides
- * it, and whether the acting user may touch it at all. The answers here are
+ * {@see PublishRecordTool}, {@see DeleteRecordTool}, {@see CopyRecordTool},
+ * {@see MovePageTool}, {@see UpdateContentElementTool} and
+ * {@see ReplaceFileReferenceTool} each address ONE existing row of `pages` or
+ * `tt_content` and must answer the same questions about it before their own:
+ * which of the two tables, which language, which translations hang off it,
+ * which column hides it, and whether the acting user may touch it at all. The answers here are
  * the TCA's and the user's; what each tool DOES with the record stays in the
  * tool, as {@see WritesThroughDataHandlerTrait} keeps its decisions out.
  *
@@ -184,6 +185,10 @@ trait ActsOnAnExistingRecordTrait
      * the row that declares one (`tt_content.CType` among them), and a row
      * that is not edit-locked. Page permissions are NOT asked here: which
      * bit a tool needs on which page is that tool's decision.
+     *
+     * Core's `recordEditAccessInternals` hooks are not run here; the
+     * DataHandler runs them when it asks the same question inside the write,
+     * and a refusal there reaches the caller through its error log.
      *
      * @param array<string, mixed> $row the full row, as {@see PlansOneEditorialWriteTrait::fetchRowByUid()} reads it
      */
