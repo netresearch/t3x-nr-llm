@@ -72,113 +72,7 @@ final readonly class EditorialStarterPackProvider implements UseCasePackProvider
                 // unpublished content leaving the installation, which is the
                 // posture "controlled cloud" describes.
                 recommendedGovernanceProfile: GovernanceProfile::CONTROLLED_CLOUD,
-                tasks: [
-                    new PackTask(
-                        identifier: 'editorial-starter-summarise',
-                        name: 'Summarise for a teaser',
-                        description: 'Condense an article into a teaser of two to three sentences.',
-                        promptTemplate: 'Summarise the text below into a teaser of two to three sentences that '
-                            . 'works on its own on an overview page. Keep every factual claim that survives the '
-                            . "cut and drop the rest. Do not add a headline.\n\n{{input}}",
-                        category: TaskCategory::CONTENT,
-                        inputType: TaskInputType::MANUAL,
-                        outputFormat: TaskOutputFormat::PLAIN,
-                    ),
-                    new PackTask(
-                        identifier: 'editorial-starter-rewrite',
-                        name: 'Rewrite for clarity',
-                        description: 'Shorten sentences and remove filler without changing what the text says.',
-                        promptTemplate: 'Rewrite the text below so it is easier to read: shorter sentences, '
-                            . 'active voice, no filler. Change no facts, no names, no numbers. Return only the '
-                            . "rewritten text.\n\n{{input}}",
-                        category: TaskCategory::CONTENT,
-                        inputType: TaskInputType::MANUAL,
-                        outputFormat: TaskOutputFormat::MARKDOWN,
-                    ),
-                    new PackTask(
-                        identifier: 'editorial-starter-proofread',
-                        name: 'Proofread',
-                        description: 'List spelling, grammar and punctuation corrections without rewriting.',
-                        promptTemplate: 'Proofread the text below. List every spelling, grammar and punctuation '
-                            . 'correction as a bullet of the form `wrong -> right`, with the sentence it occurs '
-                            . 'in. Do not rewrite the text and do not comment on style. If you find nothing, say '
-                            . "so in one line.\n\n{{input}}",
-                        category: TaskCategory::CONTENT,
-                        inputType: TaskInputType::MANUAL,
-                        outputFormat: TaskOutputFormat::MARKDOWN,
-                    ),
-                    new PackTask(
-                        identifier: 'editorial-starter-expand',
-                        name: 'Expand',
-                        description: 'Develop a short text into a fuller one without adding facts it does not contain.',
-                        promptTemplate: 'Expand the text below to roughly twice its length. Develop what it already '
-                            . 'says — explain, connect, give the reasoning — but add no facts, names, numbers or '
-                            . 'claims that are not in it. Where the text is too thin to expand without inventing, '
-                            . "say so in one short line at the end. Return only the expanded text.\n\n{{input}}",
-                        category: TaskCategory::CONTENT,
-                        inputType: TaskInputType::MANUAL,
-                        outputFormat: TaskOutputFormat::MARKDOWN,
-                    ),
-                    new PackTask(
-                        identifier: 'editorial-starter-correct',
-                        name: 'Correct spelling and grammar',
-                        description: 'Return the text with spelling, grammar and punctuation corrected, nothing else changed.',
-                        promptTemplate: 'Correct the spelling, grammar and punctuation of the text below. Change '
-                            . 'nothing else: keep the wording, the style, the structure and the formatting. Return '
-                            . "only the corrected text.\n\n{{input}}",
-                        category: TaskCategory::CONTENT,
-                        inputType: TaskInputType::MANUAL,
-                        outputFormat: TaskOutputFormat::MARKDOWN,
-                    ),
-                    new PackTask(
-                        identifier: 'editorial-starter-plain-language',
-                        name: 'Plain language version',
-                        description: 'Rewrite a text in plain language: short sentences, common words, one idea per sentence.',
-                        promptTemplate: 'Rewrite the text below in plain language (in German: Einfache Sprache). Use '
-                            . 'short sentences with one idea each, common words, the active voice and no '
-                            . 'abbreviations; explain every technical term the first time it appears. Keep all '
-                            . 'facts. Write in the language of the text. Return only the rewritten '
-                            . "text.\n\n{{input}}",
-                        category: TaskCategory::CONTENT,
-                        inputType: TaskInputType::MANUAL,
-                        outputFormat: TaskOutputFormat::MARKDOWN,
-                    ),
-                    new PackTask(
-                        identifier: 'editorial-starter-readability',
-                        name: 'Check readability',
-                        description: 'Rate how easy a text is to read and name the passages that make it hard.',
-                        promptTemplate: 'Assess how easy the text below is to read for its audience. Start with '
-                            . 'one line: easy, moderate or hard. Then list up to five passages that make it hard '
-                            . '(long sentences, nested clauses, jargon, passive chains), each quoted with a '
-                            . "suggestion. Do not rewrite the whole text.\n\n{{input}}",
-                        category: TaskCategory::CONTENT,
-                        inputType: TaskInputType::MANUAL,
-                        outputFormat: TaskOutputFormat::MARKDOWN,
-                    ),
-                    new PackTask(
-                        identifier: 'editorial-starter-review',
-                        name: 'Check for gaps and tone',
-                        description: 'Point out missing or unclear information and wording that breaks the house style.',
-                        promptTemplate: 'Review the text below. List what a reader would miss or misunderstand '
-                            . '(unanswered who, what, when, where; undefined terms; claims without a source), and '
-                            . 'every passage whose tone breaks the house style. Quote each passage and say what is '
-                            . "wrong. Do not rewrite the text. If you find nothing, say so in one line.\n\n{{input}}",
-                        category: TaskCategory::CONTENT,
-                        inputType: TaskInputType::MANUAL,
-                        outputFormat: TaskOutputFormat::MARKDOWN,
-                    ),
-                    new PackTask(
-                        identifier: 'editorial-starter-headlines',
-                        name: 'Suggest headlines',
-                        description: 'Five headline options for an existing text, each under 70 characters.',
-                        promptTemplate: 'Suggest five headlines for the text below. Each one must be under 70 '
-                            . 'characters, must be supported by the text, and must not be a question. Number '
-                            . "them and add nothing else.\n\n{{input}}",
-                        category: TaskCategory::CONTENT,
-                        inputType: TaskInputType::MANUAL,
-                        outputFormat: TaskOutputFormat::MARKDOWN,
-                    ),
-                ],
+                tasks: self::tasks(),
                 snippets: [
                     new PackSnippet(
                         identifier: 'editorial-starter-house-style',
@@ -216,5 +110,114 @@ final readonly class EditorialStarterPackProvider implements UseCasePackProvider
                 recommendedEditorActions: [],
             ),
         ];
+    }
+
+    /**
+     * Six tasks that transform the text, three that only review it. All take
+     * the editor's text through `{{input}}` and run as plain completions.
+     *
+     * @return list<PackTask>
+     */
+    private static function tasks(): array
+    {
+        return [
+            self::contentTask(
+                'editorial-starter-summarise',
+                'Summarise for a teaser',
+                'Condense an article into a teaser of two to three sentences.',
+                'Summarise the text below into a teaser of two to three sentences that '
+                . 'works on its own on an overview page. Keep every factual claim that survives the '
+                . "cut and drop the rest. Do not add a headline.\n\n{{input}}",
+                TaskOutputFormat::PLAIN,
+            ),
+            self::contentTask(
+                'editorial-starter-rewrite',
+                'Rewrite for clarity',
+                'Shorten sentences and remove filler without changing what the text says.',
+                'Rewrite the text below so it is easier to read: shorter sentences, '
+                . 'active voice, no filler. Change no facts, no names, no numbers. Return only the '
+                . "rewritten text.\n\n{{input}}",
+            ),
+            self::contentTask(
+                'editorial-starter-proofread',
+                'Proofread',
+                'List spelling, grammar and punctuation corrections without rewriting.',
+                'Proofread the text below. List every spelling, grammar and punctuation '
+                . 'correction as a bullet of the form `wrong -> right`, with the sentence it occurs '
+                . 'in. Do not rewrite the text and do not comment on style. If you find nothing, say '
+                . "so in one line.\n\n{{input}}",
+            ),
+            self::contentTask(
+                'editorial-starter-expand',
+                'Expand',
+                'Develop a short text into a fuller one without adding facts it does not contain.',
+                'Expand the text below to roughly twice its length. Develop what it already '
+                . 'says — explain, connect, give the reasoning — but add no facts, names, numbers or '
+                . 'claims that are not in it. Where the text is too thin to expand without inventing, '
+                . "say so in one short line at the end. Return only the expanded text.\n\n{{input}}",
+            ),
+            self::contentTask(
+                'editorial-starter-correct',
+                'Correct spelling and grammar',
+                'Return the text with spelling, grammar and punctuation corrected, nothing else changed.',
+                'Correct the spelling, grammar and punctuation of the text below. Change '
+                . 'nothing else: keep the wording, the style, the structure and the formatting. Return '
+                . "only the corrected text.\n\n{{input}}",
+            ),
+            self::contentTask(
+                'editorial-starter-plain-language',
+                'Plain language version',
+                'Rewrite a text in plain language: short sentences, common words, one idea per sentence.',
+                'Rewrite the text below in plain language (in German: Einfache Sprache). Use '
+                . 'short sentences with one idea each, common words, the active voice and no '
+                . 'abbreviations; explain every technical term the first time it appears. Keep all '
+                . 'facts. Write in the language of the text. Return only the rewritten '
+                . "text.\n\n{{input}}",
+            ),
+            self::contentTask(
+                'editorial-starter-readability',
+                'Check readability',
+                'Rate how easy a text is to read and name the passages that make it hard.',
+                'Assess how easy the text below is to read for its audience. Start with '
+                . 'one line: easy, moderate or hard. Then list up to five passages that make it hard '
+                . '(long sentences, nested clauses, jargon, passive chains), each quoted with a '
+                . "suggestion. Do not rewrite the whole text.\n\n{{input}}",
+            ),
+            self::contentTask(
+                'editorial-starter-review',
+                'Check for gaps and tone',
+                'Point out missing or unclear information and wording that breaks the house style.',
+                'Review the text below. List what a reader would miss or misunderstand '
+                . '(unanswered who, what, when, where; undefined terms; claims without a source), and '
+                . 'every passage whose tone breaks the house style. Quote each passage and say what is '
+                . "wrong. Do not rewrite the text. If you find nothing, say so in one line.\n\n{{input}}",
+            ),
+            self::contentTask(
+                'editorial-starter-headlines',
+                'Suggest headlines',
+                'Five headline options for an existing text, each under 70 characters.',
+                'Suggest five headlines for the text below. Each one must be under 70 '
+                . 'characters, must be supported by the text, and must not be a question. Number '
+                . "them and add nothing else.\n\n{{input}}",
+            ),
+        ];
+    }
+
+    private static function contentTask(
+        string $identifier,
+        string $name,
+        string $description,
+        string $promptTemplate,
+        TaskOutputFormat $outputFormat = TaskOutputFormat::MARKDOWN,
+    ): PackTask {
+        return new PackTask(
+            identifier: $identifier,
+            name: $name,
+            description: $description,
+            promptTemplate: $promptTemplate,
+            category: TaskCategory::CONTENT,
+            inputType: TaskInputType::MANUAL,
+            outputFormat: $outputFormat,
+        );
     }
 }
