@@ -25,7 +25,7 @@ final class ToolEgressScopeTest extends TestCase
     #[Test]
     public function valuesListsEveryCase(): void
     {
-        self::assertSame(['none', 'own_site', 'configured_endpoint'], ToolEgressScope::values());
+        self::assertSame(['none', 'own_site', 'configured_endpoint', 'external_filtered'], ToolEgressScope::values());
     }
 
     #[Test]

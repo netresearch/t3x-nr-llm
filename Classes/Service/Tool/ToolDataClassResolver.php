@@ -33,6 +33,11 @@ final readonly class ToolDataClassResolver
      * `rag` is PUBLIC_CONTENT because every retrieval query is access-filtered
      * to publicly visible documents before it returns anything.
      *
+     * `web` is PUBLIC_CONTENT for the reason `rag` is: what it returns is a
+     * page anybody on the internet can read (ADR-202). The class says how
+     * sensitive the data is, not how trustworthy — the page is untrusted input,
+     * which the tool marks in its result.
+     *
      * `editing` is EDITOR_CONTENT for the same reason `content` is: what a
      * writing tool echoes back is the editorial text it just set. The class
      * describes the data that egresses, not the fact that the tool writes —
@@ -46,6 +51,7 @@ final readonly class ToolDataClassResolver
         'editing'       => ToolDataClass::EDITOR_CONTENT,
         'files'         => ToolDataClass::EDITOR_CONTENT,
         'rag'           => ToolDataClass::PUBLIC_CONTENT,
+        'web'           => ToolDataClass::PUBLIC_CONTENT,
         'structure'     => ToolDataClass::INTERNAL_CONFIGURATION,
         'configuration' => ToolDataClass::INTERNAL_CONFIGURATION,
         'code'          => ToolDataClass::SOURCE_CODE,

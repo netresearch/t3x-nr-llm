@@ -43,9 +43,11 @@ final readonly class EgressPolicyService
     /**
      * Declared egress scope per tool group. Absent group => NONE (fail-closed).
      *
-     * `system` carries `probe_url`, the one built-in that fetches over the
-     * network, and is limited to the instance's own sites. `rag` reaches the
-     * search backend the site configuration declares. Every other group
+     * `system` carries `probe_url` and is limited to the instance's own sites.
+     * `rag` reaches the search backend the site configuration declares. `web`
+     * carries `fetch_external_url` and reaches public internet hosts through
+     * the address guard of ADR-202 ({@see \Netresearch\NrLlm\Service\Tool\Web\ExternalUrlGuard}),
+     * never through {@see self::resolveAllowedUrl()}. Every other group
      * (`content`, `structure`, `configuration`, `code`, `files`, `accounts`)
      * reads local state only and is denied egress.
      *
@@ -54,6 +56,7 @@ final readonly class EgressPolicyService
     private const GROUP_SCOPES = [
         'system' => ToolEgressScope::OWN_SITE,
         'rag'    => ToolEgressScope::CONFIGURED_ENDPOINT,
+        'web'    => ToolEgressScope::EXTERNAL_FILTERED,
     ];
 
     public function __construct(
@@ -85,8 +88,9 @@ final readonly class EgressPolicyService
             return null;
         }
 
-        // Only OWN_SITE is a positive scope today; guard explicitly so a future
-        // scope cannot fall through to the own-site logic by accident.
+        // This method serves OWN_SITE only; guard explicitly so another scope
+        // (CONFIGURED_ENDPOINT, EXTERNAL_FILTERED) cannot fall through to the
+        // own-site logic by accident.
         if ($this->scopeFor($group) !== ToolEgressScope::OWN_SITE) {
             return null;
         }

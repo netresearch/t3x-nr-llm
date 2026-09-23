@@ -132,6 +132,16 @@ tools.dataClassEnforcement = enforce
 tools.createRecordDraft.deniedTables =
 
 # =============================================================================
+# External web pages (ADR-202)
+# =============================================================================
+
+# cat=tools; type=string; label=Hosts fetch_external_url may read: Comma-separated host names the tool fetch_external_url (ADR-202) is limited to. "example.org" allows that host, "*.example.org" every subdomain of it (not the apex), "example.org:8443" additionally that one non-default port. Empty (default) allows every public host. The list can only narrow: a host on it that resolves to a private, loopback, link-local or metadata address is still refused.
+tools.fetchExternalUrl.allowedHosts =
+
+# cat=tools; type=string; label=Hosts fetch_external_url never reads: Comma-separated host names ("example.org", "*.example.org") the tool fetch_external_url (ADR-202) refuses, checked before the allowlist and for every redirect target. Empty by default.
+tools.fetchExternalUrl.deniedHosts =
+
+# =============================================================================
 # MCP servers (ADR-170)
 # =============================================================================
 

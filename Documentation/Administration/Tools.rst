@@ -38,12 +38,13 @@ non-admin users.
 The built-in tools
 ==================
 
-nr-llm ships forty-one read-only tools and ten writing tools. Each is a
+nr-llm ships forty-two read-only tools and ten writing tools. Each is a
 reference implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
 redacted or gated behind a separate ``_raw`` variant. Thirty-eight ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
-``get_php_info_raw`` and ``list_be_users_raw``) and all ten writing tools
+``get_php_info_raw`` and ``list_be_users_raw``), ``fetch_external_url``
+(see :ref:`administration-tools-external-pages`) and all ten writing tools
 (``update_page_metadata``, ``set_page_social_image``,
 ``set_file_alternative_text``, ``update_fal_asset_meta``,
 ``move_content_element``, ``create_content_element_draft``,
@@ -56,8 +57,8 @@ and file tools (``get_pagetree``, ``get_tca``, ``get_full_tca``,
 ``search_records``, ``get_page_content``, ``read_records``,
 ``get_record_history``, ``resolve_url``, ``validate_tca``,
 ``list_fal_storages``, ``browse_fal_folder``, ``search_fal_files``,
-``get_fal_references``, ``find_missing_files``) are offered to
-non-admin backend users — those self-enforce the acting user's TYPO3
+``get_fal_references``, ``find_missing_files``, ``fetch_external_url``) are
+offered to non-admin backend users — those self-enforce the acting user's TYPO3
 permissions (page-show rights, ``tables_select``) inside the tool, so a
 non-admin only ever sees what the backend already grants them (see
 :ref:`ADR-042 <adr-042>`).
@@ -279,6 +280,11 @@ The remaining tools follow the same pattern:
 ``site_fetch_source``
    The full indexed text behind a ``site_rag_query`` source id, capped at
    8000 characters — for reading a promising source beyond its excerpt.
+
+``fetch_external_url``
+   One public web page from the internet as readable text: title, headings,
+   main text and links, wrapped as untrusted third-party content. Ships
+   disabled; see :ref:`administration-tools-external-pages`.
 
 .. _administration-tools-writing:
 
@@ -864,6 +870,8 @@ Group              Tools
                    ``search_fal_files``, ``get_fal_references``,
                    ``find_missing_files``
 ``rag``            ``site_rag_query``, ``site_fetch_source``
+``web``            ``fetch_external_url`` — the only group that reaches hosts
+                   outside the installation
 ``editing``        ``update_page_metadata``, ``set_page_social_image``,
                    ``set_file_alternative_text``, ``update_fal_asset_meta``,
                    ``attach_file_to_content_element``,
@@ -903,21 +911,91 @@ Network egress is governed **per tool group** and is **fail-closed**
 (:ref:`ADR-061 <adr-061>`). Each group has a declared egress scope; a group
 with no declaration may make **no** outbound request:
 
-===============  ============================================================
-Scope            Meaning
-===============  ============================================================
-``none``         No outbound network request (the default for every group).
-``own_site``     Only the instance's own configured site hosts, resolved
-                 through ``SiteFinder`` — the exact allow-listing ``probe_url``
-                 applies, now lifted to the group boundary.
-===============  ============================================================
+=========================  ====================================================
+Scope                      Meaning
+=========================  ====================================================
+``none``                   No outbound network request (the default for every
+                           group).
+``own_site``               Only the instance's own configured site hosts,
+                           resolved through ``SiteFinder`` — the exact
+                           allow-listing ``probe_url`` applies, now lifted to
+                           the group boundary.
+``configured_endpoint``    Only the service endpoint the site configuration
+                           declares, such as the search backend of the ``rag``
+                           tools (:ref:`ADR-093 <adr-093>`).
+``external_filtered``      Public internet hosts, each one passed through the
+                           address guard of :ref:`ADR-202 <adr-202>`: no
+                           private, loopback, link-local or metadata address is
+                           reachable, whatever the operator's host lists say.
+=========================  ====================================================
 
-Only the ``system`` group (which carries ``probe_url``, the one built-in that
-fetches over the network) is granted ``own_site``; every other group is
-``none``. There is no "any host" scope, so a newly installed or mis-declared
-tool group can never egress to an arbitrary target. The diagnostics tools that
-share the ``system`` group (``get_env``, ``fetch_logs`` …) never make a network
-request, so the grant does not loosen them.
+The ``system`` group (which carries ``probe_url``) is granted ``own_site``,
+``rag`` is granted ``configured_endpoint`` and ``web`` (which carries
+``fetch_external_url``) is granted ``external_filtered``; every other group is
+``none``. There is no unfiltered "any host" scope, so a newly installed or
+mis-declared tool group can never egress to an arbitrary target. The
+diagnostics tools that share the ``system`` group (``get_env``,
+``fetch_logs`` …) never make a network request, so the grant does not loosen
+them.
+
+.. _administration-tools-external-pages:
+
+Reading external web pages
+==========================
+
+``fetch_external_url`` reads **one** public web page and returns its title,
+headings, main text and links as plain text (:ref:`ADR-202 <adr-202>`). Pages
+of this installation stay with ``probe_url`` and ``site_rag_query``.
+
+It ships **disabled**. To offer it, enable the ``web`` group and the tool in
+the Tools module; a configuration that restricts :guilabel:`Allowed tool
+groups` must also list ``web``. It is not admin-only: public web content is
+none of the system or cross-user data the admin tier guards.
+
+What it refuses, for the first URL and again for every redirect target:
+
+*  schemes other than ``http`` and ``https``, and URLs with credentials;
+*  ports other than 80/443, unless the allowlist names ``host:port``;
+*  numeric host forms such as ``2130706433`` or ``0177.0.0.1``, and host names
+   with non-ASCII characters (pass the ``xn--`` form instead);
+*  any host whose DNS answer contains a private, loopback, link-local, CGNAT,
+   multicast, reserved or cloud-metadata address (``169.254.169.254``,
+   ``fd00:ec2::254``), IPv4-mapped and other IPv6 forms of those included;
+*  a host that does not resolve in DNS — names that exist only in
+   ``/etc/hosts`` are unreachable on purpose.
+
+The connection is pinned to exactly the addresses that were checked, so a DNS
+answer that changes between the check and the connect cannot redirect it. It
+follows at most three redirects, stops the download at 2 MiB, returns at most
+20,000 characters and gives up after 20 seconds in total. Only HTML and plain
+text are read.
+
+The text comes back between ``BEGIN``/``END UNTRUSTED EXTERNAL WEB CONTENT``
+markers with a note that it is reference material, not instructions — the
+same shape skill bodies carry (:ref:`ADR-061 <adr-061>`).
+
+Two extension settings narrow where it may go
+(:guilabel:`Admin Tools > Settings > Extension Configuration > nr_llm`):
+
+``tools.fetchExternalUrl.allowedHosts``
+   Comma-separated ``example.org``, ``*.example.org`` (subdomains, not the
+   apex) or ``example.org:8443``. When set, only these hosts are fetched.
+   Empty (default) allows every public host.
+
+``tools.fetchExternalUrl.deniedHosts``
+   Hosts that are never fetched, checked before the allowlist.
+
+Neither list can admit a private address: an allow-listed host that resolves
+to one is still refused.
+
+.. warning::
+
+   The URL the model chooses leaves the installation, and the model is
+   steerable by the pages and skills it reads. A run could be led to put data
+   it has seen into a URL. Where that matters, set an allowlist. Behind the
+   TYPO3 HTTP proxy (``$GLOBALS['TYPO3_CONF_VARS']['HTTP']['proxy']``) the
+   proxy resolves the host itself, so the address pin does not reach past
+   the proxy; the address check before the request still runs.
 
 .. _administration-tools-playground:
 

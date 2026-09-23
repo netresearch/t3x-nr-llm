@@ -41,6 +41,9 @@ services:
       # is per run, and a container-held instance would bound the process
       # (ADR-116).
       - '../Classes/Service/Tool/RemoteCallBudget.php'
+      - '../Classes/Service/Tool/Web/Exception/*'
+      # Built per request with its byte limit (ADR-202), never injected.
+      - '../Classes/Service/Tool/Web/BoundedSinkStream.php'
       - '../Classes/Specialized/Exception/*'
       - '../Classes/Testing/*'
       - '../Classes/Widgets/*'

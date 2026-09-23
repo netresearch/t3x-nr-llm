@@ -19,7 +19,9 @@ namespace Netresearch\NrLlm\Domain\Enum;
  * URL allow-listing (e.g. `probe_url`), now lifted to the group boundary.
  *
  * Deliberately minimal: no free-form "any host" scope exists, so a new or
- * mis-declared group can never egress to an arbitrary target.
+ * mis-declared group can never egress to an arbitrary target. The one scope
+ * that reaches hosts nobody declared, {@see self::EXTERNAL_FILTERED}, is not
+ * that: every target it permits has passed the address guard of ADR-202.
  */
 enum ToolEgressScope: string
 {
@@ -42,6 +44,15 @@ enum ToolEgressScope: string
      * misdeclaring the group (ADR-093).
      */
     case CONFIGURED_ENDPOINT = 'configured_endpoint';
+
+    /**
+     * Public internet hosts the model names, each one filtered (ADR-202): http(s)
+     * only, default ports, the operator's allow- and denylists, and every address
+     * the host resolves to must be public — the connection is pinned to those
+     * addresses. Private, loopback, link-local and metadata targets are
+     * unreachable through it whatever the lists say.
+     */
+    case EXTERNAL_FILTERED = 'external_filtered';
 
     /**
      * @return list<string>
