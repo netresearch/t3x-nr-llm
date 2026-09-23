@@ -49,6 +49,13 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
 
     private const ELEMENT_ON_CLOSED = 11;
 
+    /** The language-1 translation of ELEMENT, carrying overlays of its references. */
+    private const TRANSLATED_ELEMENT = 12;
+
+    private const OVERLAY_OF_SECOND = 111;
+
+    private const OVERLAY_OF_FIRST = 112;
+
     private const FIRST = 101;
 
     private const SECOND = 102;
@@ -136,7 +143,20 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
             'assets' => 1, 'sys_language_uid' => 0,
         ]);
 
+        $content->insert('tt_content', [
+            'uid' => self::TRANSLATED_ELEMENT, 'pid' => self::OPEN_PAGE, 'header' => 'Galerie', 'CType' => 'textmedia',
+            'assets' => 2, 'sys_language_uid' => 1, 'l18n_parent' => self::ELEMENT,
+        ]);
+
         $references = $this->connectionPool->getConnectionForTable('sys_file_reference');
+        foreach ([[self::OVERLAY_OF_FIRST, self::FIRST, 1], [self::OVERLAY_OF_SECOND, self::SECOND, 2]] as [$uid, $parent, $sorting]) {
+            $references->insert('sys_file_reference', [
+                'uid' => $uid, 'pid' => self::OPEN_PAGE, 'uid_local' => self::FILE_ONE, 'tablenames' => 'tt_content',
+                'uid_foreign' => self::TRANSLATED_ELEMENT, 'fieldname' => 'assets', 'sorting_foreign' => $sorting,
+                'sys_language_uid' => 1, 'l10n_parent' => $parent,
+            ]);
+        }
+
         foreach ([
             [self::FIRST, self::OPEN_PAGE, self::FILE_ONE, 'tt_content', self::ELEMENT, 'assets', 1, 'The old image'],
             [self::SECOND, self::OPEN_PAGE, self::FILE_TWO, 'tt_content', self::ELEMENT, 'assets', 2, null],
@@ -200,6 +220,46 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
         self::assertSame(self::SECOND, $result->writeTarget?->uid);
         self::assertSame([self::FIRST], $this->liveReferences(self::ELEMENT));
         self::assertSame(1, $this->counter(self::ELEMENT));
+    }
+
+    #[Test]
+    public function removingAReferenceTakesItsTranslatedOverlayAlongAndSettlesTheTranslation(): void
+    {
+        $result = $this->change(['reference' => self::SECOND, 'action' => 'remove']);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('Its 1 translated reference(s) were deleted with it.', $result->content);
+        self::assertSame(1, (int)($this->referenceRow(self::OVERLAY_OF_SECOND)['deleted'] ?? 0));
+        self::assertSame([self::OVERLAY_OF_FIRST], $this->liveReferences(self::TRANSLATED_ELEMENT));
+        self::assertSame(1, $this->counter(self::TRANSLATED_ELEMENT));
+    }
+
+    #[Test]
+    public function thePreviewNamesTheTranslatedReferenceThatGoesAlong(): void
+    {
+        $lines = $this->tool->previewCall(
+            ['reference' => self::SECOND, 'action' => 'remove'],
+            ToolExecutionContext::fromBackendUser($this->actor(1)),
+        );
+
+        self::assertContains('with 1 translated reference(s) [111] on translated element(s) [12], which core deletes with it', $lines);
+    }
+
+    #[Test]
+    public function anEditorWhoMayNotEditTheTranslationIsRefusedBeforeTheWrite(): void
+    {
+        $editor                                 = $this->actor(2);
+        $editor->groupData['allowed_languages'] = '0';
+
+        $result = $this->tool->execute(
+            ['reference' => self::SECOND, 'action' => 'remove'],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('translated reference in language 1', $result->content);
+        self::assertSame([self::FIRST, self::SECOND], $this->liveReferences(self::ELEMENT));
+        self::assertSame(0, (int)($this->referenceRow(self::OVERLAY_OF_SECOND)['deleted'] ?? 1));
     }
 
     #[Test]
@@ -277,6 +337,8 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
             'title: "New caption"',
             "alternative: the file's own (not carried over from the old reference)",
             "description: the file's own (not carried over from the old reference)",
+            'with 1 translated reference(s) [112] on translated element(s) [12], which core deletes with the old '
+            . 'reference; the translations get no reference to the new file',
         ], $lines);
         self::assertSame([self::FIRST, self::SECOND], $this->liveReferences(self::ELEMENT));
     }

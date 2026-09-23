@@ -195,6 +195,9 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         if ($plan['file'] === null) {
             $lines[] = sprintf('remove: file [%d] "%s" — the file itself stays', $plan['oldFile'], $this->excerpt($plan['oldFileName']));
             $lines[] = sprintf('references in %s: %d → %d', $plan['field'], $count, $count - 1);
+            if ($plan['translated'] !== []) {
+                $lines[] = $this->translatedLine($plan['translated']) . ', which core deletes with it';
+            }
 
             return $lines;
         }
@@ -212,7 +215,25 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
                 : sprintf("%s: the file's own (not carried over from the old reference)", $name);
         }
 
+        if ($plan['translated'] !== []) {
+            $lines[] = $this->translatedLine($plan['translated'])
+                . ', which core deletes with the old reference; the translations get no reference to the new file';
+        }
+
         return $lines;
+    }
+
+    /**
+     * @param non-empty-list<array{reference:int, element:int, language:int}> $translated
+     */
+    private function translatedLine(array $translated): string
+    {
+        return sprintf(
+            'with %d translated reference(s) %s on translated element(s) %s',
+            count($translated),
+            implode(', ', array_map(static fn(array $t): string => '[' . $t['reference'] . ']', $translated)),
+            implode(', ', array_unique(array_map(static fn(array $t): string => '[' . $t['element'] . ']', $translated))),
+        );
     }
 
     public function isEnabledByDefault(): bool
@@ -248,7 +269,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{reference:int, element:int, header:string, page:int, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>}|string
+     * @return array{reference:int, element:int, header:string, page:int, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>, translated:list<array{reference:int, element:int, language:int}>}|string
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
@@ -366,6 +387,37 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             );
         }
 
+        // Core deletes the translated overlays of a default-language
+        // reference together with it (`deleteL10nOverlayRecords()`), so they
+        // are part of this act: the translated element each sits on must be
+        // the acting user's to change (its language, lock, content type and
+        // field grant; `tables_modify` for the references is asked above) —
+        // refused up front, as the other ADR-198 writers refuse a translation
+        // core carries along.
+        $translated = [];
+        foreach ($this->translatedReferencesOf($referenceUid, $field) as $overlay) {
+            $translatedElement = $this->fetchRowByUid(self::CONTENT_TABLE, self::toInt($overlay['uid_foreign'] ?? 0));
+            $translatedPage    = $translatedElement === null ? null : $this->fetchRowByUid(self::PAGES_TABLE, self::toInt($translatedElement['pid'] ?? 0));
+            if ($translatedElement === null || $translatedPage === null
+                || !$user->doesUserHaveAccess($translatedPage, Permission::CONTENT_EDIT)
+                || !$this->mayEditRecord(self::CONTENT_TABLE, $translatedElement, $user)
+                || $this->columnsTheUserMayNotSet($user, self::CONTENT_TABLE, [$field]) !== []
+            ) {
+                return sprintf(
+                    'Refused: reference [%d] has a translated reference in language %d which the acting backend user may '
+                    . 'not change, and core deletes it with this one. Nothing was written.',
+                    $referenceUid,
+                    self::toInt($overlay['sys_language_uid'] ?? 0),
+                );
+            }
+
+            $translated[] = [
+                'reference' => self::toInt($overlay['uid'] ?? 0),
+                'element'   => self::toInt($translatedElement['uid'] ?? 0),
+                'language'  => self::toInt($overlay['sys_language_uid'] ?? 0),
+            ];
+        }
+
         $elementUid = self::toInt($element['uid'] ?? 0);
         $references = $this->liveReferenceUids($elementUid, $field);
         $position   = array_search($referenceUid, $references, true);
@@ -384,6 +436,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             'file'        => $fileUid,
             'fileName'    => self::toStr($newFile['name'] ?? ''),
             'texts'       => $texts,
+            'translated'  => $translated,
         ];
     }
 
@@ -392,7 +445,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      * one DataHandler run, the datamap first and read back before the
      * cmdmap, as {@see SetPageSocialImageTool} does it.
      *
-     * @param array{reference:int, element:int, header:string, page:int, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>} $plan
+     * @param array{reference:int, element:int, header:string, page:int, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>, translated:list<array{reference:int, element:int, language:int}>} $plan
      */
     private function replace(array $plan, BackendUserAuthentication $user): ToolResult
     {
@@ -457,7 +510,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         }
 
         return ToolResult::text(sprintf(
-            'Replaced file [%d] "%s" with file [%d] "%s" in %s of tt_content [%d] "%s" (reference [%d] is now [%d]).',
+            'Replaced file [%d] "%s" with file [%d] "%s" in %s of tt_content [%d] "%s" (reference [%d] is now [%d]).%s',
             $plan['oldFile'],
             $this->excerpt($plan['oldFileName']),
             (int)$plan['file'],
@@ -467,6 +520,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             $this->excerpt($plan['header']),
             $plan['reference'],
             $newUid,
+            $this->settleTranslations($plan, $user),
         ))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $newUid), WriteKind::CREATED);
     }
 
@@ -474,7 +528,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      * The reference deleted and the element's field set to the references
      * that remain, as the page module removes one.
      *
-     * @param array{reference:int, element:int, header:string, page:int, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>} $plan
+     * @param array{reference:int, element:int, header:string, page:int, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>, translated:list<array{reference:int, element:int, language:int}>} $plan
      */
     private function remove(array $plan, BackendUserAuthentication $user): ToolResult
     {
@@ -506,7 +560,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
 
         return ToolResult::text(sprintf(
             'Removed reference [%d] to file [%d] "%s" from %s of tt_content [%d] "%s"; %d reference(s) remain. The file '
-            . 'itself is unchanged.',
+            . 'itself is unchanged.%s',
             $plan['reference'],
             $plan['oldFile'],
             $this->excerpt($plan['oldFileName']),
@@ -514,6 +568,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             $plan['element'],
             $this->excerpt($plan['header']),
             count($remaining),
+            $this->settleTranslations($plan, $user),
         ))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $plan['reference']), WriteKind::DELETED);
     }
 
@@ -587,6 +642,83 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
                 implode(', ', $live) ?: '(none)',
                 $plan['field'],
             );
+    }
+
+    /**
+     * After core deleted the translated overlays: set each translated
+     * element's field to the references it still carries, so its counter
+     * matches its rows, and say what came of it — '' when there were none,
+     * otherwise a sentence for the answer.
+     *
+     * @param array{field:string, translated:list<array{reference:int, element:int, language:int}>} $plan
+     */
+    private function settleTranslations(array $plan, BackendUserAuthentication $user): string
+    {
+        if ($plan['translated'] === []) {
+            return '';
+        }
+
+        $elements = array_values(array_unique(array_map(static fn(array $t): int => $t['element'], $plan['translated'])));
+        $datamap  = [];
+        foreach ($elements as $elementUid) {
+            $datamap[$elementUid] = [$plan['field'] => implode(',', $this->liveReferenceUids($elementUid, $plan['field']))];
+        }
+
+        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler->start([self::CONTENT_TABLE => $datamap], [], $user);
+        $dataHandler->process_datamap();
+
+        $problems = [];
+        foreach ($plan['translated'] as $translation) {
+            if ($this->liveReference($translation['reference']) !== null) {
+                $problems[] = sprintf('translated reference [%d] is still there', $translation['reference']);
+            }
+        }
+
+        foreach ($elements as $elementUid) {
+            $row   = $this->fetchRowByUid(self::CONTENT_TABLE, $elementUid);
+            $count = count($this->liveReferenceUids($elementUid, $plan['field']));
+            if ($row === null || self::toInt($row[$plan['field']] ?? -1) !== $count) {
+                $problems[] = sprintf('translated element [%d] does not count its %d reference(s)', $elementUid, $count);
+            }
+        }
+
+        return $problems === []
+            ? sprintf(' Its %d translated reference(s) were deleted with it.', count($plan['translated']))
+            : sprintf(
+                ' The translations are not settled: %s.%s',
+                implode('; ', $problems),
+                $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . $this->summariseErrors($dataHandler->errorLog),
+            );
+    }
+
+    /**
+     * The live translated overlays of a reference on one field.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function translatedReferencesOf(int $referenceUid, string $field): array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::REFERENCE_TABLE);
+        $queryBuilder->getRestrictions()->removeAll();
+
+        /** @var list<array<string, mixed>> $rows */
+        $rows = $queryBuilder
+            ->select('*')
+            ->from(self::REFERENCE_TABLE)
+            ->where(
+                $queryBuilder->expr()->eq('l10n_parent', $queryBuilder->createNamedParameter($referenceUid, Connection::PARAM_INT)),
+                $queryBuilder->expr()->gt('sys_language_uid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('tablenames', $queryBuilder->createNamedParameter(self::CONTENT_TABLE)),
+                $queryBuilder->expr()->eq('fieldname', $queryBuilder->createNamedParameter($field)),
+                $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                ...$this->liveVersionConstraints($queryBuilder, self::REFERENCE_TABLE),
+            )
+            ->orderBy('uid')
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        return $rows;
     }
 
     /**
