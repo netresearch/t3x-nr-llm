@@ -350,6 +350,7 @@ Netresearch\NrLlm\Domain\Enum\TrustZone (enum)
 
 Netresearch\NrLlm\Domain\Enum\WriteKind (enum)
   case CREATED = "created"
+  case DELETED = "deleted"
   case UPDATED = "updated"
   method static cases(): array
   method static from(int|string $value): static

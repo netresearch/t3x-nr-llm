@@ -22,9 +22,9 @@ namespace Netresearch\NrLlm\Domain\Enum;
  * is a non-idempotent CREATED, and `move_content_element` is an idempotent
  * UPDATED. Neither enum can be derived from the other.
  *
- * Two cases and no third: a deletion would need one, and no builtin deletes.
- * The case is added when the first deleting writer exists, not before — a value
- * nothing emits is a value nothing can be tested against.
+ * The third case arrived with the first deleting writer, `delete_record`
+ * (ADR-198), as this docblock said it would: a value nothing emits is a value
+ * nothing can be tested against.
  *
  * @api
  */
@@ -41,4 +41,11 @@ enum WriteKind: string
      * write, not produced by it.
      */
     case UPDATED = 'updated';
+
+    /**
+     * The record existed and this call deleted it. The table declares a
+     * `delete` column, so the row is still there, flagged `deleted = 1`, and
+     * its uid names what was removed.
+     */
+    case DELETED = 'deleted';
 }

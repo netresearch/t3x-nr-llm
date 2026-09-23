@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Database\Connection;
+use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Localization\LanguageService;
 
@@ -61,6 +63,18 @@ trait WritesThroughDataHandlerTrait
      * the whole of both.
      */
     private const PREVIEW_EXCERPT_LENGTH = 120;
+
+    /**
+     * Characters a reader of the approval card cannot see or cannot tell
+     * apart, escaped wherever they occur: every control, format, private-use
+     * and unassigned code point (`\p{C}` — zero-width and direction marks,
+     * bidi isolates, the soft hyphen, the byte-order mark, the tag
+     * characters), every separator but the plain space, and the characters
+     * that render as nothing although Unicode files them as letters or marks
+     * (the combining grapheme joiner, the Hangul fillers, the Khmer inherent
+     * vowels, the Mongolian and the general variation selectors).
+     */
+    private const INVISIBLE_CHARACTERS = '/[\p{C}\p{Zl}\p{Zp}\x{034F}\x{115F}\x{1160}\x{17B4}\x{17B5}\x{180B}-\x{180F}\x{3164}\x{FE00}-\x{FE0F}\x{FFA0}\x{E0100}-\x{E01EF}]|(?! )\p{Zs}/u';
 
     /**
      * Refuse when the process lacks the backend environment the DataHandler
@@ -142,6 +156,76 @@ trait WritesThroughDataHandlerTrait
     }
 
     /**
+     * The constraints that keep a query to LIVE rows of a workspace-aware
+     * table: `t3ver_wsid`, `t3ver_oid` and `t3ver_state` all 0. Empty for a
+     * table without `versioningWS`, which has no such columns.
+     *
+     * Every writer runs in the live workspace only, and the DataHandler does
+     * not refuse a live-workspace write to a workspace VERSION row — it treats
+     * any uid it is handed as the record to change. A version row found by uid
+     * is therefore another workspace's draft, which a writer must neither
+     * change, copy, count nor show on an approval card. Read from the live TCA
+     * rather than assumed, so a table an installation makes workspace-aware is
+     * covered too.
+     *
+     * @param string $alias the table alias in the query, '' for none
+     *
+     * @return list<string>
+     */
+    private function liveVersionConstraints(QueryBuilder $queryBuilder, string $table, string $alias = ''): array
+    {
+        $tca  = $GLOBALS['TCA'] ?? null;
+        $ctrl = is_array($tca) && is_array($tca[$table] ?? null) ? ($tca[$table]['ctrl'] ?? null) : null;
+        if (!is_array($ctrl) || !(bool)($ctrl['versioningWS'] ?? false)) {
+            return [];
+        }
+
+        $prefix      = $alias === '' ? '' : $alias . '.';
+        $constraints = [];
+        foreach (['t3ver_wsid', 't3ver_oid', 't3ver_state'] as $column) {
+            $constraints[] = $queryBuilder->expr()->eq(
+                $prefix . $column,
+                $queryBuilder->createNamedParameter(0, Connection::PARAM_INT),
+            );
+        }
+
+        return $constraints;
+    }
+
+    /**
+     * The columns among `$columns` the user may not write because the TCA
+     * marks them `exclude` and the user holds no `non_exclude_fields` grant
+     * — the question the DataHandler asks before it drops such a column in
+     * silence, through the same method. `exclude` is read as core's schema
+     * reads it, as a boolean cast, so an extension's integer `1` counts. The
+     * one implementation every writer asks it through.
+     *
+     * @param list<string> $columns
+     *
+     * @return list<string>
+     */
+    private function columnsTheUserMayNotSet(BackendUserAuthentication $user, string $table, array $columns): array
+    {
+        if ($user->isAdmin()) {
+            return [];
+        }
+
+        $tcaColumns = $this->tcaColumnsFor($table) ?? [];
+
+        $ungranted = [];
+        foreach ($columns as $column) {
+            $definition = $tcaColumns[$column] ?? null;
+            if (is_array($definition) && (bool)($definition['exclude'] ?? false)
+                && !$user->check('non_exclude_fields', $table . ':' . $column)
+            ) {
+                $ungranted[] = $column;
+            }
+        }
+
+        return $ungranted;
+    }
+
+    /**
      * A table's column definitions from the live TCA, or null when no TCA is
      * loaded. Narrowed step by step because `$GLOBALS` is untyped.
      *
@@ -167,6 +251,109 @@ trait WritesThroughDataHandlerTrait
     private function quoted(string $value): string
     {
         return $value === '' ? '(empty)' : '"' . $this->excerpt($value) . '"';
+    }
+
+    /**
+     * How an approval card shows one field's change, bound to the WHOLE value.
+     *
+     * Two short values are shown in full, `"old" → "new"`. Where either is
+     * longer than the excerpt, or the two differ only in what the excerpt
+     * flattens (whitespace), showing two excerpts would hide the change: an
+     * appended link past the cut reads as "no change". So the line shows the
+     * section that differs — the common start and end stripped, with the
+     * character it starts at — and the length and a short hash of both whole
+     * values. The hash is what makes the approval bind the whole value: a
+     * change anywhere in it changes the line, and ADR-184 compares the lines
+     * when the run resumes.
+     */
+    private function beforeAfter(string $old, string $new): string
+    {
+        if ($old === $new) {
+            return sprintf('unchanged (%s)', $this->quoted($new));
+        }
+
+        // Shown in full only where the card shows each value exactly as it is:
+        // short, and nothing the excerpt would flatten or a reader could not see.
+        if ($this->showsAsItIs($old) && $this->showsAsItIs($new)) {
+            return sprintf('%s → %s', $this->quoted($old), $this->quoted($new));
+        }
+
+        // Split once: character-by-character mb_substr() is quadratic on a
+        // body text of thousands of characters.
+        $oldCharacters = mb_str_split($old);
+        $newCharacters = mb_str_split($new);
+        $oldLength     = count($oldCharacters);
+        $newLength     = count($newCharacters);
+        $shorter       = min($oldLength, $newLength);
+
+        $prefix = 0;
+        while ($prefix < $shorter && $oldCharacters[$prefix] === $newCharacters[$prefix]) {
+            $prefix++;
+        }
+
+        $suffix = 0;
+        while ($suffix < $shorter - $prefix
+            && $oldCharacters[$oldLength - $suffix - 1] === $newCharacters[$newLength - $suffix - 1]
+        ) {
+            $suffix++;
+        }
+
+        return sprintf(
+            'changed from character %d: %s → %s (before: %d characters, %s; after: %d characters, %s)',
+            $prefix + 1,
+            $this->section(implode('', array_slice($oldCharacters, $prefix, $oldLength - $prefix - $suffix))),
+            $this->section(implode('', array_slice($newCharacters, $prefix, $newLength - $prefix - $suffix))),
+            $oldLength,
+            $this->shortHash($old),
+            $newLength,
+            $this->shortHash($new),
+        );
+    }
+
+    /**
+     * Whether a value appears on the card exactly as it is: within the
+     * excerpt length, no whitespace but single inner spaces, and no
+     * character a reader cannot see (a no-break or zero-width space, a line
+     * or paragraph separator, a byte-order mark).
+     */
+    private function showsAsItIs(string $value): bool
+    {
+        return mb_strlen($value) <= self::PREVIEW_EXCERPT_LENGTH
+            && $this->excerpt($value) === $value
+            && preg_match(self::INVISIBLE_CHARACTERS, $value) !== 1;
+    }
+
+    /**
+     * The differing section of a value as the card shows it. Its whitespace
+     * is made visible rather than collapsed: a change that IS whitespace must
+     * not read as nothing.
+     */
+    private function section(string $part): string
+    {
+        if ($part === '') {
+            return '(nothing)';
+        }
+
+        // A backslash is doubled first, so a value that spells out `\n` or
+        // `\u{00A0}` cannot pass for the character it names.
+        $visible = strtr($part, ['\\' => '\\\\', "\r" => '\\r', "\n" => '\\n', "\t" => '\\t']);
+        $visible = preg_replace_callback(
+            self::INVISIBLE_CHARACTERS,
+            static fn(array $match): string => sprintf('\\u{%04X}', mb_ord($match[0])),
+            $visible,
+        ) ?? $visible;
+
+        return '"' . (mb_strlen($visible) > self::PREVIEW_EXCERPT_LENGTH
+            ? mb_substr($visible, 0, self::PREVIEW_EXCERPT_LENGTH) . '…'
+            : $visible) . '"';
+    }
+
+    /**
+     * The first twelve hex digits of a value's SHA-256.
+     */
+    private function shortHash(string $value): string
+    {
+        return 'sha256:' . substr(hash('sha256', $value), 0, 12);
     }
 
     /**

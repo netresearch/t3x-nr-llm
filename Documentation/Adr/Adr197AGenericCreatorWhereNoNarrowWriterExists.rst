@@ -6,9 +6,10 @@
 ADR-197: A generic record creator, only where no narrow writer exists
 ============================================================================
 
-:Status: Accepted
+:Status: Accepted (its line against updating and deleting is moved for pages and content elements — see :ref:`ADR-198 <adr-198>`)
 :Date: 2026-09-21
 :Amends: :ref:`ADR-135 <adr-135>` (its refusal of a generic writer, for the CREATE case under the conditions below), :ref:`ADR-180 <adr-180>` (the rejected alternative, re-evaluated as a builtin rather than a remote tool)
+:Amended: 2026-09-23 by :ref:`ADR-198 <adr-198>` (narrow writers now update, publish, delete, copy and move existing pages and content elements; this fallback still only creates)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-197-context:
@@ -263,7 +264,9 @@ What the fallback does not do, and why: it does not update or delete (the
 safety line of ADR-135 and ADR-180 stands for those; a wrong CREATE leaves a
 hidden record to delete, a wrong UPDATE overwrites work); it does not create
 child records or file references (one call, one record, ADR-180's multi-record
-review is still open); it does not publish.
+review is still open); it does not publish. :ref:`ADR-198 <adr-198>` later
+moved that line for ``pages`` and ``tt_content``, through narrow writers of
+their own; this fallback still only creates.
 
 .. _adr-197-relation:
 

@@ -6,10 +6,10 @@
 ADR-135: The first writing tool, and the contract it actually needed
 ============================================================================
 
-:Status: Accepted (its non-guarantee section is closed — see :ref:`ADR-141 <adr-141>`; its refusal of a generic writer is narrowed for CREATE only — see :ref:`ADR-197 <adr-197>`)
+:Status: Accepted (its non-guarantee section is closed — see :ref:`ADR-141 <adr-141>`; its refusal of a generic writer is narrowed for CREATE only — see :ref:`ADR-197 <adr-197>`; its line against updating, publishing and deleting existing records is moved for pages and content elements — see :ref:`ADR-198 <adr-198>`)
 :Date: 2026-08-09
 :Amends: :ref:`ADR-122 <adr-122>` (its premise, not its reasoning)
-:Amended: 2026-08-10 by :ref:`ADR-141 <adr-141>`, :ref:`ADR-146 <adr-146>`; 2026-09-16 by :ref:`ADR-192 <adr-192>`; 2026-09-21 by :ref:`ADR-194 <adr-194>`, :ref:`ADR-197 <adr-197>`; 2026-09-22 by :ref:`ADR-195 <adr-195>`
+:Amended: 2026-08-10 by :ref:`ADR-141 <adr-141>`, :ref:`ADR-146 <adr-146>`; 2026-09-16 by :ref:`ADR-192 <adr-192>`; 2026-09-21 by :ref:`ADR-194 <adr-194>`, :ref:`ADR-197 <adr-197>`; 2026-09-22 by :ref:`ADR-195 <adr-195>`; 2026-09-23 by :ref:`ADR-198 <adr-198>` (update, publish, delete, copy and move of existing pages and content elements, under its rails)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-135-context:

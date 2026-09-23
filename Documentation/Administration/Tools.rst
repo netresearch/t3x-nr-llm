@@ -38,17 +38,19 @@ non-admin users.
 The built-in tools
 ==================
 
-nr-llm ships forty-one read-only tools and ten writing tools. Each is a
+nr-llm ships forty-one read-only tools and sixteen writing tools. Each is a
 reference implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
 redacted or gated behind a separate ``_raw`` variant. Thirty-eight ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
-``get_php_info_raw`` and ``list_be_users_raw``) and all ten writing tools
-(``update_page_metadata``, ``set_page_social_image``,
+``get_php_info_raw`` and ``list_be_users_raw``) and all sixteen writing
+tools (``update_page_metadata``, ``set_page_social_image``,
 ``set_file_alternative_text``, ``update_fal_asset_meta``,
 ``move_content_element``, ``create_content_element_draft``,
 ``create_page_draft``, ``create_translation_draft``,
-``attach_file_to_content_element``, ``create_record_draft``) ship
+``attach_file_to_content_element``, ``create_record_draft``,
+``update_content_element``, ``publish_record``, ``delete_record``,
+``copy_record``, ``move_page``, ``replace_file_reference``) ship
 **disabled** and must be enabled deliberately.
 Many require admin; the read-only structure, content
 and file tools (``get_pagetree``, ``get_tca``, ``get_full_tca``,
@@ -285,16 +287,21 @@ The remaining tools follow the same pattern:
 The writing tools
 =================
 
-Ten tools change anything at all: ``update_page_metadata``,
+Sixteen tools change anything at all: ``update_page_metadata``,
 ``set_page_social_image``, ``set_file_alternative_text``,
 ``update_fal_asset_meta``, ``move_content_element``,
 ``create_content_element_draft``, ``create_page_draft``,
-``create_translation_draft``, ``attach_file_to_content_element`` and
-``create_record_draft``. All ten
-write through the TYPO3 DataHandler, as
-the acting backend user, in the live workspace only, on exactly **one** record
-per call (:ref:`ADR-135 <adr-135>`, :ref:`ADR-146 <adr-146>`,
-:ref:`ADR-180 <adr-180>`, :ref:`ADR-197 <adr-197>`).
+``create_translation_draft``, ``attach_file_to_content_element``,
+``create_record_draft``, and the six that act on existing pages and content
+elements — ``update_content_element``, ``publish_record``,
+``delete_record``, ``copy_record``, ``move_page`` and
+``replace_file_reference``. All sixteen write through the TYPO3 DataHandler,
+as the acting backend user, in the live workspace only, on **one** record per
+call — plus, for a delete, a copy or a page move, what core carries along
+with that record, which the approval card counts (:ref:`ADR-135 <adr-135>`,
+:ref:`ADR-146 <adr-146>`, :ref:`ADR-180 <adr-180>`,
+:ref:`ADR-197 <adr-197>`, :ref:`ADR-198 <adr-198>`,
+:ref:`ADR-199 <adr-199>`).
 
 What holds for all of them:
 
@@ -315,6 +322,16 @@ What holds for all of them:
   part, and a record the acting user may not reach is refused with the same
   words as a record that does not exist — so a refusal never confirms that a
   uid exists.
+- They act on **live rows only**. A workspace draft of a page, a content
+  element or a file reference is not there for them: it is not written,
+  copied, counted or shown on an approval card, even when its uid is named
+  (:ref:`ADR-198 <adr-198>`).
+- ``update_page_metadata`` and ``update_content_element`` bind a field's
+  before and after to the whole value: two short values in full, otherwise
+  the section that differs, where it starts, and the length and a short hash
+  of both values — so a change past the visible part, such as an appended
+  link, still shows. A character a reader cannot see, such as a zero-width
+  space or a direction mark, is written as its code point.
 
 ``update_page_metadata``
    Sets a fixed set of descriptive fields on one page. Editable: ``title``,
@@ -669,6 +686,98 @@ What holds for all of them:
    so it is reached through the assistant only, never from a record's
    context menu.
 
+``update_content_element``
+   Changes fields of one existing content element (:ref:`ADR-198 <adr-198>`).
+   The field set is the one ``create_content_element_draft`` offers for a new
+   element of the same type — the scalar columns of the type's form, header and
+   body text included — checked by the same rules (:ref:`ADR-196 <adr-196>`): a
+   value outside a select's items, a number outside its range, a column the
+   page's TSconfig hides or makes read-only is refused, and the refusal names
+   the columns the type offers. An element whose type the exclusion rule leaves
+   out — raw HTML, plugins, menus, shortcuts, a form holding a FlexForm or
+   inline children — is refused whole; relations and the identity, position,
+   visibility, publication, audience and translation columns are never fields. A
+   column a translation takes from its default-language element (``l10n_mode =
+   exclude``) is refused and the element to change named. The approval card
+   shows every column's change, bound to the whole value. Where some columns
+   take and others do not, the answer says which. Authorised by content-edit
+   rights on the page, the record-level rights and the field-level grant for
+   every column.
+
+``publish_record``
+   Clears the hidden flag of one page or content element — the step after a
+   human has reviewed a draft — and changes nothing else. Start and stop
+   times and access groups stay as they are; the approval card names them,
+   and a hidden default-language record behind a translation, where they still
+   keep the record from visitors. A record that is not hidden is not written.
+   Needs page-edit rights on a page or content-edit rights on an element's
+   page, and the field-level grant for the hidden column.
+
+``delete_record``
+   Deletes one page or content element with core's delete command. The row is
+   flagged ``deleted`` and stays recoverable from the recycler. What core
+   deletes with it is counted on the approval card first: the translations of a
+   default-language record, and for a page its subpages (their uids, ten and
+   then "and N more"), their translations, and the records stored on the pages
+   table by table. The counts include records the acting user cannot see; they
+   are counts only, never titles. A page with subpages is refused unless the
+   call sets ``include_subpages``; a branch of more than 50 pages is refused
+   outright, and a site root is never deleted. The card also counts the records
+   the reference index says still point at the record — links and shortcuts that
+   will break. Needs delete rights on a page (and on every page of its branch),
+   content-edit rights for an element, and the right to edit every translation
+   that goes along; for a page, also ``tables_modify`` for every table with
+   records on it and the languages of the content on it. A delete that would
+   take a workspace draft along is refused: core discards the versions and
+   new workspace translations of what it deletes for good, and strands the
+   other drafts on a deleted page. Publish or discard them in their workspace
+   first.
+
+``copy_record``
+   Copies one content element to a page and column, or one page under a
+   parent, with core's copy command (:ref:`ADR-199 <adr-199>`). The copy and
+   every translation copied with it are **always hidden**, whatever core's
+   ``hideAtCopy``, the user's preferences and page TSconfig say, and a page is
+   **always copied without its subpages**: core would hide only the top page
+   of a copied branch. What happens to the translations of a
+   default-language record depends on the TYPO3 release and the target's
+   **site**: TYPO3 14 and 13.4.25 or later copy none outside a site and,
+   inside one, a translation only where the site has its language (for an
+   element, where the target page is translated into it); one core refuses
+   fails the copy, which is then taken back. Before 13.4.25, core asks no
+   site: it copies every page translation, and drops an element translation
+   the target page is not translated into without an error. The card states
+   the rule of the running core. The answer says how many were copied. A
+   page's content is copied with the page. A translation is refused by
+   itself, as are a page translation as target, a site root, and a
+   standalone element beside connected translations on the target page
+   (:ref:`ADR-193 <adr-193>`).
+
+``move_page``
+   Moves one default-language page to a new parent or directly after a
+   sibling. Its content, translations and subpages move with it, and it keeps
+   its uid and its URL path — core does not regenerate the slug on a move.
+   The approval card says so, counts the subpages that move along, and warns
+   when the page moves into another site, into a site or out of every site.
+   Asks the permissions core asks: delete rights on the page and new-page
+   rights on the new parent for a new parent, edit rights within the same
+   parent. A site root, a translation, a page translation as parent and a
+   target inside the page's own branch are refused.
+
+``replace_file_reference``
+   Points one existing file reference on a content element's ``image``,
+   ``assets`` or ``media`` field at another **existing** file, or removes the
+   reference; ``attach_file_to_content_element`` only appends. A replacement
+   takes the old reference's position, and nothing of the old reference is
+   carried over — its title, alternative text, description and crop described
+   the old file; the card says which texts the new reference will show. The
+   file itself is never changed, and the new file must lie in a permitted
+   storage inside the acting user's file mounts and carry an extension the
+   field accepts. Core deletes the translated references of the old one with
+   it: the card names them, the call is refused where the acting user may
+   not change the translated element they sit on, and afterwards each
+   translated element's reference count is set and read back.
+
 .. _administration-tools-register:
 
 Registering a tool
@@ -739,9 +848,10 @@ A tool that carries an **editor action** declaration
 (:ref:`ADR-152 <adr-152>`) reads differently in that list: it shows an icon,
 its translated name, one sentence written for a human, and the record types it
 addresses — instead of the wire name and the description written for the
-language model. Nine of the ten writing tools declare one —
+language model. Nine of the sixteen writing tools declare one —
 ``create_record_draft`` has no subject record and declares none
-(:ref:`ADR-197 <adr-197>`) — and the wire name stays
+(:ref:`ADR-197 <adr-197>`), and the six of :ref:`ADR-198 <adr-198>` are
+reached through the assistant only — and the wire name stays
 visible as the technical detail the toggle acts on. A read-only tool is
 unchanged.
 
@@ -764,7 +874,8 @@ opens the catalogue narrowed to the actions that address that record.
 An editor is offered an action only when all of the following hold, and every
 one of them is an administrator's decision:
 
-* the writing tool is enabled in this module (all ten ship **disabled**);
+* the writing tool is enabled in this module (all sixteen ship
+  **disabled**);
 * its group — ``editing`` — is enabled, and where the default LLM
   configuration restricts tool groups, ``editing`` is among them;
 * the tool's data class is within the configured provider's trust-zone ceiling;
@@ -869,7 +980,10 @@ Group              Tools
                    ``attach_file_to_content_element``,
                    ``move_content_element``,
                    ``create_content_element_draft``, ``create_page_draft``,
-                   ``create_translation_draft``, ``create_record_draft``
+                   ``create_translation_draft``, ``create_record_draft``,
+                   ``update_content_element``, ``publish_record``,
+                   ``delete_record``, ``copy_record``, ``move_page``,
+                   ``replace_file_reference``
                    — the only WRITING group
 =================  ============================================================
 

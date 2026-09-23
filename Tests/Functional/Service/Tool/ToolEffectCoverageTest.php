@@ -54,6 +54,11 @@ final class ToolEffectCoverageTest extends AbstractFunctionalTestCase
      * discarding work (NON_IDEMPOTENT_WRITE). `create_record_draft` (ADR-197)
      * creates too, in any table no narrow writer covers, and follows them.
      *
+     * The six of ADR-198 act on existing records and split the same way:
+     * `update_content_element`, `publish_record`, `delete_record` and
+     * `move_page` converge on repeat (IDEMPOTENT_WRITE); `copy_record` and
+     * `replace_file_reference` bring a row into being (NON_IDEMPOTENT_WRITE).
+     *
      * @var list<string>
      */
     private const DECLARED_WRITERS = [
@@ -61,10 +66,16 @@ final class ToolEffectCoverageTest extends AbstractFunctionalTestCase
         'create_page_draft',
         'create_record_draft',
         'create_translation_draft',
+        'delete_record',
         'attach_file_to_content_element',
+        'copy_record',
         'move_content_element',
+        'move_page',
+        'publish_record',
+        'replace_file_reference',
         'set_file_alternative_text',
         'set_page_social_image',
+        'update_content_element',
         'update_fal_asset_meta',
         'update_page_metadata',
     ];
