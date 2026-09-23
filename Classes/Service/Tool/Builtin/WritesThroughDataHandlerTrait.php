@@ -181,6 +181,39 @@ trait WritesThroughDataHandlerTrait
     }
 
     /**
+     * The columns among `$columns` the user may not write because the TCA
+     * marks them `exclude` and the user holds no `non_exclude_fields` grant
+     * — the question the DataHandler asks before it drops such a column in
+     * silence, through the same method. `exclude` is read as core's schema
+     * reads it, as a boolean cast, so an extension's integer `1` counts. The
+     * one implementation every writer asks it through.
+     *
+     * @param list<string> $columns
+     *
+     * @return list<string>
+     */
+    private function columnsTheUserMayNotSet(BackendUserAuthentication $user, string $table, array $columns): array
+    {
+        if ($user->isAdmin()) {
+            return [];
+        }
+
+        $tcaColumns = $this->tcaColumnsFor($table) ?? [];
+
+        $ungranted = [];
+        foreach ($columns as $column) {
+            $definition = $tcaColumns[$column] ?? null;
+            if (is_array($definition) && (bool)($definition['exclude'] ?? false)
+                && !$user->check('non_exclude_fields', $table . ':' . $column)
+            ) {
+                $ungranted[] = $column;
+            }
+        }
+
+        return $ungranted;
+    }
+
+    /**
      * A table's column definitions from the live TCA, or null when no TCA is
      * loaded. Narrowed step by step because `$GLOBALS` is untyped.
      *

@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Configuration\SiteWriter;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
@@ -59,6 +60,9 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
     private const CONNECTED_ON_TARGET = 24;
 
     private const ELEMENT_ON_PAGE_TO_COPY = 25;
+
+    /** The German translation of TARGET_PAGE, so core can place a German element there. */
+    private const TARGET_PAGE_GERMAN = 9;
 
     private CopyRecordTool $tool;
 
@@ -179,6 +183,62 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('it is not hidden', $result->content);
         self::assertStringContainsString('The copy was deleted again.', $result->content);
         self::assertSame($before, $this->rowCount('tt_content', ['pid' => self::TARGET_PAGE]));
+    }
+
+    #[Test]
+    public function copiedTranslationsAreHiddenEvenWhereCoreWouldLeaveThemVisible(): void
+    {
+        $this->writeSite([0, 1]);
+        $this->translateTargetPage();
+        // The target page switches core's own hiding off, so only the tool
+        // can hide what is copied there.
+        $this->connectionPool->getConnectionForTable('pages')->update(
+            'pages',
+            ['TSconfig' => 'TCEMAIN.table.tt_content.disableHideAtCopy = 1'],
+            ['uid' => self::TARGET_PAGE],
+        );
+
+        $result = $this->tool->execute(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'target_page' => self::TARGET_PAGE],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('with 1 hidden translation(s)', $result->content);
+        $copyUid = (int)$result->writeTarget?->uid;
+        self::assertSame(1, (int)($this->row('tt_content', $copyUid)['hidden'] ?? 0));
+        self::assertSame(1, $this->rowCount('tt_content', ['l18n_parent' => $copyUid, 'sys_language_uid' => 1, 'hidden' => 1]));
+        self::assertSame(0, $this->rowCount('tt_content', ['l18n_parent' => $copyUid, 'hidden' => 0]));
+    }
+
+    #[Test]
+    public function aCopyWhoseTranslationTheTargetSiteCannotPlaceIsTakenBack(): void
+    {
+        $this->writeSite([0]);
+        $before = $this->rowCount('tt_content', ['pid' => self::TARGET_PAGE]);
+
+        $result = $this->tool->execute(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'target_page' => self::TARGET_PAGE],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('The copy was deleted again.', $result->content);
+        self::assertSame($before, $this->rowCount('tt_content', ['pid' => self::TARGET_PAGE]));
+    }
+
+    #[Test]
+    public function aPageTranslationIsNoTarget(): void
+    {
+        $this->translateTargetPage();
+
+        $result = $this->tool->execute(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'target_page' => self::TARGET_PAGE_GERMAN],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('page [9] is a translation (language 1) of page [3]', $result->content);
     }
 
     #[Test]
@@ -305,7 +365,9 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
         self::assertSame([
             'Copy tt_content [20] "Original", language 0',
             'to: page [3] "Target", column 2, directly after element [22] "Anchor"',
-            'with its 1 translation(s); if the target page lacks one of their languages, the copy fails and is taken back',
+            "with its 1 translation(s), copied where the target's site has their language and the target page is "
+            . 'translated into it; one the site cannot place fails the copy, which is then taken back; outside a site '
+            . 'none is copied',
             'visibility: the copy and every copied translation are hidden — a human must unhide them before anyone sees them',
         ], $lines);
         self::assertSame($before, $this->rowCount('tt_content', []));
@@ -318,6 +380,42 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
 
         self::assertTrue($this->tool->mayViewerReadPreview($arguments, $this->setUpBackendUser(1)));
         self::assertFalse($this->tool->mayViewerReadPreview($arguments, $this->editor('tt_content:hidden,tt_content:colPos')));
+    }
+
+    /**
+     * A site on the root page with the given languages.
+     *
+     * @param list<int> $languages
+     */
+    private function writeSite(array $languages): void
+    {
+        $siteLanguages = [];
+        foreach ($languages as $language) {
+            $siteLanguages[] = [
+                'languageId' => $language,
+                'title'      => 'Language ' . $language,
+                'base'       => $language === 0 ? '/' : '/l' . $language . '/',
+                'locale'     => $language === 0 ? 'en_US.UTF-8' : 'de_DE.UTF-8',
+            ];
+        }
+
+        $siteWriter = $this->get(SiteWriter::class);
+        self::assertInstanceOf(SiteWriter::class, $siteWriter);
+        $siteWriter->write('copytest', [
+            'rootPageId' => self::SITE_ROOT,
+            'base'       => 'https://example.com/',
+            'languages'  => $siteLanguages,
+        ]);
+    }
+
+    private function translateTargetPage(): void
+    {
+        $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
+            'uid' => self::TARGET_PAGE_GERMAN, 'pid' => self::SITE_ROOT, 'title' => 'Ziel', 'doktype' => 1,
+            'slug' => '/ziel', 'sys_language_uid' => 1, 'l10n_parent' => self::TARGET_PAGE,
+            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
+        ]);
     }
 
     private function editor(string $nonExcludeFields): BackendUserAuthentication

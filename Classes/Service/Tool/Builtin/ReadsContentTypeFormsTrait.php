@@ -773,33 +773,6 @@ trait ReadsContentTypeFormsTrait
     }
 
     /**
-     * The columns among `$columns` this user may not write, because the TCA
-     * marks them `exclude` and the user holds no `non_exclude_fields` grant —
-     * the same question the DataHandler asks, through the same method, as
-     * {@see UpdateFalAssetMetaTool} asks it. `exclude` is read as core's
-     * schema reads it, as a boolean cast, so an extension's integer `1` counts.
-     *
-     * @param list<string> $columns
-     *
-     * @return list<string>
-     */
-    private function fieldsTheUserMayNotWrite(BackendUserAuthentication $user, array $columns): array
-    {
-        $tcaColumns = $this->tcaColumnsFor(self::TABLE) ?? [];
-
-        $ungranted = [];
-        foreach ($columns as $column) {
-            $definition = $tcaColumns[$column] ?? null;
-            $excluded   = is_array($definition) && (bool)($definition['exclude'] ?? false);
-            if ($excluded && !$user->check('non_exclude_fields', self::TABLE . ':' . $column)) {
-                $ungranted[] = $column;
-            }
-        }
-
-        return $ungranted;
-    }
-
-    /**
      * The columns set through `fields` — and the two text arguments, handed
      * in with them — whose stored value is not the one asked for.
      *

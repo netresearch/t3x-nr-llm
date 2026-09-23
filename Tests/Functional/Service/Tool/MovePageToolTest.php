@@ -177,6 +177,40 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function aPageTranslationIsNoParent(): void
+    {
+        $result = $this->tool->execute(
+            ['uid' => self::SIBLING_IN_B, 'parent' => self::TRANSLATION],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('page [5] is a translation (language 1) of page [4]', $result->content);
+        self::assertSame(self::SECTION_B, (int)($this->pageRow(self::SIBLING_IN_B)['pid'] ?? 0));
+    }
+
+    #[Test]
+    public function thePreviewWarnsWhenThePageMovesIntoAnotherSite(): void
+    {
+        $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
+            'uid' => 11, 'pid' => 0, 'title' => 'Other root', 'doktype' => 1, 'slug' => '/', 'is_siteroot' => 1,
+            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
+        ]);
+
+        $lines = $this->tool->previewCall(
+            ['uid' => self::MOVED, 'parent' => 11],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertContains(
+            'moves into another site: from the site of root page [1] to the site of root page [11] — its address '
+            . 'follows the other site from then on',
+            $lines,
+        );
+    }
+
+    #[Test]
     public function aSiteRootIsNotMoved(): void
     {
         $result = $this->tool->execute(
@@ -278,7 +312,7 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertSame([
-            'Page [4] "Moved", with its content, 1 translation(s) and its subpages:',
+            'Page [4] "Moved", with its content, 1 translation(s) and 1 subpage(s):',
             'from: under page [2] "Section A"',
             'to: under page [3] "Section B", directly after page [8] "Sibling"',
             'URL path unchanged: /a/moved (the slug is not regenerated)',

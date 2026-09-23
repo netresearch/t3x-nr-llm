@@ -93,6 +93,9 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
      */
     private const MAX_BRANCH_PAGES = 50;
 
+    /** How many subpage uids the approval card lists before it says "and N more". */
+    private const LISTED_UIDS = 10;
+
     public function __construct(
         private ConnectionPool $connectionPool,
     ) {}
@@ -150,10 +153,15 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
         // refusing one translation, so a complaint does not mean nothing was
         // deleted. The answer reports what is actually gone and what is left.
         $survivors = [];
-        foreach ([...$plan['subpages'], ...$plan['translations']] as [$table, $uid]) {
+        foreach ([...$plan['subpages'], ...$plan['translations'], ...$plan['subpageTranslations']] as [$table, $uid]) {
             if ($this->fetchRowByUid($table, $uid, 'uid') !== null) {
                 $survivors[] = sprintf('%s [%d]', $table, $uid);
             }
+        }
+
+        // What core deletes from the pages themselves, table by table.
+        foreach ($this->recordCountsOn($plan['pageUids']) as $table => $left) {
+            $survivors[] = sprintf('%d %s record(s) on the deleted page(s)', $left, $table);
         }
 
         $recordGone = $this->fetchRowByUid($plan['table'], $plan['uid'], 'uid') === null;
@@ -242,8 +250,23 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
                     $plan['language'],
                 );
             } else {
-                $lines[] = sprintf('with %d subpage(s)', count($plan['subpages']));
-                $lines[] = sprintf('with %d content element(s) on the page(s), and every other record stored there', $plan['contentCount']);
+                $lines[] = $plan['subpages'] === []
+                    ? 'with no subpages'
+                    : sprintf(
+                        'with %d subpage(s): %s%s, and %d translation(s) of them',
+                        count($plan['subpages']),
+                        implode(', ', array_map(static fn(array $page): string => '[' . $page[1] . ']', array_slice($plan['subpages'], 0, self::LISTED_UIDS))),
+                        count($plan['subpages']) > self::LISTED_UIDS ? sprintf(' and %d more', count($plan['subpages']) - self::LISTED_UIDS) : '',
+                        count($plan['subpageTranslations']),
+                    );
+                $counts  = [];
+                foreach ($plan['recordCounts'] as $table => $count) {
+                    $counts[] = sprintf('%s %d', $table, $count);
+                }
+
+                $lines[] = $counts === []
+                    ? 'with no records stored on the page(s)'
+                    : 'with the records stored on the page(s), in every language: ' . implode(', ', $counts);
             }
         }
 
@@ -288,7 +311,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{table:'pages'|'tt_content', uid:int, label:string, page:int, pageTitle:string, language:int, translations:list<array{non-empty-string, int}>, subpages:list<array{non-empty-string, int}>, contentCount:int, referencedBy:int}|string
+     * @return array{table:'pages'|'tt_content', uid:int, label:string, page:int, pageTitle:string, language:int, translations:list<array{non-empty-string, int}>, subpages:list<array{non-empty-string, int}>, subpageTranslations:list<array{non-empty-string, int}>, pageUids:list<int>, recordCounts:array<string, int>, contentCount:int, referencedBy:int}|string
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
@@ -371,8 +394,9 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
             }
         }
 
-        $subpages = [];
-        $pageUids = [self::toInt($page['uid'] ?? 0)];
+        $subpages            = [];
+        $subpageTranslations = [];
+        $pageUids            = [self::toInt($page['uid'] ?? 0)];
         if ($table === self::PAGES_TABLE && $parent === 0) {
             $branch = $this->branchOf($uid);
             if ($branch === null) {
@@ -405,6 +429,9 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
                 $subpageUid = self::toInt($subpage['uid'] ?? 0);
                 $subpages[] = [self::PAGES_TABLE, $subpageUid];
                 $pageUids[] = $subpageUid;
+                foreach ($this->translationsOf(self::PAGES_TABLE, $subpageUid) as $subpageTranslation) {
+                    $subpageTranslations[] = [self::PAGES_TABLE, self::toInt($subpageTranslation['uid'] ?? 0)];
+                }
             }
 
             $onThePages = $this->refuseWhatIsOnThePages($uid, $pageUids, $user);
@@ -431,6 +458,9 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
                 default                      => $this->contentCountOn($pageUids),
             },
             'referencedBy' => $this->referencingRecordCount($table, $uid, [[$table, $uid], ...$translations, ...$subpages]),
+            'subpageTranslations' => $subpageTranslations,
+            'pageUids'            => $table === self::PAGES_TABLE && $parent === 0 ? $pageUids : [],
+            'recordCounts'        => $table === self::PAGES_TABLE && $parent === 0 ? $this->recordCountsOn($pageUids) : [],
         ];
     }
 
@@ -599,6 +629,57 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
         }
 
         return null;
+    }
+
+    /**
+     * The live, undeleted records stored on the pages, table by table —
+     * every table of the TCA but `pages`, whose translations are counted on
+     * their own. Tables without such records are left out. These are counts,
+     * never titles or uids: they include records the acting user cannot see
+     * (ADR-198), and the approver needs to know how much goes, not what.
+     *
+     * @param list<int> $pageUids
+     *
+     * @return array<string, int>
+     */
+    private function recordCountsOn(array $pageUids): array
+    {
+        if ($pageUids === []) {
+            return [];
+        }
+
+        $tca    = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
+        $counts = [];
+        foreach (array_keys($tca) as $table) {
+            $table = self::toStr($table);
+            if ($table === '' || $table === self::PAGES_TABLE) {
+                continue;
+            }
+
+            try {
+                $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+                $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+                $count = self::toInt($queryBuilder
+                    ->count('uid')
+                    ->from($table)
+                    ->where(
+                        $queryBuilder->expr()->in('pid', $queryBuilder->createNamedParameter($pageUids, Connection::PARAM_INT_ARRAY)),
+                        ...$this->liveVersionConstraints($queryBuilder, $table),
+                    )
+                    ->executeQuery()
+                    ->fetchOne());
+            } catch (Throwable) {
+                continue;
+            }
+
+            if ($count > 0) {
+                $counts[$table] = $count;
+            }
+        }
+
+        ksort($counts);
+
+        return $counts;
     }
 
     /**

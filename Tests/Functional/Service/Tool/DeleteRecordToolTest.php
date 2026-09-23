@@ -366,9 +366,10 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
             ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
         );
 
-        self::assertContains('with 1 subpage(s)', $lines);
-        // The shortcut on page 3 and the element on its subpage.
-        self::assertContains('with 2 content element(s) on the page(s), and every other record stored there', $lines);
+        self::assertContains('with 1 subpage(s): [4], and 0 translation(s) of them', $lines);
+        // The shortcut on page 3 and the element on its subpage, counted by
+        // table — counts only, never titles.
+        self::assertContains('with the records stored on the page(s), in every language: tt_content 2', $lines);
     }
 
     #[Test]

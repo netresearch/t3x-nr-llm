@@ -320,7 +320,7 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
             return $fields;
         }
 
-        $ungranted = $this->fieldsTheUserMayNotWrite($user, array_keys($fields));
+        $ungranted = $this->columnsTheUserMayNotSet($user, self::TABLE, array_keys($fields));
         if ($ungranted !== []) {
             return sprintf(
                 'Refused: the acting backend user holds no field-level ("exclude field") grant for %s. Nothing was '

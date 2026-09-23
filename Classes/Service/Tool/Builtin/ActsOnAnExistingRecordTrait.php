@@ -222,35 +222,4 @@ trait ActsOnAnExistingRecordTrait
 
         return $editlock === null || !(bool)($row[$editlock] ?? false);
     }
-
-    /**
-     * The columns among `$columns` the user may not write because the TCA
-     * marks them `exclude` and the user holds no `non_exclude_fields` grant
-     * — the question the DataHandler asks before it drops such a column in
-     * silence.
-     *
-     * @param list<string> $columns
-     *
-     * @return list<string>
-     */
-    private function columnsTheUserMayNotSet(BackendUserAuthentication $user, string $table, array $columns): array
-    {
-        if ($user->isAdmin()) {
-            return [];
-        }
-
-        $tcaColumns = $this->tcaColumnsFor($table) ?? [];
-
-        $ungranted = [];
-        foreach ($columns as $column) {
-            $definition = $tcaColumns[$column] ?? null;
-            if (is_array($definition) && (bool)($definition['exclude'] ?? false)
-                && !$user->check('non_exclude_fields', $table . ':' . $column)
-            ) {
-                $ungranted[] = $column;
-            }
-        }
-
-        return $ungranted;
-    }
 }

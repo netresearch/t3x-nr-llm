@@ -71,6 +71,9 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
 
     private const TABLE = 'pages';
 
+    /** Beyond this many, the card says "more than" rather than counting on. */
+    private const MAX_COUNTED_SUBPAGES = 100;
+
     /** The deepest rootline walked to find out whether a target lies inside the page's own branch. */
     private const MAX_ROOTLINE_DEPTH = 100;
 
@@ -191,12 +194,15 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
             return [$plan];
         }
 
-        return [
+        $lines = [
             sprintf(
-                'Page [%d] "%s", with its content, %d translation(s) and its subpages:',
+                'Page [%d] "%s", with its content, %d translation(s) and %s:',
                 $plan['uid'],
                 $this->excerpt($plan['title']),
                 $plan['translations'],
+                $plan['subpages'] > self::MAX_COUNTED_SUBPAGES
+                    ? sprintf('more than %d subpages', self::MAX_COUNTED_SUBPAGES)
+                    : sprintf('%d subpage(s)', $plan['subpages']),
             ),
             sprintf('from: under page [%d] "%s"', $plan['formerParent'], $this->excerpt($plan['formerParentTitle'])),
             $plan['afterUid'] > 0
@@ -210,6 +216,17 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
                 : sprintf('to: under page [%d] "%s", first', $plan['parent'], $this->excerpt($plan['parentTitle'])),
             sprintf('URL path unchanged: %s (the slug is not regenerated)', $plan['slug'] === '' ? '(none)' : $plan['slug']),
         ];
+
+        if ($plan['siteRootBefore'] !== $plan['siteRootAfter']) {
+            $lines[] = sprintf(
+                'moves into another site: from the site of root page [%d] to the site of root page [%d] — its address '
+                . 'follows the other site from then on',
+                $plan['siteRootBefore'],
+                $plan['siteRootAfter'],
+            );
+        }
+
+        return $lines;
     }
 
     public function isEnabledByDefault(): bool
@@ -243,7 +260,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{uid:int, title:string, slug:string, translations:int, formerParent:int, formerParentTitle:string, parent:int, parentTitle:string, afterUid:int, afterTitle:string, destination:int}|string
+     * @return array{uid:int, title:string, slug:string, translations:int, subpages:int, siteRootBefore:int, siteRootAfter:int, formerParent:int, formerParentTitle:string, parent:int, parentTitle:string, afterUid:int, afterTitle:string, destination:int}|string
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
@@ -314,7 +331,18 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
             return self::NOT_PERMITTED;
         }
 
-        // After the permission, because this one names another page.
+        // After the permission, because these name other pages.
+        $parentLanguage = $this->languageOf(self::TABLE, $parent);
+        if ($parentLanguage !== 0) {
+            return sprintf(
+                'Refused: page [%d] is a translation (language %d) of page [%d]. Give the default-language page as '
+                . '"parent".',
+                $parentUid,
+                $parentLanguage,
+                $this->translationParentOf(self::TABLE, $parent),
+            );
+        }
+
         $translationParent = $this->translationParentOf(self::TABLE, $page);
         if ($translationParent > 0 || $this->languageOf(self::TABLE, $page) !== 0) {
             return sprintf(
@@ -363,6 +391,9 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
             'title'             => self::toStr($page['title'] ?? ''),
             'slug'              => self::toStr($page['slug'] ?? ''),
             'translations'      => count($translations),
+            'subpages'          => $this->subpageCountOf($uid),
+            'siteRootBefore'    => $this->siteRootOf($formerParent),
+            'siteRootAfter'     => $this->siteRootOf($parentUid),
             'formerParent'      => $formerParent,
             'formerParentTitle' => self::toStr($formerParentRow['title'] ?? ''),
             'parent'            => $parentUid,
@@ -411,6 +442,60 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
         }
 
         return $before === $afterUid;
+    }
+
+    /**
+     * The live default-language pages below a page, counted up to one past
+     * {@see self::MAX_COUNTED_SUBPAGES}. A count, never titles: it includes
+     * pages the acting user cannot see.
+     */
+    private function subpageCountOf(int $uid): int
+    {
+        $count   = 0;
+        $pending = [$uid];
+        while ($pending !== [] && $count <= self::MAX_COUNTED_SUBPAGES) {
+            $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+            $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+            $children = $queryBuilder
+                ->select('uid')
+                ->from(self::TABLE)
+                ->where(
+                    $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter(array_shift($pending), Connection::PARAM_INT)),
+                    $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                    ...$this->liveVersionConstraints($queryBuilder, self::TABLE),
+                )
+                ->executeQuery()
+                ->fetchFirstColumn();
+            foreach ($children as $child) {
+                $count++;
+                $pending[] = self::toInt($child);
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * The uid of the site root a page lies in — the page itself or the
+     * nearest ancestor marked `is_siteroot` — or 0 outside every site.
+     */
+    private function siteRootOf(int $uid): int
+    {
+        $current = $uid;
+        for ($depth = 0; $current > 0 && $depth < self::MAX_ROOTLINE_DEPTH; $depth++) {
+            $row = $this->fetchRowByUid(self::TABLE, $current, 'uid', 'pid', 'is_siteroot');
+            if ($row === null) {
+                return 0;
+            }
+
+            if ((bool)($row['is_siteroot'] ?? false)) {
+                return $current;
+            }
+
+            $current = self::toInt($row['pid'] ?? 0);
+        }
+
+        return 0;
     }
 
     /**

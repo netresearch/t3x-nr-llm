@@ -314,14 +314,16 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         }
 
         if ($plan['translations'] > 0) {
-            // Core copies a translation only where the target site carries its
-            // language and, for an element, the target page is translated into
-            // it; a translation it cannot place fails the call, and the copy is
-            // taken back.
+            // Core decides from the target's SITE (DataHandler::
+            // copyL10nOverlayRecords()): outside a site no translation is
+            // copied; inside one, a translation whose language the site does
+            // not have — or, for an element, into which the target page is not
+            // translated — fails the call, and the copy is taken back.
             $lines[] = sprintf(
-                'with its %d translation(s); if the target %s lacks one of their languages, the copy fails and is taken back',
+                'with its %d translation(s), copied where the target\'s site has their language%s; one the site '
+                . 'cannot place fails the copy, which is then taken back; outside a site none is copied',
                 $plan['translations'],
-                $plan['table'] === self::PAGES_TABLE ? 'site' : 'page',
+                $plan['table'] === self::PAGES_TABLE ? '' : ' and the target page is translated into it',
             );
         }
 
@@ -440,6 +442,19 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
                 $uid,
                 $table,
                 $parent,
+            );
+        }
+
+        // A page translation is no place for a record: content sits on the
+        // default-language page, and a page goes under one.
+        $targetLanguage = $this->languageOf(self::PAGES_TABLE, $target);
+        if ($targetLanguage !== 0) {
+            return sprintf(
+                'Refused: page [%d] is a translation (language %d) of page [%d]. Give the default-language page as '
+                . '"target_page".',
+                $targetUid,
+                $targetLanguage,
+                $this->translationParentOf(self::PAGES_TABLE, $target),
             );
         }
 

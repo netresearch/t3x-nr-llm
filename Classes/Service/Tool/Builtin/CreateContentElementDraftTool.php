@@ -474,7 +474,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         // DataHandler drops an `exclude` column the user holds no grant for in
         // silence and creates the element without it, which is half of an
         // approved draft. Refusing first leaves nothing behind.
-        $ungranted = $this->fieldsTheUserMayNotWrite($user, array_keys($fields));
+        $ungranted = $this->columnsTheUserMayNotSet($user, self::TABLE, array_keys($fields));
         if ($ungranted !== []) {
             return sprintf(
                 'Refused: the acting backend user holds no field-level ("exclude field") grant for %s. Nothing was '
@@ -561,7 +561,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             $own[] = 'sys_language_uid';
         }
 
-        $ungranted = $this->fieldsTheUserMayNotWrite($user, $own);
+        $ungranted = $this->columnsTheUserMayNotSet($user, self::TABLE, $own);
         if ($ungranted !== []) {
             return sprintf(
                 'Refused: the acting backend user holds no field-level ("exclude field") grant for %s. Nothing was '
