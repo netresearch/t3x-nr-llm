@@ -28,6 +28,10 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
+use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\UriInterface;
 use Psr\Log\LoggerInterface;
 use stdClass;
 
@@ -385,6 +389,140 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
 
         self::assertInstanceOf(OpenAiProvider::class, $adapter);
         self::assertEquals('gpt-4o', $adapter->getDefaultModel());
+    }
+
+    #[Test]
+    public function aModelBoundAdapterStillSendsTheProvidersOrganizationAndHeaders(): void
+    {
+        // #388 taught configure() to read the organization ID and the
+        // options-JSON custom headers. createAdapterFromModel() then
+        // reconfigured the adapter with five keys and reset both to empty,
+        // so every configuration-bound call went out without them. Asserted on
+        // the outgoing request, which is what the provider actually sees.
+        $headers  = [];
+        $registry = $this->registryRecordingHeaders($headers);
+
+        $adapter = $registry->createAdapterFromModel($this->modelOf($this->providerWithOrgAndHeader(uid: 11)));
+        $this->sendOneChatCompletion($adapter);
+
+        self::assertSame('org-12345', $headers['OpenAI-Organization'] ?? null);
+        self::assertSame('yes', $headers['X-Probe'] ?? null);
+    }
+
+    #[Test]
+    public function bindingAModelDoesNotStripTheCachedProviderAdapter(): void
+    {
+        // The model-bound adapter IS the cached provider adapter, so the old
+        // five-key reconfigure also stripped every later provider-bound call.
+        $headers  = [];
+        $registry = $this->registryRecordingHeaders($headers);
+        $provider = $this->providerWithOrgAndHeader(uid: 12);
+
+        $registry->createAdapterFromModel($this->modelOf($provider));
+        $adapter = $registry->createAdapterFromProvider($provider);
+        $this->sendOneChatCompletion($adapter);
+
+        self::assertSame('org-12345', $headers['OpenAI-Organization'] ?? null);
+        self::assertSame('yes', $headers['X-Probe'] ?? null);
+    }
+
+    #[Test]
+    public function theModelIdStillWinsOverTheProviderOptions(): void
+    {
+        $provider = $this->createProviderStub(
+            uid: 13,
+            identifier: 'with-default-model-option',
+            adapterType: AdapterType::OpenAI->value,
+            apiKey: 'test-api-key',
+            options: ['defaultModel' => 'from-options'],
+        );
+
+        $adapter = $this->subject->createAdapterFromModel($this->modelOf($provider));
+
+        self::assertSame('gpt-4o', $adapter->getDefaultModel());
+    }
+
+    private function providerWithOrgAndHeader(int $uid): Provider&Stub
+    {
+        return $this->createProviderStub(
+            uid: $uid,
+            identifier: 'org-provider-' . $uid,
+            adapterType: AdapterType::OpenAI->value,
+            apiKey: 'test-api-key',
+            organizationId: 'org-12345',
+            options: ['customHeaders' => ['X-Probe' => 'yes']],
+        );
+    }
+
+    private function modelOf(Provider $provider): Model
+    {
+        $model = self::createStub(Model::class);
+        $model->method('getProvider')->willReturn($provider);
+        $model->method('getIdentifier')->willReturn('bound-model');
+        $model->method('getModelId')->willReturn('gpt-4o');
+
+        return $model;
+    }
+
+    /**
+     * A registry whose adapters build requests that record every header set
+     * on them, by name.
+     *
+     * @param array<string, string> $headers
+     */
+    private function registryRecordingHeaders(array &$headers): ProviderAdapterRegistry
+    {
+        $factory = self::createStub(RequestFactoryInterface::class);
+        $factory->method('createRequest')->willReturnCallback(
+            function (string $method, string $uri) use (&$headers): RequestInterface {
+                $uriStub = self::createStub(UriInterface::class);
+                $uriStub->method('__toString')->willReturn($uri);
+                $uriStub->method('getHost')->willReturn((string)(parse_url($uri, PHP_URL_HOST) ?? ''));
+
+                $request = self::createStub(RequestInterface::class);
+                $request->method('withHeader')->willReturnCallback(
+                    static function (string $name, mixed $value) use ($request, &$headers): RequestInterface {
+                        $parts = [];
+                        foreach (is_array($value) ? $value : [$value] as $part) {
+                            $parts[] = is_scalar($part) ? (string)$part : '';
+                        }
+
+                        $headers[$name] = implode(', ', $parts);
+
+                        return $request;
+                    },
+                );
+                $request->method('withoutHeader')->willReturnCallback(static fn(): RequestInterface => $request);
+                $request->method('withBody')->willReturnCallback(static fn(): RequestInterface => $request);
+                $request->method('getMethod')->willReturn($method);
+                $request->method('getUri')->willReturn($uriStub);
+
+                return $request;
+            },
+        );
+
+        return new ProviderAdapterRegistry(
+            $factory,
+            $this->createStreamFactoryMock(),
+            $this->loggerStub,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+    }
+
+    private function sendOneChatCompletion(object $adapter): void
+    {
+        self::assertInstanceOf(OpenAiProvider::class, $adapter);
+
+        $client = self::createStub(ClientInterface::class);
+        $client->method('sendRequest')->willReturn($this->createHttpResponseMock(200, (string)json_encode([
+            'model' => 'gpt-4o',
+            'choices' => [['message' => ['role' => 'assistant', 'content' => 'ok'], 'finish_reason' => 'stop']],
+            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1],
+        ])));
+        $adapter->setHttpClient($client);
+
+        $adapter->chatCompletion([['role' => 'user', 'content' => 'hi']]);
     }
 
     #[Test]
