@@ -63,6 +63,7 @@ final class ToolEffectCoverageTest extends AbstractFunctionalTestCase
         'create_translation_draft',
         'delete_record',
         'attach_file_to_content_element',
+        'copy_record',
         'move_content_element',
         'move_page',
         'publish_record',

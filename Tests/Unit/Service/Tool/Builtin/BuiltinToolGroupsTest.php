@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\ToolGroup;
 use Netresearch\NrLlm\Service\Tool\Builtin\AttachFileToContentElementTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\BrowseFalFolderTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CheckTypoScriptTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\CopyRecordTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateContentElementDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreatePageDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateRecordDraftTool;
@@ -138,6 +139,7 @@ final class BuiltinToolGroupsTest extends TestCase
             'publish_record' => [PublishRecordTool::class, 'editing'],
             'delete_record' => [DeleteRecordTool::class, 'editing'],
             'move_page' => [MovePageTool::class, 'editing'],
+            'copy_record' => [CopyRecordTool::class, 'editing'],
             'site_rag_query'    => [SiteRagQueryTool::class, 'rag'],
             'site_fetch_source' => [SiteFetchSourceTool::class, 'rag'],
         ];
