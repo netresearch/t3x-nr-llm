@@ -320,7 +320,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             // not have — or, for an element, into which the target page is not
             // translated — fails the call, and the copy is taken back.
             $lines[] = sprintf(
-                'with its %d translation(s), copied where the target\'s site has their language%s; one the site '
+                "with its %d translation(s), copied where the target's site has their language%s; one the site "
                 . 'cannot place fails the copy, which is then taken back; outside a site none is copied',
                 $plan['translations'],
                 $plan['table'] === self::PAGES_TABLE ? '' : ' and the target page is translated into it',

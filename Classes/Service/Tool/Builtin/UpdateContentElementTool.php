@@ -146,6 +146,7 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
             ? array_keys($plan['fields'])
             : [...$this->fieldsThatDidNotTake($stored, $plan['fields'], $plan['type']), ...$this->unchangedThoughAsked($stored, $plan)];
         $notTaken   = array_values(array_unique($notTaken));
+
         $complaints = $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . $this->summariseErrors($dataHandler->errorLog);
 
         // What this call changed on the row: the columns that took and did
