@@ -95,7 +95,10 @@ Decision
 5. **Bounded in bytes, characters and time.** A response sink accepts at
    most 2 MiB and then reports a short write, which makes curl abort the
    transfer — the limit bounds what is downloaded, not only what is kept.
-   The text returned is cut at 20,000 characters. The connect timeout is
+   The text returned is cut at 20,000 characters, and further in bytes so
+   the whole result stays under 48,000 bytes: the loop's
+   :php:`ToolResultBounder` cuts results over 50,000 bytes at the tail, and
+   the tail is the END marker. The connect timeout is
    5 s and the whole fetch, redirects included, 20 s. A successful answer
    that is not HTML or plain text is refused at the headers, before its
    body is read.
@@ -157,7 +160,9 @@ Consequences
   that changes before the connect.
 - ● ``probe_url`` and every other group keep the egress they had.
 - ◐ The ranges live in two places, nr-vault and :php:`IpAddressClassifier`.
-  A range added to one is not added to the other; the tests pin this side.
+  A test pins one direction: every address of its sample that nr-vault
+  refuses is refused here too, so a range nr-vault adds and this side lacks
+  turns it red if the sample carries an address of it.
 - ◐ Behind the TYPO3 HTTP proxy the proxy resolves the host, so the pin does
   not reach past it; the address check before the request still runs.
 - ◐ Hosts that exist only in ``/etc/hosts`` or other non-DNS sources are

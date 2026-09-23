@@ -13,9 +13,11 @@ use Netresearch\NrLlm\Service\Tool\Builtin\FetchExternalUrlTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Service\Tool\Web\ExternalFetchClientFactory;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionClass;
 
 /**
  * fetch_external_url as the container builds it (ADR-202).
@@ -64,6 +66,16 @@ final class FetchExternalUrlToolTest extends AbstractFunctionalTestCase
             self::assertStringStartsWith('Refused: ', $result->content, $url);
             self::assertStringContainsString($reason, $result->content, $url);
         }
+    }
+
+    #[Test]
+    public function theContainerWiresNrVaultsHardenedClient(): void
+    {
+        // The unit test runs against a scripted transport; this is the one place
+        // that sees which client production gets.
+        $property = (new ReflectionClass(FetchExternalUrlTool::class))->getProperty('clientFactory');
+
+        self::assertInstanceOf(ExternalFetchClientFactory::class, $property->getValue($this->tool));
     }
 
     #[Test]

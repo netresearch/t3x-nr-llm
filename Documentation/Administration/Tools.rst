@@ -967,8 +967,9 @@ What it refuses, for the first URL and again for every redirect target:
 The connection is pinned to exactly the addresses that were checked, so a DNS
 answer that changes between the check and the connect cannot redirect it. It
 follows at most three redirects, stops the download at 2 MiB, returns at most
-20,000 characters and gives up after 20 seconds in total. Only HTML and plain
-text are read.
+20,000 characters (fewer for scripts with multi-byte characters, so the whole
+result stays under 48,000 bytes) and gives up after 20 seconds in total.
+Only HTML and plain text are read.
 
 The text comes back between ``BEGIN``/``END UNTRUSTED EXTERNAL WEB CONTENT``
 markers with a note that it is reference material, not instructions — the

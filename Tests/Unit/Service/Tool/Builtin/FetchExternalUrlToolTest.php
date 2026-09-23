@@ -21,6 +21,7 @@ use GuzzleHttp\Psr7\Response;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchExternalUrlTool;
 use Netresearch\NrLlm\Service\Tool\EgressPolicyService;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Service\Tool\ToolResultBounder;
 use Netresearch\NrLlm\Service\Tool\Web\BoundedSinkStream;
 use Netresearch\NrLlm\Service\Tool\Web\ExternalFetchClientFactoryInterface;
 use Netresearch\NrLlm\Service\Tool\Web\ExternalUrlGuard;
@@ -279,6 +280,27 @@ final class FetchExternalUrlToolTest extends TestCase
         self::assertSame(FetchExternalUrlTool::MAX_RETURNED_CHARACTERS, mb_substr_count($result->content, 'ä'));
         self::assertStringContainsString('the text was cut at', $result->content);
         self::assertStringNotContainsString('download stopped', $result->content);
+    }
+
+    /**
+     * The loop bounds every tool result and cuts its tail; the tail is the END
+     * marker. Asserted on what the provider receives, after the bounder.
+     */
+    #[Test]
+    public function aPageOfFourByteCharactersStillEndsFencedAfterTheLoopBoundsIt(): void
+    {
+        $body = str_repeat('😀', FetchExternalUrlTool::MAX_RETURNED_CHARACTERS + 10);
+        $page = new Response(200, ['Content-Type' => 'text/plain; charset=utf-8'], $body);
+
+        $result  = $this->tool([$page])->execute(['url' => 'https://example.org/emoji.txt'], ToolExecutionContext::none());
+        $bounded = (new ToolResultBounder())->content($result->content);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertLessThanOrEqual(FetchExternalUrlTool::MAX_RESULT_BYTES, strlen($result->content));
+        self::assertSame($result->content, $bounded);
+        self::assertStringEndsWith(FetchExternalUrlTool::END_MARKER, $bounded);
+        self::assertStringContainsString('the text was cut at', $bounded);
+        self::assertTrue(mb_check_encoding($bounded, 'UTF-8'));
     }
 
     #[Test]

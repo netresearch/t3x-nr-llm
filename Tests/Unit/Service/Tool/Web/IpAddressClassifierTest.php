@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Web;
 
 use Netresearch\NrLlm\Service\Tool\Web\IpAddressClassifier;
+use Netresearch\NrVault\Http\SecureHttpClientFactory;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -103,6 +104,40 @@ final class IpAddressClassifierTest extends TestCase
     public function aNonPublicAddressIsRefused(string $ip): void
     {
         self::assertFalse((new IpAddressClassifier())->isPublic($ip));
+    }
+
+    /**
+     * The ranges are restated from nr-vault (ADR-202). One direction is pinned:
+     * whatever nr-vault's guard refuses, this classifier refuses too. Extra
+     * ranges on this side are allowed; a range nr-vault adds later and this
+     * class lacks turns the test red.
+     */
+    #[Test]
+    public function everyAddressNrVaultRefusesIsRefusedHereToo(): void
+    {
+        $previous = $GLOBALS['TYPO3_CONF_VARS'] ?? null;
+        $GLOBALS['TYPO3_CONF_VARS'] = ['HTTP' => []];
+
+        try {
+            $vault      = new SecureHttpClientFactory();
+            $classifier = new IpAddressClassifier();
+            $checked    = 0;
+
+            foreach ([...self::publicAddresses(), ...self::refusedAddresses()] as [$ip]) {
+                if (filter_var($ip, FILTER_VALIDATE_IP) === false) {
+                    continue;
+                }
+
+                ++$checked;
+                if (!$vault->isHostAllowed($ip)) {
+                    self::assertFalse($classifier->isPublic($ip), $ip . ' is refused by nr-vault but public here.');
+                }
+            }
+
+            self::assertGreaterThan(40, $checked);
+        } finally {
+            $GLOBALS['TYPO3_CONF_VARS'] = $previous;
+        }
     }
 
     /**
