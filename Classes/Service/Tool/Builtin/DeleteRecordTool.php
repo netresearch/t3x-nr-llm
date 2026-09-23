@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -144,33 +145,41 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
         $dataHandler->start([], [$plan['table'] => [$plan['uid'] => ['delete' => 1]]], $user);
         $dataHandler->process_cmdmap();
 
-        $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-        if ($refused instanceof ToolResult) {
-            return $refused;
-        }
-
-        // Read back before reporting success. The DataHandler declines a delete
-        // it will not perform without always writing to `errorLog`, and
-        // "deleted" about a record that is still there is the one report a
-        // human will act on without looking.
+        // Read back whatever the error log says. The DataHandler declines a
+        // delete without always writing to `errorLog` — and it goes on after
+        // refusing one translation, so a complaint does not mean nothing was
+        // deleted. The answer reports what is actually gone and what is left.
         $survivors = [];
-        if ($this->fetchRowByUid($plan['table'], $plan['uid'], 'uid') !== null) {
-            $survivors[] = sprintf('%s [%d]', $plan['table'], $plan['uid']);
-        }
-
         foreach ([...$plan['subpages'], ...$plan['translations']] as [$table, $uid]) {
             if ($this->fetchRowByUid($table, $uid, 'uid') !== null) {
                 $survivors[] = sprintf('%s [%d]', $table, $uid);
             }
         }
 
-        if ($survivors !== []) {
+        $recordGone = $this->fetchRowByUid($plan['table'], $plan['uid'], 'uid') === null;
+        $complaints = $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . $this->summariseErrors($dataHandler->errorLog);
+        if (!$recordGone) {
             return ToolResult::error(sprintf(
-                'The delete did not complete: %s %s still there. The acting backend user is most likely missing a '
-                . 'permission core asks for on one of them.',
-                implode(', ', array_slice($survivors, 0, 10)),
-                count($survivors) === 1 ? 'is' : 'are',
+                'The delete did not take: %s [%d] is still there%s.%s The acting backend user is most likely missing a '
+                . 'permission core asks for.',
+                $plan['table'],
+                $plan['uid'],
+                $survivors === [] ? '' : ', and so ' . (count($survivors) === 1 ? 'is ' : 'are ') . implode(', ', array_slice($survivors, 0, 10)),
+                $complaints,
             ));
+        }
+
+        if ($survivors !== [] || $complaints !== '') {
+            // The record IS deleted, so the answer names it as written even
+            // though part of what should have gone with it did not.
+            return ToolResult::text(sprintf(
+                'Deleted %s [%d] "%s", but not completely:%s%s It is flagged deleted and can be restored from the recycler.',
+                $plan['table'],
+                $plan['uid'],
+                $this->excerpt($plan['label']),
+                $survivors === [] ? '' : ' ' . implode(', ', array_slice($survivors, 0, 10)) . ' ' . (count($survivors) === 1 ? 'is' : 'are') . ' still there.',
+                $complaints,
+            ))->withWriteTarget(new RecordReference($plan['table'], $plan['uid']), WriteKind::DELETED);
         }
 
         return ToolResult::text(sprintf(
@@ -226,8 +235,16 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
         }
 
         if ($plan['table'] === self::PAGES_TABLE) {
-            $lines[] = sprintf('with %d subpage(s)', count($plan['subpages']));
-            $lines[] = sprintf('with %d content element(s) on the page(s), and every other record stored there', $plan['contentCount']);
+            if ($plan['language'] > 0) {
+                $lines[] = sprintf(
+                    'with the %d content element(s) in language %d on its default-language page, and every other record in that language there',
+                    $plan['contentCount'],
+                    $plan['language'],
+                );
+            } else {
+                $lines[] = sprintf('with %d subpage(s)', count($plan['subpages']));
+                $lines[] = sprintf('with %d content element(s) on the page(s), and every other record stored there', $plan['contentCount']);
+            }
         }
 
         $lines[] = $plan['referencedBy'] === 0
@@ -333,9 +350,11 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
         if ($language === 0) {
             $refusedLanguages = [];
             foreach ($this->translationsOf($table, $uid) as $translation) {
-                $translationLanguage = $this->languageOf($table, $translation);
-                if (!$user->checkLanguageAccess($translationLanguage)) {
-                    $refusedLanguages[] = $translationLanguage;
+                // The record-level rights, not only the language: core deletes
+                // each translation under them and goes on when one is refused,
+                // which would leave a half-done delete behind.
+                if (!$this->mayEditRecord($table, $translation, $user)) {
+                    $refusedLanguages[] = $this->languageOf($table, $translation);
                 }
 
                 $translations[] = [$table, self::toInt($translation['uid'] ?? 0)];
@@ -343,8 +362,8 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
 
             if ($refusedLanguages !== []) {
                 return sprintf(
-                    'Refused: %s [%d] has translations in language(s) %s, which the acting backend user may not edit, '
-                    . 'and core deletes them with it. Nothing was written.',
+                    'Refused: %s [%d] has translations in language(s) %s which the acting backend user may not edit '
+                    . '(language, lock or content type), and core deletes them with it. Nothing was written.',
                     $table,
                     $uid,
                     implode(', ', array_unique($refusedLanguages)),
@@ -387,6 +406,11 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
                 $subpages[] = [self::PAGES_TABLE, $subpageUid];
                 $pageUids[] = $subpageUid;
             }
+
+            $onThePages = $this->refuseWhatIsOnThePages($uid, $pageUids, $user);
+            if ($onThePages !== null) {
+                return $onThePages;
+            }
         }
 
         return [
@@ -398,7 +422,14 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
             'language'     => $language,
             'translations' => $translations,
             'subpages'     => $subpages,
-            'contentCount' => $table === self::PAGES_TABLE && $parent === 0 ? $this->contentCountOn($pageUids) : 0,
+            // A page translation takes the content of its language on the
+            // default-language page with it, as core's deleteSpecificPage()
+            // deletes it.
+            'contentCount' => match (true) {
+                $table !== self::PAGES_TABLE => 0,
+                $parent > 0                  => $this->contentCountOn([$parent], $language),
+                default                      => $this->contentCountOn($pageUids),
+            },
             'referencedBy' => $this->referencingRecordCount($table, $uid, [[$table, $uid], ...$translations, ...$subpages]),
         ];
     }
@@ -464,21 +495,127 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
     }
 
     /**
-     * The undeleted content elements on the given pages, every language.
+     * The undeleted content elements on the given pages — every language, or
+     * the one given.
      *
      * @param list<int> $pageUids
      */
-    private function contentCountOn(array $pageUids): int
+    private function contentCountOn(array $pageUids, ?int $language = null): int
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::CONTENT_TABLE);
         $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
 
+        $constraints = [$queryBuilder->expr()->in('pid', $queryBuilder->createNamedParameter($pageUids, Connection::PARAM_INT_ARRAY))];
+        if ($language !== null) {
+            $constraints[] = $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter($language, Connection::PARAM_INT));
+        }
+
         return self::toInt($queryBuilder
             ->count('uid')
             ->from(self::CONTENT_TABLE)
-            ->where($queryBuilder->expr()->in('pid', $queryBuilder->createNamedParameter($pageUids, Connection::PARAM_INT_ARRAY)))
+            ->where(...$constraints)
             ->executeQuery()
             ->fetchOne());
+    }
+
+    /**
+     * The refusal for what core would delete from the pages without the
+     * acting user's rights, or null.
+     *
+     * Core deletes every record stored on a deleted page, in every language,
+     * without asking for each one; before it starts, it refuses a non-admin
+     * whose `tables_modify` misses one of their tables
+     * ({@see DataHandler::canDeletePage()}) and whose languages miss one of
+     * the pages' translations. The tool asks the same, and one thing more
+     * (ADR-198): the languages of the content elements on those pages, which
+     * core deletes without a language check.
+     *
+     * @param list<int> $pageUids the page and its branch
+     */
+    private function refuseWhatIsOnThePages(int $uid, array $pageUids, BackendUserAuthentication $user): ?string
+    {
+        if ($user->isAdmin()) {
+            return null;
+        }
+
+        foreach ($pageUids as $pageUid) {
+            foreach ($this->translationsOf(self::PAGES_TABLE, $pageUid) as $translation) {
+                if (!$this->mayEditRecord(self::PAGES_TABLE, $translation, $user)) {
+                    return sprintf(
+                        'Refused: a page to be deleted with page [%d] has a translation in language %d the acting backend '
+                        . 'user may not edit, and core deletes it with the page. Nothing was written.',
+                        $uid,
+                        $this->languageOf(self::PAGES_TABLE, $translation),
+                    );
+                }
+            }
+        }
+
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::CONTENT_TABLE);
+        $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+        $languages = $queryBuilder
+            ->select('sys_language_uid')
+            ->from(self::CONTENT_TABLE)
+            ->where($queryBuilder->expr()->in('pid', $queryBuilder->createNamedParameter($pageUids, Connection::PARAM_INT_ARRAY)))
+            ->groupBy('sys_language_uid')
+            ->executeQuery()
+            ->fetchFirstColumn();
+        foreach ($languages as $language) {
+            if (!$user->checkLanguageAccess(self::toInt($language))) {
+                return sprintf(
+                    'Refused: page [%d] or its branch holds content in language %d, which the acting backend user may not '
+                    . 'edit, and core deletes it with the page. Nothing was written.',
+                    $uid,
+                    self::toInt($language),
+                );
+            }
+        }
+
+        $tca = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
+        foreach ($tca as $table => $definition) {
+            $table = self::toStr($table);
+            $ctrl  = is_array($definition) && is_array($definition['ctrl'] ?? null) ? $definition['ctrl'] : [];
+            if ($table === '' || $table === self::PAGES_TABLE
+                || ($user->check('tables_modify', $table) && !(bool)($ctrl['readOnly'] ?? false))
+            ) {
+                continue;
+            }
+
+            if ($this->holdsRecordsOn($table, $pageUids)) {
+                return sprintf(
+                    'Refused: page [%d] or its branch holds records of %s, which the acting backend user may not modify, '
+                    . 'and core refuses to delete a page with such records on it. Nothing was written.',
+                    $uid,
+                    $table,
+                );
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether any undeleted record of the table is stored on the pages. A
+     * table that cannot be queried holds none as far as this check goes; the
+     * DataHandler asks the same again and refuses the delete.
+     *
+     * @param list<int> $pageUids
+     */
+    private function holdsRecordsOn(string $table, array $pageUids): bool
+    {
+        try {
+            $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+            $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+
+            return self::toInt($queryBuilder
+                ->count('uid')
+                ->from($table)
+                ->where($queryBuilder->expr()->in('pid', $queryBuilder->createNamedParameter($pageUids, Connection::PARAM_INT_ARRAY)))
+                ->executeQuery()
+                ->fetchOne()) > 0;
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     /**

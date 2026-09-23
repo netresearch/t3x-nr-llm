@@ -397,7 +397,6 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
     private function replace(array $plan, BackendUserAuthentication $user): ToolResult
     {
         $placeholder = StringUtility::getUniqueId('NEW');
-        $before      = array_map(strval(...), $plan['references']);
         $list        = array_map(
             static fn(int $uid): string => $uid === $plan['reference'] ? $placeholder : (string)$uid,
             $plan['references'],
@@ -430,9 +429,10 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         $newUid  = self::toInt($dataHandler->substNEWwithIDs[$placeholder] ?? 0);
         $refused = $this->refuseOnDataHandlerErrors($dataHandler);
         if ($refused instanceof ToolResult || $newUid < 1) {
-            $this->restore($newUid, $plan['element'], $plan['field'], $before, $user);
-
-            return $refused ?? ToolResult::error('The new reference was not created, and the DataHandler reported no error.');
+            return ToolResult::error(
+                ($refused->content ?? 'The new reference was not created, and the DataHandler reported no error.')
+                . ' ' . $this->restore($newUid, $plan, $user),
+            );
         }
 
         // Read back BEFORE the old reference is deleted: the new row must
@@ -441,15 +441,14 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         $expected = array_map(static fn(int $uid): int => $uid === $plan['reference'] ? $newUid : $uid, $plan['references']);
         $mismatch = $this->mismatch($newUid, $plan, $expected, [$plan['reference']]);
         if ($mismatch !== null) {
-            $this->restore($newUid, $plan['element'], $plan['field'], $before, $user);
-
-            return ToolResult::error($mismatch . ' The element was put back as it was.');
+            return ToolResult::error($mismatch . ' ' . $this->restore($newUid, $plan, $user));
         }
 
         $dataHandler->process_cmdmap();
         if ($this->liveReferenceUids($plan['element'], $plan['field']) !== $expected) {
             return ToolResult::error(sprintf(
-                'Reference [%d] was created, but the old reference [%d] was not removed from "%s".%s',
+                'Reference [%d] was created, but the old reference [%d] was not removed from "%s": the element now '
+                . 'carries both, and one has to be removed by hand.%s',
                 $newUid,
                 $plan['reference'],
                 $plan['field'],
@@ -490,14 +489,19 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         $dataHandler->process_datamap();
         $dataHandler->process_cmdmap();
 
-        $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-        if ($refused instanceof ToolResult) {
-            return $refused;
-        }
-
+        // The datamap and the cmdmap have both run whatever either reported,
+        // so the answer says what the element carries now.
+        $refused  = $this->refuseOnDataHandlerErrors($dataHandler);
         $mismatch = $this->mismatch(0, $plan, $remaining, [$plan['reference']]);
-        if ($mismatch !== null) {
-            return ToolResult::error($mismatch);
+        if ($refused instanceof ToolResult || $mismatch !== null) {
+            return ToolResult::error(sprintf(
+                '%s%s tt_content [%d] now carries reference(s) %s in "%s".',
+                $refused instanceof ToolResult ? $refused->content . ' ' : '',
+                $mismatch ?? '',
+                $plan['element'],
+                implode(', ', $this->liveReferenceUids($plan['element'], $plan['field'])) ?: '(none)',
+                $plan['field'],
+            ));
         }
 
         return ToolResult::text(sprintf(
@@ -558,21 +562,31 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
     }
 
     /**
-     * Take a failed replacement back: the new reference deleted, the element's
-     * field set to the list it had.
+     * Take a failed replacement back — the new reference deleted, the
+     * element's field set to the list it had — and say whether that worked.
      *
-     * @param list<string> $before
+     * @param array{element:int, field:string, references:list<int>} $plan
      */
-    private function restore(int $newUid, int $elementUid, string $field, array $before, BackendUserAuthentication $user): void
+    private function restore(int $newUid, array $plan, BackendUserAuthentication $user): string
     {
         $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
         $dataHandler->start(
-            [self::CONTENT_TABLE => [$elementUid => [$field => implode(',', $before)]]],
+            [self::CONTENT_TABLE => [$plan['element'] => [$plan['field'] => implode(',', $plan['references'])]]],
             $newUid > 0 ? [self::REFERENCE_TABLE => [$newUid => ['delete' => 1]]] : [],
             $user,
         );
         $dataHandler->process_datamap();
         $dataHandler->process_cmdmap();
+
+        $live = $this->liveReferenceUids($plan['element'], $plan['field']);
+
+        return $live === $plan['references']
+            ? 'The element was put back as it was.'
+            : sprintf(
+                'Putting the element back did not complete: it now carries reference(s) %s in "%s" — check it by hand.',
+                implode(', ', $live) ?: '(none)',
+                $plan['field'],
+            );
     }
 
     /**

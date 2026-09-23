@@ -48,6 +48,11 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
 
     private const SIBLING_IN_B = 8;
 
+    /** A page an editor may edit but not delete: reorder only. */
+    private const PINNED = 9;
+
+    private const INVISIBLE = 10;
+
     private MovePageTool $tool;
 
     private ConnectionPool $connectionPool;
@@ -70,7 +75,9 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
             [self::MOVED, self::SECTION_A, 'Moved', '/a/moved', 0, 0, Permission::ALL, 0],
             [self::TRANSLATION, self::SECTION_A, 'Verschoben', '/a/verschoben', 1, self::MOVED, Permission::ALL, 0],
             [self::CHILD, self::MOVED, 'Child', '/a/moved/child', 0, 0, Permission::ALL, 0],
-            [self::CLOSED, self::SITE_ROOT, 'Closed', '/closed', 0, 0, Permission::PAGE_SHOW, 0],
+            [self::CLOSED, self::SITE_ROOT, 'Closed', '/closed', 0, 0, Permission::ALL & ~Permission::PAGE_NEW, 0],
+            [self::PINNED, self::SECTION_A, 'Pinned', '/a/pinned', 0, 0, Permission::ALL & ~Permission::PAGE_DELETE, 0],
+            [self::INVISIBLE, self::SECTION_A, 'Invisible', '/a/invisible', 0, 0, 0, 0],
             [self::SIBLING_IN_B, self::SECTION_B, 'Sibling', '/b/sibling', 0, 0, Permission::ALL, 0],
         ] as [$uid, $pid, $title, $slug, $language, $parent, $everybody, $siteRoot]) {
             $pages->insert('pages', [
@@ -220,6 +227,46 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
         self::assertTrue($result->isError);
         self::assertStringContainsString('translations in language(s) 1', $result->content);
         self::assertSame(self::SECTION_A, (int)($this->pageRow(self::MOVED)['pid'] ?? 0));
+    }
+
+    #[Test]
+    public function anEditorReordersAPageTheyMayEditButNotDelete(): void
+    {
+        $result = $this->tool->execute(
+            ['uid' => self::PINNED, 'after_page_uid' => self::MOVED],
+            ToolExecutionContext::fromBackendUser($this->editor()),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertGreaterThan(
+            (int)($this->pageRow(self::MOVED)['sorting'] ?? 0),
+            (int)($this->pageRow(self::PINNED)['sorting'] ?? 0),
+        );
+    }
+
+    #[Test]
+    public function anEditorMayNotMoveAPageToAnotherParentWithoutTheDeletePermission(): void
+    {
+        $result = $this->tool->execute(
+            ['uid' => self::PINNED, 'parent' => self::SECTION_B],
+            ToolExecutionContext::fromBackendUser($this->editor()),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertSame('Page not found or not permitted.', $result->content);
+        self::assertSame(self::SECTION_A, (int)($this->pageRow(self::PINNED)['pid'] ?? 0));
+    }
+
+    #[Test]
+    public function aPageTheEditorCannotSeeIsRefusedBeforeAnyRefusalNamesItsSurroundings(): void
+    {
+        $result = $this->tool->execute(
+            ['uid' => self::INVISIBLE, 'parent' => self::SECTION_A, 'after_page_uid' => self::SIBLING_IN_B],
+            ToolExecutionContext::fromBackendUser($this->editor()),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertSame('Page not found or not permitted.', $result->content);
     }
 
     #[Test]

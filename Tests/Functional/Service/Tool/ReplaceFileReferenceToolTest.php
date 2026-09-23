@@ -118,7 +118,7 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
         }
 
         $pages = $this->connectionPool->getConnectionForTable('pages');
-        foreach ([[self::OPEN_PAGE, 'Host page', Permission::ALL], [self::CLOSED_PAGE, 'Closed', Permission::PAGE_SHOW]] as [$uid, $title, $everybody]) {
+        foreach ([[self::OPEN_PAGE, 'Host page', Permission::ALL], [self::CLOSED_PAGE, 'Closed', Permission::ALL & ~Permission::CONTENT_EDIT]] as [$uid, $title, $everybody]) {
             $pages->insert('pages', [
                 'uid' => $uid, 'pid' => 0, 'title' => $title, 'doktype' => 1,
                 'perms_userid' => 1, 'perms_user' => Permission::ALL,

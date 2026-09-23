@@ -712,14 +712,16 @@ What holds for all of them:
    and a site root is never deleted. The card also counts the records the
    reference index says still point at the record — links and shortcuts that
    will break. Needs delete rights on a page (and on every page of its
-   branch), content-edit rights for an element, and the languages of the
-   translations that go along.
+   branch), content-edit rights for an element, and the right to edit every
+   translation that goes along; for a page, also ``tables_modify`` for every
+   table with records on it and the languages of the content on it.
 
 ``copy_record``
    Copies one content element to a page and column, or one page under a
-   parent, with core's copy command (:ref:`ADR-199 <adr-199>`). The copy is
-   **always hidden**, whatever core's ``hideAtCopy`` and the user's
-   preferences say, and a page is **always copied without its subpages**:
+   parent, with core's copy command (:ref:`ADR-199 <adr-199>`). The copy and
+   every translation copied with it are **always hidden**, whatever core's
+   ``hideAtCopy``, the user's preferences and page TSconfig say, and a page is
+   **always copied without its subpages**:
    core would hide only the top page of a copied branch. Core copies the
    translations of a default-language record where the target is translated
    into their language, and a page's content with the page. A translation is

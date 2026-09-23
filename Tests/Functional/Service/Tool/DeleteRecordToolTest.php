@@ -46,6 +46,10 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
 
     private const PAGE_WITH_CLOSED_BRANCH = 7;
 
+    private const CONTENT_CLOSED = 8;
+
+    private const PAGE_OPEN_TRANSLATION = 9;
+
     private const ELEMENT = 20;
 
     private const TRANSLATION = 21;
@@ -76,9 +80,10 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
             [self::PAGE_OPEN, self::SITE_ROOT, 'Open', Permission::ALL, 0],
             [self::PAGE_WITH_BRANCH, self::SITE_ROOT, 'Branch', Permission::ALL, 0],
             [self::SUBPAGE, self::PAGE_WITH_BRANCH, 'Leaf', Permission::ALL, 0],
-            [self::PAGE_CLOSED, self::SITE_ROOT, 'Closed', 0, 0],
+            [self::PAGE_CLOSED, self::SITE_ROOT, 'Closed', Permission::ALL & ~Permission::PAGE_DELETE, 0],
+            [self::CONTENT_CLOSED, self::SITE_ROOT, 'Content closed', Permission::ALL & ~Permission::CONTENT_EDIT, 0],
             [self::PAGE_WITH_CLOSED_BRANCH, self::SITE_ROOT, 'Mixed branch', Permission::ALL, 0],
-            [self::SUBPAGE_CLOSED, self::PAGE_WITH_CLOSED_BRANCH, 'Closed leaf', Permission::PAGE_SHOW, 0],
+            [self::SUBPAGE_CLOSED, self::PAGE_WITH_CLOSED_BRANCH, 'Closed leaf', Permission::ALL & ~Permission::PAGE_DELETE, 0],
         ] as [$uid, $pid, $title, $everybody, $siteRoot]) {
             $pages->insert('pages', [
                 'uid' => $uid, 'pid' => $pid, 'title' => $title, 'doktype' => 1, 'slug' => '/' . $uid,
@@ -88,12 +93,19 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
             ]);
         }
 
+        $pages->insert('pages', [
+            'uid' => self::PAGE_OPEN_TRANSLATION, 'pid' => self::SITE_ROOT, 'title' => 'Offen', 'doktype' => 1,
+            'slug' => '/offen', 'sys_language_uid' => 1, 'l10n_parent' => self::PAGE_OPEN,
+            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
+        ]);
+
         $content = $this->connectionPool->getConnectionForTable('tt_content');
         foreach ([
             [self::ELEMENT, self::PAGE_OPEN, 'Doomed', 0, 0],
             [self::TRANSLATION, self::PAGE_OPEN, 'Dem Untergang geweiht', 1, self::ELEMENT],
             [self::ELEMENT_ON_SUBPAGE, self::SUBPAGE, 'Deep', 0, 0],
-            [self::ELEMENT_ON_CLOSED, self::PAGE_CLOSED, 'Guarded', 0, 0],
+            [self::ELEMENT_ON_CLOSED, self::CONTENT_CLOSED, 'Guarded', 0, 0],
             [self::SHORTCUT, self::PAGE_WITH_BRANCH, 'Points at 20', 0, 0],
         ] as [$uid, $pid, $header, $language, $parent]) {
             $content->insert('tt_content', [
@@ -237,6 +249,74 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
         self::assertTrue($result->isError);
         self::assertSame('Record not found or not permitted.', $result->content);
         self::assertSame(0, $this->deletedOf('pages', self::PAGE_CLOSED));
+    }
+
+    #[Test]
+    public function anEditorMayNotDeleteAnElementWhoseTranslationIsLocked(): void
+    {
+        $this->connectionPool->getConnectionForTable('tt_content')
+            ->update('tt_content', ['editlock' => 1], ['uid' => self::TRANSLATION]);
+
+        $result = $this->tool->execute(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT],
+            ToolExecutionContext::fromBackendUser($this->editor()),
+        );
+
+        // Core would delete the element and refuse the locked translation,
+        // leaving half a delete; the tool refuses before either happens.
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('may not edit (language, lock or content type)', $result->content);
+        self::assertSame(0, $this->deletedOf('tt_content', self::ELEMENT));
+    }
+
+    #[Test]
+    public function anEditorMayNotDeleteABranchHoldingContentInALanguageTheyMayNotEdit(): void
+    {
+        $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
+            'uid' => 30, 'pid' => self::SUBPAGE, 'colPos' => 0, 'CType' => 'text', 'header' => 'Tief',
+            'sys_language_uid' => 1, 'l18n_parent' => 0,
+        ]);
+        $editor                                 = $this->editor();
+        $editor->groupData['allowed_languages'] = '0';
+
+        $result = $this->tool->execute(
+            ['table' => 'pages', 'uid' => self::PAGE_WITH_BRANCH, 'include_subpages' => true],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('holds content in language 1', $result->content);
+        self::assertSame(0, $this->deletedOf('pages', self::PAGE_WITH_BRANCH));
+    }
+
+    #[Test]
+    public function anEditorMayNotDeleteAPageHoldingRecordsOfATableTheyMayNotModify(): void
+    {
+        $editor                             = $this->editor();
+        $editor->groupData['tables_modify'] = 'pages';
+
+        $result = $this->tool->execute(
+            ['table' => 'pages', 'uid' => self::PAGE_WITH_BRANCH, 'include_subpages' => true],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('holds records of tt_content', $result->content);
+        self::assertSame(0, $this->deletedOf('pages', self::PAGE_WITH_BRANCH));
+    }
+
+    #[Test]
+    public function thePreviewOfAPageTranslationCountsTheContentOfItsLanguage(): void
+    {
+        $lines = $this->tool->previewCall(
+            ['table' => 'pages', 'uid' => self::PAGE_OPEN_TRANSLATION],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertContains(
+            'with the 1 content element(s) in language 1 on its default-language page, and every other record in that language there',
+            $lines,
+        );
     }
 
     #[Test]

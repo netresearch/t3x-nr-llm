@@ -66,7 +66,7 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
         $pages = $this->connectionPool->getConnectionForTable('pages');
         foreach ([
             [self::OPEN_PAGE, 'Open', Permission::ALL, ''],
-            [self::CLOSED_PAGE, 'Closed', Permission::PAGE_SHOW, ''],
+            [self::CLOSED_PAGE, 'Closed', Permission::ALL & ~Permission::CONTENT_EDIT, ''],
             [self::NARROWED_PAGE, 'Narrowed', Permission::ALL, 'TCEFORM.tt_content.subheader.disabled = 1'],
         ] as [$uid, $title, $everybody, $tsConfig]) {
             $pages->insert('pages', [

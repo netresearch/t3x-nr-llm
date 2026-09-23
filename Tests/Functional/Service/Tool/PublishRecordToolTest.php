@@ -67,7 +67,8 @@ final class PublishRecordToolTest extends AbstractFunctionalTestCase
         $pages->insert('pages', [
             'uid' => self::PAGE_CLOSED, 'pid' => 0, 'title' => 'Closed', 'doktype' => 1, 'slug' => '/',
             'perms_userid' => 1, 'perms_user' => Permission::ALL,
-            'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => 0,
+            // Every bit but the one the tool asks for an element.
+            'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL & ~Permission::CONTENT_EDIT,
         ]);
         $pages->insert('pages', [
             'uid' => self::PAGE_OPEN, 'pid' => 0, 'title' => 'Open', 'doktype' => 1, 'slug' => '/open',
@@ -212,6 +213,22 @@ final class PublishRecordToolTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function anEditorMayNotPublishALockedRecord(): void
+    {
+        $this->connectionPool->getConnectionForTable('tt_content')
+            ->update('tt_content', ['editlock' => 1], ['uid' => self::ELEMENT_ON_OPEN]);
+
+        $result = $this->tool->execute(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT_ON_OPEN],
+            ToolExecutionContext::fromBackendUser($this->editor('tt_content:hidden')),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertSame('Record not found or not permitted.', $result->content);
+        self::assertSame(1, $this->hiddenOf('tt_content', self::ELEMENT_ON_OPEN));
+    }
+
+    #[Test]
     public function aMissingRecordIsRefusedInTheSameWordsAsAForbiddenOne(): void
     {
         $result = $this->tool->execute(
@@ -246,7 +263,7 @@ final class PublishRecordToolTest extends AbstractFunctionalTestCase
 
         self::assertStringContainsString('tt_content [24] "Timed draft" on page [2] "Open", language 0:', $lines[0]);
         self::assertSame('hidden: 1 → 0 (hidden → published)', $lines[1]);
-        self::assertSame('still restricted: start time 2030-01-01T00:00:00Z', $lines[2]);
+        self::assertSame('may still restrict it: start time 2030-01-01T00:00:00Z', $lines[2]);
         self::assertSame(1, $this->hiddenOf('tt_content', self::TIMED_ELEMENT));
     }
 
@@ -261,7 +278,7 @@ final class PublishRecordToolTest extends AbstractFunctionalTestCase
             ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
         );
 
-        self::assertContains('still restricted: its default-language record [22] is hidden', $lines);
+        self::assertContains('may still restrict it: its default-language record [22] is hidden', $lines);
     }
 
     #[Test]

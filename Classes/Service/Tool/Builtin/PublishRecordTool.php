@@ -154,7 +154,7 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
             $plan['uid'],
             $this->excerpt($plan['label']),
             $plan['page'],
-            $plan['restrictions'] === [] ? '' : ' It is still restricted: ' . implode('; ', $plan['restrictions']) . '.',
+            $plan['restrictions'] === [] ? '' : ' What may still restrict it: ' . implode('; ', $plan['restrictions']) . '.',
         ))->withWriteTarget(new RecordReference($plan['table'], $plan['uid']), WriteKind::UPDATED);
     }
 
@@ -199,7 +199,7 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
         ];
 
         foreach ($plan['restrictions'] as $restriction) {
-            $lines[] = 'still restricted: ' . $restriction;
+            $lines[] = 'may still restrict it: ' . $restriction;
         }
 
         return $lines;
@@ -293,11 +293,13 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
     }
 
     /**
-     * What keeps the record from every visitor even with the hidden flag
-     * cleared: a start time still ahead, a stop time set, an access group, and
+     * What may keep the record from visitors even with the hidden flag
+     * cleared: a start time or a stop time that is set, an access group, and
      * for a translation a default-language record that is hidden itself. Each
      * as one English line — the card is compared byte for byte on resume
-     * (ADR-184), so a date is written in UTC.
+     * (ADR-184), so a date is written in UTC, and whether a time lies ahead
+     * or behind is left to the reader: that answer changes with the clock and
+     * would change the card between the pause and the resume.
      *
      * @param non-empty-string     $table
      * @param array<string, mixed> $row

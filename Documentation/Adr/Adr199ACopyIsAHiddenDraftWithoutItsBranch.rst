@@ -35,10 +35,18 @@ Decision
    page module's copy would bring; the tool does not pick among them, and
    the approval card counts them — the translations, and for a page the
    content elements on it.
-2. **The copy is hidden, whatever core and the user's preferences say.** The
-   hidden column is set in the paste ``update`` of the same command and read
-   back; a copy that landed visible, on another page or in another column is
-   deleted again. Nothing a writer of this extension brings into being is
+2. **The copy is hidden, whatever core and the user's preferences say — and
+   so is every translation copied with it.** The hidden column is set in the
+   paste ``update`` of the same command, which reaches the copy only; the
+   copied translations get it from core's ``hideAtCopy``, which the user
+   preference ``neverHideAtCopy`` (pinned to 0 for the call) and page TSconfig
+   ``disableHideAtCopy`` switch off, so the tool sets it on every copied
+   translation that came out visible, in a second write of the same call.
+   Everything is read back; a copy with a visible translation, on another
+   page or in another column is deleted again, together with its
+   translations, and the answer says whether that worked. Between the copy
+   and the second write a copied translation can be visible for the duration
+   of one request. Nothing a writer of this extension brings into being is
    visible before a human looks at it (:ref:`ADR-135 <adr-135>`).
 3. **A page is copied without its subpages, always.** Core would hide only
    the top page of a copied branch and leave every copied subpage as visible

@@ -148,7 +148,8 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
         $stored   = $this->fetchRowByUid(self::TABLE, $plan['uid']);
         $notTaken = $stored === null
             ? array_keys($plan['fields'])
-            : $this->fieldsThatDidNotTake($stored, $plan['fields'], $plan['type']);
+            : [...$this->fieldsThatDidNotTake($stored, $plan['fields'], $plan['type']), ...$this->unchangedThoughAsked($stored, $plan)];
+        $notTaken = array_values(array_unique($notTaken));
         if ($notTaken !== []) {
             return ToolResult::error(sprintf(
                 'The update did not take on content element [%d] for: %s. The DataHandler dropped or changed the value '
@@ -404,6 +405,41 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
         }
 
         return $fields;
+    }
+
+    /**
+     * The columns TYPO3 stores in a shape of its own — rich text, a datetime,
+     * an input with an `eval` — that still hold exactly the value they had
+     * before although the call asked for a different one.
+     *
+     * {@see ReadsContentTypeFormsTrait::fieldsThatDidNotTake()} checks those
+     * for presence only, which was enough for the creating writer, whose
+     * columns start empty. Here the column already holds a value, so a value
+     * the DataHandler dropped reads as present; compared with the value
+     * before the write, it does not.
+     *
+     * @param array<string, mixed>                                                                        $stored
+     * @param array{type:string, fields:array<non-empty-string, string|int>, before:array<string, mixed>} $plan
+     *
+     * @return list<string>
+     */
+    private function unchangedThoughAsked(array $stored, array $plan): array
+    {
+        $columns  = $this->columnsOfType($plan['type']);
+        $notTaken = [];
+        foreach ($plan['fields'] as $column => $value) {
+            $config = $columns[$column] ?? [];
+            if (!$this->isRewrittenOnPurpose(self::toStr($config['type'] ?? ''), $config)) {
+                continue;
+            }
+
+            $before = self::toStr($plan['before'][$column] ?? '');
+            if ((string)$value !== $before && self::toStr($stored[$column] ?? '') === $before) {
+                $notTaken[] = $column;
+            }
+        }
+
+        return $notTaken;
     }
 
     /**

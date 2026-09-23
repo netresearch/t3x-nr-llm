@@ -20,7 +20,9 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -123,31 +125,44 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
         $dataHandler->start([], [self::TABLE => [$plan['uid'] => ['move' => $plan['destination']]]], $user);
         $dataHandler->process_cmdmap();
 
-        $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-        if ($refused instanceof ToolResult) {
-            return $refused;
-        }
-
-        // Read back: the DataHandler declines a move without always writing to
-        // `errorLog`, and "moved" about a page that stayed is a report a human
-        // acts on.
-        $landed = $this->fetchRowByUid(self::TABLE, $plan['uid'], 'uid', 'pid');
-        if ($landed === null || self::toInt($landed['pid'] ?? 0) !== $plan['parent']) {
+        // Read back whatever the error log says: the DataHandler declines a
+        // move without always writing to `errorLog`, and it moves translations
+        // one at a time and goes on past a refusal, so a complaint does not
+        // mean the page stayed. Parent AND position are compared — a reorder
+        // under the same parent changes no `pid`.
+        $complaints = $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . $this->summariseErrors($dataHandler->errorLog);
+        if (!$this->landedWherePlanned($plan['uid'], $plan['parent'], $plan['afterUid'])) {
             return ToolResult::error(sprintf(
-                'The move did not take: page [%d] is not under page [%d] afterwards. The acting backend user is most '
+                'The move did not take: page [%d] is not %s under page [%d] afterwards.%s The acting backend user is most '
                 . 'likely missing a permission core asks for on one of the two pages.',
                 $plan['uid'],
+                $plan['afterUid'] > 0 ? sprintf('directly after page [%d]', $plan['afterUid']) : 'first',
                 $plan['parent'],
+                $complaints,
             ));
         }
 
+        $strayTranslations = [];
+        foreach ($this->translationsOf(self::TABLE, $plan['uid']) as $translation) {
+            if (self::toInt($translation['pid'] ?? 0) !== $plan['parent']) {
+                $strayTranslations[] = self::toInt($translation['uid'] ?? 0);
+            }
+        }
+
         return ToolResult::text(sprintf(
-            'Moved page [%d] "%s" from under page [%d] to under page [%d]%s. Its URL path is unchanged: %s',
+            'Moved page [%d] "%s" from under page [%d] to under page [%d]%s.%s Its URL path is unchanged: %s',
             $plan['uid'],
             $this->excerpt($plan['title']),
             $plan['formerParent'],
             $plan['parent'],
             $plan['afterUid'] > 0 ? sprintf(', after page [%d]', $plan['afterUid']) : '',
+            $strayTranslations === [] && $complaints === ''
+                ? ''
+                : sprintf(
+                    ' Not completely:%s%s',
+                    $strayTranslations === [] ? '' : ' translation(s) ' . implode(', ', $strayTranslations) . ' stayed behind.',
+                    $complaints,
+                ),
             $plan['slug'] === '' ? '(none)' : $plan['slug'],
         ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::UPDATED);
     }
@@ -258,7 +273,12 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
         }
 
         $page = $this->fetchRowByUid(self::TABLE, $uid);
-        if ($page === null || !$this->mayEditRecord(self::TABLE, $page, $user)) {
+        // Visible to the user before any refusal below can name another page
+        // in relation to this one.
+        if ($page === null
+            || !$user->doesUserHaveAccess($page, Permission::PAGE_SHOW)
+            || !$this->mayEditRecord(self::TABLE, $page, $user)
+        ) {
             return self::NOT_PERMITTED;
         }
 
@@ -320,16 +340,17 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
         $translations = $this->translationsOf(self::TABLE, $uid);
         $languages    = [];
         foreach ($translations as $translation) {
-            $language = $this->languageOf(self::TABLE, $translation);
-            if (!$user->checkLanguageAccess($language)) {
-                $languages[] = $language;
+            // The record-level rights, not only the language: core moves each
+            // translation under them, one at a time, and goes on past a refusal.
+            if (!$this->mayEditRecord(self::TABLE, $translation, $user)) {
+                $languages[] = $this->languageOf(self::TABLE, $translation);
             }
         }
 
         if ($languages !== []) {
             return sprintf(
-                'Refused: page [%d] has translations in language(s) %s, which the acting backend user may not edit, and '
-                . 'core moves them with it. Nothing was written.',
+                'Refused: page [%d] has translations in language(s) %s which the acting backend user may not edit '
+                . '(language, lock or page type), and core moves them with it. Nothing was written.',
                 $uid,
                 implode(', ', array_unique($languages)),
             );
@@ -352,6 +373,43 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
             // parent, a negative one is "directly after the page with that uid".
             'destination' => $afterUid !== null ? -$afterUid : $parentUid,
         ];
+    }
+
+    /**
+     * Whether the page sits under the parent, directly after the anchor or —
+     * without one — before every other default-language page there.
+     */
+    private function landedWherePlanned(int $uid, int $parent, int $afterUid): bool
+    {
+        $landed = $this->fetchRowByUid(self::TABLE, $uid, 'uid', 'pid', 'sorting');
+        if ($landed === null || self::toInt($landed['pid'] ?? 0) !== $parent) {
+            return false;
+        }
+
+        $sorting  = self::toInt($landed['sorting'] ?? 0);
+        $siblings = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $siblings->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+        $rows = $siblings
+            ->select('uid', 'sorting')
+            ->from(self::TABLE)
+            ->where(
+                $siblings->expr()->eq('pid', $siblings->createNamedParameter($parent, Connection::PARAM_INT)),
+                $siblings->expr()->eq('sys_language_uid', $siblings->createNamedParameter(0, Connection::PARAM_INT)),
+                $siblings->expr()->neq('uid', $siblings->createNamedParameter($uid, Connection::PARAM_INT)),
+            )
+            ->orderBy('sorting')
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        // The sibling directly before the page: the last one sorted below it.
+        $before = 0;
+        foreach ($rows as $row) {
+            if (self::toInt($row['sorting'] ?? 0) < $sorting) {
+                $before = self::toInt($row['uid'] ?? 0);
+            }
+        }
+
+        return $before === $afterUid;
     }
 
     /**

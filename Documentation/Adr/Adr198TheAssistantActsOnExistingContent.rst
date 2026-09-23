@@ -71,7 +71,11 @@ decision; removing one reopens ADR-135's argument.
    ``include_subpages`` — core has no switch to keep the branch — and a
    branch of more than 50 pages is refused outright. A site root is never
    deleted. The card also counts the records the reference index says still
-   point at the record.
+   point at the record. Core deletes every record stored on a deleted page,
+   in every language, without asking for each; for a non-admin the tool
+   refuses first what core refuses (a table outside ``tables_modify`` with
+   records on the pages, a page translation the user may not edit) and one
+   thing more: content on the pages in a language the user may not edit.
 
 ``copy_record`` and ``move_page``
    Structural acts: a copy of one element or page, a page moved to another
@@ -109,25 +113,32 @@ The rails every one of them carries:
    forbidden one get the same neutral refusal.
 3. **Language as ADR-193 left it.** A translation core moves, copies or
    deletes together with its default-language record is refused by itself
-   and the refusal names that record; the language of every translation core
-   carries along must be the user's; a column a translation takes from its
+   and the refusal names that record; every translation core carries along
+   must pass the same record-level check as the record itself — language,
+   lock, content type — because core handles each translation on its own and
+   goes on past one it refuses, which would leave half an act behind; a
+   column a translation takes from its
    default-language element (``l10n_mode = exclude``) is not a field; a
    standalone element is not copied beside connected translations
    (:ref:`ADR-193 <adr-193>`).
 4. **Approval before, read-back after.** Each declares a write effect, so
    every call pauses for a human (ADR-134), and the card is the plan the
    write executes (ADR-136, ADR-184). After the write the result is read back
-   and what did not take is named; a record that came into being wrong is
-   deleted again.
+   whatever the DataHandler's error log says, and the answer states what is
+   actually the case: what did not take is named, a record that came into
+   being wrong is deleted again and the answer says whether that worked, and a
+   delete or move that happened while core refused part of it is reported as
+   done, with the part that was left behind.
 5. **Live workspace, a full backend environment, disabled by default, the
    ``editing`` group**, not admin-only — as every writer since ADR-135. The
    data class is the ``editing`` group's default, ``EDITOR_CONTENT``: what
    the tools echo is the editorial text of the records they touch.
 6. **No editor action.** None of the six declares one
-   (:ref:`ADR-152 <adr-152>`). An editor action is offered from a record's context menu and in bulk over
-   selected records (:ref:`ADR-162 <adr-162>`); "delete fifty pages" as one
-   click is a decision of its own, not a side effect of this one. The six
-   are reached through the assistant.
+   (:ref:`ADR-152 <adr-152>`). An editor action is offered from a record's
+   context menu and in bulk over selected records
+   (:ref:`ADR-162 <adr-162>`); "delete fifty pages" as one click is a
+   decision of its own, not a side effect of this one. The six are reached
+   through the assistant.
 
 ``WriteKind`` gains its third case, ``DELETED``, which its docblock
 reserved for the first deleting writer: ``delete_record`` and the removal in

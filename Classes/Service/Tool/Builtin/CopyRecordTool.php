@@ -150,12 +150,16 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             $update['colPos'] = $plan['column'];
         }
 
-        // Core 14 reads the depth of a page copy from the acting user's
-        // `copyLevels` preference; 13 from the DataHandler's `copyTree`, which
-        // is 0 unless set. Pinned to 0 for this one call and put back, in
-        // memory only — the preference is never written.
-        $copyLevels             = $user->uc['copyLevels'] ?? null;
-        $user->uc['copyLevels'] = 0;
+        // Two preferences of the acting user decide what core's copy does, and
+        // both are pinned for this one call and put back, in memory only — the
+        // preferences are never written. `copyLevels` is the depth of a page
+        // copy in TYPO3 14 (13 reads the DataHandler's `copyTree`, which is 0
+        // unless set); `neverHideAtCopy` would switch core's own hiding off.
+        $preferences = [];
+        foreach (['copyLevels', 'neverHideAtCopy'] as $preference) {
+            $preferences[$preference] = array_key_exists($preference, $user->uc) ? $user->uc[$preference] : null;
+            $user->uc[$preference]    = 0;
+        }
 
         try {
             $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
@@ -166,23 +170,33 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             ]]]], $user);
             $dataHandler->process_cmdmap();
         } finally {
-            if ($copyLevels === null) {
-                unset($user->uc['copyLevels']);
-            } else {
-                $user->uc['copyLevels'] = $copyLevels;
+            foreach ($preferences as $preference => $value) {
+                if ($value === null) {
+                    unset($user->uc[$preference]);
+                } else {
+                    $user->uc[$preference] = $value;
+                }
             }
         }
 
         $copied = $dataHandler->copyMappingArray_merged[$plan['table']] ?? null;
         $newUid = is_array($copied) ? self::toInt($copied[$plan['uid']] ?? 0) : 0;
+        // Every row of the table core copied: the copy and the translations it
+        // placed. The paste `update` reaches the copy only; the translations
+        // get the hidden flag from core's `hideAtCopy`, which page TSconfig
+        // `disableHideAtCopy` switches off. So each one is hidden below.
+        $rows = [];
+        foreach (is_array($copied) ? $copied : [] as $copyUid) {
+            if (self::toInt($copyUid) > 0) {
+                $rows[] = self::toInt($copyUid);
+            }
+        }
 
         $refused = $this->refuseOnDataHandlerErrors($dataHandler);
         if ($refused instanceof ToolResult) {
-            if ($newUid > 0) {
-                $this->discard($plan['table'], $newUid, $user);
-            }
-
-            return $refused;
+            return $newUid > 0
+                ? ToolResult::error($refused->content . ' ' . $this->takenBack($plan['table'], $newUid, $rows, $user))
+                : $refused;
         }
 
         if ($newUid < 1) {
@@ -192,9 +206,13 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             );
         }
 
-        // Read back before reporting success. A copy that landed visible is the
-        // one outcome this tool exists to prevent; a copy in the wrong place is
-        // not the copy the approver agreed to. Either is taken back.
+        $translations = array_values(array_diff($rows, [$newUid]));
+        $this->hideAll($plan['table'], $plan['hiddenColumn'], $translations, $user);
+
+        // Read back before reporting success. A copy that landed visible — the
+        // copy itself or one of its translations — is the one outcome this tool
+        // exists to prevent; a copy in the wrong place is not the copy the
+        // approver agreed to. Either is taken back.
         $copy  = $this->fetchRowByUid($plan['table'], $newUid);
         $wrong = [];
         if ($copy === null || self::toInt($copy['pid'] ?? 0) !== $plan['targetPage']) {
@@ -209,15 +227,20 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             $wrong[] = 'it is not in the column asked for';
         }
 
-        if ($wrong !== []) {
-            $removed = $this->discard($plan['table'], $newUid, $user);
+        foreach ($translations as $translationUid) {
+            $translation = $this->fetchRowByUid($plan['table'], $translationUid, 'uid', $plan['hiddenColumn']);
+            if ($translation !== null && self::toInt($translation[$plan['hiddenColumn']] ?? 0) !== 1) {
+                $wrong[] = sprintf('its translation [%d] is not hidden', $translationUid);
+            }
+        }
 
+        if ($wrong !== []) {
             return ToolResult::error(sprintf(
-                'The copy %s [%d] was made but %s, so it %s.',
+                'The copy %s [%d] was made but %s. %s',
                 $plan['table'],
                 $newUid,
                 implode(' and ', $wrong),
-                $removed ? 'was deleted again' : 'COULD NOT BE DELETED and may be visible — remove it by hand',
+                $this->takenBack($plan['table'], $newUid, $rows, $user),
             ));
         }
 
@@ -232,9 +255,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             $plan['table'] === self::PAGES_TABLE ? 'under page' : 'on page',
             $plan['targetPage'],
             $plan['table'] === self::CONTENT_TABLE ? sprintf(', column %d', $plan['column']) : '',
-            // Every row of the table core copied, the copy itself not counted:
-            // the translations it could place.
-            is_array($copied) && count($copied) > 1 ? sprintf(', with %d translation(s)', count($copied) - 1) : '',
+            $translations === [] ? '' : sprintf(', with %d hidden translation(s)', count($translations)),
         ))->withWriteTarget(new RecordReference($plan['table'], $newUid), WriteKind::CREATED);
     }
 
@@ -295,15 +316,16 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         if ($plan['translations'] > 0) {
             // Core copies a translation only where the target site carries its
             // language and, for an element, the target page is translated into
-            // it; one it cannot place fails the call, and the copy is taken back.
+            // it; a translation it cannot place fails the call, and the copy is
+            // taken back.
             $lines[] = sprintf(
-                'with its %d translation(s), where the target %s is translated into their language',
+                'with its %d translation(s); if the target %s lacks one of their languages, the copy fails and is taken back',
                 $plan['translations'],
                 $plan['table'] === self::PAGES_TABLE ? 'site' : 'page',
             );
         }
 
-        $lines[] = 'visibility: the copy is hidden — a human must unhide it before anyone sees it';
+        $lines[] = 'visibility: the copy and every copied translation are hidden — a human must unhide them before anyone sees them';
 
         return $lines;
     }
@@ -437,16 +459,16 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         $translations = $language === 0 ? $this->translationsOf($table, $uid) : [];
         $refused      = [];
         foreach ($translations as $translation) {
-            $translationLanguage = $this->languageOf($table, $translation);
-            if (!$user->checkLanguageAccess($translationLanguage)) {
-                $refused[] = $translationLanguage;
+            // The record-level rights, as core's copy asks them per row.
+            if (!$this->mayEditRecord($table, $translation, $user)) {
+                $refused[] = $this->languageOf($table, $translation);
             }
         }
 
         if ($refused !== []) {
             return sprintf(
-                'Refused: %s [%d] has translations in language(s) %s, which the acting backend user may not edit, and '
-                . 'core copies them with it. Nothing was written.',
+                'Refused: %s [%d] has translations in language(s) %s which the acting backend user may not edit '
+                . '(language, lock or content type), and core copies them with it. Nothing was written.',
                 $table,
                 $uid,
                 implode(', ', array_unique($refused)),
@@ -516,6 +538,57 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             // record with that uid".
             'destination' => $afterUid > 0 ? -$afterUid : $targetUid,
         ];
+    }
+
+    /**
+     * Set the hidden flag on copied rows that core left visible, in one
+     * datamap under the acting user — whose grant for the column `plan()`
+     * asked. What still did not take is caught by the read-back.
+     *
+     * @param 'pages'|'tt_content' $table
+     * @param non-empty-string     $hiddenColumn
+     * @param list<int>            $uids
+     */
+    private function hideAll(string $table, string $hiddenColumn, array $uids, BackendUserAuthentication $user): void
+    {
+        $datamap = [];
+        foreach ($uids as $uid) {
+            $row = $this->fetchRowByUid($table, $uid, 'uid', $hiddenColumn);
+            if ($row !== null && self::toInt($row[$hiddenColumn] ?? 0) !== 1) {
+                $datamap[$uid] = [$hiddenColumn => 1];
+            }
+        }
+
+        if ($datamap === []) {
+            return;
+        }
+
+        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler->start([$table => $datamap], [], $user);
+        $dataHandler->process_datamap();
+    }
+
+    /**
+     * Take the copy back and say whether it is gone — the copy and every row
+     * core copied with it, which core deletes together with it.
+     *
+     * @param 'pages'|'tt_content' $table
+     * @param list<int>            $rows  every copied row of the table, the copy included
+     */
+    private function takenBack(string $table, int $newUid, array $rows, BackendUserAuthentication $user): string
+    {
+        $this->discard($table, $newUid, $user);
+
+        $left = [];
+        foreach ($rows === [] ? [$newUid] : $rows as $uid) {
+            if ($this->fetchRowByUid($table, $uid, 'uid') !== null) {
+                $left[] = sprintf('%s [%d]', $table, $uid);
+            }
+        }
+
+        return $left === []
+            ? 'The copy was deleted again.'
+            : sprintf('The copy COULD NOT BE DELETED and may be visible — remove %s by hand.', implode(', ', $left));
     }
 
     /**

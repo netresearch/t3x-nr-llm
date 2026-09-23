@@ -75,7 +75,7 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
             [self::SITE_ROOT, 0, 'Root', Permission::ALL, 1],
             [self::SOURCE_PAGE, self::SITE_ROOT, 'Source', Permission::ALL, 0],
             [self::TARGET_PAGE, self::SITE_ROOT, 'Target', Permission::ALL, 0],
-            [self::CLOSED_PAGE, self::SITE_ROOT, 'Closed', Permission::PAGE_SHOW, 0],
+            [self::CLOSED_PAGE, self::SITE_ROOT, 'Closed', Permission::ALL & ~Permission::CONTENT_EDIT, 0],
             [self::PAGE_TO_COPY, self::SOURCE_PAGE, 'Template page', Permission::ALL, 0],
             [self::SUBPAGE, self::PAGE_TO_COPY, 'Template child', Permission::ALL, 0],
         ] as [$uid, $pid, $title, $everybody, $siteRoot]) {
@@ -282,8 +282,8 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
         self::assertSame([
             'Copy tt_content [20] "Original", language 0',
             'to: page [3] "Target", column 2, directly after element [22] "Anchor"',
-            'with its 1 translation(s), where the target page is translated into their language',
-            'visibility: the copy is hidden — a human must unhide it before anyone sees it',
+            'with its 1 translation(s); if the target page lacks one of their languages, the copy fails and is taken back',
+            'visibility: the copy and every copied translation are hidden — a human must unhide them before anyone sees them',
         ], $lines);
         self::assertSame($before, $this->rowCount('tt_content', []));
     }
