@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Database\Connection;
+use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Localization\LanguageService;
 
@@ -139,6 +141,43 @@ trait WritesThroughDataHandlerTrait
             'The update was refused by TYPO3: %s',
             $this->summariseErrors($dataHandler->errorLog),
         ));
+    }
+
+    /**
+     * The constraints that keep a query to LIVE rows of a workspace-aware
+     * table: `t3ver_wsid`, `t3ver_oid` and `t3ver_state` all 0. Empty for a
+     * table without `versioningWS`, which has no such columns.
+     *
+     * Every writer runs in the live workspace only, and the DataHandler does
+     * not refuse a live-workspace write to a workspace VERSION row — it treats
+     * any uid it is handed as the record to change. A version row found by uid
+     * is therefore another workspace's draft, which a writer must neither
+     * change, copy, count nor show on an approval card. Read from the live TCA
+     * rather than assumed, so a table an installation makes workspace-aware is
+     * covered too.
+     *
+     * @param string $alias the table alias in the query, '' for none
+     *
+     * @return list<string>
+     */
+    private function liveVersionConstraints(QueryBuilder $queryBuilder, string $table, string $alias = ''): array
+    {
+        $tca  = $GLOBALS['TCA'] ?? null;
+        $ctrl = is_array($tca) && is_array($tca[$table] ?? null) ? ($tca[$table]['ctrl'] ?? null) : null;
+        if (!is_array($ctrl) || !(bool)($ctrl['versioningWS'] ?? false)) {
+            return [];
+        }
+
+        $prefix      = $alias === '' ? '' : $alias . '.';
+        $constraints = [];
+        foreach (['t3ver_wsid', 't3ver_oid', 't3ver_state'] as $column) {
+            $constraints[] = $queryBuilder->expr()->eq(
+                $prefix . $column,
+                $queryBuilder->createNamedParameter(0, Connection::PARAM_INT),
+            );
+        }
+
+        return $constraints;
     }
 
     /**

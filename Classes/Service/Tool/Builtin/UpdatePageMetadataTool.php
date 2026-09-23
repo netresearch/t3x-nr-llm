@@ -585,8 +585,9 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
     private function fetchPage(int $uid): ?array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        // Only the deleted restriction: a hidden or timed-out page is still a
-        // page an editor may fix the description of.
+        // The deleted restriction and live rows only: a hidden or timed-out
+        // page is still a page an editor may fix the description of, but a
+        // workspace version row is another workspace's draft (ADR-198).
         $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
 
         $row = $queryBuilder
@@ -594,6 +595,7 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
             ->from(self::TABLE)
             ->where(
                 $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
+                ...$this->liveVersionConstraints($queryBuilder, self::TABLE),
             )
             ->executeQuery()
             ->fetchAssociative();

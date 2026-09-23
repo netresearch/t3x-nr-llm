@@ -165,6 +165,7 @@ trait ActsOnAnExistingRecordTrait
             ->where(
                 $queryBuilder->expr()->eq($pointer, $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
                 $queryBuilder->expr()->gt($language, $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                ...$this->liveVersionConstraints($queryBuilder, $table),
             )
             ->orderBy('uid')
             ->executeQuery()

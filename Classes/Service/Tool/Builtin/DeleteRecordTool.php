@@ -477,6 +477,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
                 ->where(
                     $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($parent, Connection::PARAM_INT)),
                     $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                    ...$this->liveVersionConstraints($queryBuilder, self::PAGES_TABLE),
                 )
                 ->orderBy('uid')
                 ->executeQuery()
@@ -505,7 +506,10 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::CONTENT_TABLE);
         $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
 
-        $constraints = [$queryBuilder->expr()->in('pid', $queryBuilder->createNamedParameter($pageUids, Connection::PARAM_INT_ARRAY))];
+        $constraints = [
+            $queryBuilder->expr()->in('pid', $queryBuilder->createNamedParameter($pageUids, Connection::PARAM_INT_ARRAY)),
+            ...$this->liveVersionConstraints($queryBuilder, self::CONTENT_TABLE),
+        ];
         if ($language !== null) {
             $constraints[] = $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter($language, Connection::PARAM_INT));
         }
@@ -556,7 +560,10 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
         $languages = $queryBuilder
             ->select('sys_language_uid')
             ->from(self::CONTENT_TABLE)
-            ->where($queryBuilder->expr()->in('pid', $queryBuilder->createNamedParameter($pageUids, Connection::PARAM_INT_ARRAY)))
+            ->where(
+                $queryBuilder->expr()->in('pid', $queryBuilder->createNamedParameter($pageUids, Connection::PARAM_INT_ARRAY)),
+                ...$this->liveVersionConstraints($queryBuilder, self::CONTENT_TABLE),
+            )
             ->groupBy('sys_language_uid')
             ->executeQuery()
             ->fetchFirstColumn();

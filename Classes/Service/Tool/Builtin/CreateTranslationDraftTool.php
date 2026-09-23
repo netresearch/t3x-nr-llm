@@ -495,6 +495,9 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
                     $this->languageField($table),
                     $queryBuilder->createNamedParameter($language, Connection::PARAM_INT),
                 ),
+                // A live translation; another workspace's draft of one is not
+                // what `overwrite` deletes (ADR-198).
+                ...$this->liveVersionConstraints($queryBuilder, $table),
             )
             ->orderBy('uid', 'ASC')
             ->setMaxResults(1)

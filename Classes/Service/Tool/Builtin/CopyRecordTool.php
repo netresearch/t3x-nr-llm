@@ -618,7 +618,10 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         return self::toInt($queryBuilder
             ->count('uid')
             ->from(self::CONTENT_TABLE)
-            ->where($queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)))
+            ->where(
+                $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)),
+                ...$this->liveVersionConstraints($queryBuilder, self::CONTENT_TABLE),
+            )
             ->executeQuery()
             ->fetchOne());
     }

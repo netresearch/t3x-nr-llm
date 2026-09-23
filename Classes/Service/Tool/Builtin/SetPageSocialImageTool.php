@@ -804,7 +804,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
                 $queryBuilder->expr()->eq('l10n_parent', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)),
                 $queryBuilder->expr()->gt('sys_language_uid', $queryBuilder->createNamedParameter(self::DEFAULT_LANGUAGE, Connection::PARAM_INT)),
                 $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
-                $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter(self::LIVE_WORKSPACE, Connection::PARAM_INT)),
+                ...$this->liveVersionConstraints($queryBuilder, self::PAGES_TABLE),
             )
             ->orderBy('sys_language_uid', 'ASC')
             ->addOrderBy('uid', 'ASC')

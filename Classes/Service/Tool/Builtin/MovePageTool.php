@@ -396,6 +396,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
                 $siblings->expr()->eq('pid', $siblings->createNamedParameter($parent, Connection::PARAM_INT)),
                 $siblings->expr()->eq('sys_language_uid', $siblings->createNamedParameter(0, Connection::PARAM_INT)),
                 $siblings->expr()->neq('uid', $siblings->createNamedParameter($uid, Connection::PARAM_INT)),
+                ...$this->liveVersionConstraints($siblings, self::TABLE),
             )
             ->orderBy('sorting')
             ->executeQuery()
