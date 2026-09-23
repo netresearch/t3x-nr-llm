@@ -47,6 +47,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\ListMiddlewaresTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListSchedulerTasksTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\MoveContentElementTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ProbeUrlTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\PublishRecordTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadFalAssetMetaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadRecordsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadSourceTool;
@@ -132,6 +133,7 @@ final class BuiltinToolGroupsTest extends TestCase
             'create_page_draft' => [CreatePageDraftTool::class, 'editing'],
             'create_record_draft' => [CreateRecordDraftTool::class, 'editing'],
             'create_translation_draft' => [CreateTranslationDraftTool::class, 'editing'],
+            'publish_record' => [PublishRecordTool::class, 'editing'],
             'site_rag_query'    => [SiteRagQueryTool::class, 'rag'],
             'site_fetch_source' => [SiteFetchSourceTool::class, 'rag'],
         ];
