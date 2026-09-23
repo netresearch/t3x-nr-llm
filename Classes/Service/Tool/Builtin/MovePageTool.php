@@ -307,7 +307,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
 
         if ((bool)($page['is_siteroot'] ?? false)) {
             return sprintf(
-                'Refused: page [%d] is a site root. Moving it changes where a site lives, which is an administrator\'s '
+                "Refused: page [%d] is a site root. Moving it changes where a site lives, which is an administrator's "
                 . 'decision and not something this tool does.',
                 $uid,
             );

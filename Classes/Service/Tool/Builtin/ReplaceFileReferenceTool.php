@@ -101,7 +101,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             'replace_file_reference',
             'Change ONE existing file reference (sys_file_reference) on a content element: "replace" points it at '
             . 'another EXISTING file at the same position, "remove" deletes the reference. The file itself is never '
-            . 'changed, moved or deleted. A replacement does not carry over the old reference\'s title, alternative '
+            . "changed, moved or deleted. A replacement does not carry over the old reference's title, alternative "
             . 'text, description or crop — they described the old file; give new texts to set them. Writes through '
             . 'the TYPO3 DataHandler as the acting backend user, in the live workspace only. To add a file, use '
             . 'attach_file_to_content_element.',
@@ -397,7 +397,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
     private function replace(array $plan, BackendUserAuthentication $user): ToolResult
     {
         $placeholder = StringUtility::getUniqueId('NEW');
-        $before      = array_map('strval', $plan['references']);
+        $before      = array_map(strval(...), $plan['references']);
         $list        = array_map(
             static fn(int $uid): string => $uid === $plan['reference'] ? $placeholder : (string)$uid,
             $plan['references'],

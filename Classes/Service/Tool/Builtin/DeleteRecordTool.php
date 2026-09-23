@@ -323,7 +323,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
 
         if ($table === self::PAGES_TABLE && (bool)($row['is_siteroot'] ?? false)) {
             return sprintf(
-                'Refused: page [%d] is a site root. Deleting it takes a site offline, which is an administrator\'s '
+                "Refused: page [%d] is a site root. Deleting it takes a site offline, which is an administrator's "
                 . 'decision and not something this tool does.',
                 $uid,
             );

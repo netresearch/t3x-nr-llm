@@ -105,7 +105,7 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
         // The reference index row a `shortcut` element pointing at element 20
         // would have; written directly, as the index is not what is tested.
         $this->connectionPool->getConnectionForTable('sys_refindex')->insert('sys_refindex', [
-            'hash' => md5('shortcut-24'), 'tablename' => 'tt_content', 'recuid' => self::SHORTCUT, 'field' => 'records',
+            'hash' => str_repeat('a', 32), 'tablename' => 'tt_content', 'recuid' => self::SHORTCUT, 'field' => 'records',
             'ref_table' => 'tt_content', 'ref_uid' => self::ELEMENT, 'workspace' => 0,
         ]);
 

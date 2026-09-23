@@ -97,7 +97,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             'copy_record',
             'Copy ONE content element to a page and column, or ONE page (without its subpages) under a parent page. '
             . 'The copy is always HIDDEN, so a human must review and unhide it. Core copies the translations of a '
-            . 'default-language record along, and a page\'s content with the page. Writes through the TYPO3 '
+            . "default-language record along, and a page's content with the page. Writes through the TYPO3 "
             . 'DataHandler as the acting backend user, in the live workspace only.',
             [
                 'type'       => 'object',
@@ -424,7 +424,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         if ($table === self::PAGES_TABLE && (bool)($row['is_siteroot'] ?? false)) {
             return sprintf(
                 'Refused: page [%d] is a site root. A copy would be a second root without a site, which is an '
-                . 'administrator\'s decision and not something this tool does.',
+                . "administrator's decision and not something this tool does.",
                 $uid,
             );
         }

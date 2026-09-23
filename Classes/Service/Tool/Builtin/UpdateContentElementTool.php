@@ -96,7 +96,7 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
             'update_content_element',
             'Change fields of ONE existing content element (tt_content): the scalar columns its content type shows '
             . 'in the backend form, such as header, subheader and bodytext. Each value is checked against the TCA of '
-            . 'the element\'s type; relations, FlexForms and the identity, position, visibility, publication, '
+            . "the element's type; relations, FlexForms and the identity, position, visibility, publication, "
             . 'audience and translation columns cannot be set, and an element of a type outside the offered set '
             . '(raw HTML, plugins, menus, shortcuts) is refused. Writes through the TYPO3 DataHandler as the acting '
             . 'backend user, in the live workspace only; the whole call is refused rather than partially applied.',
@@ -351,7 +351,7 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
             if ($column !== '' && $column === $key && $this->isSystemColumn($column)) {
                 return sprintf(
                     'Refused: "%s" cannot be set through this tool. Identity, position and visibility are other '
-                    . 'tools\' acts (move_content_element, publish_record), and publication, audience and translation '
+                    . "tools' acts (move_content_element, publish_record), and publication, audience and translation "
                     . 'columns are not editorial.',
                     $column,
                 );
