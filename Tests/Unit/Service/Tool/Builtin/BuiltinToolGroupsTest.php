@@ -13,10 +13,12 @@ use Netresearch\NrLlm\Domain\Enum\ToolGroup;
 use Netresearch\NrLlm\Service\Tool\Builtin\AttachFileToContentElementTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\BrowseFalFolderTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CheckTypoScriptTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\CopyRecordTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateContentElementDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreatePageDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateRecordDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateTranslationDraftTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\DeleteRecordTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchExternalUrlTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchLogsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\FindMissingFilesTool;
@@ -47,10 +49,13 @@ use Netresearch\NrLlm\Service\Tool\Builtin\ListFalStoragesTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListMiddlewaresTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListSchedulerTasksTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\MoveContentElementTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\MovePageTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ProbeUrlTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\PublishRecordTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadFalAssetMetaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadRecordsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadSourceTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\ReplaceFileReferenceTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ResolveUrlTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SearchCodeTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SearchFalFilesTool;
@@ -59,6 +64,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\SetFileAlternativeTextTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetPageSocialImageTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SiteFetchSourceTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SiteRagQueryTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\UpdateContentElementTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdateFalAssetMetaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ValidateTcaTool;
@@ -133,6 +139,12 @@ final class BuiltinToolGroupsTest extends TestCase
             'create_page_draft' => [CreatePageDraftTool::class, 'editing'],
             'create_record_draft' => [CreateRecordDraftTool::class, 'editing'],
             'create_translation_draft' => [CreateTranslationDraftTool::class, 'editing'],
+            'publish_record' => [PublishRecordTool::class, 'editing'],
+            'delete_record' => [DeleteRecordTool::class, 'editing'],
+            'move_page' => [MovePageTool::class, 'editing'],
+            'copy_record' => [CopyRecordTool::class, 'editing'],
+            'replace_file_reference' => [ReplaceFileReferenceTool::class, 'editing'],
+            'update_content_element' => [UpdateContentElementTool::class, 'editing'],
             'site_rag_query'    => [SiteRagQueryTool::class, 'rag'],
             'site_fetch_source' => [SiteFetchSourceTool::class, 'rag'],
             'fetch_external_url' => [FetchExternalUrlTool::class, 'web'],

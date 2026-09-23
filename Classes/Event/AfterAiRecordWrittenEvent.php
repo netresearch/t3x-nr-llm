@@ -19,7 +19,7 @@ use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
  * Dispatched once per successful editorial write, after the write has landed
  * and been read back by the tool that made it. It says three things and
  * deliberately nothing else: which run, which record, and whether that record
- * was created or changed.
+ * was created, changed or deleted.
  *
  * **What this event is for.** Everything a consumer might want to do about an
  * AI-written record and this extension will not do for them: an Article 50
@@ -57,8 +57,8 @@ final readonly class AfterAiRecordWrittenEvent
      *                                       of everything that run did (ADR-153). Never empty:
      *                                       a tool call made outside a persisted run has no
      *                                       provenance to report and dispatches no event.
-     * @param RecordReference $record        the row the write produced or changed
-     * @param WriteKind       $kind          whether that row was created or updated
+     * @param RecordReference $record        the row the write produced, changed or deleted
+     * @param WriteKind       $kind          whether that row was created, updated or deleted
      *
      * @throws InvalidArgumentException if the correlation id is empty
      */

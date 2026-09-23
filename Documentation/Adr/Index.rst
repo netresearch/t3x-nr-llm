@@ -580,4 +580,6 @@ Tools
    Adr195TheNinthWriterSetsAPageSocialImage
    Adr196ContentTypesFromTheTcaUnderAnExclusionRule
    Adr197AGenericCreatorWhereNoNarrowWriterExists
+   Adr198TheAssistantActsOnExistingContent
+   Adr199ACopyIsAHiddenDraftWithoutItsBranch
    Adr202APublicWebPageThroughAnAddressGuard
