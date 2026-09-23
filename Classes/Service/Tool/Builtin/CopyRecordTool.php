@@ -157,7 +157,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         // unless set); `neverHideAtCopy` would switch core's own hiding off.
         $preferences = [];
         foreach (['copyLevels', 'neverHideAtCopy'] as $preference) {
-            $preferences[$preference] = array_key_exists($preference, $user->uc) ? $user->uc[$preference] : null;
+            $preferences[$preference] = $user->uc[$preference] ?? null;
             $user->uc[$preference]    = 0;
         }
 
