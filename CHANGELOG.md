@@ -6,11 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.37.1] - 2026-09-24
+## [0.37.2] - 2026-09-24
 
 ### Fixed
 
 - **A column every content type carries no longer takes every type away (ADR-205, NEXT-164).** ADR-196's rule "one excluding column excludes the type" also counted columns an extension adds to every content type. On the Netresearch demo, bootstrap_package's `background_image_options` (a FlexForm in core's `frames` palette) and EXT:contexts' `tx_contexts_settings` (a `user` field in every `showitem`) excluded all 29 candidate types, so `create_content_element_draft` answered `Allowed here: none` and `update_content_element` refused every element. The columns of the `header` type's form, which every content type shares, now no longer decide: an excluding one is left at its default like an unfilled column, and the fillable ones stay settable through `fields` as before. A type's own FlexForm, inline or reference column still excludes it.
+
+## [0.37.1] - 2026-09-24
+
+### Fixed
 
 - **A provider's organization ID and custom headers reach configuration-bound calls (#388 follow-up).** #388 taught `AbstractProvider::configure()` to read `organizationId` and the options-JSON `customHeaders`, and they were sent on a provider-bound adapter. `ProviderAdapterRegistry::createAdapterFromModel()` then re-ran `configure()` with five keys to set the model id, and `configure()` assigns every key it knows from its input — so the organization ID and the custom headers were reset to empty on every call that goes through a configuration, which is every agent run, task and Playground call. Because the model-bound adapter is the cached provider adapter, later provider-bound calls lost them too. The model-bound reconfigure now starts from the provider's full adapter configuration and sets the model id last, so the model still wins over a `defaultModel` in the options JSON. Measured on the outgoing request: `OpenAI-Organization` and a configured custom header are sent on a model-bound adapter, and still on the provider-bound one afterwards.
 
@@ -4095,7 +4099,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.1...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.2...HEAD
+[0.37.2]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.1...v0.37.2
 [0.37.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.0...v0.37.1
 [0.37.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.36.0...v0.37.0
 [0.36.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.35.0...v0.36.0
