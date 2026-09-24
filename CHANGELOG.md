@@ -190,6 +190,28 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.32.0] - 2026-08-21
 
+### Added
+
+- A forced source a queued run asked for and did not get is now recorded on the
+  run (ADR-179).
+
+  Switching a snippet or skill off between enqueue and start drops it — that is
+  ADR-175's rule and stays — but until now nothing said so, and the only way to
+  notice was to compare the queued request against the transcript.
+
+  The run now carries a `dropped` step naming each source and why: `deactivated`
+  for a record that is switched off, `gone` for one that no longer resolves.
+  Those stay apart on purpose — a deactivated record can be switched back on, a
+  removed one cannot, so a single "dropped" would send the reader looking.
+
+  A run that dropped nothing records no step, so the step's presence is the
+  signal. The resume path is untouched: ADR-166 and ADR-175 keep a deactivated
+  source resolving there, so nothing is dropped and a report would imply
+  otherwise.
+
+  `RunAugmentation` gains a `droppedSources` parameter, appended with a default;
+  `RunTrace` gains `recordDroppedSources()`. Both are additive.
+
 ### Fixed
 
 - **`vision()` and `embed()` use the default configuration when no provider is pinned**, as `chat()` has since ADR-034. Handing them no provider used to throw "No provider specified and no default provider configured" on an installation that has a perfectly good default — which is what the feature services invite, since model selection is nr-llm's job. The resolved configuration drives the call (its model reaches the provider) and shows up in telemetry as itself rather than as an ad-hoc entry; a provider or model the caller named wins, and with no default configuration the call still refuses rather than picking one (#851).
@@ -271,28 +293,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reasons that say nothing about the model, so folding it in would measure the
   gate instead of the answer.
 
-- A forced source a queued run asked for and did not get is now recorded on the
-  run (ADR-179).
-
-  Switching a snippet or skill off between enqueue and start drops it — that is
-  ADR-175's rule and stays — but until now nothing said so, and the only way to
-  notice was to compare the queued request against the transcript.
-
-  The run now carries a `dropped` step naming each source and why: `deactivated`
-  for a record that is switched off, `gone` for one that no longer resolves.
-  Those stay apart on purpose — a deactivated record can be switched back on, a
-  removed one cannot, so a single "dropped" would send the reader looking.
-
-  A run that dropped nothing records no step, so the step's presence is the
-  signal. The resume path is untouched: ADR-166 and ADR-175 keep a deactivated
-  source resolving there, so nothing is dropped and a report would imply
-  otherwise.
-
-  `RunAugmentation` gains a `droppedSources` parameter, appended with a default;
-  `RunTrace` gains `recordDroppedSources()`. Both are additive.
-
-
 ### Changed
+- **The api-surface snapshot freezes enum backing values** (`#815`). Backed
+  cases render as `case Read = "read"` instead of the bare name, because for
+  `@api` enums the values are the frozen vocabulary (persisted rows, wire
+  formats, CSV round-trips) and a value change under a stable case name
+  passed the snapshot byte-identical. A fixture enum plus two renderer tests
+  prove the rendering and that a value change classifies as breaking. The
+  committed snapshot is regenerated — 108 case lines gain their value, no
+  other line moves, and no API changed; the rendering rule did. Ported back
+  from nr-vault, which caught the gap in review
+  (netresearch/t3x-nr-vault#319).
+
 - **AGENTS.md files synchronized with the repository state.** Root slimmed from 356 to 119 lines by moving content into the scoped files it belongs to; stale inventories refreshed (TCA files, database tables, backend templates, JS modules, `Services.Dashboard.php`); phantom `TCA/Overrides/` and dead `MEMORY.md` references removed; generic workflow boilerplate in `.github/workflows/AGENTS.md` replaced with this repository's actual conventions (no local jobs, release flow, dependency automation).
 
 ## [0.30.0] - 2026-08-18
@@ -410,17 +422,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the run, where its longer retention window is (`#754`).
 
 ### Changed
-
-- **The api-surface snapshot freezes enum backing values** (`#815`). Backed
-  cases render as `case Read = "read"` instead of the bare name, because for
-  `@api` enums the values are the frozen vocabulary (persisted rows, wire
-  formats, CSV round-trips) and a value change under a stable case name
-  passed the snapshot byte-identical. A fixture enum plus two renderer tests
-  prove the rendering and that a value change classifies as breaking. The
-  committed snapshot is regenerated — 108 case lines gain their value, no
-  other line moves, and no API changed; the rendering rule did. Ported back
-  from nr-vault, which caught the gap in review
-  (netresearch/t3x-nr-vault#319).
 
 - **ADR-130's constraint 3 is amended by ADR-131** (`#787`). The record called
   `agent_approve` doubly unreachable for non-admins because it named two
