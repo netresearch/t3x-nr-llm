@@ -6,11 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.37.1] - 2026-09-24
+
 ### Fixed
 
 - **A provider's organization ID and custom headers reach configuration-bound calls (#388 follow-up).** #388 taught `AbstractProvider::configure()` to read `organizationId` and the options-JSON `customHeaders`, and they were sent on a provider-bound adapter. `ProviderAdapterRegistry::createAdapterFromModel()` then re-ran `configure()` with five keys to set the model id, and `configure()` assigns every key it knows from its input — so the organization ID and the custom headers were reset to empty on every call that goes through a configuration, which is every agent run, task and Playground call. Because the model-bound adapter is the cached provider adapter, later provider-bound calls lost them too. The model-bound reconfigure now starts from the provider's full adapter configuration and sets the model id last, so the model still wins over a `defaultModel` in the options JSON. Measured on the outgoing request: `OpenAI-Organization` and a configured custom header are sent on a model-bound adapter, and still on the provider-bound one afterwards.
 
-- **The records of the GPT-6 Responses transport no longer claim that no OpenAI credential was available (ADR-203, #965).** The 0.37.0 entries, ADR-203 and spec 009 said the change could not be checked against the live API because no key existed. A key was stored in the team's password manager and had not been looked for. The released code has now been run against the live API: GPT-6 tool calls go to `/v1/responses` and complete in two steps; an encrypted reasoning item is kept and replayed byte for byte, and OpenAI accepts it; `think = false` reaches `gpt-6-astra` as `low` and OpenAI confirms it; `gpt-4.1-mini` still uses `chat/completions`; and the same GPT-6 request forced onto `chat/completions` fails with the error of #965. The one assumption 0.37.0 left unmeasured is settled: GPT-6 rejects a non-default `temperature` with HTTP 400, so stripping it is correct. ADR-203 records the results in a new section *Verification against the live API*; spec 009 is corrected.
+- **The records of the GPT-6 Responses transport no longer claim that no OpenAI credential was available (ADR-203, #965).** The 0.37.0 entries, ADR-203 and spec 009 said the change could not be checked against the live API because no key existed. A key was stored in the team's password manager and had not been looked for. The provider code of 0.37.0 has now been run against the live API: GPT-6 tool calls go to `/v1/responses` and complete in two steps; an encrypted reasoning item is kept and replayed byte for byte, and OpenAI accepts it; `think = false` reaches `gpt-6-astra` as `low` and OpenAI confirms it; `gpt-4.1-mini` still uses `chat/completions`; and the same GPT-6 request forced onto `chat/completions` fails with the error of #965. The one assumption 0.37.0 left unmeasured is settled: GPT-6 rejects a non-default `temperature` with HTTP 400, so stripping it is correct. ADR-203 records the results in a new section *Verification against the live API*; spec 009 is corrected.
 
 ## [0.37.0] - 2026-09-24
 
@@ -4091,7 +4093,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.1...HEAD
+[0.37.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.0...v0.37.1
 [0.37.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.36.0...v0.37.0
 [0.36.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.35.0...v0.36.0
 [0.35.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.34.0...v0.35.0
