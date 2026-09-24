@@ -587,3 +587,4 @@ Tools
    Adr202APublicWebPageThroughAnAddressGuard
    Adr203ToolCallingOnAReasoningModelGoesThroughResponses
    Adr204ReasoningEffortIsARequestOption
+   Adr205AColumnEveryContentTypeCarriesExcludesNoType
