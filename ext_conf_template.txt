@@ -132,6 +132,22 @@ tools.dataClassEnforcement = enforce
 tools.createRecordDraft.deniedTables =
 
 # =============================================================================
+# External web pages (ADR-202)
+# =============================================================================
+
+# cat=tools; type=string; label=Hosts fetch_external_url may read: Comma-separated host names or IP addresses the tool fetch_external_url (ADR-202) is limited to. "example.org" allows that host, "*.example.org" every subdomain of it (not the apex), "example.org:8443" that host on port 8443 only — list "example.org" as well to keep its default port. Empty (default) allows every public host. The list can only narrow: a host on it that resolves to a private, loopback, link-local or metadata address is still refused.
+tools.fetchExternalUrl.allowedHosts =
+
+# cat=tools; type=string; label=Hosts fetch_external_url never reads: Comma-separated host names ("example.org", "*.example.org") or IP addresses ("192.0.2.10", "2001:db8::1", "[2001:db8::1]") the tool fetch_external_url (ADR-202) refuses, checked before the allowlist and for every redirect target. A name entry matches the host name in a URL, an address entry matches an IP address in a URL and every address a host name resolves to. Empty by default.
+tools.fetchExternalUrl.deniedHosts =
+
+# cat=tools; type=boolean; label=Run fetch_external_url without approval when an allowlist is set: Every fetch_external_url call pauses for a human approval, because the URL the model chooses leaves the installation and can carry data the run has seen (ADR-202). Switching this on lets calls run unattended ONLY while "Hosts fetch_external_url may read" is non-empty. With an empty allowlist the approval stays on regardless.
+tools.fetchExternalUrl.skipApprovalWithAllowlist = 0
+
+# cat=tools; type=boolean; label=Let fetch_external_url fetch through an HTTP proxy: When a proxy applies to a request (TYPO3 HTTP proxy setting, or HTTPS_PROXY / HTTP_PROXY in the environment), the proxy resolves the host itself and the address checks of ADR-202 cannot reach past it, so the fetch is refused. Switching this on permits it ONLY while "Hosts fetch_external_url may read" is non-empty.
+tools.fetchExternalUrl.allowViaProxy = 0
+
+# =============================================================================
 # MCP servers (ADR-170)
 # =============================================================================
 

@@ -113,6 +113,20 @@ final class EgressPolicyServiceTest extends TestCase
     }
 
     #[Test]
+    public function theWebGroupDeclaresTheFilteredExternalScopeAndNothingElse(): void
+    {
+        // ADR-202: `web` reaches public hosts only through ExternalUrlGuard. The
+        // own-site and configured-endpoint resolvers must still refuse it, so
+        // the new scope cannot borrow either of their allow-lists.
+        self::assertSame(ToolEgressScope::EXTERNAL_FILTERED, $this->policy->scopeFor('web'));
+        self::assertNull($this->policy->resolveAllowedUrl('web', 'https://example.org/'));
+        self::assertNull($this->policy->resolveAllowedUrl('web', '/imprint'));
+        self::assertNull($this->policy->resolveConfiguredEndpoint('web', 'https://example.org/', ['example.org']));
+        // …and it did not widen `system`, which carries probe_url.
+        self::assertSame(ToolEgressScope::OWN_SITE, $this->policy->scopeFor('system'));
+    }
+
+    #[Test]
     public function aConfiguredEndpointMustMatchTheDeclarationExactly(): void
     {
         $declared = ['solr.internal:8983'];

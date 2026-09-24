@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\CreatePageDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateRecordDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateTranslationDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\DeleteRecordTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\FetchExternalUrlTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchLogsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\FindMissingFilesTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\FluidResolveTool;
@@ -146,6 +147,7 @@ final class BuiltinToolGroupsTest extends TestCase
             'update_content_element' => [UpdateContentElementTool::class, 'editing'],
             'site_rag_query'    => [SiteRagQueryTool::class, 'rag'],
             'site_fetch_source' => [SiteFetchSourceTool::class, 'rag'],
+            'fetch_external_url' => [FetchExternalUrlTool::class, 'web'],
         ];
     }
 

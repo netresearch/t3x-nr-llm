@@ -43,9 +43,11 @@ final readonly class EgressPolicyService
     /**
      * Declared egress scope per tool group. Absent group => NONE (fail-closed).
      *
-     * `system` carries `probe_url`, the one built-in that fetches over the
-     * network, and is limited to the instance's own sites. `rag` reaches the
-     * search backend the site configuration declares. Every other group
+     * `system` carries `probe_url` and is limited to the instance's own sites.
+     * `rag` reaches the search backend the site configuration declares. `web`
+     * carries `fetch_external_url` and reaches public internet hosts through
+     * the address guard of ADR-202 ({@see \Netresearch\NrLlm\Service\Tool\Web\ExternalUrlGuard}),
+     * never through {@see self::resolveAllowedUrl()}. Every other group
      * (`content`, `structure`, `configuration`, `code`, `files`, `accounts`)
      * reads local state only and is denied egress.
      *
@@ -54,6 +56,7 @@ final readonly class EgressPolicyService
     private const GROUP_SCOPES = [
         'system' => ToolEgressScope::OWN_SITE,
         'rag'    => ToolEgressScope::CONFIGURED_ENDPOINT,
+        'web'    => ToolEgressScope::EXTERNAL_FILTERED,
     ];
 
     public function __construct(
@@ -85,8 +88,9 @@ final readonly class EgressPolicyService
             return null;
         }
 
-        // Only OWN_SITE is a positive scope today; guard explicitly so a future
-        // scope cannot fall through to the own-site logic by accident.
+        // This method serves OWN_SITE only; guard explicitly so another scope
+        // (CONFIGURED_ENDPOINT, EXTERNAL_FILTERED) cannot fall through to the
+        // own-site logic by accident.
         if ($this->scopeFor($group) !== ToolEgressScope::OWN_SITE) {
             return null;
         }
@@ -206,6 +210,62 @@ final readonly class EgressPolicyService
         }
 
         return array_values(array_unique($hosts));
+    }
+
+    /**
+     * The host names of every site base AND every base variant, without ports.
+     *
+     * The inverse use of {@see self::allowedHosts()}: `fetch_external_url` must
+     * NOT reach the installation (ADR-202), and for a refusal the wider set is
+     * the safe one — a staging variant's host is as much this installation as
+     * the active base.
+     *
+     * @return list<string>
+     */
+    public function siteHostNames(): array
+    {
+        $hosts = [];
+        foreach ($this->siteFinder->getAllSites() as $site) {
+            $hosts[] = $site->getBase()->getHost();
+
+            // A site language may declare an absolute base of its own
+            // (https://example.de/), so its host is this installation too.
+            foreach ($site->getAllLanguages() as $language) {
+                $hosts[] = $language->getBase()->getHost();
+            }
+
+            $configuration = $site->getConfiguration();
+            $hosts         = [...$hosts, ...$this->variantHosts($configuration['baseVariants'] ?? [])];
+
+            $languages = $configuration['languages'] ?? [];
+            foreach (is_array($languages) ? $languages : [] as $language) {
+                if (is_array($language)) {
+                    $hosts = [...$hosts, ...$this->variantHosts($language['baseVariants'] ?? [])];
+                }
+            }
+        }
+
+        $normalised = array_map(static fn(string $host): string => rtrim(trim(strtolower($host), '[]'), '.'), $hosts);
+
+        return array_values(array_unique(array_filter($normalised, static fn(string $host): bool => $host !== '')));
+    }
+
+    /**
+     * The hosts of a `baseVariants` list, of the site or of one language.
+     *
+     * @return list<string>
+     */
+    private function variantHosts(mixed $variants): array
+    {
+        $hosts = [];
+        foreach (is_array($variants) ? $variants : [] as $variant) {
+            $base = is_array($variant) ? ($variant['base'] ?? null) : null;
+            if (is_string($base) && $base !== '') {
+                $hosts[] = (string)parse_url(str_contains($base, '//') ? $base : '//' . $base, PHP_URL_HOST);
+            }
+        }
+
+        return $hosts;
     }
 
     /**

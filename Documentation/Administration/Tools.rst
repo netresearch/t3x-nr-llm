@@ -38,13 +38,14 @@ non-admin users.
 The built-in tools
 ==================
 
-nr-llm ships forty-one read-only tools and sixteen writing tools. Each is a
+nr-llm ships forty-two read-only tools and sixteen writing tools. Each is a
 reference implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
 redacted or gated behind a separate ``_raw`` variant. Thirty-eight ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
-``get_php_info_raw`` and ``list_be_users_raw``) and all sixteen writing
-tools (``update_page_metadata``, ``set_page_social_image``,
+``get_php_info_raw`` and ``list_be_users_raw``), ``fetch_external_url``
+(see :ref:`administration-tools-external-pages`) and all sixteen writing tools
+(``update_page_metadata``, ``set_page_social_image``,
 ``set_file_alternative_text``, ``update_fal_asset_meta``,
 ``move_content_element``, ``create_content_element_draft``,
 ``create_page_draft``, ``create_translation_draft``,
@@ -58,11 +59,13 @@ and file tools (``get_pagetree``, ``get_tca``, ``get_full_tca``,
 ``search_records``, ``get_page_content``, ``read_records``,
 ``get_record_history``, ``resolve_url``, ``validate_tca``,
 ``list_fal_storages``, ``browse_fal_folder``, ``search_fal_files``,
-``get_fal_references``, ``find_missing_files``) are offered to
-non-admin backend users — those self-enforce the acting user's TYPO3
-permissions (page-show rights, ``tables_select``) inside the tool, so a
-non-admin only ever sees what the backend already grants them (see
-:ref:`ADR-042 <adr-042>`).
+``get_fal_references``, ``find_missing_files``) are offered to non-admin
+backend users — those self-enforce the acting user's TYPO3 permissions
+(page-show rights, ``tables_select``) inside the tool, so a non-admin only
+ever sees what the backend already grants them (see
+:ref:`ADR-042 <adr-042>`). ``fetch_external_url`` is offered to non-admins
+too; it reads public web pages only, which no TYPO3 permission covers, under
+the controls in :ref:`administration-tools-external-pages`.
 
 The two tools below are the fullest illustrations of the contract:
 
@@ -281,6 +284,11 @@ The remaining tools follow the same pattern:
 ``site_fetch_source``
    The full indexed text behind a ``site_rag_query`` source id, capped at
    8000 characters — for reading a promising source beyond its excerpt.
+
+``fetch_external_url``
+   One public web page from the internet as readable text: title, headings,
+   main text and links, wrapped as untrusted third-party content. Ships
+   disabled; see :ref:`administration-tools-external-pages`.
 
 .. _administration-tools-writing:
 
@@ -987,6 +995,8 @@ Group              Tools
                    ``search_fal_files``, ``get_fal_references``,
                    ``find_missing_files``
 ``rag``            ``site_rag_query``, ``site_fetch_source``
+``web``            ``fetch_external_url`` — the only group that reaches hosts
+                   outside the installation
 ``editing``        ``update_page_metadata``, ``set_page_social_image``,
                    ``set_file_alternative_text``, ``update_fal_asset_meta``,
                    ``attach_file_to_content_element``,
@@ -1029,21 +1039,119 @@ Network egress is governed **per tool group** and is **fail-closed**
 (:ref:`ADR-061 <adr-061>`). Each group has a declared egress scope; a group
 with no declaration may make **no** outbound request:
 
-===============  ============================================================
-Scope            Meaning
-===============  ============================================================
-``none``         No outbound network request (the default for every group).
-``own_site``     Only the instance's own configured site hosts, resolved
-                 through ``SiteFinder`` — the exact allow-listing ``probe_url``
-                 applies, now lifted to the group boundary.
-===============  ============================================================
+=========================  ====================================================
+Scope                      Meaning
+=========================  ====================================================
+``none``                   No outbound network request (the default for every
+                           group).
+``own_site``               Only the instance's own configured site hosts,
+                           resolved through ``SiteFinder`` — the exact
+                           allow-listing ``probe_url`` applies, now lifted to
+                           the group boundary.
+``configured_endpoint``    Only the service endpoint the site configuration
+                           declares, such as the search backend of the ``rag``
+                           tools (:ref:`ADR-093 <adr-093>`).
+``external_filtered``      Public internet hosts, each one passed through the
+                           address guard of :ref:`ADR-202 <adr-202>`: no
+                           private, loopback, link-local or metadata address is
+                           reachable, whatever the operator's host lists say.
+=========================  ====================================================
 
-Only the ``system`` group (which carries ``probe_url``, the one built-in that
-fetches over the network) is granted ``own_site``; every other group is
-``none``. There is no "any host" scope, so a newly installed or mis-declared
-tool group can never egress to an arbitrary target. The diagnostics tools that
-share the ``system`` group (``get_env``, ``fetch_logs`` …) never make a network
-request, so the grant does not loosen them.
+The ``system`` group (which carries ``probe_url``) is granted ``own_site``,
+``rag`` is granted ``configured_endpoint`` and ``web`` (which carries
+``fetch_external_url``) is granted ``external_filtered``; every other group is
+``none``. There is no unfiltered "any host" scope, so a newly installed or
+mis-declared tool group can never egress to an arbitrary target. The
+diagnostics tools that share the ``system`` group (``get_env``,
+``fetch_logs`` …) never make a network request, so the grant does not loosen
+them.
+
+.. _administration-tools-external-pages:
+
+Reading external web pages
+==========================
+
+``fetch_external_url`` reads **one** public web page and returns its title,
+headings, main text and links as plain text (:ref:`ADR-202 <adr-202>`). Pages
+of this installation stay with ``probe_url`` and ``site_rag_query``.
+
+It ships **disabled**. To offer it, enable the ``web`` group and the tool in
+the Tools module; a configuration that restricts :guilabel:`Allowed tool
+groups` must also list ``web``. It is not admin-only: public web content is
+none of the system or cross-user data the admin tier guards.
+
+**Every call waits for a human approval** by default. The URL the model
+chooses leaves the installation, and the model is steerable by the pages and
+skills it reads, so a run could be led to put data it has seen into a query
+string. The approval card shows the host and the full query string. The
+approval can be switched off only together with an allowlist (below).
+
+What it refuses, for the first URL and again for every redirect target:
+
+*  schemes other than ``http`` and ``https``, and URLs with credentials;
+*  hosts of this installation — every site base and base variant;
+*  ports other than 80/443, unless the allowlist names ``host:port``;
+*  numeric host forms such as ``2130706433`` or ``0177.0.0.1``, and host names
+   with non-ASCII characters (pass the ``xn--`` form instead);
+*  any host whose DNS answer contains a private, loopback, link-local, CGNAT,
+   multicast, reserved, NAT64 or cloud-metadata address (``169.254.169.254``,
+   ``fd00:ec2::254``), IPv4-mapped and other IPv6 forms of those included;
+*  a host that does not resolve in DNS — names that exist only in
+   ``/etc/hosts`` are unreachable on purpose;
+*  any request an HTTP proxy would carry (see below);
+*  every request when PHP's curl extension is missing, because the
+   connection could not be pinned.
+
+The connection is pinned to addresses that were checked, so a DNS answer that
+changes between the check and the connect cannot redirect it. It follows at
+most three redirects, stops the download at 2 MiB, parses at most 256 KiB of
+HTML (deeply nested markup is reduced to its text instead), returns at most
+20,000 characters (fewer for scripts with multi-byte characters, so the whole
+result stays under 48,000 bytes) and gives up after 20 seconds in total. One
+DNS lookup is bounded by the system resolver; set
+``options timeout:2 attempts:1`` in :file:`/etc/resolv.conf` to shorten it.
+Only HTML and plain text are read.
+
+The text comes back between ``BEGIN``/``END UNTRUSTED EXTERNAL WEB CONTENT``
+markers that carry a random value per call, with a note that it is reference
+material, not instructions — the same shape skill bodies carry
+(:ref:`ADR-061 <adr-061>`). Error messages repeat no text the remote server
+chose, apart from a redirect target, cut and labelled as untrusted.
+
+The request comes from the installation's own address. A service that trusts
+that address — a partner API that allow-lists your server, an intranet reached
+through a public address — is not a private range and is not refused; put it
+on the denylist.
+
+Four extension settings govern it
+(:guilabel:`Admin Tools > Settings > Extension Configuration > nr_llm`):
+
+``tools.fetchExternalUrl.allowedHosts``
+   Comma-separated host names (``example.org``, ``*.example.org`` for
+   subdomains but not the apex) or IP addresses (``192.0.2.10``,
+   ``2001:db8::1``, ``[2001:db8::1]``). Append ``:8443`` (after the brackets
+   for IPv6) to allow that port only; list the plain entry as well to keep
+   the default port. When set, only these hosts are fetched. Empty (default)
+   allows every public host.
+
+``tools.fetchExternalUrl.deniedHosts``
+   Hosts that are never fetched, in the same forms, checked before the
+   allowlist. A name entry matches the host name in a URL; an address entry
+   matches an IP address in a URL and every address a host name resolves to.
+
+``tools.fetchExternalUrl.skipApprovalWithAllowlist``
+   Lets calls run without approval — only while the allowlist is non-empty.
+
+``tools.fetchExternalUrl.allowViaProxy``
+   By default a fetch is refused when an HTTP proxy would carry it — the TYPO3
+   proxy setting (``$GLOBALS['TYPO3_CONF_VARS']['HTTP']['proxy']``), or
+   ``HTTPS_PROXY`` (``HTTP_PROXY`` on the command line) unless ``NO_PROXY``
+   excludes the host — because the proxy resolves the host itself and the
+   address checks cannot reach past it. This setting permits it, only while
+   the allowlist is non-empty.
+
+Neither list can admit a private address: an allow-listed host that resolves
+to one is still refused.
 
 .. _administration-tools-playground:
 

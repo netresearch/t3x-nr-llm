@@ -7,8 +7,9 @@ ADR-061: Skill trust levels, signed manifests, injection scanning
 and per-group egress policies
 ==================================================================
 
-:Status: Accepted
+:Status: Accepted (item 6: a filtered external egress scope now exists — see :ref:`ADR-202 <adr-202>`)
 :Date: 2026-07-14
+:Amended: 2026-09-23 by :ref:`ADR-202 <adr-202>` (item 6: a filtered external scope now exists)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-061-context:
