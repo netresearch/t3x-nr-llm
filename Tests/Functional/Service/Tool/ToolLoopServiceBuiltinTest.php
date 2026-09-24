@@ -439,7 +439,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
         $result = $this->runTheWritingTool();
 
         self::assertFalse($result->trace[0]->isError, $result->trace[0]->result);
-        self::assertStringStartsWith('WROTE', $result->trace[0]->result);
+        self::assertStringEndsWith("\n\nWROTE", $result->trace[0]->result);
         self::assertStringContainsString('Note: after a DataHandler run of this call had written its records, code of this TYPO3 installation failed', $result->trace[0]->result);
         self::assertStringContainsString(
             FailsLikeAFlashMessageHook::class . '::processDatamap_afterAllOperations() threw Error: Call to a member function set() on null',
@@ -472,6 +472,25 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('failure third', $answer);
         self::assertStringNotContainsString('failure fourth', $answer);
         self::assertStringContainsString('(and 1 more, see the TYPO3 log)', $answer);
+    }
+
+    /**
+     * The note goes before the tool's answer and is bounded with it: a long
+     * answer is cut at its tail, the note stays, and the result keeps its cap
+     * (50,000 bytes, ToolResultBounder::MAX_TOOL_RESULT_BYTES).
+     */
+    #[Test]
+    public function theNoteStaysWithinTheResultCap(): void
+    {
+        $this->prepareTheElementToWrite();
+        $this->registerHook('processDatamapClass', FailsLikeAFlashMessageHook::class);
+        FailsLikeAFlashMessageHook::$failAt = FailsLikeAFlashMessageHook::AFTER_ALL_OPERATIONS;
+
+        $answer = $this->runTheWritingTool(1, str_repeat('x', 60000))->trace[0]->result;
+
+        self::assertLessThanOrEqual(50000, strlen($answer));
+        self::assertStringStartsWith('Note: after a DataHandler run of this call had written its records', $answer);
+        self::assertStringContainsString('[tool result truncated at', $answer);
     }
 
     #[Test]
@@ -513,7 +532,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('default');
     }
 
-    private function runTheWritingTool(int $writes = 1): ToolLoopResult
+    private function runTheWritingTool(int $writes = 1, string $answer = 'WROTE'): ToolLoopResult
     {
         $queue = [
             $this->response('', [new ToolCall('call_1', 'write_through_the_data_handler', [])]),
@@ -530,7 +549,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
                 return $next;
             });
 
-        $result = $this->buildService($mgr, [$this->dataHandlerTool($writes)])
+        $result = $this->buildService($mgr, [$this->dataHandlerTool($writes, $answer)])
             ->runLoop([$this->userTurn('write it')], $this->localConfiguration(), $this->contextFor($this->writer), null);
         self::assertCount(1, $result->trace);
 
@@ -549,14 +568,14 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
 
     /**
      * A tool that writes one header through {@see ToolDataHandler}, as often
-     * as asked, and answers "WROTE". It declares no effect, so the loop runs it without an
+     * as asked, and answers with the given text. It declares no effect, so the loop runs it without an
      * approval — the note is added on every path a call runs through, and this
      * one needs no suspended run to reach it.
      */
-    private function dataHandlerTool(int $writes = 1): ToolInterface
+    private function dataHandlerTool(int $writes, string $answer): ToolInterface
     {
-        return new class (self::ELEMENT, $writes) implements ToolInterface {
-            public function __construct(private readonly int $element, private readonly int $writes) {}
+        return new class (self::ELEMENT, $writes, $answer) implements ToolInterface {
+            public function __construct(private readonly int $element, private readonly int $writes, private readonly string $answer) {}
 
             public function getSpec(): ToolSpec
             {
@@ -574,7 +593,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
                     $dataHandler->process_datamap();
                 }
 
-                return ToolResult::text('WROTE');
+                return ToolResult::text($this->answer);
             }
 
             public function isEnabledByDefault(): bool

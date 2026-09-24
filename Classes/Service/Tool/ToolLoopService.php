@@ -1260,7 +1260,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // error result is the value object's rule, not a condition repeated at
         // every call site.
         $bounded = $result->withBoundedChannels(
-            $this->bounder->content($result->content) . $this->hookFailureNote(ToolDataHandler::takeFailures()),
+            $this->bounder->content($this->hookFailureNote(ToolDataHandler::takeFailures()) . $result->content),
             $this->bounder->artifacts($result->artifacts),
         );
 
@@ -1275,10 +1275,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      *
      * Only a failure after the last write of a run is recorded
      * ({@see ToolDataHandler}); one during the writes is rethrown and ends the
-     * call as failed. Added after the tool's own text and after the bounding
-     * of that text, so a long answer cannot cut it off. Each line is bounded
-     * where it is recorded, repeats are dropped, and at most
-     * {@see self::MAX_NOTED_FAILURES} are named.
+     * call as failed. Put before the tool's own text and bounded with it: the
+     * result stays within its cap, and when a long answer is cut, the tail is
+     * cut, not the note. Each line is bounded where it is recorded, repeats
+     * are dropped, and at most {@see self::MAX_NOTED_FAILURES} are named.
      *
      * @param list<string> $failures
      */
@@ -1292,9 +1292,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         $more     = count($failures) - self::MAX_NOTED_FAILURES;
 
         return sprintf(
-            "\n\nNote: after a DataHandler run of this call had written its records, code of this TYPO3 "
-            . 'installation failed: %s%s. The answer above says what the tool found written. What that code was '
-            . 'meant to do afterwards, such as a translation or a notification, may not have happened.',
+            'Note: after a DataHandler run of this call had written its records, code of this TYPO3 '
+            . 'installation failed: %s%s. The answer below says what the tool found written. What that code was '
+            . "meant to do afterwards, such as a translation or a notification, may not have happened.\n\n",
             implode('; ', array_slice($failures, 0, self::MAX_NOTED_FAILURES)),
             $more > 0 ? sprintf(' (and %d more, see the TYPO3 log)', $more) : '',
         );
