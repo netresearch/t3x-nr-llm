@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 use Error;
 use Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\CountsCacheClearsHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\FailsInTheReferenceIndexListener;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\FailsLikeAFlashMessageHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheFailingHookTrait;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RunsANestedToolDataHandlerHook;
@@ -46,6 +47,13 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 final class ToolDataHandlerTest extends AbstractFunctionalTestCase
 {
     use RegistersTheFailingHookTrait;
+
+    /** @var non-empty-string[] */
+    protected array $testExtensionsToLoad = [
+        'netresearch/nr-vault',
+        'netresearch/nr-llm',
+        'typo3conf/ext/nr_llm/Tests/Functional/Fixtures/Extensions/nrllm_failing_listener_fixture',
+    ];
 
     /** @var non-empty-string[] */
     protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'frontend'];
@@ -101,6 +109,7 @@ final class ToolDataHandlerTest extends AbstractFunctionalTestCase
         $this->unregisterHook('clearCachePostProc', CountsCacheClearsHook::class . '->record');
         CountsCacheClearsHook::reset();
         RunsANestedToolDataHandlerHook::reset();
+        FailsInTheReferenceIndexListener::$fail = false;
 
         unset($GLOBALS['LANG'], $GLOBALS['BE_USER']);
         parent::tearDown();
@@ -166,10 +175,42 @@ final class ToolDataHandlerTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * During the writes a run may have written some records and not others,
-     * so "failed" is the honest answer: the failure is rethrown, after the
-     * finishing steps ran, and nothing is recorded for a note.
+     * The reference index update runs listeners of the installation. One that
+     * throws there fails after every record was written: the failure is
+     * recorded and named by the listener, and the cache flush after it runs.
      */
+    #[Test]
+    public function aListenerThatFailsInTheReferenceIndexUpdateFailsAfterTheWrites(): void
+    {
+        FailsInTheReferenceIndexListener::$fail = true;
+
+        $this->updateHeader('After');
+
+        self::assertSame('After', $this->headerOf(self::ELEMENT));
+        self::assertContains(self::PAGE, CountsCacheClearsHook::$pages, 'The cache flush after the failing update did not run.');
+        self::assertStringContainsString(
+            FailsInTheReferenceIndexListener::class . '::__invoke() threw RuntimeException: A test listener of the reference index fails',
+            $this->onlyFailure(),
+        );
+    }
+
+    /**
+     * The after-hook fails, and then the reference index update the recovery
+     * runs fails as well. The cache flush after it still has its queue: the
+     * pages are flushed.
+     */
+    #[Test]
+    public function aFailingReferenceIndexUpdateInTheRecoveryLeavesTheFlushItsQueue(): void
+    {
+        FailsLikeAFlashMessageHook::$failAt     = FailsLikeAFlashMessageHook::AFTER_ALL_OPERATIONS;
+        FailsInTheReferenceIndexListener::$fail = true;
+
+        $this->updateHeader('After');
+
+        self::assertContains(self::PAGE, CountsCacheClearsHook::$pages, 'The flush after the failing update had nothing left to flush.');
+        self::assertStringContainsString('::processDatamap_afterAllOperations() threw Error', $this->onlyFailure());
+    }
+
     /**
      * The after-hook fails, and then the cache flush the recovery runs fails
      * as well: its queue is emptied all the same, and the step after it runs.
@@ -187,6 +228,11 @@ final class ToolDataHandlerTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('::processDatamap_afterAllOperations() threw Error', $this->onlyFailure());
     }
 
+    /**
+     * During the writes a run may have written some records and not others,
+     * so "failed" is the honest answer: the failure is rethrown, after the
+     * finishing steps ran, and nothing is recorded for a note.
+     */
     #[Test]
     public function aHookThatFailsDuringTheWritesIsRethrownAfterTheFinishingSteps(): void
     {
@@ -317,6 +363,10 @@ final class ToolDataHandlerTest extends AbstractFunctionalTestCase
     #[Test]
     public function aCommandRunWhoseHookFailsAfterwardsLeavesTheCommandDoneAndTheFailureRecorded(): void
     {
+        // A relation first, written without a failure: its reference index
+        // row is what the delete has to take away.
+        $this->updateHeader('With a relation', ['records' => 'tt_content_' . self::OTHER_ELEMENT]);
+        self::assertSame(1, $this->referenceIndexRowsFrom(self::ELEMENT, 'records'));
         FailsLikeAFlashMessageHook::$failAt = FailsLikeAFlashMessageHook::AFTER_FINISH;
 
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
@@ -327,6 +377,7 @@ final class ToolDataHandlerTest extends AbstractFunctionalTestCase
         self::assertStringContainsString(FailsLikeAFlashMessageHook::class . '::processCmdmap_afterFinish() threw Error', $this->onlyFailure());
         self::assertSame([], $dataHandler->errorLog);
         self::assertContains(self::PAGE, CountsCacheClearsHook::$pages, 'The cache of the page the command changed was not flushed.');
+        self::assertSame(0, $this->referenceIndexRowsFrom(self::ELEMENT, 'records'), 'The reference index of the deleted record was not updated.');
     }
 
     #[Test]

@@ -1,0 +1,11 @@
+{
+    "name": "netresearch/nrllm-failing-listener-fixture",
+    "description": "A reference index listener that throws on demand, for the functional tests of ToolDataHandler (ADR-206). Not shipped.",
+    "type": "typo3-cms-extension",
+    "license": "GPL-2.0-or-later",
+    "extra": {
+        "typo3/cms": {
+            "extension-key": "nrllm_failing_listener_fixture"
+        }
+    }
+}

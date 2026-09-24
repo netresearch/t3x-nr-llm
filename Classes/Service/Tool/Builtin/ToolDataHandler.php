@@ -16,6 +16,7 @@ use Psr\Log\LoggerInterface;
 use ReflectionClass;
 use Throwable;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
+use TYPO3\CMS\Core\DataHandling\ReferenceIndexUpdater;
 use TYPO3\CMS\Core\EventDispatcher\EventDispatcher;
 use TYPO3\CMS\Core\Log\LogManager;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -34,7 +35,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * that run called when it failed:
  *
  * - **After the writes** — in a `processDatamap_afterAllOperations` or
- *   `processCmdmap_afterFinish` hook, or in a hook of the cache flush. Every
+ *   `processCmdmap_afterFinish` hook, in the reference index update, which
+ *   runs listeners and soft-reference parsers of the installation, or in the
+ *   cache flush, which runs hooks of its own. Every
  *   record of the run is written. The run's finishing steps that did not run
  *   yet — reference index update, cache flush, registry reset — run now; the
  *   hooks after the failing one in the same list do not. The failure is
@@ -64,14 +67,13 @@ class ToolDataHandler extends DataHandler
     private const MAX_DESCRIPTION_LENGTH = 300;
 
     /**
-     * The steps of an outermost run that come after its last write and call
-     * code of the installation, by the method the run calls for each, in the
-     * order the run calls them. The reference index update between the hooks
-     * and the cache flush calls no hook; a failure there is rethrown.
+     * The steps of an outermost run that come after its last write, by the
+     * method the run calls for each, in the order the run calls them.
      */
     private const AFTER_THE_WRITES = [
         'processDatamap_afterAllOperations',
         'processCmdmap_afterFinish',
+        ReferenceIndexUpdater::class . '::update',
         DataHandler::class . '::processClearCacheQueue',
     ];
 
@@ -168,6 +170,9 @@ class ToolDataHandler extends DataHandler
         $steps = [];
         if ($failedAt < 2) {
             $steps[] = $this->referenceIndexUpdater->update(...);
+        }
+
+        if ($failedAt < 3) {
             $steps[] = $this->flushOrForget(...);
         } else {
             // The flush itself failed. Run again, it fails the same way.
@@ -218,8 +223,8 @@ class ToolDataHandler extends DataHandler
      * parent's `process_datamap()` or `process_cmdmap()` — an inner one belongs
      * to a ToolDataHandler a hook started. The frame just inside it is the
      * method this run called when it failed. A copy or a translation core runs
-     * through a DataHandler of its own shows up there as `copyRecord()` or
-     * `localize()`, which is not a step after the writes.
+     * through a DataHandler of its own shows up there as `copyRecord()`,
+     * `copyPages()` or `localize()`, which is not a step after the writes.
      */
     private function stepThatFailed(Throwable $failure): ?string
     {
@@ -277,9 +282,10 @@ class ToolDataHandler extends DataHandler
      * The frame the DataHandler called is the hook method itself for a
      * `processDatamap_*` / `processCmdmap_*` hook, and it is named. A hook
      * called through `GeneralUtility::callUserFunction()`, or a listener
-     * through the event dispatcher, sits further inside; for those two the
-     * first frame inside that is outside TYPO3's own namespace is named, and
-     * without one, the dispatcher.
+     * through the event dispatcher, sits further inside, also below a core
+     * service such as the reference index: when one of the two dispatchers is
+     * on the way in, the first frame inside it that is outside TYPO3's own
+     * namespace is named. Otherwise the frame the DataHandler called is.
      */
     private function failingCode(Throwable $failure): ?string
     {
@@ -292,13 +298,20 @@ class ToolDataHandler extends DataHandler
                 continue;
             }
 
-            if (in_array($class . '::' . $frame['function'], self::DISPATCHERS, true)) {
-                for ($inner = $index - 1; $inner >= 0; $inner--) {
+            for ($dispatcher = $index; $dispatcher >= 0; $dispatcher--) {
+                $key = ($trace[$dispatcher]['class'] ?? '') . '::' . $trace[$dispatcher]['function'];
+                if (!in_array($key, self::DISPATCHERS, true)) {
+                    continue;
+                }
+
+                for ($inner = $dispatcher - 1; $inner >= 0; $inner--) {
                     $innerClass = $trace[$inner]['class'] ?? null;
                     if (is_string($innerClass) && !str_starts_with($innerClass, 'TYPO3\\CMS\\')) {
                         return $innerClass . '::' . $trace[$inner]['function'] . '()';
                     }
                 }
+
+                break;
             }
 
             return $class . '::' . $frame['function'] . '()';

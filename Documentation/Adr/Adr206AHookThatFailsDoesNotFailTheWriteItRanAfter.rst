@@ -46,18 +46,19 @@ tells a failure after the writes from one during them.** It looks at the
 method the OUTERMOST run called when it failed:
 
 - **After the writes** — a ``processDatamap_afterAllOperations`` or
-  ``processCmdmap_afterFinish`` hook, or a hook of the cache flush. Every
-  record of the run is written. The finishing steps that did not run yet —
-  reference index update, cache flush, registry reset — run now; the hooks
-  after the failing one in the same list do not. The failure is logged with
-  its trace, and one line is recorded: the installation's code that failed, the exception class and its
+  ``processCmdmap_afterFinish`` hook, the reference index update, which runs
+  listeners and soft-reference parsers of the installation, or the cache
+  flush, which runs hooks of its own. Every record of the run is written.
+  The finishing steps that did not run yet — reference index update, cache
+  flush, registry reset — run now; the hooks after the failing one in the
+  same list do not. The failure is logged with its trace, and one line is
+  recorded: the installation's code that failed, the exception class and its
   message. A database exception is named without its message, and any other
   message is stripped of every secret shape the org-wide catalogue knows,
   credentials in URLs among them, because the line reaches the language
-  model. The tool loop adds the lines
-  to the tool's answer as a note; the tool reads back and answers as usual.
-- **During the writes** — anywhere else, the reference index update included,
-  which calls no hook of the installation. Core writes a copy and a translation
+  model. The tool loop adds the lines to the tool's answer as a note; the
+  tool reads back and answers as usual.
+- **During the writes** — anywhere else. Core writes a copy and a translation
   through a DataHandler of its own, so a hook that fails there fails during
   the writes of the tool's run, before core has recorded the new uid. Some
   records may be written and some not, and relations may still point at the
@@ -70,9 +71,9 @@ same way — and its queue is emptied, or the next run in the same process
 would replay it.
 
 **The DataHandler's error log stays as TYPO3 wrote it.** Written into it, a
-failure after a landed write would make the 13 writers that refuse on any
-entry answer "refused". Left out, each writer's own read-back decides, as it
-does for every other outcome.
+failure after a landed write would make the writers answer "refused" at the
+13 places where they refuse on any entry. Left out, each writer's own
+read-back decides, as it does for every other outcome.
 
 **A nested run rethrows.** A ``ToolDataHandler`` started from inside another
 DataHandler run leaves the failure to that run, which still has its own
@@ -99,13 +100,15 @@ Consequences
   log has all of them.
 - The code a failure is named by is the hook method the DataHandler called;
   for a hook called through ``GeneralUtility::callUserFunction()`` or a
-  listener called through the event dispatcher, it is the first class outside
-  TYPO3's own namespace inside that call.
+  listener called through the event dispatcher, also below a core service such
+  as the reference index, it is the first class outside TYPO3's own namespace
+  inside that call. Any other core callee is named as it is.
 - The note says that the run had written its records when the code failed,
   and leaves the outcome of the call to the tool's own answer: the same note
   can follow a refusal or a write the tool took back.
-- An XCLASS of the core DataHandler does not apply to the tools' runs:
-  ``ToolDataHandler`` extends the core class itself.
+- An XCLASS of the core DataHandler does not apply to the tools' own runs:
+  ``ToolDataHandler`` extends the core class itself. The runs core starts for
+  a copy or a translation still get it.
 - ``ToolDataHandler`` is a public, non-shared service, resolved through
   ``makeInstance()`` like the core class it extends (Category E of the
   public-service policy; the audited count rises to 38, :ref:`ADR-101
@@ -114,9 +117,10 @@ Consequences
   ``referenceIndexUpdater``, ``processClearCacheQueue()``,
   ``resetElementsToBeDeleted()``, ``resetNestedElementCalls()``,
   ``$recordsToClearCacheFor`` and ``$recordPidsForDeletedRecords``, and on the
-  names of the steps after the writes. A core release that renames a step
-  turns a failure there into a rethrown one, which fails safe. They are the same in 13.4 and 14.3; a
-  core release that changes them fails the functional tests of this class.
+  names of the steps after the writes. These are the same in 13.4 and 14.3; a
+  core release that changes a member fails the functional tests of this
+  class, and one that renames a step turns a failure there into a rethrown
+  one, which fails safe.
 - A caller that runs a tool's ``execute()`` outside the tool loop gets no note.
   The failure is still logged.
 - ``ToolLoopService::announceWrite()`` is no longer the only place in the
@@ -141,8 +145,8 @@ record of the copy, and ``copy_record`` then answered "the copy was not
 made". A caught failure has to leave the tool something true to read back.
 
 **Writing the failure into the DataHandler's error log.** Every writer would
-pass it on unchanged, but 13 of them refuse on any entry before they read
-back, and would answer "refused" for a write that landed.
+pass it on unchanged, but at 13 places the writers refuse on any entry before
+they read back, and would answer "refused" for a write that landed.
 
 **Fixing the translation extension.** Its hook should not store a flash
 message in a process without a session, and that is worth reporting to its
