@@ -158,7 +158,8 @@ foreach ($current as $version => $section) {
     if (isset(KNOWN_DEVIATIONS[$version])) {
         if (hash('sha256', $section) !== KNOWN_DEVIATIONS[$version]['sha256']) {
             $problems[] = sprintf(
-                '  [%s]  changed since it was pinned as a known deviation (%s)',
+                '  [%s]  changed since it was pinned as a known deviation (%s)'
+                . ' — restore it, or re-pin it in KNOWN_DEVIATIONS if the change is deliberate',
                 $version,
                 KNOWN_DEVIATIONS[$version]['reason'],
             );
@@ -172,7 +173,12 @@ foreach ($current as $version => $section) {
     $released = tagChangelog($root, $version);
     if ($released === null) {
         if ($version !== $topmost) {
-            $problems[] = sprintf('  [%s]  tag v%s cannot be read, so the section cannot be verified', $version, $version);
+            $problems[] = sprintf(
+                '  [%s]  tag v%s cannot be read, so the section cannot be verified'
+                . ' — fetch the tags (`git fetch --tags origin`) and run the check again',
+                $version,
+                $version,
+            );
         }
 
         continue;
@@ -181,9 +187,19 @@ foreach ($current as $version => $section) {
     $checked++;
     $atTag = releasedSections($released)[$version] ?? null;
     if ($atTag === null) {
-        $problems[] = sprintf('  [%s]  tag v%s has no such section in its CHANGELOG.md', $version, $version);
+        $problems[] = sprintf(
+            '  [%s]  tag v%s has no such section in its CHANGELOG.md'
+            . ' — pin it in KNOWN_DEVIATIONS with the reason',
+            $version,
+            $version,
+        );
     } elseif ($atTag !== $section) {
-        $problems[] = sprintf('  [%s]  differs from the section at tag v%s', $version, $version);
+        $problems[] = sprintf(
+            '  [%s]  differs from the section at tag v%s'
+            . ' — move the added entry back under [Unreleased]',
+            $version,
+            $version,
+        );
     }
 }
 
@@ -200,7 +216,7 @@ fwrite(STDERR, sprintf(
     "Released sections of %s do not match what was released:\n\n%s\n\n"
     . "A released section must stay as the tag has it. An entry that sits there now\n"
     . "usually arrived through a merge or the merge queue combining a PR with a release\n"
-    . "commit. Move it back under [Unreleased], and compare the section with\n"
+    . "commit. Each line above names its fix; compare a section with\n"
     . "`git show vX.Y.Z:CHANGELOG.md`.\n",
     $path,
     implode("\n", $problems),

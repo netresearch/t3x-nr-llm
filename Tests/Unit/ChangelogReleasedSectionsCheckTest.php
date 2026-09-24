@@ -83,6 +83,7 @@ final class ChangelogReleasedSectionsCheckTest extends AbstractUnitTestCase
 
         self::assertSame(1, $exit);
         self::assertStringContainsString('[1.1.0]  differs from the section at tag v1.1.0', $stderr);
+        self::assertStringContainsString('move the added entry back under [Unreleased]', $stderr);
         self::assertStringNotContainsString('[1.0.0]', $stderr);
     }
 
@@ -111,6 +112,8 @@ final class ChangelogReleasedSectionsCheckTest extends AbstractUnitTestCase
 
         self::assertSame(1, $exit);
         self::assertStringContainsString('[1.0.0]  tag v1.0.0 cannot be read', $stderr);
+        self::assertStringContainsString('fetch the tags', $stderr);
+        self::assertStringNotContainsString('back under [Unreleased]', $stderr);
     }
 
     #[Test]
