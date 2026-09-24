@@ -1111,9 +1111,13 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         $types = $table['types'] ?? null;
         self::assertIsArray($types);
 
+        // Core's own FlexForm column config, so the data structure has the
+        // shape the running core expects (13.4 and 14.3 differ).
+        $piFlexform = $columns['pi_flexform'] ?? null;
+        self::assertIsArray($piFlexform, 'core declares pi_flexform');
         $columns['nrllm_frame_options'] = [
             'label'  => 'Frame options',
-            'config' => ['type' => 'flex', 'ds' => ['default' => '<T3DataStructure><ROOT><type>array</type><el></el></ROOT></T3DataStructure>']],
+            'config' => $piFlexform['config'] ?? null,
         ];
         $columns['nrllm_visibility'] = [
             'label'  => 'Visibility',
