@@ -99,6 +99,14 @@ services:
     alias: Netresearch\NrLlm\Service\Tool\ToolCallPolicy
     public: true
 
+  # The tools a run will NOT be offered, with the gate that holds each back
+  # (ADR-201). Public because a consumer extension looks it up by interface and
+  # feature-detects it: a chat that runs against an older nr-llm must be able to
+  # ask the container whether it exists.
+  Netresearch\NrLlm\Service\Tool\UnavailableToolsResolverInterface:
+    alias: Netresearch\NrLlm\Service\Tool\UnavailableToolsResolver
+    public: true
+
   Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface:
     alias: Netresearch\NrLlm\Service\UsageAnalyticsService
 

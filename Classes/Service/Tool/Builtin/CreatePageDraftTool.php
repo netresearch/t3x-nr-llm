@@ -23,7 +23,9 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Domain\Repository\PageRepository;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
@@ -81,6 +83,9 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
 
     /** The only page type this tool creates. */
     private const DOKTYPE = PageRepository::DOKTYPE_DEFAULT;
+
+    /** How many same-titled siblings the duplicate warning looks at for one the user may see. */
+    private const DUPLICATE_SCAN_LIMIT = 20;
 
     /** Upper bound for the title and the navigation title. Both core columns are `varchar(255)`. */
     private const MAX_TITLE_LENGTH = 255;
@@ -193,13 +198,21 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
 
         $slug = self::toStr($stored['slug'] ?? '');
 
+        // The new uid leads, and the parent is named as what NOT to use: in the
+        // demo the element meant for a freshly created page twice landed on its
+        // parent (NEXT-167, conversations 80 and 92), and "under page [P]" next
+        // to the new uid was the only other number in the answer.
         return ToolResult::text(sprintf(
-            'Created hidden page [%d] "%s" under page [%d]%s. It is not visible until a human unhides it. '
-            . 'To put content on it, call create_content_element_draft with page %d.',
+            'New page uid: %d. Created hidden page [%d] "%s" under the parent page [%d]%s. It is not visible '
+            . 'until a human unhides it. Everything that belongs ON the new page targets page %d, not the '
+            . 'parent %d: to put content on it, call create_content_element_draft with page %d.',
+            $newUid,
             $newUid,
             $this->excerpt($plan['title']),
             $plan['parent'],
             $slug !== '' ? sprintf(' (URL segment %s)', $slug) : '',
+            $newUid,
+            $plan['parent'],
             $newUid,
         ))->withWriteTarget(new RecordReference(self::TABLE, $newUid), WriteKind::CREATED);
     }
@@ -234,6 +247,7 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
         }
 
         return [
+            ...$this->duplicateWarning($plan['parent'], $plan['title'], $user),
             sprintf('New page under page [%d] "%s":', $plan['parent'], $this->excerpt($plan['parentTitle'])),
             sprintf('title: %s', $this->quoted($plan['title'])),
             $plan['navTitle'] === null
@@ -388,6 +402,66 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
             // negative one is "directly after the record with that uid".
             'destination' => $afterUid > 0 ? -$afterUid : $parentUid,
         ];
+    }
+
+    /**
+     * A warning line when the parent already holds a default-language page
+     * with the same title, hidden ones included; otherwise nothing.
+     *
+     * The approver is the last human between the model and a second copy of
+     * the same page. In the demo a follow-up message ("weiter", "habe alles
+     * freigegeben") made the model draft a page again that an earlier,
+     * already approved call had created, and both got approved (NEXT-167,
+     * conversations 79, 80 and 84). The preview states it; it does not refuse,
+     * because two pages with one title can be what the user wants.
+     *
+     * The sibling is named only when the acting user may see it: being
+     * allowed to create pages under a parent does not mean being allowed to
+     * see every page already there, and the preview must not reveal one.
+     *
+     * "Same" is the database's comparison, which is case-insensitive under
+     * the usual MySQL/MariaDB collations and case-sensitive under SQLite and
+     * PostgreSQL — so the line says "the same title", never "exact".
+     *
+     * A draft approved in another run between this call's suspend and its
+     * approval changes this preview, and ADR-184's comparison hands the run
+     * back with the fresh preview instead of executing it; that is how the
+     * warning reaches an approver of two concurrent drafts.
+     *
+     * @return list<string>
+     */
+    private function duplicateWarning(int $parent, string $title, BackendUserAuthentication $user): array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+
+        $siblings = $queryBuilder
+            ->select('*')
+            ->from(self::TABLE)
+            ->where(
+                $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($parent, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('title', $queryBuilder->createNamedParameter($title)),
+                $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+            )
+            ->orderBy('uid', 'ASC')
+            ->setMaxResults(self::DUPLICATE_SCAN_LIMIT)
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        foreach ($siblings as $sibling) {
+            if (!$user->doesUserHaveAccess($sibling, Permission::PAGE_SHOW)) {
+                continue;
+            }
+
+            return [sprintf(
+                'Warning: page [%d] with the same title already exists under this parent%s. Approving creates a second page with that title.',
+                self::toInt($sibling['uid'] ?? 0),
+                self::toInt($sibling[$this->hiddenField()] ?? 0) === 1 ? ' (hidden)' : '',
+            )];
+        }
+
+        return [];
     }
 
     /**

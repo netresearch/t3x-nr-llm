@@ -69,8 +69,11 @@ final readonly class ReadRecordsTool implements ToolInterface
         return ToolSpec::function(
             'read_records',
             'Read records of one TYPO3 table with equality filters (no SQL). Returns uid, pid and the '
-            . 'label field by default; pass "fields" for specific columns. Deleted and hidden records '
-            . 'are excluded; credential-like columns are never returned.',
+            . 'label field by default; pass "fields" for specific columns. On a language-aware table every '
+            . 'record also carries its language (e.g. sys_language_uid) and its translation parent (e.g. '
+            . 'l10n_parent): two records with the same title are one record and its translation when the '
+            . 'second has a language above 0 and the first as parent, not duplicates. Deleted and hidden '
+            . 'records are excluded; credential-like columns are never returned.',
             [
                 'type'       => 'object',
                 'properties' => [
@@ -128,6 +131,8 @@ final readonly class ReadRecordsTool implements ToolInterface
         if ($fields === []) {
             return ToolResult::text('No readable fields.');
         }
+
+        $fields = $this->withLanguageFields($table, $columns, $fields);
 
         $filters = $this->resolveFilters($columns, $arguments);
         if ($filters === null) {
@@ -232,6 +237,41 @@ final readonly class ReadRecordsTool implements ToolInterface
         $field      = is_array($ctrl) ? ($ctrl['languageField'] ?? null) : null;
 
         return is_string($field) && $field !== '' ? $field : null;
+    }
+
+    /**
+     * The field list with the table's language field and translation parent
+     * appended, whether or not the caller asked for them (NEXT-167).
+     *
+     * Without them a page and its translation read as two records with the
+     * same title, and the model asked the user which of the "duplicates" it
+     * should edit — fourteen times in one demo conversation, every time a
+     * default-language page and its translation one uid apart.
+     *
+     * @param array<array-key, mixed> $columns
+     * @param list<string>            $fields
+     *
+     * @return list<string>
+     */
+    private function withLanguageFields(string $table, array $columns, array $fields): array
+    {
+        $tca        = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
+        $definition = is_array($tca[$table] ?? null) ? $tca[$table] : [];
+        $ctrl       = is_array($definition['ctrl'] ?? null) ? $definition['ctrl'] : [];
+
+        foreach ([$ctrl['languageField'] ?? null, $ctrl['transOrigPointerField'] ?? null] as $field) {
+            if (!is_string($field) || $field === '' || !isset($columns[$field]) || in_array($field, $fields, true)) {
+                continue;
+            }
+
+            if ($this->tableAccess->isSensitiveField($field)) {
+                continue;
+            }
+
+            $fields[] = $field;
+        }
+
+        return $fields;
     }
 
     /**

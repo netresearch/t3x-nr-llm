@@ -356,7 +356,9 @@ final class WritePathAcceptanceTest extends AbstractFunctionalTestCase
         self::assertTrue($tool->payload['toolIsError'] ?? null);
         $toolResult = $tool->payload['toolResult'] ?? null;
         self::assertIsString($toolResult);
-        self::assertStringContainsString('denied by the operator', $toolResult);
+        // The approver is not the run owner here, so the model is told another
+        // backend user declined — never "the operator" (ADR-200, NEXT-167).
+        self::assertStringStartsWith('Error: approval_denied (decided_by: other_user).', $toolResult);
     }
 
     /**

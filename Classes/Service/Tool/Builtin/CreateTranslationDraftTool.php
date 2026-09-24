@@ -98,7 +98,9 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             'create_translation_draft',
             "Translate ONE existing page or content element into another language, using TYPO3's own localize "
             . 'command. The new translation is always created HIDDEN, so a human must review and unhide it '
-            . 'before it is visible; nothing is published. Writes through the DataHandler as the acting backend '
+            . 'before it is visible; nothing is published. It takes NO translated text: the new record starts with '
+            . 'the text the localize command copies from the source, and this tool cannot change it afterwards. '
+            . 'Writes through the DataHandler as the acting backend '
             . 'user, in the live workspace. The source must be a default-language record. If a translation in '
             . 'that language already exists the call is refused, unless "overwrite" is set — which DELETES the '
             . 'existing translation first.',

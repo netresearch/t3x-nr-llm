@@ -27,6 +27,7 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
@@ -1185,7 +1186,59 @@ final class ToolLoopServiceTest extends TestCase
         $toolSteps = array_values(array_filter($trace->getSteps(), static fn(RunStep $s): bool => $s->kind === RunStep::KIND_TOOL));
         self::assertCount(1, $toolSteps);
         self::assertTrue($toolSteps[0]->toolIsError);
-        self::assertStringContainsString('denied', $toolSteps[0]->toolResult ?? '');
+        self::assertStringStartsWith('Error: approval_denied (decided_by: unknown).', $toolSteps[0]->toolResult ?? '');
+    }
+
+    /**
+     * NEXT-167, demo conversation 102: the chat user pressed Deny, and the
+     * model told them the write "was refused by the system/operator". The
+     * result now says who decided, as a token the model cannot misread.
+     *
+     * @return iterable<string, array{int, non-empty-string, string}>
+     */
+    public static function denialDeciders(): iterable
+    {
+        yield 'the run owner denied — the person in the chat' => [
+            7,
+            'Error: approval_denied (decided_by: run_owner).',
+            'the person you are talking to',
+        ];
+        yield 'another backend user denied' => [
+            9,
+            'Error: approval_denied (decided_by: other_user).',
+            'another backend user',
+        ];
+    }
+
+    /**
+     * @param non-empty-string $prefix
+     */
+    #[Test]
+    #[DataProvider('denialDeciders')]
+    public function resumeDeniedNamesWhoDeclinedTheApproval(int $decidedBy, string $prefix, string $who): void
+    {
+        $mgr   = self::createStub(LlmServiceManagerInterface::class);
+        $queue = [
+            $this->response('', [new ToolCall('call_1', 'delete_thing', [])]),
+            $this->response('Du hast die Freigabe abgelehnt.'),
+        ];
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback($queue));
+        $service = $this->service($mgr, new ToolRegistry([$this->approvalTool()]));
+
+        $state = $this->suspend($service);
+
+        $trace   = new RunTrace();
+        $context = ToolExecutionContext::forBackendUser(AiActorContext::backendUser(7), null);
+        $service->resume($state, false, $this->localConfiguration(), $context, null, $trace, $decidedBy);
+
+        $toolSteps = array_values(array_filter($trace->getSteps(), static fn(RunStep $s): bool => $s->kind === RunStep::KIND_TOOL));
+        self::assertCount(1, $toolSteps);
+        $result = $toolSteps[0]->toolResult ?? '';
+        self::assertStringStartsWith($prefix, $result);
+        self::assertStringContainsString($who, $result);
+        self::assertStringContainsString('"delete_thing"', $result);
+        self::assertStringContainsString('Nothing was executed.', $result);
+        self::assertStringNotContainsString('operator.', $result);
     }
 
     #[Test]

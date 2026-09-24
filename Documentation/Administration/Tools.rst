@@ -833,6 +833,18 @@ tools (for example ``get_env_raw`` and ``get_php_info_raw``) ship **disabled
 by default** because they return unredacted, secret-bearing output; enable
 them only deliberately.
 
+A tool that is refused never reaches the model, so by itself the model cannot
+tell it from a tool that does not exist. An extension that runs a chat can ask
+:php:`\Netresearch\NrLlm\Service\Tool\UnavailableToolsResolverInterface` for
+the tools one configuration and one backend user will NOT be offered, each
+with the gate that holds it back — ``toolDisabled``, ``requiresAdmin``,
+``configurationGroup`` or ``trustZone`` — and pass that to the model, which
+can then say "there is a tool for that, it is not enabled for you"
+(:ref:`ADR-201 <adr-201>`). A builtin tool the trust-zone gate only
+observes is offered, and is not in that list; a remote (MCP) tool is always
+enforced by that gate, so above the ceiling it is listed in either mode.
+Remote tools are listed for administrators only.
+
 .. figure:: /Images/ToolsModule.png
    :alt: The Tools management module listing each built-in tool with an
        Enabled or Disabled badge and an Enable/Disable toggle
