@@ -38,8 +38,10 @@ Decision
 ========
 
 **The form of core's** ``header`` **type is the shared form, and its columns
-do not decide.** A column of that form is left at its default, like an
-*unfilled* column, and never becomes a key of ``fields``. Every other
+do not decide.** An excluding column of that form is left at its default,
+like an *unfilled* column; ``fields`` never accepted an excluding column and
+still does not. The fillable columns of that form — ``date``,
+``header_layout`` — stay settable through ``fields`` as before. Every other
 excluding column still excludes the type, as before.
 
 ``header`` is the smallest content form, and core copies it onto a plugin

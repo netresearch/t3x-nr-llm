@@ -253,7 +253,8 @@ trait ReadsContentTypeFormsTrait
      * too — nothing says what it holds.
      *
      * A column of the shared form (see {@see self::sharedFormColumns()}) does
-     * not decide: it is left at its default like an unfilled column.
+     * not decide: an excluding one is left at its default like an unfilled
+     * column.
      *
      * @param string              $itemGroup the `group` of the type's `CType` item, '' when it has none
      * @param array<string, true> $shared    the columns of the form every content type shares
@@ -296,8 +297,9 @@ trait ReadsContentTypeFormsTrait
      * `tx_contexts_settings` (a `user` field). Such a column is presentation
      * or visibility, not what the type holds; judged like a column of the
      * type's own, it excluded every type on an installation with either
-     * extension (NEXT-164). It stays out of `fields` and is left at its
-     * default, like an unfilled column.
+     * extension (NEXT-164). Such an excluding column is left at its default,
+     * like an unfilled column; the fillable columns of the shared form stay
+     * settable through `fields` as before.
      *
      * @return array<string, true>
      */
