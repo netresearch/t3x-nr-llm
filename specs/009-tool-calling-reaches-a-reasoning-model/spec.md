@@ -110,12 +110,13 @@ of the three models and leave the third with a different error.
   option. Neither is a column. The provider record would be the better home for
   the opt-in, but `createAdapterFromModel()` drops the provider's extra options
   when it reconfigures the adapter — a defect of its own, fixed separately.
-- **No live call to OpenAI.** No credential for it exists on this machine or in
-  the Vault mounts that were searched (`netresearch/actors/sebastian.mendel/priv`,
-  `IT`, `ci`, `operations`, `projects`, `netresearch`, `agent-registry`), nor in
-  the environment or the DDEV configuration. Every request and response shape
-  here comes from the published API reference, and the suites drive a faked
-  PSR-18 client. The first real call is the measurement, and the PR says so.
+- **No live call to OpenAI in the suites.** Every request and response shape in
+  the tests comes from the published API reference, and the suites drive a
+  faked PSR-18 client. The change was checked once against the live API after
+  it was released, with a key from the team's password manager; ADR-203,
+  section *Verification against the live API*, records what that showed. (An
+  earlier version of this bullet said no credential existed. That was wrong:
+  the key had not been looked for there.)
 
 ## The two decisions that had a real alternative
 

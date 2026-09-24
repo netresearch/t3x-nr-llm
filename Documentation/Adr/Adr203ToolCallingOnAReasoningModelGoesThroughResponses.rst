@@ -129,6 +129,37 @@ had been left as it was and is wrong the other way, every GPT-6 call returns
 HTTP 400 with ``temperature`` named in the message. That is the signature to
 look for, and the asymmetry is why the parameter is stripped.
 
+.. _adr-203-verification:
+
+Verification against the live API (2026-09-24)
+==============================================
+
+The sentence above about the missing credential was wrong: an OpenAI API
+key was stored in the team's password manager and had not been looked for.
+The decision was then checked against the live API with the provider code
+of v0.37.0 — the real :php:`OpenAiProvider` over a real HTTP client:
+
+*   A tool request to ``gpt-6-luna`` at its default effort went to
+    ``/v1/responses``, came back as a tool call, and the response recorded
+    the effort OpenAI applied, ``medium``. The second step, with the tool
+    result as ``function_call_output``, answered with the tool's result.
+*   A ``think = false`` request to ``gpt-6-astra`` was sent at ``low``, and
+    OpenAI reported ``low`` back.
+*   At effort ``high`` the model reasoned before calling the tool — 92
+    reasoning tokens — and the reply carried a reasoning item with
+    ``encrypted_content``. The second request replayed that item byte for
+    byte, OpenAI accepted it, and the answer was correct.
+*   ``gpt-4.1-mini`` still called the tool over ``chat/completions``.
+*   The same GPT-6 tool request forced onto ``chat/completions`` failed with
+    exactly the error of issue #965.
+*   **The temperature assumption holds.** ``gpt-6-luna`` and ``gpt-6-astra``
+    both answer ``temperature: 0.2`` on ``chat/completions`` with HTTP 400:
+    *Only the default (1) value is supported.* Stripping it is correct.
+
+At its default effort, ``medium``, on a trivial prompt the model returned no
+reasoning item at all, only the function call. A replay therefore carries
+reasoning only when the model produced some, which is what the code does.
+
 .. _adr-203-revisit:
 
 Revisit when
