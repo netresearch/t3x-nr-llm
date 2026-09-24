@@ -9,10 +9,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Error;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Service\Tool\Builtin\CopyRecordTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\FailsLikeAFlashMessageHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\InterferesWithAnUpdateHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheFailingHookTrait;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheInterferingHookTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -33,6 +36,7 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 #[CoversClass(CopyRecordTool::class)]
 final class CopyRecordToolTest extends AbstractFunctionalTestCase
 {
+    use RegistersTheFailingHookTrait;
     use RegistersTheInterferingHookTrait;
 
     /** @var non-empty-string[] */
@@ -123,6 +127,7 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
     protected function tearDown(): void
     {
         $this->unregisterInterferingHook();
+        $this->unregisterFailingHook();
         unset($GLOBALS['LANG']);
         parent::tearDown();
     }
@@ -151,6 +156,24 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
         self::assertStringNotContainsString('translation', $result->content);
         // The source is untouched.
         self::assertSame(0, (int)($this->row('tt_content', self::ELEMENT)['hidden'] ?? 1));
+    }
+
+    /**
+     * Core writes the copy through a DataHandler of its own, and a hook that
+     * fails there fails before core records the copy's uid. The tool can then
+     * not tell whether a copy exists; "not copied" would be false where it
+     * does, so the call fails (ADR-206).
+     */
+    #[Test]
+    public function aHookThatFailsInTheCopyRunEndsTheCall(): void
+    {
+        $context = ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1));
+        $this->failInTheNextWrite(FailsLikeAFlashMessageHook::AFTER_ALL_OPERATIONS);
+
+        $this->expectException(Error::class);
+        $this->expectExceptionMessage('Call to a member function set() on null');
+
+        $this->tool->execute(['table' => 'tt_content', 'uid' => self::ELEMENT, 'target_page' => self::TARGET_PAGE], $context);
     }
 
     #[Test]

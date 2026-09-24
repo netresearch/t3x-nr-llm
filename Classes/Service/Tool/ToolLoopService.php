@@ -43,6 +43,7 @@ use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
+use Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -74,6 +75,9 @@ use Throwable;
  */
 final readonly class ToolLoopService implements ToolLoopServiceInterface
 {
+    /** How many failures the note on a tool's answer names; the log has all of them (ADR-206). */
+    private const MAX_NOTED_FAILURES = 3;
+
     public function __construct(
         private LlmServiceManagerInterface $mgr,
         private ToolRegistry $registry,
@@ -1230,6 +1234,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             ));
         }
 
+        // A failure a DataHandler recorded outside this call is not this
+        // call's to report (ADR-206).
+        ToolDataHandler::takeFailures();
+
         try {
             $result = $tool->execute($call->arguments, $context);
         } catch (Throwable $e) {
@@ -1252,13 +1260,44 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // error result is the value object's rule, not a condition repeated at
         // every call site.
         $bounded = $result->withBoundedChannels(
-            $this->bounder->content($result->content),
+            $this->bounder->content($this->hookFailureNote(ToolDataHandler::takeFailures()) . $result->content),
             $this->bounder->artifacts($result->artifacts),
         );
 
         $this->announceWrite($bounded, $context);
 
         return $bounded;
+    }
+
+    /**
+     * The note a tool's answer gets when a hook of the installation failed
+     * while the tool wrote, or the empty string (ADR-206).
+     *
+     * Only a failure after the last write of a run is recorded
+     * ({@see ToolDataHandler}); one during the writes is rethrown and ends the
+     * call as failed. Put before the tool's own text and bounded with it: the
+     * result stays within its cap, and when a long answer is cut, the tail is
+     * cut, not the note. Each line is bounded where it is recorded, repeats
+     * are dropped, and at most {@see self::MAX_NOTED_FAILURES} are named.
+     *
+     * @param list<string> $failures
+     */
+    private function hookFailureNote(array $failures): string
+    {
+        if ($failures === []) {
+            return '';
+        }
+
+        $failures = array_values(array_unique($failures));
+        $more     = count($failures) - self::MAX_NOTED_FAILURES;
+
+        return sprintf(
+            'Note: after a DataHandler run of this call had written its records, code of this TYPO3 '
+            . 'installation failed: %s%s. The answer below says what the tool found written. What that code was '
+            . "meant to do afterwards, such as a translation or a notification, may not have happened.\n\n",
+            implode('; ', array_slice($failures, 0, self::MAX_NOTED_FAILURES)),
+            $more > 0 ? sprintf(' (and %d more, see the TYPO3 log)', $more) : '',
+        );
     }
 
     /**
@@ -1283,7 +1322,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * label, badge or report take the run down with it would turn a completed
      * editorial write into a failed one — and the model's next move on a failed
      * write is to try it again. This is the one place in the loop where foreign
-     * code runs after the side effect, so it is the one place that swallows.
+     * code runs after the side effect, so it is the one place in the loop that
+     * swallows; a hook or listener that fails after the last write of an
+     * outermost DataHandler run is caught by {@see ToolDataHandler} for the
+     * same reason (ADR-206).
      * Swallows, not hides: the full Throwable goes to the log.
      */
     private function announceWrite(ToolResult $result, ToolExecutionContext $context): void

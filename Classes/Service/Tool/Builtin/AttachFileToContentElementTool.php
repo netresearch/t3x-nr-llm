@@ -25,7 +25,6 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -178,7 +177,7 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
         $existing   = $this->existingReferenceUids($elementUid, $field);
         $placeholder = 'NEW' . uniqid('nrllm', true);
 
-        $first = GeneralUtility::makeInstance(DataHandler::class);
+        $first = GeneralUtility::makeInstance(ToolDataHandler::class);
         $first->start(
             [
                 self::REFERENCE_TABLE => [
@@ -696,11 +695,11 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
      */
     private function discard(int $referenceUid, int $elementUid, string $field, array $survivors, BackendUserAuthentication $user): void
     {
-        $removal = GeneralUtility::makeInstance(DataHandler::class);
+        $removal = GeneralUtility::makeInstance(ToolDataHandler::class);
         $removal->start([], [self::REFERENCE_TABLE => [$referenceUid => ['delete' => 1]]], $user);
         $removal->process_cmdmap();
 
-        $restore = GeneralUtility::makeInstance(DataHandler::class);
+        $restore = GeneralUtility::makeInstance(ToolDataHandler::class);
         $restore->start([self::CONTENT_TABLE => [$elementUid => [$field => implode(',', $survivors)]]], [], $user);
         $restore->process_datamap();
     }

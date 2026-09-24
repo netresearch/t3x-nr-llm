@@ -26,7 +26,6 @@ use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\StringUtility;
@@ -202,7 +201,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             $cmdmap[self::REFERENCE_TABLE][$reference['uid']] = ['delete' => 1];
         }
 
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start(
             [
                 self::REFERENCE_TABLE => [
@@ -684,7 +683,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      */
     private function discard(int $referenceUid, int $pageUid, string $field, array $survivors, BackendUserAuthentication $user): string
     {
-        $restore = GeneralUtility::makeInstance(DataHandler::class);
+        $restore = GeneralUtility::makeInstance(ToolDataHandler::class);
         $restore->start(
             [self::PAGES_TABLE => [$pageUid => [$field => implode(',', $survivors)]]],
             $referenceUid > 0 ? [self::REFERENCE_TABLE => [$referenceUid => ['delete' => 1]]] : [],

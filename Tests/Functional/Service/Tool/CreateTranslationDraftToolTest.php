@@ -9,11 +9,15 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Error;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateTranslationDraftTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\FailsLikeAFlashMessageHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheFailingHookTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Configuration\SiteWriter;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -34,6 +38,8 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 #[CoversClass(CreateTranslationDraftTool::class)]
 final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
 {
+    use RegistersTheFailingHookTrait;
+
     /** @var non-empty-string[] */
     protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'frontend'];
 
@@ -120,6 +126,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
 
     protected function tearDown(): void
     {
+        $this->unregisterFailingHook();
         unset($GLOBALS['LANG']);
         parent::tearDown();
     }
@@ -144,6 +151,33 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         self::assertSame(1, (int)($translation['hidden'] ?? 0), 'a drafted translation must never be visible');
         // The source is untouched, in particular still visible.
         self::assertSame(0, (int)($this->row('pages', self::CHILD_PAGE)['hidden'] ?? 1));
+    }
+
+    /**
+     * Core writes a translation through a DataHandler of its own, like a
+     * copy. A hook that fails there fails before core records the new uid,
+     * and "no translation was created" would be false where one exists — a
+     * visible one, since the tool hides it only afterwards. The call fails
+     * (ADR-206).
+     */
+    #[Test]
+    public function aHookThatFailsInTheTranslationRunEndsTheCall(): void
+    {
+        $context = ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1));
+        $this->failInTheNextWrite(FailsLikeAFlashMessageHook::AFTER_ALL_OPERATIONS);
+
+        try {
+            $this->tool->execute(['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN], $context);
+            self::fail('The failure in the translation run did not end the call.');
+        } catch (Error $failure) {
+            self::assertSame('Call to a member function set() on null', $failure->getMessage());
+        }
+
+        // A translation registers itself as a nested call; the run's reset
+        // ran before the rethrow, so the next run in this process starts clean.
+        $runtimeCache = $this->get('cache.runtime');
+        self::assertInstanceOf(FrontendInterface::class, $runtimeCache);
+        self::assertFalse($runtimeCache->has('core-datahandler-nestedElementCalls-'));
     }
 
     #[Test]

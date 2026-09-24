@@ -1,0 +1,10 @@
+services:
+  # A listener of the reference index update, which the DataHandler runs after
+  # the hooks of a run (ADR-206). It does nothing until a test switches it on.
+  # Tagged explicitly: this extension's services are not autoconfigured.
+  Netresearch\NrLlm\Tests\Fixtures\DataHandler\FailsInTheReferenceIndexListener:
+    public: false
+    tags:
+      - name: event.listener
+        identifier: 'nrllm-failing-listener-fixture/reference-index'
+        event: TYPO3\CMS\Core\DataHandling\Event\IsTableExcludedFromReferenceIndexEvent

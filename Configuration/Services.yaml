@@ -364,6 +364,13 @@ services:
   Netresearch\NrLlm\Service\Guardrail\GuardrailRegistry:
     public: true
 
+  # Public and not shared, like the core DataHandler it extends: every writing
+  # tool creates a fresh one via GeneralUtility::makeInstance (ADR-206). A
+  # shared instance would carry one run's error log and registry into the next.
+  Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler:
+    public: true
+    shared: false
+
   Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface:
     alias: Netresearch\NrLlm\Service\Tool\ToolAvailabilityService
 

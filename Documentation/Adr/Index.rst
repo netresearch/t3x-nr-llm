@@ -588,3 +588,4 @@ Tools
    Adr203ToolCallingOnAReasoningModelGoesThroughResponses
    Adr204ReasoningEffortIsARequestOption
    Adr205AColumnEveryContentTypeCarriesExcludesNoType
+   Adr206AHookThatFailsDoesNotFailTheWriteItRanAfter

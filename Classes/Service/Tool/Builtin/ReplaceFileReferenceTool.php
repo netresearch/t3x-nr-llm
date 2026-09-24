@@ -23,7 +23,6 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\StringUtility;
@@ -496,7 +495,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             $plan['references'],
         );
 
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start(
             [
                 self::REFERENCE_TABLE => [
@@ -575,7 +574,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
     {
         $remaining = array_values(array_filter($plan['references'], static fn(int $uid): bool => $uid !== $plan['reference']));
 
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start(
             [self::CONTENT_TABLE => [$plan['element'] => [$plan['field'] => implode(',', $remaining)]]],
             [self::REFERENCE_TABLE => [$plan['reference'] => ['delete' => 1]]],
@@ -665,7 +664,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      */
     private function restore(int $newUid, array $plan, BackendUserAuthentication $user): string
     {
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start(
             [self::CONTENT_TABLE => [$plan['element'] => [$plan['field'] => implode(',', $plan['references'])]]],
             $newUid > 0 ? [self::REFERENCE_TABLE => [$newUid => ['delete' => 1]]] : [],
@@ -708,7 +707,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             $datamap[$elementUid] = [$plan['field'] => implode(',', $this->liveReferenceUids($elementUid, $plan['field']))];
         }
 
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([self::CONTENT_TABLE => $datamap], [], $user);
         $dataHandler->process_datamap();
 

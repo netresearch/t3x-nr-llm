@@ -144,7 +144,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
             return ToolResult::error($plan);
         }
 
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([], [$plan['table'] => [$plan['uid'] => ['delete' => 1]]], $user);
         $dataHandler->process_cmdmap();
 

@@ -153,7 +153,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             }
         }
 
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([], [$plan['table'] => [$plan['uid'] => ['localize' => $plan['language']]]], $user);
         $dataHandler->process_cmdmap();
 
@@ -428,7 +428,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
      */
     private function discardExisting(string $table, int $uid, BackendUserAuthentication $user): ?ToolResult
     {
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([], [$table => [$uid => ['delete' => 1]]], $user);
         $dataHandler->process_cmdmap();
 
@@ -459,7 +459,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
      */
     private function hide(string $table, int $uid, BackendUserAuthentication $user): ?ToolResult
     {
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([$table => [$uid => [$this->hiddenField($table) => 1]]], [], $user);
         $dataHandler->process_datamap();
 

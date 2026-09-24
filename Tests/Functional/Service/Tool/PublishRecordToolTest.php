@@ -11,12 +11,16 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Service\Tool\Builtin\PublishRecordTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\FailsLikeAFlashMessageHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\InterferesWithAnUpdateHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheFailingHookTrait;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheInterferingHookTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -32,6 +36,7 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 #[CoversClass(PublishRecordTool::class)]
 final class PublishRecordToolTest extends AbstractFunctionalTestCase
 {
+    use RegistersTheFailingHookTrait;
     use RegistersTheInterferingHookTrait;
 
     /** @var non-empty-string[] */
@@ -113,6 +118,7 @@ final class PublishRecordToolTest extends AbstractFunctionalTestCase
     protected function tearDown(): void
     {
         $this->unregisterInterferingHook();
+        $this->unregisterFailingHook();
         unset($GLOBALS['LANG']);
         parent::tearDown();
     }
@@ -234,6 +240,39 @@ final class PublishRecordToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('TYPO3 reported: ', $result->content);
         self::assertSame(self::ELEMENT_ON_OPEN, $result->writeTarget?->uid);
         self::assertSame(0, $this->hiddenOf('tt_content', self::ELEMENT_ON_OPEN));
+    }
+
+    /**
+     * The failure a live instance showed: a translation extension's hook
+     * queues a session flash message after the write, the worker's user has no
+     * session, and the hook throws. The record was published; the tool must
+     * say so, and the failure is recorded for the tool loop to pass on.
+     */
+    #[Test]
+    public function aHookThatFailsAfterTheWriteDoesNotHideThatTheRecordIsPublished(): void
+    {
+        $context = ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1));
+        $this->failInTheNextWrite(FailsLikeAFlashMessageHook::AFTER_ALL_OPERATIONS);
+
+        $result = $this->tool->execute(['table' => 'tt_content', 'uid' => self::ELEMENT_ON_OPEN], $context);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('Cleared the hidden flag of tt_content [21]', $result->content);
+        self::assertSame(self::ELEMENT_ON_OPEN, $result->writeTarget?->uid);
+        self::assertSame(0, $this->hiddenOf('tt_content', self::ELEMENT_ON_OPEN));
+        self::assertStringContainsString('Call to a member function set() on null', implode("\n", ToolDataHandler::takeFailures()));
+    }
+
+    #[Test]
+    public function aHookThatFailsBeforeTheWriteEndsTheCall(): void
+    {
+        $context = ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1));
+        $this->failInTheNextWrite(FailsLikeAFlashMessageHook::POST_PROCESS_FIELD_ARRAY);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('A test hook fails before the row is written');
+
+        $this->tool->execute(['table' => 'tt_content', 'uid' => self::ELEMENT_ON_OPEN], $context);
     }
 
     #[Test]

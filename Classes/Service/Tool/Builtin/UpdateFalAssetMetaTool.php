@@ -25,7 +25,6 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
@@ -234,7 +233,7 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
         $values      = $plan['values'];
         $metadataUid = self::toInt($plan['metadataUid']);
 
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([self::METADATA_TABLE => [$metadataUid => $values]], [], $user);
         $dataHandler->process_datamap();
 

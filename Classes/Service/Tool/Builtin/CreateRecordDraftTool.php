@@ -1725,7 +1725,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      */
     private function discard(string $table, int $uid, BackendUserAuthentication $user): bool
     {
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([], [$table => [$uid => ['delete' => 1]]], $user);
         $dataHandler->process_cmdmap();
 

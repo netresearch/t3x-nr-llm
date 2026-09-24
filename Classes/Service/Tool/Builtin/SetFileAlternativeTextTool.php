@@ -25,7 +25,6 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
@@ -209,7 +208,7 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
         $metadataUid       = self::toInt($metadata['uid'] ?? 0);
         $text              = $value[0];
 
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([self::METADATA_TABLE => [$metadataUid => [self::FIELD => $text]]], [], $user);
         $dataHandler->process_datamap();
 
