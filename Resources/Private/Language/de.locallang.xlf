@@ -4009,6 +4009,10 @@
                 <source>The run configuration no longer exists.</source>
                 <target>Die Lauf-Konfiguration existiert nicht mehr.</target>
             </trans-unit>
+            <trans-unit id="runs.flash.configInactive">
+                <source>The run configuration is deactivated. The run keeps waiting and can be decided once the configuration is active again.</source>
+                <target>Die Lauf-Konfiguration ist deaktiviert. Der Lauf wartet weiter und kann entschieden werden, sobald sie wieder aktiv ist.</target>
+            </trans-unit>
             <trans-unit id="runs.flash.alreadyResuming">
                 <source>This run is already being processed.</source>
                 <target>Dieser Lauf wird bereits verarbeitet.</target>

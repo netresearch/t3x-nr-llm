@@ -29,6 +29,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAccessDeniedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
@@ -209,6 +210,14 @@ final readonly class ResumeCoordinator
         $configuration = $this->configurationRepository->findByUid($run->configurationUid);
         if ($configuration === null) {
             throw RunConfigurationGoneException::forRun($runUuid);
+        }
+
+        // Every other entry point refuses a deactivated configuration through
+        // ConfigurationResolver; a continuation reloads the run's own one by
+        // uid, so it has to ask here. Refused before the claim, so the run
+        // stays suspended until the configuration is active again.
+        if (!$configuration->isActive()) {
+            throw RunConfigurationInactiveException::forRun($runUuid);
         }
 
         // Four-eyes (ADR-172). Refused here, before anything is claimed, so the
@@ -654,6 +663,14 @@ final readonly class ResumeCoordinator
         $configuration = $this->configurationRepository->findByUid($run->configurationUid);
         if ($configuration === null) {
             throw RunConfigurationGoneException::forRun($runUuid);
+        }
+
+        // Every other entry point refuses a deactivated configuration through
+        // ConfigurationResolver; a continuation reloads the run's own one by
+        // uid, so it has to ask here. Refused before the claim, so the run
+        // stays suspended until the configuration is active again.
+        if (!$configuration->isActive()) {
+            throw RunConfigurationInactiveException::forRun($runUuid);
         }
 
         $decoded = json_decode($run->suspendedState, true);

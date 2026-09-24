@@ -3015,6 +3015,9 @@
             <trans-unit id="runs.flash.configGone">
                 <source>The run configuration no longer exists.</source>
             </trans-unit>
+            <trans-unit id="runs.flash.configInactive">
+                <source>The run configuration is deactivated. The run keeps waiting and can be decided once the configuration is active again.</source>
+            </trans-unit>
             <trans-unit id="runs.flash.alreadyResuming">
                 <source>This run is already being processed.</source>
             </trans-unit>

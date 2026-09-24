@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\DroppedSource;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use RuntimeException;
@@ -119,6 +120,10 @@ final readonly class AgentRunRequestCodec
         $configuration = $this->configurationRepository->findByUid($run->configurationUid);
         if ($configuration === null) {
             throw RunConfigurationGoneException::forRun($run->uuid);
+        }
+
+        if (!$configuration->isActive()) {
+            throw RunConfigurationInactiveException::forRun($run->uuid);
         }
 
         $data = json_decode($run->queuedRequest ?? '', true);

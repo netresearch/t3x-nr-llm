@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
@@ -186,6 +187,9 @@ final class AgentRunController extends ActionController
             return $this->flashRedirect('runs.flash.notAwaitingApproval', ContextualFeedbackSeverity::INFO);
         } catch (RunConfigurationGoneException) {
             return $this->flashRedirect('runs.flash.configGone', ContextualFeedbackSeverity::ERROR);
+        } catch (RunConfigurationInactiveException) {
+            // The run was refused before the claim and is still waiting.
+            return $this->flashRedirect('runs.flash.configInactive', ContextualFeedbackSeverity::WARNING);
         } catch (RunAlreadyResumingException) {
             return $this->flashRedirect('runs.flash.alreadyResuming', ContextualFeedbackSeverity::WARNING);
         } catch (StaleApprovalTurnException) {
@@ -258,6 +262,9 @@ final class AgentRunController extends ActionController
             return $this->flashRedirect('runs.flash.notAwaitingInput', ContextualFeedbackSeverity::INFO);
         } catch (RunConfigurationGoneException) {
             return $this->flashRedirect('runs.flash.configGone', ContextualFeedbackSeverity::ERROR);
+        } catch (RunConfigurationInactiveException) {
+            // The run was refused before the claim and is still waiting.
+            return $this->flashRedirect('runs.flash.configInactive', ContextualFeedbackSeverity::WARNING);
         } catch (RunAlreadyResumingException) {
             return $this->flashRedirect('runs.flash.alreadyResuming', ContextualFeedbackSeverity::WARNING);
         } catch (StaleInputTurnException) {
