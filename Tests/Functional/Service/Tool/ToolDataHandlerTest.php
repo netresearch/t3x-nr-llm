@@ -110,7 +110,7 @@ final class ToolDataHandlerTest extends AbstractFunctionalTestCase
         $dataHandler = $this->updateHeader('After');
 
         self::assertSame('After', $this->headerOf(self::ELEMENT));
-        $failure = self::onlyFailure();
+        $failure = $this->onlyFailure();
         self::assertStringContainsString(FailsLikeAFlashMessageHook::class . '::processDatamap_afterAllOperations() threw Error', $failure);
         self::assertStringContainsString('Call to a member function set() on null', $failure);
         // The DataHandler's own log stays as TYPO3 wrote it: writers that
@@ -167,7 +167,7 @@ final class ToolDataHandlerTest extends AbstractFunctionalTestCase
         $this->updateHeader('After');
 
         self::assertSame('Before', $this->headerOf(self::ELEMENT));
-        $failure = self::onlyFailure();
+        $failure = $this->onlyFailure();
         self::assertStringContainsString(FailsLikeAFlashMessageHook::class . '::processDatamap_postProcessFieldArray() threw RuntimeException', $failure);
         self::assertStringContainsString('A test hook fails before the row is written', $failure);
     }
@@ -182,7 +182,7 @@ final class ToolDataHandlerTest extends AbstractFunctionalTestCase
         $dataHandler->process_cmdmap();
 
         self::assertSame(1, $this->deletedOf(self::ELEMENT));
-        self::assertStringContainsString(FailsLikeAFlashMessageHook::class . '::processCmdmap_afterFinish() threw Error', self::onlyFailure());
+        self::assertStringContainsString(FailsLikeAFlashMessageHook::class . '::processCmdmap_afterFinish() threw Error', $this->onlyFailure());
         self::assertSame([], $dataHandler->errorLog);
         self::assertContains(self::PAGE, CountsCacheClearsHook::$pages, 'The cache of the page the command changed was not flushed.');
     }
@@ -217,6 +217,7 @@ final class ToolDataHandlerTest extends AbstractFunctionalTestCase
         // instance, and the failing hook fires inside that nested run.
         $outer = GeneralUtility::makeInstance(DataHandler::class);
         $outer->start(['tt_content' => [self::ELEMENT => ['header' => 'Outer']]], [], $this->user);
+
         FailsLikeAFlashMessageHook::$failAt = FailsLikeAFlashMessageHook::NESTED_AFTER_ALL_OPERATIONS;
 
         $this->expectException(Error::class);
@@ -237,7 +238,7 @@ final class ToolDataHandlerTest extends AbstractFunctionalTestCase
         return $dataHandler;
     }
 
-    private static function onlyFailure(): string
+    private function onlyFailure(): string
     {
         $failures = ToolDataHandler::takeFailures();
         self::assertCount(1, $failures);
@@ -269,7 +270,7 @@ final class ToolDataHandlerTest extends AbstractFunctionalTestCase
 
     private function referenceIndexRowsFrom(int $uid, string $field): int
     {
-        return (int)$this->connectionPool->getConnectionForTable('sys_refindex')->count(
+        return $this->connectionPool->getConnectionForTable('sys_refindex')->count(
             '*',
             'sys_refindex',
             ['tablename' => 'tt_content', 'recuid' => $uid, 'field' => $field],

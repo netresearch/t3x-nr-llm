@@ -136,8 +136,8 @@ class ToolDataHandler extends DataHandler
         $this->record($failure);
 
         foreach ([
-            fn() => $this->referenceIndexUpdater->update(),
-            fn() => $this->processClearCacheQueue(),
+            $this->referenceIndexUpdater->update(...),
+            $this->processClearCacheQueue(...),
             $resetRegistry,
         ] as $step) {
             try {

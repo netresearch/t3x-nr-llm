@@ -94,6 +94,11 @@ return static function (RectorConfig $rectorConfig) use ($configure): void {
         // collaborator public (see GuardrailRegistry in Services.yaml).
         GeneralUtilityMakeInstanceToConstructorPropertyRector::class => [
             __DIR__ . '/../../Classes/Form/Tca/SnippetTagItems.php',
+            // It extends the core DataHandler and inherits its constructor,
+            // whose parameters differ between TYPO3 13.4 and 14.3. A
+            // constructor of its own that injects the logger would have to
+            // restate the core one for both versions (ADR-206).
+            __DIR__ . '/../../Classes/Service/Tool/Builtin/ToolDataHandler.php',
         ],
         // Same reason: without a constructor there is nothing to make readonly,
         // and the rule only fires because of the rewrite skipped above.

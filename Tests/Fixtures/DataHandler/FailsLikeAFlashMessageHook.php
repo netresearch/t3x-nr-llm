@@ -14,7 +14,6 @@ use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Messaging\FlashMessage;
 use TYPO3\CMS\Core\Messaging\FlashMessageService;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * A DataHandler hook of an installation that throws, chosen per test through
@@ -63,17 +62,14 @@ final class FailsLikeAFlashMessageHook
         }
     }
 
-    public function processCmdmap_afterFinish(DataHandler $dataHandler): void
+    public function processCmdmap_afterFinish(): void
     {
         if (self::$failAt === self::AFTER_FINISH) {
             $this->queueSessionMessage();
         }
     }
 
-    /**
-     * @param array<string, mixed> $fieldArray
-     */
-    public function processDatamap_postProcessFieldArray(string $status, string $table, string|int $id, array &$fieldArray, DataHandler $dataHandler): void
+    public function processDatamap_postProcessFieldArray(): void
     {
         if (self::$failAt === self::POST_PROCESS_FIELD_ARRAY) {
             throw new RuntimeException('A test hook fails before the row is written', 1790000001);
@@ -82,7 +78,10 @@ final class FailsLikeAFlashMessageHook
 
     private function queueSessionMessage(): void
     {
-        GeneralUtility::makeInstance(FlashMessageService::class)
+        // Not through the container: the DataHandler creates this hook with
+        // makeInstance() and no arguments, so it cannot take the service in
+        // its constructor. A fresh service stores in the same session.
+        (new FlashMessageService())
             ->getMessageQueueByIdentifier()
             ->addMessage(new FlashMessage('Error during translation', '', ContextualFeedbackSeverity::ERROR, true));
     }

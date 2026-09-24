@@ -16,6 +16,7 @@ use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
+use TYPO3\CMS\Core\DataHandling\DataHandler;
 
 /**
  * No code of this extension creates the core DataHandler itself (ADR-206).
@@ -63,10 +64,10 @@ final class EveryDataHandlerIsAToolDataHandlerTest extends TestCase
     #[Test]
     public function thePatternTellsTheCoreClassFromTheToolClass(): void
     {
-        self::assertSame(1, preg_match(self::CREATES_THE_CORE_CLASS, '$x = GeneralUtility::makeInstance(DataHandler::class);'));
-        self::assertSame(1, preg_match(self::CREATES_THE_CORE_CLASS, '$x = GeneralUtility::makeInstance(\TYPO3\CMS\Core\DataHandling\DataHandler::class);'));
-        self::assertSame(1, preg_match(self::CREATES_THE_CORE_CLASS, '$x = new DataHandler();'));
-        self::assertSame(0, preg_match(self::CREATES_THE_CORE_CLASS, '$x = GeneralUtility::makeInstance(ToolDataHandler::class);'));
-        self::assertSame(0, preg_match(self::CREATES_THE_CORE_CLASS, '$x = new ToolDataHandler();'));
+        self::assertMatchesRegularExpression(self::CREATES_THE_CORE_CLASS, '$x = GeneralUtility::makeInstance(DataHandler::class);');
+        self::assertMatchesRegularExpression(self::CREATES_THE_CORE_CLASS, '$x = GeneralUtility::makeInstance(' . DataHandler::class . '::class);');
+        self::assertMatchesRegularExpression(self::CREATES_THE_CORE_CLASS, '$x = new DataHandler();');
+        self::assertDoesNotMatchRegularExpression(self::CREATES_THE_CORE_CLASS, '$x = GeneralUtility::makeInstance(ToolDataHandler::class);');
+        self::assertDoesNotMatchRegularExpression(self::CREATES_THE_CORE_CLASS, '$x = new ToolDataHandler();');
     }
 }
