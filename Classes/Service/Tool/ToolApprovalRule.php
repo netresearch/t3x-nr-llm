@@ -46,6 +46,10 @@ final class ToolApprovalRule
      * (ADR-111) and cannot be relabelled by configuration, which is what makes
      * it usable as an authorisation input.
      *
+     * A third, narrower way in is {@see ConfigurableApprovalInterface}: a read
+     * whose approval the operator's configuration decides (ADR-202). It is
+     * asked after the marker and cannot lift the approval of a declared write.
+     *
      * A remote tool is NOT judged on its effect, and that exemption is
      * load-bearing rather than convenient.
      * {@see \Netresearch\NrLlm\Service\Tool\Mcp\McpTool} returns
@@ -70,6 +74,12 @@ final class ToolApprovalRule
     {
         if ($tool instanceof RequiresApprovalInterface) {
             return true;
+        }
+
+        // A declared write is approved whatever the configuration says; only a
+        // read may make its approval configurable (ADR-202).
+        if ($tool instanceof ConfigurableApprovalInterface) {
+            return ($tool instanceof ToolEffectInterface && $tool->getEffect()->isWrite()) || $tool->requiresApproval();
         }
 
         if ($tool instanceof RemoteApprovalInterface) {

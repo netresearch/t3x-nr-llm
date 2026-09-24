@@ -1764,6 +1764,10 @@
                 <source>Site search</source>
                 <target>Website-Suche</target>
             </trans-unit>
+            <trans-unit id="tool.group.web">
+                <source>Web pages</source>
+                <target>Webseiten</target>
+            </trans-unit>
             <trans-unit id="editorAction.update_page_metadata.label">
                 <source>Update page metadata</source>
                 <target>Seiten-Metadaten ändern</target>

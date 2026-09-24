@@ -1328,6 +1328,9 @@
             <trans-unit id="tool.group.rag">
                 <source>Site search</source>
             </trans-unit>
+            <trans-unit id="tool.group.web">
+                <source>Web pages</source>
+            </trans-unit>
             <trans-unit id="editorAction.update_page_metadata.label">
                 <source>Update page metadata</source>
             </trans-unit>

@@ -81,6 +81,8 @@ enum ToolGroup: string
      */
     case RAG = 'rag';
 
+    case WEB = 'web';
+
     private const LABEL_PREFIX = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:tool.group.';
 
     /**
