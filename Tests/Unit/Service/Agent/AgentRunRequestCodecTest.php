@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequestCodec;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -250,6 +251,17 @@ final class AgentRunRequestCodecTest extends TestCase
         $this->configurationRepository->method('findByUid')->willReturn(null);
 
         $this->expectException(RunConfigurationGoneException::class);
+        $this->codec()->rehydrate($this->queuedRun('{"messages":[]}'));
+    }
+
+    #[Test]
+    public function aConfigurationDeactivatedWhileQueuedIsRefused(): void
+    {
+        $configuration = new LlmConfiguration();
+        $configuration->setIsActive(false);
+        $this->configurationRepository->method('findByUid')->willReturn($configuration);
+
+        $this->expectException(RunConfigurationInactiveException::class);
         $this->codec()->rehydrate($this->queuedRun('{"messages":[]}'));
     }
 

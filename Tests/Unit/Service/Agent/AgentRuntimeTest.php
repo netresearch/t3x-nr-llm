@@ -49,6 +49,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAccessDeniedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunEnqueueFailedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
@@ -78,6 +79,7 @@ use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\RecordingAgentRunRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 use Symfony\Component\Messenger\Envelope;
@@ -476,6 +478,54 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
 
         $this->expectException(RunConfigurationGoneException::class);
         $this->runtime($this->loopReturning($this->loopResult('x')), configuration: null)->approve($this->actor(), 'run-uuid-1', $this->decision(true, 1));
+    }
+
+    /**
+     * @return iterable<string, array{bool}>
+     */
+    public static function bothDecisions(): iterable
+    {
+        yield 'approval' => [true];
+        // A denial resumes the loop too, so it would call the provider through
+        // the deactivated configuration just the same.
+        yield 'denial' => [false];
+    }
+
+    #[Test]
+    #[DataProvider('bothDecisions')]
+    public function approveRefusesADeactivatedConfigurationWithoutClaimingTheRun(bool $approved): void
+    {
+        $this->repository->findResult = $this->suspendedRun();
+        $configuration = new LlmConfiguration();
+        $configuration->setIsActive(false);
+
+        try {
+            $this->runtime($this->loopReturning($this->loopResult('x')), configuration: $configuration)
+                ->approve($this->actor(), 'run-uuid-1', $this->decision($approved, 1));
+            self::fail('Expected RunConfigurationInactiveException');
+        } catch (RunConfigurationInactiveException) {
+            // The run stays suspended: reactivating the configuration makes it decidable again.
+            self::assertSame(0, $this->repository->claimsGranted);
+            self::assertNull($this->repository->finished);
+        }
+    }
+
+    #[Test]
+    public function submitInputRefusesADeactivatedConfigurationWithoutClaimingTheRun(): void
+    {
+        $this->repository->findResult = $this->inputRun();
+        $configuration = new LlmConfiguration();
+        $configuration->setIsActive(false);
+
+        try {
+            $this->runtime($this->loopReturning($this->loopResult('x')), configuration: $configuration)
+                ->submitInput($this->actor(), 'run-uuid-i', new InputSubmission(['city' => 'Berlin'], 7, $this->inputDigest()));
+            self::fail('Expected RunConfigurationInactiveException');
+        } catch (RunConfigurationInactiveException) {
+            self::assertSame(0, $this->repository->inputClaimsGranted);
+            self::assertSame([], $this->repository->events);
+            self::assertNull($this->repository->finished);
+        }
     }
 
     #[Test]

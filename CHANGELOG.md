@@ -26,6 +26,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A deactivated configuration no longer resumes a waiting run (NEXT-172).** `approve()` and `submitInput()` reload the configuration the run was started with and checked only that it still existed, so a run waiting for approval or input could resume and execute its pending write after an administrator had deactivated that configuration. Every other entry point refuses a deactivated configuration through `ConfigurationResolver`. Both now throw the new `RunConfigurationInactiveException` before the claim, for a denial as well, because a denial also resumes the loop and calls the provider. The run stays waiting and can be decided once the configuration is active again. A queued run whose configuration was deactivated before the worker picked it up is refused the same way and settles failed, as a deleted configuration already did. The run inbox and the Tool Playground report the refusal. Reported by CodeRabbit on nr_mcp_agent#169.
+
 - **`search_records` no longer returns hits in a language the acting non-admin may not access.** `read_records` has dropped such rows since ADR-042; the search checked only the page. Found while adding the language to each hit (NEXT-167). The languages the user may read are part of the query, so a forbidden row cannot use up the limit and leave permitted matches unfetched, and `checkLanguageAccess()` is applied to each hit as well.
 
 ## [0.36.0] - 2026-09-23
