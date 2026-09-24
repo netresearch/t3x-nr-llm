@@ -16,7 +16,7 @@ use Psr\Log\LoggerInterface;
 use ReflectionClass;
 use Throwable;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
-use TYPO3\CMS\Core\DataHandling\ReferenceIndexUpdater;
+use TYPO3\CMS\Core\EventDispatcher\EventDispatcher;
 use TYPO3\CMS\Core\Log\LogManager;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -33,13 +33,14 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * This subclass tells two failures of the OUTERMOST run apart by the method
  * that run called when it failed:
  *
- * - **After the writes** — in `processDatamap_afterAllOperations`, in
- *   `processCmdmap_afterFinish`, in the reference index update or in the cache
- *   flush. Every record of the run is written. The run is finished (the steps
- *   the failure skipped still run), the failure is logged, and a one-line
- *   description is recorded for the tool loop, which adds it to the tool's
- *   answer ({@see self::takeFailures()}). The tool reads back and answers as
- *   usual.
+ * - **After the writes** — in a `processDatamap_afterAllOperations` or
+ *   `processCmdmap_afterFinish` hook, or in a hook of the cache flush. Every
+ *   record of the run is written. The run's finishing steps that did not run
+ *   yet — reference index update, cache flush, registry reset — run now; the
+ *   hooks after the failing one in the same list do not. The failure is
+ *   logged, and a one-line description is recorded for the tool loop, which
+ *   adds it to the tool's answer ({@see self::takeFailures()}). The tool reads
+ *   back and answers as usual.
  * - **During the writes** — anywhere else, a nested run included: a copy or a
  *   translation core writes through a DataHandler of its own. Some records may
  *   be written and some not, and relations may still point at the source. The
@@ -47,9 +48,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   failure is rethrown: "failed" is the honest answer, and a tool that read
  *   back half a copy would report a wrong one.
  *
- * The DataHandler's error log stays as TYPO3 wrote it. Thirteen writers refuse
- * as soon as that log is not empty; a failure written into it would turn a
- * write that landed into "refused".
+ * The DataHandler's error log stays as TYPO3 wrote it. The writers refuse at
+ * 13 places as soon as that log is not empty; a failure written into it would
+ * turn a write that landed into "refused".
  *
  * A run nested inside another DataHandler run rethrows whatever failed: the run
  * around it has its own finishing steps ahead, and the code that started that
@@ -63,14 +64,21 @@ class ToolDataHandler extends DataHandler
     private const MAX_DESCRIPTION_LENGTH = 300;
 
     /**
-     * The steps of an outermost run that come after its last write, by the
-     * method the run calls for each, in the order the run calls them.
+     * The steps of an outermost run that come after its last write and call
+     * code of the installation, by the method the run calls for each, in the
+     * order the run calls them. The reference index update between the hooks
+     * and the cache flush calls no hook; a failure there is rethrown.
      */
     private const AFTER_THE_WRITES = [
         'processDatamap_afterAllOperations',
         'processCmdmap_afterFinish',
-        ReferenceIndexUpdater::class . '::update',
         DataHandler::class . '::processClearCacheQueue',
+    ];
+
+    /** The frames that hand a hook or a listener on, looked through when a failure is named. */
+    private const DISPATCHERS = [
+        GeneralUtility::class . '::callUserFunction',
+        EventDispatcher::class . '::dispatch',
     ];
 
     /**
@@ -130,7 +138,7 @@ class ToolDataHandler extends DataHandler
 
         $step = $this->stepThatFailed($failure);
         $this->logger()->error(
-            'A DataHandler run of a tool threw; its finishing steps ran anyway.',
+            'A DataHandler run of a tool threw; it is finished without the failed step.',
             ['exception' => $failure, 'afterTheWrites' => $step !== null],
         );
 
@@ -148,7 +156,7 @@ class ToolDataHandler extends DataHandler
      * the reference index update, the cache flush and the registry reset, as
      * far as they did not run yet. Each on its own, so one that fails does not
      * keep the next from running. A failure here is logged and not recorded:
-     * the write it follows is done, and the note already names a failure.
+     * the note, if any, already names a failure.
      *
      * @param string|null                                          $failedStep one of {@see self::AFTER_THE_WRITES}, or null for a failure during the writes
      * @param 'resetElementsToBeDeleted'|'resetNestedElementCalls' $reset
@@ -160,14 +168,9 @@ class ToolDataHandler extends DataHandler
         $steps = [];
         if ($failedAt < 2) {
             $steps[] = $this->referenceIndexUpdater->update(...);
-        }
-
-        if ($failedAt < 3) {
-            $steps[] = $this->processClearCacheQueue(...);
+            $steps[] = $this->flushOrForget(...);
         } else {
-            // The flush broke off before it emptied its queue. Run again, it
-            // fails the same way; left as it is, the next run in this process
-            // replays it (ADR-206).
+            // The flush itself failed. Run again, it fails the same way.
             $steps[] = $this->forgetTheCacheQueue(...);
         }
 
@@ -179,9 +182,24 @@ class ToolDataHandler extends DataHandler
             try {
                 $step();
             } catch (Throwable $stepFailure) {
-                $this->forgetTheCacheQueue();
                 $this->logger()->error("A finishing step of a tool's DataHandler run threw.", ['exception' => $stepFailure]);
             }
+        }
+    }
+
+    /**
+     * Flush the cache of every page the run wrote to. A flush that breaks off
+     * leaves its queue behind in static properties, and the next run in this
+     * process would replay it and fail the same way; the queue is emptied then
+     * (ADR-206).
+     */
+    private function flushOrForget(): void
+    {
+        try {
+            $this->processClearCacheQueue();
+        } catch (Throwable $failure) {
+            $this->forgetTheCacheQueue();
+            throw $failure;
         }
     }
 
@@ -196,15 +214,17 @@ class ToolDataHandler extends DataHandler
      * null when it was still writing.
      *
      * A trace frame names the called method and the file it was called FROM.
-     * The frame called from this file is the parent's `process_datamap()` or
-     * `process_cmdmap()`; the frame just inside it is the method that run
-     * called when it failed. A nested run shows up there as a
-     * `process_datamap()` of its own, which is not a step after the writes.
+     * The outermost frame called from this file is this run's call of the
+     * parent's `process_datamap()` or `process_cmdmap()` — an inner one belongs
+     * to a ToolDataHandler a hook started. The frame just inside it is the
+     * method this run called when it failed. A copy or a translation core runs
+     * through a DataHandler of its own shows up there as `copyRecord()` or
+     * `localize()`, which is not a step after the writes.
      */
     private function stepThatFailed(Throwable $failure): ?string
     {
         $trace = $failure->getTrace();
-        foreach ($trace as $index => $frame) {
+        foreach (array_reverse($trace, true) as $index => $frame) {
             if (($frame['file'] ?? null) !== __FILE__) {
                 continue;
             }
@@ -255,11 +275,11 @@ class ToolDataHandler extends DataHandler
      * the trace names none.
      *
      * The frame the DataHandler called is the hook method itself for a
-     * `processDatamap_*` / `processCmdmap_*` hook. A hook called through
-     * `GeneralUtility::callUserFunction()`, or a listener through the event
-     * dispatcher, sits further inside, so the innermost frame outside TYPO3's
-     * own namespace from there on is named; without one, the frame the
-     * DataHandler called is.
+     * `processDatamap_*` / `processCmdmap_*` hook, and it is named. A hook
+     * called through `GeneralUtility::callUserFunction()`, or a listener
+     * through the event dispatcher, sits further inside; for those two the
+     * first frame inside that is outside TYPO3's own namespace is named, and
+     * without one, the dispatcher.
      */
     private function failingCode(Throwable $failure): ?string
     {
@@ -272,10 +292,12 @@ class ToolDataHandler extends DataHandler
                 continue;
             }
 
-            for ($inner = $index; $inner >= 0; $inner--) {
-                $innerClass = $trace[$inner]['class'] ?? null;
-                if (is_string($innerClass) && !str_starts_with($innerClass, 'TYPO3\\CMS\\')) {
-                    return $innerClass . '::' . $trace[$inner]['function'] . '()';
+            if (in_array($class . '::' . $frame['function'], self::DISPATCHERS, true)) {
+                for ($inner = $index - 1; $inner >= 0; $inner--) {
+                    $innerClass = $trace[$inner]['class'] ?? null;
+                    if (is_string($innerClass) && !str_starts_with($innerClass, 'TYPO3\\CMS\\')) {
+                        return $innerClass . '::' . $trace[$inner]['function'] . '()';
+                    }
                 }
             }
 

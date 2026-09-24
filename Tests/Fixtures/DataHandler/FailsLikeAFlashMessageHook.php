@@ -61,10 +61,14 @@ final class FailsLikeAFlashMessageHook
      */
     public static ?Closure $throw = null;
 
+    /** With `POST_PROCESS_FIELD_ARRAY`: fail only for this uid, so the records before it are written. */
+    public static ?int $onlyForUid = null;
+
     public static function reset(): void
     {
-        self::$failAt = null;
-        self::$throw  = null;
+        self::$failAt     = null;
+        self::$throw      = null;
+        self::$onlyForUid = null;
     }
 
     public function processDatamap_afterAllOperations(DataHandler $dataHandler): void
@@ -83,9 +87,12 @@ final class FailsLikeAFlashMessageHook
         }
     }
 
-    public function processDatamap_postProcessFieldArray(): void
+    /**
+     * @param array<string, mixed> $fieldArray
+     */
+    public function processDatamap_postProcessFieldArray(string $status, string $table, string|int $id, array &$fieldArray): void
     {
-        if (self::$failAt === self::POST_PROCESS_FIELD_ARRAY) {
+        if (self::$failAt === self::POST_PROCESS_FIELD_ARRAY && (self::$onlyForUid === null || (int)$id === self::$onlyForUid)) {
             throw new RuntimeException('A test hook fails before the row is written', 1790000001);
         }
     }

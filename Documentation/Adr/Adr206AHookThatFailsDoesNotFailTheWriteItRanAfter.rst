@@ -45,17 +45,19 @@ Decision
 tells a failure after the writes from one during them.** It looks at the
 method the OUTERMOST run called when it failed:
 
-- **After the writes** — ``processDatamap_afterAllOperations``,
-  ``processCmdmap_afterFinish``, the reference index update or the cache
-  flush. Every record of the run is written. The run finishes the steps the
-  failure skipped, the failure is logged with its trace, and one line is
-  recorded: the installation's code that failed, the exception class and its
+- **After the writes** — a ``processDatamap_afterAllOperations`` or
+  ``processCmdmap_afterFinish`` hook, or a hook of the cache flush. Every
+  record of the run is written. The finishing steps that did not run yet —
+  reference index update, cache flush, registry reset — run now; the hooks
+  after the failing one in the same list do not. The failure is logged with
+  its trace, and one line is recorded: the installation's code that failed, the exception class and its
   message. A database exception is named without its message, and any other
   message is stripped of every secret shape the org-wide catalogue knows,
   credentials in URLs among them, because the line reaches the language
   model. The tool loop adds the lines
   to the tool's answer as a note; the tool reads back and answers as usual.
-- **During the writes** — anywhere else. Core writes a copy and a translation
+- **During the writes** — anywhere else, the reference index update included,
+  which calls no hook of the installation. Core writes a copy and a translation
   through a DataHandler of its own, so a hook that fails there fails during
   the writes of the tool's run, before core has recorded the new uid. Some
   records may be written and some not, and relations may still point at the
@@ -76,9 +78,9 @@ does for every other outcome.
 DataHandler run leaves the failure to that run, which still has its own
 finishing steps ahead and a caller that must see it.
 
-A unit test refuses ``makeInstance(DataHandler::class)`` and
-``new DataHandler(`` anywhere in ``Classes/``, so a new writer cannot bypass
-the class.
+A unit test refuses ``makeInstance(DataHandler::class)``, a container lookup
+of the core class and ``new DataHandler`` anywhere in ``Classes/``, so a new
+writer cannot bypass the class.
 
 Consequences
 ============
@@ -99,6 +101,11 @@ Consequences
   for a hook called through ``GeneralUtility::callUserFunction()`` or a
   listener called through the event dispatcher, it is the first class outside
   TYPO3's own namespace inside that call.
+- The note says that the run had written its records when the code failed,
+  and leaves the outcome of the call to the tool's own answer: the same note
+  can follow a refusal or a write the tool took back.
+- An XCLASS of the core DataHandler does not apply to the tools' runs:
+  ``ToolDataHandler`` extends the core class itself.
 - ``ToolDataHandler`` is a public, non-shared service, resolved through
   ``makeInstance()`` like the core class it extends (Category E of the
   public-service policy; the audited count rises to 38, :ref:`ADR-101
@@ -107,7 +114,8 @@ Consequences
   ``referenceIndexUpdater``, ``processClearCacheQueue()``,
   ``resetElementsToBeDeleted()``, ``resetNestedElementCalls()``,
   ``$recordsToClearCacheFor`` and ``$recordPidsForDeletedRecords``, and on the
-  names of the steps after the writes. They are the same in 13.4 and 14.3; a
+  names of the steps after the writes. A core release that renames a step
+  turns a failure there into a rethrown one, which fails safe. They are the same in 13.4 and 14.3; a
   core release that changes them fails the functional tests of this class.
 - A caller that runs a tool's ``execute()`` outside the tool loop gets no note.
   The failure is still logged.

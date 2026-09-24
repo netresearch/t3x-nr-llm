@@ -440,12 +440,38 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
 
         self::assertFalse($result->trace[0]->isError, $result->trace[0]->result);
         self::assertStringStartsWith('WROTE', $result->trace[0]->result);
-        self::assertStringContainsString("Note: after the tool's write was done, code of this TYPO3 installation failed", $result->trace[0]->result);
+        self::assertStringContainsString('Note: after a DataHandler run of this call had written its records, code of this TYPO3 installation failed', $result->trace[0]->result);
         self::assertStringContainsString(
             FailsLikeAFlashMessageHook::class . '::processDatamap_afterAllOperations() threw Error: Call to a member function set() on null',
             $result->trace[0]->result,
         );
-        self::assertSame('Written', $this->headerOfTheElement());
+        self::assertSame('Written 1', $this->headerOfTheElement());
+    }
+
+    /**
+     * Five writes whose hook fails five times with four different messages:
+     * the note names each message once, three at most, and says how many more
+     * the log has.
+     */
+    #[Test]
+    public function theNoteNamesEachFailureOnceAndAtMostThree(): void
+    {
+        $this->prepareTheElementToWrite();
+        $this->registerHook('processDatamapClass', FailsLikeAFlashMessageHook::class);
+        FailsLikeAFlashMessageHook::$failAt = FailsLikeAFlashMessageHook::AFTER_ALL_OPERATIONS;
+        $messages                           = ['first', 'first', 'second', 'third', 'fourth'];
+        FailsLikeAFlashMessageHook::$throw  = static function () use (&$messages): RuntimeException {
+            return new RuntimeException('failure ' . (array_shift($messages) ?? 'none'), 1790000006);
+        };
+
+        $result = $this->runTheWritingTool(5);
+
+        $answer = $result->trace[0]->result;
+        self::assertSame(1, substr_count($answer, 'failure first'));
+        self::assertStringContainsString('failure second', $answer);
+        self::assertStringContainsString('failure third', $answer);
+        self::assertStringNotContainsString('failure fourth', $answer);
+        self::assertStringContainsString('(and 1 more, see the TYPO3 log)', $answer);
     }
 
     #[Test]
@@ -487,7 +513,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('default');
     }
 
-    private function runTheWritingTool(): ToolLoopResult
+    private function runTheWritingTool(int $writes = 1): ToolLoopResult
     {
         $queue = [
             $this->response('', [new ToolCall('call_1', 'write_through_the_data_handler', [])]),
@@ -504,7 +530,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
                 return $next;
             });
 
-        $result = $this->buildService($mgr, [$this->dataHandlerTool()])
+        $result = $this->buildService($mgr, [$this->dataHandlerTool($writes)])
             ->runLoop([$this->userTurn('write it')], $this->localConfiguration(), $this->contextFor($this->writer), null);
         self::assertCount(1, $result->trace);
 
@@ -522,15 +548,15 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * A tool that writes one header through {@see ToolDataHandler} and
-     * answers "WROTE". It declares no effect, so the loop runs it without an
+     * A tool that writes one header through {@see ToolDataHandler}, as often
+     * as asked, and answers "WROTE". It declares no effect, so the loop runs it without an
      * approval — the note is added on every path a call runs through, and this
      * one needs no suspended run to reach it.
      */
-    private function dataHandlerTool(): ToolInterface
+    private function dataHandlerTool(int $writes = 1): ToolInterface
     {
-        return new class (self::ELEMENT) implements ToolInterface {
-            public function __construct(private readonly int $element) {}
+        return new class (self::ELEMENT, $writes) implements ToolInterface {
+            public function __construct(private readonly int $element, private readonly int $writes) {}
 
             public function getSpec(): ToolSpec
             {
@@ -542,9 +568,11 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
              */
             public function execute(array $arguments, ToolExecutionContext $context): ToolResult
             {
-                $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
-                $dataHandler->start(['tt_content' => [$this->element => ['header' => 'Written']]], [], $context->actingBackendUser());
-                $dataHandler->process_datamap();
+                for ($write = 1; $write <= $this->writes; $write++) {
+                    $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+                    $dataHandler->start(['tt_content' => [$this->element => ['header' => 'Written ' . $write]]], [], $context->actingBackendUser());
+                    $dataHandler->process_datamap();
+                }
 
                 return ToolResult::text('WROTE');
             }

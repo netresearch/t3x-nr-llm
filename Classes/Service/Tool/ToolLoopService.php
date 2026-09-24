@@ -1292,9 +1292,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         $more     = count($failures) - self::MAX_NOTED_FAILURES;
 
         return sprintf(
-            "\n\nNote: after the tool's write was done, code of this TYPO3 installation failed: %s%s. "
-            . 'The write itself went through. What that code was meant to do afterwards, such as a translation or '
-            . 'a notification, may not have happened.',
+            "\n\nNote: after a DataHandler run of this call had written its records, code of this TYPO3 "
+            . 'installation failed: %s%s. The answer above says what the tool found written. What that code was '
+            . 'meant to do afterwards, such as a translation or a notification, may not have happened.',
             implode('; ', array_slice($failures, 0, self::MAX_NOTED_FAILURES)),
             $more > 0 ? sprintf(' (and %d more, see the TYPO3 log)', $more) : '',
         );
@@ -1323,9 +1323,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * editorial write into a failed one — and the model's next move on a failed
      * write is to try it again. This is the one place in the loop where foreign
      * code runs after the side effect, so it is the one place in the loop that
-     * swallows; a hook that fails DURING the write is caught by
-     * {@see ToolDataHandler} for the same reason (ADR-206). Swallows, not
-     * hides: the full Throwable goes to the log.
+     * swallows; a hook that fails after the last write of a DataHandler run
+     * is caught by {@see ToolDataHandler} for the same reason (ADR-206).
+     * Swallows, not hides: the full Throwable goes to the log.
      */
     private function announceWrite(ToolResult $result, ToolExecutionContext $context): void
     {

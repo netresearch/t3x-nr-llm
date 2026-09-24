@@ -28,12 +28,33 @@ final class RunsANestedToolDataHandlerHook
     /** @var array<string, array<int|string, array<string, mixed>>>|null */
     public static ?array $datamap = null;
 
+    /** Start the nested run while the outer one is still writing, not after it. */
+    public static bool $duringTheWrites = false;
+
     public static function reset(): void
     {
-        self::$datamap = null;
+        self::$datamap         = null;
+        self::$duringTheWrites = false;
     }
 
     public function processDatamap_afterAllOperations(DataHandler $outer): void
+    {
+        if (!self::$duringTheWrites) {
+            $this->runNested($outer);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $fieldArray
+     */
+    public function processDatamap_postProcessFieldArray(string $status, string $table, string|int $id, array &$fieldArray, DataHandler $outer): void
+    {
+        if (self::$duringTheWrites) {
+            $this->runNested($outer);
+        }
+    }
+
+    private function runNested(DataHandler $outer): void
     {
         $datamap = self::$datamap;
         if ($datamap === null) {

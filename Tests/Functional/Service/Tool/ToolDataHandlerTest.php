@@ -170,19 +170,48 @@ final class ToolDataHandlerTest extends AbstractFunctionalTestCase
      * so "failed" is the honest answer: the failure is rethrown, after the
      * finishing steps ran, and nothing is recorded for a note.
      */
+    /**
+     * The after-hook fails, and then the cache flush the recovery runs fails
+     * as well: its queue is emptied all the same, and the step after it runs.
+     */
+    #[Test]
+    public function aFlushThatFailsWhileTheRunIsFinishedLeavesNoQueue(): void
+    {
+        FailsLikeAFlashMessageHook::$failAt = FailsLikeAFlashMessageHook::AFTER_ALL_OPERATIONS;
+        CountsCacheClearsHook::$fail        = true;
+
+        $this->updateHeader('After');
+
+        self::assertSame([], (new ReflectionProperty(DataHandler::class, 'recordsToClearCacheFor'))->getValue());
+        self::assertFalse($this->runtimeCache()->has('core-datahandler-elementsToBeDeleted'));
+        self::assertStringContainsString('::processDatamap_afterAllOperations() threw Error', $this->onlyFailure());
+    }
+
     #[Test]
     public function aHookThatFailsDuringTheWritesIsRethrownAfterTheFinishingSteps(): void
     {
-        FailsLikeAFlashMessageHook::$failAt = FailsLikeAFlashMessageHook::POST_PROCESS_FIELD_ARRAY;
+        // The first record of the run is written, with a relation; the hook
+        // fails on the second.
+        FailsLikeAFlashMessageHook::$failAt     = FailsLikeAFlashMessageHook::POST_PROCESS_FIELD_ARRAY;
+        FailsLikeAFlashMessageHook::$onlyForUid = self::OTHER_ELEMENT;
+        $dataHandler                            = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $dataHandler->start(['tt_content' => [
+            self::ELEMENT       => ['header' => 'After', 'records' => 'tt_content_' . self::OTHER_ELEMENT],
+            self::OTHER_ELEMENT => ['header' => 'Other after'],
+        ]], [], $this->user);
 
         try {
-            $this->updateHeader('After');
+            $dataHandler->process_datamap();
             self::fail('The failure during the writes was not rethrown.');
         } catch (RuntimeException $failure) {
-            self::assertSame('A test hook fails before the row is written', $failure->getMessage());
+            // PHPUnit's own failure is a RuntimeException as well.
+            self::assertSame(1790000001, $failure->getCode(), $failure->getMessage());
         }
 
-        self::assertSame('Before', $this->headerOf(self::ELEMENT));
+        self::assertSame('After', $this->headerOf(self::ELEMENT));
+        self::assertSame('Other', $this->headerOf(self::OTHER_ELEMENT));
+        self::assertContains(self::PAGE, CountsCacheClearsHook::$pages, 'The page written before the failure was not flushed.');
+        self::assertSame(1, $this->referenceIndexRowsFrom(self::ELEMENT, 'records'), 'The reference index of the record written before the failure was not updated.');
         self::assertSame([], ToolDataHandler::takeFailures());
         self::assertFalse(
             $this->runtimeCache()->has('core-datahandler-elementsToBeDeleted'),
@@ -206,6 +235,30 @@ final class ToolDataHandlerTest extends AbstractFunctionalTestCase
         try {
             $dataHandler->process_cmdmap();
             self::fail('The failure in the nested copy run was not rethrown.');
+        } catch (Error $failure) {
+            self::assertSame('Call to a member function set() on null', $failure->getMessage());
+        }
+
+        self::assertSame([], ToolDataHandler::takeFailures());
+    }
+
+    /**
+     * A hook that starts a ToolDataHandler of its own while the tool's run is
+     * still writing: the nested run fails after ITS writes, which is during
+     * the writes of the tool's run. The tool's run must rethrow, not read the
+     * nested run's step as its own.
+     */
+    #[Test]
+    public function aFailureAfterTheWritesOfANestedToolRunIsDuringTheWritesOfTheOuterOne(): void
+    {
+        $this->registerHook('processDatamapClass', RunsANestedToolDataHandlerHook::class);
+        RunsANestedToolDataHandlerHook::$duringTheWrites = true;
+        RunsANestedToolDataHandlerHook::$datamap         = ['tt_content' => [self::OTHER_ELEMENT => ['header' => 'Nested']]];
+        FailsLikeAFlashMessageHook::$failAt              = FailsLikeAFlashMessageHook::NESTED_AFTER_ALL_OPERATIONS;
+
+        try {
+            $this->updateHeader('Outer');
+            self::fail('The nested failure was swallowed by the outer run.');
         } catch (Error $failure) {
             self::assertSame('Call to a member function set() on null', $failure->getMessage());
         }

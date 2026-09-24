@@ -35,7 +35,7 @@ final class EveryDataHandlerIsAToolDataHandlerTest extends TestCase
     private const CLASSES = __DIR__ . '/../../../../../Classes';
 
     /** Creating the core class: through makeInstance(), the container, or with `new`. */
-    private const CREATES_THE_CORE_CLASS = '/(?:makeInstance|->get)\(\s*(?:\\\\?TYPO3\\\\CMS\\\\Core\\\\DataHandling\\\\)?DataHandler::class|new\s+(?:\\\\?TYPO3\\\\CMS\\\\Core\\\\DataHandling\\\\)?DataHandler\s*\(/';
+    private const CREATES_THE_CORE_CLASS = '/(?:makeInstance|->get)\(\s*(?:\\\\?TYPO3\\\\CMS\\\\Core\\\\DataHandling\\\\)?DataHandler::class|new\s+(?:\\\\?TYPO3\\\\CMS\\\\Core\\\\DataHandling\\\\)?DataHandler\b/';
 
     #[Test]
     public function noClassCreatesTheCoreDataHandler(): void
@@ -67,9 +67,12 @@ final class EveryDataHandlerIsAToolDataHandlerTest extends TestCase
         self::assertMatchesRegularExpression(self::CREATES_THE_CORE_CLASS, '$x = GeneralUtility::makeInstance(DataHandler::class);');
         self::assertMatchesRegularExpression(self::CREATES_THE_CORE_CLASS, '$x = GeneralUtility::makeInstance(' . DataHandler::class . '::class);');
         self::assertMatchesRegularExpression(self::CREATES_THE_CORE_CLASS, '$x = new DataHandler();');
+        self::assertMatchesRegularExpression(self::CREATES_THE_CORE_CLASS, '$x = new DataHandler;');
+        self::assertMatchesRegularExpression(self::CREATES_THE_CORE_CLASS, '$x = GeneralUtility::makeInstance(\\' . DataHandler::class . '::class);');
         self::assertMatchesRegularExpression(self::CREATES_THE_CORE_CLASS, '$x = $container->get(DataHandler::class);');
         self::assertDoesNotMatchRegularExpression(self::CREATES_THE_CORE_CLASS, '$x = GeneralUtility::makeInstance(ToolDataHandler::class);');
         self::assertDoesNotMatchRegularExpression(self::CREATES_THE_CORE_CLASS, '$x = new ToolDataHandler();');
+        self::assertDoesNotMatchRegularExpression(self::CREATES_THE_CORE_CLASS, '$x = new DataHandlerFactory();');
         self::assertDoesNotMatchRegularExpression(self::CREATES_THE_CORE_CLASS, '$x = $container->get(ToolDataHandler::class);');
     }
 }
