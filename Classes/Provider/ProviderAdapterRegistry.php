@@ -263,13 +263,16 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
 
         $adapter = $this->createAdapterFromProvider($provider, $useCache);
 
-        // Override default model with the specific model ID
+        // Override the default model with the specific model ID — from the
+        // provider's FULL configuration, not a five-key subset. configure()
+        // assigns every key it knows from its input, so a subset reset the
+        // organization ID and the options-JSON custom headers to empty on
+        // every configuration-bound call (#388 was fixed for the provider-
+        // bound adapter only). The model id comes last so it wins over any
+        // `defaultModel` in the provider's options JSON.
         $adapter->configure([
-            'apiKeyIdentifier' => $provider->getApiKey(),
-            'baseUrl' => $provider->getEffectiveEndpointUrl(),
+            ...$this->buildAdapterConfig($provider),
             'defaultModel' => $model->getModelId(),
-            'timeout' => $provider->getApiTimeout(),
-            'maxRetries' => $provider->getMaxRetries(),
         ]);
 
         return $adapter;
