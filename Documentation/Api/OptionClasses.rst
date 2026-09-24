@@ -94,6 +94,19 @@ ChatOptions
 
       Set specific model.
 
+   .. php:method:: withReasoningEffort(ReasoningEffort $effort): self
+
+      Ask a reasoning model for an amount of thinking: one of the
+      :php:`ReasoningEffort` cases ``None``, ``Minimal``, ``Low``,
+      ``Medium``, ``High``, ``XHigh`` and ``Max``
+      (:ref:`ADR-204 <adr-204>`). It wins over the coarse ``think``
+      switch. An effort the model does not allow is moved onto its own
+      scale before the request is sent — ``None`` becomes ``Low`` on
+      GPT-6 Astra — and the applied value is written to the response
+      metadata under ``nrllm_reasoning_effort``. Only OpenAI's GPT-6
+      models have an effort scale today; every other model and provider
+      ignores the option and writes no such key.
+
    .. php:method:: toArray(): array
 
       Convert to array format.

@@ -13,6 +13,8 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequestCodec;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
@@ -104,6 +106,35 @@ final class AgentRunRequestCodecTest extends TestCase
         self::assertTrue($restored->captureRaw);
         self::assertSame(7, $restored->actor->backendUserUid);
         self::assertSame($this->configuration, $restored->configuration);
+    }
+
+    #[Test]
+    public function aQueuedTranscriptKeepsItsProviderItems(): void
+    {
+        // ADR-203. The queue stores the transcript shape: a turn's provider
+        // items survive the round trip, and ToolLoopService turns that turn
+        // back into a ChatMessage before anything is sent.
+        $items   = [['type' => 'reasoning', 'id' => 'rs_q', 'encrypted_content' => 'opaque-q', 'summary' => []]];
+        $request = new AgentRunRequest(
+            configuration: $this->configuration,
+            messages: [
+                ChatMessage::user('hello'),
+                ChatMessage::assistantToolCalls([new ToolCall('call_q', 'read_page', [])], '', $items),
+                ChatMessage::toolResult('call_q', 'page'),
+            ],
+            actor: AiActorContext::backendUser(7),
+        );
+
+        $payload = json_encode($this->codec()->dehydrate($request));
+        self::assertIsString($payload);
+
+        $this->configurationRepository->method('findByUid')->willReturn($this->configuration);
+        $restored = $this->codec()->rehydrate($this->queuedRun($payload));
+
+        $assistant = $restored->messages[1] ?? null;
+        self::assertIsArray($assistant);
+        self::assertSame($items, $assistant['provider_items'] ?? null);
+        self::assertSame($items, ChatMessage::fromArray($assistant)->providerItems);
     }
 
     /**

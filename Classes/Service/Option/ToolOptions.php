@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Option;
 
+use Netresearch\NrLlm\Domain\Enum\ReasoningEffort;
+
 /**
  * Options for tool/function calling requests.
  *
@@ -178,7 +180,13 @@ class ToolOptions extends ChatOptions
         $stop          = $data['stop_sequences'] ?? null;
         $stopSequences = is_array($stop) ? array_values(array_filter($stop, is_string(...))) : null;
 
-        return new static(
+        // Reasoning effort is a fluent setter rather than a constructor
+        // parameter (ADR-204), so it is restored after construction. Without
+        // this, a resumed run would silently fall back to the model's default
+        // effort — a different request from the one that was suspended.
+        $effort = ReasoningEffort::tryFromOption($data['reasoning_effort'] ?? null);
+
+        $options = new static(
             temperature: is_numeric($data['temperature'] ?? null) ? (float)$data['temperature'] : null,
             maxTokens: is_numeric($data['max_tokens'] ?? null) ? (int)$data['max_tokens'] : null,
             topP: is_numeric($data['top_p'] ?? null) ? (float)$data['top_p'] : null,
@@ -195,6 +203,10 @@ class ToolOptions extends ChatOptions
             parallelToolCalls: is_bool($data['parallel_tool_calls'] ?? null) ? $data['parallel_tool_calls'] : null,
             captureRaw: ($data['_capture_raw'] ?? false) === true,
         );
+
+        return $effort instanceof ReasoningEffort
+            ? $options->withReasoningEffort($effort)
+            : $options;
     }
 
     public function toArray(): array

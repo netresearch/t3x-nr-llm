@@ -598,4 +598,86 @@ class ChatMessageTest extends AbstractUnitTestCase
 
         ChatMessage::fromArray(['role' => 'user', 'content' => null]);
     }
+
+    // ========================================
+    // Provider items (ADR-203)
+    // ========================================
+
+    #[Test]
+    public function theWireShapeCarriesNoProviderItems(): void
+    {
+        // toArray() is a request payload: Groq, Mistral, OpenRouter and Ollama
+        // put it straight on the wire, and an unknown key there reaches four
+        // live APIs. The items must be absent however the message was built.
+        $message = ChatMessage::assistantToolCalls(
+            [ToolCall::function('call_1', 'lookup', ['q' => 'x'])],
+            '',
+            [['type' => 'reasoning', 'id' => 'rs_1', 'encrypted_content' => 'blob']],
+        );
+
+        self::assertArrayNotHasKey('provider_items', $message->toArray());
+        self::assertArrayNotHasKey('provider_items', $message->jsonSerialize());
+    }
+
+    #[Test]
+    public function theTranscriptShapeRoundTripsTheProviderItems(): void
+    {
+        $items = [
+            ['type' => 'reasoning', 'id' => 'rs_1', 'encrypted_content' => 'blob', 'summary' => []],
+            ['type' => 'function_call', 'call_id' => 'call_1', 'name' => 'lookup', 'arguments' => '{"q":"x"}'],
+        ];
+
+        $original = ChatMessage::assistantToolCalls(
+            [ToolCall::function('call_1', 'lookup', ['q' => 'x'])],
+            '',
+            $items,
+        );
+
+        $restored = ChatMessage::fromArray($original->toTranscriptArray());
+
+        // Identity, not equivalence: a replay that reorders or rewrites a
+        // single key of an opaque item has lost the model's reasoning.
+        self::assertSame($items, $restored->providerItems);
+        self::assertSame('call_1', $restored->toolCalls[0]->id ?? null);
+    }
+
+    #[Test]
+    public function aTranscriptWithoutProviderItemsReadsBackAsNull(): void
+    {
+        // A transcript stored before this change has no key; null means
+        // "this turn produced none", which is different from an empty list.
+        $restored = ChatMessage::fromArray(ChatMessage::user('hi')->toTranscriptArray());
+
+        self::assertNull($restored->providerItems);
+        self::assertArrayNotHasKey('provider_items', ChatMessage::user('hi')->toTranscriptArray());
+    }
+
+    #[Test]
+    public function anEmptyItemListStaysDistinctFromNone(): void
+    {
+        $message = new ChatMessage('assistant', 'done', null, null, []);
+
+        self::assertSame([], $message->providerItems);
+        self::assertSame([], ChatMessage::fromArray($message->toTranscriptArray())->providerItems);
+    }
+
+    #[Test]
+    public function aProviderItemThatIsNotAnArrayIsRejected(): void
+    {
+        $this->expectException(NrLlmInvalidArgumentException::class);
+        $this->expectExceptionCode(1758600001);
+
+        // Through fromArray(), whose provider_items key is untyped, so the
+        // constructor's element check is what refuses it.
+        ChatMessage::fromArray(['role' => 'assistant', 'content' => 'x', 'provider_items' => ['not-an-item']]);
+    }
+
+    #[Test]
+    public function fromArrayRejectsProviderItemsThatAreNotAList(): void
+    {
+        $this->expectException(NrLlmInvalidArgumentException::class);
+        $this->expectExceptionCode(1758600002);
+
+        ChatMessage::fromArray(['role' => 'assistant', 'content' => 'x', 'provider_items' => 'nope']);
+    }
 }

@@ -352,6 +352,55 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function gpt6ModelsAreRelevantAndCarryTheirPublishedSpecs(): void
+    {
+        // Before #965 the relevance filter had no gpt-6 pattern, so live
+        // discovery dropped all three models. The specs are the model pages'
+        // own figures from 2026-09-23; costs are cents per 1M tokens.
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
+        );
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $apiResponse = (string)json_encode([
+            'data' => [
+                ['id' => 'gpt-6-astra'],
+                ['id' => 'gpt-6-sol'],
+                ['id' => 'gpt-6-luna'],
+            ],
+        ]);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, $apiResponse));
+
+        $byId = [];
+        foreach ($this->subject->discover($provider, 'test-key') as $model) {
+            $byId[$model->modelId] = $model;
+        }
+
+        $expected = [
+            'gpt-6-astra' => [1000, 5000],
+            'gpt-6-sol'   => [200, 1000],
+            'gpt-6-luna'  => [10, 50],
+        ];
+
+        foreach ($expected as $id => [$costInput, $costOutput]) {
+            self::assertArrayHasKey($id, $byId, $id . ' must survive the relevance filter');
+            self::assertSame(1050000, $byId[$id]->contextLength);
+            self::assertSame(128000, $byId[$id]->maxOutputTokens);
+            self::assertSame($costInput, $byId[$id]->costInput);
+            self::assertSame($costOutput, $byId[$id]->costOutput);
+            self::assertContains('tools', $byId[$id]->capabilities);
+        }
+    }
+
+    #[Test]
     public function discoverOpenAiReturnsFallbackOnError(): void
     {
         $provider = new DetectedProvider(

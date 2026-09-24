@@ -172,8 +172,18 @@ final readonly class InputGuardrailScreener
     private function withContent(ChatMessage|array $message, string $content): ChatMessage|array
     {
         if ($message instanceof ChatMessage) {
-            // Rebuild the immutable VO, preserving role and the tool-turn fields.
-            return new ChatMessage($message->getRole(), $content, $message->toolCalls, $message->toolCallId);
+            // Rebuild the immutable VO, preserving role and the tool-turn
+            // fields. The provider's opaque items come along untouched: the
+            // screener rewrites text, and dropping them here would silently
+            // break the reasoning replay a Responses run depends on
+            // (ADR-203).
+            return new ChatMessage(
+                $message->getRole(),
+                $content,
+                $message->toolCalls,
+                $message->toolCallId,
+                $message->providerItems,
+            );
         }
 
         return [...$message, 'content' => $content];

@@ -59,7 +59,10 @@ final readonly class AgentRunRequestCodec
 
         return [
             'messages'         => array_map(
-                static fn(ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m,
+                // The stored shape, not the wire shape: a turn's provider items
+                // must survive the queue (ADR-203). ToolLoopService turns such a
+                // turn back into a ChatMessage before anything is sent.
+                static fn(ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toTranscriptArray() : $m,
                 $request->messages,
             ),
             // The FULL initiating actor (ADR-083), not just its backend-user id:
