@@ -180,7 +180,7 @@ class ToolDataHandler extends DataHandler
                 $step();
             } catch (Throwable $stepFailure) {
                 $this->forgetTheCacheQueue();
-                $this->logger()->error('A finishing step of a tool\'s DataHandler run threw.', ['exception' => $stepFailure]);
+                $this->logger()->error("A finishing step of a tool's DataHandler run threw.", ['exception' => $stepFailure]);
             }
         }
     }
