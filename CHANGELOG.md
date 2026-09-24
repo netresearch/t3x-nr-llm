@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.37.3] - 2026-09-24
+
 ### Fixed
 
 - **A hook of the installation that fails after a tool's write no longer fails the write (ADR-206, NEXT-164).** Every writing tool now runs `ToolDataHandler`. When the outermost run fails after its last write — in a `processDatamap_afterAllOperations` or `processCmdmap_afterFinish` hook, the reference index update or the cache flush, all of which run code of the installation — it runs the finishing steps that did not run yet (reference index update, cache flush of the written pages, registry reset; the hooks after the failing one do not run), logs the failure and records one line naming the code that failed; the tool answers from its own read-back as usual, and the tool loop adds that line to the answer as a note. Before, the exception ended the call with `Error: tool "…" failed.` although every record was written, and the page cache was not flushed. On the Netresearch demo a translation extension's hook fails in every process without a user session with `Call to a member function set() on null`, so `publish_record` published the element and reported a failure. A failure during the writes, including one in the run core copies or translates through, is still rethrown after the finishing steps, because the tool could not tell what was written. The DataHandler's error log stays as TYPO3 wrote it, so the writers, which refuse at 13 places on any entry there, do not answer "refused" for a write that landed. A unit test refuses code that creates the core DataHandler directly.
@@ -4104,7 +4106,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.2...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.3...HEAD
+[0.37.3]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.2...v0.37.3
 [0.37.2]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.1...v0.37.2
 [0.37.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.0...v0.37.1
 [0.37.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.36.0...v0.37.0
