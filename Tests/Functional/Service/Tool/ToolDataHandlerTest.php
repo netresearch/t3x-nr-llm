@@ -16,8 +16,11 @@ use Netresearch\NrLlm\Tests\Fixtures\DataHandler\FailsLikeAFlashMessageHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheFailingHookTrait;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RunsANestedToolDataHandlerHook;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use PDOException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionProperty;
+use RuntimeException;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Database\Connection;
@@ -28,10 +31,11 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
- * The DataHandler every writing tool runs (ADR-206): a hook of the
- * installation that throws no longer takes the tool down with it. The failure
- * is recorded for the tool loop, the steps the DataHandler skipped still run,
- * and the tool's own read-back decides what was written.
+ * The DataHandler every writing tool runs (ADR-206). A hook of the
+ * installation that throws after the last write of a run no longer takes the
+ * tool down with it: the steps the DataHandler skipped still run, the failure
+ * is recorded for the tool loop, and the tool's own read-back decides. A
+ * failure during the writes is rethrown after those steps.
  *
  * The ambient backend user has no session, as in every CLI process — the agent
  * worker's user is built by {@see \Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver}
@@ -136,12 +140,14 @@ final class ToolDataHandlerTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * The cache flush runs hooks of its own, so a finishing step can fail as
-     * well — here both in TYPO3's own run and in the retry. The step after it
-     * still runs, and both failures are recorded.
+     * The cache flush runs hooks of its own, so the run can also fail in one
+     * of its finishing steps. The flush is not retried — it would fail the
+     * same way — but its queue is emptied, or the next run in this process
+     * would replay it; the step after it still runs. The failure is named by
+     * the hook, not by the core function that called it.
      */
     #[Test]
-    public function aFinishingStepThatFailsDoesNotKeepTheNextOneFromRunning(): void
+    public function aCacheHookThatFailsIsNamedAndItsQueueDoesNotOutliveTheRun(): void
     {
         CountsCacheClearsHook::$fail = true;
 
@@ -152,24 +158,107 @@ final class ToolDataHandlerTest extends AbstractFunctionalTestCase
             $this->runtimeCache()->has('core-datahandler-elementsToBeDeleted'),
             'The reset after the failing cache flush did not run.',
         );
-        $failures = ToolDataHandler::takeFailures();
-        self::assertCount(2, $failures);
-        foreach ($failures as $failure) {
-            self::assertStringContainsString('A test cache hook fails', $failure);
-        }
+        self::assertSame([], (new ReflectionProperty(DataHandler::class, 'recordsToClearCacheFor'))->getValue());
+        self::assertStringContainsString(
+            CountsCacheClearsHook::class . '::record() threw RuntimeException: A test cache hook fails',
+            $this->onlyFailure(),
+        );
     }
 
+    /**
+     * During the writes a run may have written some records and not others,
+     * so "failed" is the honest answer: the failure is rethrown, after the
+     * finishing steps ran, and nothing is recorded for a note.
+     */
     #[Test]
-    public function aHookThatFailsBeforeTheWriteLeavesTheRowUnwrittenAndTheFailureRecorded(): void
+    public function aHookThatFailsDuringTheWritesIsRethrownAfterTheFinishingSteps(): void
     {
         FailsLikeAFlashMessageHook::$failAt = FailsLikeAFlashMessageHook::POST_PROCESS_FIELD_ARRAY;
 
-        $this->updateHeader('After');
+        try {
+            $this->updateHeader('After');
+            self::fail('The failure during the writes was not rethrown.');
+        } catch (RuntimeException $failure) {
+            self::assertSame('A test hook fails before the row is written', $failure->getMessage());
+        }
 
         self::assertSame('Before', $this->headerOf(self::ELEMENT));
+        self::assertSame([], ToolDataHandler::takeFailures());
+        self::assertFalse(
+            $this->runtimeCache()->has('core-datahandler-elementsToBeDeleted'),
+            'The reset did not run before the rethrow.',
+        );
+    }
+
+    /**
+     * Core copies through a DataHandler of its own. A hook that fails in that
+     * nested run fails during the writes of the tool's run: the copy may exist
+     * while core has not yet recorded its uid, and a tool reading that record
+     * would answer "not copied". The failure is rethrown.
+     */
+    #[Test]
+    public function aHookThatFailsInTheRunCoreCopiesThroughIsRethrown(): void
+    {
+        FailsLikeAFlashMessageHook::$failAt = FailsLikeAFlashMessageHook::AFTER_ALL_OPERATIONS;
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $dataHandler->start([], ['tt_content' => [self::ELEMENT => ['copy' => self::PAGE]]], $this->user);
+
+        try {
+            $dataHandler->process_cmdmap();
+            self::fail('The failure in the nested copy run was not rethrown.');
+        } catch (Error $failure) {
+            self::assertSame('Call to a member function set() on null', $failure->getMessage());
+        }
+
+        self::assertSame([], ToolDataHandler::takeFailures());
+    }
+
+    #[Test]
+    public function aDatabaseFailureIsDescribedWithoutItsMessage(): void
+    {
+        FailsLikeAFlashMessageHook::$failAt = FailsLikeAFlashMessageHook::AFTER_ALL_OPERATIONS;
+        FailsLikeAFlashMessageHook::$throw  = static fn(): RuntimeException => new RuntimeException(
+            'Could not save',
+            1790000003,
+            new PDOException('SQLSTATE[28000] Access denied for user db-user-secret'),
+        );
+
+        $this->updateHeader('After');
+
         $failure = $this->onlyFailure();
-        self::assertStringContainsString(FailsLikeAFlashMessageHook::class . '::processDatamap_postProcessFieldArray() threw RuntimeException', $failure);
-        self::assertStringContainsString('A test hook fails before the row is written', $failure);
+        self::assertStringContainsString('threw RuntimeException: a database error, see the TYPO3 log', $failure);
+        self::assertStringNotContainsString('db-user-secret', $failure);
+    }
+
+    #[Test]
+    public function aCredentialInTheMessageDoesNotReachTheDescription(): void
+    {
+        FailsLikeAFlashMessageHook::$failAt = FailsLikeAFlashMessageHook::AFTER_ALL_OPERATIONS;
+        FailsLikeAFlashMessageHook::$throw  = static fn(): RuntimeException => new RuntimeException(
+            'POST https://deepl:userinfo-secret-0815@translate.example.com/v2?auth_key=query-secret-4711 failed with Authorization: Bearer sk-proj-abcdefghijklmnopqrstuvwxyz0123456789',
+            1790000004,
+        );
+
+        $this->updateHeader('After');
+
+        $failure = $this->onlyFailure();
+        self::assertStringContainsString('translate.example.com', $failure);
+        self::assertStringNotContainsString('query-secret-4711', $failure);
+        self::assertStringNotContainsString('userinfo-secret-0815', $failure);
+        self::assertStringNotContainsString('abcdefghijklmnopqrstuvwxyz0123456789', $failure);
+    }
+
+    #[Test]
+    public function aLongMessageIsCut(): void
+    {
+        FailsLikeAFlashMessageHook::$failAt = FailsLikeAFlashMessageHook::AFTER_ALL_OPERATIONS;
+        FailsLikeAFlashMessageHook::$throw  = static fn(): RuntimeException => new RuntimeException(str_repeat('word ', 400), 1790000005);
+
+        $this->updateHeader('After');
+
+        $failure = $this->onlyFailure();
+        self::assertSame(301, mb_strlen($failure));
+        self::assertStringEndsWith('…', $failure);
     }
 
     #[Test]
@@ -220,10 +309,14 @@ final class ToolDataHandlerTest extends AbstractFunctionalTestCase
 
         FailsLikeAFlashMessageHook::$failAt = FailsLikeAFlashMessageHook::NESTED_AFTER_ALL_OPERATIONS;
 
-        $this->expectException(Error::class);
-        $this->expectExceptionMessage('Call to a member function set() on null');
+        try {
+            $outer->process_datamap();
+            self::fail('The nested failure did not reach the run around it.');
+        } catch (Error $failure) {
+            self::assertSame('Call to a member function set() on null', $failure->getMessage());
+        }
 
-        $outer->process_datamap();
+        self::assertSame([], ToolDataHandler::takeFailures());
     }
 
     /**

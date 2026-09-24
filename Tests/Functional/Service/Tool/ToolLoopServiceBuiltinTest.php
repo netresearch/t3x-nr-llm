@@ -440,7 +440,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
 
         self::assertFalse($result->trace[0]->isError, $result->trace[0]->result);
         self::assertStringStartsWith('WROTE', $result->trace[0]->result);
-        self::assertStringContainsString('Note: code of this TYPO3 installation failed while the tool wrote', $result->trace[0]->result);
+        self::assertStringContainsString("Note: after the tool's write was done, code of this TYPO3 installation failed", $result->trace[0]->result);
         self::assertStringContainsString(
             FailsLikeAFlashMessageHook::class . '::processDatamap_afterAllOperations() threw Error: Call to a member function set() on null',
             $result->trace[0]->result,

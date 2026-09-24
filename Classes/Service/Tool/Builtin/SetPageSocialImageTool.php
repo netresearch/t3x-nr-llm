@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -657,14 +658,12 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      * it would need CONTENT_EDIT, which the user who just passed PAGE_EDIT does
      * not necessarily hold — and the orphan would stay.
      *
-     * The two halves run one after the other, and a throw in the first does
-     * not stop the second: {@see ToolDataHandler} finishes a run that threw
-     * and keeps what it threw (ADR-206). Writing the field back makes
+     * The two halves run under their own guards. Writing the field back makes
      * core's `DataMapProcessor` synchronise every parent-following translation
      * of the page, and where a survivor has to be localised for one and
      * `localize()` refuses — the translation's language is not in the site
-     * configuration, or the acting user may not insert the copy — core throws
-     * inside `process_datamap()` (`RuntimeException` 1486233164). The delete
+     * configuration, or the acting user may not insert the copy — it throws
+     * out of `process_datamap()` (`RuntimeException` 1486233164). The delete
      * of the new reference has to run regardless, and it does: the DataHandler
      * still holds the page row in its datamap, so the delete is checked
      * against PAGE_EDIT as before.
@@ -691,13 +690,19 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             $user,
         );
 
-        // A throw in either half is caught by the DataHandler itself, which
-        // finishes the run and keeps the description (ADR-206), so the
-        // delete runs after a failed datamap as well.
-        $restore->process_datamap();
-        $restore->process_cmdmap();
+        $reported = [];
+        try {
+            $restore->process_datamap();
+        } catch (Throwable $throwable) {
+            $reported[] = $throwable->getMessage();
+        }
 
-        $reported = $restore->failures();
+        try {
+            $restore->process_cmdmap();
+        } catch (Throwable $throwable) {
+            $reported[] = $throwable->getMessage();
+        }
+
         foreach ($restore->errorLog as $entry) {
             $reported[] = self::toStr($entry);
         }

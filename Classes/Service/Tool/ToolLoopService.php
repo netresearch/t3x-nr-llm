@@ -75,6 +75,9 @@ use Throwable;
  */
 final readonly class ToolLoopService implements ToolLoopServiceInterface
 {
+    /** How many failures the note on a tool's answer names; the log has all of them (ADR-206). */
+    private const MAX_NOTED_FAILURES = 3;
+
     public function __construct(
         private LlmServiceManagerInterface $mgr,
         private ToolRegistry $registry,
@@ -1270,9 +1273,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * The note a tool's answer gets when a hook of the installation failed
      * while the tool wrote, or the empty string (ADR-206).
      *
-     * Added after the tool's own text, which says what the tool read back once
-     * the run was over, and after the bounding of that text, so a long answer
-     * cannot cut it off. Each line is bounded where it is recorded.
+     * Only a failure after the last write of a run is recorded
+     * ({@see ToolDataHandler}); one during the writes is rethrown and ends the
+     * call as failed. Added after the tool's own text and after the bounding
+     * of that text, so a long answer cannot cut it off. Each line is bounded
+     * where it is recorded, repeats are dropped, and at most
+     * {@see self::MAX_NOTED_FAILURES} are named.
      *
      * @param list<string> $failures
      */
@@ -1282,11 +1288,15 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             return '';
         }
 
+        $failures = array_values(array_unique($failures));
+        $more     = count($failures) - self::MAX_NOTED_FAILURES;
+
         return sprintf(
-            "\n\nNote: code of this TYPO3 installation failed while the tool wrote, and the write was finished without it: %s. "
-            . 'The answer above is what the tool found in the database afterwards. What that code was meant to do, '
-            . 'such as a translation or a notification, may not have happened.',
-            implode('; ', $failures),
+            "\n\nNote: after the tool's write was done, code of this TYPO3 installation failed: %s%s. "
+            . 'The write itself went through. What that code was meant to do afterwards, such as a translation or '
+            . 'a notification, may not have happened.',
+            implode('; ', array_slice($failures, 0, self::MAX_NOTED_FAILURES)),
+            $more > 0 ? sprintf(' (and %d more, see the TYPO3 log)', $more) : '',
         );
     }
 

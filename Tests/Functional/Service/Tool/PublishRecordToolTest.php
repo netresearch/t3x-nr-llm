@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheInterferingHookTrai
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -263,17 +264,15 @@ final class PublishRecordToolTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function aHookThatFailsBeforeTheWriteIsReportedAsTheReasonTheFlagStayed(): void
+    public function aHookThatFailsBeforeTheWriteEndsTheCall(): void
     {
         $context = ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1));
         $this->failInTheNextWrite(FailsLikeAFlashMessageHook::POST_PROCESS_FIELD_ARRAY);
 
-        $result = $this->tool->execute(['table' => 'tt_content', 'uid' => self::ELEMENT_ON_OPEN], $context);
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('A test hook fails before the row is written');
 
-        self::assertTrue($result->isError);
-        self::assertStringContainsString('did not clear', $result->content);
-        self::assertSame(1, $this->hiddenOf('tt_content', self::ELEMENT_ON_OPEN));
-        self::assertStringContainsString('A test hook fails before the row is written', implode("\n", ToolDataHandler::takeFailures()));
+        $this->tool->execute(['table' => 'tt_content', 'uid' => self::ELEMENT_ON_OPEN], $context);
     }
 
     #[Test]

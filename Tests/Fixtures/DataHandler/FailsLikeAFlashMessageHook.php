@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Fixtures\DataHandler;
 
+use Closure;
 use RuntimeException;
+use Throwable;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Messaging\FlashMessage;
 use TYPO3\CMS\Core\Messaging\FlashMessageService;
@@ -28,7 +30,9 @@ use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
  *   one. That is the failure that took `publish_record` down on a live
  *   instance: the record was published, the tool reported that it failed.
  * - `POST_PROCESS_FIELD_ARRAY` throws before the row is written, so the test
- *   of a failure that stops the write has a producer.
+ *   of a failure during the writes has a producer.
+ * - With `$throw` set, the first two throw that instead, for the tests of
+ *   how a failure is described.
  * - `NESTED_AFTER_ALL_OPERATIONS` fails like the first, but only in a
  *   DataHandler run nested inside another one, so a test of the nested case
  *   sees the nested failure and not one of the outer run.
@@ -48,9 +52,19 @@ final class FailsLikeAFlashMessageHook
 
     public static ?string $failAt = null;
 
+    /**
+     * Builds what is thrown instead of queueing the message, for a test of how
+     * a failure is described. Built here, in the hook, so its trace is the
+     * hook's: an exception carries the trace of the place it was created.
+     *
+     * @var (Closure(): Throwable)|null
+     */
+    public static ?Closure $throw = null;
+
     public static function reset(): void
     {
         self::$failAt = null;
+        self::$throw  = null;
     }
 
     public function processDatamap_afterAllOperations(DataHandler $dataHandler): void
@@ -78,6 +92,10 @@ final class FailsLikeAFlashMessageHook
 
     private function queueSessionMessage(): void
     {
+        if (self::$throw instanceof Closure) {
+            throw (self::$throw)();
+        }
+
         // Not through the container: the DataHandler creates this hook with
         // makeInstance() and no arguments, so it cannot take the service in
         // its constructor. A fresh service stores in the same session.

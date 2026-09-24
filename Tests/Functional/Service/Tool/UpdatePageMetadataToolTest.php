@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheFailingHookTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
@@ -143,20 +144,22 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function aHookThatFailsBeforeTheWriteIsReportedAsTheReasonTheFieldsDidNotTake(): void
+    public function aHookThatFailsBeforeTheWriteEndsTheCall(): void
     {
         $admin = $this->setUpBackendUser(1);
         $this->failInTheNextWrite(FailsLikeAFlashMessageHook::POST_PROCESS_FIELD_ARRAY);
 
-        $result = $this->tool->execute(
-            ['uid' => self::PAGE_ADMIN_ONLY, 'title' => 'New title'],
-            ToolExecutionContext::fromBackendUser($admin),
-        );
+        try {
+            $this->tool->execute(
+                ['uid' => self::PAGE_ADMIN_ONLY, 'title' => 'New title'],
+                ToolExecutionContext::fromBackendUser($admin),
+            );
+            self::fail('The failure during the write did not end the call.');
+        } catch (RuntimeException $failure) {
+            self::assertSame('A test hook fails before the row is written', $failure->getMessage());
+        }
 
-        self::assertTrue($result->isError);
-        self::assertStringContainsString('The update did not take on page [1] for: title', $result->content);
         self::assertSame('Home', $this->pageRow(self::PAGE_ADMIN_ONLY)['title'] ?? null);
-        self::assertStringContainsString('A test hook fails before the row is written', implode("\n", ToolDataHandler::takeFailures()));
     }
 
     #[Test]
