@@ -136,8 +136,9 @@ rector: ## Run Rector dry-run
 rector-fix:
 	$(RUNTESTS) -s rector
 
-changelog: ## Refuse a self-repeating [Unreleased] section
+changelog: ## Refuse a self-repeating [Unreleased] section and released sections that differ from their tag
 	@php Build/Scripts/check-changelog-unreleased.php
+	@php Build/Scripts/check-changelog-released-sections.php
 
 # The pre-push gate AGENTS.md documents, as one command. `ci` below is a
 # different, older set (it carries integration and omits rector and
