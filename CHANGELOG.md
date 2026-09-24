@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-09-24
+
 ### Changed
 
 - **BEHAVIOUR: a denied approval tells the model who declined it (ADR-200, NEXT-167).** The tool result of a denied call read `Error: tool "…" was denied by the operator.`, and on the Netresearch demo the model told the chat user that "the system/operator" had refused the write — the user had pressed *Deny* himself (demo conversation 102). The result now leads with `Error: approval_denied (decided_by: run_owner|other_user|unknown).` — the four tokens are constants on the `@api` `ToolLoopServiceInterface`, so the API-surface snapshot guards them — compares the decider with the run owner the resume runs under, and says in plain words whether the person in the chat declined it, another backend user did, or a reviewer nobody named. `toolIsError` and the `Error:` prefix are unchanged; a consumer that matched the old sentence must match the token instead.
@@ -4083,7 +4085,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.36.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.0...HEAD
+[0.37.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.36.0...v0.37.0
 [0.36.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.35.0...v0.36.0
 [0.35.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.34.0...v0.35.0
 [0.34.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.33.0...v0.34.0
