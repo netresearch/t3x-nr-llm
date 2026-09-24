@@ -61,8 +61,10 @@ final class PublicServicesPolicyTest extends TestCase
      *   the composite tool gate, asked by the backend module why a tool is
      *   missing from a run), AgentRuntimeInterface (ADR-101: the agent-run
      *   application service — begin/approve/cancel/events/status — the
-     *   preferred consumer surface over the bare tool loop). That makes
-     *   Category B 8 since ADR-101.
+     *   preferred consumer surface over the bare tool loop),
+     *   UnavailableToolsResolverInterface (ADR-201: the tools a run will not
+     *   be offered, looked up by name so a consumer can feature-detect it).
+     *   That makes Category B 9 since ADR-201.
      * - Category C (Concrete-only documented surface): 1 —
      *   PromptSnippetComposer (ADR-031, no interface).
      * - Category D (Specialized standalone consumer API): 5 —
@@ -72,7 +74,7 @@ final class PublicServicesPolicyTest extends TestCase
      *   (TCA itemsProcFunc `GuardrailItems`, ADR-106) and ProviderDetector
      *   (ProviderEndpointNormalizationHook, a DataHandler hook).
      *
-     * Total: 19 + 8 + 1 + 5 + 3 = **36**.
+     * Total: 19 + 9 + 1 + 5 + 3 = **37**.
      *
      * To intentionally change this number: update both this
      * constant AND the matching breakdown in
@@ -80,7 +82,7 @@ final class PublicServicesPolicyTest extends TestCase
      * authority, superseding ADR-094's count) in the same PR — the diff is
      * the audit trail.
      */
-    private const EXPECTED_PUBLIC_TRUE_COUNT = 36;
+    private const EXPECTED_PUBLIC_TRUE_COUNT = 37;
 
     private const SERVICES_YAML_PATH = __DIR__ . '/../../../Configuration/Services.yaml';
 

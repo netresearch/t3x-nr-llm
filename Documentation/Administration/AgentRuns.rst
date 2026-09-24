@@ -125,6 +125,14 @@ model proposed. A call whose tool is no longer registered is flagged.
 One :guilabel:`Approve` or :guilabel:`Deny` covers the **whole** pending turn,
 not a single call. Denying ends the run.
 
+After a denial nothing is executed. The model is told that the approval was
+declined and by whom — the user who started the run, or another backend
+user — and answers from that (:ref:`ADR-200 <adr-200>`).
+
+When the parent page already holds a page with the proposed title, the
+preview of ``create_page_draft`` starts with a warning line, so a second copy
+of a page is not approved by accident.
+
 .. warning::
 
    The decision is bound to the exact turn you are looking at. If the run has

@@ -120,8 +120,11 @@ final class ReadRecordsToolTest extends TestCase
         self::assertSame('read_records', $spec->name);
         self::assertSame(
             'Read records of one TYPO3 table with equality filters (no SQL). Returns uid, pid and the '
-            . 'label field by default; pass "fields" for specific columns. Deleted and hidden records '
-            . 'are excluded; credential-like columns are never returned.',
+            . 'label field by default; pass "fields" for specific columns. On a language-aware table every '
+            . 'record also carries its language (e.g. sys_language_uid) and its translation parent (e.g. '
+            . 'l10n_parent): two records with the same title are one record and its translation when the '
+            . 'second has a language above 0 and the first as parent, not duplicates. Deleted and hidden '
+            . 'records are excluded; credential-like columns are never returned.',
             $spec->description,
         );
         // Pin the whole JSON-Schema parameter block so any dropped item/type is caught.

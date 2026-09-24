@@ -123,7 +123,10 @@ Consequences
 - ``AgentRuntimeInterface`` is a **public DI alias** (Category B), raising the
   audited public-service count from 34 to **35** (later raised to **36** by
   :ref:`ADR-106 <adr-106>`, which makes ``GuardrailRegistry`` public for its TCA
-  itemsProcFunc). This ADR supersedes ADR-094 as the count authority. It is a
+  itemsProcFunc, and to **37** by :ref:`ADR-201 <adr-201>`, whose
+  ``UnavailableToolsResolverInterface`` a consumer looks up in the container by
+  name to feature-detect it — Category B). This ADR supersedes ADR-094 as the
+  count authority. It is a
   *consumer* interface: call it, do not
   implement or decorate it outside nr_llm — methods and ``AgentRunOutcome``
   cases may be added in minor releases (the queue epic will), so exhaustive

@@ -78,6 +78,22 @@ final class GetPageTreeToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('    [5] Team (doktype 1)', $output);
     }
 
+    /**
+     * NEXT-167: the tree lists the default language only, and says so, so a
+     * model that later meets a translation with the same title does not take
+     * the two for duplicate pages.
+     */
+    #[Test]
+    public function theResultStatesThatItListsTheDefaultLanguageOnly(): void
+    {
+        $output = $this->tool->execute(['rootUid' => 0, 'depth' => 1], $this->executionContext())->content;
+
+        self::assertStringStartsWith(
+            'Page tree from uid 0 (depth 1; default-language pages, sys_language_uid 0 — translations are not listed):',
+            $output,
+        );
+    }
+
     #[Test]
     public function excludesHiddenAndDeletedPages(): void
     {

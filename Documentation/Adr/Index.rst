@@ -582,4 +582,6 @@ Tools
    Adr197AGenericCreatorWhereNoNarrowWriterExists
    Adr198TheAssistantActsOnExistingContent
    Adr199ACopyIsAHiddenDraftWithoutItsBranch
+   Adr200ADeniedApprovalSaysWhoDeclined
+   Adr201TheToolsARunIsNotOffered
    Adr202APublicWebPageThroughAnAddressGuard
