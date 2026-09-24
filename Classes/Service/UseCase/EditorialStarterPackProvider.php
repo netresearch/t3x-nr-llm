@@ -72,7 +72,7 @@ final readonly class EditorialStarterPackProvider implements UseCasePackProvider
                 // unpublished content leaving the installation, which is the
                 // posture "controlled cloud" describes.
                 recommendedGovernanceProfile: GovernanceProfile::CONTROLLED_CLOUD,
-                tasks: self::tasks(),
+                tasks: $this->tasks(),
                 snippets: [
                     new PackSnippet(
                         identifier: 'editorial-starter-house-style',
@@ -118,10 +118,10 @@ final readonly class EditorialStarterPackProvider implements UseCasePackProvider
      *
      * @return list<PackTask>
      */
-    private static function tasks(): array
+    private function tasks(): array
     {
         return [
-            self::contentTask(
+            $this->contentTask(
                 'editorial-starter-summarise',
                 'Summarise for a teaser',
                 'Condense an article into a teaser of two to three sentences.',
@@ -130,7 +130,7 @@ final readonly class EditorialStarterPackProvider implements UseCasePackProvider
                 . "cut and drop the rest. Do not add a headline.\n\n{{input}}",
                 TaskOutputFormat::PLAIN,
             ),
-            self::contentTask(
+            $this->contentTask(
                 'editorial-starter-rewrite',
                 'Rewrite for clarity',
                 'Shorten sentences and remove filler without changing what the text says.',
@@ -138,7 +138,7 @@ final readonly class EditorialStarterPackProvider implements UseCasePackProvider
                 . 'active voice, no filler. Change no facts, no names, no numbers. Return only the '
                 . "rewritten text.\n\n{{input}}",
             ),
-            self::contentTask(
+            $this->contentTask(
                 'editorial-starter-proofread',
                 'Proofread',
                 'List spelling, grammar and punctuation corrections without rewriting.',
@@ -147,7 +147,7 @@ final readonly class EditorialStarterPackProvider implements UseCasePackProvider
                 . 'in. Do not rewrite the text and do not comment on style. If you find nothing, say '
                 . "so in one line.\n\n{{input}}",
             ),
-            self::contentTask(
+            $this->contentTask(
                 'editorial-starter-expand',
                 'Expand',
                 'Develop a short text into a fuller one without adding facts it does not contain.',
@@ -156,7 +156,7 @@ final readonly class EditorialStarterPackProvider implements UseCasePackProvider
                 . 'claims that are not in it. Where the text is too thin to expand without inventing, '
                 . "say so in one short line at the end. Return only the expanded text.\n\n{{input}}",
             ),
-            self::contentTask(
+            $this->contentTask(
                 'editorial-starter-correct',
                 'Correct spelling and grammar',
                 'Return the text with spelling, grammar and punctuation corrected, nothing else changed.',
@@ -164,7 +164,7 @@ final readonly class EditorialStarterPackProvider implements UseCasePackProvider
                 . 'nothing else: keep the wording, the style, the structure and the formatting. Return '
                 . "only the corrected text.\n\n{{input}}",
             ),
-            self::contentTask(
+            $this->contentTask(
                 'editorial-starter-plain-language',
                 'Plain language version',
                 'Rewrite a text in plain language: short sentences, common words, one idea per sentence.',
@@ -174,7 +174,7 @@ final readonly class EditorialStarterPackProvider implements UseCasePackProvider
                 . 'facts. Write in the language of the text. Return only the rewritten '
                 . "text.\n\n{{input}}",
             ),
-            self::contentTask(
+            $this->contentTask(
                 'editorial-starter-readability',
                 'Check readability',
                 'Rate how easy a text is to read and name the passages that make it hard.',
@@ -183,7 +183,7 @@ final readonly class EditorialStarterPackProvider implements UseCasePackProvider
                 . '(long sentences, nested clauses, jargon, passive chains), each quoted with a '
                 . "suggestion. Do not rewrite the whole text.\n\n{{input}}",
             ),
-            self::contentTask(
+            $this->contentTask(
                 'editorial-starter-review',
                 'Check for gaps and tone',
                 'Point out missing or unclear information and wording that breaks the house style.',
@@ -192,7 +192,7 @@ final readonly class EditorialStarterPackProvider implements UseCasePackProvider
                 . 'every passage whose tone breaks the house style. Quote each passage and say what is '
                 . "wrong. Do not rewrite the text. If you find nothing, say so in one line.\n\n{{input}}",
             ),
-            self::contentTask(
+            $this->contentTask(
                 'editorial-starter-headlines',
                 'Suggest headlines',
                 'Five headline options for an existing text, each under 70 characters.',
@@ -203,7 +203,7 @@ final readonly class EditorialStarterPackProvider implements UseCasePackProvider
         ];
     }
 
-    private static function contentTask(
+    private function contentTask(
         string $identifier,
         string $name,
         string $description,
