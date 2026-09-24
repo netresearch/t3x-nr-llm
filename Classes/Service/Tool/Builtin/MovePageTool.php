@@ -124,7 +124,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
             return ToolResult::error($plan);
         }
 
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([], [self::TABLE => [$plan['uid'] => ['move' => $plan['destination']]]], $user);
         $dataHandler->process_cmdmap();
 

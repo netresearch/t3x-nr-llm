@@ -209,7 +209,7 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
         $metadataUid       = self::toInt($metadata['uid'] ?? 0);
         $text              = $value[0];
 
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([self::METADATA_TABLE => [$metadataUid => [self::FIELD => $text]]], [], $user);
         $dataHandler->process_datamap();
 

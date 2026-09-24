@@ -124,7 +124,7 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
             ));
         }
 
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([$plan['table'] => [$plan['uid'] => [$plan['hiddenColumn'] => 0]]], [], $user);
         $dataHandler->process_datamap();
 

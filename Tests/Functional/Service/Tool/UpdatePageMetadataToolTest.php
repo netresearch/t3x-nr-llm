@@ -9,8 +9,11 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\FailsLikeAFlashMessageHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheFailingHookTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -31,6 +34,8 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 #[CoversClass(UpdatePageMetadataTool::class)]
 final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
 {
+    use RegistersTheFailingHookTrait;
+
     /** A page only the admin may edit: owned by uid 1, nothing granted to anyone else. */
     private const PAGE_ADMIN_ONLY = 1;
 
@@ -90,6 +95,7 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
 
     protected function tearDown(): void
     {
+        $this->unregisterFailingHook();
         unset($GLOBALS['LANG']);
         parent::tearDown();
     }
@@ -112,6 +118,45 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
         self::assertSame('New description', $row['description'] ?? null);
         // Untouched columns stay untouched.
         self::assertSame('/', $row['slug'] ?? null);
+    }
+
+    /**
+     * This tool refuses on any complaint in the DataHandler's error log before
+     * it reads back. A hook that fails after the write is no refusal: the
+     * fields are stored, and the answer must say so rather than "refused".
+     */
+    #[Test]
+    public function aHookThatFailsAfterTheWriteIsNoRefusal(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        $this->failInTheNextWrite(FailsLikeAFlashMessageHook::AFTER_ALL_OPERATIONS);
+
+        $result = $this->tool->execute(
+            ['uid' => self::PAGE_ADMIN_ONLY, 'title' => 'New title'],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('Updated page [1]', $result->content);
+        self::assertSame('New title', $this->pageRow(self::PAGE_ADMIN_ONLY)['title'] ?? null);
+        self::assertStringContainsString('Call to a member function set() on null', implode("\n", ToolDataHandler::takeFailures()));
+    }
+
+    #[Test]
+    public function aHookThatFailsBeforeTheWriteIsReportedAsTheReasonTheFieldsDidNotTake(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        $this->failInTheNextWrite(FailsLikeAFlashMessageHook::POST_PROCESS_FIELD_ARRAY);
+
+        $result = $this->tool->execute(
+            ['uid' => self::PAGE_ADMIN_ONLY, 'title' => 'New title'],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('The update did not take on page [1] for: title', $result->content);
+        self::assertSame('Home', $this->pageRow(self::PAGE_ADMIN_ONLY)['title'] ?? null);
+        self::assertStringContainsString('A test hook fails before the row is written', implode("\n", ToolDataHandler::takeFailures()));
     }
 
     #[Test]

@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **A hook of the installation that fails no longer fails the write it ran after (ADR-206, NEXT-164).** Every writing tool now runs `ToolDataHandler`, a DataHandler that catches an exception from the outermost `process_datamap()` or `process_cmdmap()`, runs the steps it skipped (reference index update, cache flush of the written pages, registry reset), logs it and records one line naming the failed method. The tool then answers from its own read-back as usual, and the tool loop adds a note naming the failure. Before, the exception ended the call with `Error: tool "…" failed.` even when the write had landed, and the page cache was not flushed. On the Netresearch demo a translation extension's hook fails in every process without a user session with `Call to a member function set() on null`, so `publish_record` published the element and reported a failure. The DataHandler's error log stays as TYPO3 wrote it, so the twelve writers that refuse on any entry there do not answer "refused" for a write that landed. A unit test refuses code that creates the core DataHandler directly.
+
 ## [0.37.2] - 2026-09-24
 
 ### Fixed

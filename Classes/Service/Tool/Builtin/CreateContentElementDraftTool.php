@@ -819,7 +819,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      */
     private function discard(int $uid, BackendUserAuthentication $user): bool
     {
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([], [self::TABLE => [$uid => ['delete' => 1]]], $user);
         $dataHandler->process_cmdmap();
 

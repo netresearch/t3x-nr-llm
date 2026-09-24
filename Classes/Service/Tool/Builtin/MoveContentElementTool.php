@@ -137,7 +137,7 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
             return ToolResult::error($plan);
         }
 
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([], [self::TABLE => [$plan['uid'] => ['move' => [
             'action' => 'paste',
             'target' => $plan['destination'],

@@ -163,7 +163,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         }
 
         try {
-            $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+            $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
             $dataHandler->start([], [$plan['table'] => [$plan['uid'] => ['copy' => [
                 'action' => 'paste',
                 'target' => $plan['destination'],
@@ -603,7 +603,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             return;
         }
 
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([$table => $datamap], [], $user);
         $dataHandler->process_datamap();
     }
@@ -640,7 +640,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
      */
     private function discard(string $table, int $uid, BackendUserAuthentication $user): bool
     {
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([], [$table => [$uid => ['delete' => 1]]], $user);
         $dataHandler->process_cmdmap();
 

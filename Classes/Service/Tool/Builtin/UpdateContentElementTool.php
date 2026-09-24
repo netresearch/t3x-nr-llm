@@ -133,7 +133,7 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
             return ToolResult::error($plan);
         }
 
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([self::TABLE => [$plan['uid'] => $plan['fields']]], [], $user);
         $dataHandler->process_datamap();
 

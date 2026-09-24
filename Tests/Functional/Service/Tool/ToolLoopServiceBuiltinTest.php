@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
 use Netresearch\NrLlm\Domain\ValueObject\McpToolRecord;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
@@ -32,6 +33,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\CreateTranslationDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchLogsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\MoveContentElementTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetFileAlternativeTextTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
@@ -50,6 +52,8 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\FailsLikeAFlashMessageHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheFailingHookTrait;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\McpTestServer;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\RecordedContacts;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -63,6 +67,9 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\Client\GuzzleClientFactory;
 use TYPO3\CMS\Core\Http\RequestFactory;
 use TYPO3\CMS\Core\Http\StreamFactory;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
+use TYPO3\CMS\Core\Type\Bitmask\Permission;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * End-to-end agent loop over a REAL builtin tool.
@@ -81,6 +88,8 @@ use TYPO3\CMS\Core\Http\StreamFactory;
 #[CoversClass(ToolLoopService::class)]
 final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
 {
+    use RegistersTheFailingHookTrait;
+
     private ConnectionPool $connectionPool;
 
     /** @var BackendUserAuthentication|object|null */
@@ -112,6 +121,8 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
 
     protected function tearDown(): void
     {
+        $this->unregisterFailingHook();
+        unset($GLOBALS['LANG']);
         $GLOBALS['BE_USER'] = $this->beUserBackup;
         parent::tearDown();
     }
@@ -407,6 +418,152 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
 
         $this->expectException(ToolApprovalRequiredException::class);
         $service->runLoop([$this->userTurn('search for typo3')], $this->localConfiguration(), $this->contextFor($this->actingUser), null);
+    }
+
+    /**
+     * A hook of the installation fails while a tool writes (ADR-206): the
+     * write is finished, the tool answers from its own read-back, and the loop
+     * adds which hook failed to that answer — for every tool, without the tool
+     * doing anything about it.
+     *
+     * The writer is a real backend user without a session, like the agent
+     * worker's, which is what makes the flash-message hook fail.
+     */
+    #[Test]
+    public function aHookThatFailsWhileAToolWritesIsNamedInTheToolsAnswer(): void
+    {
+        $this->prepareTheElementToWrite();
+        $this->registerHook('processDatamapClass', FailsLikeAFlashMessageHook::class);
+        FailsLikeAFlashMessageHook::$failAt = FailsLikeAFlashMessageHook::AFTER_ALL_OPERATIONS;
+
+        $result = $this->runTheWritingTool();
+
+        self::assertFalse($result->trace[0]->isError, $result->trace[0]->result);
+        self::assertStringStartsWith('WROTE', $result->trace[0]->result);
+        self::assertStringContainsString('Note: code of this TYPO3 installation failed while the tool wrote', $result->trace[0]->result);
+        self::assertStringContainsString(
+            FailsLikeAFlashMessageHook::class . '::processDatamap_afterAllOperations() threw Error: Call to a member function set() on null',
+            $result->trace[0]->result,
+        );
+        self::assertSame('Written', $this->headerOfTheElement());
+    }
+
+    #[Test]
+    public function aFailureOfAWriteOutsideTheCallIsNotNamedInTheToolsAnswer(): void
+    {
+        $this->prepareTheElementToWrite();
+        $this->registerHook('processDatamapClass', FailsLikeAFlashMessageHook::class);
+        FailsLikeAFlashMessageHook::$failAt = FailsLikeAFlashMessageHook::AFTER_ALL_OPERATIONS;
+        // A write before the run — a request, a scheduler task — that fails
+        // and whose failure nobody took.
+        $before = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $before->start(['tt_content' => [self::ELEMENT => ['header' => 'Before the run']]], [], $this->writer);
+        $before->process_datamap();
+        FailsLikeAFlashMessageHook::reset();
+
+        $result = $this->runTheWritingTool();
+
+        self::assertSame('WROTE', $result->trace[0]->result);
+    }
+
+    private const ELEMENT = 31;
+
+    /** A real `be_users` row the DataHandler writes as, loaded without a session. */
+    private BackendUserAuthentication $writer;
+
+    private function prepareTheElementToWrite(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->writer = $this->useASessionlessAmbientUser(1);
+
+        $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
+            'uid' => 3, 'pid' => 0, 'title' => 'Page', 'doktype' => 1, 'slug' => '/',
+            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
+        ]);
+        $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
+            'uid' => self::ELEMENT, 'pid' => 3, 'colPos' => 0, 'CType' => 'text', 'header' => 'Before',
+        ]);
+        $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('default');
+    }
+
+    private function runTheWritingTool(): ToolLoopResult
+    {
+        $queue = [
+            $this->response('', [new ToolCall('call_1', 'write_through_the_data_handler', [])]),
+            $this->response('Done.'),
+        ];
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturnCallback(function () use (&$queue): CompletionResponse {
+                $next = array_shift($queue);
+                if (!$next instanceof CompletionResponse) {
+                    throw new RuntimeException('Scripted response queue underflow.', 1799990003);
+                }
+
+                return $next;
+            });
+
+        $result = $this->buildService($mgr, [$this->dataHandlerTool()])
+            ->runLoop([$this->userTurn('write it')], $this->localConfiguration(), $this->contextFor($this->writer), null);
+        self::assertCount(1, $result->trace);
+
+        return $result;
+    }
+
+    private function headerOfTheElement(): string
+    {
+        $row = $this->connectionPool->getConnectionForTable('tt_content')
+            ->select(['header'], 'tt_content', ['uid' => self::ELEMENT])->fetchAssociative();
+        self::assertIsArray($row);
+        self::assertIsString($row['header']);
+
+        return $row['header'];
+    }
+
+    /**
+     * A tool that writes one header through {@see ToolDataHandler} and
+     * answers "WROTE". It declares no effect, so the loop runs it without an
+     * approval — the note is added on every path a call runs through, and this
+     * one needs no suspended run to reach it.
+     */
+    private function dataHandlerTool(): ToolInterface
+    {
+        return new class (self::ELEMENT) implements ToolInterface {
+            public function __construct(private readonly int $element) {}
+
+            public function getSpec(): ToolSpec
+            {
+                return ToolSpec::function('write_through_the_data_handler', 'writes a header', ['type' => 'object', 'properties' => []]);
+            }
+
+            /**
+             * @param array<string, mixed> $arguments
+             */
+            public function execute(array $arguments, ToolExecutionContext $context): ToolResult
+            {
+                $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+                $dataHandler->start(['tt_content' => [$this->element => ['header' => 'Written']]], [], $context->actingBackendUser());
+                $dataHandler->process_datamap();
+
+                return ToolResult::text('WROTE');
+            }
+
+            public function isEnabledByDefault(): bool
+            {
+                return true;
+            }
+
+            public function requiresAdmin(): bool
+            {
+                return false;
+            }
+
+            public function getGroup(): string
+            {
+                return 'test';
+            }
+        };
     }
 
     /**

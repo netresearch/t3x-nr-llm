@@ -117,7 +117,7 @@ trait PlansOneEditorialWriteTrait
     {
         $placeholder = StringUtility::getUniqueId('NEW');
 
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([$table => [$placeholder => $record]], [], $user);
         $dataHandler->process_datamap();
 

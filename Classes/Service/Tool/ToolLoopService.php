@@ -43,6 +43,7 @@ use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
+use Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -1230,6 +1231,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             ));
         }
 
+        // A failure a DataHandler recorded outside this call is not this
+        // call's to report (ADR-206).
+        ToolDataHandler::takeFailures();
+
         try {
             $result = $tool->execute($call->arguments, $context);
         } catch (Throwable $e) {
@@ -1252,13 +1257,37 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // error result is the value object's rule, not a condition repeated at
         // every call site.
         $bounded = $result->withBoundedChannels(
-            $this->bounder->content($result->content),
+            $this->bounder->content($result->content) . $this->hookFailureNote(ToolDataHandler::takeFailures()),
             $this->bounder->artifacts($result->artifacts),
         );
 
         $this->announceWrite($bounded, $context);
 
         return $bounded;
+    }
+
+    /**
+     * The note a tool's answer gets when a hook of the installation failed
+     * while the tool wrote, or the empty string (ADR-206).
+     *
+     * Added after the tool's own text, which says what the tool read back once
+     * the run was over, and after the bounding of that text, so a long answer
+     * cannot cut it off. Each line is bounded where it is recorded.
+     *
+     * @param list<string> $failures
+     */
+    private function hookFailureNote(array $failures): string
+    {
+        if ($failures === []) {
+            return '';
+        }
+
+        return sprintf(
+            "\n\nNote: code of this TYPO3 installation failed while the tool wrote, and the write was finished without it: %s. "
+            . 'The answer above is what the tool found in the database afterwards. What that code was meant to do, '
+            . 'such as a translation or a notification, may not have happened.',
+            implode('; ', $failures),
+        );
     }
 
     /**
@@ -1283,8 +1312,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * label, badge or report take the run down with it would turn a completed
      * editorial write into a failed one — and the model's next move on a failed
      * write is to try it again. This is the one place in the loop where foreign
-     * code runs after the side effect, so it is the one place that swallows.
-     * Swallows, not hides: the full Throwable goes to the log.
+     * code runs after the side effect, so it is the one place in the loop that
+     * swallows; a hook that fails DURING the write is caught by
+     * {@see ToolDataHandler} for the same reason (ADR-206). Swallows, not
+     * hides: the full Throwable goes to the log.
      */
     private function announceWrite(ToolResult $result, ToolExecutionContext $context): void
     {

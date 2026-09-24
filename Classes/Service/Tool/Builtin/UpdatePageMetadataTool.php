@@ -231,7 +231,7 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
             return ToolResult::error(self::NOT_PERMITTED);
         }
 
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([self::TABLE => [$uid => $values]], [], $user);
         $dataHandler->process_datamap();
 
