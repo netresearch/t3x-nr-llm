@@ -15,10 +15,12 @@ use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
+use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
+use Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
@@ -250,6 +252,65 @@ final class ToolCallPolicyTest extends TestCase
         self::assertTrue($decisions[0]->allowed);
         self::assertFalse($decisions[1]->allowed);
         self::assertSame('ghost_tool', $decisions[1]->toolName);
+    }
+
+    /**
+     * The enabled set reads two tables. Resolved per tool it cost two queries
+     * for every tool explained; it is resolved once per call (ADR-201).
+     */
+    #[Test]
+    public function explainResolvesTheEnabledSetOncePerCall(): void
+    {
+        $registry = new ToolRegistry([
+            new FakeTool('a_tool', 'ok', true, false, 'content'),
+            new FakeTool('b_tool', 'ok', true, false, 'content'),
+            new FakeTool('c_tool', 'ok', true, false, 'content'),
+        ]);
+        $availability = new class (['a_tool', 'b_tool']) implements ToolAvailabilityServiceInterface {
+            public int $calls = 0;
+
+            /**
+             * @param list<string> $enabled
+             */
+            public function __construct(private readonly array $enabled) {}
+
+            public function enabledNames(): array
+            {
+                ++$this->calls;
+
+                return $this->enabled;
+            }
+
+            public function states(): array
+            {
+                return [];
+            }
+
+            public function editorActions(): array
+            {
+                return [];
+            }
+
+            public function groupStates(): array
+            {
+                return [];
+            }
+        };
+        $extensionConfiguration = $this->createMock(ExtensionConfiguration::class);
+        $extensionConfiguration->method('get')->willReturn(['tools' => ['dataClassEnforcement' => 'observe']]);
+        $policy = new ToolCallPolicy(
+            $registry,
+            $availability,
+            new AllowedToolsResolver(new SkillComposer(), $registry),
+            new ToolDataClassResolver($registry),
+            new TrustZoneResolver(),
+            new DataClassEnforcementResolver($extensionConfiguration),
+        );
+
+        $decisions = $policy->explain($registry->names(), $this->configuration(TrustZone::LOCAL), $this->admin());
+
+        self::assertSame([true, true, false], array_map(static fn(ToolPolicyDecision $d): bool => $d->allowed, $decisions));
+        self::assertSame(1, $availability->calls);
     }
 
     /**

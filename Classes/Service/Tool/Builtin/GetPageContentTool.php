@@ -49,6 +49,15 @@ final readonly class GetPageContentTool implements ToolInterface
 
     private const EXCERPT_LENGTH = 200;
 
+    /**
+     * The core translation-parent columns of the two tables this tool reads.
+     * Hardcoded like `sys_language_uid` already is here: both are core columns
+     * of core tables, not installation-specific TCA.
+     */
+    private const PAGE_PARENT_FIELD = 'l10n_parent';
+
+    private const CONTENT_PARENT_FIELD = 'l18n_parent';
+
     /** Upper bound on emitted content elements per call. */
     private const ROW_CAP = 100;
 
@@ -67,8 +76,10 @@ final readonly class GetPageContentTool implements ToolInterface
     {
         return ToolSpec::function(
             'get_page_content',
-            'Return one page (title, doktype, slug) and its content elements ordered by column and '
-            . 'sorting: uid, colPos, CType, header and a short bodytext excerpt per element.',
+            'Return one page (title, doktype, slug, language) and its content elements in ONE language, '
+            . 'ordered by column and sorting: uid, colPos, CType, header and a short bodytext excerpt per '
+            . 'element; a translated element names the element it translates. The result also lists the '
+            . 'other languages that hold content on the page — call again with "language" to read them.',
             [
                 'type'       => 'object',
                 'properties' => [
@@ -125,19 +136,38 @@ final readonly class GetPageContentTool implements ToolInterface
             return ToolResult::text(self::NOT_PERMITTED);
         }
 
-        $lines   = [];
-        $lines[] = sprintf(
-            'Page [%d] %s (doktype %d, slug %s)%s',
+        $pageParent = self::toInt($page[self::PAGE_PARENT_FIELD] ?? 0);
+        $lines      = [];
+        $lines[]    = sprintf(
+            'Page [%d] %s (doktype %d, slug %s, language %d%s)%s',
             self::toInt($page['uid'] ?? 0),
             self::toStr($page['title'] ?? ''),
             self::toInt($page['doktype'] ?? 0),
             self::toStr($page['slug'] ?? '') !== '' ? self::toStr($page['slug'] ?? '') : '-',
+            self::toInt($page['sys_language_uid'] ?? 0),
+            $pageParent > 0 ? sprintf(', translation of page [%d]', $pageParent) : '',
             self::toInt($page['hidden'] ?? 0) === 1 ? ' [hidden]' : '',
         );
 
-        $rows = $this->fetchContent($uid, $language, $isAdmin);
+        // A translated page owns no content rows: its translated elements sit
+        // on the default-language page, the one it translates. Reading them by
+        // the translation's own uid found nothing and read as an empty page.
+        $contentPage = $pageParent > 0 ? $pageParent : $uid;
+        if ($contentPage !== $uid && !$isAdmin) {
+            $permsClause = self::toStr($user->getPagePermsClause(Permission::PAGE_SHOW));
+            if (!is_array(BackendUtility::readPageAccess($contentPage, $permsClause))) {
+                return ToolResult::text(self::NOT_PERMITTED);
+            }
+        }
+
+        $otherLanguages = $this->otherLanguagesLine($contentPage, $language, $isAdmin, $user);
+
+        $rows = $this->fetchContent($contentPage, $language, $isAdmin);
         if ($rows === []) {
             $lines[] = sprintf('No content elements (language %d).', $language);
+            if ($otherLanguages !== '') {
+                $lines[] = $otherLanguages;
+            }
 
             return ToolResult::text(implode("\n", $lines));
         }
@@ -145,13 +175,15 @@ final readonly class GetPageContentTool implements ToolInterface
         $lines[] = sprintf('Content elements (%d, language %d):', count($rows), $language);
         foreach ($rows as $row) {
             $header  = self::toStr($row['header'] ?? '');
+            $parent  = self::toInt($row[self::CONTENT_PARENT_FIELD] ?? 0);
             $lines[] = sprintf(
-                '[%d] colPos=%d %s · %s%s',
+                '[%d] colPos=%d %s · %s%s%s',
                 self::toInt($row['uid'] ?? 0),
                 self::toInt($row['colPos'] ?? 0),
                 self::toStr($row['CType'] ?? ''),
                 $header !== '' ? $header : '(no header)',
                 self::toInt($row['hidden'] ?? 0) === 1 ? ' [hidden]' : '',
+                $parent > 0 ? sprintf(' · translation of [%d]', $parent) : '',
             );
 
             $excerpt = $this->excerpt(self::toStr($row['bodytext'] ?? ''));
@@ -160,7 +192,69 @@ final readonly class GetPageContentTool implements ToolInterface
             }
         }
 
+        if ($otherLanguages !== '') {
+            $lines[] = $otherLanguages;
+        }
+
         return ToolResult::text(implode("\n", $lines));
+    }
+
+    /**
+     * One line naming the OTHER languages that hold content on the page, or ''
+     * when there are none (NEXT-167).
+     *
+     * Without it the tool answered only for the language it was asked about,
+     * and the model reported a page as having one hidden element while a
+     * visible translation of it sat next to it (demo conversation 91). Only
+     * languages the acting user may access are counted, with the same
+     * restrictions the element list itself uses.
+     *
+     * Elements for all languages (`sys_language_uid = -1`) are left out: the
+     * tool cannot be asked for language -1 (a negative argument reads as 0),
+     * and no element list of it includes them, so naming them here would send
+     * the model after a language it can never read.
+     */
+    private function otherLanguagesLine(int $pageUid, int $language, bool $isAdmin, BackendUserAuthentication $user): string
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tt_content');
+        $queryBuilder->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
+        if ($isAdmin) {
+            $queryBuilder->getRestrictions()
+                ->removeByType(HiddenRestriction::class)
+                ->removeByType(StartTimeRestriction::class)
+                ->removeByType(EndTimeRestriction::class);
+        }
+
+        $rows = $queryBuilder
+            ->select('sys_language_uid')
+            ->addSelectLiteral('COUNT(*) AS elements')
+            ->from('tt_content')
+            ->where(
+                $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)),
+                $queryBuilder->expr()->neq(
+                    'sys_language_uid',
+                    $queryBuilder->createNamedParameter($language, Connection::PARAM_INT),
+                ),
+                $queryBuilder->expr()->gte('sys_language_uid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+            )
+            ->groupBy('sys_language_uid')
+            ->orderBy('sys_language_uid', 'ASC')
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $parts = [];
+        foreach ($rows as $row) {
+            $other = self::toInt($row['sys_language_uid'] ?? 0);
+            if (!$isAdmin && !$user->checkLanguageAccess($other)) {
+                continue;
+            }
+
+            $parts[] = sprintf('language %d (%d)', $other, self::toInt($row['elements'] ?? 0));
+        }
+
+        return $parts === []
+            ? ''
+            : 'Content in other languages on this page: ' . implode(', ', $parts) . '. Call again with "language" to list it.';
     }
 
     public function isEnabledByDefault(): bool
@@ -196,7 +290,7 @@ final readonly class GetPageContentTool implements ToolInterface
         }
 
         $row = $queryBuilder
-            ->select('uid', 'title', 'doktype', 'slug', 'hidden')
+            ->select('uid', 'title', 'doktype', 'slug', 'hidden', 'sys_language_uid', self::PAGE_PARENT_FIELD)
             ->from('pages')
             ->where(
                 $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
@@ -227,7 +321,7 @@ final readonly class GetPageContentTool implements ToolInterface
         }
 
         $rows = $queryBuilder
-            ->select('uid', 'colPos', 'CType', 'header', 'bodytext', 'hidden')
+            ->select('uid', 'colPos', 'CType', 'header', 'bodytext', 'hidden', self::CONTENT_PARENT_FIELD)
             ->from('tt_content')
             ->where(
                 $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)),

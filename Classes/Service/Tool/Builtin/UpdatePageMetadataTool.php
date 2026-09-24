@@ -134,6 +134,9 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
         'twitter_card',
     ];
 
+    /** The page's image fields, which belong to set_page_social_image (ADR-195). */
+    private const IMAGE_FIELDS = ['og_image', 'twitter_image'];
+
     /**
      * Upper bound for a field the TCA does not bound itself (the `text` columns).
      * A model-chosen argument is untrusted input, and an unbounded one would let
@@ -179,8 +182,10 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
         return ToolSpec::function(
             'update_page_metadata',
             'Set descriptive metadata on ONE page (' . implode(', ', $this->editableFields()) . '). '
-            . 'Writes through the TYPO3 DataHandler as the acting backend user, in the live workspace only. '
-            . 'Any other page field is refused, and the whole call is refused rather than partially applied.',
+            . 'Text fields only: it cannot set an image (og_image and twitter_image are set with '
+            . 'set_page_social_image), cannot hide, unhide or move the page, and cannot change its content '
+            . 'elements. Writes through the TYPO3 DataHandler as the acting backend user, in the live workspace '
+            . 'only. Any other page field is refused, and the whole call is refused rather than partially applied.',
             [
                 'type'       => 'object',
                 'properties' => $properties,
@@ -441,12 +446,20 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
             }
 
             if (!in_array($key, $editable, true)) {
+                $name = preg_replace('/[^A-Za-z0-9_]/', '', self::toStr($key)) ?? '';
+
                 return sprintf(
-                    'Refused: "%s" is not an editable page metadata field. Allowed: %s.',
+                    'Refused: "%s" is not an editable page metadata field. Allowed: %s.%s',
                     // The key is echoed back so the model can correct itself; it
                     // is a name the model itself chose, not instance data.
-                    preg_replace('/[^A-Za-z0-9_]/', '', self::toStr($key)) ?? '',
+                    $name,
                     implode(', ', $editable),
+                    // The image fields are the ones a model reached for here and
+                    // then promised the user it could fill (NEXT-167, demo
+                    // conversation 102): name the tool that can.
+                    in_array($name, self::IMAGE_FIELDS, true)
+                        ? sprintf(' "%s" is an image field: set it with set_page_social_image.', $name)
+                        : '',
                 );
             }
 

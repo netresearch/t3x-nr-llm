@@ -51,6 +51,32 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
 
     public function decide(string $toolName, LlmConfiguration $configuration, ?BackendUserAuthentication $user): ToolPolicyDecision
     {
+        return $this->decideAgainst(
+            $toolName,
+            $configuration,
+            $user,
+            $this->availability->enabledNames(),
+            $this->allowedTools->resolve($configuration),
+        );
+    }
+
+    /**
+     * The gate for one tool against inputs the caller resolved once.
+     *
+     * The enabled set and the configuration's allow-list do not depend on the
+     * tool, and resolving the enabled set reads two tables; asking for them per
+     * tool made explaining N tools cost 2N queries (ADR-201).
+     *
+     * @param list<string>      $enabledNames
+     * @param list<string>|null $configurationAllowed
+     */
+    private function decideAgainst(
+        string $toolName,
+        LlmConfiguration $configuration,
+        ?BackendUserAuthentication $user,
+        array $enabledNames,
+        ?array $configurationAllowed,
+    ): ToolPolicyDecision {
         $zone    = $this->trustZones->zoneFor($configuration);
         $ceiling = $zone->maxDataClass();
 
@@ -61,7 +87,7 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
 
         $dataClass = $this->dataClasses->classForTool($tool);
 
-        if (!in_array($toolName, $this->availability->enabledNames(), true)) {
+        if (!in_array($toolName, $enabledNames, true)) {
             return $this->denial($toolName, $dataClass, $zone, $ceiling, ToolDenialReason::TOOL_DISABLED);
         }
 
@@ -70,7 +96,6 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
             return $this->denial($toolName, $dataClass, $zone, $ceiling, ToolDenialReason::REQUIRES_ADMIN);
         }
 
-        $configurationAllowed = $this->allowedTools->resolve($configuration);
         if ($configurationAllowed !== null && !in_array($toolName, $configurationAllowed, true)) {
             return $this->denial($toolName, $dataClass, $zone, $ceiling, ToolDenialReason::CONFIGURATION_GROUP);
         }
@@ -101,12 +126,10 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
 
     public function filterOfferable(?array $requested, LlmConfiguration $configuration, ?BackendUserAuthentication $user): array
     {
-        $candidates = $requested ?? $this->availability->enabledNames();
-
         $offerable = [];
-        foreach ($candidates as $name) {
-            if ($this->decide($name, $configuration, $user)->allowed) {
-                $offerable[] = $name;
+        foreach ($this->explain($requested, $configuration, $user) as $decision) {
+            if ($decision->allowed) {
+                $offerable[] = $decision->toolName;
             }
         }
 
@@ -115,11 +138,12 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
 
     public function explain(?array $requested, LlmConfiguration $configuration, ?BackendUserAuthentication $user): array
     {
-        $candidates = $requested ?? $this->availability->enabledNames();
+        $enabled              = $this->availability->enabledNames();
+        $configurationAllowed = $this->allowedTools->resolve($configuration);
 
         return array_values(array_map(
-            fn(string $name): ToolPolicyDecision => $this->decide($name, $configuration, $user),
-            $candidates,
+            fn(string $name): ToolPolicyDecision => $this->decideAgainst($name, $configuration, $user, $enabled, $configurationAllowed),
+            $requested ?? $enabled,
         ));
     }
 

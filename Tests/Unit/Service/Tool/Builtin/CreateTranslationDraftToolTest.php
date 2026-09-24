@@ -117,6 +117,17 @@ final class CreateTranslationDraftToolTest extends AbstractUnitTestCase
         self::assertInstanceOf(ToolPreviewInterface::class, $this->tool);
     }
 
+    /**
+     * NEXT-167, demo conversation 103: asked to translate a headline, the model
+     * created the translation and could then not set its text. The description
+     * says so before the call, not after.
+     */
+    #[Test]
+    public function theDescriptionSaysItTakesNoTranslatedText(): void
+    {
+        self::assertStringContainsString('It takes NO translated text', $this->tool->getSpec()->description);
+    }
+
     #[Test]
     public function theSpecOffersNoWayToPublish(): void
     {
