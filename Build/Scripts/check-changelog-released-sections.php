@@ -145,10 +145,28 @@ foreach (array_keys($current) as $version) {
     }
 }
 
-if ($missing !== []) {
-    // One fetch for all of them; a shallow CI checkout carries no tags.
-    $refspecs = array_map(static fn(string $v): string => '+refs/tags/v' . $v . ':refs/tags/v' . $v, $missing);
+/**
+ * Fetch the given version tags from origin in one call; a shallow CI checkout
+ * carries no tags. Git aborts the whole fetch when one named ref does not
+ * exist, so a tag that may be missing must not share a call with the others.
+ *
+ * @param list<string> $versions
+ */
+function fetchTags(string $root, array $versions): void
+{
+    if ($versions === []) {
+        return;
+    }
+
+    $refspecs = array_map(static fn(string $v): string => '+refs/tags/v' . $v . ':refs/tags/v' . $v, $versions);
     git($root, array_merge(['fetch', '--quiet', '--depth=1', '--no-tags', 'origin'], $refspecs));
+}
+
+// The topmost section may precede its tag (a release PR), so its tag is
+// fetched on its own and a failure there is expected.
+fetchTags($root, array_values(array_filter($missing, static fn(string $v): bool => $v !== $topmost)));
+if (in_array($topmost, $missing, true)) {
+    fetchTags($root, [$topmost]);
 }
 
 $problems = [];

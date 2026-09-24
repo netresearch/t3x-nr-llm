@@ -103,6 +103,33 @@ final class ChangelogReleasedSectionsCheckTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function aShallowCheckoutFetchesTheOlderTagsBesideAnUntaggedTopmostSection(): void
+    {
+        // The CI shape on a release PR: a depth-1 clone without tags, and a
+        // topmost section whose tag does not exist on origin yet. A fetch that
+        // names that tag aborts as a whole, so it must not share one fetch
+        // with the tags that do exist.
+        $origin = $this->repo . '-origin.git';
+        $clone = $this->repo . '-clone';
+        try {
+            $this->runCommand('git', 'clone', '--quiet', '--bare', $this->repo, $origin);
+            $this->runCommand('git', 'clone', '--quiet', '--depth=1', '--no-tags', 'file://' . $origin, $clone);
+            $changelog = str_replace(
+                '## [1.1.0]',
+                "## [1.2.0] - 2026-01-03\n\n### Added\n\n- The next feature.\n\n## [1.1.0]",
+                self::AT_1_1_0,
+            );
+
+            [$exit, $stderr] = $this->check($changelog, $clone);
+
+            self::assertSame(0, $exit, $stderr);
+        } finally {
+            $this->removeTree($origin);
+            $this->removeTree($clone);
+        }
+    }
+
+    #[Test]
     public function anOlderSectionWithoutAReadableTagFails(): void
     {
         // No origin to fetch from, so the missing tag stays missing.
@@ -152,13 +179,14 @@ final class ChangelogReleasedSectionsCheckTest extends AbstractUnitTestCase
      *
      * @return array{int, string}
      */
-    private function check(string $changelog): array
+    private function check(string $changelog, ?string $root = null): array
     {
-        $path = $this->repo . '/CHANGELOG.md';
+        $root ??= $this->repo;
+        $path = $root . '/CHANGELOG.md';
         file_put_contents($path, $changelog);
 
         $script = dirname(__DIR__, 2) . '/Build/Scripts/check-changelog-released-sections.php';
-        $proc = proc_open([PHP_BINARY, $script, $path, $this->repo], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        $proc = proc_open([PHP_BINARY, $script, $path, $root], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
         if (!is_resource($proc)) {
             throw new RuntimeException('cannot start the check', 1790250001);
         }
@@ -181,7 +209,13 @@ final class ChangelogReleasedSectionsCheckTest extends AbstractUnitTestCase
 
     private function git(string ...$args): void
     {
-        $proc = proc_open(array_merge(['git', '-C', $this->repo], array_values($args)), [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        $this->runCommand('git', '-C', $this->repo, ...$args);
+    }
+
+    private function runCommand(string ...$command): void
+    {
+        $args = array_values($command);
+        $proc = proc_open($args, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
         if (!is_resource($proc)) {
             throw new RuntimeException('cannot start git', 1790250002);
         }
@@ -191,7 +225,7 @@ final class ChangelogReleasedSectionsCheckTest extends AbstractUnitTestCase
         fclose($pipes[1]);
         fclose($pipes[2]);
         if (proc_close($proc) !== 0) {
-            throw new RuntimeException('git ' . implode(' ', $args) . ' failed: ' . $stderr, 1790250003);
+            throw new RuntimeException(implode(' ', $args) . ' failed: ' . $stderr, 1790250003);
         }
     }
 
