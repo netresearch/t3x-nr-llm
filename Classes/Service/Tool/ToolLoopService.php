@@ -1323,9 +1323,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * editorial write into a failed one — and the model's next move on a failed
      * write is to try it again. This is the one place in the loop where foreign
      * code runs after the side effect, so it is the one place in the loop that
-     * swallows; a hook that fails after the last write of an outermost
-     * DataHandler run is caught by {@see ToolDataHandler} for the same reason
-     * (ADR-206).
+     * swallows; a hook or listener that fails after the last write of an
+     * outermost DataHandler run is caught by {@see ToolDataHandler} for the
+     * same reason (ADR-206).
      * Swallows, not hides: the full Throwable goes to the log.
      */
     private function announceWrite(ToolResult $result, ToolExecutionContext $context): void

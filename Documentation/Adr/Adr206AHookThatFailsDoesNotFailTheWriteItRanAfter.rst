@@ -68,7 +68,9 @@ method the OUTERMOST run called when it failed:
 
 When the cache flush itself fails, it is not retried — it would fail the
 same way — and its queue is emptied, or the next run in the same process
-would replay it.
+would replay it. A reference index update that failed is not retried either;
+the records after the failing one stay unindexed until they are written
+again.
 
 **The DataHandler's error log stays as TYPO3 wrote it.** Written into it, a
 failure after a landed write would make the writers answer "refused" at the
@@ -98,11 +100,12 @@ Consequences
   translation and its flash message — does not happen, and the note is the
   only trace of it in the chat. The note names at most three failures; the
   log has all of them.
-- The code a failure is named by is the hook method the DataHandler called;
-  for a hook called through ``GeneralUtility::callUserFunction()`` or a
-  listener called through the event dispatcher, also below a core service such
-  as the reference index, it is the first class outside TYPO3's own namespace
-  inside that call. Any other core callee is named as it is.
+- The code a failure is named by is the hook method the DataHandler called,
+  whatever failed inside it. Where the DataHandler called TYPO3's own code, a
+  hook called through ``GeneralUtility::callUserFunction()`` or a listener
+  called through the event dispatcher inside it is named, also below a core
+  service such as the reference index; any other core callee is named as it
+  is, and library code deeper inside never is.
 - The note says that the run had written its records when the code failed,
   and leaves the outcome of the call to the tool's own answer: the same note
   can follow a refusal or a write the tool took back.
@@ -125,7 +128,8 @@ Consequences
   The failure is still logged.
 - ``ToolLoopService::announceWrite()`` is no longer the only place in the
   write path that catches foreign code: it catches a listener after the tool
-  returned, ``ToolDataHandler`` catches a hook after the last write of a run.
+  returned, ``ToolDataHandler`` catches a hook or a listener after the last
+  write of an outermost run.
 
 Alternatives considered
 =======================

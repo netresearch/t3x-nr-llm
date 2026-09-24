@@ -37,13 +37,13 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * - **After the writes** — in a `processDatamap_afterAllOperations` or
  *   `processCmdmap_afterFinish` hook, in the reference index update, which
  *   runs listeners and soft-reference parsers of the installation, or in the
- *   cache flush, which runs hooks of its own. Every
- *   record of the run is written. The run's finishing steps that did not run
- *   yet — reference index update, cache flush, registry reset — run now; the
- *   hooks after the failing one in the same list do not. The failure is
- *   logged, and a one-line description is recorded for the tool loop, which
- *   adds it to the tool's answer ({@see self::takeFailures()}). The tool reads
- *   back and answers as usual.
+ *   cache flush, which runs hooks of its own. Every record of the run is
+ *   written. The run's finishing steps that did not run yet — reference
+ *   index update, cache flush, registry reset — run now; neither the hooks
+ *   after the failing one in the same list nor a failed reference index
+ *   update run again. The failure is logged, and a one-line description is
+ *   recorded for the tool loop, which adds it to the tool's answer
+ *   ({@see self::takeFailures()}). The tool reads back and answers as usual.
  * - **During the writes** — anywhere else, a nested run included: a copy or a
  *   translation core writes through a DataHandler of its own. Some records may
  *   be written and some not, and relations may still point at the source. The
@@ -279,13 +279,15 @@ class ToolDataHandler extends DataHandler
      * The installation's code that failed, as `Class::method()`, or null when
      * the trace names none.
      *
-     * The frame the DataHandler called is the hook method itself for a
-     * `processDatamap_*` / `processCmdmap_*` hook, and it is named. A hook
-     * called through `GeneralUtility::callUserFunction()`, or a listener
-     * through the event dispatcher, sits further inside, also below a core
-     * service such as the reference index: when one of the two dispatchers is
-     * on the way in, the first frame inside it that is outside TYPO3's own
-     * namespace is named. Otherwise the frame the DataHandler called is.
+     * The frame the DataHandler called is named when it is code of the
+     * installation — a `processDatamap_*` / `processCmdmap_*` hook, whatever
+     * failed inside it. When it is TYPO3's own code, a hook called through
+     * `GeneralUtility::callUserFunction()` or a listener called through the
+     * event dispatcher may sit inside it, also below a core service such as
+     * the reference index: the first dispatcher on the way in is found, and
+     * the hook or listener it called directly is named. Without a dispatcher
+     * the frame the DataHandler called is named as it is, so library code
+     * deeper inside is never named for the installation's.
      */
     private function failingCode(Throwable $failure): ?string
     {
@@ -298,26 +300,61 @@ class ToolDataHandler extends DataHandler
                 continue;
             }
 
-            for ($dispatcher = $index; $dispatcher >= 0; $dispatcher--) {
-                $key = ($trace[$dispatcher]['class'] ?? '') . '::' . $trace[$dispatcher]['function'];
-                if (!in_array($key, self::DISPATCHERS, true)) {
-                    continue;
-                }
-
-                for ($inner = $dispatcher - 1; $inner >= 0; $inner--) {
-                    $innerClass = $trace[$inner]['class'] ?? null;
-                    if (is_string($innerClass) && !str_starts_with($innerClass, 'TYPO3\\CMS\\')) {
-                        return $innerClass . '::' . $trace[$inner]['function'] . '()';
-                    }
-                }
-
-                break;
-            }
-
-            return $class . '::' . $frame['function'] . '()';
+            return $this->dispatchedCode($trace, $index) ?? $class . '::' . $frame['function'] . '()';
         }
 
         return null;
+    }
+
+    /**
+     * What the first dispatcher at or inside frame `$from` called directly,
+     * when the frame at `$from` is TYPO3's own code; otherwise null.
+     *
+     * @param list<array<string, mixed>> $trace
+     */
+    private function dispatchedCode(array $trace, int $from): ?string
+    {
+        if (!$this->isCoreClass($trace[$from]['class'] ?? null)) {
+            return null;
+        }
+
+        for ($index = $from; $index > 0; $index--) {
+            $key = $this->frameKey($trace[$index]);
+            if (!in_array($key, self::DISPATCHERS, true)) {
+                continue;
+            }
+
+            // The dispatcher may reach its callee through a PHP function such
+            // as call_user_func_array(), which is a frame without a class.
+            $callee = $index - 1;
+            while ($callee >= 0 && !isset($trace[$callee]['class'])) {
+                $callee--;
+            }
+
+            return $callee < 0 ? null : $this->frameKey($trace[$callee]) . '()';
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $frame
+     */
+    private function frameKey(array $frame): string
+    {
+        $class    = $frame['class'] ?? null;
+        $function = $frame['function'] ?? null;
+
+        return (is_string($class) ? $class . '::' : '') . (is_string($function) ? $function : '');
+    }
+
+    /**
+     * True for a class name in TYPO3's own namespace — and for no class at
+     * all, which names no code of the installation either.
+     */
+    private function isCoreClass(mixed $class): bool
+    {
+        return !is_string($class) || str_starts_with($class, 'TYPO3\\CMS\\');
     }
 
     private function isDatabaseFailure(Throwable $failure): bool

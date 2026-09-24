@@ -16,6 +16,7 @@ use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Messaging\FlashMessage;
 use TYPO3\CMS\Core\Messaging\FlashMessageService;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * A DataHandler hook of an installation that throws, chosen per test through
@@ -50,6 +51,9 @@ final class FailsLikeAFlashMessageHook
 
     public const NESTED_AFTER_ALL_OPERATIONS = 'nestedAfterAllOperations';
 
+    /** The after-hook calls a function of its own through callUserFunction(), and that function throws. */
+    public const DISPATCHES_FROM_AFTER_ALL_OPERATIONS = 'dispatchesFromAfterAllOperations';
+
     public static ?string $failAt = null;
 
     /**
@@ -78,6 +82,16 @@ final class FailsLikeAFlashMessageHook
         ) {
             $this->queueSessionMessage();
         }
+
+        if (self::$failAt === self::DISPATCHES_FROM_AFTER_ALL_OPERATIONS) {
+            $parameters = [];
+            GeneralUtility::callUserFunction(self::class . '->failWhenCalled', $parameters, $this);
+        }
+    }
+
+    public function failWhenCalled(): never
+    {
+        throw new RuntimeException('A function the test hook dispatches to fails', 1790000008);
     }
 
     public function processCmdmap_afterFinish(): void

@@ -205,10 +205,31 @@ final class ToolDataHandlerTest extends AbstractFunctionalTestCase
         FailsLikeAFlashMessageHook::$failAt     = FailsLikeAFlashMessageHook::AFTER_ALL_OPERATIONS;
         FailsInTheReferenceIndexListener::$fail = true;
 
-        $this->updateHeader('After');
+        $this->updateHeader('After', ['records' => 'tt_content_' . self::OTHER_ELEMENT]);
 
+        // The listener threw before the relation was indexed, so the update
+        // did fail; theStepsTheFailureSkippedStillRun indexes the same run.
+        self::assertSame(0, $this->referenceIndexRowsFrom(self::ELEMENT, 'records'), 'The reference index update did not fail, so this proves nothing.');
         self::assertContains(self::PAGE, CountsCacheClearsHook::$pages, 'The flush after the failing update had nothing left to flush.');
         self::assertStringContainsString('::processDatamap_afterAllOperations() threw Error', $this->onlyFailure());
+    }
+
+    /**
+     * A hook the DataHandler calls directly is named by itself, also when what
+     * failed was something the hook handed on: the hook is the installation's
+     * code the DataHandler reached, not whatever it called in turn.
+     */
+    #[Test]
+    public function aHookTheDataHandlerCallsIsNamedEvenWhenItDispatchesOnward(): void
+    {
+        FailsLikeAFlashMessageHook::$failAt = FailsLikeAFlashMessageHook::DISPATCHES_FROM_AFTER_ALL_OPERATIONS;
+
+        $this->updateHeader('After');
+
+        self::assertStringStartsWith(
+            FailsLikeAFlashMessageHook::class . '::processDatamap_afterAllOperations() threw RuntimeException: A function the test hook dispatches to fails',
+            $this->onlyFailure(),
+        );
     }
 
     /**
