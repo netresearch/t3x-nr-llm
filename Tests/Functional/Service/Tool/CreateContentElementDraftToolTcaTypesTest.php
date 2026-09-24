@@ -224,6 +224,38 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         );
     }
 
+    /**
+     * An extension that adds a column to every content type does not take
+     * every type away (NEXT-164): the demo carries bootstrap_package's
+     * `background_image_options` (a FlexForm in the `frames` palette) and
+     * EXT:contexts' `tx_contexts_settings` (a `user` field in every
+     * `showitem`), and with either one no type was offered at all.
+     */
+    #[Test]
+    public function aColumnEveryContentTypeCarriesExcludesNoType(): void
+    {
+        $this->addColumnsToEveryContentType();
+        $this->tool = new CreateContentElementDraftTool($this->connectionPool);
+
+        $description = $this->tool->getSpec()->description;
+        foreach (['header', 'text', 'textmedia', 'bullets', 'table', self::SCALAR_TYPE] as $offered) {
+            self::assertMatchesRegularExpression('/\b' . $offered . '\b/', $description, $offered . ' must still be offered');
+        }
+
+        // A type's OWN excluding column still excludes it.
+        foreach ([self::FLEX_TYPE, self::INLINE_TYPE] as $excluded) {
+            self::assertDoesNotMatchRegularExpression('/\b' . $excluded . '\b/', $description, $excluded . ' must not be offered');
+        }
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE, 'type' => 'text', 'header' => 'Shared columns', 'bodytext' => '<p>Text.</p>'],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame('text', $this->createdElement()['CType'] ?? null);
+    }
+
     #[Test]
     public function aTypeWithAnInlineColumnIsRefused(): void
     {
@@ -1058,6 +1090,60 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         $GLOBALS['TCA']    = $tca;
 
         $this->getService(TcaSchemaFactory::class)->rebuild($tca);
+    }
+
+    /**
+     * The two ways an extension adds a column to every content type, as the
+     * demo's bootstrap_package and EXT:contexts do: a FlexForm in core's
+     * `frames` palette, and a `user` field appended to every `showitem`.
+     * Nothing writes either column, so neither needs a database column.
+     */
+    private function addColumnsToEveryContentType(): void
+    {
+        $tca = $GLOBALS['TCA'];
+        self::assertIsArray($tca);
+        $table = $tca['tt_content'] ?? null;
+        self::assertIsArray($table);
+        $columns = $table['columns'] ?? null;
+        self::assertIsArray($columns);
+        $palettes = $table['palettes'] ?? null;
+        self::assertIsArray($palettes);
+        $types = $table['types'] ?? null;
+        self::assertIsArray($types);
+
+        $columns['nrllm_frame_options'] = [
+            'label'  => 'Frame options',
+            'config' => ['type' => 'flex', 'ds' => ['default' => '<T3DataStructure><ROOT><type>array</type><el></el></ROOT></T3DataStructure>']],
+        ];
+        $columns['nrllm_visibility'] = [
+            'label'  => 'Visibility',
+            'config' => ['type' => 'user', 'renderType' => 'nrllmVisibility'],
+        ];
+
+        $frames = $palettes['frames'] ?? null;
+        self::assertIsArray($frames, 'core declares the frames palette');
+        $frames['showitem'] = $this->toStringValue($frames['showitem'] ?? '') . ', --linebreak--, nrllm_frame_options';
+        $palettes['frames'] = $frames;
+
+        foreach ($types as $name => $type) {
+            if (is_array($type)) {
+                $type['showitem'] = $this->toStringValue($type['showitem'] ?? '') . ', nrllm_visibility';
+                $types[$name]     = $type;
+            }
+        }
+
+        $table['columns']  = $columns;
+        $table['palettes'] = $palettes;
+        $table['types']    = $types;
+        $tca['tt_content'] = $table;
+        $GLOBALS['TCA']    = $tca;
+
+        $this->getService(TcaSchemaFactory::class)->rebuild($tca);
+    }
+
+    private function toStringValue(mixed $value): string
+    {
+        return is_string($value) ? $value : '';
     }
 
     /**

@@ -225,6 +225,7 @@ trait ReadsContentTypeFormsTrait
             return [];
         }
 
+        $shared    = $this->sharedFormColumns();
         $available = [];
         foreach ($items as $item) {
             if (!is_array($item)) {
@@ -232,7 +233,7 @@ trait ReadsContentTypeFormsTrait
             }
 
             $type = $item['value'] ?? null;
-            if (is_string($type) && $type !== '--div--' && $this->isOffered($type, self::toStr($item['group'] ?? ''))) {
+            if (is_string($type) && $type !== '--div--' && $this->isOffered($type, self::toStr($item['group'] ?? ''), $shared)) {
                 $available[] = $type;
             }
         }
@@ -251,9 +252,13 @@ trait ReadsContentTypeFormsTrait
      * excluding column excludes the type. A type without a form is excluded
      * too — nothing says what it holds.
      *
-     * @param string $itemGroup the `group` of the type's `CType` item, '' when it has none
+     * A column of the shared form (see {@see self::sharedFormColumns()}) does
+     * not decide: it is left at its default like an unfilled column.
+     *
+     * @param string              $itemGroup the `group` of the type's `CType` item, '' when it has none
+     * @param array<string, true> $shared    the columns of the form every content type shares
      */
-    private function isOffered(string $type, string $itemGroup): bool
+    private function isOffered(string $type, string $itemGroup, array $shared = []): bool
     {
         if (in_array($type, self::DENIED_TYPES, true) || str_starts_with($type, self::DENIED_TYPE_PREFIX)) {
             return false;
@@ -271,12 +276,39 @@ trait ReadsContentTypeFormsTrait
         }
 
         foreach ($columns as $name => $config) {
-            if (!$this->isSystemColumn($name) && $this->columnKind($config) === 'excluding') {
+            if (!$this->isSystemColumn($name) && !isset($shared[$name]) && $this->columnKind($config) === 'excluding') {
                 return false;
             }
         }
 
         return true;
+    }
+
+    /**
+     * The columns of the form every content type shares: those of core's
+     * `header` type, the smallest content form, which core itself copies onto
+     * a plugin registered without a form of its own.
+     *
+     * An extension that adds a column to every content type puts it into
+     * that form as well — into one of the palettes core gives every type, as
+     * bootstrap_package does with `background_image_options` (a FlexForm in
+     * `frames`), or into every type's `showitem`, as EXT:contexts does with
+     * `tx_contexts_settings` (a `user` field). Such a column is presentation
+     * or visibility, not what the type holds; judged like a column of the
+     * type's own, it excluded every type on an installation with either
+     * extension (NEXT-164). It stays out of `fields` and is left at its
+     * default, like an unfilled column.
+     *
+     * @return array<string, true>
+     */
+    private function sharedFormColumns(): array
+    {
+        $shared = [];
+        foreach (array_keys($this->columnsOfType('header')) as $name) {
+            $shared[(string)$name] = true;
+        }
+
+        return $shared;
     }
 
     /**
