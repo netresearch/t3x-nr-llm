@@ -43,9 +43,12 @@ declares with its identifier and its current state — *Would be created* or
        the ``chat`` capability — so it installs against a local Ollama as
        readily as against a hosted provider. It sets no tool group restriction
        of its own.
-   * - Four tasks
-     - Summarise for a teaser, rewrite for clarity, proofread, suggest
-       headlines. Each takes the text through ``{{input}}``.
+   * - Nine tasks
+     - Six that transform the text: summarise for a teaser, rewrite for
+       clarity, expand, correct spelling and grammar, plain language version,
+       suggest headlines. Three that only review it: proofread, check
+       readability, check for gaps and tone. Each takes the text through
+       ``{{input}}``.
    * - Two snippets
      - *House style* (tag ``tone_of_voice``) and *Target audience* (tag
        ``audience``). Both are meant to be edited — they are the pack's
@@ -171,8 +174,8 @@ and does not connect a pack task to one — a task-to-action execution contract
 would need a new execution path and is a separate decision
 (:ref:`ADR-168 <adr-168>`).
 
-*Editorial Starter* declares no editor action, deliberately: its four tasks are
-text transforms, and an editor action runs on the **default** configuration
+*Editorial Starter* declares no editor action, deliberately: its tasks are
+text transforms and reviews, and an editor action runs on the **default** configuration
 rather than on the pack's, so the pack's house-style snippet would not reach
 one.
 
