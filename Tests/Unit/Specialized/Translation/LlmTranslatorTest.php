@@ -29,6 +29,7 @@ use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
 use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
 use Psr\Log\LoggerInterface;
@@ -404,6 +405,80 @@ class LlmTranslatorTest extends AbstractUnitTestCase
 
         self::assertCount(1, $captured->list);
         self::assertSame(42, $captured->list[0]->getBeUserUid());
+    }
+
+    /**
+     * ADR-209: without an explicit `max_tokens`, the output budget grows with
+     * the text — the former fixed 2000 cut long texts off — and is capped.
+     *
+     * @return iterable<string, array{0: string, 1: int}>
+     */
+    public static function outputBudgets(): iterable
+    {
+        yield 'a short text keeps the former 2000' => ['Hello', 2000];
+        yield 'a long text gets a token per byte' => [str_repeat('a', 9000), 9000];
+        yield 'a very long text is capped' => [str_repeat('a', 50000), 16000];
+    }
+
+    #[Test]
+    #[DataProvider('outputBudgets')]
+    public function theOutputBudgetGrowsWithTheText(string $text, int $expected): void
+    {
+        [$llmManager, $captured] = $this->createChatCapturingManager('Hallo');
+
+        (new LlmTranslator($llmManager, $this->usageTrackerStub))->translate($text, 'de', 'en');
+
+        self::assertSame($expected, $captured->list[0]->getMaxTokens());
+    }
+
+    /**
+     * A pinned provider runs without a model record, so no output limit caps
+     * the budget on the way; the former fixed 2000 stays there (ADR-209).
+     */
+    #[Test]
+    public function aPinnedProviderKeepsTheFormerBudget(): void
+    {
+        [$llmManager, $captured] = $this->createChatCapturingManager('Hallo');
+
+        (new LlmTranslator($llmManager, $this->usageTrackerStub))->translate(str_repeat('a', 9000), 'de', 'en', ['provider' => 'ollama']);
+
+        self::assertSame(2000, $captured->list[0]->getMaxTokens());
+    }
+
+    #[Test]
+    public function anExplicitMaxTokensWins(): void
+    {
+        [$llmManager, $captured] = $this->createChatCapturingManager('Hallo');
+
+        (new LlmTranslator($llmManager, $this->usageTrackerStub))->translate(str_repeat('a', 9000), 'de', 'en', ['max_tokens' => 300]);
+
+        self::assertSame(300, $captured->list[0]->getMaxTokens());
+    }
+
+    /**
+     * ADR-209: a reply cut off at the output limit says so, so a caller can
+     * refuse to use it — and the translation cache does not store it.
+     */
+    #[Test]
+    public function aReplyCutOffAtTheLimitIsMarkedTruncated(): void
+    {
+        $this->setResponse('Halb', 'length');
+
+        $result = $this->subject->translate('Test', 'de', 'en', ['provider' => 'openai']);
+
+        self::assertSame('length', $result->metadata['finish_reason'] ?? null);
+        self::assertTrue($result->metadata['truncated'] ?? false);
+    }
+
+    #[Test]
+    public function aCompleteReplyIsNotMarkedTruncated(): void
+    {
+        $this->setResponse('Ganz', 'stop');
+
+        $result = $this->subject->translate('Test', 'de', 'en', ['provider' => 'openai']);
+
+        self::assertSame('stop', $result->metadata['finish_reason'] ?? null);
+        self::assertFalse($result->metadata['truncated'] ?? true);
     }
 
     #[Test]

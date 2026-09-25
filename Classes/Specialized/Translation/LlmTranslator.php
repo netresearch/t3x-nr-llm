@@ -35,6 +35,12 @@ final readonly class LlmTranslator implements TranslatorInterface
      */
     public const IDENTIFIER = 'llm';
 
+    /** The output budget of a short text, the former fixed value. */
+    private const MIN_OUTPUT_TOKENS = 2000;
+
+    /** The largest output budget asked for without an explicit `max_tokens`. */
+    private const MAX_OUTPUT_TOKENS = 16000;
+
     private const SUPPORTED_LANGUAGES = [
         'en', 'de', 'fr', 'es', 'it', 'pt', 'nl', 'pl', 'ru', 'ja', 'zh', 'ko',
         'ar', 'cs', 'da', 'fi', 'el', 'hu', 'id', 'no', 'ro', 'sk', 'sv', 'th',
@@ -108,12 +114,16 @@ final readonly class LlmTranslator implements TranslatorInterface
         $temperature = isset($options['temperature']) && is_float($options['temperature'])
             ? $options['temperature']
             : 0.3;
-        $maxTokens = isset($options['max_tokens']) && is_int($options['max_tokens'])
-            ? $options['max_tokens']
-            : 2000;
-        $provider = isset($options['provider']) && is_string($options['provider'])
+        $provider = isset($options['provider']) && is_string($options['provider']) && $options['provider'] !== ''
             ? $options['provider']
             : null;
+        // Sized to the text only on the configuration path, where the call
+        // planner caps it at the model's output limit. A pinned provider runs
+        // without a model record, so no limit is known there and the former
+        // fixed budget stays (ADR-209).
+        $maxTokens = isset($options['max_tokens']) && is_int($options['max_tokens'])
+            ? $options['max_tokens']
+            : ($provider === null ? $this->outputBudgetFor($text) : self::MIN_OUTPUT_TOKENS);
         $model = isset($options['model']) && is_string($options['model'])
             ? $options['model']
             : null;
@@ -160,6 +170,10 @@ final readonly class LlmTranslator implements TranslatorInterface
             confidence: $confidence,
             metadata: [
                 'model' => $response->model,
+                // A reply cut off at the output limit is not a translation of
+                // the whole text; callers must be able to tell (ADR-209).
+                'finish_reason' => $response->finishReason,
+                'truncated' => $response->finishReason === 'length',
                 'usage' => [
                     'prompt_tokens' => $response->usage->promptTokens,
                     'completion_tokens' => $response->usage->completionTokens,
@@ -167,6 +181,21 @@ final readonly class LlmTranslator implements TranslatorInterface
                 ],
             ],
         );
+    }
+
+    /**
+     * The output budget when the caller sets none: at least the former fixed
+     * 2000 tokens, and for a longer text as many tokens as its UTF-8 bytes —
+     * a token is three to four bytes of prose, and a translation can run a
+     * third longer than its source, so this leaves room for both and for the
+     * markup of rich text (ADR-209). Capped at 16000 here, and on its way to
+     * the provider at the model's own output limit
+     * ({@see \Netresearch\NrLlm\Service\ConfigurationCallPlanner::callOptions()});
+     * a text that needs more comes back cut off and says so in `truncated`.
+     */
+    private function outputBudgetFor(string $text): int
+    {
+        return min(self::MAX_OUTPUT_TOKENS, max(self::MIN_OUTPUT_TOKENS, strlen($text)));
     }
 
     public function translateBatch(

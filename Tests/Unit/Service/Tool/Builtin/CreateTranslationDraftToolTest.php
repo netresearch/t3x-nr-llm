@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Service\Feature\TranslationServiceInterface;
+use Netresearch\NrLlm\Service\Glossary\GlossaryResolverInterface;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateTranslationDraftTool;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -21,6 +23,7 @@ use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageService;
+use TYPO3\CMS\Core\Site\SiteFinder;
 
 /**
  * Argument validation of the fifth writing tool (ADR-146).
@@ -72,7 +75,12 @@ final class CreateTranslationDraftToolTest extends AbstractUnitTestCase
         $GLOBALS['LANG']    = self::createStub(LanguageService::class);
         $GLOBALS['BE_USER'] = $this->liveUser();
 
-        $this->tool = new CreateTranslationDraftTool(self::createStub(ConnectionPool::class));
+        $this->tool = new CreateTranslationDraftTool(
+            self::createStub(ConnectionPool::class),
+            self::createStub(TranslationServiceInterface::class),
+            self::createStub(SiteFinder::class),
+            self::createStub(GlossaryResolverInterface::class),
+        );
     }
 
     protected function tearDown(): void
@@ -119,13 +127,40 @@ final class CreateTranslationDraftToolTest extends AbstractUnitTestCase
 
     /**
      * NEXT-167, demo conversation 103: asked to translate a headline, the model
-     * created the translation and could then not set its text. The description
-     * says so before the call, not after.
+     * created the translation and could then not set its text. Since ADR-209
+     * the tool translates the text itself, and the description says so — and
+     * that the model passes none of its own — before the call, not after.
      */
     #[Test]
-    public function theDescriptionSaysItTakesNoTranslatedText(): void
+    public function theDescriptionSaysTheTextIsMachineTranslated(): void
     {
-        self::assertStringContainsString('It takes NO translated text', $this->tool->getSpec()->description);
+        $description = $this->tool->getSpec()->description;
+
+        self::assertStringContainsString('MACHINE-TRANSLATED', $description);
+        self::assertStringContainsString('Pass no translated text yourself', $description);
+        self::assertStringContainsString('the result says so', $description);
+    }
+
+    #[Test]
+    public function theTranslatorIsAChoiceOfTwo(): void
+    {
+        $properties = $this->tool->getSpec()->parameters['properties'] ?? null;
+        self::assertIsArray($properties);
+
+        self::assertSame(['deepl', 'llm'], $properties['translator']['enum'] ?? null);
+        self::assertSame(['table', 'uid', 'language'], $this->tool->getSpec()->parameters['required'] ?? null);
+    }
+
+    #[Test]
+    public function anUnknownTranslatorIsRefusedBeforeTheDatabase(): void
+    {
+        $result = $this->tool->execute(
+            ['table' => 'pages', 'uid' => 1, 'language' => 1, 'translator' => 'google'],
+            ToolExecutionContext::fromBackendUser($this->liveUser()),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertSame('Refused: "translator" must be one of deepl, llm.', $result->content);
     }
 
     #[Test]

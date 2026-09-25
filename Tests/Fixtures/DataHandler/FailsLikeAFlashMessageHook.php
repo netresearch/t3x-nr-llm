@@ -49,6 +49,12 @@ final class FailsLikeAFlashMessageHook
 
     public const POST_PROCESS_FIELD_ARRAY = 'postProcessFieldArray';
 
+    /** Throws in `processDatamap_afterDatabaseOperations`: the row is stored, the run is not finished. */
+    public const AFTER_DATABASE_OPERATIONS = 'afterDatabaseOperations';
+
+    /** Does not throw: takes `$dropField` out of the field array, as a hook that vetoes one column does. */
+    public const DROP_FIELD = 'dropField';
+
     public const NESTED_AFTER_ALL_OPERATIONS = 'nestedAfterAllOperations';
 
     /** The after-hook calls a function of its own through callUserFunction(), and that function throws. */
@@ -68,11 +74,23 @@ final class FailsLikeAFlashMessageHook
     /** With `POST_PROCESS_FIELD_ARRAY`: fail only for this uid, so the records before it are written. */
     public static ?int $onlyForUid = null;
 
+    /** With `POST_PROCESS_FIELD_ARRAY`: fail only for a write that sets this column, so earlier passes on the same record go through. */
+    public static ?string $onlyWithField = null;
+
+    /** With `POST_PROCESS_FIELD_ARRAY`: fail only when an existing record is updated, not when one is created. */
+    public static bool $onlyUpdates = false;
+
+    /** With `DROP_FIELD`: the column taken out of an update's field array. */
+    public static ?string $dropField = null;
+
     public static function reset(): void
     {
         self::$failAt     = null;
         self::$throw      = null;
         self::$onlyForUid = null;
+        self::$onlyWithField = null;
+        self::$onlyUpdates   = false;
+        self::$dropField     = null;
     }
 
     public function processDatamap_afterAllOperations(DataHandler $dataHandler): void
@@ -106,8 +124,29 @@ final class FailsLikeAFlashMessageHook
      */
     public function processDatamap_postProcessFieldArray(string $status, string $table, string|int $id, array &$fieldArray): void
     {
-        if (self::$failAt === self::POST_PROCESS_FIELD_ARRAY && (self::$onlyForUid === null || (int)$id === self::$onlyForUid)) {
+        if (self::$failAt === self::DROP_FIELD && $status === 'update' && self::$dropField !== null) {
+            unset($fieldArray[self::$dropField]);
+        }
+
+        if (self::$failAt === self::POST_PROCESS_FIELD_ARRAY
+            && (self::$onlyForUid === null || (int)$id === self::$onlyForUid)
+            && (self::$onlyWithField === null || array_key_exists(self::$onlyWithField, $fieldArray))
+            && (!self::$onlyUpdates || $status === 'update')
+        ) {
             throw new RuntimeException('A test hook fails before the row is written', 1790000001);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $fieldArray
+     */
+    public function processDatamap_afterDatabaseOperations(string $status, string $table, string|int $id, array $fieldArray): void
+    {
+        if (self::$failAt === self::AFTER_DATABASE_OPERATIONS
+            && (self::$onlyWithField === null || array_key_exists(self::$onlyWithField, $fieldArray))
+            && (!self::$onlyUpdates || $status === 'update')
+        ) {
+            throw new RuntimeException('A test hook fails after the row is stored', 1790000009);
         }
     }
 

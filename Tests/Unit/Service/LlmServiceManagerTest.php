@@ -1392,6 +1392,83 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     }
 
     /**
+     * An explicit max_tokens above what the model can produce is capped at the
+     * model's max_output_tokens: the provider would refuse it (ADR-209).
+     */
+    #[Test]
+    public function chatWithConfigurationCapsAnExplicitOverrideAtTheModelLimit(): void
+    {
+        $model = self::createStub(Model::class);
+        $model->method('getMaxOutputTokens')->willReturn(8192);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('test-config');
+        $config->method('toOptionsArray')->willReturn([]);
+
+        $expectedResponse = new CompletionResponse(
+            content: 'ok',
+            model: 'gpt-4o',
+            usage: new UsageStatistics(10, 5, 15),
+            finishReason: 'stop',
+            provider: 'test',
+        );
+
+        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter->expects(self::once())
+            ->method('chatCompletion')
+            ->with(
+                [ChatMessage::fromArray(['role' => 'user', 'content' => 'Hello'])],
+                ['max_tokens' => 8192],
+            )
+            ->willReturn($expectedResponse);
+
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
+
+        $manager = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
+
+        $manager->chatWithConfiguration([['role' => 'user', 'content' => 'Hello']], $config, [], ['max_tokens' => 9000]);
+    }
+
+    /**
+     * With the model's limit unknown (0) nothing is capped.
+     */
+    #[Test]
+    public function chatWithConfigurationKeepsAnExplicitOverrideWhenTheModelLimitIsUnknown(): void
+    {
+        $model = self::createStub(Model::class);
+        $model->method('getMaxOutputTokens')->willReturn(0);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('test-config');
+        $config->method('toOptionsArray')->willReturn([]);
+
+        $expectedResponse = new CompletionResponse(
+            content: 'ok',
+            model: 'gpt-4o',
+            usage: new UsageStatistics(10, 5, 15),
+            finishReason: 'stop',
+            provider: 'test',
+        );
+
+        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter->expects(self::once())
+            ->method('chatCompletion')
+            ->with(
+                [ChatMessage::fromArray(['role' => 'user', 'content' => 'Hello'])],
+                ['max_tokens' => 9000],
+            )
+            ->willReturn($expectedResponse);
+
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
+
+        $manager = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
+
+        $manager->chatWithConfiguration([['role' => 'user', 'content' => 'Hello']], $config, [], ['max_tokens' => 9000]);
+    }
+
+    /**
      * An explicit per-call max_tokens of 0 means "unset" like everywhere
      * else in the #390 contract — it must fall through to the model default
      * instead of sending a 0 the provider API would reject.

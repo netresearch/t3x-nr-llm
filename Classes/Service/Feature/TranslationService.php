@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Feature;
 
 use Closure;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\TranslationResult;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
@@ -18,6 +19,8 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
+use Netresearch\NrLlm\Service\CacheManagerInterface;
+use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Glossary\GlossaryResolverInterface;
 use Netresearch\NrLlm\Service\Glossary\ResolvedGlossary;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
@@ -26,6 +29,7 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\TranslationOptions;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Translation\DeepLGlossarySyncInterface;
+use Netresearch\NrLlm\Specialized\Translation\LlmTranslator;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
@@ -65,6 +69,20 @@ final readonly class TranslationService implements TranslationServiceInterface
 
     private const SUPPORTED_DOMAINS = ['general', 'technical', 'medical', 'legal', 'marketing'];
 
+    /**
+     * Tag of every cached translation (ADR-209). Flushed whenever a record
+     * that decides a translation is saved or deleted — a glossary, a
+     * configuration, a model, a provider, a skill, a prompt snippet
+     * ({@see \Netresearch\NrLlm\Hook\TranslationCacheFlushHook}).
+     */
+    public const CACHE_TAG = 'nrllm_translation';
+
+    /**
+     * Translator options that say who asked, not what was asked — left out of
+     * the cache key (ADR-209).
+     */
+    private const NOT_PART_OF_THE_CACHE_KEY = ['beUserUid' => true, 'plannedCost' => true];
+
     public function __construct(
         private LlmServiceManagerInterface $llmManager,
         private TranslatorRegistryInterface $translatorRegistry,
@@ -77,6 +95,14 @@ final readonly class TranslationService implements TranslationServiceInterface
         // got before.
         private ?GlossaryResolverInterface $glossaryResolver = null,
         private ?DeepLGlossarySyncInterface $deepLGlossarySync = null,
+        // The opt-in translation cache (ADR-209). Appended for the same reason;
+        // null means "never cache", whatever the options ask for.
+        private ?CacheManagerInterface $cache = null,
+        // What the LLM translator's chat call resolves as the default
+        // configuration when no provider is pinned — part of the cache key,
+        // because it decides the answer (ADR-209). Without it, such a call is
+        // never cached.
+        private ?ConfigurationResolver $configurationResolver = null,
     ) {}
 
     /**
@@ -419,14 +445,197 @@ final readonly class TranslationService implements TranslationServiceInterface
         // Determine translator to use
         $translator = $this->resolveTranslator($optionsArray);
 
-        // Execute translation via resolved translator
+        // Execute translation via resolved translator. The cache sits INSIDE the
+        // glossary step on purpose: only there are the options final — the
+        // site glossary's terms (LLM) or the id of the DeepL glossary holding
+        // them — so a changed glossary is a changed key (ADR-209).
         return $this->withSiteGlossary(
             $translator,
             $optionsArray,
             $options,
             $sourceLanguage,
             $targetLanguage,
-            static fn(array $translatorOptions): TranslatorResult => $translator->translate($text, $targetLanguage, $sourceLanguage, $translatorOptions),
+            fn(array $translatorOptions): TranslatorResult => $this->cachedTranslation(
+                $translator,
+                $text,
+                $targetLanguage,
+                $sourceLanguage,
+                $translatorOptions,
+                $options->getCacheTtl() ?? 0,
+                static fn(): TranslatorResult => $translator->translate($text, $targetLanguage, $sourceLanguage, $translatorOptions),
+            ),
+        );
+    }
+
+    /**
+     * One translation, answered from the cache when the caller opted in and
+     * an identical request was answered before (ADR-209).
+     *
+     * The key is everything that decides the output: the translator, both
+     * languages, the text and the final translator options — which carry the
+     * glossary (terms or DeepL glossary id), the tag handling, formality,
+     * domain, context, provider and model. The attribution fields are left out:
+     * who asks does not change the answer. Only a successful result is stored;
+     * a throwing translator reaches the caller and leaves nothing behind.
+     *
+     * A hit skips the translator, and with it the budget pre-flight and the
+     * usage row — the same trade the provider pipeline's CacheMiddleware makes.
+     *
+     * @param array<string, mixed>        $translatorOptions
+     * @param Closure(): TranslatorResult $translate
+     */
+    private function cachedTranslation(
+        TranslatorInterface $translator,
+        string $text,
+        string $targetLanguage,
+        ?string $sourceLanguage,
+        array $translatorOptions,
+        int $cacheTtl,
+        Closure $translate,
+    ): TranslatorResult {
+        if ($cacheTtl <= 0 || !$this->cache instanceof CacheManagerInterface) {
+            return $translate();
+        }
+
+        $decidedBy = $this->unpinnedModel($translator, $translatorOptions);
+        if ($decidedBy === null) {
+            return $translate();
+        }
+
+        $keyOptions = array_diff_key($translatorOptions, self::NOT_PART_OF_THE_CACHE_KEY);
+        ksort($keyOptions);
+
+        $key = $this->cache->generateCacheKey($translator->getIdentifier(), 'translation', [
+            'source'    => $sourceLanguage ?? '',
+            'target'    => $targetLanguage,
+            'text'      => $text,
+            'options'   => $keyOptions,
+            'decidedBy' => $decidedBy,
+        ]);
+
+        $cached = $this->cache->get($key);
+        if ($cached !== null) {
+            $hit = $this->decodeCachedResult($cached);
+            if ($hit instanceof TranslatorResult) {
+                return $hit;
+            }
+        }
+
+        $result = $translate();
+
+        // A blank or cut-off answer is a failure the caller has to see, not
+        // an answer to repeat for a day.
+        if (trim($result->translatedText) === '' || ($result->metadata['truncated'] ?? false) === true) {
+            return $result;
+        }
+
+        $this->cache->set($key, [
+            'translatedText' => $result->translatedText,
+            'sourceLanguage' => $result->sourceLanguage,
+            'targetLanguage' => $result->targetLanguage,
+            'translator'     => $result->translator,
+            'confidence'     => $result->confidence,
+            'alternatives'   => $result->alternatives,
+            'charactersUsed' => $result->charactersUsed,
+            'metadata'       => $result->metadata,
+        ], $cacheTtl, [self::CACHE_TAG]);
+
+        return $result;
+    }
+
+    /**
+     * What decides the answer beyond the options, for the cache key (ADR-209).
+     *
+     * - A translator other than the LLM one: '' — the options say it all.
+     * - The LLM translator with a pinned provider: the provider and the model
+     *   the call runs — the pinned one, or the provider's default model when
+     *   none is pinned. The chat call then bypasses every configuration.
+     * - The LLM translator without a pinned provider, model pinned or not: the
+     *   default configuration the chat call resolves, as uid, identifier,
+     *   model and last change, and the skills it composes into the prompt, by
+     *   identifier and body. A pinned model does not free the call from that
+     *   configuration: its skills, fallback chain and options still apply.
+     *
+     * Null when that cannot be told — no resolver, no usable default, a
+     * provider that does not answer — and then the call is not cached.
+     *
+     * @param array<string, mixed> $translatorOptions
+     */
+    private function unpinnedModel(TranslatorInterface $translator, array $translatorOptions): ?string
+    {
+        if ($translator->getIdentifier() !== LlmTranslator::IDENTIFIER) {
+            return '';
+        }
+
+        $provider = is_string($translatorOptions['provider'] ?? null) ? $translatorOptions['provider'] : '';
+        $model    = is_string($translatorOptions['model'] ?? null) ? $translatorOptions['model'] : '';
+
+        if ($provider !== '') {
+            if ($model !== '') {
+                return 'provider:' . $provider . '|model:' . $model;
+            }
+
+            try {
+                return 'provider:' . $provider . '|model:' . $this->llmManager->getProvider($provider)->getDefaultModel();
+            } catch (Throwable) {
+                return null;
+            }
+        }
+
+        $default = $this->configurationResolver?->resolveDefaultConfiguration(null);
+        if (!$default instanceof LlmConfiguration) {
+            return null;
+        }
+
+        $skills = [];
+        foreach ($default->getSkills() as $skill) {
+            if ($skill instanceof Skill) {
+                $skills[] = $skill->getIdentifier() . ':' . hash('sha256', $skill->getBody());
+            }
+        }
+
+        return sprintf(
+            'configuration:%d|%s|%s|%d|skills:%s',
+            (int)$default->getUid(),
+            $default->getIdentifier(),
+            $default->getModelId(),
+            $default->getTstamp(),
+            implode(',', $skills),
+        );
+    }
+
+    /**
+     * A stored result as a TranslatorResult, flagged as cached, or null for an
+     * entry that does not have the shape {@see self::cachedTranslation()}
+     * writes — which is then treated as a miss rather than trusted.
+     *
+     * @param array<string, mixed> $cached
+     */
+    private function decodeCachedResult(array $cached): ?TranslatorResult
+    {
+        $text       = $cached['translatedText'] ?? null;
+        $source     = $cached['sourceLanguage'] ?? null;
+        $target     = $cached['targetLanguage'] ?? null;
+        $translator = $cached['translator'] ?? null;
+        if (!is_string($text) || !is_string($source) || !is_string($target) || !is_string($translator)) {
+            return null;
+        }
+
+        $confidence   = $cached['confidence'] ?? null;
+        $alternatives = $cached['alternatives'] ?? null;
+        $characters   = $cached['charactersUsed'] ?? null;
+        $metadata     = $cached['metadata'] ?? null;
+
+        return new TranslatorResult(
+            translatedText: $text,
+            sourceLanguage: $source,
+            targetLanguage: $target,
+            translator: $translator,
+            confidence: is_float($confidence) || is_int($confidence) ? (float)$confidence : null,
+            alternatives: is_array($alternatives) ? array_values(array_filter($alternatives, is_string(...))) : null,
+            // Nothing was billed for this answer.
+            charactersUsed: is_int($characters) ? 0 : null,
+            metadata: ['cached' => true] + (is_array($metadata) ? array_filter($metadata, is_string(...), ARRAY_FILTER_USE_KEY) : []),
         );
     }
 

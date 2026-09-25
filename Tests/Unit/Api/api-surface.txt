@@ -1349,7 +1349,8 @@ Netresearch\NrLlm\Service\Feature\TranslationPromptBuilder (class)
   method build(string $text, string $sourceLanguage, string $targetLanguage, array $options): array
 
 Netresearch\NrLlm\Service\Feature\TranslationService (class)
-  constructor(Netresearch\NrLlm\Service\LlmServiceManagerInterface $llmManager, Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface $translatorRegistry, Netresearch\NrLlm\Service\LlmConfigurationServiceInterface $configurationService, Netresearch\NrLlm\Service\Feature\TranslationPromptBuilder $promptBuilder, ?Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface $beUserContextResolver = …, ?Netresearch\NrLlm\Service\Glossary\GlossaryResolverInterface $glossaryResolver = …, ?Netresearch\NrLlm\Specialized\Translation\DeepLGlossarySyncInterface $deepLGlossarySync = …)
+  const CACHE_TAG = "nrllm_translation"
+  constructor(Netresearch\NrLlm\Service\LlmServiceManagerInterface $llmManager, Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface $translatorRegistry, Netresearch\NrLlm\Service\LlmConfigurationServiceInterface $configurationService, Netresearch\NrLlm\Service\Feature\TranslationPromptBuilder $promptBuilder, ?Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface $beUserContextResolver = …, ?Netresearch\NrLlm\Service\Glossary\GlossaryResolverInterface $glossaryResolver = …, ?Netresearch\NrLlm\Specialized\Translation\DeepLGlossarySyncInterface $deepLGlossarySync = …, ?Netresearch\NrLlm\Service\CacheManagerInterface $cache = …, ?Netresearch\NrLlm\Service\ConfigurationResolver $configurationResolver = …)
   method detectLanguage(string $text, ?Netresearch\NrLlm\Service\Option\TranslationOptions $options = …): string
   method findBestTranslator(string $sourceLanguage, string $targetLanguage): ?Netresearch\NrLlm\Specialized\Translation\TranslatorInterface
   method getAvailableTranslators(): array
@@ -1566,8 +1567,9 @@ Netresearch\NrLlm\Service\Option\ToolOptions (class)
   method withToolChoice(string $toolChoice): static
 
 Netresearch\NrLlm\Service\Option\TranslationOptions (class)
-  constructor(?string $formality = …, ?string $domain = …, ?array $glossary = …, ?string $context = …, ?bool $preserveFormatting = …, ?float $temperature = …, ?int $maxTokens = …, ?string $provider = …, ?string $model = …, ?string $configuration = …, ?int $beUserUid = …, ?float $plannedCost = …, ?string $translator = …, ?string $site = …)
+  constructor(?string $formality = …, ?string $domain = …, ?array $glossary = …, ?string $context = …, ?bool $preserveFormatting = …, ?float $temperature = …, ?int $maxTokens = …, ?string $provider = …, ?string $model = …, ?string $configuration = …, ?int $beUserUid = …, ?float $plannedCost = …, ?string $translator = …, ?string $site = …, ?string $tagHandling = …, ?int $cacheTtl = …)
   method getBeUserUid(): ?int
+  method getCacheTtl(): ?int
   method getConfiguration(): ?string
   method getContext(): ?string
   method getDomain(): ?string
@@ -1579,6 +1581,7 @@ Netresearch\NrLlm\Service\Option\TranslationOptions (class)
   method getPreserveFormatting(): ?bool
   method getProvider(): ?string
   method getSite(): ?string
+  method getTagHandling(): ?string
   method getTemperature(): ?float
   method getTranslator(): ?string
   method static formal(): static
@@ -1589,6 +1592,7 @@ Netresearch\NrLlm\Service\Option\TranslationOptions (class)
   method static technical(): static
   method toArray(): array
   method withBeUserUid(int $beUserUid): static
+  method withCacheTtl(int $cacheTtl): static
   method withConfiguration(string $configuration): static
   method withContext(string $context): static
   method withDomain(string $domain): static
@@ -1600,6 +1604,7 @@ Netresearch\NrLlm\Service\Option\TranslationOptions (class)
   method withPreserveFormatting(bool $preserveFormatting): static
   method withProvider(string $provider): static
   method withSite(string $site): static
+  method withTagHandling(string $tagHandling): static
   method withTemperature(float $temperature): static
   method withTranslator(string $translator): static
 
