@@ -139,7 +139,7 @@ final class TranslationServiceSiteGlossaryTest extends AbstractUnitTestCase
     {
         // An unsupported language pair: the sync returns null, and the
         // translation still runs.
-        $subject = $this->subject($this->glossary(), translatorIdentifier: 'deepl', syncedId: null);
+        $subject = $this->subject($this->glossary(), translatorIdentifier: 'deepl');
 
         $result = $subject->translateWithTranslator('Der Warenkorb ist leer.', 'en', 'de', (new TranslationOptions())->withSite('main'));
 

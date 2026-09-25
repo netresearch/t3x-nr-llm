@@ -423,8 +423,8 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
      */
     public function supportsGlossaryLanguagePair(string $sourceLanguage, string $targetLanguage): bool
     {
-        $source = self::glossaryLanguage($sourceLanguage);
-        $target = self::glossaryLanguage($targetLanguage);
+        $source = $this->glossaryLanguage($sourceLanguage);
+        $target = $this->glossaryLanguage($targetLanguage);
 
         return $source !== $target
             && in_array($source, self::GLOSSARY_LANGUAGES, true)
@@ -447,8 +447,8 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
 
         $payload = [
             'name' => $name,
-            'source_lang' => self::glossaryLanguage($sourceLanguage),
-            'target_lang' => self::glossaryLanguage($targetLanguage),
+            'source_lang' => $this->glossaryLanguage($sourceLanguage),
+            'target_lang' => $this->glossaryLanguage($targetLanguage),
             'entries' => $tsvEntries,
             'entries_format' => 'tsv',
         ];
@@ -487,7 +487,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
      * A glossary is keyed by base language in lowercase — `de`, never `DE`
      * or `de-DE`. `no` is accepted as the legacy code for `nb`.
      */
-    private static function glossaryLanguage(string $languageCode): string
+    private function glossaryLanguage(string $languageCode): string
     {
         $base = strtolower(explode('-', str_replace('_', '-', trim($languageCode)))[0]);
 

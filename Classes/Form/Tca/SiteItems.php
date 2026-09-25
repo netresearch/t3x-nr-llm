@@ -27,16 +27,15 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 final class SiteItems
 {
-    public function __construct(
-        private readonly ?SiteFinder $siteFinder = null,
-    ) {}
-
     /**
      * @param array{items: array<int, array{label: string, value: string}>, row?: array<string, mixed>} $params
      */
     public function addItems(array &$params): void
     {
-        $siteFinder = $this->siteFinder ?? GeneralUtility::makeInstance(SiteFinder::class);
+        // makeInstance like the sibling item providers: FormEngine creates
+        // this class through GeneralUtility::callUserFunction(), not through
+        // the container.
+        $siteFinder = GeneralUtility::makeInstance(SiteFinder::class);
 
         $known = [];
         foreach ($siteFinder->getAllSites() as $site) {

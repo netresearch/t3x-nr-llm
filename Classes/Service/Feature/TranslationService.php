@@ -496,7 +496,7 @@ final readonly class TranslationService implements TranslationServiceInterface
     private function siteGlossary(TranslationOptions $options, ?string $sourceLanguage, string $targetLanguage): ?ResolvedGlossary
     {
         $site = $options->getSite();
-        if ($this->glossaryResolver === null || $site === null || $site === ''
+        if (!$this->glossaryResolver instanceof GlossaryResolverInterface || $site === null || $site === ''
             || $options->getGlossary() !== null || $sourceLanguage === null
         ) {
             return null;
@@ -526,7 +526,7 @@ final readonly class TranslationService implements TranslationServiceInterface
         string $targetLanguage,
     ): array {
         $glossary = $this->siteGlossary($options, $sourceLanguage, $targetLanguage);
-        if ($glossary === null) {
+        if (!$glossary instanceof ResolvedGlossary) {
             return $optionsArray;
         }
 
@@ -655,7 +655,7 @@ final readonly class TranslationService implements TranslationServiceInterface
         // After detection on purpose: which glossary applies depends on the
         // source language, and an auto-detected one is only known here.
         $siteGlossary = $this->siteGlossary($options, $sourceLanguage, $targetLanguage);
-        if ($siteGlossary !== null) {
+        if ($siteGlossary instanceof ResolvedGlossary) {
             $optionsArray['glossary'] = $siteGlossary->terms->toArray();
         }
 

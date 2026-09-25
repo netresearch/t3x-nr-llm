@@ -16,10 +16,17 @@ use PHPUnit\Framework\TestCase;
 use TYPO3\CMS\Core\Http\Uri;
 use TYPO3\CMS\Core\Site\Entity\Site;
 use TYPO3\CMS\Core\Site\SiteFinder;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 #[CoversClass(SiteItems::class)]
 final class SiteItemsTest extends TestCase
 {
+    protected function tearDown(): void
+    {
+        GeneralUtility::purgeInstances();
+        parent::tearDown();
+    }
+
     #[Test]
     public function listsEveryConfiguredSiteByItsIdentifier(): void
     {
@@ -78,7 +85,8 @@ final class SiteItemsTest extends TestCase
 
         $siteFinder = self::createStub(SiteFinder::class);
         $siteFinder->method('getAllSites')->willReturn($siteObjects);
+        GeneralUtility::addInstance(SiteFinder::class, $siteFinder);
 
-        return new SiteItems($siteFinder);
+        return new SiteItems();
     }
 }

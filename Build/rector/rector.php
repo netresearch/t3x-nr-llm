@@ -94,6 +94,9 @@ return static function (RectorConfig $rectorConfig) use ($configure): void {
         // collaborator public (see GuardrailRegistry in Services.yaml).
         GeneralUtilityMakeInstanceToConstructorPropertyRector::class => [
             __DIR__ . '/../../Classes/Form/Tca/SnippetTagItems.php',
+            // The site select of tx_nrllm_glossary (ADR-208); its collaborator,
+            // the core SiteFinder, is public already.
+            __DIR__ . '/../../Classes/Form/Tca/SiteItems.php',
             // It extends the core DataHandler and inherits its constructor,
             // whose parameters differ between TYPO3 13.4 and 14.3. A
             // constructor of its own that injects the logger would have to
@@ -104,6 +107,7 @@ return static function (RectorConfig $rectorConfig) use ($configure): void {
         // and the rule only fires because of the rewrite skipped above.
         ReadOnlyClassRector::class => [
             __DIR__ . '/../../Classes/Form/Tca/SnippetTagItems.php',
+            __DIR__ . '/../../Classes/Form/Tca/SiteItems.php',
         ],
         // Skip Fuzzy tests - Eris\Generator namespace functions conflict with auto-imports
         __DIR__ . '/../../Tests/Fuzzy/',

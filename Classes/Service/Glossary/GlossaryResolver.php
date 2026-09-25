@@ -63,7 +63,7 @@ final readonly class GlossaryResolver implements GlossaryResolverInterface
             return null;
         }
 
-        $terms = GlossaryTerms::fromText(self::string($row['entries'] ?? ''));
+        $terms = GlossaryTerms::fromText($this->string($row['entries'] ?? ''));
         if ($terms->isEmpty()) {
             return null;
         }
@@ -75,8 +75,8 @@ final readonly class GlossaryResolver implements GlossaryResolverInterface
             sourceLanguage: $source,
             targetLanguage: $target,
             terms: $terms,
-            deeplGlossaryId: self::string($row['deepl_glossary_id'] ?? ''),
-            deeplEntriesHash: self::string($row['deepl_entries_hash'] ?? ''),
+            deeplGlossaryId: $this->string($row['deepl_glossary_id'] ?? ''),
+            deeplEntriesHash: $this->string($row['deepl_entries_hash'] ?? ''),
         );
     }
 
@@ -126,7 +126,7 @@ final readonly class GlossaryResolver implements GlossaryResolverInterface
             : '';
     }
 
-    private static function string(mixed $value): string
+    private function string(mixed $value): string
     {
         return is_string($value) ? $value : '';
     }
