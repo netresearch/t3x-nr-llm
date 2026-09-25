@@ -68,11 +68,19 @@ final class FailsLikeAFlashMessageHook
     /** With `POST_PROCESS_FIELD_ARRAY`: fail only for this uid, so the records before it are written. */
     public static ?int $onlyForUid = null;
 
+    /** With `POST_PROCESS_FIELD_ARRAY`: fail only for a write that sets this column, so earlier passes on the same record go through. */
+    public static ?string $onlyWithField = null;
+
+    /** With `POST_PROCESS_FIELD_ARRAY`: fail only when an existing record is updated, not when one is created. */
+    public static bool $onlyUpdates = false;
+
     public static function reset(): void
     {
         self::$failAt     = null;
         self::$throw      = null;
         self::$onlyForUid = null;
+        self::$onlyWithField = null;
+        self::$onlyUpdates   = false;
     }
 
     public function processDatamap_afterAllOperations(DataHandler $dataHandler): void
@@ -106,7 +114,11 @@ final class FailsLikeAFlashMessageHook
      */
     public function processDatamap_postProcessFieldArray(string $status, string $table, string|int $id, array &$fieldArray): void
     {
-        if (self::$failAt === self::POST_PROCESS_FIELD_ARRAY && (self::$onlyForUid === null || (int)$id === self::$onlyForUid)) {
+        if (self::$failAt === self::POST_PROCESS_FIELD_ARRAY
+            && (self::$onlyForUid === null || (int)$id === self::$onlyForUid)
+            && (self::$onlyWithField === null || array_key_exists(self::$onlyWithField, $fieldArray))
+            && (!self::$onlyUpdates || $status === 'update')
+        ) {
             throw new RuntimeException('A test hook fails before the row is written', 1790000001);
         }
     }

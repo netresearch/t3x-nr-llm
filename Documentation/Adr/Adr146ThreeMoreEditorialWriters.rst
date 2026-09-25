@@ -106,7 +106,8 @@ vocabulary that never confirms a uid exists.
 
    *Amended by* :ref:`ADR-209 <adr-209>`: after ``localize``, the text
    fields of the new record are machine-translated from the source by DeepL
-   or the LLM translator, with the site glossary.
+   or the LLM translator, with the site glossary — and the tool now checks
+   itself, before ``localize``, that the site defines the target language.
 
    What is *not* re-implemented: whether the target language exists for the
    record's site, and whether the source is a well-formed default-language

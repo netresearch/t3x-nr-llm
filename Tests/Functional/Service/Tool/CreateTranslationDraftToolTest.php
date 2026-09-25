@@ -27,8 +27,10 @@ use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheFailingHookTrait;
 use Netresearch\NrLlm\Tests\Fixtures\Translation\RecordingTranslator;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Cache\Backend\TransientMemoryBackend;
 use TYPO3\CMS\Core\Cache\CacheManager as Typo3CacheManager;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
@@ -310,10 +312,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function theSiteGlossaryReachesTheTranslator(): void
     {
-        $this->connectionPool->getConnectionForTable('tx_nrllm_glossary')->insert('tx_nrllm_glossary', [
-            'uid' => 1, 'pid' => 0, 'name' => 'Terms', 'site_identifier' => 'testing',
-            'source_language' => 'en', 'target_language' => 'de', 'entries' => 'Original = Ursprung',
-        ]);
+        $this->insertGlossary('Original = Ursprung');
         $admin = $this->setUpBackendUser(1);
 
         $result = $this->tool->execute(
@@ -337,7 +336,10 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
     public function aFailedTranslationLeavesTheSourceTextAndSaysSo(): void
     {
         $admin = $this->setUpBackendUser(1);
-        $this->llm->failNext = new RuntimeException('the provider is down');
+        // The SECOND field fails, after the first was translated: nothing may
+        // be written, the first field included.
+        $this->llm->failNext   = new RuntimeException('the provider is down');
+        $this->llm->failOnCall = 2;
 
         $result = $this->tool->execute(
             ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN],
@@ -352,7 +354,9 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
 
         $translation = $this->translationOf('tt_content', self::ELEMENT, 'l18n_parent');
         self::assertSame(1, (int)($translation['hidden'] ?? 0));
-        self::assertStringContainsString('Translate to German', $this->stringOf($translation['header'] ?? null));
+        self::assertCount(2, $this->llm->calls, 'the first field was translated before the second failed');
+        self::assertStringContainsString('[Translate to German:]', $this->stringOf($translation['header'] ?? null));
+        self::assertStringNotContainsString('[de]', $this->stringOf($translation['header'] ?? null));
         self::assertStringNotContainsString('[de]', $this->stringOf($translation['bodytext'] ?? null));
     }
 
@@ -365,17 +369,20 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
     {
         $admin = $this->setUpBackendUser(1);
 
+        // DeepL, because its answer depends on nothing outside the request;
+        // the LLM translator's also depends on the default configuration,
+        // which this test does not set up (see TranslationServiceCacheTest).
         $this->tool->execute(
-            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN],
+            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN, 'translator' => 'deepl'],
             ToolExecutionContext::fromBackendUser($admin),
         );
         $again = $this->tool->execute(
-            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN, 'overwrite' => true],
+            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN, 'translator' => 'deepl', 'overwrite' => true],
             ToolExecutionContext::fromBackendUser($admin),
         );
 
         self::assertFalse($again->isError, $again->content);
-        self::assertCount(2, $this->llm->calls, 'two fields, translated once');
+        self::assertCount(2, $this->deepl->calls, 'two fields, translated once');
         self::assertStringContainsString('(2 from the translation cache)', $again->content);
         self::assertSame('[de] Original', $this->translationOf('tt_content', self::ELEMENT, 'l18n_parent')['header'] ?? null);
     }
@@ -477,11 +484,14 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         self::assertSame(1, (int)($fresh['hidden'] ?? 0));
     }
 
+    /**
+     * The text of a language the site does not define cannot be translated,
+     * so the call is refused before `localize` creates a record (ADR-209) —
+     * rather than by core afterwards, as before.
+     */
     #[Test]
-    public function aLanguageTheSiteDoesNotDefineIsRefusedByCoreAndSurfaced(): void
+    public function aLanguageTheSiteDoesNotDefineIsRefusedBeforeAnythingIsCreated(): void
     {
-        // The tool deliberately does not re-implement this check; core's
-        // localize() does it and its complaint has to reach the caller.
         $admin = $this->setUpBackendUser(1);
 
         $result = $this->tool->execute(
@@ -490,8 +500,12 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertTrue($result->isError);
-        self::assertStringContainsString('refused by TYPO3', $result->content);
-        self::assertStringContainsString('9', $result->content);
+        self::assertSame(
+            'Refused: language 9 is not defined for the site of page [2], so the text cannot be translated into it.',
+            $result->content,
+        );
+        self::assertNull($this->maybeTranslationOf('pages', self::CHILD_PAGE, 'l10n_parent'));
+        self::assertSame([], $this->llm->calls);
     }
 
     #[Test]
@@ -598,10 +612,272 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertSame(
-            'text: MACHINE-TRANSLATED by DeepL (deepl) — header, bodytext; the glossary of the record\'s site applies',
+            'text: MACHINE-TRANSLATED by DeepL (deepl) from "en" to "de" — header, bodytext; the site keeps no '
+            . 'glossary for the pair',
             $lines[2] ?? null,
         );
         self::assertSame([], $this->deepl->calls);
+    }
+
+    /**
+     * The glossary line on the card says what is there: the site glossary
+     * for the pair, with its term count, only when the site keeps one.
+     */
+    #[Test]
+    public function thePreviewNamesTheSiteGlossaryOnlyWhenThereIsOne(): void
+    {
+        $this->insertGlossary('Original = Ursprung');
+        $admin = $this->setUpBackendUser(1);
+
+        $lines = $this->tool->previewCall(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertStringEndsWith('the site glossary for the pair applies (1 term(s))', $lines[2] ?? '');
+    }
+
+    /**
+     * R1: the DataHandler cuts an `input` value to the column's TCA `max`. The
+     * tool cuts first and says so, and the read-back finds what it wrote — a
+     * translation longer than the column is not reported as "not translated".
+     */
+    #[Test]
+    public function aTranslationLongerThanTheColumnIsCutAndSaidSo(): void
+    {
+        $long = str_repeat('Long title ', 30);
+        $this->connectionPool->getConnectionForTable('pages')->update('pages', ['title' => $long], ['uid' => self::CHILD_PAGE]);
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            ['table' => 'pages', 'uid' => self::CHILD_PAGE, 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertGreaterThan(255, mb_strlen('[de] ' . $long));
+        self::assertStringContainsString('Machine-translated 1 text field(s) (title)', $result->content);
+        self::assertStringContainsString("Cut to the column's maximum length: title (to 255 characters).", $result->content);
+        self::assertStringNotContainsString('NOT machine-translated', $result->content);
+        self::assertSame(
+            mb_substr('[de] ' . $long, 0, 255),
+            $this->translationOf('pages', self::CHILD_PAGE, 'l10n_parent')['title'] ?? null,
+        );
+    }
+
+    /**
+     * R3: an answer cut off at the translator's output limit is not a
+     * translation of the text. Nothing is written, and the result says why.
+     */
+    #[Test]
+    public function aTruncatedTranslationIsNotWritten(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        $this->llm->truncate = true;
+
+        $result = $this->tool->execute(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString(
+            'The text was NOT machine-translated: Language model (llm) cut the translation of "header" off at its output limit.',
+            $result->content,
+        );
+        self::assertStringNotContainsString('[de]', $this->stringOf($this->translationOf('tt_content', self::ELEMENT, 'l18n_parent')['header'] ?? null));
+    }
+
+    /**
+     * R4: a hook that fails before the translated row is written is rethrown
+     * by the DataHandler wrapper. The record exists by then, so the call must
+     * still answer with it — and say the text was not written.
+     */
+    #[Test]
+    public function aHookThatFailsWhileTheTranslationIsWrittenKeepsTheCreatedRecord(): void
+    {
+        $context = ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1));
+        $this->failInTheNextWrite(FailsLikeAFlashMessageHook::POST_PROCESS_FIELD_ARRAY);
+        // Only the update that carries the translated header: localize (a
+        // creation) and the hide pass (no header) go through.
+        FailsLikeAFlashMessageHook::$onlyWithField = 'header';
+        FailsLikeAFlashMessageHook::$onlyUpdates   = true;
+
+        $result = $this->tool->execute(['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN], $context);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(WriteKind::CREATED, $result->writeKind);
+        self::assertStringContainsString('The text was NOT machine-translated: the write failed', $result->content);
+        $translation = $this->translationOf('tt_content', self::ELEMENT, 'l18n_parent');
+        self::assertSame(1, (int)($translation['hidden'] ?? 0));
+        self::assertStringContainsString('[Translate to German:]', $this->stringOf($translation['header'] ?? null));
+    }
+
+    /**
+     * R5: a non-admin without the grant for `subheader` gets the other fields
+     * translated; the subheader is not sent to the translator, and the card
+     * and the result name it.
+     */
+    #[Test]
+    public function aFieldTheEditorMayNotEditIsNotSentAndIsNamed(): void
+    {
+        $this->connectionPool->getConnectionForTable('tt_content')->update(
+            'tt_content',
+            ['subheader' => 'Original subheader'],
+            ['uid' => self::ELEMENT],
+        );
+        $editor  = $this->editorWithoutTheSubheaderGrant();
+        $context = ToolExecutionContext::fromBackendUser($editor);
+
+        $lines  = $this->tool->previewCall(['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN], $context);
+        $result = $this->tool->execute(['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN], $context);
+
+        self::assertContains('not translated, because you may not edit them: subheader', $lines);
+        self::assertFalse($result->isError, $result->content);
+        self::assertNotContains('Original subheader', array_column($this->llm->calls, 'text'));
+        self::assertContains('Original', array_column($this->llm->calls, 'text'));
+        self::assertStringContainsString('Not translated, because you may not edit them: subheader.', $result->content);
+    }
+
+    /**
+     * O1: only the columns of the record's TYPE are translated. A `header`
+     * element keeps a `bodytext` from its time as a text element; its form
+     * does not show it, and it is not sent.
+     */
+    #[Test]
+    public function aColumnOutsideTheTypesFormIsNotSent(): void
+    {
+        $this->connectionPool->getConnectionForTable('tt_content')->update(
+            'tt_content',
+            ['CType' => 'header', 'bodytext' => 'Stale body'],
+            ['uid' => self::ELEMENT],
+        );
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(['Original'], array_column($this->llm->calls, 'text'));
+    }
+
+    /**
+     * O5: the three TCA reasons a text column is not translated.
+     *
+     * @return iterable<string, array{0: array<string, mixed>}>
+     */
+    public static function columnsCoreDoesNotLetATranslationChange(): iterable
+    {
+        yield 'l10n_mode exclude' => [['l10n_mode' => 'exclude']];
+        yield 'l10n_display defaultAsReadonly' => [['l10n_display' => 'defaultAsReadonly']];
+        yield 'readOnly' => [['config' => ['readOnly' => true]]];
+    }
+
+    /**
+     * @param array<string, mixed> $columnChange
+     */
+    #[Test]
+    #[DataProvider('columnsCoreDoesNotLetATranslationChange')]
+    public function aColumnATranslationDoesNotOwnIsNotSent(array $columnChange): void
+    {
+        $this->connectionPool->getConnectionForTable('tt_content')->update(
+            'tt_content',
+            ['subheader' => 'Original subheader'],
+            ['uid' => self::ELEMENT],
+        );
+        $tca = $GLOBALS['TCA'];
+        self::assertIsArray($tca);
+
+        try {
+            $GLOBALS['TCA'] = array_replace_recursive($tca, ['tt_content' => ['columns' => ['subheader' => $columnChange]]]);
+            $lines = $this->tool->previewCall(
+                ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN],
+                ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+            );
+        } finally {
+            $GLOBALS['TCA'] = $tca;
+        }
+
+        self::assertStringContainsString('— header, bodytext;', $lines[2] ?? '');
+        self::assertStringNotContainsString('subheader', $lines[2] ?? '');
+    }
+
+    /**
+     * The control for the provider above: without the change, the subheader
+     * IS translated — so each case proves its filter, not an absent column.
+     */
+    #[Test]
+    public function aFilledSubheaderIsTranslatedOtherwise(): void
+    {
+        $this->connectionPool->getConnectionForTable('tt_content')->update(
+            'tt_content',
+            ['subheader' => 'Original subheader'],
+            ['uid' => self::ELEMENT],
+        );
+
+        $lines = $this->tool->previewCall(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertStringContainsString('— header, subheader, bodytext;', $lines[2] ?? '');
+    }
+
+    /**
+     * A person's name is not translated: `pages.author`.
+     */
+    #[Test]
+    public function theAuthorOfAPageIsNotTranslated(): void
+    {
+        $this->connectionPool->getConnectionForTable('pages')->update('pages', ['author' => 'Jane Smith'], ['uid' => self::CHILD_PAGE]);
+        $admin = $this->setUpBackendUser(1);
+
+        $this->tool->execute(
+            ['table' => 'pages', 'uid' => self::CHILD_PAGE, 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertNotContains('Jane Smith', array_column($this->llm->calls, 'text'));
+        self::assertContains('Child', array_column($this->llm->calls, 'text'));
+    }
+
+    private function insertGlossary(string $entries): void
+    {
+        $this->connectionPool->getConnectionForTable('tx_nrllm_glossary')->insert('tx_nrllm_glossary', [
+            'uid' => 1, 'pid' => 0, 'name' => 'Terms', 'site_identifier' => 'testing',
+            'source_language' => 'en', 'target_language' => 'de', 'entries' => $entries,
+        ]);
+    }
+
+    /**
+     * Editor uid 2 with every grant a content translation needs — the table,
+     * both languages, every excluded `tt_content` column — except `subheader`.
+     */
+    private function editorWithoutTheSubheaderGrant(): BackendUserAuthentication
+    {
+        $tca = $GLOBALS['TCA'] ?? null;
+        self::assertIsArray($tca);
+        self::assertIsArray($tca['tt_content'] ?? null);
+        $columns = $tca['tt_content']['columns'] ?? null;
+        self::assertIsArray($columns);
+        $granted = [];
+        foreach ($columns as $name => $column) {
+            if ($name !== 'subheader' && is_array($column) && (bool)($column['exclude'] ?? false)) {
+                $granted[] = 'tt_content:' . $name;
+            }
+        }
+
+        $this->connectionPool->getConnectionForTable('be_groups')->update('be_groups', [
+            'tables_select' => 'pages,tt_content',
+            'tables_modify' => 'tt_content',
+            'non_exclude_fields' => implode(',', $granted),
+            'allowed_languages' => '0,1',
+            'explicit_allowdeny' => 'tt_content:CType:text',
+        ], ['uid' => 7]);
+
+        return $this->setUpBackendUser(2);
     }
 
     private function toolWith(RecordingTranslator $llm, RecordingTranslator $deepl): CreateTranslationDraftTool
@@ -637,6 +913,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
                 new CacheManager($typo3Caches),
             ),
             $siteFinder,
+            new GlossaryResolver($this->connectionPool),
         );
     }
 

@@ -38,6 +38,9 @@ use TYPO3\CMS\Core\Utility\MathUtility;
  */
 trait ReadsContentTypeFormsTrait
 {
+    // The form reading itself, shared with the translation draft (ADR-209).
+    use ReadsRecordTypeFormTrait;
+
     /**
      * Content types no installation may offer through this tool, whatever
      * their form holds (ADR-196): the legacy plugin element, raw HTML, a
@@ -355,60 +358,13 @@ trait ReadsContentTypeFormsTrait
      * language, hidden and access palettes to every `tt_content` type, so the
      * system columns are in here and are skipped by name where it matters.
      * A column the showitem names but the TCA does not define is left out.
+     * The reading is {@see ReadsRecordTypeFormTrait::formColumnsOf()}.
      *
      * @return array<non-empty-string, array<array-key, mixed>>
      */
     private function columnsOfType(string $type): array
     {
-        $tca   = $GLOBALS['TCA'] ?? null;
-        $table = is_array($tca) && is_array($tca[self::TABLE] ?? null) ? $tca[self::TABLE] : null;
-        if ($table === null) {
-            return [];
-        }
-
-        $columns   = is_array($table['columns'] ?? null) ? $table['columns'] : [];
-        $palettes  = is_array($table['palettes'] ?? null) ? $table['palettes'] : [];
-        $types     = is_array($table['types'] ?? null) ? $table['types'] : [];
-        $typeConf  = is_array($types[$type] ?? null) ? $types[$type] : [];
-        $overrides = is_array($typeConf['columnsOverrides'] ?? null) ? $typeConf['columnsOverrides'] : [];
-
-        $names = [];
-        foreach (explode(',', self::toStr($typeConf['showitem'] ?? '')) as $part) {
-            $pieces = explode(';', trim($part));
-            $name   = trim($pieces[0]);
-            if (in_array($name, ['', '--div--', '--linebreak--'], true)) {
-                continue;
-            }
-
-            if ($name !== '--palette--') {
-                $names[] = $name;
-
-                continue;
-            }
-
-            $paletteKey = trim($pieces[2] ?? '');
-            $palette    = is_array($palettes[$paletteKey] ?? null) ? $palettes[$paletteKey] : [];
-            foreach (explode(',', self::toStr($palette['showitem'] ?? '')) as $paletteItem) {
-                $paletteName = trim(explode(';', trim($paletteItem))[0]);
-                if ($paletteName !== '' && $paletteName !== '--linebreak--') {
-                    $names[] = $paletteName;
-                }
-            }
-        }
-
-        $result = [];
-        foreach ($names as $name) {
-            $column = $columns[$name] ?? null;
-            $config = is_array($column) ? ($column['config'] ?? null) : null;
-            if (!is_array($config)) {
-                continue;
-            }
-
-            $override       = is_array($overrides[$name] ?? null) ? ($overrides[$name]['config'] ?? null) : null;
-            $result[$name]  = is_array($override) ? array_replace_recursive($config, $override) : $config;
-        }
-
-        return $result;
+        return $this->formColumnsOf(self::TABLE, $type);
     }
 
     /**

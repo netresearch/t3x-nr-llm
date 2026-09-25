@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
+use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Glossary\GlossaryResolverInterface;
 use Netresearch\NrLlm\Service\Glossary\ResolvedGlossary;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
@@ -27,6 +28,7 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\TranslationOptions;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Translation\DeepLGlossarySyncInterface;
+use Netresearch\NrLlm\Specialized\Translation\LlmTranslator;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
@@ -66,8 +68,11 @@ final readonly class TranslationService implements TranslationServiceInterface
 
     private const SUPPORTED_DOMAINS = ['general', 'technical', 'medical', 'legal', 'marketing'];
 
-    /** Tag of every cached translation, so all of them can be flushed at once (ADR-209). */
-    private const CACHE_TAG = 'nrllm_translation';
+    /**
+     * Tag of every cached translation (ADR-209). Flushed whenever a glossary
+     * record is saved or deleted ({@see \Netresearch\NrLlm\Hook\GlossaryTranslationCacheFlushHook}).
+     */
+    public const CACHE_TAG = 'nrllm_translation';
 
     /**
      * Translator options that say who asked, not what was asked — left out of
@@ -90,6 +95,11 @@ final readonly class TranslationService implements TranslationServiceInterface
         // The opt-in translation cache (ADR-209). Appended for the same reason;
         // null means "never cache", whatever the options ask for.
         private ?CacheManagerInterface $cache = null,
+        // What the LLM translator's chat call resolves as the default
+        // configuration when no provider is pinned — part of the cache key,
+        // because it decides the answer (ADR-209). Without it, such a call is
+        // never cached.
+        private ?ConfigurationResolver $configurationResolver = null,
     ) {}
 
     /**
@@ -484,14 +494,20 @@ final readonly class TranslationService implements TranslationServiceInterface
             return $translate();
         }
 
+        $decidedBy = $this->unpinnedModel($translator, $translatorOptions);
+        if ($decidedBy === null) {
+            return $translate();
+        }
+
         $keyOptions = array_diff_key($translatorOptions, self::NOT_PART_OF_THE_CACHE_KEY);
         ksort($keyOptions);
 
         $key = $this->cache->generateCacheKey($translator->getIdentifier(), 'translation', [
-            'source'  => $sourceLanguage ?? '',
-            'target'  => $targetLanguage,
-            'text'    => $text,
-            'options' => $keyOptions,
+            'source'    => $sourceLanguage ?? '',
+            'target'    => $targetLanguage,
+            'text'      => $text,
+            'options'   => $keyOptions,
+            'decidedBy' => $decidedBy,
         ]);
 
         $cached = $this->cache->get($key);
@@ -503,6 +519,12 @@ final readonly class TranslationService implements TranslationServiceInterface
         }
 
         $result = $translate();
+
+        // A blank or cut-off answer is a failure the caller has to see, not
+        // an answer to repeat for a day.
+        if (trim($result->translatedText) === '' || ($result->metadata['truncated'] ?? false) === true) {
+            return $result;
+        }
 
         $this->cache->set($key, [
             'translatedText' => $result->translatedText,
@@ -516,6 +538,42 @@ final readonly class TranslationService implements TranslationServiceInterface
         ], $cacheTtl, [self::CACHE_TAG]);
 
         return $result;
+    }
+
+    /**
+     * What decides the answer beyond the options, for the cache key: '' when
+     * the options name it — a translator other than the LLM one, or a pinned
+     * provider or model — and for the LLM translator without them, the default
+     * configuration its chat call resolves, as uid, identifier, model and
+     * last change. Null when that cannot be told — no resolver, or no usable
+     * default — and then the call is not cached.
+     *
+     * @param array<string, mixed> $translatorOptions
+     */
+    private function unpinnedModel(TranslatorInterface $translator, array $translatorOptions): ?string
+    {
+        if ($translator->getIdentifier() !== LlmTranslator::IDENTIFIER) {
+            return '';
+        }
+
+        foreach (['provider', 'model'] as $pinned) {
+            if (is_string($translatorOptions[$pinned] ?? null) && $translatorOptions[$pinned] !== '') {
+                return '';
+            }
+        }
+
+        $default = $this->configurationResolver?->resolveDefaultConfiguration(null);
+        if (!$default instanceof LlmConfiguration) {
+            return null;
+        }
+
+        return sprintf(
+            '%d|%s|%s|%d',
+            (int)$default->getUid(),
+            $default->getIdentifier(),
+            $default->getModelId(),
+            $default->getTstamp(),
+        );
     }
 
     /**

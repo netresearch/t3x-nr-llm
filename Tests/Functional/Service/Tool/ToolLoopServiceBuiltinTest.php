@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Feature\TranslationServiceInterface;
+use Netresearch\NrLlm\Service\Glossary\GlossaryResolverInterface;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -334,7 +335,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
     {
         $siteFinder = $this->get(SiteFinder::class);
         self::assertInstanceOf(SiteFinder::class, $siteFinder);
-        $tool = new CreateTranslationDraftTool($this->connectionPool, self::createStub(TranslationServiceInterface::class), $siteFinder);
+        $tool = new CreateTranslationDraftTool($this->connectionPool, self::createStub(TranslationServiceInterface::class), $siteFinder, self::createStub(GlossaryResolverInterface::class));
         // It ships disabled, so the REAL availability service would not offer it.
         (new ToolStateRepository($this->connectionPool))->setEnabled('create_translation_draft', true);
 

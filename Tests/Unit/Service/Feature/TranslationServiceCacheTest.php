@@ -9,8 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\GlossaryTerms;
 use Netresearch\NrLlm\Service\CacheManager;
+use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Feature\TranslationPromptBuilder;
 use Netresearch\NrLlm\Service\Feature\TranslationService;
 use Netresearch\NrLlm\Service\Glossary\GlossaryResolverInterface;
@@ -50,9 +54,24 @@ final class TranslationServiceCacheTest extends AbstractUnitTestCase
 
     private ?Throwable $nextFailure = null;
 
+    /** Answer with this text instead of "[<translator>:<target>] <text>". */
+    private ?string $answer = null;
+
+    /** Answer as a model that hit its output limit. */
+    private bool $truncate = false;
+
     private ?ResolvedGlossary $glossary = null;
 
     private string $deepLGlossaryId = 'glossary-one';
+
+    /** What the LLM translator's chat call resolves as its default configuration. */
+    private ?LlmConfiguration $defaultConfiguration = null;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->defaultConfiguration = $this->configuration(1, 'gpt-5.2', 1000);
+    }
 
     #[Test]
     public function aRepeatedIdenticalCallIsTranslatedOnce(): void
@@ -198,6 +217,98 @@ final class TranslationServiceCacheTest extends AbstractUnitTestCase
         self::assertSame('[llm:de] Hello world', $result->translatedText);
     }
 
+    /**
+     * R2: a blank answer is a failure the caller must see again, not an
+     * answer to repeat for a day.
+     */
+    #[Test]
+    public function aBlankTranslationIsNotStored(): void
+    {
+        $subject      = $this->subject();
+        $this->answer = '  ';
+
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $this->cached('llm'));
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $this->cached('llm'));
+
+        self::assertSame(2, $this->calls['llm'] ?? 0);
+    }
+
+    /**
+     * R3: an answer cut off at the output limit is not stored either.
+     */
+    #[Test]
+    public function aTruncatedTranslationIsNotStored(): void
+    {
+        $subject        = $this->subject();
+        $this->truncate = true;
+
+        $first = $subject->translateWithTranslator('Hello world', 'de', 'en', $this->cached('llm'));
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $this->cached('llm'));
+
+        self::assertTrue($first->metadata['truncated'] ?? false, 'the result still says so');
+        self::assertSame(2, $this->calls['llm'] ?? 0);
+    }
+
+    /**
+     * O3: without a pinned provider the LLM translator answers with the
+     * default configuration, so switching it — another configuration, another
+     * model, or an edit of the same one — is another entry.
+     *
+     * @return iterable<string, array{0: int, 1: string, 2: int}>
+     */
+    public static function otherDefaults(): iterable
+    {
+        yield 'another configuration' => [2, 'gpt-5.2', 1000];
+        yield 'another model' => [1, 'claude-opus', 1000];
+        yield 'the same one, edited' => [1, 'gpt-5.2', 2000];
+    }
+
+    #[Test]
+    #[DataProvider('otherDefaults')]
+    public function switchingTheDefaultConfigurationIsAnotherEntry(int $uid, string $model, int $tstamp): void
+    {
+        $subject = $this->subject();
+
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $this->cached('llm'));
+
+        $this->defaultConfiguration = $this->configuration($uid, $model, $tstamp);
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $this->cached('llm'));
+
+        self::assertSame(2, $this->calls['llm'] ?? 0);
+    }
+
+    /**
+     * When nothing tells which model answers — no usable default — the call
+     * is not cached at all rather than keyed on a guess.
+     */
+    #[Test]
+    public function withoutAResolvableDefaultTheLlmPathIsNotCached(): void
+    {
+        $subject                    = $this->subject();
+        $this->defaultConfiguration = null;
+
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $this->cached('llm'));
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $this->cached('llm'));
+
+        self::assertSame(2, $this->calls['llm'] ?? 0);
+    }
+
+    /**
+     * A pinned provider decides the answer through the options, so the
+     * default configuration is not consulted.
+     */
+    #[Test]
+    public function aPinnedProviderIsKeyedByTheOptionsAlone(): void
+    {
+        $subject                    = $this->subject();
+        $this->defaultConfiguration = null;
+
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $this->cached('llm')->withProvider('ollama'));
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $this->cached('llm')->withProvider('ollama'));
+
+        self::assertSame(1, $this->calls['llm'] ?? 0);
+    }
+
     #[Test]
     public function markupReachesTheTranslatorAsTagHandling(): void
     {
@@ -262,6 +373,9 @@ final class TranslationServiceCacheTest extends AbstractUnitTestCase
         // Built through the cache manager's own configuration rather than by
         // constructing the backend: its constructor differs between TYPO3 13.4
         // (a context argument) and 14.3 (none).
+        $repository = self::createStub(LlmConfigurationRepository::class);
+        $repository->method('findDefault')->willReturnCallback(fn(): ?LlmConfiguration => $this->defaultConfiguration);
+
         $typo3CacheManager = new Typo3CacheManager();
         $typo3CacheManager->setCacheConfigurations([
             'nrllm_responses' => ['frontend' => VariableFrontend::class, 'backend' => TransientMemoryBackend::class, 'options' => [], 'groups' => []],
@@ -276,7 +390,22 @@ final class TranslationServiceCacheTest extends AbstractUnitTestCase
             $resolver,
             $sync,
             new CacheManager($typo3CacheManager),
+            new ConfigurationResolver($repository),
         );
+    }
+
+    private function configuration(int $uid, string $modelId, int $tstamp): LlmConfiguration
+    {
+        $model = new Model();
+        $model->setModelId($modelId);
+
+        $configuration = new LlmConfiguration();
+        $configuration->_setProperty('uid', $uid);
+        $configuration->setIdentifier('default-' . $uid);
+        $configuration->setLlmModel($model);
+        $configuration->_setProperty('tstamp', $tstamp);
+
+        return $configuration;
     }
 
     /**
@@ -313,11 +442,12 @@ final class TranslationServiceCacheTest extends AbstractUnitTestCase
                 }
 
                 return new TranslatorResult(
-                    sprintf('[%s:%s] %s', $identifier, $target, $text),
+                    $this->answer ?? sprintf('[%s:%s] %s', $identifier, $target, $text),
                     $source ?? 'en',
                     $target,
                     $identifier,
                     charactersUsed: mb_strlen($text),
+                    metadata: ['truncated' => $this->truncate],
                 );
             },
         );

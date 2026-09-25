@@ -610,21 +610,31 @@ What holds for all of them:
    An existing translation stops the call and is named in the refusal. The
    ``overwrite`` argument is the only way past it: it **deletes** that
    translation first — recoverably (``deleted = 1``) and in ``sys_log`` — and
-   the approval card says so on its own line. Whether the target language exists
-   for the record's site is core's check, not a second implementation here.
+   the approval card says so on its own line. A language the record's site
+   does not define is refused before anything is created.
 
    The text is then **machine-translated** (:ref:`ADR-209 <adr-209>`): every
    text column of the record's type that holds text in the source — headline,
-   subheader, body, page title, navigation title, description and the like —
-   is translated from the source record and written into the translation.
-   Rich text is sent as HTML, so its markup survives. The ``translator``
-   argument chooses ``deepl`` or ``llm`` (the default); a translator the
-   installation has not configured is refused. The glossary of the record's
-   site for the language pair applies (see :ref:`Glossaries
-   <administration-glossaries>`). The approval card names the translator and the fields.
-   If the translation fails, the draft keeps the copied source text and the
-   result says *The text was NOT machine-translated* with the reason.
-   Identical translations are answered from a cache for a day.
+   subheader, body, page title, navigation title, description and the like,
+   but not the page's author — is translated from the source record and
+   written into the translation. Rich text is sent as HTML, so its markup
+   survives. A translation longer than a column's maximum length is cut to it,
+   and the result says so. The ``translator`` argument chooses ``deepl`` or
+   ``llm`` (the default); a translator the installation has not configured is
+   refused. The glossary of the record's site for the language pair applies
+   (see :ref:`Glossaries <administration-glossaries>`). The approval card
+   names the translator, the fields, fields the user may not edit, and
+   whether the site keeps a glossary for the pair.
+
+   If a translation fails, comes back empty or is cut off at the translator's
+   output limit, nothing is written: the draft keeps the copied source text
+   and the result says *The text was NOT machine-translated* with the reason.
+   If the write itself fails, the result names which fields hold the
+   translation and which still hold the source text.
+
+   Identical translations are answered from a cache for a day. A cached
+   answer does not reach the translator, so it passes no budget check and
+   records no usage. Saving or deleting a glossary empties that cache.
 
 ``create_record_draft``
    Creates one record in a TCA table that has **no dedicated writer** — the

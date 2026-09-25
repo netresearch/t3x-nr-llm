@@ -9,7 +9,8 @@ ADR-209: The translation draft translates its text
 :Status: Accepted
 :Date: 2026-09-25
 :Amends: :ref:`ADR-146 <adr-146>` (``create_translation_draft`` copied the
-    source text and could not change it)
+    source text and could not change it, and left the target-language check
+    to core)
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -34,15 +35,18 @@ Decision
 **After** ``localize`` **created and hid the record, the tool machine-translates
 its text.**
 
-- **Which fields.** Every column of the record's type that is ``input`` or
-  ``text`` and holds text in the source — read from the live TCA with the
-  type's ``columnsOverrides`` applied, because whether ``bodytext`` is rich text
-  or raw markup depends on the content type. Left out: ``l10n_mode = exclude``
-  (core does not copy it), ``l10n_display = defaultAsReadonly`` (the form shows
-  the source value), ``readOnly``, and a ``text`` column with a ``renderType``
-  (a code editor or a table wizard holds code or structure, not prose).
-  Columns the acting user may not edit are not sent to a translator, and the
-  preview and the result name them.
+- **Which fields.** Every ``input`` or ``text`` column of the record's
+  **type** — the columns of the type's form, read from the live TCA with the
+  type's ``columnsOverrides`` applied, by the same reader the content-element
+  writers use — that holds text in the source. A column outside the type's
+  form is not sent even when it holds text: it is left over from another type,
+  and no editor sees it. Left out as well: ``l10n_mode = exclude`` (core does
+  not copy it), ``l10n_display = defaultAsReadonly`` (the form shows the
+  source value), ``readOnly``, a ``text`` column with a ``renderType`` (a code
+  editor or a table wizard holds code or structure, not prose), and a
+  person's name — ``pages.author``: a translator would translate it. Columns
+  the acting user may not edit are not sent to a translator, and the preview
+  and the result name them.
 - **From the source row.** The text is read from the default-language record,
   not from the copy, so the "[Translate to …:]" prefix never reaches the
   translator.
@@ -50,26 +54,46 @@ its text.**
   new :php:`TranslationOptions::withTagHandling('html')`, which DeepL receives
   as ``tag_handling``. The LLM translator already keeps tags while
   ``preserveFormatting`` is on, which is its default.
-- **The site and the pair come from the site configuration.** The site of the
+- **The pair is resolved before anything is created.** The site of the
   record's page names the glossary (:ref:`ADR-208 <adr-208>`); the two
   languages are the ISO 639-1 codes of the site's default language and of the
-  target language. They are read after ``localize`` succeeded, so core has
-  already checked that the site defines the target language, and that check is
-  not re-implemented.
+  target language. They are resolved in the plan, before ``localize`` runs: a
+  page in no site, a language the site does not define, or a locale without a
+  two-letter code is refused, and no record is created that could not be
+  translated. This takes over the target-language check ADR-146 left to
+  core.
 - **The translator is an argument.** ``translator`` is ``deepl`` or ``llm``.
   Without it the tool uses ``llm``, which is what
   :php:`TranslationService` chooses when neither a translator nor a
   configuration is named — and a tool call carries no configuration. A
   translator that is not available on the installation is refused before
-  anything is created. The approval preview names the translator and the
-  fields: *text: MACHINE-TRANSLATED by DeepL (deepl) — header, bodytext*.
-- **One write, or none.** All fields are translated first and written in one
-  DataHandler pass, as the acting user, and read back. If any translation, the
-  write or the read-back fails, nothing is written and the result says *The
-  text was NOT machine-translated: <reason>*. The record then holds the copied
-  source text, which is what it held before this decision. The result stays a
-  success with its write target, because a record was created and the
+  anything is created. The approval preview names the translator, the pair,
+  the fields, and whether the site keeps a glossary for the pair: *text:
+  MACHINE-TRANSLATED by DeepL (deepl) from "en" to "de" — header, bodytext;
+  the site glossary for the pair applies (3 term(s))*, or *… the site keeps
+  no glossary for the pair*.
+- **Translate everything, then write once, then report what is stored.** All
+  fields are translated before anything is written. A translator that fails,
+  returns blank text, or returns an answer cut off at its output limit stops
+  the step with nothing written, and the result says *The text was NOT
+  machine-translated: <reason>. The translation holds the source text as the
+  localize command copied it.* The translations are then written in one
+  DataHandler pass, as the acting user. A value longer than an ``input``
+  column's TCA ``max`` is cut to it first, as the DataHandler would cut it,
+  and the result names the field; an ``eval`` of ``trim`` is applied the same
+  way. The fields are read back: a plain value must be stored as written; a
+  rich-text value, or one with an ``eval`` beyond ``trim``, must differ from
+  the copy core made. If the write fails — an error in the DataHandler's log,
+  or an exception from a hook, which the tool catches — or a field did not
+  take, the result names the fields that hold the translation and those that
+  still hold the copied source text. The result stays a success with its
+  write target in every case, because a record was created and the
   provenance event (:ref:`ADR-187 <adr-187>`) must announce it.
+- **An answer cut off at its output limit is no translation.** The LLM
+  translator's output budget, when the caller sets none, grows with the text —
+  one token per UTF-8 byte, at least the former 2000, at most 16000 — and its
+  result carries ``finish_reason`` and ``truncated`` in the metadata, so the
+  tool and the cache can refuse a cut-off answer.
 
 **Translations are cached, opt-in, inside** :php:`TranslationService`.
 
@@ -79,18 +103,29 @@ its text.**
   — the trade :php:`CacheMiddleware` makes — and a caller has to choose that.
   The test page, for one, must reach DeepL to prove that a key works. The tool
   opts in for a day.
-- **One cache for both translators.** The key is built inside the glossary step,
-  where the translator options are final: the translator, both languages, the
-  text, and the options, which carry the glossary terms (LLM) or the id of the
-  DeepL glossary holding them, the tag handling, formality, domain, context,
-  provider and model. An edited glossary is therefore a new key on both paths:
-  new terms on the LLM path, and on the DeepL path a new glossary id, because
-  :php:`DeepLGlossarySync` creates a new DeepL glossary for changed terms. The
-  attribution fields (``beUserUid``, ``plannedCost``) are left out: who asks
-  does not change the answer.
+- **One cache for both translators, keyed by what decides the answer.** The
+  key is built inside the glossary step, where the translator options are
+  final: the translator, both languages, the text, and the options, which
+  carry the glossary terms (LLM) or the id of the DeepL glossary holding them,
+  the tag handling, formality, domain, context, provider and model. An edited
+  glossary is therefore a new key on both paths: new terms on the LLM path,
+  and on the DeepL path a new glossary id, because :php:`DeepLGlossarySync`
+  creates a new DeepL glossary for changed terms. For the LLM translator
+  without a pinned provider or model, the answer also depends on the default
+  configuration the chat call resolves, so its uid, identifier, model and last
+  change are part of the key — resolved by the same
+  :php:`ConfigurationResolver` the chat call uses. When no usable default can
+  be resolved, the call is not cached. The attribution fields (``beUserUid``,
+  ``plannedCost``) are left out: who asks does not change the answer.
 - Entries live in the existing ``nrllm_responses`` cache, tagged
-  ``nrllm_translation``. Only a successful result is stored. A hit carries
-  ``metadata['cached'] = true`` and ``charactersUsed = 0``.
+  ``nrllm_translation`` (:php:`TranslationService::CACHE_TAG`). Only a
+  successful result is stored: not a failure, not a blank answer, not a
+  truncated one. A hit carries ``metadata['cached'] = true`` and
+  ``charactersUsed = 0``.
+- Saving or deleting a glossary record flushes the tag, through a DataHandler
+  hook. The key already makes an old answer unreachable after an edit; the
+  flush removes what can no longer be hit, and gives an editor a way to get a
+  fresh translation of an unchanged text.
 - :php:`CacheMiddleware` is **not** used for the LLM path. It stores only an
   array returned by the terminal of the provider pipeline, and the chat terminal
   returns a :php:`CompletionResponse`; a cache key set on a chat call would
@@ -128,8 +163,12 @@ Consequences
   is an external service, named on the approval card.
 - :php:`TranslationOptions` gains ``tagHandling`` and ``cacheTtl`` with their
   withers and getters, appended to the constructor; ``toArray()`` emits
-  ``tag_handling``. :php:`TranslationService`'s constructor gains an optional
-  trailing :php:`CacheManagerInterface`. Both are additive.
+  ``tag_handling``. :php:`TranslationService`'s constructor gains two optional
+  trailing parameters, :php:`CacheManagerInterface` and
+  :php:`ConfigurationResolver`, and the class the public constant
+  ``CACHE_TAG``. All additive.
+- :php:`LlmTranslator` asks for a larger output budget for long texts than the
+  former fixed 2000 tokens, when the caller sets none.
 - A cache hit is invisible to budgets and usage analytics. That is the reason
   the cache is opt-in.
 - Batch translation stays uncached until a caller needs it.

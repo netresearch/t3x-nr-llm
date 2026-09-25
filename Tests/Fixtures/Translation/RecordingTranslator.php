@@ -28,6 +28,15 @@ final class RecordingTranslator implements TranslatorInterface
     /** Thrown by the next translate() call, once. */
     public ?Throwable $failNext = null;
 
+    /** With $failNext: the number of the call that throws, counted from 1; null for the next one. */
+    public ?int $failOnCall = null;
+
+    /** Answer as a model does that hit its output limit: finish reason `length`, `truncated` set. */
+    public bool $truncate = false;
+
+    /** Answer with this text instead of "[<target>] <text>"; '' answers blank. */
+    public ?string $answer = null;
+
     public function __construct(
         private readonly string $identifier,
         private readonly string $name,
@@ -58,7 +67,7 @@ final class RecordingTranslator implements TranslatorInterface
     {
         $this->calls[] = ['text' => $text, 'target' => $targetLanguage, 'source' => $sourceLanguage, 'options' => $options];
 
-        if ($this->failNext instanceof Throwable) {
+        if ($this->failNext instanceof Throwable && ($this->failOnCall === null || $this->failOnCall === count($this->calls))) {
             $failure        = $this->failNext;
             $this->failNext = null;
 
@@ -66,10 +75,11 @@ final class RecordingTranslator implements TranslatorInterface
         }
 
         return new TranslatorResult(
-            sprintf('[%s] %s', $targetLanguage, $text),
+            $this->answer ?? sprintf('[%s] %s', $targetLanguage, $text),
             $sourceLanguage ?? 'en',
             $targetLanguage,
             $this->identifier,
+            metadata: $this->truncate ? ['finish_reason' => 'length', 'truncated' => true] : ['finish_reason' => 'stop', 'truncated' => false],
         );
     }
 

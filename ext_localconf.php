@@ -10,6 +10,7 @@ declare(strict_types=1);
 use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
 use Netresearch\NrLlm\Form\Element\ModelIdElement;
 use Netresearch\NrLlm\Form\FieldWizard\ModelConstraintsWizard;
+use Netresearch\NrLlm\Hook\GlossaryTranslationCacheFlushHook;
 use Netresearch\NrLlm\Hook\ProviderEndpointNormalizationHook;
 use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
 
@@ -92,6 +93,15 @@ defined('TYPO3') || die();
     // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
     $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processDatamapClass'][]
         = ProviderEndpointNormalizationHook::class;
+
+    // Flush the cached translations when a glossary record is saved or
+    // deleted (ADR-209).
+    // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+    $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processDatamapClass'][]
+        = GlossaryTranslationCacheFlushHook::class;
+    // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+    $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processCmdmapClass'][]
+        = GlossaryTranslationCacheFlushHook::class;
 
     // Dedicated dashboard widget group for the agentic / governance / telemetry
     // widgets, so they do not scatter into the built-in 'general' group. Inert
