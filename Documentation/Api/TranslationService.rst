@@ -54,14 +54,19 @@ TranslationService
         Opt-in cache for ``translateWithTranslator()``:
         an identical request — translator, languages,
         text, glossary, options, and for the LLM
-        translator without a pinned provider the default
-        configuration — is answered from the
-        ``nrllm_responses`` cache (tag
+        translator the default configuration with its
+        skills (no provider pinned) or the provider's
+        default model (provider pinned, no model) — is
+        answered from the ``nrllm_responses`` cache (tag
         ``TranslationService::CACHE_TAG``) without
         reaching the translator, and therefore without a
         budget check or a usage row. Blank and truncated
         answers are never stored; saving or deleting a
-        glossary flushes the tag. Off by default
+        glossary, configuration, model, provider, skill
+        or prompt snippet flushes the tag. Off by default
+        (:ref:`ADR-209 <adr-209>`)
+      - ``max_tokens``: on the configuration path capped
+        at the model's ``max_output_tokens`` when known
         (:ref:`ADR-209 <adr-209>`)
 
    .. php:method:: translateForConfiguration(string $text, string $targetLanguage, LlmConfiguration $configuration, ?string $sourceLanguage = null, ?TranslationOptions $options = null): TranslationResult

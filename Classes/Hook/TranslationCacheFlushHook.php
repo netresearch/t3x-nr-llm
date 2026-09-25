@@ -15,21 +15,34 @@ use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
- * Flushes the cached translations when a glossary record changes (ADR-209).
+ * Flushes the cached translations when a record changes that decides what a
+ * translation says (ADR-209): a glossary, or anything the LLM translator's
+ * chat call reads from the default configuration — the configuration itself,
+ * its model, the model's provider, its skills, its prompt snippets.
  *
- * The cache key already carries the glossary's terms, or the id of the DeepL
- * glossary holding them, so an edited glossary never serves an old answer. The
- * flush removes what can no longer be hit, and it is the one reliable way for
- * an editor to get a fresh translation of an unchanged text: save the
- * glossary. Every translation goes, not only the pair's — a glossary change
- * is rare, and a narrower flush would need a tag per site and pair.
+ * The cache key already carries the glossary's terms (or the DeepL glossary
+ * id), the default configuration's uid, model and last change, and its skills'
+ * bodies, so most edits never serve an old answer anyway. The flush covers
+ * what the key cannot see — a provider's endpoint, a model's settings, a
+ * snippet — and is the one reliable way for an editor to get a fresh
+ * translation of an unchanged text. Every translation goes, not only the
+ * affected ones: such edits are rare, and a narrower flush would need a tag
+ * per dependency.
  *
  * Registered under `processDatamapClass` and `processCmdmapClass` in
  * `ext_localconf.php`.
  */
-final class GlossaryTranslationCacheFlushHook
+final class TranslationCacheFlushHook
 {
-    private const TABLE = 'tx_nrllm_glossary';
+    /** The tables whose edits change a translation, see the class docblock. */
+    private const TABLES = [
+        'tx_nrllm_glossary',
+        'tx_nrllm_configuration',
+        'tx_nrllm_model',
+        'tx_nrllm_provider',
+        'tx_nrllm_skill',
+        'tx_nrllm_promptsnippet',
+    ];
 
     /**
      * @param array<string, mixed> $fieldArray
@@ -46,7 +59,7 @@ final class GlossaryTranslationCacheFlushHook
 
     private function flushFor(string $table): void
     {
-        if ($table !== self::TABLE) {
+        if (!in_array($table, self::TABLES, true)) {
             return;
         }
 

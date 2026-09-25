@@ -114,12 +114,16 @@ final readonly class LlmTranslator implements TranslatorInterface
         $temperature = isset($options['temperature']) && is_float($options['temperature'])
             ? $options['temperature']
             : 0.3;
-        $maxTokens = isset($options['max_tokens']) && is_int($options['max_tokens'])
-            ? $options['max_tokens']
-            : $this->outputBudgetFor($text);
-        $provider = isset($options['provider']) && is_string($options['provider'])
+        $provider = isset($options['provider']) && is_string($options['provider']) && $options['provider'] !== ''
             ? $options['provider']
             : null;
+        // Sized to the text only on the configuration path, where the call
+        // planner caps it at the model's output limit. A pinned provider runs
+        // without a model record, so no limit is known there and the former
+        // fixed budget stays (ADR-209).
+        $maxTokens = isset($options['max_tokens']) && is_int($options['max_tokens'])
+            ? $options['max_tokens']
+            : ($provider === null ? $this->outputBudgetFor($text) : self::MIN_OUTPUT_TOKENS);
         $model = isset($options['model']) && is_string($options['model'])
             ? $options['model']
             : null;
@@ -184,9 +188,10 @@ final readonly class LlmTranslator implements TranslatorInterface
      * 2000 tokens, and for a longer text as many tokens as its UTF-8 bytes —
      * a token is three to four bytes of prose, and a translation can run a
      * third longer than its source, so this leaves room for both and for the
-     * markup of rich text (ADR-209). Capped, so a very long text asks for no
-     * more than the output limit current models offer; a text that needs
-     * more comes back cut off and says so in `truncated`.
+     * markup of rich text (ADR-209). Capped at 16000 here, and on its way to
+     * the provider at the model's own output limit
+     * ({@see \Netresearch\NrLlm\Service\ConfigurationCallPlanner::callOptions()});
+     * a text that needs more comes back cut off and says so in `truncated`.
      */
     private function outputBudgetFor(string $text): int
     {

@@ -11,8 +11,10 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\GlossaryTerms;
+use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Service\CacheManager;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Feature\TranslationPromptBuilder;
@@ -59,6 +61,9 @@ final class TranslationServiceCacheTest extends AbstractUnitTestCase
 
     /** Answer as a model that hit its output limit. */
     private bool $truncate = false;
+
+    /** The default model of a pinned provider; null makes the provider lookup fail. */
+    private ?string $providerDefaultModel = 'llama3';
 
     private ?ResolvedGlossary $glossary = null;
 
@@ -309,6 +314,74 @@ final class TranslationServiceCacheTest extends AbstractUnitTestCase
         self::assertSame(1, $this->calls['llm'] ?? 0);
     }
 
+    /**
+     * A pinned model without a pinned provider still runs through the
+     * default configuration — its skills, fallback chain and options — so
+     * switching that configuration is another entry.
+     */
+    #[Test]
+    public function aPinnedModelWithoutAProviderStillFollowsTheDefaultConfiguration(): void
+    {
+        $subject = $this->subject();
+        $options = $this->cached('llm')->withModel('gpt-5.2');
+
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $options);
+        $this->defaultConfiguration = $this->configuration(2, 'gpt-5.2', 1000);
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $options);
+
+        self::assertSame(2, $this->calls['llm'] ?? 0);
+    }
+
+    /**
+     * A pinned provider without a model answers with the provider's default
+     * model, so a changed default model is another entry.
+     */
+    #[Test]
+    public function aPinnedProviderFollowsItsDefaultModel(): void
+    {
+        $subject = $this->subject();
+        $options = $this->cached('llm')->withProvider('ollama');
+
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $options);
+        $this->providerDefaultModel = 'qwen3';
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $options);
+
+        self::assertSame(2, $this->calls['llm'] ?? 0);
+    }
+
+    #[Test]
+    public function aPinnedProviderThatCannotBeAskedIsNotCached(): void
+    {
+        $subject                    = $this->subject();
+        $this->providerDefaultModel = null;
+        $options                    = $this->cached('llm')->withProvider('ollama');
+
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $options);
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $options);
+
+        self::assertSame(2, $this->calls['llm'] ?? 0);
+    }
+
+    /**
+     * The skills of the default configuration are composed into the prompt,
+     * so an edited skill is another entry.
+     */
+    #[Test]
+    public function anEditedSkillOfTheDefaultConfigurationIsAnotherEntry(): void
+    {
+        $subject = $this->subject();
+        $skill   = new Skill();
+        $skill->setIdentifier('tone');
+        $skill->setBody('Write formally.');
+        $this->defaultConfiguration?->addSkill($skill);
+
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $this->cached('llm'));
+        $skill->setBody('Write casually.');
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $this->cached('llm'));
+
+        self::assertSame(2, $this->calls['llm'] ?? 0);
+    }
+
     #[Test]
     public function markupReachesTheTranslatorAsTagHandling(): void
     {
@@ -373,6 +446,18 @@ final class TranslationServiceCacheTest extends AbstractUnitTestCase
         // Built through the cache manager's own configuration rather than by
         // constructing the backend: its constructor differs between TYPO3 13.4
         // (a context argument) and 14.3 (none).
+        $llmManager = self::createStub(LlmServiceManagerInterface::class);
+        $llmManager->method('getProvider')->willReturnCallback(function (?string $identifier): ProviderInterface {
+            if ($this->providerDefaultModel === null) {
+                throw new RuntimeException('no such provider: ' . $identifier, 8394880078);
+            }
+
+            $provider = self::createStub(ProviderInterface::class);
+            $provider->method('getDefaultModel')->willReturn($this->providerDefaultModel);
+
+            return $provider;
+        });
+
         $repository = self::createStub(LlmConfigurationRepository::class);
         $repository->method('findDefault')->willReturnCallback(fn(): ?LlmConfiguration => $this->defaultConfiguration);
 
@@ -382,7 +467,7 @@ final class TranslationServiceCacheTest extends AbstractUnitTestCase
         ]);
 
         return new TranslationService(
-            self::createStub(LlmServiceManagerInterface::class),
+            $llmManager,
             $registry,
             self::createStub(LlmConfigurationServiceInterface::class),
             new TranslationPromptBuilder(),

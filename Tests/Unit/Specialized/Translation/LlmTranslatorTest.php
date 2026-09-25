@@ -431,6 +431,20 @@ class LlmTranslatorTest extends AbstractUnitTestCase
         self::assertSame($expected, $captured->list[0]->getMaxTokens());
     }
 
+    /**
+     * A pinned provider runs without a model record, so no output limit caps
+     * the budget on the way; the former fixed 2000 stays there (ADR-209).
+     */
+    #[Test]
+    public function aPinnedProviderKeepsTheFormerBudget(): void
+    {
+        [$llmManager, $captured] = $this->createChatCapturingManager('Hallo');
+
+        (new LlmTranslator($llmManager, $this->usageTrackerStub))->translate(str_repeat('a', 9000), 'de', 'en', ['provider' => 'ollama']);
+
+        self::assertSame(2000, $captured->list[0]->getMaxTokens());
+    }
+
     #[Test]
     public function anExplicitMaxTokensWins(): void
     {

@@ -59,9 +59,9 @@ its text.**
   languages are the ISO 639-1 codes of the site's default language and of the
   target language. They are resolved in the plan, before ``localize`` runs: a
   page in no site, a language the site does not define, or a locale without a
-  two-letter code is refused, and no record is created that could not be
-  translated. This takes over the target-language check ADR-146 left to
-  core.
+  two-letter code is refused — each with its own reason — and no record is
+  created that could not be translated. This takes over the target-language
+  check ADR-146 left to core.
 - **The translator is an argument.** ``translator`` is ``deepl`` or ``llm``.
   Without it the tool uses ``llm``, which is what
   :php:`TranslationService` chooses when neither a translator nor a
@@ -86,14 +86,25 @@ its text.**
   the copy core made. If the write fails — an error in the DataHandler's log,
   or an exception from a hook, which the tool catches — or a field did not
   take, the result names the fields that hold the translation and those that
-  still hold the copied source text. The result stays a success with its
+  still hold the copied source text. When every field took and the write
+  still reported a failure — a hook that threw after the row was stored — the
+  success sentence names that failure too. The result stays a success with its
   write target in every case, because a record was created and the
   provenance event (:ref:`ADR-187 <adr-187>`) must announce it.
 - **An answer cut off at its output limit is no translation.** The LLM
-  translator's output budget, when the caller sets none, grows with the text —
-  one token per UTF-8 byte, at least the former 2000, at most 16000 — and its
-  result carries ``finish_reason`` and ``truncated`` in the metadata, so the
-  tool and the cache can refuse a cut-off answer.
+  translator's output budget, when the caller sets none and no provider is
+  pinned, grows with the text — one token per UTF-8 byte, at least the former
+  2000, at most 16000 — and its result carries ``finish_reason`` and
+  ``truncated`` in the metadata, so the tool and the cache can refuse a
+  cut-off answer. With a pinned provider the call runs without a model
+  record, so no output limit is known, and the former fixed 2000 stays.
+- **No budget above what the model can produce.** A provider refuses a
+  ``max_tokens`` above the model's output limit with an error rather than
+  honouring it. :php:`ConfigurationCallPlanner::callOptions()` therefore caps
+  whatever ``max_tokens`` wins — an explicit per-call value or the
+  configuration's stored one — at the model's ``max_output_tokens`` when that
+  is known (> 0). This holds for every configuration-driven call, not only
+  translations.
 
 **Translations are cached, opt-in, inside** :php:`TranslationService`.
 
@@ -110,22 +121,39 @@ its text.**
   the tag handling, formality, domain, context, provider and model. An edited
   glossary is therefore a new key on both paths: new terms on the LLM path,
   and on the DeepL path a new glossary id, because :php:`DeepLGlossarySync`
-  creates a new DeepL glossary for changed terms. For the LLM translator
-  without a pinned provider or model, the answer also depends on the default
-  configuration the chat call resolves, so its uid, identifier, model and last
-  change are part of the key — resolved by the same
-  :php:`ConfigurationResolver` the chat call uses. When no usable default can
-  be resolved, the call is not cached. The attribution fields (``beUserUid``,
-  ``plannedCost``) are left out: who asks does not change the answer.
+  creates a new DeepL glossary for changed terms. For the LLM translator the
+  key also carries what the options do not name:
+
+  - without a pinned provider — with or without a pinned model — the default
+    configuration the chat call resolves, through the same
+    :php:`ConfigurationResolver`: its uid, identifier, model and last change
+    (``tstamp``), and the identifier and body of every skill it composes into
+    the prompt. A pinned model does not free the call from that
+    configuration; its skills, fallback chain and options still apply.
+    ``tstamp`` reaches the entity only because the configuration's TCA now
+    declares it as a ``passthrough`` column: the DataMapper hydrates TCA
+    columns only, and without it every stored configuration read 0;
+  - with a pinned provider and no pinned model, the provider's default
+    model.
+
+  When that cannot be told — no resolver, no usable default, a provider that
+  cannot be asked — the call is not cached. The attribution fields
+  (``beUserUid``, ``plannedCost``) are left out: who asks does not change the
+  answer.
 - Entries live in the existing ``nrllm_responses`` cache, tagged
   ``nrllm_translation`` (:php:`TranslationService::CACHE_TAG`). Only a
   successful result is stored: not a failure, not a blank answer, not a
   truncated one. A hit carries ``metadata['cached'] = true`` and
   ``charactersUsed = 0``.
-- Saving or deleting a glossary record flushes the tag, through a DataHandler
-  hook. The key already makes an old answer unreachable after an edit; the
-  flush removes what can no longer be hit, and gives an editor a way to get a
-  fresh translation of an unchanged text.
+- Saving or deleting a record that decides a translation flushes the tag,
+  through the DataHandler hook :php:`TranslationCacheFlushHook`: a glossary, a
+  configuration, a model, a provider, a skill or a prompt snippet. The key
+  already makes an old answer unreachable after most of these edits; the
+  flush covers what the key cannot see — a provider's endpoint, a model's
+  settings, a snippet — removes what can no longer be hit, and gives an
+  editor a way to get a fresh translation of an unchanged text. A write that
+  bypasses the DataHandler flushes nothing; the key still covers the default
+  configuration's last change and its skills' bodies.
 - :php:`CacheMiddleware` is **not** used for the LLM path. It stores only an
   array returned by the terminal of the provider pipeline, and the chat terminal
   returns a :php:`CompletionResponse`; a cache key set on a chat call would
@@ -168,7 +196,16 @@ Consequences
   :php:`ConfigurationResolver`, and the class the public constant
   ``CACHE_TAG``. All additive.
 - :php:`LlmTranslator` asks for a larger output budget for long texts than the
-  former fixed 2000 tokens, when the caller sets none.
+  former fixed 2000 tokens, when the caller sets none and no provider is
+  pinned.
+- Every configuration-driven call caps ``max_tokens`` at the model's known
+  output limit. A caller that asked for more got an error from the provider
+  before; it now gets at most the model's limit.
+- ``tx_nrllm_configuration`` declares ``tstamp`` as a ``passthrough`` column,
+  so :php:`LlmConfiguration::getTstamp()` returns the stored value. The other
+  entities with a ``getTstamp()`` — :php:`Provider`, :php:`Model`,
+  :php:`Task`, :php:`UserBudget` — have no such column and still read 0;
+  nothing reads their ``getTstamp()`` today.
 - A cache hit is invisible to budgets and usage analytics. That is the reason
   the cache is opt-in.
 - Batch translation stays uncached until a caller needs it.

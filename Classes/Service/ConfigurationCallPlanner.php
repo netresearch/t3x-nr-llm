@@ -129,7 +129,9 @@ final readonly class ConfigurationCallPlanner
      * Precedence: explicit per-call option > configuration max_tokens (> 0)
      * > model max_output_tokens (> 0) > provider default (4096 for
      * OpenAI/Claude-shaped payloads; Ollama omits num_predict so the server
-     * default applies).
+     * default applies). Whatever wins is capped at the model's
+     * max_output_tokens when that is known (> 0) — a provider refuses more
+     * (ADR-209).
      *
      * @param array<string, mixed> $optionOverrides
      *
@@ -150,6 +152,16 @@ final readonly class ConfigurationCallPlanner
             } else {
                 unset($options['max_tokens']);
             }
+        }
+
+        // A value above what the model can produce is refused by the
+        // provider (HTTP 400) instead of being honoured, so an explicit or
+        // stored max_tokens is capped at the model's known output limit — a
+        // caller that sizes its budget to its input (ADR-209) must not turn a
+        // long text into a failed call. An unknown limit (0) caps nothing.
+        $limit = $model->getMaxOutputTokens();
+        if ($limit > 0 && is_int($options['max_tokens'] ?? null) && $options['max_tokens'] > $limit) {
+            $options['max_tokens'] = $limit;
         }
 
         return $options;

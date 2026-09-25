@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Feature;
 
 use Closure;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\TranslationResult;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
@@ -69,8 +70,10 @@ final readonly class TranslationService implements TranslationServiceInterface
     private const SUPPORTED_DOMAINS = ['general', 'technical', 'medical', 'legal', 'marketing'];
 
     /**
-     * Tag of every cached translation (ADR-209). Flushed whenever a glossary
-     * record is saved or deleted ({@see \Netresearch\NrLlm\Hook\GlossaryTranslationCacheFlushHook}).
+     * Tag of every cached translation (ADR-209). Flushed whenever a record
+     * that decides a translation is saved or deleted — a glossary, a
+     * configuration, a model, a provider, a skill, a prompt snippet
+     * ({@see \Netresearch\NrLlm\Hook\TranslationCacheFlushHook}).
      */
     public const CACHE_TAG = 'nrllm_translation';
 
@@ -541,12 +544,20 @@ final readonly class TranslationService implements TranslationServiceInterface
     }
 
     /**
-     * What decides the answer beyond the options, for the cache key: '' when
-     * the options name it — a translator other than the LLM one, or a pinned
-     * provider or model — and for the LLM translator without them, the default
-     * configuration its chat call resolves, as uid, identifier, model and
-     * last change. Null when that cannot be told — no resolver, or no usable
-     * default — and then the call is not cached.
+     * What decides the answer beyond the options, for the cache key (ADR-209).
+     *
+     * - A translator other than the LLM one: '' — the options say it all.
+     * - The LLM translator with a pinned provider: the provider and the model
+     *   the call runs — the pinned one, or the provider's default model when
+     *   none is pinned. The chat call then bypasses every configuration.
+     * - The LLM translator without a pinned provider, model pinned or not: the
+     *   default configuration the chat call resolves, as uid, identifier,
+     *   model and last change, and the skills it composes into the prompt, by
+     *   identifier and body. A pinned model does not free the call from that
+     *   configuration: its skills, fallback chain and options still apply.
+     *
+     * Null when that cannot be told — no resolver, no usable default, a
+     * provider that does not answer — and then the call is not cached.
      *
      * @param array<string, mixed> $translatorOptions
      */
@@ -556,9 +567,18 @@ final readonly class TranslationService implements TranslationServiceInterface
             return '';
         }
 
-        foreach (['provider', 'model'] as $pinned) {
-            if (is_string($translatorOptions[$pinned] ?? null) && $translatorOptions[$pinned] !== '') {
-                return '';
+        $provider = is_string($translatorOptions['provider'] ?? null) ? $translatorOptions['provider'] : '';
+        $model    = is_string($translatorOptions['model'] ?? null) ? $translatorOptions['model'] : '';
+
+        if ($provider !== '') {
+            if ($model !== '') {
+                return 'provider:' . $provider . '|model:' . $model;
+            }
+
+            try {
+                return 'provider:' . $provider . '|model:' . $this->llmManager->getProvider($provider)->getDefaultModel();
+            } catch (Throwable) {
+                return null;
             }
         }
 
@@ -567,12 +587,20 @@ final readonly class TranslationService implements TranslationServiceInterface
             return null;
         }
 
+        $skills = [];
+        foreach ($default->getSkills() as $skill) {
+            if ($skill instanceof Skill) {
+                $skills[] = $skill->getIdentifier() . ':' . hash('sha256', $skill->getBody());
+            }
+        }
+
         return sprintf(
-            '%d|%s|%s|%d',
+            'configuration:%d|%s|%s|%d|skills:%s',
             (int)$default->getUid(),
             $default->getIdentifier(),
             $default->getModelId(),
             $default->getTstamp(),
+            implode(',', $skills),
         );
     }
 

@@ -72,4 +72,9 @@ This change connects the two. Decision record: ADR-209.
 | `l10n_mode`, `defaultAsReadonly`, `readOnly`, author | functional `aColumnATranslationDoesNotOwnIsNotSent` (+ control), `theAuthorOfAPageIsNotTranslated` |
 | Blank / truncated not cached; default configuration in the key | unit `TranslationServiceCacheTest` |
 | Output budget and truncation metadata | unit `LlmTranslatorTest` |
-| Glossary save/delete flushes the cache | functional `GlossaryTranslationCacheFlushHookTest` |
+| Glossary, configuration, model, provider, skill, snippet save/delete flush the cache | functional `TranslationCacheFlushHookTest` |
+| The default configuration's stored `tstamp` is hydrated and changes the key | functional `TranslationServiceDefaultConfigurationKeyTest` |
+| Pinned model / pinned provider / skills in the key | unit `TranslationServiceCacheTest` |
+| `max_tokens` capped at the model's output limit | unit `LlmServiceManagerTest::chatWithConfigurationCapsAnExplicitOverrideAtTheModelLimit` (+ unknown-limit case) |
+| Failure after the row is stored is named; a dropped field reads PARTLY | functional `aHookThatFailsAfterTheRowIsStoredIsNamedWithTheSuccess`, `aFieldTheWriteDropsIsReportedAsPartlyTranslated` |
+| A page in no site is refused for that reason | functional `aPageInNoSiteIsRefusedForThatReason` |

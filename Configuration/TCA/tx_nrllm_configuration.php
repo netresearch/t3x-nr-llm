@@ -395,6 +395,15 @@ return [
                 'type' => 'passthrough',
             ],
         ],
+        // Declared for the same reason: without a TCA column the DataMapper never
+        // hydrates LlmConfiguration::$tstamp, and getTstamp() answers 0 for
+        // every stored record. The translation cache keys on it (ADR-209). The
+        // DataHandler maintains the value through ctrl.tstamp; never in a form.
+        'tstamp' => [
+            'config' => [
+                'type' => 'passthrough',
+            ],
+        ],
         'is_active' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.is_active',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.is_active.description',

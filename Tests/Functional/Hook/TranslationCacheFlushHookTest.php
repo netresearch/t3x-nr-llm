@@ -9,12 +9,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Hook;
 
-use Netresearch\NrLlm\Hook\GlossaryTranslationCacheFlushHook;
+use Netresearch\NrLlm\Hook\TranslationCacheFlushHook;
 use Netresearch\NrLlm\Service\CacheManager;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\Feature\TranslationService;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Cache\Backend\TransientMemoryBackend;
 use TYPO3\CMS\Core\Cache\CacheManager as Typo3CacheManager;
@@ -24,13 +25,14 @@ use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
- * Saving or deleting a glossary record flushes the cached translations
- * (ADR-209), through the hook registered in ext_localconf.php and the real
- * DataHandler. The cache is an in-memory one put in place of the container's
+ * Saving or deleting a record that decides what a translation says — a
+ * glossary, or the default configuration, its model, provider, skills and
+ * snippets — flushes the cached translations (ADR-209), through the hook
+ * registered in ext_localconf.php and the real DataHandler. The cache is an in-memory one put in place of the container's
  * service, so an entry demonstrably exists before the write.
  */
-#[CoversClass(GlossaryTranslationCacheFlushHook::class)]
-final class GlossaryTranslationCacheFlushHookTest extends AbstractFunctionalTestCase
+#[CoversClass(TranslationCacheFlushHook::class)]
+final class TranslationCacheFlushHookTest extends AbstractFunctionalTestCase
 {
     private const KEY = 'llm_translation_test';
 
@@ -89,9 +91,46 @@ final class GlossaryTranslationCacheFlushHookTest extends AbstractFunctionalTest
     }
 
     #[Test]
+    public function savingAConfigurationFlushesTheCachedTranslations(): void
+    {
+        $this->importFixture('Providers.csv');
+        $this->importFixture('Models.csv');
+        $this->importFixture('LlmConfigurations.csv');
+
+        $this->write(['tx_nrllm_configuration' => [1 => ['name' => 'Renamed default']]], []);
+
+        self::assertNull($this->cache->get(self::KEY));
+    }
+
+    /**
+     * @return iterable<string, array{0: string}>
+     */
+    public static function tablesThatChangeATranslation(): iterable
+    {
+        yield 'configuration' => ['tx_nrllm_configuration'];
+        yield 'model' => ['tx_nrllm_model'];
+        yield 'provider' => ['tx_nrllm_provider'];
+        yield 'skill' => ['tx_nrllm_skill'];
+        yield 'prompt snippet' => ['tx_nrllm_promptsnippet'];
+    }
+
+    #[Test]
+    #[DataProvider('tablesThatChangeATranslation')]
+    public function deletingARecordTheTranslationReadsFlushesTheCache(string $table): void
+    {
+        $this->getConnectionPool()->getConnectionForTable($table)->insert($table, ['uid' => 7, 'pid' => 0]);
+
+        $this->write([], [$table => [7 => ['delete' => 1]]]);
+
+        self::assertNull($this->cache->get(self::KEY));
+    }
+
+    #[Test]
     public function aWriteToAnotherTableLeavesTheCachedTranslations(): void
     {
-        $this->write(['tx_nrllm_promptsnippet' => ['NEW1' => ['pid' => 0, 'title' => 'A snippet']]], []);
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_task')->insert('tx_nrllm_task', ['uid' => 7, 'pid' => 0]);
+
+        $this->write([], ['tx_nrllm_task' => [7 => ['delete' => 1]]]);
 
         self::assertNotNull($this->cache->get(self::KEY));
     }

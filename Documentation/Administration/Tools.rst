@@ -634,7 +634,8 @@ What holds for all of them:
 
    Identical translations are answered from a cache for a day. A cached
    answer does not reach the translator, so it passes no budget check and
-   records no usage. Saving or deleting a glossary empties that cache.
+   records no usage. Saving or deleting a glossary, an LLM configuration, a
+   model, a provider, a skill or a prompt snippet empties that cache.
 
 ``create_record_draft``
    Creates one record in a TCA table that has **no dedicated writer** — the

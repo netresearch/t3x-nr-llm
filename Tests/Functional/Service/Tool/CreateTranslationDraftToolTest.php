@@ -501,7 +501,8 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
 
         self::assertTrue($result->isError);
         self::assertSame(
-            'Refused: language 9 is not defined for the site of page [2], so the text cannot be translated into it.',
+            'Refused: language 9 is not defined for the site "testing" of page [2], so the text cannot be translated '
+            . 'into it.',
             $result->content,
         );
         self::assertNull($this->maybeTranslationOf('pages', self::CHILD_PAGE, 'l10n_parent'));
@@ -713,6 +714,83 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         $translation = $this->translationOf('tt_content', self::ELEMENT, 'l18n_parent');
         self::assertSame(1, (int)($translation['hidden'] ?? 0));
         self::assertStringContainsString('[Translate to German:]', $this->stringOf($translation['header'] ?? null));
+    }
+
+    /**
+     * A page outside every site has no languages to translate between, and
+     * the refusal says that — not that a language is undefined.
+     */
+    #[Test]
+    public function aPageInNoSiteIsRefusedForThatReason(): void
+    {
+        $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
+            'uid' => 9, 'pid' => 0, 'title' => 'Orphan', 'doktype' => 1, 'slug' => '/orphan',
+            'sorting' => 9, 'sys_language_uid' => 0, 'l10n_parent' => 0,
+            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
+        ]);
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            ['table' => 'pages', 'uid' => 9, 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertSame(
+            'Refused: page [9] belongs to no site, so its languages are unknown and the text cannot be translated.',
+            $result->content,
+        );
+        self::assertNull($this->maybeTranslationOf('pages', 9, 'l10n_parent'));
+    }
+
+    /**
+     * A hook that throws after the translated row is stored: every field
+     * holds its translation, and the result says so — and names the failure
+     * instead of dropping it.
+     */
+    #[Test]
+    public function aHookThatFailsAfterTheRowIsStoredIsNamedWithTheSuccess(): void
+    {
+        $context = ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1));
+        $this->failInTheNextWrite(FailsLikeAFlashMessageHook::AFTER_DATABASE_OPERATIONS);
+        FailsLikeAFlashMessageHook::$onlyWithField = 'header';
+        FailsLikeAFlashMessageHook::$onlyUpdates   = true;
+
+        $result = $this->tool->execute(['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN], $context);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(WriteKind::CREATED, $result->writeKind);
+        self::assertStringContainsString('Machine-translated 2 text field(s)', $result->content);
+        self::assertStringContainsString(
+            'Every field holds its translation, but the write failed: A test hook fails after the row is stored',
+            $result->content,
+        );
+        self::assertSame('[de] Original', $this->translationOf('tt_content', self::ELEMENT, 'l18n_parent')['header'] ?? null);
+    }
+
+    /**
+     * A hook that takes one column out of the write: the result names the
+     * field that holds the translation and the one that still holds the copy.
+     */
+    #[Test]
+    public function aFieldTheWriteDropsIsReportedAsPartlyTranslated(): void
+    {
+        $context = ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1));
+        $this->failInTheNextWrite(FailsLikeAFlashMessageHook::DROP_FIELD);
+        FailsLikeAFlashMessageHook::$dropField = 'bodytext';
+
+        $result = $this->tool->execute(['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN], $context);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString(
+            'The text was only PARTLY machine-translated: header hold(s) the translation, bodytext still hold(s) the '
+            . 'source text as the localize command copied it (the translated text of bodytext did not land).',
+            $result->content,
+        );
+        $translation = $this->translationOf('tt_content', self::ELEMENT, 'l18n_parent');
+        self::assertSame('[de] Original', $translation['header'] ?? null);
+        self::assertStringNotContainsString('[de]', $this->stringOf($translation['bodytext'] ?? null));
     }
 
     /**

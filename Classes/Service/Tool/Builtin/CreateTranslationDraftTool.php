@@ -33,6 +33,7 @@ use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
+use TYPO3\CMS\Core\Exception\SiteNotFoundException;
 use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -425,7 +426,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         }
 
         return sprintf(
-            'Machine-translated %d text field(s) (%s) from "%s" to "%s" with %s%s%s — a human must review the text.%s%s',
+            'Machine-translated %d text field(s) (%s) from "%s" to "%s" with %s%s%s — a human must review the text.%s%s%s',
             count($values),
             implode(', ', array_keys($values)),
             $plan['source'],
@@ -435,6 +436,13 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             $plan['glossaryTerms'] > 0 ? sprintf(', with the site glossary (%d term(s))', $plan['glossaryTerms']) : '',
             $cut !== [] ? sprintf(" Cut to the column's maximum length: %s.", implode(', ', $cut)) : '',
             $withheld,
+            // Every field holds its translation, and yet the write reported a
+            // failure — a hook that threw after the row was stored. The record
+            // is as read back; what else that hook meant to do did not happen.
+            $writeFailure === null ? '' : sprintf(
+                ' Every field holds its translation, but %s — check what the failing step was meant to do.',
+                rtrim($writeFailure, '.'),
+            ),
         );
     }
 
@@ -464,14 +472,24 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
     private function languageCodes(int $pageUid, int $language): array|string
     {
         try {
-            $site   = $this->siteFinder->getSiteByPageId($pageUid);
+            $site = $this->siteFinder->getSiteByPageId($pageUid);
+        } catch (SiteNotFoundException) {
+            return sprintf(
+                'Refused: page [%d] belongs to no site, so its languages are unknown and the text cannot be '
+                . 'translated.',
+                $pageUid,
+            );
+        }
+
+        try {
             $source = $site->getLanguageById(self::DEFAULT_LANGUAGE)->getLocale()->getLanguageCode();
             $target = $site->getLanguageById($language)->getLocale()->getLanguageCode();
         } catch (Throwable) {
             return sprintf(
-                'Refused: language %d is not defined for the site of page [%d], so the text cannot be translated '
-                . 'into it.',
+                'Refused: language %d is not defined for the site "%s" of page [%d], so the text cannot be '
+                . 'translated into it.',
                 $language,
+                $site->getIdentifier(),
                 $pageUid,
             );
         }
