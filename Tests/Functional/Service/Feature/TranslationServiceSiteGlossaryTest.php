@@ -29,6 +29,7 @@ use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionClass;
+use Throwable;
 
 /**
  * TranslationService picks the site glossary out of tx_nrllm_glossary on both
@@ -64,8 +65,8 @@ final class TranslationServiceSiteGlossaryTest extends AbstractFunctionalTestCas
         self::assertCount(1, $this->prompts);
         self::assertStringContainsString('- Warenkorb → shopping cart', $this->prompts[0]);
         self::assertStringContainsString('- Kundenkonto → customer account', $this->prompts[0]);
-        // Record 2 claims the same pair on the same site but comes later in
-        // the manual order; its terms do not leak in.
+        // Record 2 claims the same pair on the same site with a higher uid
+        // (and a name that sorts first); its terms do not leak in.
         self::assertStringNotContainsString('basket', $this->prompts[0]);
     }
 
@@ -155,6 +156,16 @@ final class TranslationServiceSiteGlossaryTest extends AbstractFunctionalTestCas
                 ($this->onSync)($glossary);
 
                 return $this->id;
+            }
+
+            public function isStaleGlossaryError(Throwable $e): bool
+            {
+                return false;
+            }
+
+            public function recreate(ResolvedGlossary $glossary): ?string
+            {
+                return null;
             }
         };
 

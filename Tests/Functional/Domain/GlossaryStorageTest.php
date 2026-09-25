@@ -95,8 +95,18 @@ final class GlossaryStorageTest extends AbstractFunctionalTestCase
         self::assertSame('de', $glossary->getSourceLanguage());
         self::assertSame('en', $glossary->getTargetLanguage());
         self::assertSame(2, $glossary->getTermCount());
-        // Seven of eight fixture rows are not deleted; the hidden ones count.
-        self::assertSame(7, $repository->countAllRecords());
+        // Seven of eight fixture rows are not deleted; the module lists all of
+        // them, the hidden ones included.
+        self::assertCount(7, $repository->findAll());
+    }
+
+    #[Test]
+    public function onlyGlossariesThatReachATranslationCountAsActive(): void
+    {
+        $this->importFixture('Glossaries.csv');
+
+        // 7 not deleted, of which 2 are hidden (uids 3 and 8).
+        self::assertSame(5, $this->getService(GlossaryRepository::class)->countActive());
     }
 
     /**

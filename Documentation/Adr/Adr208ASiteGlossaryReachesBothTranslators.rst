@@ -30,7 +30,7 @@ Decision
 
 **A glossary is a record, ``tx_nrllm_glossary``, keyed by site identifier,
 source language and target language.** Editors maintain it through FormEngine,
-listed in the module :guilabel:`LLM > Authoring > Glossaries`, which is built
+listed in the module :guilabel:`AI > Authoring > Glossaries`, which is built
 like the prompt snippet module. The module is admin-only, like its siblings.
 
 **A caller names the site with** :php:`TranslationOptions::withSite()`. When it
@@ -50,6 +50,11 @@ hands it on:
 
 An explicit glossary always wins, and the two are never merged: which term
 applies must be answerable by reading one list.
+
+**Of two visible records for the same site and pair, the one with the lowest
+uid applies** — the older one. The module lists the records of a pair in uid
+order, so the one that applies is the first listed; the table has no manual
+sort order that could suggest otherwise. Terms are not merged across records.
 
 **The DeepL handoff creates and reuses DeepL glossaries.**
 :php:`DeepLGlossarySync` uses the v2 endpoint ``POST /v2/glossaries`` with
@@ -86,6 +91,21 @@ glossary limit, a rejected entry — the translate call ends with the same
 :php:`ServiceUnavailableException` any other DeepL error raises: a translation
 that silently ignored the editors' glossary would look correct and be wrong.
 
+**A glossary id DeepL rejects is created once more, and the translation is
+retried once.** A stored id can stop working without the record changing: the
+glossary was deleted in the DeepL account, or the record was written by an
+installation using another key. DeepL documents no dedicated answer for an
+unknown ``glossary_id``: the translate reference
+(https://developers.deepl.com/api-reference/translate) lists 400 "Bad request.
+Please check error message and your parameters." and 404 "The requested
+resource could not be found." without naming the glossary. So a 400 or 404
+whose message mentions the glossary is taken as that case
+(:php:`DeepLGlossarySync::isStaleGlossaryError()`): the record's id and hash
+are cleared, the glossary is created again and stored, and the call runs once
+more with the new id. Any other failure, and a second rejection, reaches the
+caller. The rejected id is not deleted; DeepL has just said it does not know
+it.
+
 Why the terms are one text field
 --------------------------------
 
@@ -121,11 +141,21 @@ Consequences
 - ◑ Two concurrent first translations after an edit can both create a
   glossary; the one whose id is stored last wins and the other stays in the
   DeepL account as an orphan. The window is one request long.
-- ◑ The stored id belongs to the DeepL account of the configured key. After
-  switching to another account, translations with a stored glossary fail until
-  the entries change or the two columns are cleared.
+- ◐ The stored id belongs to the DeepL account of the configured key. After
+  switching to another account, the first translation per glossary is rejected,
+  recreates the glossary in the new account and is retried.
 - ◑ A glossary DeepL refuses to create blocks DeepL translations for that site
   and pair until the record is fixed or hidden.
+- ◑ Deleting a glossary record does not delete its DeepL glossary. The id stays
+  on the deleted row, so restoring the record reuses it; once the row is purged
+  from the database, the DeepL glossary is an orphan in the account. Orphans
+  are found by their name prefix ``nr_llm glossary`` in
+  ``GET /v2/glossaries`` and removed with ``DELETE /v2/glossaries/{id}``, or in
+  the DeepL account itself. No hook deletes them on record deletion: a record
+  can be restored, and a hook would have to call DeepL from a DataHandler run.
+- ◑ Which DeepL error means "unknown glossary" is inferred from status and
+  message, not documented by DeepL. Should DeepL word it differently, the
+  translation fails with the DeepL error instead of healing itself.
 - ◑ The v2 glossary endpoints are DeepL's legacy API; DeepL recommends v3 for
   new integrations and names no removal date. Moving to v3 changes
   :php:`DeepLTranslator::createGlossary()` and nothing that calls it.

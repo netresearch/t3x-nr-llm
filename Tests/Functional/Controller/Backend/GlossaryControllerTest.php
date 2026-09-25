@@ -74,6 +74,13 @@ final class GlossaryControllerTest extends AbstractFunctionalTestCase
             '#<strong>Shop DE-EN</strong></td>\s*<td><code>main</code></td>\s*<td><code>de</code> → <code>en</code></td>\s*<td>2</td>#',
             $body,
         );
+        // Within one site and pair the list puts the record the translation
+        // path uses first: the lowest uid, not the name that sorts first.
+        $applied = strpos($body, '<strong>Shop DE-EN</strong>');
+        $shadowed = strpos($body, '<strong>A newer shop DE-EN</strong>');
+        self::assertIsInt($applied);
+        self::assertIsInt($shadowed);
+        self::assertLessThan($shadowed, $applied);
         // FormEngine deep links (the record/edit backend route) for editing
         // and creating records.
         self::assertStringContainsString('record/edit', $body);

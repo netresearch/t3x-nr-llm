@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Service\Glossary\ResolvedGlossary;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\TranslationOptions;
+use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Translation\DeepLGlossarySyncInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface;
@@ -30,6 +31,7 @@ use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Throwable;
 
 /**
  * TranslationService applies the caller's site glossary when the caller passed
@@ -149,6 +151,24 @@ final class TranslationServiceSiteGlossaryTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function aFailedDeepLGlossaryCreateFailsTheTranslation(): void
+    {
+        // A glossary DeepL refuses to create must not turn into a translation
+        // that silently ignores the site's terms (ADR-208).
+        $failure = new ServiceUnavailableException('DeepL API error: Too many glossaries', 'translation', ['statusCode' => 400]);
+        $subject = $this->subject($this->glossary(), translatorIdentifier: 'deepl', syncFailure: $failure);
+
+        try {
+            $subject->translateWithTranslator('Der Warenkorb ist leer.', 'en', 'de', (new TranslationOptions())->withSite('main'));
+            self::fail('The failed glossary create did not reach the caller.');
+        } catch (ServiceUnavailableException $e) {
+            self::assertSame($failure, $e);
+        }
+
+        self::assertSame([], $this->translatorOptions);
+    }
+
+    #[Test]
     public function theDeepLBatchPathReceivesTheIdToo(): void
     {
         $subject = $this->subject($this->glossary(), translatorIdentifier: 'deepl', syncedId: 'gls_test_1');
@@ -212,6 +232,7 @@ final class TranslationServiceSiteGlossaryTest extends AbstractUnitTestCase
         string $translatorIdentifier = 'llm',
         ?string $syncedId = null,
         string $detectedLanguage = 'de',
+        ?Throwable $syncFailure = null,
     ): TranslationService {
         $response = static fn(string $content): CompletionResponse => new CompletionResponse(
             content: $content,
@@ -292,17 +313,34 @@ final class TranslationServiceSiteGlossaryTest extends AbstractUnitTestCase
         $onSync = function (ResolvedGlossary $glossary): void {
             $this->synced[] = $glossary;
         };
-        $sync = new class ($syncedId, $onSync) implements DeepLGlossarySyncInterface {
+        $sync = new class ($syncedId, $onSync, $syncFailure) implements DeepLGlossarySyncInterface {
             /**
              * @param Closure(ResolvedGlossary): void $onSync
              */
-            public function __construct(private readonly ?string $id, private readonly Closure $onSync) {}
+            public function __construct(
+                private readonly ?string $id,
+                private readonly Closure $onSync,
+                private readonly ?Throwable $failure,
+            ) {}
 
             public function glossaryIdFor(ResolvedGlossary $glossary): ?string
             {
                 ($this->onSync)($glossary);
+                if ($this->failure instanceof Throwable) {
+                    throw $this->failure;
+                }
 
                 return $this->id;
+            }
+
+            public function isStaleGlossaryError(Throwable $e): bool
+            {
+                return false;
+            }
+
+            public function recreate(ResolvedGlossary $glossary): ?string
+            {
+                return null;
             }
         };
 

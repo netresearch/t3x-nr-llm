@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Specialized\Translation;
 
 use Netresearch\NrLlm\Service\Glossary\ResolvedGlossary;
+use Throwable;
 
 /**
  * Turns a site glossary into a DeepL glossary id (ADR-208).
@@ -27,4 +28,16 @@ interface DeepLGlossarySyncInterface
      * without one.
      */
     public function glossaryIdFor(ResolvedGlossary $glossary): ?string;
+
+    /**
+     * Whether a failed translate call means DeepL did not accept the stored
+     * glossary id, so that creating the glossary again can help.
+     */
+    public function isStaleGlossaryError(Throwable $e): bool;
+
+    /**
+     * Forget the stored DeepL glossary of this record and create it again.
+     * Null when DeepL cannot hold a glossary for the pair.
+     */
+    public function recreate(ResolvedGlossary $glossary): ?string;
 }

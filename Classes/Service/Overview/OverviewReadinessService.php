@@ -94,7 +94,7 @@ final readonly class OverviewReadinessService
         // Optional modules — Ready when they hold active entries, else Empty.
         $tasks    = $this->taskRepository->countActive();
         $snippets = $this->promptSnippetRepository->countActive();
-        $glossaries = $this->glossaryRepository->countAllRecords();
+        $glossaries = $this->glossaryRepository->countActive();
 
         $skillsTotal   = $this->skillRepository->countAll();
         $skillsEnabled = $this->skillRepository->countEnabled();

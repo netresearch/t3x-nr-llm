@@ -28,8 +28,10 @@ return [
         'tstamp' => 'tstamp',
         'crdate' => 'crdate',
         'delete' => 'deleted',
-        'sortby' => 'sorting',
-        'default_sortby' => 'sorting ASC, name ASC',
+        // No manual sorting: which of two records for the same site and pair
+        // applies is decided by uid (ADR-208), and a drag order in the list
+        // module would suggest otherwise.
+        'default_sortby' => 'site_identifier ASC, source_language ASC, target_language ASC, uid ASC',
         'searchFields' => 'name,site_identifier,entries',
         'enablecolumns' => [
             'disabled' => 'hidden',

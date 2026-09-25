@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Specialized\Translation;
 
 use Netresearch\NrLlm\Service\Glossary\GlossaryResolverInterface;
 use Netresearch\NrLlm\Service\Glossary\ResolvedGlossary;
+use Netresearch\NrLlm\Specialized\Exception\SpecializedServiceException;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -82,5 +83,38 @@ final readonly class DeepLGlossarySync implements DeepLGlossarySyncInterface
         }
 
         return $glossaryId;
+    }
+
+    /**
+     * DeepL documents no dedicated status for an unknown `glossary_id` on the
+     * translate endpoint (https://developers.deepl.com/api-reference/translate
+     * lists 400 "Bad request" and 404 "The requested resource could not be
+     * found"), so a 400 or 404 whose message names the glossary is taken as
+     * one. Anything else — quota, rate limit, authentication, a 400 about
+     * another parameter — is not.
+     */
+    public function isStaleGlossaryError(Throwable $e): bool
+    {
+        return $e instanceof SpecializedServiceException
+            && in_array($e->getStatusCode(), [400, 404], true)
+            && stripos($e->getMessage(), 'glossary') !== false;
+    }
+
+    public function recreate(ResolvedGlossary $glossary): ?string
+    {
+        $this->logger->warning('DeepL did not accept the stored glossary; creating it again', [
+            'glossary_uid' => $glossary->uid,
+        ]);
+
+        // Cleared first: should the create fail, the record no longer points
+        // at an id DeepL has already refused.
+        $this->glossaryResolver->storeDeepLGlossary($glossary->uid, '', '');
+
+        return $this->glossaryIdFor(new ResolvedGlossary(
+            $glossary->uid,
+            $glossary->sourceLanguage,
+            $glossary->targetLanguage,
+            $glossary->terms,
+        ));
     }
 }

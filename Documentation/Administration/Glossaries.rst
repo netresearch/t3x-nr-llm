@@ -47,8 +47,10 @@ number of lines you entered, look for such a line.
 Hiding a glossary takes it out of every translation at once. The glossary stays
 in the list so it can be switched back on.
 
-One glossary per site and language pair is used. If two records claim the same
-pair, the first one in the list order wins; their terms are not combined.
+One glossary per site and language pair is used. If two visible records claim
+the same pair, the one with the lowest uid — the older one — applies, and their
+terms are not combined. The list shows the records of each pair in that order,
+so the first one listed for a pair is the one that applies.
 
 .. _administration-glossaries-use:
 
@@ -93,9 +95,22 @@ reached, for example — the DeepL translation fails with the DeepL error rather
 than running without the terms. Fix the glossary or hide it to translate
 without it.
 
-..  note::
+If DeepL rejects a stored glossary — it was deleted in the DeepL account, or
+the DeepL key now belongs to another account — nr_llm creates the glossary once
+more and repeats the translation once. The system log records a warning when
+that happens.
 
-    The stored DeepL glossary belongs to the DeepL account of the configured
-    key. After switching to another DeepL account, edit each glossary once (any
-    change to its term pairs), so the next translation creates it in the new
-    account.
+..  _administration-glossaries-delete:
+
+Deleting a glossary
+===================
+
+Deleting a glossary record does **not** delete its DeepL glossary. The record
+keeps the DeepL id, so restoring it from the recycler reuses the glossary. Once
+the deleted record is removed from the database for good, its DeepL glossary
+stays in the DeepL account without anything referring to it.
+
+To clean up, list the account's glossaries (``GET /v2/glossaries`` of the DeepL
+API, or the glossary overview in the DeepL account) and delete the ones whose
+name starts with ``nr_llm glossary`` and whose number is the uid of a glossary
+record that no longer exists.

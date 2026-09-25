@@ -12,14 +12,20 @@ namespace Netresearch\NrLlm\Tests\Unit\Specialized\Translation;
 use Closure;
 use Netresearch\NrLlm\Domain\ValueObject\GlossaryTerms;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
+use Netresearch\NrLlm\Service\Feature\TranslationPromptBuilder;
+use Netresearch\NrLlm\Service\Feature\TranslationService;
 use Netresearch\NrLlm\Service\Glossary\GlossaryResolverInterface;
 use Netresearch\NrLlm\Service\Glossary\ResolvedGlossary;
 use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
+use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
+use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Option\TranslationOptions;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\DeepLGlossarySync;
 use Netresearch\NrLlm\Specialized\Translation\DeepLTranslator;
+use Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface;
 use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -34,7 +40,9 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\UriInterface;
 use Psr\Log\AbstractLogger;
+use RuntimeException;
 use Stringable;
+use Throwable;
 
 /**
  * The DeepL half of the site-glossary handoff (ADR-208): the v2 glossary
@@ -45,6 +53,7 @@ use Stringable;
 #[AllowMockObjectsWithoutExpectations]
 #[CoversClass(DeepLGlossarySync::class)]
 #[CoversClass(DeepLTranslator::class)]
+#[CoversClass(TranslationService::class)]
 final class DeepLGlossarySyncTest extends AbstractUnitTestCase
 {
     /** @var list<array{method: string, uri: string, body: ?string}> */
@@ -61,6 +70,8 @@ final class DeepLGlossarySyncTest extends AbstractUnitTestCase
 
     /** @var array<string, bool> DeepL ids another record still holds */
     private array $referencedElsewhere = [];
+
+    private ?GlossaryResolverInterface $lastResolver = null;
 
     // ==================== DeepLTranslator endpoints ====================
 
@@ -217,6 +228,135 @@ final class DeepLGlossarySyncTest extends AbstractUnitTestCase
         );
     }
 
+    /**
+     * @return iterable<string, array{int}>
+     */
+    public static function refusedCreates(): iterable
+    {
+        yield 'bad request' => [400];
+        yield 'quota exceeded' => [456];
+    }
+
+    #[Test]
+    #[DataProvider('refusedCreates')]
+    public function aRefusedCreatePropagatesAndLeavesTheRecordAlone(int $status): void
+    {
+        $this->responses = [$this->createJsonResponseMock(['message' => 'Glossary could not be created'], $status)];
+
+        try {
+            $this->sync()->glossaryIdFor($this->glossary('gls_test_1', 'hash-of-the-old-terms'));
+            self::fail('A refused create did not reach the caller.');
+        } catch (ServiceUnavailableException) {
+            // expected
+        }
+
+        self::assertSame([], $this->stored);
+        self::assertCount(1, $this->requests);
+        self::assertSame('POST', $this->requests[0]['method']);
+    }
+
+    /**
+     * @return iterable<string, array{Throwable, bool}>
+     */
+    public static function translateFailures(): iterable
+    {
+        $unavailable = static fn(string $message, int $status): ServiceUnavailableException
+            => new ServiceUnavailableException($message, 'translation', ['provider' => 'deepl', 'statusCode' => $status]);
+
+        yield '404 naming the glossary' => [$unavailable('DeepL API error: Glossary not found', 404), true];
+        yield '400 naming the glossary' => [$unavailable('DeepL API error: Invalid glossary_id', 400), true];
+        yield '400 about something else' => [$unavailable('DeepL API error: Value for target_lang not supported', 400), false];
+        yield '456 quota' => [new ServiceUnavailableException('DeepL API quota exceeded (glossary)', 'translation', ['provider' => 'deepl']), false];
+        yield '500 naming the glossary' => [$unavailable('DeepL API error: glossary backend down', 500), false];
+        yield 'not a service error' => [new RuntimeException('glossary'), false];
+    }
+
+    #[Test]
+    #[DataProvider('translateFailures')]
+    public function tellsARejectedGlossaryIdFromOtherFailures(Throwable $failure, bool $stale): void
+    {
+        self::assertSame($stale, $this->sync()->isStaleGlossaryError($failure));
+    }
+
+    #[Test]
+    public function aRejectedGlossaryIdIsCreatedAgainAndTheTranslationRetriedOnce(): void
+    {
+        $current = $this->glossary();
+        $glossary = $this->glossary('gls_test_gone', $current->entriesHash());
+        $this->responses = [
+            $this->createJsonResponseMock(['message' => 'Glossary not found'], 404),
+            $this->createJsonResponseMock(['glossary_id' => 'gls_test_2'], 201),
+            $this->createJsonResponseMock(['translations' => [['text' => 'The shopping cart is empty.', 'detected_source_language' => 'DE']]]),
+        ];
+
+        $result = $this->translationService($glossary)
+            ->translateWithTranslator('Der Warenkorb ist leer.', 'en-GB', 'de', (new TranslationOptions())->withSite('main'));
+
+        self::assertSame('The shopping cart is empty.', $result->translatedText);
+        self::assertCount(3, $this->requests);
+        self::assertSame('gls_test_gone', $this->jsonBody(0)['glossary_id'] ?? null);
+        self::assertSame('https://api.deepl.com/v2/glossaries', $this->requests[1]['uri']);
+        self::assertSame('gls_test_2', $this->jsonBody(2)['glossary_id'] ?? null);
+        // Cleared first, then repointed at the new glossary.
+        self::assertSame(
+            [['uid' => 7, 'id' => '', 'hash' => ''], ['uid' => 7, 'id' => 'gls_test_2', 'hash' => $current->entriesHash()]],
+            $this->stored,
+        );
+    }
+
+    #[Test]
+    public function aSecondRejectionReachesTheCaller(): void
+    {
+        $current = $this->glossary();
+        $this->responses = [
+            $this->createJsonResponseMock(['message' => 'Glossary not found'], 404),
+            $this->createJsonResponseMock(['glossary_id' => 'gls_test_2'], 201),
+            $this->createJsonResponseMock(['message' => 'Glossary not found'], 404),
+        ];
+
+        try {
+            $this->translationService($this->glossary('gls_test_gone', $current->entriesHash()))
+                ->translateWithTranslator('Der Warenkorb ist leer.', 'en', 'de', (new TranslationOptions())->withSite('main'));
+            self::fail('The second rejection did not reach the caller.');
+        } catch (ServiceUnavailableException $e) {
+            self::assertStringContainsString('Glossary not found', $e->getMessage());
+        }
+
+        self::assertCount(3, $this->requests);
+    }
+
+    #[Test]
+    public function aFailureThatIsNotAboutTheGlossaryIsNotRetried(): void
+    {
+        $current = $this->glossary();
+        $this->responses = [
+            $this->createJsonResponseMock(['message' => 'Value for target_lang not supported'], 400),
+        ];
+
+        try {
+            $this->translationService($this->glossary('gls_test_1', $current->entriesHash()))
+                ->translateWithTranslator('Der Warenkorb ist leer.', 'en', 'de', (new TranslationOptions())->withSite('main'));
+            self::fail('The failure did not reach the caller.');
+        } catch (ServiceUnavailableException) {
+            // expected
+        }
+
+        self::assertCount(1, $this->requests);
+        self::assertSame([], $this->stored);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function jsonBody(int $request): array
+    {
+        $body = json_decode((string)$this->requests[$request]['body'], true);
+        self::assertIsArray($body);
+
+        /** @var array<string, mixed> $body */
+        return $body;
+    }
+
     private function glossary(string $deeplId = '', string $deeplHash = ''): ResolvedGlossary
     {
         return new ResolvedGlossary(
@@ -229,21 +369,25 @@ final class DeepLGlossarySyncTest extends AbstractUnitTestCase
         );
     }
 
-    private function sync(): DeepLGlossarySync
+    private function sync(?ResolvedGlossary $resolves = null, ?DeepLTranslator $translator = null): DeepLGlossarySync
     {
         $onStore = function (int $uid, string $id, string $hash): void {
             $this->stored[] = ['uid' => $uid, 'id' => $id, 'hash' => $hash];
         };
-        $resolver = new class ($onStore, $this->referencedElsewhere) implements GlossaryResolverInterface {
+        $resolver = new class ($onStore, $this->referencedElsewhere, $resolves) implements GlossaryResolverInterface {
             /**
              * @param Closure(int, string, string): void $onStore
              * @param array<string, bool>                $referenced
              */
-            public function __construct(private readonly Closure $onStore, private readonly array $referenced) {}
+            public function __construct(
+                private readonly Closure $onStore,
+                private readonly array $referenced,
+                private readonly ?ResolvedGlossary $resolves,
+            ) {}
 
             public function resolve(string $siteIdentifier, string $sourceLanguage, string $targetLanguage): ?ResolvedGlossary
             {
-                return null;
+                return $this->resolves;
             }
 
             public function storeDeepLGlossary(int $uid, string $deeplGlossaryId, string $entriesHash): void
@@ -257,7 +401,32 @@ final class DeepLGlossarySyncTest extends AbstractUnitTestCase
             }
         };
 
-        return new DeepLGlossarySync($this->translator(), $resolver, $this->logger());
+        $this->lastResolver = $resolver;
+
+        return new DeepLGlossarySync($translator ?? $this->translator(), $resolver, $this->logger());
+    }
+
+    /**
+     * TranslationService on the real DeepLTranslator and the real sync, so the
+     * retry after a rejected glossary id runs against scripted HTTP answers.
+     */
+    private function translationService(ResolvedGlossary $glossary): TranslationService
+    {
+        $translator = $this->translator();
+        $sync = $this->sync($glossary, $translator);
+
+        $registry = self::createStub(TranslatorRegistryInterface::class);
+        $registry->method('get')->willReturn($translator);
+
+        return new TranslationService(
+            self::createStub(LlmServiceManagerInterface::class),
+            $registry,
+            self::createStub(LlmConfigurationServiceInterface::class),
+            new TranslationPromptBuilder(),
+            null,
+            $this->lastResolver,
+            $sync,
+        );
     }
 
     private function translator(): DeepLTranslator

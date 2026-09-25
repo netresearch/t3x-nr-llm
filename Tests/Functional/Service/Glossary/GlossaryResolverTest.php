@@ -48,6 +48,32 @@ final class GlossaryResolverTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function ofTwoRecordsForTheSamePairTheLowestUidWins(): void
+    {
+        // Record 2 claims main/de→en too, and its name sorts before record 1's.
+        // Neither the name nor the insertion into the table decides: the uid
+        // does (ADR-208).
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_glossary')
+            ->insert('tx_nrllm_glossary', [
+                'uid' => 20, 'pid' => 0, 'name' => '0 first by name', 'site_identifier' => 'main',
+                'source_language' => 'de', 'target_language' => 'en', 'entries' => 'Warenkorb = trolley',
+            ]);
+
+        $glossary = $this->subject->resolve('main', 'de', 'en');
+
+        self::assertInstanceOf(ResolvedGlossary::class, $glossary);
+        self::assertSame(1, $glossary->uid);
+    }
+
+    #[Test]
+    public function aDeletedRecordStillCountsAsHoldingItsDeepLGlossary(): void
+    {
+        // A deleted record can be restored from the recycler with the id it
+        // carries, so its DeepL glossary must not be deleted under it.
+        self::assertTrue($this->subject->isDeepLGlossaryReferenced('gls_test_deleted', 1));
+    }
+
+    #[Test]
     public function regionalCodesInTheRequestMatchTheBaseCodeOfTheRecord(): void
     {
         $glossary = $this->subject->resolve('main', 'de-DE', 'EN-gb');

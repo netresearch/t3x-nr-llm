@@ -32,7 +32,9 @@ class GlossaryRepository extends Repository
         'siteIdentifier' => QueryInterface::ORDER_ASCENDING,
         'sourceLanguage' => QueryInterface::ORDER_ASCENDING,
         'targetLanguage' => QueryInterface::ORDER_ASCENDING,
-        'name' => QueryInterface::ORDER_ASCENDING,
+        // Within one site and pair, the translation path uses the lowest uid
+        // (GlossaryResolver); listing by uid puts that record first.
+        'uid' => QueryInterface::ORDER_ASCENDING,
     ];
 
     public function initializeObject(): void
@@ -44,11 +46,15 @@ class GlossaryRepository extends Repository
     }
 
     /**
-     * Count every non-deleted glossary, hidden ones included — the number the
-     * module lists.
+     * Count the glossaries that reach a translation: not deleted, not hidden.
+     * The overview card reports this number, so a hidden glossary does not
+     * count as set up.
      */
-    public function countAllRecords(): int
+    public function countActive(): int
     {
-        return $this->createQuery()->count();
+        $query = $this->createQuery();
+        $query->getQuerySettings()->setIgnoreEnableFields(false);
+
+        return $query->count();
     }
 }

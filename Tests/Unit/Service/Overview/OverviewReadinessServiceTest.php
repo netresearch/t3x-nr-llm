@@ -154,7 +154,7 @@ final class OverviewReadinessServiceTest extends TestCase
         $snippetRepo->method('countActive')->willReturn($snippets);
 
         $glossaryRepo = $this->createMock(GlossaryRepository::class);
-        $glossaryRepo->method('countAllRecords')->willReturn($glossaries);
+        $glossaryRepo->method('countActive')->willReturn($glossaries);
 
         $skillRepo = $this->createMock(SkillRepository::class);
         $skillRepo->method('countAll')->willReturn($skillsTotal);

@@ -374,8 +374,6 @@ CREATE TABLE tx_nrllm_glossary (
     deepl_glossary_id varchar(64) DEFAULT '' NOT NULL,
     deepl_entries_hash varchar(64) DEFAULT '' NOT NULL,
 
-    sorting int(11) unsigned DEFAULT '0' NOT NULL,
-
     tstamp int(11) unsigned DEFAULT '0' NOT NULL,
     crdate int(11) unsigned DEFAULT '0' NOT NULL,
 

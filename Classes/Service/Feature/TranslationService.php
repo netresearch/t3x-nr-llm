@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Feature;
 
+use Closure;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\TranslationResult;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
@@ -28,6 +29,7 @@ use Netresearch\NrLlm\Specialized\Translation\DeepLGlossarySyncInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
+use Throwable;
 
 /**
  * High-level service for text translation.
@@ -416,10 +418,16 @@ final readonly class TranslationService implements TranslationServiceInterface
 
         // Determine translator to use
         $translator = $this->resolveTranslator($optionsArray);
-        $optionsArray = $this->handSiteGlossaryTo($translator, $optionsArray, $options, $sourceLanguage, $targetLanguage);
 
         // Execute translation via resolved translator
-        return $translator->translate($text, $targetLanguage, $sourceLanguage, $optionsArray);
+        return $this->withSiteGlossary(
+            $translator,
+            $optionsArray,
+            $options,
+            $sourceLanguage,
+            $targetLanguage,
+            static fn(array $translatorOptions): TranslatorResult => $translator->translate($text, $targetLanguage, $sourceLanguage, $translatorOptions),
+        );
     }
 
     /**
@@ -444,9 +452,15 @@ final readonly class TranslationService implements TranslationServiceInterface
         $options ??= new TranslationOptions();
         $optionsArray = $this->attachBeUserUid($options->toArray(), $options);
         $translator = $this->resolveTranslator($optionsArray);
-        $optionsArray = $this->handSiteGlossaryTo($translator, $optionsArray, $options, $sourceLanguage, $targetLanguage);
 
-        return $translator->translateBatch($texts, $targetLanguage, $sourceLanguage, $optionsArray);
+        return $this->withSiteGlossary(
+            $translator,
+            $optionsArray,
+            $options,
+            $sourceLanguage,
+            $targetLanguage,
+            static fn(array $translatorOptions): array => $translator->translateBatch($texts, $targetLanguage, $sourceLanguage, $translatorOptions),
+        );
     }
 
     /**
@@ -506,42 +520,65 @@ final readonly class TranslationService implements TranslationServiceInterface
     }
 
     /**
-     * Put the site glossary into a translator's options (ADR-208): DeepL gets
-     * the id of a DeepL glossary holding the terms, every other translator gets
-     * the terms under the `glossary` key, which is where `LlmTranslator` reads
-     * them.
+     * Run a translator call with the site glossary in its options (ADR-208):
+     * DeepL gets the id of a DeepL glossary holding the terms, every other
+     * translator gets the terms under the `glossary` key, which is where
+     * `LlmTranslator` reads them.
      *
      * Needs an explicit source language: which glossary applies depends on it,
-     * and DeepL refuses `glossary_id` on a request without `source_lang`.
+     * and DeepL's `glossary_id` requires `source_lang`.
      *
-     * @param array<string, mixed> $optionsArray
+     * When DeepL rejects the stored glossary id — deleted in the account, or
+     * created under another key — the record's id is cleared, the glossary is
+     * created once more and the call is retried once. Any other failure, and a
+     * second rejection, reaches the caller.
      *
-     * @return array<string, mixed>
+     * @template T
+     *
+     * @param array<string, mixed>             $optionsArray
+     * @param Closure(array<string, mixed>): T $call
+     *
+     * @return T
      */
-    private function handSiteGlossaryTo(
+    private function withSiteGlossary(
         TranslatorInterface $translator,
         array $optionsArray,
         TranslationOptions $options,
         ?string $sourceLanguage,
         string $targetLanguage,
-    ): array {
+        Closure $call,
+    ): mixed {
         $glossary = $this->siteGlossary($options, $sourceLanguage, $targetLanguage);
         if (!$glossary instanceof ResolvedGlossary) {
-            return $optionsArray;
+            return $call($optionsArray);
         }
 
         if ($translator->getIdentifier() !== 'deepl') {
             $optionsArray['glossary'] = $glossary->terms->toArray();
 
-            return $optionsArray;
+            return $call($optionsArray);
         }
 
-        $glossaryId = $this->deepLGlossarySync?->glossaryIdFor($glossary);
-        if ($glossaryId !== null) {
-            $optionsArray['glossary_id'] = $glossaryId;
+        $sync = $this->deepLGlossarySync;
+        $glossaryId = $sync?->glossaryIdFor($glossary);
+        if (!$sync instanceof DeepLGlossarySyncInterface || $glossaryId === null) {
+            return $call($optionsArray);
         }
 
-        return $optionsArray;
+        try {
+            return $call(['glossary_id' => $glossaryId] + $optionsArray);
+        } catch (Throwable $e) {
+            if (!$sync->isStaleGlossaryError($e)) {
+                throw $e;
+            }
+
+            $freshId = $sync->recreate($glossary);
+            if ($freshId === null) {
+                throw $e;
+            }
+
+            return $call(['glossary_id' => $freshId] + $optionsArray);
+        }
     }
 
     /**

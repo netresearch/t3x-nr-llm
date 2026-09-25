@@ -22,9 +22,10 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * reads through {@see \Netresearch\NrLlm\Domain\Repository\GlossaryRepository},
  * still lists it.
  *
- * Should two records claim the same site and language pair, the one first in
- * the module's manual order wins (`sorting`, then `uid`). Terms are not merged
- * across records: which term applies must be answerable by opening one record.
+ * Should two visible records claim the same site and language pair, the one
+ * with the lowest uid wins — the oldest, and the first the module lists for
+ * that pair. Terms are not merged across records: which term applies must be
+ * answerable by opening one record.
  *
  * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
@@ -53,8 +54,7 @@ final readonly class GlossaryResolver implements GlossaryResolverInterface
                 $queryBuilder->expr()->eq('source_language', $queryBuilder->createNamedParameter($source)),
                 $queryBuilder->expr()->eq('target_language', $queryBuilder->createNamedParameter($target)),
             )
-            ->orderBy('sorting', 'ASC')
-            ->addOrderBy('uid', 'ASC')
+            ->orderBy('uid', 'ASC')
             ->setMaxResults(1)
             ->executeQuery()
             ->fetchAssociative();
