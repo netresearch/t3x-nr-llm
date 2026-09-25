@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.37.4] - 2026-09-25
+
 ### Added
 
 - **Editorial Starter ships a *Leichte Sprache version* task (NEXT-166).** Leichte Sprache is a German register of its own, not a stricter *Plain language version* (Einfache Sprache): the new task `editorial-starter-leichte-sprache` writes to the rules of the Netzwerk Leichte Sprache and DIN SPEC 33429 — one statement per sentence and each sentence on its own line, active voice, no subjunctive, no genitive, positive statements, no abbreviations, numbers as digits, compound nouns split with a hyphen or a mediopoint, difficult words explained. It always answers in German and returns plain text, so the line breaks survive. The pack now has ten tasks. An installation that already has the pack gets it by installing it again: the installer skips the identifiers it has.
@@ -4118,7 +4120,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.3...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.4...HEAD
+[0.37.4]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.3...v0.37.4
 [0.37.3]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.2...v0.37.3
 [0.37.2]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.1...v0.37.2
 [0.37.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.0...v0.37.1
