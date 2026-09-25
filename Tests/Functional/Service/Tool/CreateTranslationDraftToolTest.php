@@ -154,6 +154,26 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * NEXT-167: the result leads with the new uid, as create_page_draft's
+     * does, so a follow-up call does not pick up the source uid instead.
+     */
+    #[Test]
+    public function theResultLeadsWithTheNewUid(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        $newUid = (int)($this->translationOf('tt_content', self::ELEMENT, 'l18n_parent')['uid'] ?? 0);
+        self::assertGreaterThan(self::ELEMENT, $newUid);
+        self::assertStringStartsWith(sprintf('New translation uid: %d.', $newUid), $result->content);
+    }
+
+    /**
      * Core writes a translation through a DataHandler of its own, like a
      * copy. A hook that fails there fails before core records the new uid,
      * and "no translation was created" would be false where one exists — a

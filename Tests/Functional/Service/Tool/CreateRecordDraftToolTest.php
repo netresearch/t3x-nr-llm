@@ -199,6 +199,26 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         self::assertSame((int)($row['uid'] ?? 0), $result->writeTarget?->uid);
     }
 
+    /**
+     * NEXT-167: the result leads with the new uid, as create_page_draft's
+     * does, so a follow-up call does not pick up the page uid instead.
+     */
+    #[Test]
+    public function theResultLeadsWithTheNewUid(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            $this->call(['title' => 'Drafted item']),
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        $newUid = (int)($this->createdRecord()['uid'] ?? 0);
+        self::assertGreaterThan(0, $newUid);
+        self::assertStringStartsWith(sprintf('New %s record uid: %d.', self::TABLE, $newUid), $result->content);
+    }
+
     #[Test]
     public function anEditorCreatesWithTheGrantsTheBackendRequires(): void
     {

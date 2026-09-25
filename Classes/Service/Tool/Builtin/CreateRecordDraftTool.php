@@ -321,8 +321,13 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             ));
         }
 
+        // The new uid leads, as it does for create_page_draft: the page uid is
+        // the other number in the answer (NEXT-167).
         return ToolResult::text(sprintf(
-            'Created hidden %s record [%d] on page [%d] with %s. It is not visible until a human unhides it.',
+            'New %s record uid: %d. Created hidden %s record [%d] on page [%d] with %s. It is not visible until a '
+            . 'human unhides it.',
+            $plan['table'],
+            $newUid,
             $plan['table'],
             $newUid,
             $plan['pid'],

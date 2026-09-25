@@ -283,9 +283,13 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             ));
         }
 
+        // The new uid leads, as it does for create_page_draft: the page uid is
+        // the other number in the answer, and a follow-up call that picks it up
+        // instead edits the wrong record (NEXT-167).
         return ToolResult::text(sprintf(
-            'Created hidden %s element [%d] "%s" on page [%d], column %d, language %d%s. It is not visible until a '
-            . 'human unhides it.',
+            'New content element uid: %d. Created hidden %s element [%d] "%s" on page [%d], column %d, language '
+            . '%d%s. It is not visible until a human unhides it.',
+            $newUid,
             $plan['type'],
             $newUid,
             $this->excerpt($plan['header']),
@@ -328,6 +332,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         }
 
         $lines = [
+            ...$this->duplicateWarning($plan['page'], $plan['type'], $plan['header'], $plan['language']),
             sprintf('New %s element on page [%d] "%s":', $plan['type'], $plan['page'], $this->excerpt($plan['pageTitle'])),
             sprintf('header: %s', $this->quoted($plan['header'])),
             $plan['bodytext'] === null
@@ -788,6 +793,63 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             ->fetchOne();
 
         return self::toInt($count) > 0;
+    }
+
+    /**
+     * A warning line when the page already holds an element of the same type
+     * with the same header in the same language, hidden ones included;
+     * otherwise nothing.
+     *
+     * The guard {@see CreatePageDraftTool} puts in front of a second page with
+     * one title, for the record that follows it: in the demo a follow-up
+     * message made the model draft content again that an earlier, already
+     * approved call had created (NEXT-167). The preview states it; it does not
+     * refuse, because two elements with one header can be what the user wants.
+     *
+     * The language is the one the call creates in — an element with the same
+     * header in another language is a different element, not a copy of this
+     * one. The column is not compared: the same element in another column of
+     * the same page is still a second copy.
+     *
+     * No per-row permission check, unlike the page guard: content elements
+     * carry no permissions of their own, and {@see self::plan()} has already
+     * required the content-edit permission on this page and access to the
+     * language, which is everything that governs seeing an element there.
+     *
+     * "Same" is the database's comparison, as for the page guard.
+     *
+     * @return list<string>
+     */
+    private function duplicateWarning(int $page, string $type, string $header, int $language): array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+
+        $twin = $queryBuilder
+            ->select('uid', $this->hiddenField())
+            ->from(self::TABLE)
+            ->where(
+                $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($page, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('header', $queryBuilder->createNamedParameter($header)),
+                $queryBuilder->expr()->eq('CType', $queryBuilder->createNamedParameter($type)),
+                $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter($language, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+            )
+            ->orderBy('uid', 'ASC')
+            ->setMaxResults(1)
+            ->executeQuery()
+            ->fetchAssociative();
+
+        if (!is_array($twin)) {
+            return [];
+        }
+
+        return [sprintf(
+            'Warning: %s element [%d] with the same header already exists on this page%s. Approving creates a second element with that header.',
+            $type,
+            self::toInt($twin['uid'] ?? 0),
+            self::toInt($twin[$this->hiddenField()] ?? 0) === 1 ? ' (hidden)' : '',
+        )];
     }
 
     /**

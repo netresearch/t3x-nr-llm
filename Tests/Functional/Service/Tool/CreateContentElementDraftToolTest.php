@@ -375,6 +375,71 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
         self::assertSame(1, $this->elementCount(), 'a preview must not create anything');
     }
 
+    /**
+     * NEXT-167: the result leads with the new uid, as create_page_draft's
+     * does, so a follow-up call does not pick up the page uid instead.
+     */
+    #[Test]
+    public function theResultLeadsWithTheNewUid(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE_OPEN, 'type' => 'text', 'header' => 'Drafted headline'],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        $newUid = (int)($this->createdElement()['uid'] ?? 0);
+        self::assertGreaterThan(self::EXISTING_ELEMENT, $newUid);
+        self::assertStringStartsWith(sprintf('New content element uid: %d.', $newUid), $result->content);
+    }
+
+    /**
+     * NEXT-167: a follow-up message made the model draft content again that
+     * an earlier, already approved call had created. The approver now sees
+     * that an element of this type with this header is already on the page.
+     */
+    #[Test]
+    public function thePreviewWarnsWhenThePageAlreadyHoldsThisElement(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        $this->insertElement(30, 0, 0, ['header' => 'Team', 'hidden' => 1]);
+
+        $lines = $this->tool->previewCall(
+            ['page' => self::PAGE_OPEN, 'type' => 'text', 'header' => 'Team', 'bodytext' => 'Some body text.'],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertCount(6, $lines);
+        self::assertSame(
+            'Warning: text element [30] with the same header already exists on this page (hidden). Approving creates a second element with that header.',
+            $lines[0],
+        );
+        self::assertStringContainsString('New text element on page [2] "Open"', $lines[1]);
+        self::assertSame(2, $this->elementCount(), 'a preview must not create anything');
+    }
+
+    #[Test]
+    public function thePreviewDoesNotWarnForADeletedElementAnotherTypeLanguageOrPage(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        $this->defineSiteLanguages();
+        $this->insertElement(30, 0, 0, ['header' => 'Twin', 'deleted' => 1]);
+        $this->insertElement(31, 0, 0, ['header' => 'Twin', 'CType' => 'header']);
+        $this->insertElement(32, self::GERMAN, 0, ['header' => 'Twin']);
+        $this->insertElement(33, 0, 0, ['header' => 'Twin', 'pid' => self::PAGE_CLOSED]);
+        $this->insertElement(34, 0, 0, ['header' => 'Twin', 't3ver_wsid' => 1, 't3ver_state' => 1]);
+
+        $lines = $this->tool->previewCall(
+            ['page' => self::PAGE_OPEN, 'type' => 'text', 'header' => 'Twin'],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertCount(5, $lines);
+        self::assertStringStartsWith('New text element on page [2]', $lines[0]);
+    }
+
     #[Test]
     public function theViewerGateAnswersForTheViewerNotTheRun(): void
     {

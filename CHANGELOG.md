@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **The other creating tools lead their result with the new uid (NEXT-167).** `create_content_element_draft`, `create_record_draft`, `create_translation_draft` and `copy_record` named the new record's uid in the middle of a sentence that also names the page, the source record or the target page. Their results now start with `New content element uid: N.`, `New <table> record uid: N.`, `New translation uid: N.` and `New <table> uid: N.`, as `create_page_draft`'s does since 0.37.0. The rest of each sentence is unchanged.
+
+- **`create_content_element_draft` warns about an element that is already on the page (NEXT-167).** The approval preview gains a first line when the page already holds an element of the same type with the same header in the same language, hidden ones included — the guard `create_page_draft` has for a same-titled sibling page. Deleted elements and other workspaces' drafts do not count; the column is not compared. It warns and does not refuse.
+
 ## [0.37.3] - 2026-09-24
 
 ### Fixed

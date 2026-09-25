@@ -199,9 +199,12 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             ));
         }
 
+        // The new uid leads, as it does for create_page_draft: the source uid
+        // is the other number in the answer (NEXT-167).
         return ToolResult::text(sprintf(
-            'Created hidden translation [%d] of %s [%d] "%s" in language %d%s. It is not visible until a human '
-            . 'unhides it.',
+            'New translation uid: %d. Created hidden translation [%d] of %s [%d] "%s" in language %d%s. It is not '
+            . 'visible until a human unhides it.',
+            $newUid,
             $newUid,
             $plan['table'],
             $plan['uid'],
