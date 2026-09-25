@@ -259,8 +259,13 @@ final class TranslationServiceCacheTest extends AbstractUnitTestCase
             }
         };
 
-        $typo3CacheManager = self::createStub(Typo3CacheManager::class);
-        $typo3CacheManager->method('getCache')->willReturn(new VariableFrontend('nrllm_responses', new TransientMemoryBackend()));
+        // Built through the cache manager's own configuration rather than by
+        // constructing the backend: its constructor differs between TYPO3 13.4
+        // (a context argument) and 14.3 (none).
+        $typo3CacheManager = new Typo3CacheManager();
+        $typo3CacheManager->setCacheConfigurations([
+            'nrllm_responses' => ['frontend' => VariableFrontend::class, 'backend' => TransientMemoryBackend::class, 'options' => [], 'groups' => []],
+        ]);
 
         return new TranslationService(
             self::createStub(LlmServiceManagerInterface::class),

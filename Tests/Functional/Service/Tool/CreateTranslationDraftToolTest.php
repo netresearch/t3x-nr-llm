@@ -614,8 +614,12 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         );
         $registry->method('has')->willReturnCallback(static fn(string $identifier): bool => isset($translators[$identifier]));
 
-        $typo3Caches = self::createStub(Typo3CacheManager::class);
-        $typo3Caches->method('getCache')->willReturn(new VariableFrontend('nrllm_responses', new TransientMemoryBackend()));
+        // A private in-memory cache, configured rather than constructed: the
+        // backend's constructor differs between TYPO3 13.4 and 14.3.
+        $typo3Caches = new Typo3CacheManager();
+        $typo3Caches->setCacheConfigurations([
+            'nrllm_responses' => ['frontend' => VariableFrontend::class, 'backend' => TransientMemoryBackend::class, 'options' => [], 'groups' => []],
+        ]);
 
         $siteFinder = $this->get(SiteFinder::class);
         self::assertInstanceOf(SiteFinder::class, $siteFinder);
