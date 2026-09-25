@@ -159,6 +159,25 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * NEXT-167: the result leads with the new uid, as create_page_draft's
+     * does, so a follow-up call does not pick up the source or the target
+     * page instead.
+     */
+    #[Test]
+    public function theResultLeadsWithTheNewUid(): void
+    {
+        $result = $this->tool->execute(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'target_page' => self::TARGET_PAGE],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        $copyUid = (int)$result->writeTarget?->uid;
+        self::assertSame(self::TARGET_PAGE, (int)($this->row('tt_content', $copyUid)['pid'] ?? 0));
+        self::assertStringStartsWith(sprintf('New tt_content uid: %d.', $copyUid), $result->content);
+    }
+
+    /**
      * Core writes the copy through a DataHandler of its own, and a hook that
      * fails there fails before core records the copy's uid. The tool can then
      * not tell whether a copy exists; "not copied" would be false where it

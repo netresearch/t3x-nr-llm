@@ -244,8 +244,13 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             ));
         }
 
+        // The new uid leads, as it does for create_page_draft: the source and
+        // the target page are the other numbers in the answer (NEXT-167).
         return ToolResult::text(sprintf(
-            'Copied %s [%d] "%s" to hidden %s [%d] "%s" %s [%d]%s%s. It is not visible until a human unhides it.',
+            'New %s uid: %d. Copied %s [%d] "%s" to hidden %s [%d] "%s" %s [%d]%s%s. It is not visible until a human '
+            . 'unhides it.',
+            $plan['table'],
+            $newUid,
             $plan['table'],
             $plan['uid'],
             $this->excerpt($plan['label']),
