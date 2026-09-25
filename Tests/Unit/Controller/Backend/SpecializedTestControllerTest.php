@@ -253,6 +253,42 @@ final class SpecializedTestControllerTest extends TestCase
         self::assertSame(403, $subject->translateAction($this->request(['text' => 'x', 'targetLanguage' => 'en']))->getStatusCode());
         self::assertSame(403, $subject->translatorsAction()->getStatusCode());
         self::assertSame(403, $subject->generateImageAction($this->request(['prompt' => 'x']))->getStatusCode());
+        self::assertSame(403, $subject->deeplQuotaAction()->getStatusCode());
+    }
+
+    #[Test]
+    public function theQuotaOfAnUnconfiguredDeepLIsReportedAsUnavailable(): void
+    {
+        // No DeepL key in the Extension Configuration: the registry refuses the
+        // translator before any request, and the page says where to fix it.
+        $this->translationService
+            ->expects(self::once())
+            ->method('getTranslator')
+            ->with('deepl')
+            ->willThrowException(ServiceUnavailableException::notConfigured('translation', 'deepl'));
+
+        $response = $this->subject()->deeplQuotaAction();
+
+        self::assertSame(503, $response->getStatusCode());
+        $body = $this->decode($response);
+        self::assertFalse($body['success']);
+        self::assertIsString($body['error']);
+        self::assertStringContainsString('Extension Configuration', $body['error']);
+    }
+
+    #[Test]
+    public function aDeepLTranslatorWithoutAQuotaIsNotAskedForOne(): void
+    {
+        // A third party may register its own translator as "deepl"; one that
+        // cannot report a quota gets a plain answer, not a fatal error.
+        $this->translationService
+            ->method('getTranslator')
+            ->willReturn(self::createStub(TranslatorInterface::class));
+
+        $response = $this->subject()->deeplQuotaAction();
+
+        self::assertSame(501, $response->getStatusCode());
+        self::assertFalse($this->decode($response)['success']);
     }
 
     #[Test]

@@ -43,7 +43,7 @@ use Throwable;
  * @see https://developers.deepl.com/docs
  */
 #[AsTranslator]
-final class DeepLTranslator extends AbstractSpecializedService implements TranslatorInterface
+final class DeepLTranslator extends AbstractSpecializedService implements TranslatorInterface, CharacterQuotaReportingInterface
 {
     private const API_VERSION = 'v2';
 
@@ -359,6 +359,29 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
             'character_count' => is_int($characterCount) ? $characterCount : 0,
             'character_limit' => is_int($characterLimit) ? $characterLimit : 0,
         ];
+    }
+
+    /**
+     * The character quota of the account behind the configured key, and which
+     * endpoint answered (ADR-207).
+     *
+     * The plan is read from the endpoint the request went to, which
+     * `resolveBaseUrl()` chose from the key: a Free key ends in `:fx`. It is
+     * never derived from the key here, so the key is not read a second time.
+     */
+    public function getCharacterQuota(): CharacterQuota
+    {
+        $usage = $this->getUsage();
+
+        return new CharacterQuota(
+            used: $usage['character_count'],
+            limit: $usage['character_limit'],
+            plan: match (rtrim($this->baseUrl, '/')) {
+                self::FREE_API_URL => CharacterQuota::PLAN_FREE,
+                self::PRO_API_URL => CharacterQuota::PLAN_PRO,
+                default => CharacterQuota::PLAN_CUSTOM,
+            },
+        );
     }
 
     /**
