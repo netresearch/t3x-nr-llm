@@ -70,7 +70,10 @@ final class GlossaryControllerTest extends AbstractFunctionalTestCase
         // Deleted records do not surface.
         self::assertStringNotContainsString('Deleted EN-DE', $body);
         // Record 1 holds two usable pairs; the column shows what takes effect.
-        self::assertMatchesRegularExpression('#<td><code>de</code> → <code>en</code></td>\s*<td>2</td>#', $body);
+        self::assertMatchesRegularExpression(
+            '#<strong>Shop DE-EN</strong></td>\s*<td><code>main</code></td>\s*<td><code>de</code> → <code>en</code></td>\s*<td>2</td>#',
+            $body,
+        );
         // FormEngine deep links (the record/edit backend route) for editing
         // and creating records.
         self::assertStringContainsString('record/edit', $body);

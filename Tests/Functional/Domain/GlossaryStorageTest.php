@@ -108,7 +108,8 @@ final class GlossaryStorageTest extends AbstractFunctionalTestCase
         $dataHandler->start(['tx_nrllm_glossary' => ['NEW1' => ['pid' => 0] + $fields]], []);
         $dataHandler->process_datamap();
 
-        self::assertSame([], $dataHandler->errorLog, 'DataHandler reported: ' . implode(' | ', $dataHandler->errorLog));
+        // errorLog is typed array<string> on 14.3 and plain array on 13.4.
+        self::assertSame([], $dataHandler->errorLog, 'DataHandler reported: ' . var_export($dataHandler->errorLog, true));
         $uid = $dataHandler->substNEWwithIDs['NEW1'] ?? null;
         self::assertIsInt($uid);
 

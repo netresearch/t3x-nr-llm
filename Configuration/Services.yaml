@@ -143,14 +143,6 @@ services:
     alias: Netresearch\NrLlm\Specialized\Translation\TranslatorRegistry
     public: true
 
-  # Site glossaries for the translation path (ADR-208). Private: only
-  # TranslationService and the DeepL handoff consume them.
-  Netresearch\NrLlm\Service\Glossary\GlossaryResolverInterface:
-    alias: Netresearch\NrLlm\Service\Glossary\GlossaryResolver
-
-  Netresearch\NrLlm\Specialized\Translation\DeepLGlossarySyncInterface:
-    alias: Netresearch\NrLlm\Specialized\Translation\DeepLGlossarySync
-
   # ========================================
   # Providers (private; resolved via LlmServiceManager)
   # ========================================
