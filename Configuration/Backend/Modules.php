@@ -12,6 +12,7 @@ use Netresearch\NrLlm\Controller\Backend\AiTaskController;
 use Netresearch\NrLlm\Controller\Backend\AnalyticsController;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Controller\Backend\EditorActionController;
+use Netresearch\NrLlm\Controller\Backend\GlossaryController;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Controller\Backend\McpServerController;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
@@ -36,7 +37,7 @@ use Netresearch\NrLlm\Controller\Backend\UseCasePackController;
  *   ├── nrllm_aitasks         editor surface        (access => user)
  *   ├── nrllm_overview        landing page          (access => admin)
  *   ├── nrllm_setup           providers, models, configurations, use-case
- *   ├── nrllm_authoring       tasks, skills, snippets
+ *   ├── nrllm_authoring       tasks, skills, snippets, glossaries
  *   └── nrllm_operation       tools, MCP, playground, runs, analytics
  *
  * The section replaces 'tools' as the top-level parent; the depth is unchanged
@@ -234,6 +235,22 @@ return [
         'extensionName' => 'NrLlm',
         'controllerActions' => [
             PromptSnippetController::class => [
+                'list',
+            ],
+        ],
+    ],
+    // Translation glossaries per site and language pair (ADR-208) - child of
+    // main module. Same shape as the snippet library: a list, and FormEngine
+    // (record_edit route) for new/edit/delete.
+    'nrllm_glossaries' => [
+        'parent' => 'nrllm_authoring',
+        'access' => 'admin',
+        'iconIdentifier' => 'module-nrllm-snippet',
+        'path' => '/module/nrllm/glossaries',
+        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_glossary.xlf',
+        'extensionName' => 'NrLlm',
+        'controllerActions' => [
+            GlossaryController::class => [
                 'list',
             ],
         ],

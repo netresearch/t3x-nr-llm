@@ -279,6 +279,23 @@ when the module has entries but none is the default; nothing when empty.</f:comm
                 </div>
             </div>
 
+            <f:comment>Translation Glossaries (ADR-208)</f:comment>
+            <div class="nrllm-ov-card {statuses.glossaries.cssClass}">
+                <a class="stretched-link" href="{be:moduleLink(route: 'nrllm_glossaries')}" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:translationGlossary.card.title', default: 'Translation Glossaries')}"></a>
+                <f:render section="flag" arguments="{status: statuses.glossaries}" />
+                <div class="nrllm-ov-card-h">
+                    <span class="nrllm-ov-icon"><core:icon identifier="module-nrllm-snippet" size="medium" /><f:render section="check" arguments="{status: statuses.glossaries}" /></span>
+                    <div>
+                        <div class="nrllm-ov-tt"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:translationGlossary.card.title" default="Translation Glossaries" /></div>
+                        <div class="nrllm-ov-st">{statuses.glossaries.count} <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:card.count.translationGlossaries" default="glossary(ies) configured" /></div>
+                    </div>
+                </div>
+                <div class="nrllm-ov-card-b"><p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:translationGlossary.card.description" default="Terms a site keeps fixed when DeepL or an LLM translates its content." /></p></div>
+                <div class="nrllm-ov-card-f">
+                    <a href="{newGlossaryUrl}"><core:icon identifier="actions-plus" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.translationGlossary.new" default="New Glossary" /></a>
+                </div>
+            </div>
+
             <f:comment>Skills</f:comment>
             <div class="nrllm-ov-card {statuses.skills.cssClass}">
                 <a class="stretched-link" href="{be:moduleLink(route: 'nrllm_skills')}" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.card.title', default: 'Skills')}"></a>

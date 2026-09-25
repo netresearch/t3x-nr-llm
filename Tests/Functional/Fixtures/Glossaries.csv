@@ -1,0 +1,11 @@
+"tx_nrllm_glossary"
+,"uid","pid","name","site_identifier","source_language","target_language","entries","deepl_glossary_id","deepl_entries_hash","sorting","tstamp","crdate","deleted","hidden"
+,1,0,"Shop DE-EN","main","de","en","Warenkorb = shopping cart
+Kundenkonto	customer account","","",10,1703347200,1703347200,0,0
+,2,0,"Shop DE-EN second","main","de","en","Warenkorb = basket","","",20,1703347200,1703347200,0,0
+,3,0,"Hidden DE-FR","main","de","fr","Warenkorb = panier","","",10,1703347200,1703347200,0,1
+,4,0,"Deleted EN-DE","main","en","de","shopping cart = Warenkorb","","",10,1703347200,1703347200,1,0
+,5,0,"Other site DE-EN","other","de","en","Warenkorb = cart","","",10,1703347200,1703347200,0,0
+,6,0,"Only comments DE-NL","main","de","nl","# nothing yet","","",10,1703347200,1703347200,0,0
+,7,0,"Main FR-DE","main","fr","de","panier = Warenkorb","gls_test_shared","stale",10,1703347200,1703347200,0,0
+,8,0,"Hidden copy FR-DE","other","fr","de","panier = Warenkorb","gls_test_shared","stale",10,1703347200,1703347200,0,1

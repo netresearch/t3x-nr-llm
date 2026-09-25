@@ -2399,6 +2399,63 @@
                 <source>Tags</source>
                 <target>Tags</target>
             </trans-unit>
+            <!-- Translation glossaries (ADR-208) -->
+            <trans-unit id="btn.translationGlossary.new">
+                <source>New Glossary</source>
+                <target>Neues Glossar</target>
+            </trans-unit>
+            <trans-unit id="translationGlossary.list.title">
+                <source>Translation Glossaries</source>
+                <target>Übersetzungsglossare</target>
+            </trans-unit>
+            <trans-unit id="translationGlossary.intro.line1">
+                <source>A glossary fixes how one site translates particular terms from one language into another. It applies when the caller names the site and passes no glossary of its own.</source>
+                <target>Ein Glossar legt fest, wie eine Site bestimmte Begriffe aus einer Sprache in eine andere übersetzt. Es gilt, wenn der Aufrufer die Site angibt und kein eigenes Glossar mitgibt.</target>
+            </trans-unit>
+            <trans-unit id="translationGlossary.intro.line2">
+                <source>DeepL receives the terms as a DeepL glossary, an LLM receives them in its prompt. One pair per line: &lt;code&gt;source = target&lt;/code&gt;, or source and target separated by a tab.</source>
+                <target>DeepL erhält die Begriffe als DeepL-Glossar, ein LLM erhält sie im Prompt. Ein Paar pro Zeile: &lt;code&gt;Quelle = Ziel&lt;/code&gt;, oder Quelle und Ziel durch einen Tabulator getrennt.</target>
+            </trans-unit>
+            <trans-unit id="translationGlossary.empty.title">
+                <source>No Glossaries Configured</source>
+                <target>Keine Glossare konfiguriert</target>
+            </trans-unit>
+            <trans-unit id="translationGlossary.empty.message">
+                <source>No translation glossaries have been created yet.</source>
+                <target>Es wurden noch keine Übersetzungsglossare angelegt.</target>
+            </trans-unit>
+            <trans-unit id="translationGlossary.col.name">
+                <source>Name</source>
+                <target>Name</target>
+            </trans-unit>
+            <trans-unit id="translationGlossary.col.site">
+                <source>Site</source>
+                <target>Site</target>
+            </trans-unit>
+            <trans-unit id="translationGlossary.col.languages">
+                <source>Languages</source>
+                <target>Sprachen</target>
+            </trans-unit>
+            <trans-unit id="translationGlossary.col.terms">
+                <source>Term pairs</source>
+                <target>Begriffspaare</target>
+            </trans-unit>
+            <trans-unit id="translationGlossary.hidden">
+                <source>Hidden</source>
+                <target>Verborgen</target>
+            </trans-unit>
+            <trans-unit id="translationGlossary.card.title">
+                <source>Translation Glossaries</source>
+                <target>Übersetzungsglossare</target>
+            </trans-unit>
+            <trans-unit id="translationGlossary.card.description">
+                <source>Terms a site keeps fixed when DeepL or an LLM translates its content.</source>
+                <target>Begriffe, die eine Site beim Übersetzen mit DeepL oder einem LLM festlegt.</target>
+            </trans-unit>
+            <trans-unit id="card.count.translationGlossaries">
+                <source>glossary(ies) configured</source>
+                <target>Glossar(e) konfiguriert</target>
+            </trans-unit>
             <!-- Setup wizard (translation sweep) -->
             <trans-unit id="wizard.step.connect">
                 <source>Connect</source>

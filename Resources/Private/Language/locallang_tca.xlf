@@ -811,6 +811,43 @@
             <trans-unit id="tx_nrllm_promptsnippet.is_active.description">
                 <source>Only active snippets are returned to consuming extensions</source>
             </trans-unit>
+            <!-- Translation glossary table (ADR-208) -->
+            <trans-unit id="tx_nrllm_glossary">
+                <source>LLM Translation Glossary</source>
+            </trans-unit>
+            <trans-unit id="palette.glossary_scope">
+                <source>Applies to</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_glossary.name">
+                <source>Name</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_glossary.name.description">
+                <source>A name editors recognise in the list, e.g. "Shop terms DE → EN"</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_glossary.site_identifier">
+                <source>Site</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_glossary.site_identifier.description">
+                <source>The site whose translations use this glossary. A caller names the site with TranslationOptions::withSite()</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_glossary.source_language">
+                <source>Source language</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_glossary.source_language.description">
+                <source>Two-letter ISO 639-1 code, e.g. de. A regional variant in the translation request (de-DE) matches its base code</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_glossary.target_language">
+                <source>Target language</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_glossary.target_language.description">
+                <source>Two-letter ISO 639-1 code, e.g. en. A regional variant in the translation request (en-GB) matches its base code</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_glossary.entries">
+                <source>Term pairs</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_glossary.entries.description">
+                <source>One pair per line: "source = target", or source and target separated by a tab (as pasted from a spreadsheet). Empty lines and lines starting with # are ignored. If a source term appears twice, the last line wins</source>
+            </trans-unit>
             <!-- Skill source table -->
             <trans-unit id="tx_nrllm_skill_source">
                 <source>LLM Skill Source</source>

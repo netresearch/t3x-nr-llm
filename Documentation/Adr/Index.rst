@@ -590,3 +590,4 @@ Tools
    Adr205AColumnEveryContentTypeCarriesExcludesNoType
    Adr206AHookThatFailsDoesNotFailTheWriteItRanAfter
    Adr207DeepLQuotaOnTheTestPage
+   Adr208ASiteGlossaryReachesBothTranslators

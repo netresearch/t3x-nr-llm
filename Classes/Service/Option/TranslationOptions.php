@@ -43,6 +43,8 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
         // last two constructor params (BC) is unaffected only if new fields
         // are appended after them, not inserted before.
         private ?string $translator = null,
+        // Appended for the same reason as $translator (ADR-208).
+        private ?string $site = null,
     ) {
         $this->setBudgetFields($beUserUid, $plannedCost);
         $this->validate();
@@ -226,6 +228,19 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
         return $clone;
     }
 
+    /**
+     * Name the site the text belongs to, by its identifier (config/sites/<identifier>).
+     * When no explicit glossary is set, `TranslationService` then applies the
+     * glossary that site keeps for the language pair (ADR-208): as prompt terms
+     * on the LLM path, as a DeepL glossary on the DeepL path.
+     */
+    public function withSite(string $site): static
+    {
+        $clone = clone $this;
+        $clone->site = $site;
+        return $clone;
+    }
+
     // Budget pre-flight setters provided by `BudgetFieldsTrait`.
 
     // ========================================
@@ -288,6 +303,11 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
     public function getTranslator(): ?string
     {
         return $this->translator;
+    }
+
+    public function getSite(): ?string
+    {
+        return $this->site;
     }
 
     // Budget pre-flight getters provided by `BudgetFieldsTrait`.

@@ -1074,6 +1074,55 @@
                 <source>Only active snippets are returned to consuming extensions</source>
                 <target>Nur aktive Snippets werden an konsumierende Extensions ausgeliefert</target>
             </trans-unit>
+            <!-- Translation glossary table (ADR-208) -->
+            <trans-unit id="tx_nrllm_glossary">
+                <source>LLM Translation Glossary</source>
+                <target>LLM-Übersetzungsglossar</target>
+            </trans-unit>
+            <trans-unit id="palette.glossary_scope">
+                <source>Applies to</source>
+                <target>Gilt für</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_glossary.name">
+                <source>Name</source>
+                <target>Name</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_glossary.name.description">
+                <source>A name editors recognise in the list, e.g. "Shop terms DE → EN"</source>
+                <target>Ein Name, an dem Redakteure den Eintrag in der Liste erkennen, z. B. „Shop-Begriffe DE → EN“</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_glossary.site_identifier">
+                <source>Site</source>
+                <target>Site</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_glossary.site_identifier.description">
+                <source>The site whose translations use this glossary. A caller names the site with TranslationOptions::withSite()</source>
+                <target>Die Site, deren Übersetzungen dieses Glossar verwenden. Ein Aufrufer gibt die Site mit TranslationOptions::withSite() an</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_glossary.source_language">
+                <source>Source language</source>
+                <target>Ausgangssprache</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_glossary.source_language.description">
+                <source>Two-letter ISO 639-1 code, e.g. de. A regional variant in the translation request (de-DE) matches its base code</source>
+                <target>Zweistelliger ISO-639-1-Code, z. B. de. Eine regionale Variante in der Übersetzungsanfrage (de-DE) passt zu ihrem Basiscode</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_glossary.target_language">
+                <source>Target language</source>
+                <target>Zielsprache</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_glossary.target_language.description">
+                <source>Two-letter ISO 639-1 code, e.g. en. A regional variant in the translation request (en-GB) matches its base code</source>
+                <target>Zweistelliger ISO-639-1-Code, z. B. en. Eine regionale Variante in der Übersetzungsanfrage (en-GB) passt zu ihrem Basiscode</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_glossary.entries">
+                <source>Term pairs</source>
+                <target>Begriffspaare</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_glossary.entries.description">
+                <source>One pair per line: "source = target", or source and target separated by a tab (as pasted from a spreadsheet). Empty lines and lines starting with # are ignored. If a source term appears twice, the last line wins</source>
+                <target>Ein Paar pro Zeile: „Quelle = Ziel“, oder Quelle und Ziel durch einen Tabulator getrennt (wie beim Einfügen aus einer Tabelle). Leere Zeilen und Zeilen, die mit # beginnen, werden ignoriert. Kommt ein Quellbegriff zweimal vor, gilt die letzte Zeile</target>
+            </trans-unit>
             <!-- Skill source table -->
             <trans-unit id="tx_nrllm_skill_source">
                 <source>LLM Skill Source</source>

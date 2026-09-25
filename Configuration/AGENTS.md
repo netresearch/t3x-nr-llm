@@ -28,6 +28,7 @@ Configuration/
 │   ├── tx_nrllm_mcp_server.php
 │   ├── tx_nrllm_model.php
 │   ├── tx_nrllm_promptsnippet.php
+│   ├── tx_nrllm_glossary.php
 │   ├── tx_nrllm_provider.php
 │   ├── tx_nrllm_skill.php
 │   ├── tx_nrllm_skill_source.php
@@ -57,6 +58,7 @@ New tables get a per-table file directly under `TCA/`; there is currently no `TC
 | `tx_nrllm_service_usage` | Usage/cost tracking rows |
 | `tx_nrllm_skill`, `tx_nrllm_skill_source` | Skills and their sources (+ `tx_nrllm_skill_audit`) |
 | `tx_nrllm_promptsnippet` | Reusable prompt snippets |
+| `tx_nrllm_glossary` | Translation glossaries per site and language pair (ADR-208) |
 | `tx_nrllm_mcp_server`, `tx_nrllm_mcp_tool` | MCP server/tool registry |
 | `tx_nrllm_agentrun`, `tx_nrllm_agentrun_event` | Agent runs and their event log |
 | `tx_nrllm_ai_session`, `tx_nrllm_ai_session_message` | AI sessions |

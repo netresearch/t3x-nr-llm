@@ -349,6 +349,45 @@ CREATE TABLE tx_nrllm_promptsnippet (
 );
 
 #
+# Table structure for table 'tx_nrllm_glossary'
+# Translation glossary per site and language pair (ADR-208)
+#
+CREATE TABLE tx_nrllm_glossary (
+    uid int(11) NOT NULL auto_increment,
+    pid int(11) DEFAULT '0' NOT NULL,
+
+    name varchar(255) DEFAULT '' NOT NULL,
+
+    -- Which translations the glossary applies to: the site identifier as in
+    -- config/sites/<identifier>, and the ISO 639-1 base codes of the pair.
+    site_identifier varchar(255) DEFAULT '' NOT NULL,
+    source_language varchar(2) DEFAULT '' NOT NULL,
+    target_language varchar(2) DEFAULT '' NOT NULL,
+
+    -- One term pair per line: "source = target" or tab-separated.
+    entries mediumtext,
+
+    -- DeepL keeps a glossary immutable, so the id of the one created for the
+    -- current entries is stored together with the hash it was created from.
+    -- A different hash means the entries changed and a new glossary is due.
+    -- Written by the translation path, never by the editing form.
+    deepl_glossary_id varchar(64) DEFAULT '' NOT NULL,
+    deepl_entries_hash varchar(64) DEFAULT '' NOT NULL,
+
+    sorting int(11) unsigned DEFAULT '0' NOT NULL,
+
+    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+
+    deleted tinyint(4) unsigned DEFAULT '0' NOT NULL,
+    hidden tinyint(4) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY parent (pid),
+    KEY lookup (site_identifier, source_language, target_language)
+);
+
+#
 # Table for tracking specialized service usage (translation, speech, image)
 #
 CREATE TABLE tx_nrllm_service_usage (

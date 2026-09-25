@@ -17,11 +17,14 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
+use Netresearch\NrLlm\Service\Glossary\GlossaryResolverInterface;
+use Netresearch\NrLlm\Service\Glossary\ResolvedGlossary;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\TranslationOptions;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
+use Netresearch\NrLlm\Specialized\Translation\DeepLGlossarySyncInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
@@ -66,6 +69,12 @@ final readonly class TranslationService implements TranslationServiceInterface
         private LlmConfigurationServiceInterface $configurationService,
         private TranslationPromptBuilder $promptBuilder,
         private ?BackendUserContextResolverInterface $beUserContextResolver = null,
+        // Site glossaries (ADR-208). Appended after the existing optional
+        // parameter so positional callers keep working; null means "no site
+        // glossary", which is what a caller constructing the service by hand
+        // got before.
+        private ?GlossaryResolverInterface $glossaryResolver = null,
+        private ?DeepLGlossarySyncInterface $deepLGlossarySync = null,
     ) {}
 
     /**
@@ -407,6 +416,7 @@ final readonly class TranslationService implements TranslationServiceInterface
 
         // Determine translator to use
         $translator = $this->resolveTranslator($optionsArray);
+        $optionsArray = $this->handSiteGlossaryTo($translator, $optionsArray, $options, $sourceLanguage, $targetLanguage);
 
         // Execute translation via resolved translator
         return $translator->translate($text, $targetLanguage, $sourceLanguage, $optionsArray);
@@ -434,6 +444,7 @@ final readonly class TranslationService implements TranslationServiceInterface
         $options ??= new TranslationOptions();
         $optionsArray = $this->attachBeUserUid($options->toArray(), $options);
         $translator = $this->resolveTranslator($optionsArray);
+        $optionsArray = $this->handSiteGlossaryTo($translator, $optionsArray, $options, $sourceLanguage, $targetLanguage);
 
         return $translator->translateBatch($texts, $targetLanguage, $sourceLanguage, $optionsArray);
     }
@@ -472,6 +483,62 @@ final readonly class TranslationService implements TranslationServiceInterface
         $configuration = $options->getConfiguration();
         if ($configuration !== null && $configuration !== '') {
             $optionsArray['configuration'] = $configuration;
+        }
+
+        return $optionsArray;
+    }
+
+    /**
+     * The glossary the caller's site keeps for this language pair (ADR-208),
+     * or null. An explicit glossary always wins: a caller who passed terms gets
+     * those terms and nothing else, never a merge.
+     */
+    private function siteGlossary(TranslationOptions $options, ?string $sourceLanguage, string $targetLanguage): ?ResolvedGlossary
+    {
+        $site = $options->getSite();
+        if ($this->glossaryResolver === null || $site === null || $site === ''
+            || $options->getGlossary() !== null || $sourceLanguage === null
+        ) {
+            return null;
+        }
+
+        return $this->glossaryResolver->resolve($site, $sourceLanguage, $targetLanguage);
+    }
+
+    /**
+     * Put the site glossary into a translator's options (ADR-208): DeepL gets
+     * the id of a DeepL glossary holding the terms, every other translator gets
+     * the terms under the `glossary` key, which is where `LlmTranslator` reads
+     * them.
+     *
+     * Needs an explicit source language: which glossary applies depends on it,
+     * and DeepL refuses `glossary_id` on a request without `source_lang`.
+     *
+     * @param array<string, mixed> $optionsArray
+     *
+     * @return array<string, mixed>
+     */
+    private function handSiteGlossaryTo(
+        TranslatorInterface $translator,
+        array $optionsArray,
+        TranslationOptions $options,
+        ?string $sourceLanguage,
+        string $targetLanguage,
+    ): array {
+        $glossary = $this->siteGlossary($options, $sourceLanguage, $targetLanguage);
+        if ($glossary === null) {
+            return $optionsArray;
+        }
+
+        if ($translator->getIdentifier() !== 'deepl') {
+            $optionsArray['glossary'] = $glossary->terms->toArray();
+
+            return $optionsArray;
+        }
+
+        $glossaryId = $this->deepLGlossarySync?->glossaryIdFor($glossary);
+        if ($glossaryId !== null) {
+            $optionsArray['glossary_id'] = $glossaryId;
         }
 
         return $optionsArray;
@@ -584,6 +651,13 @@ final readonly class TranslationService implements TranslationServiceInterface
 
         // Validate options
         $this->validateOptions($optionsArray);
+
+        // After detection on purpose: which glossary applies depends on the
+        // source language, and an auto-detected one is only known here.
+        $siteGlossary = $this->siteGlossary($options, $sourceLanguage, $targetLanguage);
+        if ($siteGlossary !== null) {
+            $optionsArray['glossary'] = $siteGlossary->terms->toArray();
+        }
 
         $prompt = $this->promptBuilder->build(
             $text,

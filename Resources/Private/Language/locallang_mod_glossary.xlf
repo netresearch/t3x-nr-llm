@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff
+    xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
+    <file source-language="en" datatype="plaintext" original="messages">
+        <body>
+            <trans-unit id="mlang_labels_tablabel">
+                <source>LLM Translation Glossaries</source>
+            </trans-unit>
+            <trans-unit id="mlang_tabs_tab">
+                <source>Glossaries</source>
+            </trans-unit>
+            <trans-unit id="mlang_labels_tabdescr">
+                <source>Term pairs per site and language pair, applied to DeepL and LLM translations</source>
+            </trans-unit>
+        </body>
+    </file>
+</xliff>
