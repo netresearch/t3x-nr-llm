@@ -22,7 +22,44 @@ document.addEventListener('DOMContentLoaded', function () {
     wireTranslation();
     wireImage();
     loadTranslators();
+    loadDeeplQuota();
 });
+
+const PLAN_LABELS = { free: 'DeepL API Free', pro: 'DeepL API Pro', custom: 'custom endpoint' };
+
+/**
+ * Show the DeepL character quota (ADR-207). DeepL's usage endpoint costs no
+ * characters, so it is asked on every page view and again after a DeepL
+ * translation. A failure is shown in the same line: it is the answer to
+ * "is DeepL configured?", not an error of the page.
+ */
+async function loadDeeplQuota() {
+    const target = document.getElementById('deeplQuotaText');
+    const url = TYPO3?.settings?.ajaxUrls?.['nrllm_test_deepl_quota'];
+    if (!target || !url) {
+        return;
+    }
+
+    const format = new Intl.NumberFormat(document.documentElement.lang || undefined);
+
+    try {
+        const data = await (await new AjaxRequest(url).post('')).resolve();
+        if (!data.success) {
+            target.className = 'text-danger';
+            target.textContent = data.error ?? 'Unknown error';
+            return;
+        }
+
+        const used = data.limit > 0
+            ? `${format.format(data.used)} of ${format.format(data.limit)} characters used (${format.format(data.usedPercent)} %)`
+            : `${format.format(data.used)} characters used, no limit reported`;
+        target.className = 'text-body-secondary';
+        target.textContent = `${used} · ${PLAN_LABELS[data.plan] ?? data.plan}`;
+    } catch (error) {
+        target.className = 'text-danger';
+        target.textContent = await readAjaxError(error);
+    }
+}
 
 function show(id, visible) {
     const el = document.getElementById(id);
@@ -112,6 +149,9 @@ function wireTranslation() {
                 data.charactersUsed != null ? `characters: ${data.charactersUsed}` : null,
                 data.usage != null ? `tokens: ${data.usage.totalTokens}` : null,
             ].filter(Boolean).join(' · '));
+            if (data.translator === 'deepl') {
+                loadDeeplQuota();
+            }
         } catch (error) {
             show('translationLoading', false);
             show('translationError', true);

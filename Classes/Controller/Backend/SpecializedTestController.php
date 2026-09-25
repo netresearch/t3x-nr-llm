@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Service\Feature\TranslationServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Image\ImageGeneratorInterface;
+use Netresearch\NrLlm\Specialized\Translation\CharacterQuotaReportingInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
@@ -143,6 +144,49 @@ final readonly class SpecializedTestController
             ]);
         } catch (Throwable $e) {
             return $this->failed('listing translators', $e);
+        }
+    }
+
+    /**
+     * Report the DeepL character quota: used, limit, and which endpoint (Free
+     * or Pro) answered (ADR-207).
+     *
+     * Asking DeepL's usage endpoint costs no characters. The failures take the
+     * same three answers as a translation test: 503 when no key is configured
+     * or DeepL cannot be reached, 502 when DeepL refuses the key, 500 for
+     * anything else. None of them carries the exception message, so neither
+     * the key nor anything DeepL echoes back reaches the page.
+     */
+    public function deeplQuotaAction(): ResponseInterface
+    {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
+            return $deny;
+        }
+
+        try {
+            $translator = $this->translationService->getTranslator('deepl');
+            if (!$translator instanceof CharacterQuotaReportingInterface) {
+                return new JsonResponse([
+                    'success' => false,
+                    'error'   => 'The translator registered as "deepl" does not report a character quota.',
+                ], 501);
+            }
+
+            $quota = $translator->getCharacterQuota();
+
+            return new JsonResponse([
+                'success'     => true,
+                'used'        => $quota->used,
+                'limit'       => $quota->limit,
+                'usedPercent' => $quota->usedPercent(),
+                'plan'        => $quota->plan,
+            ]);
+        } catch (ServiceConfigurationException $e) {
+            return $this->rejected('translator', $e);
+        } catch (ServiceUnavailableException $e) {
+            return $this->unconfigured('translator', $e);
+        } catch (Throwable $e) {
+            return $this->failed('DeepL quota', $e);
         }
     }
 

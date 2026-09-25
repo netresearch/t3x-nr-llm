@@ -43,16 +43,26 @@ declares with its identifier and its current state — *Would be created* or
        the ``chat`` capability — so it installs against a local Ollama as
        readily as against a hosted provider. It sets no tool group restriction
        of its own.
-   * - Nine tasks
-     - Six that transform the text: summarise for a teaser, rewrite for
-       clarity, expand, correct spelling and grammar, plain language version,
-       suggest headlines. Three that only review it: proofread, check
-       readability, check for gaps and tone. Each takes the text through
-       ``{{input}}``.
+   * - Ten tasks
+     - Seven that transform the text: summarise for a teaser, rewrite for
+       clarity, expand, correct spelling and grammar, plain language version
+       (Einfache Sprache), Leichte Sprache version, suggest headlines. Three
+       that only review it: proofread, check readability, check for gaps and
+       tone. Each takes the text through ``{{input}}``.
    * - Two snippets
      - *House style* (tag ``tone_of_voice``) and *Target audience* (tag
        ``audience``). Both are meant to be edited — they are the pack's
        placeholders for your own voice.
+
+*Leichte Sprache version* and *Plain language version* are two tasks because
+they are two registers. Plain language (Einfache Sprache) rewrites in the
+language of the text. Leichte Sprache follows the rule set of the Netzwerk
+Leichte Sprache and DIN SPEC 33429 — one statement per sentence, each on its
+own line, no genitive, no subjunctive, numbers as digits, compound nouns split
+with a hyphen or a mediopoint — and always answers in German. It returns plain
+text, so the line breaks survive. A text in Leichte Sprache is usually checked
+by readers from its target group before it is published; the task produces a
+draft for that check, not a replacement for it.
 
 The pack's configuration is a :ref:`configuration preset <adr-056>`, not a
 second kind of record, so it also appears in the Configuration module's

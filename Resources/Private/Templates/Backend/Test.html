@@ -111,6 +111,10 @@
                     </div>
                     <div class="card-body">
                         <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.translation.info" default="Verifies a translator's credential. Leave the translator empty to use the LLM path, which needs no specialized key." /></p>
+                        <p id="deeplQuota" class="small mb-3" aria-live="polite">
+                            <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.deeplQuota.label" default="DeepL quota:" /></strong>
+                            <span id="deeplQuotaText" class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.deeplQuota.loading" default="Asking DeepL for the character quota…" /></span>
+                        </p>
                         <form id="translationForm">
                             <div class="mb-3">
                                 <label for="translationText" class="form-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.field.text" default="Text" /></label>

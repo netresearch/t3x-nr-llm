@@ -1979,6 +1979,12 @@
             <trans-unit id="test.translator.default">
                 <source>LLM (default)</source>
             </trans-unit>
+            <trans-unit id="test.deeplQuota.label">
+                <source>DeepL quota:</source>
+            </trans-unit>
+            <trans-unit id="test.deeplQuota.loading">
+                <source>Asking DeepL for the character quota…</source>
+            </trans-unit>
             <trans-unit id="test.btn.translate">
                 <source>Translate</source>
             </trans-unit>

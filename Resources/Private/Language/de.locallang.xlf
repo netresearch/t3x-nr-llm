@@ -2629,6 +2629,14 @@
                 <source>LLM (default)</source>
                 <target>LLM (Standard)</target>
             </trans-unit>
+            <trans-unit id="test.deeplQuota.label">
+                <source>DeepL quota:</source>
+                <target>DeepL-Kontingent:</target>
+            </trans-unit>
+            <trans-unit id="test.deeplQuota.loading">
+                <source>Asking DeepL for the character quota…</source>
+                <target>Frage DeepL nach dem Zeichenkontingent …</target>
+            </trans-unit>
             <trans-unit id="test.btn.translate">
                 <source>Translate</source>
                 <target>Übersetzen</target>

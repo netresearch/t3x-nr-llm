@@ -22,7 +22,7 @@ use Netresearch\NrLlm\Service\Preset\ConfigurationPreset;
  * The Editorial Starter pack (ADR-163).
  *
  * The first pack, and for now the only one: everyday tasks an editor
- * recognises — six that transform a text and three that only review it — two
+ * recognises — seven that transform a text and three that only review it — two
  * snippets that make the tone a decision instead of a habit, one configuration
  * that requires nothing but chat.
  *
@@ -49,7 +49,7 @@ final readonly class EditorialStarterPackProvider implements UseCasePackProvider
                 useCase: UseCase::EDITORIAL,
                 name: 'Editorial Starter',
                 description: 'Everyday editing tasks — summarise, rewrite, expand, correct, plain language, '
-                    . 'suggest headlines, and three checks (proofread, readability, gaps and tone) — on one '
+                    . 'Leichte Sprache, suggest headlines, and three checks (proofread, readability, gaps and tone) — on one '
                     . 'configuration, with a house-style and an audience snippet composed into every prompt.',
                 configurationPreset: new ConfigurationPreset(
                     identifier: 'nr_llm.editorial_starter',
@@ -113,7 +113,7 @@ final readonly class EditorialStarterPackProvider implements UseCasePackProvider
     }
 
     /**
-     * Six tasks that transform the text, three that only review it. All take
+     * Seven tasks that transform the text, three that only review it. All take
      * the editor's text through `{{input}}` and run as plain completions.
      *
      * @return list<PackTask>
@@ -173,6 +173,37 @@ final readonly class EditorialStarterPackProvider implements UseCasePackProvider
                 . 'abbreviations; explain every technical term the first time it appears. Keep all '
                 . 'facts. Write in the language of the text. Return only the rewritten '
                 . "text.\n\n{{input}}",
+            ),
+            // Leichte Sprache is not a stricter setting of the task above but a
+            // German register of its own, with a published rule set (Netzwerk
+            // Leichte Sprache, DIN SPEC 33429). Its output is German whatever
+            // the input language, and it is PLAIN because the register puts
+            // every sentence on its own line — Markdown rendering would join
+            // them into one paragraph.
+            $this->contentTask(
+                'editorial-starter-leichte-sprache',
+                'Leichte Sprache version',
+                'Rewrite a text in German Leichte Sprache (easy-to-read German) following its published rules.',
+                'Rewrite the text below in German Leichte Sprache (easy-to-read German), following the '
+                . 'rules of the Netzwerk Leichte Sprache and DIN SPEC 33429. Leichte Sprache is stricter '
+                . 'than Einfache Sprache. Write German, whatever the language of the text. Rules:' . "\n"
+                . "- Write very short sentences. One statement per sentence. Put every sentence on its own line.\n"
+                . "- Use the active voice. Avoid the passive wherever you can.\n"
+                . '- Do not use the subjunctive (Konjunktiv). Do not use the genitive: write "das Haus von '
+                . 'meinem Vater", not "das Haus meines Vaters".' . "\n"
+                . '- Say things positively. Avoid negations where a positive sentence says the same: '
+                . '"Bleiben Sie ruhig.", not "Werden Sie nicht unruhig."' . "\n"
+                . '- Use no abbreviations: "zum Beispiel", not "z. B.".' . "\n"
+                . '- Write numbers as digits: "3", not "drei".' . "\n"
+                . '- Split long compound nouns with a hyphen or a mediopoint ("Bundes-Tag" or '
+                . '"Bundes·tag"), and use one of the two throughout.' . "\n"
+                . "- Use the same word for the same thing throughout. Use common words.\n"
+                . "- Explain every difficult word in a short sentence of its own where it first appears.\n"
+                . "- Address the reader directly where the text allows it.\n"
+                . 'Keep every fact that matters for understanding the text and add none. You may leave out '
+                . 'details a reader does not need. Return only the rewritten text, without Markdown '
+                . "formatting.\n\n{{input}}",
+                TaskOutputFormat::PLAIN,
             ),
             $this->contentTask(
                 'editorial-starter-readability',

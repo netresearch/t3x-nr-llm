@@ -53,6 +53,11 @@ return [
         'path' => '/nrllm/test/image',
         'target' => SpecializedTestController::class . '::generateImageAction',
     ],
+    // DeepL character quota (ADR-207); the usage endpoint costs no characters.
+    'nrllm_test_deepl_quota' => [
+        'path' => '/nrllm/test/deepl-quota',
+        'target' => SpecializedTestController::class . '::deeplQuotaAction',
+    ],
 
     // Overview: token-free provider reachability probe (loaded async so
     // a slow provider never blocks the page render).

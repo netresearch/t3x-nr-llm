@@ -50,6 +50,23 @@ after entering its vault identifier. The result names the translator that
 answered, the detected source language, and either the characters billed
 (specialized translators) or the tokens used (the LLM path).
 
+..  _administration-specialized-services-deepl-quota:
+
+DeepL character quota
+---------------------
+
+Above the form, the :guilabel:`DeepL quota` line shows the characters used
+and the character limit of the current billing period, the share already used,
+and which API answered: :guilabel:`DeepL API Free` for a key ending in
+``:fx``, :guilabel:`DeepL API Pro` otherwise, :guilabel:`custom endpoint` when
+``translators.deepl.baseUrl`` points elsewhere. It is read from DeepL's usage
+endpoint when the page opens and again after each DeepL translation; asking it
+costs no characters (:ref:`ADR-207 <adr-207>`).
+
+When no DeepL key is configured, or DeepL cannot be reached, the line says so
+and names the Extension Configuration. When DeepL refuses the key, it says the
+key was rejected. The key itself is never part of the answer.
+
 ..  _administration-specialized-services-image:
 
 Image generation
@@ -77,7 +94,8 @@ Configuration — that is the failure this page exists to surface. Any other
 failure of an otherwise-configured service is reported generically, with the
 detail in the system log, so that provider responses never reach the browser.
 
-Both endpoints are admin-only and spend real provider quota on every run.
+All endpoints are admin-only. The translation and image tests spend real
+provider quota on every run; the DeepL quota line does not.
 
 ..  _administration-specialized-services-speech:
 
