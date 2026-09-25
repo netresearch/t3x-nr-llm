@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\UseCase;
 
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
+use Netresearch\NrLlm\Domain\Enum\TaskOutputFormat;
 use Netresearch\NrLlm\Service\UseCase\EditorialStarterPackProvider;
 use Netresearch\NrLlm\Service\UseCase\PackSnippet;
 use Netresearch\NrLlm\Service\UseCase\PackTask;
@@ -83,12 +84,49 @@ final class EditorialStarterPackProviderTest extends TestCase
                 'editorial-starter-expand',
                 'editorial-starter-correct',
                 'editorial-starter-plain-language',
+                'editorial-starter-leichte-sprache',
                 'editorial-starter-readability',
                 'editorial-starter-review',
                 'editorial-starter-headlines',
             ],
             array_map(static fn(PackTask $task): string => $task->identifier, $this->pack()->tasks),
         );
+    }
+
+    #[Test]
+    public function theLeichteSpracheTaskKeepsOneSentencePerLine(): void
+    {
+        // Leichte Sprache puts every sentence on its own line. Markdown output
+        // would be rendered, which joins single line breaks into a paragraph,
+        // so the task returns plain text and says so in its prompt.
+        $task = $this->task('editorial-starter-leichte-sprache');
+
+        self::assertSame(TaskOutputFormat::PLAIN, $task->outputFormat);
+        self::assertStringContainsString('its own line', $task->promptTemplate);
+    }
+
+    #[Test]
+    public function leichteSpracheIsATaskOfItsOwnBesideEinfacheSprache(): void
+    {
+        // Two registers with two rule sets: Leichte Sprache always answers in
+        // German, the plain-language task in the language of the text.
+        $leicht = $this->task('editorial-starter-leichte-sprache');
+        $einfach = $this->task('editorial-starter-plain-language');
+
+        self::assertNotSame($einfach->promptTemplate, $leicht->promptTemplate);
+        self::assertStringContainsString('Write German, whatever the language of the text', $leicht->promptTemplate);
+        self::assertStringContainsString('Write in the language of the text', $einfach->promptTemplate);
+    }
+
+    private function task(string $identifier): PackTask
+    {
+        foreach ($this->pack()->tasks as $task) {
+            if ($task->identifier === $identifier) {
+                return $task;
+            }
+        }
+
+        self::fail($identifier . ' is not in the pack.');
     }
 
     #[Test]
