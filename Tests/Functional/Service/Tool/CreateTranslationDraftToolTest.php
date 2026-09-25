@@ -645,7 +645,9 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function aTranslationLongerThanTheColumnIsCutAndSaidSo(): void
     {
-        $long = str_repeat('Long title ', 30);
+        // The source fits the column (a strict database refuses more); its
+        // translation, five characters longer, does not.
+        $long = str_repeat('Long title ', 22) . 'Last title';
         $this->connectionPool->getConnectionForTable('pages')->update('pages', ['title' => $long], ['uid' => self::CHILD_PAGE]);
         $admin = $this->setUpBackendUser(1);
 
