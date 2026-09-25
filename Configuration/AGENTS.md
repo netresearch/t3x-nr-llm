@@ -46,7 +46,7 @@ New tables get a per-table file directly under `TCA/`; there is currently no `TC
 
 ### Database Tables
 
-`ext_tables.sql` is the authoritative list (24 tables as of 2026-08-19). The core entities:
+`ext_tables.sql` is the authoritative list (26 tables as of 2026-09-25). The core entities:
 
 | Table | Purpose |
 |-------|---------|

@@ -37,20 +37,21 @@ Full test matrix in root `AGENTS.md` Commands section.
 | `DependencyInjection/` | ProviderCompilerPass, TranslatorCompilerPass |
 | `Domain/DTO/` | BudgetCheckResult, CapabilitySet, FallbackChain, ModelSelectionCriteria, ProviderOptions |
 | `Domain/Enum/` | Backed enums for capabilities, task shape, agent-run state, tool data class / effect / egress, trust zone, governance |
-| `Domain/Model/` | Extbase entities (Provider, Model, LlmConfiguration, Task, UserBudget, Skill, SkillSource, PromptSnippet, BackendUserGroup) and the response/result types |
-| `Domain/Repository/` | LlmConfiguration, Model, PromptSnippet, Provider, Skill, SkillSource, Task, UserBudget |
+| `Domain/Model/` | Extbase entities (Provider, Model, LlmConfiguration, Task, UserBudget, Skill, SkillSource, PromptSnippet, Glossary, BackendUserGroup) and the response/result types |
+| `Domain/Repository/` | Glossary, LlmConfiguration, Model, PromptSnippet, Provider, Skill, SkillSource, Task, UserBudget |
 | `Domain/ValueObject/` | Immutable payloads across the runtime — `ChatMessage` is the central one (constructed via `::system()` / `::user()` / `::toolResult()`) |
 | `Exception/` | Core domain exceptions (access, configuration, budget, guardrail, context) — all implement `NrLlmExceptionInterface` |
-| `Form/` | ModelIdElement (TCA element), ModelConstraintsWizard (field wizard), and the GuardrailItems / SnippetTagItems / ToolGroupItems item providers |
+| `Form/` | ModelIdElement (TCA element), ModelConstraintsWizard (field wizard), and the GuardrailItems / SiteItems / SnippetTagItems / ToolGroupItems item providers |
 | `Provider/` | 7 adapters: OpenAI, Claude, Gemini, Groq, Mistral, Ollama, OpenRouter |
 | `Provider/Contract/` | ProviderInterface, Streaming/Tool/Vision/DocumentCapableInterface |
 | `Provider/Exception/` | Typed provider exceptions (authentication, configuration, connection, rate limit, response, unsupported feature, circuit open, fallback exhausted) |
 | `Service/` | LlmServiceManager, CacheManager, ModelSelectionService, WizardGeneratorService, BudgetService |
 | `Provider/Middleware/` | Middleware pipeline (Fallback, Budget, Usage, Cache) — see ADR-026 |
 | `Service/Feature/` | CompletionService, ConversationService, EmbeddingService, ToolCallingService, TranslationService, VisionService — each with its interface |
+| `Service/Glossary/` | GlossaryResolver: the site glossary for a language pair, read by TranslationService (ADR-208) |
 | `Service/Option/` | ChatOptions, EmbeddingOptions, ToolOptions, TranslationOptions, VisionOptions on `AbstractOptions`, plus the budget-aware trait and interface |
 | `Service/SetupWizard/` | ProviderDetector, ModelDiscovery (facade), ConfigurationGenerator + DTOs; `Discovery/` holds one model discoverer per provider |
-| `Specialized/` | Image (DALL-E, FAL), Speech (Whisper, TTS), Translation (DeepL, LLM) |
+| `Specialized/` | Image (DALL-E, FAL), Speech (Whisper, TTS), Translation (DeepL, LLM, DeepL glossary sync) |
 | `Hook/` | ProviderEndpointNormalizationHook |
 | `Testing/` | Fake service doubles (`FakeCompletionService`, …) for consumers' tests |
 | `Updates/` | Upgrade wizards |

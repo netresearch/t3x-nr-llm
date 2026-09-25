@@ -60,8 +60,8 @@ current terms together with a SHA-256 hash of the language pair and the terms
 (``deepl_glossary_id``, ``deepl_entries_hash``). An unchanged record reuses the
 id without a request. A changed one gets a new glossary, the record is
 repointed, and the superseded glossary is deleted — best effort, with a log
-line on failure, and not at all while another record still carries the same id,
-which a record copy can cause.
+line on failure, and not at all while another row still carries the same id
+(one duplicated at database level, for example).
 
 The two columns are not in the TCA: no editor can set them, and a DataHandler
 write that names them is ignored.
@@ -71,12 +71,20 @@ with an info log line.** The list is the one the v2 create endpoint documents:
 any two different codes of ``ar bg cs da de el en es et fi fr he hu id it ja ko
 lt lv nb nl pl pt ro ru sk sl sv tr uk vi zh``. Thai is the documented
 exception. The pairs endpoint ``/v2/glossary-language-pairs`` is deprecated in
-favour of ``/v3/languages?resource=glossary``, so the list is held in
-:php:`DeepLTranslator` rather than fetched.
+favour of ``/v3/languages?resource=glossary``
+(https://developers.deepl.com/api-reference/glossaries/v2-vs-v3-endpoints), so
+the list is held in :php:`DeepLTranslator` rather than fetched.
 
 **The translator path needs an explicit source language.** Without one, no
-glossary is looked up: which glossary applies depends on it, and DeepL refuses
-``glossary_id`` on a request without ``source_lang``.
+glossary is looked up: which glossary applies depends on it, and ``glossary_id``
+"requires the ``source_lang`` parameter to be set"
+(https://developers.deepl.com/api-reference/translate).
+
+**A failed create fails the translation.** Only the cleanup of a superseded
+glossary is best effort. When DeepL refuses to create one — the account's
+glossary limit, a rejected entry — the translate call ends with the same
+:php:`ServiceUnavailableException` any other DeepL error raises: a translation
+that silently ignored the editors' glossary would look correct and be wrong.
 
 Why the terms are one text field
 --------------------------------
@@ -116,11 +124,13 @@ Consequences
 - ◑ The stored id belongs to the DeepL account of the configured key. After
   switching to another account, translations with a stored glossary fail until
   the entries change or the two columns are cleared.
+- ◑ A glossary DeepL refuses to create blocks DeepL translations for that site
+  and pair until the record is fixed or hidden.
 - ◑ The v2 glossary endpoints are DeepL's legacy API; DeepL recommends v3 for
   new integrations and names no removal date. Moving to v3 changes
   :php:`DeepLTranslator::createGlossary()` and nothing that calls it.
 
-Net Score: +2
+Net Score: +1.5
 
 Alternatives considered
 =======================

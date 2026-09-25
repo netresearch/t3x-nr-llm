@@ -34,8 +34,8 @@ interface GlossaryResolverInterface
 
     /**
      * Whether any glossary record other than $exceptUid still points at this
-     * DeepL glossary — a copied record carries the id along, and deleting a
-     * glossary another record still uses would break that record's
+     * DeepL glossary. Deleting a glossary another row still uses — one
+     * duplicated at database level, for example — would break that row's
      * translations.
      */
     public function isDeepLGlossaryReferenced(string $deeplGlossaryId, int $exceptUid): bool;

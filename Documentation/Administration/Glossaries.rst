@@ -88,6 +88,11 @@ Portuguese, Romanian, Russian, Slovak, Slovenian, Spanish, Swedish, Turkish,
 Ukrainian and Vietnamese. For any other pair the translation runs without the
 glossary and the system log records an info line.
 
+If DeepL refuses to create a glossary — the account's glossary limit is
+reached, for example — the DeepL translation fails with the DeepL error rather
+than running without the terms. Fix the glossary or hide it to translate
+without it.
+
 ..  note::
 
     The stored DeepL glossary belongs to the DeepL account of the configured

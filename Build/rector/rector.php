@@ -94,8 +94,10 @@ return static function (RectorConfig $rectorConfig) use ($configure): void {
         // collaborator public (see GuardrailRegistry in Services.yaml).
         GeneralUtilityMakeInstanceToConstructorPropertyRector::class => [
             __DIR__ . '/../../Classes/Form/Tca/SnippetTagItems.php',
-            // The site select of tx_nrllm_glossary (ADR-208); its collaborator,
-            // the core SiteFinder, is public already.
+            // The site select of tx_nrllm_glossary (ADR-208). makeInstance()
+            // resolves the core SiteFinder from the container on FormEngine's
+            // callUserFunction() path; Tests/Functional/Form/Tca/SiteItemsTest
+            // runs exactly that path.
             __DIR__ . '/../../Classes/Form/Tca/SiteItems.php',
             // It extends the core DataHandler and inherits its constructor,
             // whose parameters differ between TYPO3 13.4 and 14.3. A
