@@ -8,6 +8,7 @@
 declare(strict_types=1);
 
 use Netresearch\NrLlm\Domain\Model\BackendUserGroup;
+use Netresearch\NrLlm\Domain\Model\Glossary;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
@@ -124,6 +125,20 @@ return [
         'properties' => [
             'isActive' => [
                 'fieldName' => 'is_active',
+            ],
+        ],
+    ],
+    Glossary::class => [
+        'tableName' => 'tx_nrllm_glossary',
+        'properties' => [
+            'siteIdentifier' => [
+                'fieldName' => 'site_identifier',
+            ],
+            'sourceLanguage' => [
+                'fieldName' => 'source_language',
+            ],
+            'targetLanguage' => [
+                'fieldName' => 'target_language',
             ],
         ],
     ],

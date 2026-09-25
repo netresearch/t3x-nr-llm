@@ -69,6 +69,7 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
         'tx_nrllm_task'                        => 'configuration record',
         'tx_nrllm_task_skill_mm'               => 'relation of a configuration record',
         'tx_nrllm_promptsnippet'               => 'configuration record',
+        'tx_nrllm_glossary'                    => 'configuration record',
         'tx_nrllm_skill'                       => 'configuration record',
         'tx_nrllm_skill_source'                => 'configuration record',
         'tx_nrllm_tool_state'                  => 'configuration record',

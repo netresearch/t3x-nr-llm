@@ -381,6 +381,20 @@ class TranslationOptionsTest extends AbstractUnitTestCase
         self::assertSame('deepl', $options2->toArray()['translator'] ?? null);
     }
 
+    #[Test]
+    public function withSiteReturnsNewInstanceAndStaysOutOfTheTranslatorPayload(): void
+    {
+        $options1 = new TranslationOptions();
+        $options2 = $options1->withSite('main');
+
+        self::assertNull($options1->getSite());
+        self::assertSame('main', $options2->getSite());
+        self::assertSame('main', (new TranslationOptions(site: 'main'))->getSite());
+        // The site selects a glossary inside TranslationService (ADR-208); it
+        // is not a translator option and never reaches a remote API.
+        self::assertArrayNotHasKey('site', $options2->toArray());
+    }
+
     // Array Conversion
 
     #[Test]

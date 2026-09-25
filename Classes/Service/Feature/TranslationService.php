@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Feature;
 
+use Closure;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\TranslationResult;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
@@ -17,14 +18,18 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
+use Netresearch\NrLlm\Service\Glossary\GlossaryResolverInterface;
+use Netresearch\NrLlm\Service\Glossary\ResolvedGlossary;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\TranslationOptions;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
+use Netresearch\NrLlm\Specialized\Translation\DeepLGlossarySyncInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
+use Throwable;
 
 /**
  * High-level service for text translation.
@@ -66,6 +71,12 @@ final readonly class TranslationService implements TranslationServiceInterface
         private LlmConfigurationServiceInterface $configurationService,
         private TranslationPromptBuilder $promptBuilder,
         private ?BackendUserContextResolverInterface $beUserContextResolver = null,
+        // Site glossaries (ADR-208). Appended after the existing optional
+        // parameter so positional callers keep working; null means "no site
+        // glossary", which is what a caller constructing the service by hand
+        // got before.
+        private ?GlossaryResolverInterface $glossaryResolver = null,
+        private ?DeepLGlossarySyncInterface $deepLGlossarySync = null,
     ) {}
 
     /**
@@ -409,7 +420,14 @@ final readonly class TranslationService implements TranslationServiceInterface
         $translator = $this->resolveTranslator($optionsArray);
 
         // Execute translation via resolved translator
-        return $translator->translate($text, $targetLanguage, $sourceLanguage, $optionsArray);
+        return $this->withSiteGlossary(
+            $translator,
+            $optionsArray,
+            $options,
+            $sourceLanguage,
+            $targetLanguage,
+            static fn(array $translatorOptions): TranslatorResult => $translator->translate($text, $targetLanguage, $sourceLanguage, $translatorOptions),
+        );
     }
 
     /**
@@ -435,7 +453,14 @@ final readonly class TranslationService implements TranslationServiceInterface
         $optionsArray = $this->attachBeUserUid($options->toArray(), $options);
         $translator = $this->resolveTranslator($optionsArray);
 
-        return $translator->translateBatch($texts, $targetLanguage, $sourceLanguage, $optionsArray);
+        return $this->withSiteGlossary(
+            $translator,
+            $optionsArray,
+            $options,
+            $sourceLanguage,
+            $targetLanguage,
+            static fn(array $translatorOptions): array => $translator->translateBatch($texts, $targetLanguage, $sourceLanguage, $translatorOptions),
+        );
     }
 
     /**
@@ -475,6 +500,85 @@ final readonly class TranslationService implements TranslationServiceInterface
         }
 
         return $optionsArray;
+    }
+
+    /**
+     * The glossary the caller's site keeps for this language pair (ADR-208),
+     * or null. An explicit glossary always wins: a caller who passed terms gets
+     * those terms and nothing else, never a merge.
+     */
+    private function siteGlossary(TranslationOptions $options, ?string $sourceLanguage, string $targetLanguage): ?ResolvedGlossary
+    {
+        $site = $options->getSite();
+        if (!$this->glossaryResolver instanceof GlossaryResolverInterface || $site === null || $site === ''
+            || $options->getGlossary() !== null || $sourceLanguage === null
+        ) {
+            return null;
+        }
+
+        return $this->glossaryResolver->resolve($site, $sourceLanguage, $targetLanguage);
+    }
+
+    /**
+     * Run a translator call with the site glossary in its options (ADR-208):
+     * DeepL gets the id of a DeepL glossary holding the terms, every other
+     * translator gets the terms under the `glossary` key, which is where
+     * `LlmTranslator` reads them.
+     *
+     * Needs an explicit source language: which glossary applies depends on it,
+     * and DeepL's `glossary_id` requires `source_lang`.
+     *
+     * When DeepL rejects the stored glossary id — deleted in the account, or
+     * created under another key — the record's id is cleared, the glossary is
+     * created once more and the call is retried once. Any other failure, and a
+     * second rejection, reaches the caller.
+     *
+     * @template T
+     *
+     * @param array<string, mixed>             $optionsArray
+     * @param Closure(array<string, mixed>): T $call
+     *
+     * @return T
+     */
+    private function withSiteGlossary(
+        TranslatorInterface $translator,
+        array $optionsArray,
+        TranslationOptions $options,
+        ?string $sourceLanguage,
+        string $targetLanguage,
+        Closure $call,
+    ): mixed {
+        $glossary = $this->siteGlossary($options, $sourceLanguage, $targetLanguage);
+        if (!$glossary instanceof ResolvedGlossary) {
+            return $call($optionsArray);
+        }
+
+        if ($translator->getIdentifier() !== 'deepl') {
+            $optionsArray['glossary'] = $glossary->terms->toArray();
+
+            return $call($optionsArray);
+        }
+
+        $sync = $this->deepLGlossarySync;
+        $glossaryId = $sync?->glossaryIdFor($glossary);
+        if (!$sync instanceof DeepLGlossarySyncInterface || $glossaryId === null) {
+            return $call($optionsArray);
+        }
+
+        try {
+            return $call(['glossary_id' => $glossaryId] + $optionsArray);
+        } catch (Throwable $e) {
+            if (!$sync->isStaleGlossaryError($e)) {
+                throw $e;
+            }
+
+            $freshId = $sync->recreate($glossary);
+            if ($freshId === null) {
+                throw $e;
+            }
+
+            return $call(['glossary_id' => $freshId] + $optionsArray);
+        }
     }
 
     /**
@@ -584,6 +688,13 @@ final readonly class TranslationService implements TranslationServiceInterface
 
         // Validate options
         $this->validateOptions($optionsArray);
+
+        // After detection on purpose: which glossary applies depends on the
+        // source language, and an auto-detected one is only known here.
+        $siteGlossary = $this->siteGlossary($options, $sourceLanguage, $targetLanguage);
+        if ($siteGlossary instanceof ResolvedGlossary) {
+            $optionsArray['glossary'] = $siteGlossary->terms->toArray();
+        }
 
         $prompt = $this->promptBuilder->build(
             $text,

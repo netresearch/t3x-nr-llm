@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Overview;
 use Netresearch\NrLlm\Domain\Enum\OverviewCardState;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Repository\GlossaryRepository;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
@@ -42,6 +43,7 @@ final class OverviewReadinessServiceTest extends TestCase
         self::assertSame(OverviewCardState::Locked, $statuses['tryit']->state);
         self::assertSame(OverviewCardState::EmptyState, $statuses['tasks']->state);
         self::assertSame(OverviewCardState::EmptyState, $statuses['snippets']->state);
+        self::assertSame(OverviewCardState::EmptyState, $statuses['glossaries']->state);
         self::assertSame(OverviewCardState::EmptyState, $statuses['skills']->state);
         self::assertSame(OverviewCardState::EmptyState, $statuses['tools']->state);
     }
@@ -95,6 +97,7 @@ final class OverviewReadinessServiceTest extends TestCase
         $statuses = $this->buildStatuses(
             tasks: 4,
             snippets: 2,
+            glossaries: 3,
             skillsTotal: 60,
             skillsEnabled: 12,
             toolsEnabled: 8,
@@ -103,6 +106,8 @@ final class OverviewReadinessServiceTest extends TestCase
         self::assertSame(OverviewCardState::Ready, $statuses['tasks']->state);
         self::assertSame(4, $statuses['tasks']->count);
         self::assertSame(OverviewCardState::Ready, $statuses['snippets']->state);
+        self::assertSame(OverviewCardState::Ready, $statuses['glossaries']->state);
+        self::assertSame(3, $statuses['glossaries']->count);
         self::assertSame(OverviewCardState::Ready, $statuses['skills']->state);
         self::assertSame(60, $statuses['skills']->count);
         self::assertSame(12, $statuses['skills']->enabledCount);
@@ -121,6 +126,7 @@ final class OverviewReadinessServiceTest extends TestCase
         bool $modelHasDefault = false,
         int $tasks = 0,
         int $snippets = 0,
+        int $glossaries = 0,
         int $skillsTotal = 0,
         int $skillsEnabled = 0,
         int $toolsEnabled = 0,
@@ -147,6 +153,9 @@ final class OverviewReadinessServiceTest extends TestCase
         $snippetRepo = $this->createMock(PromptSnippetRepository::class);
         $snippetRepo->method('countActive')->willReturn($snippets);
 
+        $glossaryRepo = $this->createMock(GlossaryRepository::class);
+        $glossaryRepo->method('countActive')->willReturn($glossaries);
+
         $skillRepo = $this->createMock(SkillRepository::class);
         $skillRepo->method('countAll')->willReturn($skillsTotal);
         $skillRepo->method('countEnabled')->willReturn($skillsEnabled);
@@ -171,6 +180,7 @@ final class OverviewReadinessServiceTest extends TestCase
             $configRepo,
             $taskRepo,
             $snippetRepo,
+            $glossaryRepo,
             $skillRepo,
             new ToolRegistry([]),
             $availability,

@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Translation glossaries per site and language pair, applied to DeepL and to the LLM translator (ADR-208, NEXT-166).** A glossary is a record, `tx_nrllm_glossary`: a site, a source and a target language, and the term pairs, one per line as `source = target` or tab-separated. Editors maintain it through FormEngine from the new module *AI > Authoring > Glossaries*, which is built like the snippet module and has a card on the overview. A caller names the site with the new `TranslationOptions::withSite()`; when it passes no `glossary` of its own, `TranslationService` applies the site's glossary for the language pair — as prompt terms on `translate()` and `translateForConfiguration()` (looked up after source-language detection), as the `glossary` option for `LlmTranslator`, and on the DeepL path as a DeepL glossary. That DeepL glossary is created through `POST /v2/glossaries` and its id is stored on the record together with a hash of the pair and the terms, so an unchanged glossary costs no request; after an edit the next translation creates a new DeepL glossary and deletes the superseded one, best effort; a glossary DeepL refuses to create fails that DeepL translation with the DeepL error, and a stored DeepL glossary that DeepL no longer accepts (a 400 or 404 naming the glossary — deleted in the account, or created under another key) is created once more and the translation retried once. Of two visible records for the same site and pair the one with the lowest uid applies, and the module lists it first. Deleting a record leaves its DeepL glossary in the account; the admin page says how to clean up. A pair DeepL holds no glossary for translates without one and logs an info line, and the translator path looks up a glossary only when the source language is given. `TranslationService`'s constructor gains two optional trailing parameters (`GlossaryResolverInterface`, `DeepLGlossarySyncInterface`); positional callers are unaffected.
+
 ## [0.37.4] - 2026-09-25
 
 ### Added

@@ -13,6 +13,7 @@ use DateTimeImmutable;
 use Netresearch\NrLlm\Domain\Enum\OverviewCardState;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Repository\GlossaryRepository;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
@@ -30,7 +31,7 @@ use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
  * The critical path is Provider → Model → Configuration → Try it: exactly one
  * card is {@see OverviewCardState::Next} (the first incomplete step), later
  * steps are {@see OverviewCardState::Locked}, completed steps are Ready. The
- * optional modules (tasks, snippets, skills, tools) are Ready when they have
+ * optional modules (tasks, snippets, glossaries, skills, tools) are Ready when they have
  * active entries and {@see OverviewCardState::EmptyState} when they do not —
  * they are never locked.
  *
@@ -51,6 +52,7 @@ final readonly class OverviewReadinessService
         private LlmConfigurationRepository $configurationRepository,
         private TaskRepository $taskRepository,
         private PromptSnippetRepository $promptSnippetRepository,
+        private GlossaryRepository $glossaryRepository,
         private SkillRepository $skillRepository,
         private ToolRegistry $toolRegistry,
         private ToolAvailabilityServiceInterface $toolAvailability,
@@ -67,6 +69,7 @@ final readonly class OverviewReadinessService
      *     tryit: OverviewCardStatus,
      *     tasks: OverviewCardStatus,
      *     snippets: OverviewCardStatus,
+     *     glossaries: OverviewCardStatus,
      *     skills: OverviewCardStatus,
      *     tools: OverviewCardStatus,
      * }
@@ -91,6 +94,7 @@ final readonly class OverviewReadinessService
         // Optional modules — Ready when they hold active entries, else Empty.
         $tasks    = $this->taskRepository->countActive();
         $snippets = $this->promptSnippetRepository->countActive();
+        $glossaries = $this->glossaryRepository->countActive();
 
         $skillsTotal   = $this->skillRepository->countAll();
         $skillsEnabled = $this->skillRepository->countEnabled();
@@ -105,6 +109,7 @@ final readonly class OverviewReadinessService
             'tryit'          => new OverviewCardStatus($tryitState),
             'tasks'          => new OverviewCardStatus($this->optionalState($tasks > 0), $tasks),
             'snippets'       => new OverviewCardStatus($this->optionalState($snippets > 0), $snippets),
+            'glossaries'     => new OverviewCardStatus($this->optionalState($glossaries > 0), $glossaries),
             'skills'         => new OverviewCardStatus($this->optionalState($skillsTotal > 0), $skillsTotal, $skillsEnabled),
             'tools'          => new OverviewCardStatus($this->optionalState($toolsEnabled > 0), $toolsTotal, $toolsEnabled),
         ];

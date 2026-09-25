@@ -50,6 +50,9 @@ after entering its vault identifier. The result names the translator that
 answered, the detected source language, and either the characters billed
 (specialized translators) or the tokens used (the LLM path).
 
+The test page names no site, so no site glossary applies to its translations;
+see :ref:`administration-glossaries` for when one does.
+
 ..  _administration-specialized-services-deepl-quota:
 
 DeepL character quota

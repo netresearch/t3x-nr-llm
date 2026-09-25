@@ -17,7 +17,7 @@ No build step. Files served directly by TYPO3. JavaScript uses ES modules via `@
 
 ### Templates (`Private/Templates/Backend/`)
 
-One directory per backend surface (`Provider/`, `Model/`, `Configuration/`, `Task/`, `AiTask/`, `Skill/`, `PromptSnippet/`, `McpServer/`, `Tool/`, `AgentRun/`, `Playground/`, `Analytics/`, `UseCase/`, `EditorAction/`, `SetupWizard/`), mostly `List.html` plus surface-specific views (`Execute.html`, `WizardForm.html`, `WizardPreview.html`, `Show.html`), and top-level pages `Index.html`, `Governance.html`, `Help.html`, `Test.html`. Follow the sibling surface's structure when adding a view.
+One directory per backend surface (`Provider/`, `Model/`, `Configuration/`, `Task/`, `AiTask/`, `Skill/`, `PromptSnippet/`, `Glossary/`, `McpServer/`, `Tool/`, `AgentRun/`, `Playground/`, `Analytics/`, `UseCase/`, `EditorAction/`, `SetupWizard/`), mostly `List.html` plus surface-specific views (`Execute.html`, `WizardForm.html`, `WizardPreview.html`, `Show.html`), and top-level pages `Index.html`, `Governance.html`, `Help.html`, `Test.html`. Follow the sibling surface's structure when adding a view.
 
 ### Language Files (`Private/Language/`)
 
@@ -27,7 +27,7 @@ One directory per backend surface (`Provider/`, `Model/`, `Configuration/`, `Tas
 | `locallang_tca.xlf` | TCA field labels |
 | `locallang_dashboard.xlf` | Dashboard widget labels |
 | `locallang_mod.xlf` | Backend module labels |
-| `locallang_mod_<surface>.xlf` | One file per module surface (overview, provider, model, config, task, aitasks, wizard, skill, snippet, tool, mcp, runs, playground, analytics, usecase) |
+| `locallang_mod_<surface>.xlf` | One file per module surface (overview, provider, model, config, task, aitasks, wizard, skill, snippet, glossary, tool, mcp, runs, playground, analytics, usecase) |
 | `de.locallang*.xlf` | German translations — EVERY EN file has a `de.` twin |
 
 ### JavaScript (`Public/JavaScript/Backend/`)

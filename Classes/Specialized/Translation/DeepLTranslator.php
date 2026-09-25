@@ -71,6 +71,18 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         'ar', // Arabic added 2024
     ];
 
+    /**
+     * Languages a v2 glossary can be created for, as base codes (ADR-208).
+     * Any two different ones form a supported pair.
+     *
+     * @see https://developers.deepl.com/api-reference/glossaries
+     */
+    private const GLOSSARY_LANGUAGES = [
+        'ar', 'bg', 'cs', 'da', 'de', 'el', 'en', 'es', 'et', 'fi', 'fr',
+        'he', 'hu', 'id', 'it', 'ja', 'ko', 'lt', 'lv', 'nb', 'nl', 'pl',
+        'pt', 'ro', 'ru', 'sk', 'sl', 'sv', 'tr', 'uk', 'vi', 'zh',
+    ];
+
     /** Languages that support formality control. */
     private const FORMALITY_SUPPORTED_LANGUAGES = [
         'de', 'fr', 'it', 'es', 'nl', 'pl', 'pt', 'pt-br', 'pt-pt', 'ru', 'ja',
@@ -402,6 +414,84 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         $glossaries = $response['glossaries'] ?? [];
 
         return $glossaries;
+    }
+
+    /**
+     * Whether DeepL can hold a glossary for this pair (ADR-208). Regional
+     * variants count as their base language (`en-GB` → `en`), which is also
+     * how DeepL matches a glossary against a translate request.
+     */
+    public function supportsGlossaryLanguagePair(string $sourceLanguage, string $targetLanguage): bool
+    {
+        $source = $this->glossaryLanguage($sourceLanguage);
+        $target = $this->glossaryLanguage($targetLanguage);
+
+        return $source !== $target
+            && in_array($source, self::GLOSSARY_LANGUAGES, true)
+            && in_array($target, self::GLOSSARY_LANGUAGES, true);
+    }
+
+    /**
+     * Create a v2 glossary and return its id (ADR-208).
+     *
+     * A DeepL glossary cannot be changed after creation; a changed term list
+     * is a new glossary, which is why there is no update counterpart.
+     *
+     * @param string $tsvEntries one `source<TAB>target` pair per line
+     *
+     * @throws ServiceUnavailableException when DeepL answers without an id
+     */
+    public function createGlossary(string $name, string $sourceLanguage, string $targetLanguage, string $tsvEntries): string
+    {
+        $this->ensureAvailable();
+
+        $payload = [
+            'name' => $name,
+            'source_lang' => $this->glossaryLanguage($sourceLanguage),
+            'target_lang' => $this->glossaryLanguage($targetLanguage),
+            'entries' => $tsvEntries,
+            'entries_format' => 'tsv',
+        ];
+
+        $response = $this->runLifecycle(
+            ProviderCallContext::forService(ProviderOperation::Metadata, $this->getServiceProvider(), ''),
+            fn(): array => $this->sendDeeplRequest('glossaries', $payload),
+        );
+
+        $glossaryId = $response['glossary_id'] ?? null;
+        if (!is_string($glossaryId) || $glossaryId === '') {
+            throw new ServiceUnavailableException(
+                'DeepL created no glossary id',
+                'translation',
+                ['provider' => 'deepl'],
+            );
+        }
+
+        return $glossaryId;
+    }
+
+    /**
+     * Delete a v2 glossary (ADR-208).
+     */
+    public function deleteGlossary(string $glossaryId): void
+    {
+        $this->ensureAvailable();
+
+        $this->runLifecycle(
+            ProviderCallContext::forService(ProviderOperation::Metadata, $this->getServiceProvider(), ''),
+            fn(): array => $this->sendDeeplRequest('glossaries/' . rawurlencode($glossaryId), [], 'DELETE'),
+        );
+    }
+
+    /**
+     * A glossary is keyed by base language in lowercase — `de`, never `DE`
+     * or `de-DE`. `no` is accepted as the legacy code for `nb`.
+     */
+    private function glossaryLanguage(string $languageCode): string
+    {
+        $base = strtolower(explode('-', str_replace('_', '-', trim($languageCode)))[0]);
+
+        return $base === 'no' ? 'nb' : $base;
     }
 
     protected function getServiceDomain(): string

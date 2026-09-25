@@ -31,6 +31,12 @@ TranslationService
       - ``domain``: 'technical', 'legal', 'medical',
         'marketing', 'general'
       - ``glossary``: array of term translations
+      - ``site``: site identifier (``withSite()``). When
+        no ``glossary`` is set, the glossary that site
+        keeps for the language pair applies — in the
+        prompt on the LLM paths, as a DeepL glossary on
+        the DeepL path (:ref:`ADR-208 <adr-208>`,
+        :ref:`administration-glossaries`)
       - ``preserve_formatting``: bool
       - ``provider``, ``model``: pin the provider /
         model for this call
