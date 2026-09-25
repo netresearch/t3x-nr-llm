@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Feature\TranslationServiceInterface;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -68,6 +69,7 @@ use TYPO3\CMS\Core\Http\Client\GuzzleClientFactory;
 use TYPO3\CMS\Core\Http\RequestFactory;
 use TYPO3\CMS\Core\Http\StreamFactory;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
+use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -330,7 +332,9 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
     #[Test]
     public function theTranslatingBuiltinSuspendsBeforeItExecutes(): void
     {
-        $tool = new CreateTranslationDraftTool($this->connectionPool);
+        $siteFinder = $this->get(SiteFinder::class);
+        self::assertInstanceOf(SiteFinder::class, $siteFinder);
+        $tool = new CreateTranslationDraftTool($this->connectionPool, self::createStub(TranslationServiceInterface::class), $siteFinder);
         // It ships disabled, so the REAL availability service would not offer it.
         (new ToolStateRepository($this->connectionPool))->setEnabled('create_translation_draft', true);
 

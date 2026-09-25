@@ -24,6 +24,9 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
 
     private const DOMAINS = ['general', 'technical', 'medical', 'legal', 'marketing'];
 
+    /** DeepL's two markup modes (ADR-209). */
+    private const TAG_HANDLINGS = ['html', 'xml'];
+
     public function __construct(
         private ?string $formality = null,
         private ?string $domain = null,
@@ -45,6 +48,9 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
         private ?string $translator = null,
         // Appended for the same reason as $translator (ADR-208).
         private ?string $site = null,
+        // Appended for the same reason (ADR-209).
+        private ?string $tagHandling = null,
+        private ?int $cacheTtl = null,
     ) {
         $this->setBudgetFields($beUserUid, $plannedCost);
         $this->validate();
@@ -241,6 +247,34 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
         return $clone;
     }
 
+    /**
+     * Declare the text as markup: `html` or `xml` (ADR-209). DeepL receives it
+     * as `tag_handling`, so tags and attributes are kept and only the text
+     * between them is translated. The LLM translator already keeps tags while
+     * `preserveFormatting` is on, which is the default.
+     */
+    public function withTagHandling(string $tagHandling): static
+    {
+        $clone = clone $this;
+        $clone->tagHandling = $tagHandling;
+        $clone->validate();
+        return $clone;
+    }
+
+    /**
+     * Cache the result of `TranslationService::translateWithTranslator()` for
+     * this many seconds (ADR-209). Off unless set: a cached answer skips the
+     * translator, its budget pre-flight and its usage row, which a caller has
+     * to choose knowingly. 0 switches it off again.
+     */
+    public function withCacheTtl(int $cacheTtl): static
+    {
+        $clone = clone $this;
+        $clone->cacheTtl = $cacheTtl;
+        $clone->validate();
+        return $clone;
+    }
+
     // Budget pre-flight setters provided by `BudgetFieldsTrait`.
 
     // ========================================
@@ -310,6 +344,16 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
         return $this->site;
     }
 
+    public function getTagHandling(): ?string
+    {
+        return $this->tagHandling;
+    }
+
+    public function getCacheTtl(): ?int
+    {
+        return $this->cacheTtl;
+    }
+
     // Budget pre-flight getters provided by `BudgetFieldsTrait`.
 
     // ========================================
@@ -330,6 +374,8 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
             'model' => $this->model,
             'configuration' => $this->configuration,
             'translator' => $this->translator,
+            // Read by DeepLOptions::fromArray() on the DeepL path.
+            'tag_handling' => $this->tagHandling,
         ]);
     }
 
@@ -353,6 +399,14 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
 
         if ($this->maxTokens !== null) {
             self::validatePositiveInt($this->maxTokens, 'max_tokens');
+        }
+
+        if ($this->tagHandling !== null) {
+            self::validateEnum($this->tagHandling, self::TAG_HANDLINGS, 'tag_handling');
+        }
+
+        if ($this->cacheTtl !== null) {
+            self::validateRange($this->cacheTtl, 0, PHP_INT_MAX, 'cache_ttl');
         }
 
         $this->validateBudgetFields();

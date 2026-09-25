@@ -6,10 +6,10 @@
 ADR-146: Three more editorial writers, and what the third one reviewed
 ============================================================================
 
-:Status: Accepted (its "revisit at the sixth writer" trigger fired — see :ref:`ADR-180 <adr-180>`; the free-mode element is refused on a connected page — see :ref:`ADR-193 <adr-193>`)
+:Status: Accepted (its "revisit at the sixth writer" trigger fired — see :ref:`ADR-180 <adr-180>`; the free-mode element is refused on a connected page — see :ref:`ADR-193 <adr-193>`; the translation draft's text is machine-translated — see :ref:`ADR-209 <adr-209>`)
 :Date: 2026-08-10
 :Amends: :ref:`ADR-135 <adr-135>` (its "revisit at the third writer" trigger)
-:Amended: 2026-08-20 by :ref:`ADR-180 <adr-180>`; 2026-09-21 by :ref:`ADR-193 <adr-193>`; 2026-09-21 by :ref:`ADR-196 <adr-196>`
+:Amended: 2026-08-20 by :ref:`ADR-180 <adr-180>`; 2026-09-21 by :ref:`ADR-193 <adr-193>`; 2026-09-21 by :ref:`ADR-196 <adr-196>`; 2026-09-25 by :ref:`ADR-209 <adr-209>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-146-context:
@@ -103,6 +103,10 @@ vocabulary that never confirms a uid exists.
      the ``DataHandler`` — recoverably (``deleted = 1``) and in ``sys_log`` —
      and the approval card carries that on a line of its own, so an approver
      who skims cannot miss it.
+
+   *Amended by* :ref:`ADR-209 <adr-209>`: after ``localize``, the text
+   fields of the new record are machine-translated from the source by DeepL
+   or the LLM translator, with the site glossary.
 
    What is *not* re-implemented: whether the target language exists for the
    record's site, and whether the source is a well-formed default-language

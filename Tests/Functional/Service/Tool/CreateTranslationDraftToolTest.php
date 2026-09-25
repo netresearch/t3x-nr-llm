@@ -10,18 +10,34 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Error;
+use Netresearch\NrLlm\Domain\Enum\WriteKind;
+use Netresearch\NrLlm\Service\CacheManager;
+use Netresearch\NrLlm\Service\Feature\TranslationPromptBuilder;
+use Netresearch\NrLlm\Service\Feature\TranslationService;
+use Netresearch\NrLlm\Service\Glossary\GlossaryResolver;
+use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
+use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateTranslationDraftTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
+use Netresearch\NrLlm\Specialized\Translation\TranslatorInterface;
+use Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\FailsLikeAFlashMessageHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheFailingHookTrait;
+use Netresearch\NrLlm\Tests\Fixtures\Translation\RecordingTranslator;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
+use TYPO3\CMS\Core\Cache\Backend\TransientMemoryBackend;
+use TYPO3\CMS\Core\Cache\CacheManager as Typo3CacheManager;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
+use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
 use TYPO3\CMS\Core\Configuration\SiteWriter;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
+use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 
 /**
@@ -34,6 +50,12 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
  * target language through it and refuses a language the site does not define.
  * The tool deliberately does not re-implement that check, so a test without a
  * site would prove the refusal rather than the translation.
+ *
+ * The machine translation of the text (ADR-209) runs through the real
+ * {@see TranslationService}, the real glossary lookup and the real cache
+ * manager; only the translators are recording doubles, which answer
+ * "[<target>] <text>" so a translated field is told from a copied one by
+ * its prefix.
  */
 #[CoversClass(CreateTranslationDraftTool::class)]
 final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
@@ -58,6 +80,10 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
     private CreateTranslationDraftTool $tool;
 
     private ConnectionPool $connectionPool;
+
+    private RecordingTranslator $llm;
+
+    private RecordingTranslator $deepl;
 
     protected function setUp(): void
     {
@@ -121,7 +147,9 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
 
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('default');
 
-        $this->tool = new CreateTranslationDraftTool($this->connectionPool);
+        $this->llm   = new RecordingTranslator('llm', 'Language model');
+        $this->deepl = new RecordingTranslator('deepl', 'DeepL');
+        $this->tool  = $this->toolWith($this->llm, $this->deepl);
     }
 
     protected function tearDown(): void
@@ -216,16 +244,184 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         self::assertSame(self::GERMAN, (int)($translation['sys_language_uid'] ?? -1));
         self::assertSame(self::ELEMENT, (int)($translation['l18n_parent'] ?? 0));
         self::assertSame(1, (int)($translation['hidden'] ?? 0));
-        // The content came across. Core prefixes the text fields of a fresh
-        // translation with "[Translate to <language>:]" so an editor can see at
-        // a glance what still needs work — the tool does not interfere with it.
-        $header = $translation['header'] ?? '';
-        $body   = $translation['bodytext'] ?? '';
-        self::assertIsString($header);
-        self::assertIsString($body);
-        self::assertStringContainsString('Original', $header);
-        self::assertStringContainsString('Translate to German', $header);
-        self::assertStringContainsString('Original body', $body);
+        // The text is machine-translated from the SOURCE row (ADR-209), not
+        // from the copy core prefixed with "[Translate to German:]": the
+        // prefix must not reach the translator, and it is gone from the draft.
+        self::assertSame('[de] Original', $translation['header'] ?? null);
+        self::assertStringContainsString('[de] Original body', $this->stringOf($translation['bodytext'] ?? null));
+        self::assertSame(['Original', 'Original body'], array_column($this->llm->calls, 'text'));
+        self::assertSame(['en'], array_values(array_unique(array_column($this->llm->calls, 'source'))));
+        self::assertSame(['de'], array_values(array_unique(array_column($this->llm->calls, 'target'))));
+        self::assertStringContainsString(
+            'Machine-translated 2 text field(s) (header, bodytext) from "en" to "de" with Language model (llm)',
+            $result->content,
+        );
+        self::assertSame(WriteKind::CREATED, $result->writeKind);
+    }
+
+    #[Test]
+    public function aPageTranslationCarriesTheTranslatedTitle(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            ['table' => 'pages', 'uid' => self::CHILD_PAGE, 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame('[de] Child', $this->translationOf('pages', self::CHILD_PAGE, 'l10n_parent')['title'] ?? null);
+        self::assertSame('Child', $this->row('pages', self::CHILD_PAGE)['title'] ?? null, 'the source is untouched');
+    }
+
+    /**
+     * Rich text goes to the translator as HTML — DeepL's `tag_handling` — and
+     * a plain field does not, so the markup survives and a headline is not
+     * treated as markup.
+     */
+    #[Test]
+    public function richTextGoesAsHtmlAndKeepsItsMarkup(): void
+    {
+        $this->connectionPool->getConnectionForTable('tt_content')->update(
+            'tt_content',
+            ['bodytext' => '<p>Original <strong>body</strong></p>'],
+            ['uid' => self::ELEMENT],
+        );
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN, 'translator' => 'deepl'],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        $options = array_column($this->deepl->calls, 'options', 'text');
+        self::assertSame('html', $options['<p>Original <strong>body</strong></p>']['tag_handling'] ?? null);
+        self::assertArrayNotHasKey('tag_handling', $options['Original'] ?? []);
+        self::assertSame([], $this->llm->calls, 'the named translator, and only it, is used');
+        self::assertStringContainsString('<strong>body</strong>', $this->stringOf($this->translationOf('tt_content', self::ELEMENT, 'l18n_parent')['bodytext'] ?? null));
+        self::assertStringContainsString('with DeepL (deepl)', $result->content);
+    }
+
+    /**
+     * The site of the record is passed on, so the glossary that site keeps
+     * for the pair reaches the translator (ADR-208).
+     */
+    #[Test]
+    public function theSiteGlossaryReachesTheTranslator(): void
+    {
+        $this->connectionPool->getConnectionForTable('tx_nrllm_glossary')->insert('tx_nrllm_glossary', [
+            'uid' => 1, 'pid' => 0, 'name' => 'Terms', 'site_identifier' => 'testing',
+            'source_language' => 'en', 'target_language' => 'de', 'entries' => 'Original = Ursprung',
+        ]);
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertNotSame([], $this->llm->calls);
+        foreach ($this->llm->calls as $call) {
+            self::assertSame(['Original' => 'Ursprung'], $call['options']['glossary'] ?? null);
+        }
+    }
+
+    /**
+     * A failed machine translation is said plainly and leaves the draft with
+     * the copied source text — no half-translated record, and no success that
+     * did not happen. The record exists, so the write is still announced.
+     */
+    #[Test]
+    public function aFailedTranslationLeavesTheSourceTextAndSaysSo(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        $this->llm->failNext = new RuntimeException('the provider is down');
+
+        $result = $this->tool->execute(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('The text was NOT machine-translated', $result->content);
+        self::assertStringContainsString('the provider is down', $result->content);
+        self::assertStringNotContainsString('Machine-translated', $result->content);
+        self::assertSame(WriteKind::CREATED, $result->writeKind);
+
+        $translation = $this->translationOf('tt_content', self::ELEMENT, 'l18n_parent');
+        self::assertSame(1, (int)($translation['hidden'] ?? 0));
+        self::assertStringContainsString('Translate to German', $this->stringOf($translation['header'] ?? null));
+        self::assertStringNotContainsString('[de]', $this->stringOf($translation['bodytext'] ?? null));
+    }
+
+    /**
+     * The same text, pair, translator and glossary are translated once: an
+     * overwritten draft is re-translated from the cache (ADR-209).
+     */
+    #[Test]
+    public function aRepeatedTranslationIsAnsweredFromTheCache(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $this->tool->execute(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+        $again = $this->tool->execute(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN, 'overwrite' => true],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($again->isError, $again->content);
+        self::assertCount(2, $this->llm->calls, 'two fields, translated once');
+        self::assertStringContainsString('(2 from the translation cache)', $again->content);
+        self::assertSame('[de] Original', $this->translationOf('tt_content', self::ELEMENT, 'l18n_parent')['header'] ?? null);
+    }
+
+    #[Test]
+    public function aTranslatorThatIsNotConfiguredIsRefusedBeforeAnythingIsCreated(): void
+    {
+        $this->tool = $this->toolWith($this->llm, new RecordingTranslator('deepl', 'DeepL', available: false));
+        $admin      = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN, 'translator' => 'deepl'],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('"deepl" is not configured', $result->content);
+        self::assertNull($this->maybeTranslationOf('tt_content', self::ELEMENT, 'l18n_parent'));
+    }
+
+    /**
+     * A `text` column whose type renders it in a code editor holds code, not
+     * prose, and is left as core copied it.
+     */
+    #[Test]
+    public function aColumnInACodeEditorIsNotTranslated(): void
+    {
+        $tca = $GLOBALS['TCA'];
+        self::assertIsArray($tca);
+
+        try {
+            $GLOBALS['TCA'] = array_replace_recursive($tca, [
+                'tt_content' => ['types' => ['text' => ['columnsOverrides' => ['bodytext' => ['config' => ['renderType' => 'codeEditor']]]]]],
+            ]);
+
+            $result = $this->tool->execute(
+                ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN],
+                ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+            );
+        } finally {
+            $GLOBALS['TCA'] = $tca;
+        }
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(['Original'], array_column($this->llm->calls, 'text'));
+        self::assertStringContainsString('(header)', $result->content);
     }
 
     #[Test]
@@ -360,10 +556,10 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
             ToolExecutionContext::fromBackendUser($admin),
         );
 
-        self::assertCount(4, $lines);
+        self::assertCount(5, $lines);
         self::assertStringContainsString('Translate pages [2] "Child" into language 1', $lines[0]);
         self::assertStringContainsString('DISCARDS the existing translation [' . $oldUid . ']', $lines[1]);
-        self::assertStringContainsString('hidden', $lines[3]);
+        self::assertStringContainsString('hidden', $lines[4]);
 
         // A preview is a read: the translation it says it would discard is
         // still there afterwards.
@@ -380,10 +576,71 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
             ToolExecutionContext::fromBackendUser($admin),
         );
 
-        self::assertCount(3, $lines);
+        self::assertCount(4, $lines);
         foreach ($lines as $line) {
             self::assertStringNotContainsString('DISCARDS', $line);
         }
+    }
+
+    /**
+     * The approver reads that the text will be machine-translated, which
+     * fields, and by which service it is sent to (ADR-209). A preview is a
+     * read: nothing is translated to produce it.
+     */
+    #[Test]
+    public function thePreviewNamesTheMachineTranslationAndTheTranslator(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $lines = $this->tool->previewCall(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN, 'translator' => 'deepl'],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertSame(
+            'text: MACHINE-TRANSLATED by DeepL (deepl) — header, bodytext; the glossary of the record\'s site applies',
+            $lines[2] ?? null,
+        );
+        self::assertSame([], $this->deepl->calls);
+    }
+
+    private function toolWith(RecordingTranslator $llm, RecordingTranslator $deepl): CreateTranslationDraftTool
+    {
+        $translators = ['llm' => $llm, 'deepl' => $deepl];
+        $registry    = self::createStub(TranslatorRegistryInterface::class);
+        $registry->method('get')->willReturnCallback(
+            static fn(string $identifier): TranslatorInterface => $translators[$identifier]
+                ?? throw new ServiceUnavailableException('No translator ' . $identifier, 'translation'),
+        );
+        $registry->method('has')->willReturnCallback(static fn(string $identifier): bool => isset($translators[$identifier]));
+
+        $typo3Caches = self::createStub(Typo3CacheManager::class);
+        $typo3Caches->method('getCache')->willReturn(new VariableFrontend('nrllm_responses', new TransientMemoryBackend()));
+
+        $siteFinder = $this->get(SiteFinder::class);
+        self::assertInstanceOf(SiteFinder::class, $siteFinder);
+
+        return new CreateTranslationDraftTool(
+            $this->connectionPool,
+            new TranslationService(
+                self::createStub(LlmServiceManagerInterface::class),
+                $registry,
+                self::createStub(LlmConfigurationServiceInterface::class),
+                new TranslationPromptBuilder(),
+                null,
+                new GlossaryResolver($this->connectionPool),
+                null,
+                new CacheManager($typo3Caches),
+            ),
+            $siteFinder,
+        );
+    }
+
+    private function stringOf(mixed $value): string
+    {
+        self::assertIsString($value);
+
+        return $value;
     }
 
     /**

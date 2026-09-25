@@ -44,6 +44,20 @@ TranslationService
         ``LlmConfiguration`` whose translator is used on
         the specialized-translator path
         (``translateWithTranslator()``)
+      - ``tag_handling``: ``html`` or ``xml``
+        (``withTagHandling()``). DeepL keeps the tags
+        and translates the text between them; the LLM
+        translator keeps tags while
+        ``preserve_formatting`` is on
+        (:ref:`ADR-209 <adr-209>`)
+      - ``cache_ttl``: seconds (``withCacheTtl()``).
+        Opt-in cache for ``translateWithTranslator()``:
+        an identical request — translator, languages,
+        text, glossary, options — is answered from the
+        ``nrllm_responses`` cache without reaching the
+        translator, and therefore without a budget check
+        or a usage row. Off by default
+        (:ref:`ADR-209 <adr-209>`)
 
    .. php:method:: translateForConfiguration(string $text, string $targetLanguage, LlmConfiguration $configuration, ?string $sourceLanguage = null, ?TranslationOptions $options = null): TranslationResult
 

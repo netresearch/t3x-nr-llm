@@ -613,6 +613,19 @@ What holds for all of them:
    the approval card says so on its own line. Whether the target language exists
    for the record's site is core's check, not a second implementation here.
 
+   The text is then **machine-translated** (:ref:`ADR-209 <adr-209>`): every
+   text column of the record's type that holds text in the source — headline,
+   subheader, body, page title, navigation title, description and the like —
+   is translated from the source record and written into the translation.
+   Rich text is sent as HTML, so its markup survives. The ``translator``
+   argument chooses ``deepl`` or ``llm`` (the default); a translator the
+   installation has not configured is refused. The glossary of the record's
+   site for the language pair applies (see :ref:`Glossaries
+   <administration-glossaries>`). The approval card names the translator and the fields.
+   If the translation fails, the draft keeps the copied source text and the
+   result says *The text was NOT machine-translated* with the reason.
+   Identical translations are answered from a cache for a day.
+
 ``create_record_draft``
    Creates one record in a TCA table that has **no dedicated writer** — the
    fallback for extension tables such as a news record

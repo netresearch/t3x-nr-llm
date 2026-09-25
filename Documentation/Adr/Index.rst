@@ -591,3 +591,4 @@ Tools
    Adr206AHookThatFailsDoesNotFailTheWriteItRanAfter
    Adr207DeepLQuotaOnTheTestPage
    Adr208ASiteGlossaryReachesBothTranslators
+   Adr209TheTranslationDraftTranslatesItsText

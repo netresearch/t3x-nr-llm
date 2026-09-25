@@ -15,18 +15,23 @@ use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Feature\TranslationServiceInterface;
+use Netresearch\NrLlm\Service\Option\TranslationOptions;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
+use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
+use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -56,6 +61,16 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   sentence on the approval card; there is no way to reach it by accident.
  * - **Only `pages` and `tt_content`.** The two tables an editor thinks in. A
  *   generic "localize any record" tool is the question #692 keeps open.
+ * - **The text is machine-translated (ADR-209).** After `localize` created the
+ *   record, every text field the source holds — the `input` and `text` columns
+ *   core copies, read from the TCA for the record's type — is translated from
+ *   the SOURCE row, not from the copy core prefixed with "[Translate to …:]",
+ *   through {@see TranslationServiceInterface::translateWithTranslator()} with
+ *   the record's site, so the site glossary applies. Rich text goes as HTML.
+ *   The translations are written in one DataHandler pass, as the acting user;
+ *   when any of them fails, none is written and the result says so: the draft
+ *   then holds the copied source text, which is what it held before this step
+ *   existed.
  *
  * Not re-implemented here, deliberately: whether the target language exists for
  * the record's site, and whether the source is a well-formed default-language
@@ -67,6 +82,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, EditorActionInterface, RecordCreatorInterface
 {
     use SafeCastTrait;
+    use ErrorMessageSanitizerTrait;
     // The errands, not the decisions (ADR-135).
     use WritesThroughDataHandlerTrait;
     // The shape the three ADR-146 writers share.
@@ -88,8 +104,30 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
 
     private const DEFAULT_LANGUAGE = 0;
 
+    /**
+     * The translators the tool offers, by their registry identifier (ADR-209).
+     * Spelled out rather than read off the translator classes: the tool module
+     * does not depend on the specialized one (ADR-090).
+     */
+    private const TRANSLATORS = ['deepl', 'llm'];
+
+    /**
+     * TranslationService's own choice when no translator and no configuration
+     * is named, and a tool call carries no configuration.
+     */
+    private const DEFAULT_TRANSLATOR = 'llm';
+
+    /**
+     * How long an identical translation is answered from the cache (ADR-209):
+     * a day, so re-running a discarded draft costs nothing while an edited
+     * glossary or source text is a new request anyway.
+     */
+    private const TRANSLATION_CACHE_TTL = 86400;
+
     public function __construct(
         private ConnectionPool $connectionPool,
+        private TranslationServiceInterface $translationService,
+        private SiteFinder $siteFinder,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -98,9 +136,11 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             'create_translation_draft',
             "Translate ONE existing page or content element into another language, using TYPO3's own localize "
             . 'command. The new translation is always created HIDDEN, so a human must review and unhide it '
-            . 'before it is visible; nothing is published. It takes NO translated text: the new record starts with '
-            . 'the text the localize command copies from the source, and this tool cannot change it afterwards. '
-            . 'Writes through the DataHandler as the acting backend '
+            . 'before it is visible; nothing is published. The text fields of the new record (headline, body, '
+            . 'page title, description and the other text columns) are then MACHINE-TRANSLATED from the source '
+            . "record by the chosen translator, applying the glossary of the record's site; rich text keeps its "
+            . 'HTML. Pass no translated text yourself. If the machine translation fails, the translation keeps '
+            . 'the copied source text and the result says so. Writes through the DataHandler as the acting backend '
             . 'user, in the live workspace. The source must be a default-language record. If a translation in '
             . 'that language already exists the call is refused, unless "overwrite" is set — which DELETES the '
             . 'existing translation first.',
@@ -124,6 +164,13 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
                         'type'        => 'boolean',
                         'description' => 'Delete an existing translation in that language and create a fresh one. '
                             . 'Destructive: any work already done in that translation is discarded. Defaults to false.',
+                    ],
+                    'translator' => [
+                        'type'        => 'string',
+                        'enum'        => self::TRANSLATORS,
+                        'description' => 'Which machine translator translates the text: "deepl" or "llm" (the '
+                            . 'configured language model). Defaults to "' . self::DEFAULT_TRANSLATOR . '". "deepl" '
+                            . 'is refused when DeepL is not configured on this installation.',
                     ],
                 ],
                 'required' => ['table', 'uid', 'language'],
@@ -199,11 +246,17 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             ));
         }
 
+        // The record exists, hidden and connected, whatever happens to its
+        // text now — so a failed translation is reported in the answer rather
+        // than as a failed call: the write target must reach the provenance
+        // event (ADR-187) for a record that was in fact created.
+        $translated = $this->translateTexts($plan, $newUid, $user);
+
         // The new uid leads, as it does for create_page_draft: the source uid
         // is the other number in the answer (NEXT-167).
         return ToolResult::text(sprintf(
-            'New translation uid: %d. Created hidden translation [%d] of %s [%d] "%s" in language %d%s. It is not '
-            . 'visible until a human unhides it.',
+            'New translation uid: %d. Created hidden translation [%d] of %s [%d] "%s" in language %d%s. %s It is '
+            . 'not visible until a human unhides it.',
             $newUid,
             $newUid,
             $plan['table'],
@@ -211,7 +264,149 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             $this->excerpt($plan['label']),
             $plan['language'],
             $plan['existingUid'] > 0 ? sprintf(', replacing translation [%d]', $plan['existingUid']) : '',
+            $translated,
         ))->withWriteTarget(new RecordReference($plan['table'], $newUid), WriteKind::CREATED);
+    }
+
+    /**
+     * Machine-translate the source's text fields into the new record, or say
+     * plainly why the text stayed as core copied it (ADR-209).
+     *
+     * All fields are translated before anything is written, and they are
+     * written in one DataHandler pass: a failure half-way leaves no record that
+     * is part translated and part source text, and "the text was not
+     * translated" stays an exact sentence.
+     *
+     * @param array{table:non-empty-string, uid:int, label:string, language:int, existingUid:int, existingLabel:string, translator:string, translatorName:string, texts:array<string, array{text:string, html:bool}>, withheld:list<string>} $plan
+     *
+     * @return string the sentence the result carries
+     */
+    private function translateTexts(array $plan, int $newUid, BackendUserAuthentication $user): string
+    {
+        if ($plan['texts'] === []) {
+            return 'The source holds no text to translate.';
+        }
+
+        $languages = $this->languageCodes($plan['table'], $plan['uid'], $plan['language']);
+        if (is_string($languages)) {
+            return $this->notTranslated($languages);
+        }
+
+        $options = (new TranslationOptions())
+            ->withTranslator($plan['translator'])
+            ->withSite($languages['site'])
+            ->withCacheTtl(self::TRANSLATION_CACHE_TTL)
+            ->withBeUserUid(max(0, self::toInt(is_array($user->user) ? ($user->user['uid'] ?? 0) : 0)))
+            ->withCallerSource('nr_llm', 'create_translation_draft');
+
+        $values = [];
+        $cached = 0;
+        foreach ($plan['texts'] as $field => $text) {
+            try {
+                $result = $this->translationService->translateWithTranslator(
+                    $text['text'],
+                    $languages['target'],
+                    $languages['source'],
+                    $text['html'] ? $options->withTagHandling('html') : $options,
+                );
+            } catch (Throwable $e) {
+                return $this->notTranslated(sprintf(
+                    '%s failed on "%s": %s',
+                    $plan['translatorName'],
+                    $field,
+                    $this->excerpt($this->sanitizeErrorMessage($e->getMessage())),
+                ));
+            }
+
+            if (trim($result->translatedText) === '') {
+                return $this->notTranslated(sprintf('%s returned no text for "%s"', $plan['translatorName'], $field));
+            }
+
+            $values[$field] = $result->translatedText;
+            $cached += ($result->metadata['cached'] ?? false) === true ? 1 : 0;
+        }
+
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $dataHandler->start([$plan['table'] => [$newUid => $values]], [], $user);
+        $dataHandler->process_datamap();
+        if ($dataHandler->errorLog !== []) {
+            return $this->notTranslated('TYPO3 refused the write: ' . $this->summariseErrors($dataHandler->errorLog));
+        }
+
+        // Read back: an empty errorLog is not proof that anything landed. Rich
+        // text passes the RTE transformation on its way in, so it is checked
+        // for having landed at all rather than byte for byte.
+        $stored  = $this->fetchRecord($plan['table'], $newUid) ?? [];
+        $missing = [];
+        foreach ($values as $field => $value) {
+            $landed = trim(self::toStr($stored[$field] ?? ''));
+            if ($plan['texts'][$field]['html'] ? $landed === '' : $landed !== trim($value)) {
+                $missing[] = $field;
+            }
+        }
+
+        if ($missing !== []) {
+            return $this->notTranslated(sprintf('the translated text of %s did not land', implode(', ', $missing)));
+        }
+
+        return sprintf(
+            'Machine-translated %d text field(s) (%s) from "%s" to "%s" with %s%s%s — a human must review the text.',
+            count($values),
+            implode(', ', array_keys($values)),
+            $languages['source'],
+            $languages['target'],
+            $plan['translatorName'],
+            $cached > 0 ? sprintf(' (%d from the translation cache)', $cached) : '',
+            $plan['withheld'] !== [] ? sprintf('; NOT translated, because you may not edit them: %s', implode(', ', $plan['withheld'])) : '',
+        );
+    }
+
+    /**
+     * The sentence for a draft whose text stayed as core copied it.
+     */
+    private function notTranslated(string $reason): string
+    {
+        return sprintf(
+            'The text was NOT machine-translated: %s. The translation holds the source text as the localize command '
+            . 'copied it.',
+            rtrim($reason, '.'),
+        );
+    }
+
+    /**
+     * The site of the record and the two ISO 639-1 codes of the pair, or the
+     * reason they cannot be named.
+     *
+     * Asked only after `localize` succeeded, which means core has already
+     * confirmed that the site defines the target language — so this is not a
+     * second implementation of that check, and the preview never needs it.
+     *
+     * @param non-empty-string $table
+     *
+     * @return array{site:string, source:string, target:string}|string
+     */
+    private function languageCodes(string $table, int $uid, int $language): array|string
+    {
+        $pageUid = $uid;
+        if ($table !== self::PAGES_TABLE) {
+            $pageUid = self::toInt(($this->fetchRecord($table, $uid) ?? [])['pid'] ?? 0);
+        }
+
+        try {
+            $site   = $this->siteFinder->getSiteByPageId($pageUid);
+            $source = $site->getLanguageById(self::DEFAULT_LANGUAGE)->getLocale()->getLanguageCode();
+            $target = $site->getLanguageById($language)->getLocale()->getLanguageCode();
+        } catch (Throwable $e) {
+            return "the languages of the record's site could not be resolved: " . $this->excerpt($e->getMessage());
+        }
+
+        $source = strtolower($source);
+        $target = strtolower($target);
+        if (preg_match('/^[a-z]{2}$/', $source) !== 1 || preg_match('/^[a-z]{2}$/', $target) !== 1) {
+            return sprintf('the site names no two-letter language code for the pair ("%s", "%s")', $source, $target);
+        }
+
+        return ['site' => $site->getIdentifier(), 'source' => $source, 'target' => $target];
     }
 
     /**
@@ -256,6 +451,17 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         }
 
         $lines[] = 'creates: a copy of the source record, connected to it as its translation';
+        $lines[] = $plan['texts'] === []
+            ? 'text: the source holds no text to translate'
+            : sprintf(
+                'text: MACHINE-TRANSLATED by %s — %s; the glossary of the record\'s site applies',
+                $plan['translatorName'],
+                implode(', ', array_keys($plan['texts'])),
+            );
+        if ($plan['withheld'] !== []) {
+            $lines[] = sprintf('not translated, because you may not edit them: %s', implode(', ', $plan['withheld']));
+        }
+
         $lines[] = 'visibility: hidden — a human must unhide it before anyone sees it';
 
         return $lines;
@@ -325,17 +531,22 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{table:non-empty-string, uid:int, label:string, language:int, existingUid:int, existingLabel:string}|string
+     * @return array{table:non-empty-string, uid:int, label:string, language:int, existingUid:int, existingLabel:string, translator:string, translatorName:string, texts:array<string, array{text:string, html:bool}>, withheld:list<string>}|string
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
         $unknown = $this->refuseUnknownArguments(
             $arguments,
-            ['table', 'uid', 'language', 'overwrite'],
+            ['table', 'uid', 'language', 'overwrite', 'translator'],
             'translates one record',
         );
         if ($unknown !== null) {
             return $unknown;
+        }
+
+        $translator = $arguments['translator'] ?? self::DEFAULT_TRANSLATOR;
+        if (!is_string($translator) || !in_array($translator, self::TRANSLATORS, true)) {
+            return sprintf('Refused: "translator" must be one of %s.', implode(', ', self::TRANSLATORS));
         }
 
         $table = trim(self::toStr($arguments['table'] ?? ''));
@@ -409,14 +620,119 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             );
         }
 
+        $translatorName = $this->availableTranslatorName($translator);
+        if ($translatorName === null) {
+            return sprintf(
+                'Refused: the translator "%s" is not configured on this installation. Use "%s", or configure it first.',
+                $translator,
+                $translator === self::DEFAULT_TRANSLATOR ? 'deepl' : self::DEFAULT_TRANSLATOR,
+            );
+        }
+
+        $texts    = $this->translatableTexts($table, $source);
+        $withheld = $this->columnsTheUserMayNotSet($user, $table, array_keys($texts));
+        foreach ($withheld as $column) {
+            unset($texts[$column]);
+        }
+
         return [
-            'table'         => $table === self::PAGES_TABLE ? self::PAGES_TABLE : self::CONTENT_TABLE,
-            'uid'           => $uid,
-            'label'         => self::toStr($source[$this->labelField($table)] ?? ''),
-            'language'      => $language,
-            'existingUid'   => $existingUid,
-            'existingLabel' => $existingLabel,
+            'table'          => $table === self::PAGES_TABLE ? self::PAGES_TABLE : self::CONTENT_TABLE,
+            'uid'            => $uid,
+            'label'          => self::toStr($source[$this->labelField($table)] ?? ''),
+            'language'       => $language,
+            'existingUid'    => $existingUid,
+            'existingLabel'  => $existingLabel,
+            'translator'     => $translator,
+            'translatorName' => $translatorName,
+            'texts'          => $texts,
+            'withheld'       => $withheld,
         ];
+    }
+
+    /**
+     * The display name of a translator this installation can use, or null.
+     * Named on the approval card and in the result, so the approver reads
+     * which service the text is sent to.
+     */
+    private function availableTranslatorName(string $identifier): ?string
+    {
+        try {
+            $translator = $this->translationService->getTranslator($identifier);
+        } catch (Throwable) {
+            return null;
+        }
+
+        return $translator->isAvailable() ? sprintf('%s (%s)', $translator->getName(), $identifier) : null;
+    }
+
+    /**
+     * The source's text to translate, by field: every `input` and `text` column
+     * of the record's type that core copies into a translation and that holds
+     * text (ADR-209). Read from the live TCA, with the type's
+     * `columnsOverrides` applied, because whether `bodytext` is rich text or
+     * raw markup is a property of the content type, not of the column.
+     *
+     * Left out, and why:
+     * - `l10n_mode = exclude`: core does not copy it; the translation shows
+     *   the source's value.
+     * - `l10n_display = defaultAsReadonly`: the form shows the source's value,
+     *   read-only, so a translated value would be invisible to the editor.
+     * - `readOnly`: nobody edits it, so neither does a tool.
+     * - a `text` column with a `renderType` (a code editor, a table wizard):
+     *   what it holds is code or structure, not prose — `bodytext` of the
+     *   `html` content type is the case in point.
+     *
+     * @param array<string, mixed> $source
+     *
+     * @return array<string, array{text:string, html:bool}>
+     */
+    private function translatableTexts(string $table, array $source): array
+    {
+        $columns = $this->tcaColumnsFor($table) ?? [];
+        $ctrl    = $this->ctrl($table);
+
+        $typeField = self::toStr($ctrl['type'] ?? '');
+        $type      = $typeField !== '' && !str_contains($typeField, ':') ? self::toStr($source[$typeField] ?? '') : '';
+        $allTca    = $GLOBALS['TCA'] ?? null;
+        $tca       = is_array($allTca) ? ($allTca[$table] ?? null) : null;
+        $typeDef   = is_array($tca) && is_array($tca['types'] ?? null) ? ($tca['types'][$type] ?? null) : null;
+        $overrides = is_array($typeDef) && is_array($typeDef['columnsOverrides'] ?? null) ? $typeDef['columnsOverrides'] : [];
+
+        $texts = [];
+        foreach ($columns as $field => $column) {
+            if (!is_string($field) || !is_array($column) || !is_array($column['config'] ?? null)) {
+                continue;
+            }
+
+            if (self::toStr($column['l10n_mode'] ?? '') === 'exclude'
+                || str_contains(self::toStr($column['l10n_display'] ?? ''), 'defaultAsReadonly')
+            ) {
+                continue;
+            }
+
+            $config   = $column['config'];
+            $override = $overrides[$field] ?? null;
+            if (is_array($override) && is_array($override['config'] ?? null)) {
+                $config = array_replace_recursive($config, $override['config']);
+            }
+
+            $fieldType = self::toStr($config['type'] ?? '');
+            if (!in_array($fieldType, ['input', 'text'], true)
+                || (bool)($config['readOnly'] ?? false)
+                || ($fieldType === 'text' && self::toStr($config['renderType'] ?? '') !== '')
+            ) {
+                continue;
+            }
+
+            $value = $source[$field] ?? null;
+            if (!is_string($value) || trim($value) === '') {
+                continue;
+            }
+
+            $texts[$field] = ['text' => $value, 'html' => (bool)($config['enableRichtext'] ?? false)];
+        }
+
+        return $texts;
     }
 
     /**
