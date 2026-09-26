@@ -203,7 +203,9 @@ subject and a different change (issue #662, option 3).
 Fail closed on every branch the card cannot resolve: no viewer, a tool that is
 no longer registered, or a tool under that name that offers no preview contract.
 The persisted preview outlives the registration that produced it, so "the tool
-cannot be asked" is a normal state, not a corrupt one.
+cannot be asked" is a normal state, not a corrupt one. The run starter is the
+one exception: the starter check does not ask the tool, so the starter sees
+the stored lines also when the tool is gone or offers no preview contract.
 
 Two bounds remain on what a permitted viewer sees: only the fields the call
 would write (never the whole row), each truncated to a 120-character excerpt.
