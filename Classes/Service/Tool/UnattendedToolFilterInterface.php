@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool;
 
 /**
- * Which tools run without a human approval (ADR-210).
+ * Which tools run without a human pause: no approval, no typed input (ADR-210).
  *
  * For a caller that has no approval step and therefore cannot resume a run
  * that {@see ToolLoopServiceInterface::runLoop()} suspended: it narrows what
@@ -23,7 +23,8 @@ interface UnattendedToolFilterInterface
 {
     /**
      * The names, in their given order, of the tools that run without an
-     * approval. A name no registered tool carries is left out.
+     * approval and without asking for typed input ({@see RequiresInputInterface}).
+     * A name no registered tool carries is left out.
      *
      * @param list<string> $toolNames
      *

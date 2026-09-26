@@ -28,7 +28,11 @@ final readonly class UnattendedToolFilter implements UnattendedToolFilterInterfa
         $unattended = [];
         foreach ($toolNames as $name) {
             $tool = $this->registry->get($name);
-            if ($tool instanceof ToolInterface && !ToolApprovalRule::requiresApproval($tool)) {
+            // An input-gated tool suspends the run as surely as an approval does.
+            if ($tool instanceof ToolInterface
+                && !$tool instanceof RequiresInputInterface
+                && !ToolApprovalRule::requiresApproval($tool)
+            ) {
                 $unattended[] = $name;
             }
         }

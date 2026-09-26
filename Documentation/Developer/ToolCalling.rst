@@ -100,7 +100,8 @@ calls a tool that needs a human approval, and throws
 :php:`ToolApprovalRequiredException`. A caller that has no approval step,
 such as an editor dialog, offers the model only the tools that never
 suspend: first the tools the policy allows, then those of them that run
-without an approval (:ref:`ADR-210 <adr-210>`).
+without an approval and without asking for typed input
+(:ref:`ADR-210 <adr-210>`).
 
 .. code-block:: php
    :caption: Example: offering only tools that run without approval
