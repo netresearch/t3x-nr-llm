@@ -37,8 +37,15 @@ names, in their order, of the tools that run without an approval.
 
 - It asks :php:`ToolApprovalRule::requiresApproval()` about the tool the
   registry holds under each name. The rule stays the only place that decides,
-  so a tool that gains a write effect or the approval marker leaves the
-  unattended set without a change here.
+  so a local tool that gains a write effect, or any tool that gains the
+  approval marker, leaves the unattended set without a change here.
+- It inherits the rule's exemption for remote tools. A remote tool is judged
+  on the operator's declaration, not on its effect
+  (:ref:`ADR-134 <adr-134>`), so an imported tool without a declaration stays
+  in the unattended set whatever it does — exactly as it runs without an
+  approval in an agent run. An operator who wants such a tool kept out of a
+  caller without an approval step declares it approval-bound on its server
+  record.
 - A name the registry does not know is left out. An unknown tool cannot be
   shown to be free of approval, and leaving it in would offer the model a
   call that suspends.
