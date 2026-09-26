@@ -177,6 +177,14 @@ twice over, once on each side:
    answer is no, the card says the preview is withheld instead of showing the
    lines.
 
+   The viewer who STARTED the run is not asked again: the stored lines were
+   produced with exactly that user's rights, so they are theirs to read,
+   a refusal included. Asking the tool again re-runs its plan, and a plan
+   refuses for more than permission — a translation that already exists, a
+   record that has moved on. For the starter such a refusal would reach the
+   card as "you hold no permission", which is false. A run no backend user
+   started (``beUser`` 0) has no starter to match.
+
 :ref:`ADR-133 <adr-133>`'s gate is NOT part of this. It sits in
 :php:`ResumeCoordinator::approve()`, on the DECISION, and never runs while the
 list is rendered. Reading the card and pressing "Approve" are gated separately,
@@ -195,7 +203,9 @@ subject and a different change (issue #662, option 3).
 Fail closed on every branch the card cannot resolve: no viewer, a tool that is
 no longer registered, or a tool under that name that offers no preview contract.
 The persisted preview outlives the registration that produced it, so "the tool
-cannot be asked" is a normal state, not a corrupt one.
+cannot be asked" is a normal state, not a corrupt one. The run starter is the
+one exception: the starter check does not ask the tool, so the starter sees
+the stored lines also when the tool is gone or offers no preview contract.
 
 Two bounds remain on what a permitted viewer sees: only the fields the call
 would write (never the whole row), each truncated to a 120-character excerpt.

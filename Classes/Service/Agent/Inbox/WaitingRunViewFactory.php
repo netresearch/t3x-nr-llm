@@ -179,7 +179,7 @@ final readonly class WaitingRunViewFactory
             // position is a state nobody should be able to produce; dropping it
             // is cheaper than rendering a claim about the wrong call.
             if ($preview !== null && $preview['tool'] === $call->name) {
-                if ($this->viewerMayRead($tool, $call->arguments, $viewer)) {
+                if ($this->viewerStartedTheRun($run, $viewer) || $this->viewerMayRead($tool, $call->arguments, $viewer)) {
                     $previewLines  = $preview['lines'];
                     $previewFailed = $preview['failed'];
                 } else {
@@ -217,6 +217,27 @@ final readonly class WaitingRunViewFactory
             turnDigest: $this->digest->forState($state),
             pendingCalls: $calls,
         );
+    }
+
+    /**
+     * Whether the viewer is the backend user the run acts for.
+     *
+     * The stored preview was produced with exactly that user's rights, so it
+     * is theirs to read as it stands — a refusal included. Asking the tool
+     * again would re-run its plan, and a plan that refuses for a reason other
+     * than permission (the translation already exists, the record moved on)
+     * would otherwise reach the card as "you hold no permission", which is
+     * false for the one person who started the call.
+     */
+    private function viewerStartedTheRun(AgentRun $run, ?BackendUserAuthentication $viewer): bool
+    {
+        if (!$viewer instanceof BackendUserAuthentication || $run->beUser < 1) {
+            return false;
+        }
+
+        $uid = $viewer->user['uid'] ?? null;
+
+        return is_numeric($uid) && (int)$uid === $run->beUser;
     }
 
     /**
