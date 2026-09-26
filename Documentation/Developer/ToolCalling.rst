@@ -91,3 +91,33 @@ call by its id.
 
 Providers that implement :php:interface:`ToolCapableInterface` support
 tool calling.
+
+Running the tool loop without an approval step
+==============================================
+
+:php:`ToolLoopServiceInterface::runLoop()` suspends a run when the model
+calls a tool that needs a human approval, and throws
+:php:`ToolApprovalRequiredException`. A caller that has no approval step,
+such as an editor dialog, offers the model only the tools that never
+suspend: first the tools the policy allows, then those of them that run
+without an approval and without asking for typed input
+(:ref:`ADR-210 <adr-210>`).
+
+.. code-block:: php
+   :caption: Example: offering only tools that run without approval
+
+   use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
+   use Netresearch\NrLlm\Service\Tool\UnattendedToolFilterInterface;
+
+   $offerable = $this->toolCallPolicy->filterOfferable(null, $configuration, $backendUser);
+   $tools = $this->unattendedToolFilter->unattended($offerable);
+
+   $result = $this->toolLoopService->runLoop($messages, $configuration, $context, $tools);
+
+An empty list offers no tools at all; pass it as is rather than ``null``,
+which would mean "every enabled tool".
+
+The filter applies the same rule as an agent run. A remote (MCP) tool is
+judged on the operator's declaration on its server record, not on its
+effect, so an undeclared remote tool counts as running without approval
+here too.

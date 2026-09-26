@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`UnattendedToolFilterInterface` names the tools that run without a human pause (ADR-210).** `unattended(list<string> $toolNames)` keeps, in their order, the names whose registered tool `ToolApprovalRule` does not mark as approval-bound and that does not ask for typed input (`RequiresInputInterface`); an unknown name is left out. A caller without an approval step narrows `ToolCallPolicyInterface::filterOfferable()` with it and meets neither a `ToolApprovalRequiredException` nor a `ToolInputRequiredException` from a registered tool. New `@api` interface; the API snapshot gains it.
+
 ## [0.37.6] - 2026-09-26
 
 ### Fixed

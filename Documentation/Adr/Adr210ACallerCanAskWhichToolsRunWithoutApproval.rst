@@ -46,6 +46,10 @@ names, in their order, of the tools that run without an approval.
   approval in an agent run. An operator who wants such a tool kept out of a
   caller without an approval step declares it approval-bound on its server
   record.
+- A tool that asks for typed input (:php:`RequiresInputInterface`) is left
+  out as well. It needs no approval, but the loop suspends for its input
+  (``WAITING_FOR_INPUT``), and a caller without an approval step has no input
+  step either. "Unattended" means no human pause of either kind.
 - A name the registry does not know is left out. An unknown tool cannot be
   shown to be free of approval, and leaving it in would offer the model a
   call that suspends.
@@ -64,8 +68,8 @@ Consequences
 
 ● A caller without an approval step runs the tool loop on
 :php:`ToolCallPolicyInterface::filterOfferable()` narrowed by
-:php:`UnattendedToolFilterInterface::unattended()` and never meets a
-suspension.
+:php:`UnattendedToolFilterInterface::unattended()` and meets neither an
+approval nor an input suspension from a registered tool.
 
 ● The approval rule has one reader more and still one definition.
 
