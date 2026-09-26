@@ -115,3 +115,8 @@ without an approval (:ref:`ADR-210 <adr-210>`).
 
 An empty list offers no tools at all; pass it as is rather than ``null``,
 which would mean "every enabled tool".
+
+The filter applies the same rule as an agent run. A remote (MCP) tool is
+judged on the operator's declaration on its server record, not on its
+effect, so an undeclared remote tool counts as running without approval
+here too.
