@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-09-27
+
 ### Added
 
 - **`UnattendedToolFilterInterface` names the tools that run without a human pause (ADR-210).** `unattended(list<string> $toolNames)` keeps, in their order, the names whose registered tool `ToolApprovalRule` does not mark as approval-bound and that does not ask for typed input (`RequiresInputInterface`); an unknown name is left out. A caller without an approval step narrows `ToolCallPolicyInterface::filterOfferable()` with it and meets neither a `ToolApprovalRequiredException` nor a `ToolInputRequiredException` from a registered tool. New `@api` interface; the API snapshot gains it.
@@ -4146,7 +4148,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.6...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.38.0...HEAD
+[0.38.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.6...v0.38.0
 [0.37.6]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.5...v0.37.6
 [0.37.5]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.4...v0.37.5
 [0.37.4]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.3...v0.37.4
