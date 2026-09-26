@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.37.6] - 2026-09-26
+
 ### Fixed
 
 - **The approval card shows the user who started a run their own preview (ADR-136, NEXT-166).** The card asked the tool a second time whether the viewer may read the preview, by re-running its plan. A plan refuses for more than permission, so on the demo the admin who asked for a German translation of an element that already had one read "you hold no permission on the record it describes". The stored lines were produced with the starter's own rights; they now reach the starter as they are, refusal included. Every other viewer is still asked through the tool.
@@ -4140,7 +4142,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.5...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.6...HEAD
+[0.37.6]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.5...v0.37.6
 [0.37.5]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.4...v0.37.5
 [0.37.4]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.3...v0.37.4
 [0.37.3]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.2...v0.37.3
