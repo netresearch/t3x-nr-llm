@@ -592,3 +592,4 @@ Tools
    Adr207DeepLQuotaOnTheTestPage
    Adr208ASiteGlossaryReachesBothTranslators
    Adr209TheTranslationDraftTranslatesItsText
+   Adr210ACallerCanAskWhichToolsRunWithoutApproval
