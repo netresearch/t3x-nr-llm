@@ -102,6 +102,10 @@ services:
     alias: Netresearch\NrLlm\Service\Tool\ToolCallPolicy
     public: true
 
+  # Which of the offerable tools run without an approval (ADR-210).
+  Netresearch\NrLlm\Service\Tool\UnattendedToolFilterInterface:
+    alias: Netresearch\NrLlm\Service\Tool\UnattendedToolFilter
+
   # The tools a run will NOT be offered, with the gate that holds each back
   # (ADR-201). Public because a consumer extension looks it up by interface and
   # feature-detects it: a chat that runs against an older nr-llm must be able to
