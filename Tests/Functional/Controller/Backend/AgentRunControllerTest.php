@@ -154,12 +154,39 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
      * refuses gets the withheld notice instead of the captured lines — the
      * `agent_approve` grant is tool-level and decides nothing per record.
      */
+    /**
+     * The viewer who started the run reads the preview that was produced with
+     * their own rights, even where the tool's plan now refuses — the demo case
+     * was a translation that already existed, which the card reported as a
+     * missing permission to the admin who had asked for it.
+     */
+    #[Test]
+    public function listActionShowsTheStarterTheirOwnStoredPreview(): void
+    {
+        $this->suspendApproval('update_page_metadata', ['uid' => 42], [
+            ['index' => 0, 'tool' => 'update_page_metadata', 'lines' => ['Refused: the record already has what this call would write.'], 'failed' => true],
+        ]);
+
+        $controller = $this->makeController(
+            new ToolRegistry([new PreviewingApprovalTool('update_page_metadata', viewerMayRead: false)]),
+            self::createStub(AgentRuntimeInterface::class),
+        );
+        $this->setRequest($controller, 'list');
+
+        $body = (string)$controller->listAction()->getBody();
+
+        self::assertStringContainsString('Refused: the record already has what this call would write.', $body);
+        self::assertStringNotContainsString('you hold no permission on the record it describes', $body);
+    }
+
     #[Test]
     public function listActionWithholdsThePreviewFromAViewerTheToolRefuses(): void
     {
+        // Started by another user: the viewing admin is an approver here, not
+        // the person whose rights produced the preview.
         $this->suspendApproval('update_page_metadata', ['uid' => 42], [
             ['index' => 0, 'tool' => 'update_page_metadata', 'lines' => ['description: "Old text" → "New text"'], 'failed' => false],
-        ]);
+        ], beUser: 2);
 
         $controller = $this->makeController(
             new ToolRegistry([new PreviewingApprovalTool('update_page_metadata', viewerMayRead: false)]),
@@ -708,9 +735,9 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
      * @param array<string, mixed>                                                     $arguments
      * @param list<array{index: int, tool: string, lines: list<string>, failed: bool}> $callPreviews
      */
-    private function suspendApproval(string $tool, array $arguments, array $callPreviews = []): void
+    private function suspendApproval(string $tool, array $arguments, array $callPreviews = [], int $beUser = 1): void
     {
-        $handle = $this->persister->begin(null, 1);
+        $handle = $this->persister->begin(null, $beUser);
         self::assertNotNull($handle);
         self::assertTrue($this->persister->suspend(
             $handle,

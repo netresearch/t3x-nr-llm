@@ -397,6 +397,75 @@ final class WaitingRunViewFactoryTest extends TestCase
         self::assertSame(WaitingRunView::MODE_APPROVAL, $view->mode);
     }
 
+    /**
+     * The demo case: create_translation_draft for an element that already had
+     * a translation. The tool's plan refuses — not for want of permission — so
+     * asking the tool again answered "no", and the card told the admin who
+     * started the call that they held no permission. The stored preview was
+     * produced with the starter's own rights; it is theirs to read, refusal
+     * included.
+     */
+    #[Test]
+    public function theUserWhoStartedTheRunSeesItsStoredPreviewEvenWhenThePlanNowRefuses(): void
+    {
+        $call  = ToolCall::function('c1', 'create_translation_draft', ['table' => 'tt_content', 'uid' => 10191, 'language' => 1])->toArray();
+        $state = json_encode(
+            (new SuspendedRunState([], [$call], 1, 0, 0, null, [], null, [], [
+                ['index' => 0, 'tool' => 'create_translation_draft', 'lines' => ['Refused: tt_content [10191] already has a translation in language 1: [10192].'], 'failed' => true],
+            ]))->toArray(),
+            JSON_THROW_ON_ERROR,
+        );
+        $starter       = $this->viewer();
+        $starter->user = ['uid' => 7];
+
+        $view = $this->factory(new PreviewingApprovalTool('create_translation_draft', viewerMayRead: false))
+            ->buildWaiting([$this->makeRun('a', $state, beUser: 7)], $starter)[0];
+
+        self::assertSame(
+            ['Refused: tt_content [10191] already has a translation in language 1: [10192].'],
+            $view->pendingCalls[0]->previewLines,
+        );
+        self::assertTrue($view->pendingCalls[0]->previewFailed);
+    }
+
+    /**
+     * The other direction: an approver who did not start the run is still
+     * asked through the tool, so a record outside their remit stays hidden.
+     */
+    #[Test]
+    public function anotherViewerIsStillAskedThroughTheTool(): void
+    {
+        $approver       = $this->viewer();
+        $approver->user = ['uid' => 8];
+
+        $view = $this->factory(new PreviewingApprovalTool('update_page_metadata', viewerMayRead: false))
+            ->buildWaiting([$this->makeRun('a', $this->previewState(), beUser: 7)], $approver)[0];
+
+        self::assertSame(
+            ['The preview is not shown: you hold no permission on the record it describes.'],
+            $view->pendingCalls[0]->previewLines,
+        );
+    }
+
+    /**
+     * A run no backend user started (a service account, beUser 0) has no
+     * starter to match; a viewer without a uid must not pass as one.
+     */
+    #[Test]
+    public function aRunWithoutABackendUserHasNoStarterToMatch(): void
+    {
+        $viewer       = $this->viewer();
+        $viewer->user = ['uid' => 0];
+
+        $view = $this->factory(new PreviewingApprovalTool('update_page_metadata', viewerMayRead: false))
+            ->buildWaiting([$this->makeRun('a', $this->previewState(), beUser: 0)], $viewer)[0];
+
+        self::assertSame(
+            ['The preview is not shown: you hold no permission on the record it describes.'],
+            $view->pendingCalls[0]->previewLines,
+        );
+    }
+
     #[Test]
     public function aPreviewIsWithheldWhenNoViewerCanBeEstablished(): void
     {
