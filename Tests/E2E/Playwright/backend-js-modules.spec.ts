@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { test, expect, type Page } from '@playwright/test';
 
 /**
@@ -25,27 +25,25 @@ const CORE_CSS = resolve(REPO, '.Build/vendor/typo3/cms-backend/Resources/Public
 
 /**
  * TYPO3 13.4's backend CSS, which the E2E job does not install (it resolves
- * 14.3). Fetched once from the upstream tag and refused unless it is the
- * exact file pinned here, so a run measures the same CSS every time.
+ * 14.3). Fetched from the upstream tag once per test process, kept in memory,
+ * and refused unless it is the exact file pinned here, so every run measures
+ * the same CSS.
  */
 const CORE_134 = {
   url: 'https://raw.githubusercontent.com/TYPO3/typo3/v13.4.35/typo3/sysext/backend/Resources/Public/Css/backend.css',
   sha256: '872350960f4f5aeda6698e4b5ef43e66d8067c862c349d08789580fcceee407d',
-  path: resolve(REPO, '.Build/core-css/v13.4.35/backend.css'),
 };
+let core134: Promise<Buffer> | null = null;
 
-async function core134Css(): Promise<Buffer> {
-  const digest = (data: Buffer) => createHash('sha256').update(data).digest('hex');
-  if (existsSync(CORE_134.path) && digest(readFileSync(CORE_134.path)) === CORE_134.sha256) {
-    return readFileSync(CORE_134.path);
-  }
-  const response = await fetch(CORE_134.url);
-  expect(response.ok, `fetching ${CORE_134.url}: HTTP ${response.status}`).toBe(true);
-  const data = Buffer.from(await response.arrayBuffer());
-  expect(digest(data), `${CORE_134.url} is not the pinned file`).toBe(CORE_134.sha256);
-  mkdirSync(dirname(CORE_134.path), { recursive: true });
-  writeFileSync(CORE_134.path, data);
-  return data;
+function core134Css(): Promise<Buffer> {
+  core134 ??= (async () => {
+    const response = await fetch(CORE_134.url);
+    expect(response.ok, `fetching ${CORE_134.url}: HTTP ${response.status}`).toBe(true);
+    const data = Buffer.from(await response.arrayBuffer());
+    expect(createHash('sha256').update(data).digest('hex'), `${CORE_134.url} is not the pinned file`).toBe(CORE_134.sha256);
+    return data;
+  })();
+  return core134;
 }
 
 const STUB_AJAX = `

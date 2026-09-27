@@ -83,7 +83,7 @@
  */
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
-import { join, relative, extname, basename, dirname, resolve } from 'node:path';
+import { join, relative, extname, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as espree from 'espree';
 import * as csstree from 'css-tree';
