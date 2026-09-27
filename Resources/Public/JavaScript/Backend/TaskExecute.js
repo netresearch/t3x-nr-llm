@@ -407,6 +407,8 @@ class TaskExecute {
         // reason that is safe. `no-unsanitized` does not cover `srcdoc`, so
         // removing this line would not fail the build.
         iframe.sandbox = '';
+        // scheme-independent: a light page on purpose. The frame is its own
+        // document, and model-written HTML may carry colours that assume white.
         iframe.style.cssText = 'width:100%;border:none;min-height:200px;background:#fff;';
         iframe.srcdoc = [
             '<!DOCTYPE html><html><head><meta charset="utf-8"><style>',
@@ -444,9 +446,9 @@ class TaskExecute {
                 return '<h' + level + ' style="margin:0.8em 0 0.4em;font-size:' + (1.4 - level * 0.1) + 'em">' + text + '</h' + level + '>';
             })
             // Code blocks
-            .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre style="background:#f5f5f5;padding:8px;border-radius:4px;overflow-x:auto"><code>$2</code></pre>')
+            .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre style="background:var(--typo3-surface-container-base);padding:8px;border-radius:4px;overflow-x:auto"><code>$2</code></pre>')
             // Inline code
-            .replace(/`([^`]+)`/g, '<code style="background:#f0f0f0;padding:2px 4px;border-radius:3px">$1</code>')
+            .replace(/`([^`]+)`/g, '<code style="background:var(--typo3-surface-container-high);padding:2px 4px;border-radius:3px">$1</code>')
             // Bold
             .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
             // Italic

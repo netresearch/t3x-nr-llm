@@ -42,7 +42,7 @@
                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.btn.run" default="Run Test" />
                             </button>
 
-                            <f:link.action action="index" class="btn btn-secondary mt-3">
+                            <f:link.action action="index" class="btn btn-default mt-3">
                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.btn.back" default="Back to Overview" />
                             </f:link.action>
                         </form>
@@ -66,7 +66,7 @@
 
                             <div id="responseDetails" style="display: none;">
                                 <h4><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.response.content" default="Content" /></h4>
-                                <pre id="responseContent" class="bg-light p-3"></pre>
+                                <pre id="responseContent" class="p-3" style="background: var(--typo3-surface-container-base);"></pre>
 
                                 <h4><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.response.usage" default="Usage" /></h4>
                                 <table class="table table-sm">
@@ -149,7 +149,7 @@
                             <span id="translationErrorMessage"></span>
                         </div>
                         <div id="translationResult" class="mt-3" style="display: none;">
-                            <pre id="translationOutput" class="bg-light p-3"></pre>
+                            <pre id="translationOutput" class="p-3" style="background: var(--typo3-surface-container-base);"></pre>
                             <p class="text-body-secondary small mb-0" id="translationMeta"></p>
                         </div>
                     </div>

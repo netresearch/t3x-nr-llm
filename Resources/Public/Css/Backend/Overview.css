@@ -8,71 +8,42 @@
  * the TYPO3 v13/v14 backend light and dark colour schemes.
  */
 
+/*
+ * Colour comes from the TYPO3 backend variables. Core defines each of them once
+ * with light-dark() and selects the scheme from html[data-color-scheme], so a
+ * user who picks Light while the OS is dark gets light, and every v14 backend
+ * theme carries through. The two brand hues have no core variable and use
+ * light-dark() the same way; their text values are measured, not guessed.
+ */
 .nrllm-ov {
-    --nrllm-ov-surface: #fff;
-    --nrllm-ov-surface-2: #fafbfc;
-    --nrllm-ov-border: #d3d6db;
-    --nrllm-ov-border-soft: #e5e7eb;
-    --nrllm-ov-text: #15181d;
-    --nrllm-ov-muted: #6b7280;
-    --nrllm-ov-primary: #0b7aba;
-    --nrllm-ov-brand: #ff8700;
-    --nrllm-ov-teal: #2f99a4;
-    --nrllm-ov-ok-bd: #4c9a2a;
-    --nrllm-ov-ok-tx: #2c6a17;
-    --nrllm-ov-ok-tint: #f1f9ee;
-    --nrllm-ov-ok-bg: #e7f4e4;
-    --nrllm-ov-info-bd: #0b7aba;
-    --nrllm-ov-info-tx: #0a5688;
-    --nrllm-ov-info-tint: #eef6fc;
-    --nrllm-ov-info-bg: #e4f0f8;
-    --nrllm-ov-danger-bd: #c0392b;
-    --nrllm-ov-code-bg: #f6f8fa;
+    --nrllm-ov-surface: var(--typo3-component-bg);
+    --nrllm-ov-surface-2: var(--typo3-surface-container-base);
+    --nrllm-ov-border: var(--typo3-component-border-color);
+    --nrllm-ov-border-soft: var(--typo3-component-border-color);
+    --nrllm-ov-text: var(--typo3-text-color-base);
+    /* Core's --typo3-text-color-variant mixes currentColor (v14), so muted text
+       inside muted text would fade twice (2.6:1 measured). Same mix, anchored. */
+    --nrllm-ov-muted: color-mix(in srgb, var(--typo3-text-color-base), transparent 35%);
+    --nrllm-ov-primary: var(--typo3-text-color-primary);
+    /* Orange as text: 5.2:1 on white, 8.9:1 on #141414 (#ff8700 is 2.4:1 on white). */
+    --nrllm-ov-brand: light-dark(#a85800, #ff9e33);
+    --nrllm-ov-ok-bd: var(--typo3-state-success-bg);
+    --nrllm-ov-ok-fg: var(--typo3-state-success-color);
+    --nrllm-ov-ok-tx: var(--typo3-surface-container-success-text);
+    --nrllm-ov-ok-tint: var(--typo3-surface-container-success);
+    --nrllm-ov-ok-bg: var(--typo3-surface-container-success);
+    --nrllm-ov-info-bd: var(--typo3-state-primary-bg);
+    --nrllm-ov-info-fg: var(--typo3-state-primary-color);
+    --nrllm-ov-info-tx: var(--typo3-surface-container-primary-text);
+    --nrllm-ov-info-tint: var(--typo3-surface-container-primary);
+    --nrllm-ov-info-bg: var(--typo3-surface-container-primary);
+    --nrllm-ov-danger-bd: var(--typo3-text-color-danger);
+    --nrllm-ov-danger-bg: var(--typo3-surface-container-danger);
+    --nrllm-ov-code-bg: var(--typo3-surface-container-base);
     --nrllm-ov-radius: 6px;
-}
 
-@media (prefers-color-scheme: dark) {
-    .nrllm-ov {
-        --nrllm-ov-surface: #26282c;
-        --nrllm-ov-surface-2: #2c2e33;
-        --nrllm-ov-border: #3a3d43;
-        --nrllm-ov-border-soft: #33363b;
-        --nrllm-ov-text: #e7e9ec;
-        --nrllm-ov-muted: #9aa0a8;
-        --nrllm-ov-primary: #3ea0dd;
-        --nrllm-ov-brand: #ff9e33;
-        --nrllm-ov-teal: #43b3bd;
-        --nrllm-ov-ok-tx: #8fd07a;
-        --nrllm-ov-ok-tint: #1a2a1b;
-        --nrllm-ov-ok-bg: #1f3320;
-        --nrllm-ov-info-tx: #8fcdf0;
-        --nrllm-ov-info-tint: #152833;
-        --nrllm-ov-info-bg: #16303f;
-        --nrllm-ov-danger-bd: #d9584a;
-        --nrllm-ov-code-bg: #1c2024;
-    }
-}
-
-/* TYPO3 backend explicit dark scheme (overrides system preference). */
-:root[data-color-scheme="dark"] .nrllm-ov,
-[data-color-scheme="dark"] .nrllm-ov {
-    --nrllm-ov-surface: #26282c;
-    --nrllm-ov-surface-2: #2c2e33;
-    --nrllm-ov-border: #3a3d43;
-    --nrllm-ov-border-soft: #33363b;
-    --nrllm-ov-text: #e7e9ec;
-    --nrllm-ov-muted: #9aa0a8;
-    --nrllm-ov-primary: #3ea0dd;
-    --nrllm-ov-brand: #ff9e33;
-    --nrllm-ov-teal: #43b3bd;
-    --nrllm-ov-ok-tx: #8fd07a;
-    --nrllm-ov-ok-tint: #1a2a1b;
-    --nrllm-ov-ok-bg: #1f3320;
-    --nrllm-ov-info-tx: #8fcdf0;
-    --nrllm-ov-info-tint: #152833;
-    --nrllm-ov-info-bg: #16303f;
-    --nrllm-ov-danger-bd: #d9584a;
-    --nrllm-ov-code-bg: #1c2024;
+    /* scheme-independent: teal fills decoration only (dots, bars), 3.4:1 on white and 5.5:1 on #141414. */
+    --nrllm-ov-teal: #2f99a4;
 }
 
 .nrllm-ov-sub {
@@ -259,7 +230,7 @@
 
 .nrllm-ov-card:hover {
     border-color: var(--nrllm-ov-primary);
-    box-shadow: 0 3px 12px rgba(16, 24, 40, .12);
+    box-shadow: var(--typo3-component-box-shadow-strong);
     transform: translateY(-1px);
 }
 
@@ -304,13 +275,13 @@
     display: grid;
     place-items: center;
     background: var(--nrllm-ov-ok-bd);
-    color: #fff;
+    color: var(--nrllm-ov-ok-fg);
     border: 2px solid var(--nrllm-ov-surface);
 }
 
 .nrllm-ov-check .t3js-icon,
 .nrllm-ov-check .icon {
-    color: #fff;
+    color: var(--nrllm-ov-ok-fg);
 }
 
 .nrllm-ov-tt {
@@ -382,7 +353,7 @@
 
 .nrllm-ov-flag.is-next {
     background: var(--nrllm-ov-info-bd);
-    color: #fff;
+    color: var(--nrllm-ov-info-fg);
 }
 
 .nrllm-ov-flag.is-empty {
@@ -409,7 +380,7 @@
 }
 
 .nrllm-ov-card.is-next:hover {
-    box-shadow: 0 0 0 1px var(--nrllm-ov-info-bd), 0 3px 12px rgba(16, 24, 40, .12);
+    box-shadow: 0 0 0 1px var(--nrllm-ov-info-bd), var(--typo3-component-box-shadow-strong);
 }
 
 .nrllm-ov-card.is-empty {
@@ -481,7 +452,7 @@
 
 .nrllm-ov-reach-badge.is-down {
     border-color: var(--nrllm-ov-danger-bd);
-    background: var(--nrllm-ov-danger-bg, rgba(192, 57, 43, .12));
+    background: var(--nrllm-ov-danger-bg);
     color: var(--nrllm-ov-danger-bd);
 }
 

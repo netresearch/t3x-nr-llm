@@ -88,7 +88,7 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
 
         if (model.recommended) {
             const badge = document.createElement('span');
-            badge.className = 'badge bg-success ms-1';
+            badge.className = 'badge badge-success ms-1';
             badge.textContent = 'recommended';
             badge.style.fontSize = '0.7em';
             topRow.appendChild(badge);
@@ -130,7 +130,7 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
         if (metaParts.length > 0) {
             const metaRow = document.createElement('div');
             metaRow.className = 'small mt-1';
-            metaRow.style.color = '#888';
+            metaRow.style.color = 'var(--typo3-text-color-variant)';
             metaRow.style.fontSize = '0.78em';
             metaRow.textContent = metaParts.join('  \u2502  ');
             item.appendChild(metaRow);
@@ -239,7 +239,7 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
         dropdown.style.overflowY = 'auto';
         dropdown.style.width = '100%';
         dropdown.style.display = 'none';
-        dropdown.style.backgroundColor = 'var(--bs-body-bg, #fff)';
+        dropdown.style.backgroundColor = 'var(--typo3-component-bg)';
 
         const inputGroup = wrap.querySelector('.input-group');
         if (inputGroup) {
@@ -278,7 +278,7 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
         // Filter input
         const filterWrap = document.createElement('div');
         filterWrap.className = 'p-2 border-bottom sticky-top';
-        filterWrap.style.backgroundColor = 'var(--bs-body-bg, #fff)';
+        filterWrap.style.backgroundColor = 'var(--typo3-component-bg)';
 
         const filterInput = document.createElement('input');
         filterInput.type = 'text';

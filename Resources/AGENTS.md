@@ -48,6 +48,8 @@ One ES module per backend interaction concern, named after the surface it drives
 - JavaScript: ES modules via `@typo3/` imports
 - CSS: TYPO3 backend variables for consistency
 - Extension.svg must stay a full-color branded teal tile (plain fills, no `<style>`/`<text>`); module/record icons follow the TYPO3 v14 three-color spec (currentColor + `var(--nr-icon-accent, #2F99A4)`) with `.legacy.svg` teal-tile twins for v13
+- An icon drawn in `currentColor` carries `id="nrllm-<file stem lowercased>"` on its root `<svg>` and is registered with `SvgSpriteIconProvider` (`sprite` = file + `#id`, `source` = file) — `SvgIconProvider` renders `<img>`, which paints currentColor black in the dark scheme. Record icons go through `ctrl.typeicon_classes`, not `ctrl.iconfile`. `Tests/Functional/Configuration/CurrentColorIconMarkupTest.php` enforces it
+- Colour: `--typo3-*` variables and core classes (`badge badge-*`, `btn-default`) only; `light-dark()` for a brand hue core has no variable for. No hex/rgb literals, `var(--bs-*)`, own `prefers-color-scheme`/`[data-color-scheme]` rules or Bootstrap `text-bg-*`/`bg-light`-style classes — `composer ci:test:colors` refuses them; a value right in both schemes takes a `scheme-independent: <reason>` comment
 <!-- AGENTS-GENERATED:END code-style -->
 
 <!-- AGENTS-GENERATED:START patterns -->

@@ -19,10 +19,10 @@
 
         <div class="mb-3">
             <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.heading" default="See also" />:</strong>
-            <a href="{be:moduleLink(route: 'nrllm_providers')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.providers" default="Providers" /></a>
-            <a href="{be:moduleLink(route: 'nrllm_models')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.models" default="Models" /></a>
-            <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.help" default="Open Help" /></a>
-            <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="badge text-bg-info text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_providers')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.providers" default="Providers" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_models')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.models" default="Models" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.help" default="Open Help" /></a>
+            <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="badge badge-info text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" /></a>
         </div>
 
         <f:be.infobox state="-2">
@@ -64,23 +64,14 @@
                                         <td>
                                             <f:if condition="{preset.satisfiable}">
                                                 <f:then>
-                                                    <span class="badge text-bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.satisfiable" default="Satisfiable" /></span>
+                                                    <span class="badge badge-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.satisfiable" default="Satisfiable" /></span>
                                                     <br /><span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.matchedModel" default="Would currently use" />: {preset.matchedModelLabel}</span>
                                                 </f:then>
                                                 <f:else>
-                                                    <f:comment>text-bg-warning, not -danger: white on the danger red is 4.37:1 at
-                                                    the 11px a badge renders at, and axe fails this page for it. This is
-                                                    also the truer state — a preset nothing satisfies yet is fixed by
-                                                    adding a model.
-
-                                                    Same swap on the "No model assigned" badge below and on the
-                                                    identical one in Backend/Task/Execute.html: not-yet-configured,
-                                                    not an error. The remaining text-bg-danger badges
-                                                    (Analytics circuit open, Skill sync failed, Skill orphaned) are
-                                                    genuine error states where yellow would misreport the severity;
-                                                    their contrast needs a high-contrast danger token, not a recolour,
-                                                    and neither page is in this change.</f:comment>
-                                                    <span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.notSatisfiable" default="Not satisfiable" /></span>
+                                                    <f:comment>badge-warning, not -danger: a preset nothing satisfies yet is fixed by
+                                                    adding a model — not yet configured, not an error. Same on the "No model
+                                                    assigned" badge below and on the identical one in Backend/Task/Execute.html.</f:comment>
+                                                    <span class="badge badge-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.notSatisfiable" default="Not satisfiable" /></span>
                                                     <br /><span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.missing" default="Missing" />: <code>{preset.missingRequirement}</code></span>
                                                 </f:else>
                                             </f:if>
@@ -164,11 +155,11 @@
                                     <td>
                                         <strong>{config.name}</strong>
                                         <f:if condition="{config.isDefault}">
-                                            <span class="badge text-bg-primary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:default" default="Default" /></span>
+                                            <span class="badge badge-primary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:default" default="Default" /></span>
                                         </f:if>
                                         <f:comment>Checksum drift hint (ADR-056): the imported preset's declaration changed. The "Review update" button opens the diff + re-confirm flow.</f:comment>
                                         <f:if condition="{driftedIdentifiers.{config.uid}}">
-                                            <span class="badge text-bg-warning" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.drift.title')}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.drift.badge" default="Preset changed" /></span>
+                                            <span class="badge badge-warning" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.drift.title')}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.drift.badge" default="Preset changed" /></span>
                                             <button type="button" class="btn btn-warning btn-sm js-review-preset-update"
                                                     data-identifier="{driftedIdentifiers.{config.uid}}"
                                                     data-name="{config.name}"
@@ -196,17 +187,17 @@
                                                 <br /><span class="text-body-secondary">{config.llmModel.modelId}</span>
                                             </f:then>
                                             <f:else>
-                                                <span class="badge text-bg-warning" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.noModel.title')}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.noModel.badge" default="No model assigned" /></span>
+                                                <span class="badge badge-warning" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.noModel.title')}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.noModel.badge" default="No model assigned" /></span>
                                             </f:else>
                                         </f:if>
                                     </td>
                                     <td>
                                         <f:if condition="{config.isActive}">
                                             <f:then>
-                                                <span class="badge text-bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:active" default="Active" /></span>
+                                                <span class="badge badge-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:active" default="Active" /></span>
                                             </f:then>
                                             <f:else>
-                                                <span class="badge text-bg-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:inactive" default="Inactive" /></span>
+                                                <span class="badge badge-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:inactive" default="Inactive" /></span>
                                             </f:else>
                                         </f:if>
                                     </td>
@@ -215,12 +206,12 @@
                                     <td>{tokByConfig.{config.uid}}</td>
                                     <td class="col-control">
                                         <div class="btn-group" role="group">
-                                            <a href="{editUrls.{config.uid}}" class="btn btn-secondary btn-sm" title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}" aria-label="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}">
+                                            <a href="{editUrls.{config.uid}}" class="btn btn-default btn-sm" title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}" aria-label="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}">
                                                 <core:icon identifier="actions-open" size="small" />
                                             </a>
                                             <f:if condition="{config.llmModel}">
                                                 <f:then>
-                                                    <button type="button" class="btn btn-secondary btn-sm js-toggle-active"
+                                                    <button type="button" class="btn btn-default btn-sm js-toggle-active"
                                                             data-uid="{config.uid}"
                                                             title="{f:if(condition: config.isActive, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:deactivate\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:activate\')}')}"
                                                             aria-label="{f:if(condition: config.isActive, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:deactivate\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:activate\')}')}">
@@ -231,7 +222,7 @@
                                                     </button>
                                                 </f:then>
                                                 <f:else>
-                                                    <button type="button" class="btn btn-secondary btn-sm" disabled
+                                                    <button type="button" class="btn btn-default btn-sm" disabled
                                                             title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.noModel.title')}"
                                                             aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.noModel.title')}">
                                                         <core:icon identifier="actions-toggle-off" size="small" />
@@ -239,14 +230,14 @@
                                                 </f:else>
                                             </f:if>
                                             <f:if condition="!{config.isDefault}">
-                                                <button type="button" class="btn btn-secondary btn-sm js-set-default"
+                                                <button type="button" class="btn btn-default btn-sm js-set-default"
                                                         data-uid="{config.uid}"
                                                         title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:setDefault')}"
                                                         aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:setDefault')}">
                                                     <core:icon identifier="actions-star" size="small" />
                                                 </button>
                                             </f:if>
-                                            <button type="button" class="btn btn-secondary btn-sm js-test-config"
+                                            <button type="button" class="btn btn-default btn-sm js-test-config"
                                                     data-uid="{config.uid}"
                                                     data-name="{config.name}"
                                                     title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testConfiguration')}"
@@ -295,7 +286,7 @@
                     <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error" default="Error" />:</strong>
                     <span id="test-error-message"></span>
                 </div>
-                <blockquote id="test-response" class="blockquote border-start border-success border-3 ps-3 py-2 mb-3 bg-success-subtle rounded-end" style="display: none; font-size: 1.05em;"></blockquote>
+                <blockquote id="test-response" class="blockquote border-start border-success border-3 ps-3 py-2 mb-3 rounded-end" style="display: none; font-size: 1.05em; background: var(--typo3-surface-container-success); color: var(--typo3-surface-container-success-text);"></blockquote>
                 <dl id="test-details" class="row" style="display: none;">
                     <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model" default="Model" />:</dt>
                     <dd class="col-sm-9" id="test-model"></dd>

@@ -8,120 +8,75 @@
 declare(strict_types=1);
 
 use TYPO3\CMS\Core\Imaging\IconProvider\SvgIconProvider;
+use TYPO3\CMS\Core\Imaging\IconProvider\SvgSpriteIconProvider;
 use TYPO3\CMS\Core\Information\Typo3Version;
 
-// TYPO3 v14 ships a redesigned backend with light/dark mode: use the flat,
-// three-color icons that adapt via currentColor. v13 uses the full-bleed
-// teal-tile variants that match the classic module menu.
-$legacySuffix = (new Typo3Version())->getMajorVersion() >= 14 ? '' : '.legacy';
+// An icon drawn in currentColor must reach the page as markup that inherits
+// the surrounding text colour. SvgIconProvider renders `<img src="…svg">`, and
+// an image document resolves currentColor against its own initial colour —
+// black — so in the dark backend scheme those icons painted near-black on a
+// dark surface. SvgSpriteIconProvider renders `<svg><use href="file.svg#id">`,
+// the markup core uses for its own icons, which inherits `color`. `source`
+// keeps the inline variant (module menu) reading the same file, and the
+// fragment is the id on that file's root <svg>.
+$currentColorIcon = static fn(string $file): array => [
+    'provider' => SvgSpriteIconProvider::class,
+    'sprite' => 'EXT:nr_llm/Resources/Public/Icons/' . $file . '.svg#nrllm-' . strtolower($file),
+    'source' => 'EXT:nr_llm/Resources/Public/Icons/' . $file . '.svg',
+];
+
+// TYPO3 v14 ships a redesigned backend: use the flat, three-color icons that
+// adapt via currentColor. v13 uses the full-bleed teal-tile variants that match
+// the classic module menu; those carry fixed fills, so `<img>` renders them
+// correctly in either scheme.
+$moduleIcon = (new Typo3Version())->getMajorVersion() >= 14
+    ? $currentColorIcon
+    : static fn(string $file): array => [
+        'provider' => SvgIconProvider::class,
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/' . $file . '.legacy.svg',
+    ];
 
 return [
     // Module icons
-    'module-nrllm' => [
-        'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/module-nrllm' . $legacySuffix . '.svg',
-    ],
-    'module-nrllm-provider' => [
-        'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/Provider' . $legacySuffix . '.svg',
-    ],
-    'module-nrllm-model' => [
-        'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/Model' . $legacySuffix . '.svg',
-    ],
-    'module-nrllm-wizard' => [
-        'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/Wizard' . $legacySuffix . '.svg',
-    ],
-    'module-nrllm-task' => [
-        'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/Task' . $legacySuffix . '.svg',
-    ],
-    'module-nrllm-snippet' => [
-        'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/Snippet' . $legacySuffix . '.svg',
-    ],
-    'module-nrllm-analytics' => [
-        'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/Analytics' . $legacySuffix . '.svg',
-    ],
-    'module-nrllm-runs' => [
-        'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/Runs' . $legacySuffix . '.svg',
-    ],
-    'module-nrllm-skill' => [
-        'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/Skill' . $legacySuffix . '.svg',
-    ],
-    'module-nrllm-tool' => [
-        'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/module-nrllm-tool' . $legacySuffix . '.svg',
-    ],
+    'module-nrllm' => $moduleIcon('module-nrllm'),
+    'module-nrllm-provider' => $moduleIcon('Provider'),
+    'module-nrllm-model' => $moduleIcon('Model'),
+    'module-nrllm-wizard' => $moduleIcon('Wizard'),
+    'module-nrllm-task' => $moduleIcon('Task'),
+    'module-nrllm-snippet' => $moduleIcon('Snippet'),
+    'module-nrllm-analytics' => $moduleIcon('Analytics'),
+    'module-nrllm-runs' => $moduleIcon('Runs'),
+    'module-nrllm-skill' => $moduleIcon('Skill'),
+    'module-nrllm-tool' => $moduleIcon('module-nrllm-tool'),
+
+    // Record icons (TCA ctrl.typeicon_classes). Registered here rather than
+    // through ctrl.iconfile, which core registers with SvgIconProvider.
+    'nrllm-record-model' => $currentColorIcon('Model'),
+    'nrllm-record-mcp-server' => $currentColorIcon('module-nrllm-tool'),
+    'nrllm-record-provider' => $currentColorIcon('Provider'),
+    'nrllm-record-skill' => $currentColorIcon('Skill'),
+    'nrllm-record-snippet' => $currentColorIcon('Snippet'),
+    'nrllm-record-task' => $currentColorIcon('Task'),
 
     // Provider type icons
-    'nrllm-provider-openai' => [
-        'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/provider-openai.svg',
-    ],
-    'nrllm-provider-claude' => [
-        'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/provider-claude.svg',
-    ],
-    'nrllm-provider-gemini' => [
-        'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/provider-gemini.svg',
-    ],
-    'nrllm-provider-openrouter' => [
-        'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/provider-openrouter.svg',
-    ],
-    'nrllm-provider-mistral' => [
-        'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/provider-mistral.svg',
-    ],
-    'nrllm-provider-groq' => [
-        'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/provider-groq.svg',
-    ],
+    'nrllm-provider-openai' => $currentColorIcon('provider-openai'),
+    'nrllm-provider-claude' => $currentColorIcon('provider-claude'),
+    'nrllm-provider-gemini' => $currentColorIcon('provider-gemini'),
+    'nrllm-provider-openrouter' => $currentColorIcon('provider-openrouter'),
+    'nrllm-provider-mistral' => $currentColorIcon('provider-mistral'),
+    'nrllm-provider-groq' => $currentColorIcon('provider-groq'),
 
     // Editor actions (ADR-152) — one per writing tool, rendered by the Tools
     // module beside the action's translated name. No `.legacy` twin: these are
     // inline list icons, not module tiles, so the v14 three-color style reads
     // correctly on v13 as well.
-    'nrllm-editor-action-page-metadata' => [
-        'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/editor-action-page-metadata.svg',
-    ],
-    'nrllm-editor-action-file-alt-text' => [
-        'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/editor-action-file-alt-text.svg',
-    ],
-    'nrllm-editor-action-file-meta' => [
-        'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/editor-action-file-meta.svg',
-    ],
-    'nrllm-editor-action-attach-file' => [
-        'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/editor-action-attach-file.svg',
-    ],
-    'nrllm-editor-action-page-social-image' => [
-        'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/editor-action-page-social-image.svg',
-    ],
-    'nrllm-editor-action-move-content' => [
-        'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/editor-action-move-content.svg',
-    ],
-    'nrllm-editor-action-create-content' => [
-        'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/editor-action-create-content.svg',
-    ],
-    'nrllm-editor-action-create-page' => [
-        'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/editor-action-create-page.svg',
-    ],
-    'nrllm-editor-action-create-translation' => [
-        'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/editor-action-create-translation.svg',
-    ],
+    'nrllm-editor-action-page-metadata' => $currentColorIcon('editor-action-page-metadata'),
+    'nrllm-editor-action-file-alt-text' => $currentColorIcon('editor-action-file-alt-text'),
+    'nrllm-editor-action-file-meta' => $currentColorIcon('editor-action-file-meta'),
+    'nrllm-editor-action-attach-file' => $currentColorIcon('editor-action-attach-file'),
+    'nrllm-editor-action-page-social-image' => $currentColorIcon('editor-action-page-social-image'),
+    'nrllm-editor-action-move-content' => $currentColorIcon('editor-action-move-content'),
+    'nrllm-editor-action-create-content' => $currentColorIcon('editor-action-create-content'),
+    'nrllm-editor-action-create-page' => $currentColorIcon('editor-action-create-page'),
+    'nrllm-editor-action-create-translation' => $currentColorIcon('editor-action-create-translation'),
 ];

@@ -7,7 +7,7 @@
         <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.pendingCall" default="Pending tool call" />:</strong>
         <code>{call.name}</code>
         <f:if condition="{call.toolStillRegistered} == false">
-            <span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.toolGone" default="The tool for this call is no longer registered." /></span>
+            <span class="badge badge-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.toolGone" default="The tool for this call is no longer registered." /></span>
         </f:if>
         <f:if condition="{call.previewStale}">
             <div class="alert alert-warning py-1 px-2 mt-1 mb-0">

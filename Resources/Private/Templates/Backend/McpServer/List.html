@@ -22,8 +22,8 @@
 
         <div class="mb-3">
             <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.heading" default="See also" />:</strong>
-            <a href="{be:moduleLink(route: 'nrllm_tools')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:seeAlso.manageTools" default="Manage tools" /></a>
-            <a href="{be:moduleLink(route: 'nrllm_playground')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:seeAlso.playground" default="Tool Playground" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_tools')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:seeAlso.manageTools" default="Manage tools" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_playground')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:seeAlso.playground" default="Tool Playground" /></a>
         </div>
 
         <f:if condition="{f:count(subject: servers)}">
@@ -35,11 +35,11 @@
                                 <strong>{entry.record.name}</strong>
                                 <code class="ms-2">{entry.record.identifier}</code>
                                 <f:if condition="{entry.record.enabled}">
-                                    <f:then><span class="badge text-bg-success ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.enabled" default="Enabled" /></span></f:then>
-                                    <f:else><span class="badge text-bg-secondary ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.disabled" default="Disabled" /></span></f:else>
+                                    <f:then><span class="badge badge-success ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.enabled" default="Enabled" /></span></f:then>
+                                    <f:else><span class="badge badge-secondary ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.disabled" default="Disabled" /></span></f:else>
                                 </f:if>
                                 <f:if condition="{entry.record.lastContact}">
-                                    <f:else><span class="badge text-bg-warning ms-2" data-nrllm-mcp-never="{entry.record.uid}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.lastContact.never" default="Never reached" /></span></f:else>
+                                    <f:else><span class="badge badge-warning ms-2" data-nrllm-mcp-never="{entry.record.uid}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.lastContact.never" default="Never reached" /></span></f:else>
                                 </f:if>
                             </div>
                             <div class="btn-group">
@@ -145,7 +145,7 @@
                                                         <td><code>{tool.remoteName}</code></td>
                                                         <td>
                                                             <f:if condition="{tool.orphaned}">
-                                                                <span class="badge text-bg-warning"
+                                                                <span class="badge badge-warning"
                                                                       title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:tools.orphanedHint')}">
                                                                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:tools.orphaned" default="Gone from the server" />
                                                                 </span>

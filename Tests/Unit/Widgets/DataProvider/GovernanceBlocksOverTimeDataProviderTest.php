@@ -40,7 +40,7 @@ final class GovernanceBlocksOverTimeDataProviderTest extends AbstractUnitTestCas
         self::assertSame(['Tool denied', 'Response blocked', 'Content filter'], $shaped['labels']);
         self::assertSame('Events', $shaped['datasets'][0]['label']);
         self::assertSame([9, 3, 2], $shaped['datasets'][0]['data']);
-        self::assertSame(['#607D8B', '#D9534F', '#8E2A27'], $shaped['datasets'][0]['backgroundColor']);
+        self::assertSame(['#7692A0', '#DF6A66', '#C84179'], $shaped['datasets'][0]['backgroundColor']);
     }
 
     #[Test]
@@ -91,7 +91,7 @@ final class GovernanceBlocksOverTimeDataProviderTest extends AbstractUnitTestCas
         $colors = $shaped['datasets'][0]['backgroundColor'];
 
         self::assertCount(count(GovernanceDecision::cases()), $colors);
-        self::assertNotContains('#9E9E9E', $colors, 'A decision fell through to the grey fallback — give it a colour in DECISION_COLORS.');
+        self::assertNotContains('#8E8E8E', $colors, 'A decision fell through to the grey fallback — give it a colour in DECISION_COLORS.');
         self::assertSame($colors, array_unique($colors), 'Two decisions share a colour, so the chart cannot tell them apart.');
     }
 

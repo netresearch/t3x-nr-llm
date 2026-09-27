@@ -36,17 +36,22 @@ final readonly class RunTerminationReasonsDataProvider implements ChartDataProvi
     private const LLL = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:';
 
     /** Semantic colour per termination reason; a missing key falls back to grey. */
+    /*
+     * Core's chart widget draws one palette in both backend schemes, so every
+     * colour sits in the luminance band that clears 3:1 on a white card and
+     * on a dark (#262626) card; hue and two lightness tiers keep neighbours apart.
+     */
     private const REASON_COLORS = [
-        'completed'         => '#4CAF50',
-        'max_iterations'    => '#E8A33D',
-        'budget_exhausted'  => '#E8731A',
-        'policy_denied'     => '#D9534F',
-        'approval_denied'   => '#B0413E',
-        'provider_failed'   => '#8E2A27',
-        'cancelled'         => '#9E9E9E',
-        'retries_exhausted' => '#7A5C3E',
-        'not_retryable'     => '#5A4632',
-        'context_truncated' => '#607D8B',
+        'completed'         => '#45A048',
+        'max_iterations'    => '#BD830F',
+        'budget_exhausted'  => '#BB5715',
+        'policy_denied'     => '#DF6A66',
+        'approval_denied'   => '#C84179',
+        'provider_failed'   => '#9F57B7',
+        'cancelled'         => '#8E8E8E',
+        'retries_exhausted' => '#936D47',
+        'not_retryable'     => '#777739',
+        'context_truncated' => '#4078A9',
     ];
 
     public function __construct(
@@ -94,7 +99,7 @@ final readonly class RunTerminationReasonsDataProvider implements ChartDataProvi
 
             $chartLabels[] = $labels[$case->value] ?? $case->value;
             $data[]        = $count;
-            $colors[]      = self::REASON_COLORS[$case->value] ?? '#9E9E9E';
+            $colors[]      = self::REASON_COLORS[$case->value] ?? '#8E8E8E';
         }
 
         return [

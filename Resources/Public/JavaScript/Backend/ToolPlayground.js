@@ -791,6 +791,7 @@ class ToolPlayground {
         const iframe = document.createElement('iframe');
         iframe.sandbox = '';
         iframe.className = 'nrllm-pg-final-frame';
+        // scheme-independent: dark text on the frame's light page (Playground.css).
         iframe.srcdoc = [
             '<!DOCTYPE html><html><head><meta charset="utf-8"><style>',
             'body{font-family:system-ui,sans-serif;font-size:14px;padding:12px;margin:0;color:#333;line-height:1.5;white-space:pre-wrap;word-break:break-word}',

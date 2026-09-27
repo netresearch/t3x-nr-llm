@@ -43,14 +43,18 @@ final readonly class GovernanceBlocksOverTimeDataProvider implements ChartDataPr
      * The grey fallback below stays for a case added at runtime by another
      * extension, not as a licence to leave one out here: `context_blocked`
      * shipped without a colour and rendered as an unnamed grey bar (`#763`).
+     *
+     * Core's chart widget draws one palette in both backend schemes, so every
+     * colour sits in the luminance band that clears 3:1 on a white card and
+     * on a dark (#262626) card; hue and two lightness tiers keep neighbours apart.
      */
     private const DECISION_COLORS = [
-        'tool_denied'       => '#607D8B',
-        'response_blocked'  => '#D9534F',
-        'approval_required' => '#E8A33D',
-        'content_filter'    => '#8E2A27',
-        'write_unapproved'  => '#7B4FA8',
-        'context_blocked'   => '#17877D',
+        'tool_denied'       => '#7692A0',
+        'response_blocked'  => '#DF6A66',
+        'approval_required' => '#BD830F',
+        'content_filter'    => '#C84179',
+        'write_unapproved'  => '#8D5FBB',
+        'context_blocked'   => '#178277',
     ];
 
     public function __construct(
@@ -96,7 +100,7 @@ final readonly class GovernanceBlocksOverTimeDataProvider implements ChartDataPr
 
             $chartLabels[] = $labels[$case->value] ?? $case->value;
             $data[]        = $count;
-            $colors[]      = self::DECISION_COLORS[$case->value] ?? '#9E9E9E';
+            $colors[]      = self::DECISION_COLORS[$case->value] ?? '#8E8E8E';
         }
 
         return [

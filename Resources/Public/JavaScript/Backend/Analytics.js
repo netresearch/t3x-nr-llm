@@ -12,10 +12,9 @@
  * PageRenderer::addJsFile (the UMD build auto-registers all chart types).
  *
  * Colours are not hardcoded: they are read at render time from the
- * `--nrllm-chart-*` custom properties defined in Analytics.css, which carry
- * light/dark values for both the OS preference and the explicit TYPO3
- * [data-color-scheme] backend toggle. On a scheme change the charts are
- * destroyed and re-rendered with the then-current palette.
+ * `--nrllm-chart-*` custom properties defined in Analytics.css, which are
+ * light-dark() pairs following the backend colour scheme. On a scheme change
+ * the charts are destroyed and re-rendered with the then-current palette.
  */
 class Analytics {
     constructor() {
@@ -62,21 +61,33 @@ class Analytics {
 
     /**
      * Resolve the scheme-dependent chart palette from the CSS custom
-     * properties on the module wrapper (fallbacks mirror the light values
-     * in Analytics.css).
+     * properties on the module wrapper.
+     *
+     * A custom property is returned as written, so `getPropertyValue()` would
+     * hand Chart.js the unevaluated `light-dark(…)` string. Assigning the
+     * token to a real colour property and reading the computed value lets the
+     * browser pick the branch for the active scheme and returns an rgb() value.
      */
     readColors() {
         const scope = document.querySelector('.nrllm-analytics') || document.body;
-        const style = globalThis.getComputedStyle(scope);
-        const read = (name, fallback) => style.getPropertyValue(name).trim() || fallback;
-
-        return {
-            series1: read('--nrllm-chart-series-1', '#2f99a4'),
-            series1Fill: read('--nrllm-chart-series-1-fill', 'rgba(47,153,164,0.15)'),
-            series2: read('--nrllm-chart-series-2', '#e8a33d'),
-            text: read('--nrllm-chart-text', '#495057'),
-            grid: read('--nrllm-chart-grid', 'rgba(0,0,0,0.1)'),
+        const probe = document.createElement('span');
+        probe.hidden = true;
+        scope.appendChild(probe);
+        const read = (name) => {
+            probe.style.color = `var(${name})`;
+            return globalThis.getComputedStyle(probe).color;
         };
+
+        const colors = {
+            series1: read('--nrllm-chart-series-1'),
+            series1Fill: read('--nrllm-chart-series-1-fill'),
+            series2: read('--nrllm-chart-series-2'),
+            text: read('--nrllm-chart-text'),
+            grid: read('--nrllm-chart-grid'),
+        };
+        probe.remove();
+
+        return colors;
     }
 
     /**

@@ -24,7 +24,7 @@
                 <core:icon identifier="actions-play" size="medium" />
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.title" default="Execute" />: {task.name}
             </h1>
-            <f:link.action action="list" controller="Backend\AiTask" class="btn btn-secondary btn-sm">
+            <f:link.action action="list" controller="Backend\AiTask" class="btn btn-default btn-sm">
                 <core:icon identifier="actions-view-go-back" size="small" />
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.backToList" default="Back to List" />
             </f:link.action>
@@ -39,7 +39,7 @@
                     &middot; {effectiveConfig.llmModel.name}
                 </f:if>
                 <f:if condition="{isUsingDefaultConfig}">
-                    <span class="badge text-bg-secondary ms-1"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.usingDefault" default="Using system default" /></span>
+                    <span class="badge badge-secondary ms-1"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.usingDefault" default="Using system default" /></span>
                 </f:if>
             </p>
         </f:if>
@@ -64,7 +64,7 @@
                                     <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.enterInput" default="Enter your input:" /></f:then>
                                     <f:else>
                                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.autoFetched" default="Auto-fetched data" /> ({task.inputType}):
-                                        <span class="badge text-bg-info"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.autoPopulated" default="Auto-populated" /></span>
+                                        <span class="badge badge-info"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.autoPopulated" default="Auto-populated" /></span>
                                     </f:else>
                                 </f:if>
                             </label>
@@ -92,7 +92,7 @@
                                 </span>
                             </button>
                             <f:if condition="!{requiresManualInput}">
-                                <button type="button" class="btn btn-secondary" id="refreshInputBtn">
+                                <button type="button" class="btn btn-default" id="refreshInputBtn">
                                     <core:icon identifier="actions-refresh" size="small" />
                                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.refreshData" default="Refresh Data" />
                                 </button>
@@ -108,7 +108,7 @@
                         <h2 class="card-title mb-0">
                             <core:icon identifier="actions-download" size="small" />
                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.title" default="Output" />
-                            <span class="badge text-bg-secondary ms-2">{task.outputFormat}</span>
+                            <span class="badge badge-secondary ms-2">{task.outputFormat}</span>
                         </h2>
                         <div id="outputStatus" class="d-none">
                             <span class="spinner-border spinner-border-sm text-primary" role="status">
@@ -178,10 +178,10 @@
                                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.tokensLabel" default="Tokens:" /> <span id="outputTokens">-</span>
                                 </small>
                             </div>
-                            <div id="outputContent" class="bg-light p-3 rounded" style="max-height: 500px; overflow-y: auto;"></div>
+                            <div id="outputContent" class="p-3 rounded" style="background: var(--typo3-surface-container-base); max-height: 500px; overflow-y: auto;"></div>
 
                             <div class="mt-3">
-                                <button type="button" class="btn btn-sm btn-secondary" id="copyOutputBtn">
+                                <button type="button" class="btn btn-sm btn-default" id="copyOutputBtn">
                                     <core:icon identifier="actions-clipboard" size="small" />
                                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.copy" default="Copy to Clipboard" />
                                 </button>

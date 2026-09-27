@@ -6,6 +6,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **nr-llm's icons take the backend text colour, so they no longer paint near-black on dark surfaces.** Module, record, provider and editor-action icons are drawn in `currentColor`, and `SvgIconProvider` rendered them as `<img>`, where `currentColor` resolves to black: on the overview cards, the module headings, the doc-header buttons and the Tools list they measured 1.1–1.5:1 in the dark scheme. They are now registered with `SvgSpriteIconProvider` (`<svg><use href="file.svg#id">`, as core draws its own icons), each SVG carries the root id the reference needs, and the record icons move from `ctrl.iconfile` to `ctrl.typeicon_classes`. The v13 teal-tile module icons keep their fixed colours. `CurrentColorIconMarkupTest` renders every such icon through the registry.
+
+- **Buttons and badges use core's classes, which follow the scheme and the v14 theme.** The 54 `btn-secondary` buttons (a dark tile in both schemes) are `btn-default`, the neutral button core uses (585 to 2 in TYPO3 14.3.7's templates, 387 to 0 in 13.4.35). Badges move from Bootstrap's `text-bg-*` / `bg-*` (white on green 3.6:1; `bg-light text-dark` 1.3:1 in dark) to `badge badge-*`, which measure 5.5:1 or better in both schemes on TYPO3 14.3.
+
+- **The overview, playground, setup wizard and analytics styles follow the colour scheme the user chose.** Each stylesheet switched to dark values with an unguarded `@media (prefers-color-scheme: dark)`, so a user who picked Light while the OS was dark got dark cards on a light backend. Their tokens now map to the `--typo3-*` variables, which core switches by `html[data-color-scheme]`, or to `light-dark()` pairs for the brand hues; the playground step icons use core's state colour pairs, `bg-light` / `bg-body-tertiary` / `bg-success-subtle` (fixed-light in the backend, 1.2:1 under dark text) give way to core surfaces, and the analytics charts resolve their `light-dark()` colours before Chart.js sees them.
+
+- **Dashboard chart colours stay visible in both schemes.** Core's chart widget draws one palette in light and dark; 11 of the 15 series colours computed under 3:1 against a white or a #262626 card. The palettes now sit in the band that clears 3:1 on white and on #262626, which `ChartPaletteContrastTest` pins.
+
+- **`composer ci:test:colors` refuses colour that ignores the scheme.** `Build/Scripts/check-backend-colors.php` replaces `check-badge-contrast.php` (`ci:test:badges`) and refuses hex/rgb literals, `var(--bs-*)`, own scheme media queries and the scheme-pinned Bootstrap classes in templates, backend CSS and backend JavaScript; on the previous `main` it reports 386 findings.
+
 ## [0.38.0] - 2026-09-27
 
 ### Added

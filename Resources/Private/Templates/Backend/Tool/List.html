@@ -22,10 +22,10 @@
 
         <div class="mb-3">
             <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.heading" default="See also" />:</strong>
-            <a href="{be:moduleLink(route: 'nrllm_playground')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:seeAlso.playground" default="Tool Playground" /></a>
-            <a href="{be:moduleLink(route: 'nrllm_configurations')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.list.title" default="Configurations" /></a>
-            <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.help" default="Open Help" /></a>
-            <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="badge text-bg-info text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_playground')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:seeAlso.playground" default="Tool Playground" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_configurations')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.list.title" default="Configurations" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.help" default="Open Help" /></a>
+            <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="badge badge-info text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" /></a>
         </div>
 
         <f:render partial="Backend/Glossary" />
@@ -48,10 +48,10 @@
                                     </strong>
                                     <f:if condition="{groupStates.{groupName}.enabled}">
                                         <f:then>
-                                            <span class="badge bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.enabled" default="Enabled" /></span>
+                                            <span class="badge badge-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.enabled" default="Enabled" /></span>
                                         </f:then>
                                         <f:else>
-                                            <span class="badge bg-secondary">✕ <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.disabled" default="Disabled" /></span>
+                                            <span class="badge badge-secondary">✕ <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.disabled" default="Disabled" /></span>
                                             <small class="text-body-secondary ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:group.disabledHint" default="All tools of this group are refused; per-tool toggles have no effect while the group is disabled." /></small>
                                         </f:else>
                                     </f:if>
@@ -73,8 +73,8 @@
                                         <div class="me-3">
                                             <f:if condition="{action}">
                                                 <f:then>
-                                                    <strong><core:icon identifier="{action.iconIdentifier}" size="small" /> <f:translate key="{action.labelKey}" /></strong>
-                                                    <span class="badge bg-warning text-dark"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:manage.action.editorAction" default="Editor action" /></span>
+                                                    <strong><core:icon identifier="{action.iconIdentifier}" size="small" alternativeMarkupIdentifier="inline" /> <f:translate key="{action.labelKey}" /></strong>
+                                                    <span class="badge badge-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:manage.action.editorAction" default="Editor action" /></span>
                                                 </f:then>
                                                 <f:else>
                                                     <strong><code>{tool.name}</code></strong>
@@ -82,18 +82,18 @@
                                             </f:if>
                                             <f:if condition="{tool.enabled}">
                                                 <f:then>
-                                                    <span class="badge bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.enabled" default="Enabled" /></span>
+                                                    <span class="badge badge-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.enabled" default="Enabled" /></span>
                                                 </f:then>
                                                 <f:else>
-                                                    <span class="badge bg-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.disabled" default="Disabled" /></span>
+                                                    <span class="badge badge-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.disabled" default="Disabled" /></span>
                                                 </f:else>
                                             </f:if>
                                             <f:if condition="{tool.overridden}">
                                                 <f:then>
-                                                    <span class="badge bg-info"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.overridden" default="Override" /></span>
+                                                    <span class="badge badge-info"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.overridden" default="Override" /></span>
                                                 </f:then>
                                                 <f:else>
-                                                    <span class="badge bg-light text-dark"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.default" default="Default" /></span>
+                                                    <span class="badge badge-default"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.default" default="Default" /></span>
                                                 </f:else>
                                             </f:if>
                                             <f:if condition="{action}">

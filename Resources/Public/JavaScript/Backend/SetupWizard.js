@@ -288,7 +288,7 @@ class SetupWizard {
             // would then also hide a genuinely removed escapeHtml() there.
             let capabilities = '';
             for (const cap of (model.capabilities || ['chat'])) {
-                capabilities += `<span class="badge bg-secondary">${escapeHtml(cap)}</span>`;
+                capabilities += `<span class="badge badge-secondary">${escapeHtml(cap)}</span>`;
             }
 
             let contextStr = '-';
@@ -311,7 +311,7 @@ class SetupWizard {
 
             let recommendedBadge = '<span class="text-muted">-</span>';
             if (model.recommended) {
-                recommendedBadge = '<span class="badge bg-success">Recommended</span>';
+                recommendedBadge = '<span class="badge badge-success">Recommended</span>';
             }
 
             const row = document.createElement('tr');
@@ -438,10 +438,10 @@ class SetupWizard {
                         <p class="card-text text-muted small">${safeDescription}</p>
                         <div class="d-flex gap-3 mt-2">
                             <span class="config-temp" title="Temperature">
-                                <span class="badge bg-info">T: ${safeTemp}</span>
+                                <span class="badge badge-info">T: ${safeTemp}</span>
                             </span>
                             <span class="config-tokens" title="Max Tokens">
-                                <span class="badge bg-secondary">${safeMaxTokens} tokens</span>
+                                <span class="badge badge-secondary">${safeMaxTokens} tokens</span>
                             </span>
                         </div>
                     </div>
@@ -511,7 +511,7 @@ class SetupWizard {
             </div>
             <div>
                 <strong>${safeProviderName}</strong>
-                <span class="badge bg-secondary ms-2">${safeAdapterType}</span>
+                <span class="badge badge-secondary ms-2">${safeAdapterType}</span>
                 <div class="small text-muted">${safeEndpoint}</div>
             </div>
         `;
@@ -523,7 +523,7 @@ class SetupWizard {
         for (const m of selectedModels) {
             modelsHtml += `
             <li class="list-group-item">
-                <span class="badge bg-primary">${escapeHtml(m.modelId)}</span>
+                <span class="badge badge-primary">${escapeHtml(m.modelId)}</span>
                 <span>${escapeHtml(m.name)}</span>
             </li>
         `;
@@ -537,7 +537,7 @@ class SetupWizard {
         for (const c of selectedConfigs) {
             configsHtml += `
             <li class="list-group-item">
-                <span class="badge bg-info">${escapeHtml(c.identifier)}</span>
+                <span class="badge badge-info">${escapeHtml(c.identifier)}</span>
                 <span>${escapeHtml(c.name)}</span>
             </li>
         `;

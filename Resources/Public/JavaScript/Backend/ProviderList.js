@@ -82,7 +82,7 @@ class ProviderList {
             </div>
             <div class="modal-success text-center py-4" id="provider-test-success" style="display: none;">
                 <div class="mb-3">
-                    <span class="badge text-bg-success fs-4 p-3 rounded-circle">
+                    <span class="badge badge-success fs-4 p-3 rounded-circle">
                         <span class="icon icon-size-large">
                             <span class="icon-markup">&#10003;</span>
                         </span>

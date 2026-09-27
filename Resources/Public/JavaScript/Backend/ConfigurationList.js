@@ -257,7 +257,7 @@ class ConfigurationList {
             </div>
             <div class="config-test-success" id="config-test-success" style="display: none;">
                 <div class="text-center py-3 mb-3">
-                    <span class="badge text-bg-success fs-4 p-3 rounded-circle">
+                    <span class="badge badge-success fs-4 p-3 rounded-circle">
                         <span class="icon icon-size-large">
                             <span class="icon-markup">&#10003;</span>
                         </span>
@@ -265,7 +265,7 @@ class ConfigurationList {
                 </div>
                 <h5 class="text-success text-center">Configuration Test Successful</h5>
                 <div class="config-test-details mt-3">
-                    <blockquote class="blockquote border-start border-success border-3 ps-3 py-2 mb-3 bg-success-subtle rounded-end" id="config-test-response" style="font-size: 1.05em;"></blockquote>
+                    <blockquote class="blockquote border-start border-success border-3 ps-3 py-2 mb-3 rounded-end" id="config-test-response" style="font-size: 1.05em; background: var(--typo3-surface-container-success); color: var(--typo3-surface-container-success-text);"></blockquote>
                     <div class="row small text-body-secondary">
                         <div class="col-6">
                             <strong>Model:</strong> <span id="config-test-model">-</span>

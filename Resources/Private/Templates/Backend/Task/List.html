@@ -22,9 +22,9 @@
 
         <div class="mb-3">
             <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.heading" default="See also" />:</strong>
-            <a href="{be:moduleLink(route: 'nrllm_configurations')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.list.title" default="Configurations" /></a>
-            <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.help" default="Open Help" /></a>
-            <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="badge text-bg-info text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_configurations')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.list.title" default="Configurations" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.help" default="Open Help" /></a>
+            <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="badge badge-info text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" /></a>
         </div>
 
         <f:be.infobox state="-2">
@@ -89,13 +89,13 @@
                                             <td>
                                                 <f:if condition="{task.isActive}">
                                                     <f:then>
-                                                        <span class="badge text-bg-success" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.title.active')}">
+                                                        <span class="badge badge-success" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.title.active')}">
                                                             <core:icon identifier="actions-check" size="small" />
                                                             <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.title.active" /></span>
                                                         </span>
                                                     </f:then>
                                                     <f:else>
-                                                        <span class="badge text-bg-secondary" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.title.inactive')}">
+                                                        <span class="badge badge-secondary" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.title.inactive')}">
                                                             <core:icon identifier="actions-close" size="small" />
                                                             <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.title.inactive" /></span>
                                                         </span>
@@ -105,7 +105,7 @@
                                             <td>
                                                 <strong>{task.name}</strong>
                                                 <f:if condition="{task.isSystem}">
-                                                    <span class="badge text-bg-info ms-1" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.title.system')}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.badge.system" default="System" /></span>
+                                                    <span class="badge badge-info ms-1" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.title.system')}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.badge.system" default="System" /></span>
                                                 </f:if>
                                                 <f:if condition="{task.description}">
                                                     <br><small class="text-muted">{task.description}</small>
@@ -113,10 +113,10 @@
                                             </td>
                                             <td><code>{task.identifier}</code></td>
                                             <td>
-                                                <span class="badge text-bg-secondary">{task.inputType}</span>
+                                                <span class="badge badge-secondary">{task.inputType}</span>
                                             </td>
                                             <td>
-                                                <span class="badge text-bg-secondary">{task.outputFormat}</span>
+                                                <span class="badge badge-secondary">{task.outputFormat}</span>
                                             </td>
                                             <td>{costByTask.{task.uid}}</td>
                                             <td>{reqByTask.{task.uid}}</td>
@@ -129,7 +129,7 @@
                                                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.action.run" default="Run" />
                                                         </f:link.action>
                                                     </f:if>
-                                                    <a href="{editUrls.{task.uid}}" class="btn btn-secondary" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.action.edit')}" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.action.edit')}">
+                                                    <a href="{editUrls.{task.uid}}" class="btn btn-default" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.action.edit')}" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.action.edit')}">
                                                         <core:icon identifier="actions-open" size="small" />
                                                     </a>
                                                 </div>

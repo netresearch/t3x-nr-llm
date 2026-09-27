@@ -29,11 +29,11 @@ when the module has entries but none is the default; nothing when empty.</f:comm
 <f:section name="defaultBadge">
     <f:if condition="{status.hasDefault}">
         <f:then>
-            <span class="badge text-bg-success"><core:icon identifier="actions-check" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.default.has" default="has default" /></span>
+            <span class="badge badge-success"><core:icon identifier="actions-check" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.default.has" default="has default" /></span>
         </f:then>
         <f:else>
             <f:if condition="{status.count} > 0">
-                <span class="badge text-bg-warning"><core:icon identifier="actions-exclamation-triangle" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.default.none" default="no default" /></span>
+                <span class="badge badge-warning"><core:icon identifier="actions-exclamation-triangle" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.default.none" default="no default" /></span>
             </f:if>
         </f:else>
     </f:if>

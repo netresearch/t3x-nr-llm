@@ -14,7 +14,7 @@
             <core:icon identifier="module-nrllm-task" size="medium" />
             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.title" default="AI actions" />
         </h1>
-        <f:link.action action="list" controller="Backend\AgentRun" class="btn btn-secondary">
+        <f:link.action action="list" controller="Backend\AgentRun" class="btn btn-default">
             <core:icon identifier="module-nrllm-runs" size="small" />
             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:aitasks.btn.approvals" default="Approvals" />
         </f:link.action>
@@ -30,7 +30,7 @@
                 <!-- No <code> inside the badge: TYPO3's global `code{color:…!important}`
                      beats the badge's own white text and would render the table name at
                      1.43:1 on the grey badge, while the uid beside it stays white. -->
-                <span class="badge text-bg-secondary">{recordTable} #{recordUid}</span>
+                <span class="badge badge-secondary">{recordTable} #{recordUid}</span>
             </p>
         </f:then>
         <f:else>
@@ -56,7 +56,7 @@
                             <div class="card h-100">
                                 <div class="card-body">
                                     <h3 class="card-title h5">
-                                        <core:icon identifier="{offer.action.iconIdentifier}" size="small" />
+                                        <core:icon identifier="{offer.action.iconIdentifier}" size="small" alternativeMarkupIdentifier="inline" />
                                         <f:translate key="{offer.action.labelKey}" />
                                     </h3>
                                     <p class="card-text text-muted small">

@@ -14,7 +14,7 @@
             <core:icon identifier="module-nrllm-task" size="medium" />
             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.title" default="AI action on several records" />
         </h1>
-        <f:link.action action="catalogue" arguments="{recordTable: recordTable}" class="btn btn-secondary">
+        <f:link.action action="catalogue" arguments="{recordTable: recordTable}" class="btn btn-default">
             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.btn.backToCatalogue" default="Back to the AI actions" />
         </f:link.action>
     </div>
@@ -22,9 +22,9 @@
     <f:if condition="{plan.offer}">
         <f:then>
             <p>
-                <core:icon identifier="{plan.offer.action.iconIdentifier}" size="small" />
+                <core:icon identifier="{plan.offer.action.iconIdentifier}" size="small" alternativeMarkupIdentifier="inline" />
                 <strong><f:translate key="{plan.offer.action.labelKey}" /></strong>
-                <span class="badge text-bg-secondary ms-2"><code>{plan.recordTable}</code></span>
+                <span class="badge badge-secondary ms-2"><code>{plan.recordTable}</code></span>
             </p>
             <p class="text-muted">
                 <f:translate key="{plan.offer.action.descriptionKey}" />
@@ -67,7 +67,7 @@
             </small>
         </div>
 
-        <button type="submit" class="btn btn-secondary">
+        <button type="submit" class="btn btn-default">
             <core:icon identifier="actions-refresh" size="small" />
             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.btn.recalculate" default="Recalculate" />
         </button>
@@ -185,12 +185,12 @@
                                 <td>
                                     <f:if condition="{entry.runnable}">
                                         <f:then>
-                                            <span class="badge text-bg-success">
+                                            <span class="badge badge-success">
                                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.records.willRun" default="Will run" />
                                             </span>
                                         </f:then>
                                         <f:else>
-                                            <span class="badge text-bg-warning">
+                                            <span class="badge badge-warning">
                                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.records.skipped" default="Skipped" />
                                             </span>
                                             <f:translate key="{entry.skipReasonKey}" />

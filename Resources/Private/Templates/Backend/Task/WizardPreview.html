@@ -51,7 +51,7 @@
                     <f:if condition="{generated.prompt_template}">
                         <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:field.promptTemplate" default="Prompt Template" /></dt>
                         <dd class="col-sm-9">
-                            <pre class="mb-0 p-2 bg-body-tertiary rounded" style="white-space: pre-wrap; font-size: 0.85em;">{generated.prompt_template}</pre>
+                            <pre class="mb-0 p-2 rounded" style="background: var(--typo3-surface-container-base); white-space: pre-wrap; font-size: 0.85em;">{generated.prompt_template}</pre>
                         </dd>
                     </f:if>
                 </dl>
@@ -81,7 +81,7 @@
                         </f:if>
                         <f:if condition="!{usedConfig}">
                             <small class="text-body-secondary">
-                                <span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.preview.generatedWithoutAi" default="Generated without AI (fallback)" /></span>
+                                <span class="badge badge-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.preview.generatedWithoutAi" default="Generated without AI (fallback)" /></span>
                             </small>
                         </f:if>
                     </div>
@@ -94,15 +94,15 @@
                 <core:icon identifier="actions-open" size="small" />
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.preview.openEditor" default="Open in Editor" />
             </a>
-            <f:link.action action="wizardGenerate" arguments="{description: description, configurationUid: configurationUid}" class="btn btn-secondary">
+            <f:link.action action="wizardGenerate" arguments="{description: description, configurationUid: configurationUid}" class="btn btn-default">
                 <core:icon identifier="actions-refresh" size="small" />
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.preview.regenerate" default="Regenerate" />
             </f:link.action>
-            <f:link.action action="wizardForm" class="btn btn-secondary">
+            <f:link.action action="wizardForm" class="btn btn-default">
                 <core:icon identifier="actions-edit" size="small" />
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.preview.editDescription" default="Edit Description" />
             </f:link.action>
-            <f:link.action action="list" class="btn btn-secondary">
+            <f:link.action action="list" class="btn btn-default">
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.preview.backToList" default="Back to List" />
             </f:link.action>
         </div>

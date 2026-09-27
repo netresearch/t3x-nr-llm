@@ -34,14 +34,19 @@ final readonly class AgentRunsByStatusDataProvider implements ChartDataProviderI
     private const LLL = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:';
 
     /** Semantic colour per status value; a missing key falls back to grey. */
+    /*
+     * Core's chart widget draws one palette in both backend schemes, so every
+     * colour sits in the luminance band that clears 3:1 on a white card and
+     * on a dark (#262626) card; hue and two lightness tiers keep neighbours apart.
+     */
     private const STATUS_COLORS = [
-        'queued'               => '#6DAEDB',
-        'running'              => '#2F99A4',
-        'waiting_for_approval' => '#E8A33D',
-        'waiting_for_input'    => '#E8C33D',
-        'completed'            => '#4CAF50',
-        'failed'               => '#D9534F',
-        'cancelled'            => '#9E9E9E',
+        'queued'               => '#4294D0',
+        'running'              => '#287F89',
+        'waiting_for_approval' => '#C77E10',
+        'waiting_for_input'    => '#87730F',
+        'completed'            => '#45A048',
+        'failed'               => '#D43B36',
+        'cancelled'            => '#8E8E8E',
     ];
 
     public function __construct(
@@ -86,7 +91,7 @@ final readonly class AgentRunsByStatusDataProvider implements ChartDataProviderI
 
             $chartLabels[] = $labels[$case->value] ?? $case->value;
             $data[]        = $count;
-            $colors[]      = self::STATUS_COLORS[$case->value] ?? '#9E9E9E';
+            $colors[]      = self::STATUS_COLORS[$case->value] ?? '#8E8E8E';
         }
 
         return [

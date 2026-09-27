@@ -22,10 +22,10 @@
 
         <div class="mb-3">
             <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.heading" default="See also" />:</strong>
-            <a href="{be:moduleLink(route: 'nrllm_playground')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.title" default="Tool Playground" /></a>
-            <a href="{be:moduleLink(route: 'nrllm_tools')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:manage.title" default="Tools" /></a>
-            <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.help" default="Open Help" /></a>
-            <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="badge text-bg-info text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_playground')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.title" default="Tool Playground" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_tools')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:manage.title" default="Tools" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.help" default="Open Help" /></a>
+            <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="badge badge-info text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" /></a>
         </div>
 
         <f:render partial="Backend/Glossary" />
@@ -54,16 +54,15 @@
                                 <f:for each="{sources}" as="source">
                                     <tr data-source-uid="{source.uid}">
                                         <td><strong>{source.title}</strong></td>
-                                        <td><span class="badge text-bg-info">{source.type}</span></td>
+                                        <td><span class="badge badge-info">{source.type}</span></td>
                                         <td>
                                             <f:switch expression="{source.syncStatus}">
-                                                <f:case value="ok"><span class="badge text-bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.syncStatus.ok" default="Synced" /></span></f:case>
-                                                <f:case value="never_synced"><span class="badge text-bg-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.syncStatus.never" default="Never synced" /></span></f:case>
-                                                <f:case value="syncing"><span class="badge text-bg-info"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.syncStatus.syncing" default="Syncing" /></span></f:case>
-                                                <f:case value="partial"><span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.syncStatus.partial" default="Partial" /></span></f:case>
-                                                <f:comment>text-bg-warning, not -danger: white on the danger red is 4.37:1 at
-                                                badge size, and an operator resolves this state rather than the system failing it.</f:comment>
-                                                <f:case value="error"><span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.syncStatus.error" default="Failed" /></span></f:case>
+                                                <f:case value="ok"><span class="badge badge-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.syncStatus.ok" default="Synced" /></span></f:case>
+                                                <f:case value="never_synced"><span class="badge badge-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.syncStatus.never" default="Never synced" /></span></f:case>
+                                                <f:case value="syncing"><span class="badge badge-info"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.syncStatus.syncing" default="Syncing" /></span></f:case>
+                                                <f:case value="partial"><span class="badge badge-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.syncStatus.partial" default="Partial" /></span></f:case>
+                                                <f:comment>badge-warning, not -danger: an operator resolves this state rather than the system failing it.</f:comment>
+                                                <f:case value="error"><span class="badge badge-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.syncStatus.error" default="Failed" /></span></f:case>
                                                 <f:defaultCase><code>{source.syncStatus}</code></f:defaultCase>
                                             </f:switch>
                                         </td>
@@ -75,14 +74,14 @@
                                         </td>
                                         <td>
                                             <div class="btn-group btn-group-sm">
-                                                <a href="{sourceEditUrls.{source.uid}}" class="btn btn-secondary" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.source.edit', default: 'Edit source')}" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.source.edit', default: 'Edit source')}">
+                                                <a href="{sourceEditUrls.{source.uid}}" class="btn btn-default" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.source.edit', default: 'Edit source')}" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.source.edit', default: 'Edit source')}">
                                                     <core:icon identifier="actions-open" size="small" />
                                                 </a>
-                                                <button type="button" class="btn btn-secondary js-skill-sync"
+                                                <button type="button" class="btn btn-default js-skill-sync"
                                                         data-source="{source.uid}" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.sync', default: 'Sync')}">
                                                     <core:icon identifier="actions-refresh" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.sync" default="Sync" />
                                                 </button>
-                                                <button type="button" class="btn btn-secondary js-skill-token"
+                                                <button type="button" class="btn btn-default js-skill-token"
                                                         data-source="{source.uid}" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.token', default: 'Set GitHub token')}">
                                                     <core:icon identifier="actions-key" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.token" default="Token" />
                                                 </button>
@@ -129,25 +128,24 @@
                                         </td>
                                         <td>
                                             <f:if condition="{skill.supportStatus} == 'full'">
-                                                <f:then><span class="badge text-bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.support.full" default="Full" /></span></f:then>
-                                                <f:else><span class="badge text-bg-warning" title="{skill.unsupportedNotes}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.support.partial" default="Partial" /></span></f:else>
+                                                <f:then><span class="badge badge-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.support.full" default="Full" /></span></f:then>
+                                                <f:else><span class="badge badge-warning" title="{skill.unsupportedNotes}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.support.partial" default="Partial" /></span></f:else>
                                             </f:if>
                                         </td>
                                         <td>
                                             <f:if condition="{skill.isOrphaned}">
-                                                <f:comment>text-bg-warning, not -danger: white on the danger red is 4.37:1 at
-                                                badge size, and an operator resolves this state rather than the system failing it.</f:comment>
-                                                <span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.state.orphaned" default="Orphaned" /></span>
+                                                <f:comment>badge-warning, not -danger: an operator resolves this state rather than the system failing it.</f:comment>
+                                                <span class="badge badge-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.state.orphaned" default="Orphaned" /></span>
                                             </f:if>
                                             <f:if condition="{skill.isEnabled}">
-                                                <f:then><span class="badge text-bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.state.enabled" default="Enabled" /></span></f:then>
-                                                <f:else><span class="badge text-bg-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.state.disabled" default="Disabled" /></span></f:else>
+                                                <f:then><span class="badge badge-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.state.enabled" default="Enabled" /></span></f:then>
+                                                <f:else><span class="badge badge-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.state.disabled" default="Disabled" /></span></f:else>
                                             </f:if>
                                         </td>
                                         <td>
                                             <div class="btn-group btn-group-sm">
                                                 <f:variable name="toggleLabel" value="{f:if(condition: skill.isEnabled, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.disable\', default: \'Disable\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.enable\', default: \'Enable\')}')}" />
-                                                <button type="button" class="btn btn-secondary js-skill-toggle"
+                                                <button type="button" class="btn btn-default js-skill-toggle"
                                                         data-skill="{skill.uid}"
                                                         data-enabled="{f:if(condition: skill.isEnabled, then: '1', else: '0')}"
                                                         title="{toggleLabel}"

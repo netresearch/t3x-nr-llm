@@ -7,58 +7,26 @@
  * at full opacity — the "dim" of an inactive row is a background/border change,
  * never reduced text opacity, to keep contrast above the WCAG 1.4.3 floor.
  */
+/* Colour comes from the TYPO3 backend variables, which core switches by the
+   backend's own colour scheme (see Overview.css). The brand hues have no core
+   variable and use light-dark() with measured text values. */
 .nrllm-pg {
-    --pg-surface: #fff;
-    --pg-surface-2: #f6f8fa;
-    --pg-border: #d3d6db;
-    --pg-border-soft: #e5e7eb;
-    --pg-text: #15181d;
-    --pg-muted: #5c636b;
-    --pg-primary: #0b7aba;
-    --pg-teal: #2f7d86;
-    --pg-brand: #b25e00;
-    --pg-ok: #2c6a17;
-    --pg-warn: #8a5d00;
-    --pg-danger: #9a2c20;
-    --pg-code-bg: #f6f8fa;
+    --pg-surface: var(--typo3-component-bg);
+    --pg-surface-2: var(--typo3-surface-container-base);
+    --pg-border: var(--typo3-component-border-color);
+    --pg-border-soft: var(--typo3-component-border-color);
+    --pg-text: var(--typo3-text-color-base);
+    --pg-muted: color-mix(in srgb, var(--typo3-text-color-base), transparent 35%);
+    --pg-primary: var(--typo3-text-color-primary);
+    /* Brand teal and orange as text: 8.1:1 / 5.2:1 on white, 8.9:1 / 8.9:1 on #141414. */
+    --pg-teal: light-dark(#15585e, #5fc6d2);
+    --pg-brand: light-dark(#a85800, #ff9e33);
+    --pg-ok: var(--typo3-text-color-success);
+    --pg-warn: var(--typo3-text-color-warning);
+    --pg-danger: var(--typo3-text-color-danger);
+    --pg-code-bg: var(--typo3-surface-container-base);
     --pg-radius: 6px;
     --pg-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-}
-
-@media (prefers-color-scheme: dark) {
-    .nrllm-pg {
-        --pg-surface: #26282c;
-        --pg-surface-2: #2c2e33;
-        --pg-border: #3a3d43;
-        --pg-border-soft: #33363b;
-        --pg-text: #e7e9ec;
-        --pg-muted: #a7adb5;
-        --pg-primary: #4aa8e0;
-        --pg-teal: #58bcc6;
-        --pg-brand: #ff9e33;
-        --pg-ok: #8fd07a;
-        --pg-warn: #e5c072;
-        --pg-danger: #ed9a90;
-        --pg-code-bg: #1c2024;
-    }
-}
-
-/* TYPO3 backend explicit dark scheme (overrides system preference). */
-:root[data-color-scheme="dark"] .nrllm-pg,
-[data-color-scheme="dark"] .nrllm-pg {
-    --pg-surface: #26282c;
-    --pg-surface-2: #2c2e33;
-    --pg-border: #3a3d43;
-    --pg-border-soft: #33363b;
-    --pg-text: #e7e9ec;
-    --pg-muted: #a7adb5;
-    --pg-primary: #4aa8e0;
-    --pg-teal: #58bcc6;
-    --pg-brand: #ff9e33;
-    --pg-ok: #8fd07a;
-    --pg-warn: #e5c072;
-    --pg-danger: #ed9a90;
-    --pg-code-bg: #1c2024;
 }
 
 /* ---- overrides panel ---- */
@@ -231,25 +199,27 @@
     border-left-color: var(--pg-teal);
 }
 
+/* Step icons are filled discs with a glyph on them, so each kind takes a core
+   state pair: background and foreground are defined together and hold their
+   contrast in both schemes. The text tokens above are for text, not fills. */
 .nrllm-pg-si {
     width: 22px;
     height: 22px;
     border-radius: 50%;
     display: grid;
     place-items: center;
-    color: #fff;
     font-size: 11px;
     flex: 0 0 auto;
-    background: var(--pg-muted);
+    background: var(--typo3-state-default-bg);
+    color: var(--typo3-state-default-color);
 }
 
-.nrllm-pg-si.is-req { background: var(--pg-teal); }
-.nrllm-pg-si.is-out { background: var(--pg-primary); }
-.nrllm-pg-si.is-final { background: var(--pg-ok); }
-.nrllm-pg-si.is-tool { background: var(--pg-brand); }
-.nrllm-pg-si.is-toolerr { background: var(--pg-danger); }
-.nrllm-pg-si.is-assembled { background: var(--pg-primary); }
-.nrllm-pg-si.is-context { background: var(--pg-muted); }
+.nrllm-pg-si.is-req { background: var(--typo3-state-info-bg); color: var(--typo3-state-info-color); }
+.nrllm-pg-si.is-out,
+.nrllm-pg-si.is-assembled { background: var(--typo3-state-primary-bg); color: var(--typo3-state-primary-color); }
+.nrllm-pg-si.is-final { background: var(--typo3-state-success-bg); color: var(--typo3-state-success-color); }
+.nrllm-pg-si.is-tool { background: var(--typo3-state-warning-bg); color: var(--typo3-state-warning-color); }
+.nrllm-pg-si.is-toolerr { background: var(--typo3-state-danger-bg); color: var(--typo3-state-danger-color); }
 
 .nrllm-pg-sbody {
     min-width: 0;
@@ -426,6 +396,8 @@
     height: 240px;
     border: 1px solid var(--pg-border);
     border-radius: var(--pg-radius);
+    /* scheme-independent: a light page on purpose. The sandboxed frame is its
+       own document and its srcdoc sets dark text (ToolPlayground.js). */
     background: #fff;
 }
 

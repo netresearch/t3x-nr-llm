@@ -19,12 +19,12 @@
             </h1>
             <div class="d-flex gap-2">
                 <f:if condition="{taskEditUrl}">
-                    <a href="{taskEditUrl}" class="btn btn-secondary btn-sm">
+                    <a href="{taskEditUrl}" class="btn btn-default btn-sm">
                         <core:icon identifier="actions-open" size="small" />
                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.editTask" default="Edit Task" />
                     </a>
                 </f:if>
-                <f:link.action action="list" class="btn btn-secondary btn-sm">
+                <f:link.action action="list" class="btn btn-default btn-sm">
                     <core:icon identifier="actions-view-go-back" size="small" />
                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.backToList" default="Back to List" />
                 </f:link.action>
@@ -82,24 +82,24 @@
                     <core:icon identifier="actions-system-extension-configure" size="small" />
                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.title" default="Configuration &amp; Model" />
                     <f:if condition="{isUsingDefaultConfig}">
-                        <span class="badge text-bg-warning ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.usingDefault" default="Using system default" /></span>
+                        <span class="badge badge-warning ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.usingDefault" default="Using system default" /></span>
                     </f:if>
                 </h2>
                 <div class="d-flex gap-1">
                     <f:if condition="{providerEditUrl}">
-                        <a href="{providerEditUrl}" class="btn btn-secondary btn-sm" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.editProvider', default: 'Edit Provider')}">
+                        <a href="{providerEditUrl}" class="btn btn-default btn-sm" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.editProvider', default: 'Edit Provider')}">
                             <core:icon identifier="actions-open" size="small" />
                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.provider" default="Provider" />
                         </a>
                     </f:if>
                     <f:if condition="{modelEditUrl}">
-                        <a href="{modelEditUrl}" class="btn btn-secondary btn-sm" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.editModel', default: 'Edit Model')}">
+                        <a href="{modelEditUrl}" class="btn btn-default btn-sm" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.editModel', default: 'Edit Model')}">
                             <core:icon identifier="actions-open" size="small" />
                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.model" default="Model" />
                         </a>
                     </f:if>
                     <f:if condition="{configEditUrl}">
-                        <a href="{configEditUrl}" class="btn btn-secondary btn-sm" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.editConfiguration', default: 'Edit Configuration')}">
+                        <a href="{configEditUrl}" class="btn btn-default btn-sm" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.editConfiguration', default: 'Edit Configuration')}">
                             <core:icon identifier="actions-open" size="small" />
                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.configuration" default="Configuration" />
                         </a>
@@ -141,9 +141,9 @@
                                     <f:if condition="!{effectiveConfig.llmModel}">
                                         <dt class="col-sm-5"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.model" default="Model" /></dt>
                                         <dd class="col-sm-7">
-                                            <f:comment>text-bg-warning, not -danger: white on the danger red is 4.37:1 at
-                                            badge size. Same badge and same state as in Backend/Configuration/List.html.</f:comment>
-                                            <span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.modelNotAssigned" default="No model assigned" /></span>
+                                            <f:comment>badge-warning, not -danger: not yet configured rather than an error. Same badge and
+                                            same state as in Backend/Configuration/List.html.</f:comment>
+                                            <span class="badge badge-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.modelNotAssigned" default="No model assigned" /></span>
                                         </dd>
                                     </f:if>
                                 </dl>
@@ -172,7 +172,7 @@
                             <hr class="my-3" />
                             <details>
                                 <summary class="mb-2"><strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:field.systemPrompt" default="System Prompt" /></strong></summary>
-                                <pre class="bg-body-tertiary p-3 rounded mb-0" style="white-space: pre-wrap; font-size: 0.85em; max-height: 200px; overflow-y: auto;">{effectiveConfig.systemPrompt}</pre>
+                                <pre class="p-3 rounded mb-0" style="background: var(--typo3-surface-container-base); white-space: pre-wrap; font-size: 0.85em; max-height: 200px; overflow-y: auto;">{effectiveConfig.systemPrompt}</pre>
                             </details>
                         </f:if>
                     </f:then>
@@ -203,7 +203,7 @@
                         <f:if condition="{requiresManualInput}">
                             <f:then>
                                 <!-- Table picker for manual input tasks -->
-                                <div class="card bg-light mb-3" id="tablePickerCard">
+                                <div class="card mb-3" id="tablePickerCard">
                                     <div class="card-header py-2">
                                         <button type="button" class="btn btn-link text-decoration-none p-0 collapsed"
                                                 data-bs-toggle="collapse" data-bs-target="#tablePickerCollapse"
@@ -248,7 +248,7 @@
                                     <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.enterInput" default="Enter your input:" /></f:then>
                                     <f:else>
                                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.autoFetched" default="Auto-fetched data" /> ({task.inputType}):
-                                        <span class="badge text-bg-info"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.autoPopulated" default="Auto-populated" /></span>
+                                        <span class="badge badge-info"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.autoPopulated" default="Auto-populated" /></span>
                                     </f:else>
                                 </f:if>
                             </label>
@@ -291,7 +291,7 @@
                                 </span>
                             </button>
                             <f:if condition="!{requiresManualInput}">
-                                <button type="button" class="btn btn-secondary" id="refreshInputBtn">
+                                <button type="button" class="btn btn-default" id="refreshInputBtn">
                                     <core:icon identifier="actions-refresh" size="small" />
                                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.refreshData" default="Refresh Data" />
                                 </button>
@@ -308,7 +308,7 @@
                         </h2>
                     </div>
                     <div class="card-body">
-                        <pre class="bg-light p-3 rounded" style="max-height: 200px; overflow-y: auto;"><code>{task.promptTemplate}</code></pre>
+                        <pre class="p-3 rounded" style="background: var(--typo3-surface-container-base); max-height: 200px; overflow-y: auto;"><code>{task.promptTemplate}</code></pre>
                         <small class="text-muted">
                             <code>{"{{input}}"}</code> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.promptTemplate.hint" default="will be replaced with the input above." />
                         </small>
@@ -322,7 +322,7 @@
                         <h2 class="card-title mb-0">
                             <core:icon identifier="actions-download" size="small" />
                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.title" default="Output" />
-                            <span class="badge text-bg-secondary ms-2">{task.outputFormat}</span>
+                            <span class="badge badge-secondary ms-2">{task.outputFormat}</span>
                         </h2>
                         <div id="outputStatus" class="d-none">
                             <span class="spinner-border spinner-border-sm text-primary" role="status">
@@ -380,10 +380,10 @@
                                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.tokensLabel" default="Tokens:" /> <span id="outputTokens">-</span>
                                 </small>
                             </div>
-                            <div id="outputContent" class="bg-light p-3 rounded" style="max-height: 500px; overflow-y: auto;"></div>
+                            <div id="outputContent" class="p-3 rounded" style="background: var(--typo3-surface-container-base); max-height: 500px; overflow-y: auto;"></div>
 
                             <div class="mt-3">
-                                <button type="button" class="btn btn-sm btn-secondary" id="copyOutputBtn">
+                                <button type="button" class="btn btn-sm btn-default" id="copyOutputBtn">
                                     <core:icon identifier="actions-clipboard" size="small" />
                                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.copy" default="Copy to Clipboard" />
                                 </button>

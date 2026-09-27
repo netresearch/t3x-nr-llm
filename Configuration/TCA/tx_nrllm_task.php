@@ -21,7 +21,7 @@ return [
         'enablecolumns' => [
             'disabled' => 'hidden',
         ],
-        'iconfile' => 'EXT:nr_llm/Resources/Public/Icons/Task.svg',
+        'typeicon_classes' => ['default' => 'nrllm-record-task'],
         'rootLevel' => -1,
         'security' => [
             'ignorePageTypeRestriction' => true,

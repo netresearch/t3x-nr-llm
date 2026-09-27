@@ -70,7 +70,7 @@
                         <f:if condition="{chain.task.prompt_template}">
                             <dt class="col-sm-3">Prompt Template</dt>
                             <dd class="col-sm-9">
-                                <pre class="mb-0 p-2 bg-body-tertiary rounded" style="white-space: pre-wrap; font-size: 0.85em;">{chain.task.prompt_template}</pre>
+                                <pre class="mb-0 p-2 rounded" style="background: var(--typo3-surface-container-base); white-space: pre-wrap; font-size: 0.85em;">{chain.task.prompt_template}</pre>
                             </dd>
                         </f:if>
                     </dl>
@@ -125,7 +125,7 @@
                             <f:if condition="{chain.configuration.system_prompt}">
                                 <dt class="col-sm-3">System Prompt</dt>
                                 <dd class="col-sm-9">
-                                    <pre class="mb-0 p-2 bg-body-tertiary rounded" style="white-space: pre-wrap; font-size: 0.85em;">{chain.configuration.system_prompt}</pre>
+                                    <pre class="mb-0 p-2 rounded" style="background: var(--typo3-surface-container-base); white-space: pre-wrap; font-size: 0.85em;">{chain.configuration.system_prompt}</pre>
                                 </dd>
                             </f:if>
 
@@ -231,7 +231,7 @@
                             </f:if>
                             <f:if condition="!{usedConfig}">
                                 <small class="text-body-secondary">
-                                    <span class="badge text-bg-warning">Generated without AI (fallback)</span>
+                                    <span class="badge badge-warning">Generated without AI (fallback)</span>
                                 </small>
                             </f:if>
                         </div>
@@ -245,15 +245,15 @@
                     <core:icon identifier="actions-check" size="small" />
                     Create Task
                 </button>
-                <f:link.action action="wizardGenerateChain" arguments="{description: description, configurationUid: configurationUid}" class="btn btn-secondary">
+                <f:link.action action="wizardGenerateChain" arguments="{description: description, configurationUid: configurationUid}" class="btn btn-default">
                     <core:icon identifier="actions-refresh" size="small" />
                     Regenerate
                 </f:link.action>
-                <f:link.action action="wizardForm" class="btn btn-secondary">
+                <f:link.action action="wizardForm" class="btn btn-default">
                     <core:icon identifier="actions-edit" size="small" />
                     Edit Description
                 </f:link.action>
-                <f:link.action action="list" class="btn btn-secondary">
+                <f:link.action action="list" class="btn btn-default">
                     Back to List
                 </f:link.action>
             </div>

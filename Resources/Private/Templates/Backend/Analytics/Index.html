@@ -19,9 +19,9 @@
 
         <div class="mb-3">
             <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.heading" default="See also" />:</strong>
-            <a href="{be:moduleLink(route: 'nrllm_providers')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.providers" default="Providers" /></a>
-            <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.help" default="Open Help" /></a>
-            <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="badge text-bg-info text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_providers')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.providers" default="Providers" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.help" default="Open Help" /></a>
+            <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="badge badge-info text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" /></a>
         </div>
 
         <div class="btn-group mb-3" role="group" aria-label="Date range">
@@ -179,7 +179,7 @@
                                     <td>
                                         {r.servedConfiguration}
                                         <f:if condition="{r.servedProvider}"><br /><span class="text-body-secondary">{r.servedProvider} / {r.servedModel}</span></f:if>
-                                        <f:if condition="{r.success}"><f:else><br /><span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.outcome.failed" /></span></f:else></f:if>
+                                        <f:if condition="{r.success}"><f:else><br /><span class="badge badge-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.outcome.failed" /></span></f:else></f:if>
                                     </td>
                                     <td>{r.fallbackAttempts}</td>
                                     <td>{r.latencyMs} ms</td>
@@ -268,11 +268,10 @@
                                         <f:if condition="{health.circuitBreakerEnabled}">
                                             <f:then>
                                                 <f:switch expression="{p.circuit}">
-                                                    <f:comment>text-bg-warning, not -danger: white on the danger red is 4.37:1 at
-                                                    badge size, and an operator resolves this state rather than the system failing it.</f:comment>
-                                                    <f:case value="open"><span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.open" /></span></f:case>
-                                                    <f:case value="half_open"><span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.halfOpen" /></span></f:case>
-                                                    <f:defaultCase><span class="badge text-bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.closed" /></span></f:defaultCase>
+                                                    <f:comment>badge-warning, not -danger: an operator resolves this state rather than the system failing it.</f:comment>
+                                                    <f:case value="open"><span class="badge badge-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.open" /></span></f:case>
+                                                    <f:case value="half_open"><span class="badge badge-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.halfOpen" /></span></f:case>
+                                                    <f:defaultCase><span class="badge badge-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.closed" /></span></f:defaultCase>
                                                 </f:switch>
                                                 <f:if condition="{p.consecutiveFailures} > 0">
                                                     <span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.failures" arguments="{0: p.consecutiveFailures}" /></span>

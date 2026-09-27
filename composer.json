@@ -110,7 +110,7 @@
             "@ci:test:php:functional"
         ],
         "ci:test:agent-docs": "php Build/Scripts/check-agent-doc-symlinks.php",
-        "ci:test:badges": "php Build/Scripts/check-badge-contrast.php",
+        "ci:test:colors": "php Build/Scripts/check-backend-colors.php",
         "ci:test:changelog": [
             "php Build/Scripts/check-changelog-unreleased.php",
             "php Build/Scripts/check-changelog-released-sections.php"
@@ -128,7 +128,7 @@
         "ci:test:php:unit": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpunit -c Build/phpunit.xml --testsuite unit \"$@\"; else ./Build/Scripts/runTests.sh -s unit \"$@\"; fi' --",
         "ci:test:repo": [
             "@ci:test:agent-docs",
-            "@ci:test:badges",
+            "@ci:test:colors",
             "@ci:test:changelog",
             "@ci:test:reranker-lock",
             "@ci:test:workflows"
