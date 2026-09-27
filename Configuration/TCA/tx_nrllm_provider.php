@@ -18,7 +18,6 @@ return [
         'crdate' => 'crdate',
         'sortby' => 'sorting',
         'default_sortby' => 'name ASC',
-        'searchFields' => 'identifier,name,description,adapter_type',
         'delete' => 'deleted',
         'enablecolumns' => [
             'disabled' => 'hidden',
@@ -151,14 +150,18 @@ return [
                 'max' => 500,
                 'trim' => true,
                 'placeholder' => 'Leave empty for default endpoint',
+                'searchable' => false,
             ],
         ],
-        'api_key' => VaultFieldHelper::getSecureFieldConfig(
-            'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.api_key',
-            [
-                'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.api_key.description',
-                'size' => 50,
-            ],
+        'api_key' => array_replace_recursive(
+            VaultFieldHelper::getSecureFieldConfig(
+                'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.api_key',
+                [
+                    'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.api_key.description',
+                    'size' => 50,
+                ],
+            ),
+            ['config' => ['searchable' => false]],
         ),
         'organization_id' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.organization_id',
@@ -168,6 +171,7 @@ return [
                 'size' => 40,
                 'max' => 100,
                 'trim' => true,
+                'searchable' => false,
             ],
         ],
         'api_timeout' => [
@@ -205,6 +209,7 @@ return [
                 'rows' => 5,
                 'trim' => true,
                 'placeholder' => '{"customHeaders": {"X-Custom-Header": "value"}}',
+                'searchable' => false,
             ],
         ],
         'is_active' => [

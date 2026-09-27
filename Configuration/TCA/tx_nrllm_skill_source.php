@@ -16,7 +16,6 @@ return [
         'crdate' => 'crdate',
         'delete' => 'deleted',
         'default_sortby' => 'title ASC',
-        'searchFields' => 'title,url,ref',
         'enablecolumns' => [
             'disabled' => 'hidden',
         ],
@@ -106,6 +105,7 @@ return [
                 'size' => 30,
                 'max' => 64,
                 'readOnly' => true,
+                'searchable' => false,
             ],
         ],
         // Vault UUID of the GitHub token; written by SkillSourceController::setTokenAction (never edited in
@@ -146,6 +146,7 @@ return [
                 'max' => 64,
                 'trim' => true,
                 'eval' => 'lower',
+                'searchable' => false,
             ],
         ],
         'sync_status' => [
@@ -171,6 +172,7 @@ return [
                 'cols' => 40,
                 'rows' => 3,
                 'readOnly' => true,
+                'searchable' => false,
             ],
         ],
         'last_synced' => [
@@ -178,6 +180,7 @@ return [
             'config' => [
                 'type' => 'datetime',
                 'readOnly' => true,
+                'searchable' => false,
             ],
         ],
         'enabled' => [
