@@ -42,8 +42,11 @@
     --nrllm-ov-code-bg: var(--typo3-surface-container-base);
     --nrllm-ov-radius: 6px;
 
-    /* scheme-independent: teal fills decoration only (dots, bars), 3.4:1 on white and 5.5:1 on #141414. */
-    --nrllm-ov-teal: #2f99a4;
+    /* Teal carries data (sparkline heights, provider bar lengths), so it needs
+       3:1 against the card and the bar track. #2f99a4 reached 2.87:1 on the
+       14.3 light track; #257880 in light gives >= 4.37:1, #2f99a4 in dark
+       >= 4.44:1 (13.4.35 and 14.3.7, card and track). */
+    --nrllm-ov-teal: light-dark(#257880, #2f99a4);
 }
 
 .nrllm-ov-sub {
@@ -139,7 +142,6 @@
     min-height: 2px;
     background: var(--nrllm-ov-teal);
     border-radius: 2px 2px 0 0;
-    opacity: .85;
 }
 
 .nrllm-ov-chart-t {

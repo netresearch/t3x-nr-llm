@@ -51,7 +51,7 @@
                                     <td>
                                         <strong>{provider.name}</strong>
                                         <f:if condition="{provider.description}">
-                                            <br /><span class="text-body-secondary">{provider.description}</span>
+                                            <br /><span class="text-variant">{provider.description}</span>
                                         </f:if>
                                     </td>
                                     <td><code class="text-break">{provider.identifier}</code></td>
@@ -61,10 +61,10 @@
                                     <td>
                                         <f:if condition="{provider.endpointUrl}">
                                             <f:then>
-                                                <span class="text-body-secondary text-break">{provider.endpointUrl}</span>
+                                                <span class="text-variant text-break">{provider.endpointUrl}</span>
                                             </f:then>
                                             <f:else>
-                                                <span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.endpoint.default" default="(default)" /></span>
+                                                <span class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.endpoint.default" default="(default)" /></span>
                                             </f:else>
                                         </f:if>
                                     </td>

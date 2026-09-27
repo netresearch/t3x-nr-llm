@@ -51,7 +51,7 @@
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.uids.label" default="Record numbers" />
             </label>
             <f:form.textarea name="recordUids" id="nrllm-batch-uids" class="form-control" rows="3" maxlength="2000" value="{recordUids}" />
-            <small class="form-text text-body-secondary">
+            <small class="form-text text-variant">
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.uids.hint" default="Separated by commas or spaces, all from the same table." />
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.uids.cap" default="At most %s records are planned; the rest are listed as skipped." arguments="{0: maxRecords}" />
             </small>
@@ -62,7 +62,7 @@
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.instruction.label" default="What should change? (optional)" />
             </label>
             <f:form.textfield name="instruction" id="nrllm-batch-instruction" class="form-control" maxlength="1000" value="{instruction}" />
-            <small class="form-text text-body-secondary">
+            <small class="form-text text-variant">
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.instruction.hint" default="The same note goes to every run. It describes the result; it never changes which records are touched." />
             </small>
         </div>
@@ -96,7 +96,7 @@
                         </tr>
                         <tr>
                             <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.estimate.inputTokens" default="Input tokens (at least)" /></th>
-                            <td>{plan.estimate.inputTokensTotal} <span class="text-body-secondary">({plan.estimate.inputTokensPerRequest} &times; {plan.estimate.providerRequests})</span></td>
+                            <td>{plan.estimate.inputTokensTotal} <span class="text-variant">({plan.estimate.inputTokensPerRequest} &times; {plan.estimate.providerRequests})</span></td>
                         </tr>
                         <tr>
                             <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.estimate.outputCeiling" default="Output ceiling per request" /></th>
@@ -104,7 +104,7 @@
                                 <f:if condition="{plan.estimate.outputCeiling}">
                                     <f:then>{plan.estimate.maxOutputTokensPerRequest}</f:then>
                                     <f:else>
-                                        <span class="text-body-secondary">
+                                        <span class="text-variant">
                                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.estimate.noCeiling" default="No ceiling is configured, so the length of an answer is unbounded." />
                                         </span>
                                     </f:else>
@@ -125,7 +125,7 @@
                                         {plan.estimate.costHigh -> f:format.number(decimals: 4)}
                                     </f:then>
                                     <f:else>
-                                        <span class="text-body-secondary">
+                                        <span class="text-variant">
                                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.estimate.unpriced" default="No range is shown. One needs an input price and an output price on the model record and an output ceiling on the configuration; at least one of the three is missing." />
                                         </span>
                                     </f:else>

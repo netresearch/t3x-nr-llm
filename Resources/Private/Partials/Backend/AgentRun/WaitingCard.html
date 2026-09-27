@@ -5,7 +5,7 @@
 <article id="run-{run.runUuid}" class="card mb-3" tabindex="-1">
     <div class="card-body">
         <h3 class="card-title h5"><code class="text-break">{run.configLabel}</code></h3>
-        <p class="text-body-secondary mb-2">
+        <p class="text-variant mb-2">
             <f:switch expression="{run.mode}">
                 <f:case value="approval"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.why.approval" default="Waiting for approval of a tool call" /></f:case>
                 <f:case value="input"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.why.input" default="Waiting for typed input" /></f:case>

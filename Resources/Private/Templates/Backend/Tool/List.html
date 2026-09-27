@@ -42,7 +42,7 @@
                                     <strong>
                                         <core:icon identifier="actions-folder" size="small" />
                                         <f:if condition="{groupStates.{groupName}.labelKey}">
-                                            <f:then><f:translate key="{groupStates.{groupName}.labelKey}" /> <code class="text-body-secondary">{groupName}</code></f:then>
+                                            <f:then><f:translate key="{groupStates.{groupName}.labelKey}" /> <code class="text-variant">{groupName}</code></f:then>
                                             <f:else><code class="text-break">{groupName}</code></f:else>
                                         </f:if>
                                     </strong>
@@ -52,7 +52,7 @@
                                         </f:then>
                                         <f:else>
                                             <span class="badge badge-secondary">✕ <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.disabled" default="Disabled" /></span>
-                                            <small class="text-body-secondary ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:group.disabledHint" default="All tools of this group are refused; per-tool toggles have no effect while the group is disabled." /></small>
+                                            <small class="text-variant ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:group.disabledHint" default="All tools of this group are refused; per-tool toggles have no effect while the group is disabled." /></small>
                                         </f:else>
                                     </f:if>
                                 </div>
@@ -99,8 +99,8 @@
                                             </f:if>
                                             <f:if condition="{action}">
                                                 <f:then>
-                                                    <br><small class="text-body-secondary"><f:translate key="{action.descriptionKey}" /></small>
-                                                    <br><small class="text-body-secondary">
+                                                    <br><small class="text-variant"><f:translate key="{action.descriptionKey}" /></small>
+                                                    <br><small class="text-variant">
                                                         <code class="text-break">{tool.name}</code>
                                                         · <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:manage.action.appliesTo" default="Applies to" />:
                                                         <f:for each="{action.recordTypes}" as="recordType"><code class="text-break">{recordType}</code> </f:for>
@@ -108,7 +108,7 @@
                                                 </f:then>
                                                 <f:else>
                                                     <f:if condition="{tool.description}">
-                                                        <br><small class="text-body-secondary">{tool.description}</small>
+                                                        <br><small class="text-variant">{tool.description}</small>
                                                     </f:if>
                                                 </f:else>
                                             </f:if>
@@ -132,7 +132,7 @@
                     <f:else>
                         <f:be.infobox state="-1">
                             <p class="mb-1"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.empty" default="No tools are registered. Add a tool by tagging a ToolInterface implementation with nr_llm.tool." /></p>
-                            <p class="mb-0 text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:playground.empty.developer" default="Developers: implement Netresearch\NrLlm\Service\Tool\ToolInterface and tag it with nr_llm.tool to register a new tool." /></p>
+                            <p class="mb-0 text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:playground.empty.developer" default="Developers: implement Netresearch\NrLlm\Service\Tool\ToolInterface and tag it with nr_llm.tool to register a new tool." /></p>
                         </f:be.infobox>
                     </f:else>
                 </f:if>

@@ -167,7 +167,7 @@ class ConfigurationList {
 
         if (changes.length === 0) {
             const note = document.createElement('p');
-            note.className = 'text-body-secondary mb-0';
+            note.className = 'text-variant mb-0';
             note.textContent = 'The declaration changed but no record field differs; applying will clear the change hint.';
             container.appendChild(note);
             return container;
@@ -255,7 +255,7 @@ class ConfigurationList {
                 <div class="mb-3" role="status"><typo3-backend-spinner size="default"></typo3-backend-spinner>
                     <span class="visually-hidden">Testing configuration...</span>
                 </div>
-                <p class="text-body-secondary">Testing configuration ${escapeHtml(name)}...</p>
+                <p class="text-variant">Testing configuration ${escapeHtml(name)}...</p>
             </div>
             <div class="config-test-success" id="config-test-success" style="display: none;">
                 <div class="text-center py-3 mb-3">
@@ -264,7 +264,7 @@ class ConfigurationList {
                 <h5 class="text-success text-center">Configuration Test Successful</h5>
                 <div class="config-test-details mt-3">
                     <blockquote class="blockquote border-start border-success border-3 ps-3 py-2 mb-3" style="border-radius: 0 var(--typo3-component-border-radius) var(--typo3-component-border-radius) 0; font-size: 1.05em; background: var(--typo3-surface-container-success); color: var(--typo3-surface-container-success-text);" id="config-test-response"></blockquote>
-                    <div class="row small text-body-secondary">
+                    <div class="row small text-variant">
                         <div class="col-6">
                             <strong>Model:</strong> <span id="config-test-model">-</span>
                         </div>
@@ -275,7 +275,7 @@ class ConfigurationList {
                 </div>
             </div>
             <div class="config-test-error alert alert-danger" id="config-test-error" style="display: none;">
-                <h5 class="">Configuration Test Failed</h5>
+                <h5>Configuration Test Failed</h5>
                 <p id="config-test-error-message"></p>
             </div>
         `;

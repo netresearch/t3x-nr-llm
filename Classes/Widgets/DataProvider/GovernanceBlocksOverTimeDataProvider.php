@@ -45,8 +45,9 @@ final readonly class GovernanceBlocksOverTimeDataProvider implements ChartDataPr
      * shipped without a colour and rendered as an unnamed grey bar (`#763`).
      *
      * Core's chart widget draws one palette in both backend schemes, so every
-     * colour sits in the luminance band that clears 3:1 on a white card and
-     * on a dark (#262626) card; hue and two lightness tiers keep neighbours apart.
+     * colour sits in the luminance band that clears 3:1 on a white card and on
+     * a dark (#262626) card. The colours are not what tells the bars apart
+     * (neighbours are 1.00–1.43:1): each bar has its own axis label and a gap.
      */
     private const DECISION_COLORS = [
         'tool_denied'       => '#7692A0',

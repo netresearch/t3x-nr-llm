@@ -33,11 +33,14 @@ final readonly class AgentRunsByStatusDataProvider implements ChartDataProviderI
 
     private const LLL = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:';
 
-    /** Semantic colour per status value; a missing key falls back to grey. */
-    /*
+    /**
+     * Semantic colour per status value; a missing key falls back to grey.
+     *
      * Core's chart widget draws one palette in both backend schemes, so every
-     * colour sits in the luminance band that clears 3:1 on a white card and
-     * on a dark (#262626) card; hue and two lightness tiers keep neighbours apart.
+     * colour sits in the luminance band that clears 3:1 on a white card and on
+     * a dark (#262626) card. That band leaves neighbours only 1.00–1.43:1
+     * apart; what separates the segments is core's 2 px arc border (#fff in
+     * light, #000 in dark), which every colour here clears by 3.27:1 or more.
      */
     private const STATUS_COLORS = [
         'queued'               => '#4294D0',

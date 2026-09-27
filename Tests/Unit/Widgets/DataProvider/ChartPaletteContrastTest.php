@@ -27,6 +27,12 @@ use ReflectionClassConstant;
  * 1.4.11 asks 3:1 against what it is drawn on: a white card in light, a
  * #262626 card in dark (the lighter of the dark surfaces). #E8C33D was 1.7:1
  * on white; #8E2A27 was 1.8:1 on the dark card.
+ *
+ * Neighbouring segments cannot also reach 3:1 against each other: a palette
+ * held in the band that clears both cards leaves 1.00–1.43:1 between
+ * neighbours. What separates doughnut segments is core's 2 px arc border,
+ * #fff in light and #000 in dark, so the doughnut palette is held to 3:1
+ * against both and its data may not switch that border off.
  */
 #[CoversNothing]
 final class ChartPaletteContrastTest extends AbstractUnitTestCase
@@ -34,6 +40,9 @@ final class ChartPaletteContrastTest extends AbstractUnitTestCase
     private const LIGHT_CARD = '#FFFFFF';
 
     private const DARK_CARD = '#262626';
+
+    /** Core's doughnut arc border in the light and the dark scheme. */
+    private const SEPARATORS = ['#FFFFFF', '#000000'];
 
     /**
      * @return array<string, array{class-string, string}>
@@ -72,6 +81,35 @@ final class ChartPaletteContrastTest extends AbstractUnitTestCase
                     sprintf('%s::%s[%s] = %s is %.2f:1 on %s.', $class, $constant, (string)$key, $hex, $ratio, $card),
                 );
             }
+        }
+    }
+
+    #[Test]
+    public function doughnutSegmentsClearThreeToOneAgainstCoresSeparator(): void
+    {
+        $colors = (new ReflectionClassConstant(AgentRunsByStatusDataProvider::class, 'STATUS_COLORS'))->getValue();
+        self::assertIsArray($colors);
+        self::assertNotEmpty($colors);
+        $colors['(fallback)'] = '#8E8E8E';
+
+        foreach ($colors as $key => $hex) {
+            self::assertIsString($hex);
+            foreach (self::SEPARATORS as $separator) {
+                $ratio = $this->contrast($hex, $separator);
+                self::assertGreaterThanOrEqual(3.0, $ratio, sprintf('STATUS_COLORS[%s] = %s is %.2f:1 against the %s separator.', (string)$key, $hex, $ratio, $separator));
+            }
+        }
+    }
+
+    #[Test]
+    public function doughnutDataLeavesCoresSegmentSeparatorOn(): void
+    {
+        $shaped = AgentRunsByStatusDataProvider::shapeChartData(['queued' => 1, 'running' => 2, 'completed' => 3], []);
+
+        self::assertNotEmpty($shaped['datasets']);
+        foreach ($shaped['datasets'] as $dataset) {
+            self::assertArrayNotHasKey('borderWidth', $dataset, 'The 2 px arc border is the only thing that separates neighbouring segments.');
+            self::assertArrayNotHasKey('borderColor', $dataset, 'Core picks the border colour per scheme (#fff light, #000 dark).');
         }
     }
 

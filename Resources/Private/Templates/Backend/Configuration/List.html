@@ -59,7 +59,7 @@
                                         <td>
                                             <strong>{preset.name}</strong>
                                             <f:if condition="{preset.description}">
-                                                <br /><span class="text-body-secondary">{preset.description}</span>
+                                                <br /><span class="text-variant">{preset.description}</span>
                                             </f:if>
                                         </td>
                                         <td><code class="text-break">{preset.identifier}</code></td>
@@ -67,20 +67,20 @@
                                             <f:if condition="{preset.satisfiable}">
                                                 <f:then>
                                                     <span class="badge badge-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.satisfiable" default="Satisfiable" /></span>
-                                                    <br /><span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.matchedModel" default="Would currently use" />: {preset.matchedModelLabel}</span>
+                                                    <br /><span class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.matchedModel" default="Would currently use" />: {preset.matchedModelLabel}</span>
                                                 </f:then>
                                                 <f:else>
                                                     <f:comment>badge-warning, not -danger: a preset nothing satisfies yet is fixed by
                                                     adding a model — not yet configured, not an error. Same on the "No model
                                                     assigned" badge below and on the identical one in Backend/Task/Execute.html.</f:comment>
                                                     <span class="badge badge-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.notSatisfiable" default="Not satisfiable" /></span>
-                                                    <br /><span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.missing" default="Missing" />: <code class="text-break">{preset.missingRequirement}</code></span>
+                                                    <br /><span class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.missing" default="Missing" />: <code class="text-break">{preset.missingRequirement}</code></span>
                                                     <f:comment>
                                                         The reason import is unavailable stands here, beside the check it
                                                         follows from. The actions column is `col-control`, which core keeps on
                                                         one line: a sentence there widened the table to 1512px at 1440px.
                                                     </f:comment>
-                                                    <br /><span class="text-body-secondary">
+                                                    <br /><span class="text-variant">
                                                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.importUnavailable" default="Import unavailable" />:
                                                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.remedy.{preset.remedy}" default="No active model satisfies the requirements." />
                                                         <f:if condition="{preset.remedySubject}">
@@ -173,21 +173,21 @@
                                             </button>
                                         </f:if>
                                         <f:if condition="{config.description}">
-                                            <br /><span class="text-body-secondary">{config.description}</span>
+                                            <br /><span class="text-variant">{config.description}</span>
                                         </f:if>
                                     </td>
                                     <td><code class="text-break">{config.identifier}</code></td>
                                     <td>
                                         <f:if condition="{config.llmModel}">
                                             <f:then>{config.llmModel.provider.name}</f:then>
-                                            <f:else><span class="text-body-secondary">-</span></f:else>
+                                            <f:else><span class="text-variant">-</span></f:else>
                                         </f:if>
                                     </td>
                                     <td>
                                         <f:if condition="{config.llmModel}">
                                             <f:then>
                                                 <strong>{config.llmModel.name}</strong>
-                                                <br /><span class="text-body-secondary">{config.llmModel.modelId}</span>
+                                                <br /><span class="text-variant">{config.llmModel.modelId}</span>
                                             </f:then>
                                             <f:else>
                                                 <span class="badge badge-warning" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.noModel.title')}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.noModel.badge" default="No model assigned" /></span>

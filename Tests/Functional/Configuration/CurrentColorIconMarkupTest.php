@@ -17,6 +17,7 @@ use TYPO3\CMS\Core\Imaging\IconFactory;
 use TYPO3\CMS\Core\Imaging\IconProvider\SvgSpriteIconProvider;
 use TYPO3\CMS\Core\Imaging\IconRegistry;
 use TYPO3\CMS\Core\Imaging\IconSize;
+use TYPO3\CMS\Core\Information\Typo3Version;
 
 /**
  * Every nr-llm icon drawn in currentColor renders as markup that inherits the
@@ -29,9 +30,12 @@ use TYPO3\CMS\Core\Imaging\IconSize;
  * them with `SvgSpriteIconProvider` (`<svg><use xlink:href="file.svg#id">`),
  * which is how core draws its own icons.
  *
- * The test walks the running registry rather than reading Configuration/Icons.php:
- * that covers icons core derives from TCA `ctrl.iconfile` as well, and each
- * TYPO3 line exercises its own branch of Icons.php (v13 keeps the fixed-colour
+ * The expected icons are pinned by identifier, so an icon whose file stops
+ * drawing in currentColor fails here instead of dropping out of the check. The
+ * test also walks the running registry: any other nr-llm icon drawn in
+ * currentColor (including one core derives from TCA `ctrl.iconfile`) fails
+ * until it is registered as a sprite and added to the list. Each TYPO3 line
+ * exercises its own branch of Icons.php (v13 keeps the fixed-colour
  * `.legacy.svg` module tiles as `<img>`, which is correct for them).
  */
 #[CoversNothing]
@@ -39,19 +43,48 @@ final class CurrentColorIconMarkupTest extends AbstractFunctionalTestCase
 {
     private const EXT_PREFIX = 'EXT:nr_llm/';
 
-    /**
-     * Provider, editor-action and record icons are currentColor on both lines
-     * (6 + 9 + 6); v14 adds the ten module icons. A lower count means the walk
-     * stopped seeing icons, and a green run would prove nothing.
-     */
-    private const MIN_CURRENT_COLOR_ICONS = 21;
+    /** Drawn in currentColor on both TYPO3 lines: records, providers, editor actions. */
+    private const CURRENT_COLOR_ICONS = [
+        'nrllm-record-model', 'nrllm-record-mcp-server', 'nrllm-record-provider',
+        'nrllm-record-skill', 'nrllm-record-snippet', 'nrllm-record-task',
+        'nrllm-provider-openai', 'nrllm-provider-claude', 'nrllm-provider-gemini',
+        'nrllm-provider-openrouter', 'nrllm-provider-mistral', 'nrllm-provider-groq',
+        'nrllm-editor-action-page-metadata', 'nrllm-editor-action-file-alt-text',
+        'nrllm-editor-action-file-meta', 'nrllm-editor-action-attach-file',
+        'nrllm-editor-action-page-social-image', 'nrllm-editor-action-move-content',
+        'nrllm-editor-action-create-content', 'nrllm-editor-action-create-page',
+        'nrllm-editor-action-create-translation',
+    ];
+
+    /** Drawn in currentColor on v14 only; v13 uses the `.legacy.svg` tiles. */
+    private const V14_MODULE_ICONS = [
+        'module-nrllm', 'module-nrllm-provider', 'module-nrllm-model', 'module-nrllm-wizard',
+        'module-nrllm-task', 'module-nrllm-snippet', 'module-nrllm-analytics', 'module-nrllm-runs',
+        'module-nrllm-skill', 'module-nrllm-tool',
+    ];
 
     #[Test]
     public function everyCurrentColorIconRendersMarkupThatInheritsTheTextColour(): void
     {
         $registry = $this->getService(IconRegistry::class);
         $factory  = $this->getService(IconFactory::class);
-        $checked  = [];
+        $expected = (new Typo3Version())->getMajorVersion() >= 14
+            ? [...self::CURRENT_COLOR_ICONS, ...self::V14_MODULE_ICONS]
+            : self::CURRENT_COLOR_ICONS;
+
+        foreach ($expected as $identifier) {
+            self::assertTrue($registry->isRegistered($identifier), sprintf('Icon "%s" is not registered.', $identifier));
+            $configuration = $registry->getIconConfigurationByIdentifier($identifier);
+            self::assertIsArray($configuration);
+            $options = $configuration['options'] ?? null;
+            self::assertIsArray($options, sprintf('Icon "%s" has no options.', $identifier));
+            $source = $options['source'] ?? null;
+            self::assertIsString($source, sprintf('Icon "%s" has no source.', $identifier));
+            $svg = file_get_contents($this->absolutePath($source));
+            self::assertIsString($svg, sprintf('Icon "%s" points at an unreadable file %s.', $identifier, $source));
+            self::assertStringContainsString('currentColor', $svg, sprintf('%s no longer draws in currentColor; icons follow the text colour (Resources/AGENTS.md).', $source));
+            $this->assertRendersAsSprite($factory, $identifier, $configuration, $source, $svg);
+        }
 
         foreach ($registry->getAllRegisteredIconIdentifiers() as $identifier) {
             self::assertIsString($identifier);
@@ -73,34 +106,40 @@ final class CurrentColorIconMarkupTest extends AbstractFunctionalTestCase
                 continue;
             }
 
-            $checked[] = $identifier;
-
-            self::assertSame(
-                SvgSpriteIconProvider::class,
-                $configuration['provider'] ?? null,
-                sprintf('Icon "%s" draws in currentColor but is not registered with SvgSpriteIconProvider; it would render as <img> and paint black in the dark scheme.', $identifier),
+            self::assertContains(
+                $identifier,
+                $expected,
+                sprintf('Icon "%s" draws in currentColor; register it with SvgSpriteIconProvider and add it to the list in this test.', $identifier),
             );
-
-            $rootId = $this->rootId($svg);
-            self::assertNotSame('', $rootId, sprintf('%s has no id on its root <svg>, so a sprite reference cannot address it.', $source));
-            self::assertSame($source . '#' . $rootId, $options['sprite'] ?? null, sprintf('Icon "%s" must reference the root id of its own source file.', $identifier));
-
-            $icon   = $factory->getIcon($identifier, IconSize::MEDIUM);
-            $markup = $icon->getMarkup();
-            self::assertStringNotContainsString('<img', $markup, sprintf('Icon "%s" renders as <img>.', $identifier));
-            self::assertMatchesRegularExpression(
-                '/<svg class="icon-color"><use xlink:href="[^"]+#' . preg_quote($rootId, '/') . '" ?\/><\/svg>/',
-                $markup,
-                sprintf('Icon "%s" does not render the sprite reference.', $identifier),
-            );
-            self::assertStringContainsString('currentColor', $icon->getAlternativeMarkup('inline'), sprintf('Inline markup of "%s" lost its currentColor paths.', $identifier));
         }
+    }
 
-        self::assertGreaterThanOrEqual(
-            self::MIN_CURRENT_COLOR_ICONS,
-            count($checked),
-            'Only ' . count($checked) . ' currentColor icons were found: ' . implode(', ', $checked),
+    /**
+     * @param array<mixed> $configuration
+     */
+    private function assertRendersAsSprite(IconFactory $factory, string $identifier, array $configuration, string $source, string $svg): void
+    {
+        $options = $configuration['options'] ?? [];
+        self::assertIsArray($options);
+        self::assertSame(
+            SvgSpriteIconProvider::class,
+            $configuration['provider'] ?? null,
+            sprintf('Icon "%s" draws in currentColor but is not registered with SvgSpriteIconProvider; it would render as <img> and paint black in the dark scheme.', $identifier),
         );
+
+        $rootId = $this->rootId($svg);
+        self::assertNotSame('', $rootId, sprintf('%s has no id on its root <svg>, so a sprite reference cannot address it.', $source));
+        self::assertSame($source . '#' . $rootId, $options['sprite'] ?? null, sprintf('Icon "%s" must reference the root id of its own source file.', $identifier));
+
+        $icon   = $factory->getIcon($identifier, IconSize::MEDIUM);
+        $markup = $icon->getMarkup();
+        self::assertStringNotContainsString('<img', $markup, sprintf('Icon "%s" renders as <img>.', $identifier));
+        self::assertMatchesRegularExpression(
+            '/<svg class="icon-color"><use xlink:href="[^"]+#' . preg_quote($rootId, '/') . '" ?\/><\/svg>/',
+            $markup,
+            sprintf('Icon "%s" does not render the sprite reference.', $identifier),
+        );
+        self::assertStringContainsString('currentColor', $icon->getAlternativeMarkup('inline'), sprintf('Inline markup of "%s" lost its currentColor paths.', $identifier));
     }
 
     private function absolutePath(string $extPath): string

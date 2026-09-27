@@ -64,7 +64,7 @@
                                             <span class="badge badge-primary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:default" default="Default" /></span>
                                         </f:if>
                                         <f:if condition="{model.description}">
-                                            <br /><span class="text-body-secondary">{model.description}</span>
+                                            <br /><span class="text-variant">{model.description}</span>
                                         </f:if>
                                     </td>
                                     <td><code class="text-break">{model.identifier}</code></td>
@@ -97,14 +97,14 @@
                                         </f:for>
                                         <f:if condition="{model.capabilitiesConfirmedDate}">
                                             <f:then>
-                                                <div class="small text-body-secondary">
+                                                <div class="small text-variant">
                                                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.capability.lastConfirmed"
                                                                  arguments="{0: '{f:format.date(date: model.capabilitiesConfirmedDate, format: \'Y-m-d H:i\')}'}"
                                                                  default="Last confirmed {0}" />
                                                 </div>
                                             </f:then>
                                             <f:else>
-                                                <div class="small text-body-secondary">
+                                                <div class="small text-variant">
                                                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.capability.neverConfirmed" default="Never confirmed against the provider" />
                                                 </div>
                                             </f:else>
@@ -113,10 +113,10 @@
                                     <td>
                                         <f:if condition="{model.contextLength}">
                                             <f:then>
-                                                <span class="text-body-secondary">{model.formattedContextLength}</span>
+                                                <span class="text-variant">{model.formattedContextLength}</span>
                                             </f:then>
                                             <f:else>
-                                                <span class="text-body-secondary">-</span>
+                                                <span class="text-variant">-</span>
                                             </f:else>
                                         </f:if>
                                     </td>

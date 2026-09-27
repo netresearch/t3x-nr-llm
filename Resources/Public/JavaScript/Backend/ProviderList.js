@@ -80,17 +80,17 @@ class ProviderList {
                 <div class="mb-3" role="status"><typo3-backend-spinner size="default"></typo3-backend-spinner>
                     <span class="visually-hidden">Testing connection...</span>
                 </div>
-                <p class="text-body-secondary">Testing connection to ${escapeHtml(name)}...</p>
+                <p class="text-variant">Testing connection to ${escapeHtml(name)}...</p>
             </div>
             <div class="modal-success text-center py-4" id="provider-test-success" style="display: none;">
                 <div class="mb-3">
                     <span class="text-success" aria-hidden="true"><typo3-backend-icon identifier="actions-check-circle" size="large"></typo3-backend-icon></span>
                 </div>
                 <h4 class="text-success">Connection Successful</h4>
-                <p class="text-body-secondary" id="provider-test-success-message"></p>
+                <p class="text-variant" id="provider-test-success-message"></p>
             </div>
             <div class="modal-error alert alert-danger" id="provider-test-error" style="display: none;">
-                <h5 class="">Connection Failed</h5>
+                <h5>Connection Failed</h5>
                 <p id="provider-test-error-message"></p>
             </div>
         `;

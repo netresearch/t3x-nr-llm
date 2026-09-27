@@ -92,7 +92,7 @@
                                 <input class="form-check-input" type="radio" name="config_choice" id="config-new" value="new" checked="checked" />
                                 <label class="form-check-label" for="config-new">
                                     <strong>Create new dedicated configuration</strong>
-                                    <span class="text-body-secondary">— optimized for this task</span>
+                                    <span class="text-variant">— optimized for this task</span>
                                 </label>
                             </div>
                             <div class="form-check mt-1">
@@ -100,7 +100,7 @@
                                 <label class="form-check-label" for="config-existing">
                                     <strong>Use existing: {existingConfig.name}</strong>
                                     <f:if condition="{existingConfig.llmModel}">
-                                        <span class="text-body-secondary">— via {existingConfig.llmModel.name}</span>
+                                        <span class="text-variant">— via {existingConfig.llmModel.name}</span>
                                     </f:if>
                                 </label>
                             </div>
@@ -164,15 +164,15 @@
                                     <input class="form-check-input" type="radio" name="model_choice" id="model-existing" value="existing" checked="checked" />
                                     <label class="form-check-label" for="model-existing">
                                         <strong>Use existing: {existingModel.name}</strong>
-                                        <span class="text-body-secondary">— {existingModel.modelId}</span>
+                                        <span class="text-variant">— {existingModel.modelId}</span>
                                         <f:if condition="{existingModel.provider}">
-                                            <span class="text-body-secondary">({existingModel.provider.name})</span>
+                                            <span class="text-variant">({existingModel.provider.name})</span>
                                         </f:if>
                                     </label>
                                 </div>
                             </div>
                             <f:if condition="{chain.suggested_model.name}">
-                                <div class="text-body-secondary small">
+                                <div class="text-variant small">
                                     <core:icon identifier="actions-info" size="small" />
                                     AI also suggested: <strong>{chain.suggested_model.name}</strong> ({chain.suggested_model.model_id})
                                     <f:if condition="{chain.suggested_model.description}">
@@ -212,13 +212,13 @@
                 <div class="card-body py-2">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <small class="text-body-secondary">
+                            <small class="text-variant">
                                 <strong>Your description:</strong> {description}
                             </small>
                         </div>
                         <div>
                             <f:if condition="{usedConfig}">
-                                <small class="text-body-secondary">
+                                <small class="text-variant">
                                     <core:icon identifier="actions-system-extension-configure" size="small" />
                                     Generated with <strong>{usedConfig.name}</strong>
                                     <f:if condition="{usedConfig.llmModel}">
@@ -230,7 +230,7 @@
                                 </small>
                             </f:if>
                             <f:if condition="!{usedConfig}">
-                                <small class="text-body-secondary">
+                                <small class="text-variant">
                                     <span class="badge badge-warning">Generated without AI (fallback)</span>
                                 </small>
                             </f:if>

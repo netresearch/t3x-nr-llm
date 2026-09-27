@@ -169,26 +169,7 @@
     color: var(--sw-muted);
 }
 
-/* Model table */
-#models-table .form-check-input,
-#models-table .model-checkbox {
-    width: 20px;
-    height: 20px;
-    min-width: 20px;
-    min-height: 20px;
-    cursor: pointer;
-    /* Ensure visibility regardless of TYPO3 backend styles */
-    opacity: 1 !important;
-    visibility: visible !important;
-    position: relative !important;
-    margin: 0;
-    display: inline-block;
-    vertical-align: middle;
-    appearance: auto;
-    -webkit-appearance: checkbox;
-    -moz-appearance: checkbox;
-}
-
+/* Model table: the checkboxes are core's .form-check markup. */
 #models-table th:first-child,
 #models-table td:first-child {
     width: 50px;
@@ -199,17 +180,6 @@
 #models-table .badge {
     font-size: var(--typo3-font-size-small);
     margin-right: 4px;
-}
-
-/* Select all checkbox */
-#select-all-models {
-    width: 20px;
-    height: 20px;
-    min-width: 20px;
-    min-height: 20px;
-    cursor: pointer;
-    opacity: 1 !important;
-    visibility: visible !important;
 }
 
 /* Review lists */

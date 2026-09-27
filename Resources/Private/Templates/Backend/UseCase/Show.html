@@ -175,7 +175,7 @@
                                 <core:icon identifier="actions-check" size="small" />
                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.install" default="Create the missing records" />
                             </button>
-                            <span class="ms-2 text-body-secondary">
+                            <span class="ms-2 text-variant">
                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.install.hint" default="Existing records with the same identifier are left untouched. The only field an install adds to is the configuration's snippet-tag selection." />
                             </span>
                         </f:form>
@@ -227,7 +227,7 @@
                         <p class="mb-1">
                             <strong><f:translate key="{pack.recommendedGovernanceProfile.labelKey}" default="{pack.recommendedGovernanceProfile.value}" /></strong>
                         </p>
-                        <p class="small text-body-secondary mb-2">
+                        <p class="small text-variant mb-2">
                             <f:translate key="{pack.recommendedGovernanceProfile.descriptionKey}" default="" />
                         </p>
                         <p class="small mb-0">
@@ -256,7 +256,7 @@
                                     <li class="mb-1">
                                         <code class="text-break">{group.group}</code>
                                         <f:if condition="{group.labelKey}">
-                                            <span class="text-body-secondary"><f:translate key="{group.labelKey}" default="" /></span>
+                                            <span class="text-variant"><f:translate key="{group.labelKey}" default="" /></span>
                                         </f:if>
                                         <f:render section="ToolState" arguments="{known: group.registered, enabled: group.enabled}" />
                                     </li>
@@ -308,7 +308,7 @@
                                             <f:render section="ToolState" arguments="{known: action.declared, enabled: action.enabled}" />
                                         </div>
                                         <f:if condition="{action.declaration}">
-                                            <div class="small text-body-secondary">
+                                            <div class="small text-variant">
                                                 <f:translate key="{action.declaration.descriptionKey}" default="" />
                                             </div>
                                         </f:if>

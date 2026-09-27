@@ -44,22 +44,22 @@
                                 </f:else>
                             </f:if>
                             <f:if condition="{row.noteKey}">
-                                <span class="d-block small text-body-secondary"><f:translate key="{row.noteKey}" /></span>
+                                <span class="d-block small text-variant"><f:translate key="{row.noteKey}" /></span>
                             </f:if>
                         </td>
-                        <td><code class="text-body-secondary">{row.reader}</code></td>
+                        <td><code class="text-variant">{row.reader}</code></td>
                     </tr>
                 </f:for>
             </tbody>
         </table>
     </div>
 
-    <p class="text-body-secondary">
+    <p class="text-variant">
         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.unknown.note" default="A row reads &quot;unknown&quot; when its resolver could not be asked. It never falls back to a shipped default, because a value shown here must be one the runtime would apply." />
     </p>
 
     <h2 class="mt-4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.profile.heading" default="Compare against a profile" /></h2>
-    <p class="text-body-secondary">
+    <p class="text-variant">
         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.profile.lead" default="A profile is a named posture, not a switch. Selecting one compares it against the values above and shows where they differ; nothing is changed, and no profile is ever applied." />
     </p>
 
@@ -77,7 +77,7 @@
     </nav>
 
     <h2 class="mt-4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.heading" default="Would this be allowed?" /></h2>
-    <p class="text-body-secondary">
+    <p class="text-variant">
         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.lead" default="Ask the gates the runtime asks. This runs the real configuration-access rule, the real tool policy, the real input-context gate, the real routing decision and the real approval predicate, and folds their answers into one verdict. Pick a backend user to answer for someone other than yourself: the user is resolved read-only, nothing is executed as them, and nothing is written." />
     </p>
 
@@ -182,7 +182,7 @@
                     </f:else>
                 </f:if>
             </p>
-            <p class="mb-0 small text-body-secondary">
+            <p class="mb-0 small text-variant">
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.notAudited" default="Nothing here is recorded. The runtime writes a governance event when it blocks a call; a simulation blocks nothing, so the audit stays a record of what the installation actually did." />
             </p>
         </f:be.infobox>
@@ -211,7 +211,7 @@
                                 </f:else>
                             </f:if>
                         </td>
-                        <td class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.scope.configuration" default="Yes, it reads which backend groups the user is in." /></td>
+                        <td class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.scope.configuration" default="Yes, it reads which backend groups the user is in." /></td>
                     </tr>
                     <tr>
                         <td><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.axis.tool" default="Tool gate" /></td>
@@ -229,7 +229,7 @@
                                 </f:if>
                             </ul>
                         </td>
-                        <td class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.scope.actor" default="Yes, through requiresAdmin()." /></td>
+                        <td class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.scope.actor" default="Yes, through requiresAdmin()." /></td>
                     </tr>
                     <tr>
                         <td><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.axis.context" default="Input-context gate" /></td>
@@ -243,7 +243,7 @@
                                 <div class="small text-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.context.observed" default="Reported only, because enforcement is set to observe, so the send would proceed and the refusal would be recorded." /></div>
                             </f:if>
                         </td>
-                        <td class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.scope.context" default="No, it compares the classes this configuration injects against the trust zone it can reach." /></td>
+                        <td class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.scope.context" default="No, it compares the classes this configuration injects against the trust zone it can reach." /></td>
                     </tr>
                     <tr>
                         <td><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.axis.routing" default="Routing" /></td>
@@ -259,7 +259,7 @@
                                 </f:else>
                             </f:if>
                         </td>
-                        <td class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.scope.routing" default="No, the model catalogue is read with enable-fields ignored and no user context." /></td>
+                        <td class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.scope.routing" default="No, the model catalogue is read with enable-fields ignored and no user context." /></td>
                     </tr>
                     <tr>
                         <td><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.axis.approval" default="Human approval" /></td>
@@ -274,7 +274,7 @@
                                 </f:else>
                             </f:if>
                         </td>
-                        <td class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.scope.approval" default="No, it is a property of the tool's own declaration." /></td>
+                        <td class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.scope.approval" default="No, it is a property of the tool's own declaration." /></td>
                     </tr>
                 </tbody>
             </table>
@@ -315,7 +315,7 @@
                                         </f:if>
                                     </td>
                                     <td><code class="text-success">{deviation.expected}</code></td>
-                                    <td class="text-body-secondary"><f:translate key="{deviation.whereKey}" /></td>
+                                    <td class="text-variant"><f:translate key="{deviation.whereKey}" /></td>
                                 </tr>
                             </f:for>
                         </tbody>
@@ -331,7 +331,7 @@
     </f:if>
 
     <h2 class="mt-4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routing.heading" default="Why this model?" /></h2>
-    <p class="text-body-secondary">
+    <p class="text-variant">
         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routing.lead" default="Ask the decision point the runtime asks. This runs the real routing decision — not a copy of its rules — and changes nothing. Trying a different policy mode answers a hypothetical; it does not alter the installed setting." />
     </p>
 
@@ -489,8 +489,8 @@
                                 <f:for each="{routingEligible}" as="routeCandidate" iteration="rank">
                                     <tr>
                                         <td>{rank.cycle}</td>
-                                        <td><code class="text-break">{routeCandidate.modelId}</code><span class="d-block small text-body-secondary">{routeCandidate.name}</span></td>
-                                        <td><code class="text-body-secondary">{routeCandidate.provider}</code></td>
+                                        <td><code class="text-break">{routeCandidate.modelId}</code><span class="d-block small text-variant">{routeCandidate.name}</span></td>
+                                        <td><code class="text-variant">{routeCandidate.provider}</code></td>
                                         <td>{routeCandidate.score}</td>
                                         <td class="small">
                                             <f:if condition="{routeCandidate.signals}">
@@ -500,13 +500,13 @@
                                                             {signal.name}:
                                                             <f:if condition="{signal.known}">
                                                                 <f:then><strong>{signal.value}</strong></f:then>
-                                                                <f:else><span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routing.signal.noData" default="no data" /></span></f:else>
+                                                                <f:else><span class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routing.signal.noData" default="no data" /></span></f:else>
                                                             </f:if>
                                                         </span>
                                                     </f:for>
                                                 </f:then>
                                                 <f:else>
-                                                    <span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routing.signal.unused" default="not collected — this mode does not weigh measured signals" /></span>
+                                                    <span class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routing.signal.unused" default="not collected — this mode does not weigh measured signals" /></span>
                                                 </f:else>
                                             </f:if>
                                         </td>
@@ -531,8 +531,8 @@
                             <tbody>
                                 <f:for each="{routingRejected}" as="routeCandidate">
                                     <tr>
-                                        <td><code class="text-break">{routeCandidate.modelId}</code><span class="d-block small text-body-secondary">{routeCandidate.name}</span></td>
-                                        <td><code class="text-body-secondary">{routeCandidate.provider}</code></td>
+                                        <td><code class="text-break">{routeCandidate.modelId}</code><span class="d-block small text-variant">{routeCandidate.name}</span></td>
+                                        <td><code class="text-variant">{routeCandidate.provider}</code></td>
                                         <td><f:translate key="{routeCandidate.reasonKey}" /></td>
                                     </tr>
                                 </f:for>
@@ -545,7 +545,7 @@
     </f:if>
 
     <h2 class="mt-4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.heading" default="Calls that were routed" /></h2>
-    <p class="text-body-secondary">
+    <p class="text-variant">
         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.lead" arguments="{0: routedCallsDays}" />
     </p>
 
@@ -567,7 +567,7 @@
                             <tr>
                                 <td class="small">
                                     <f:format.date format="Y-m-d H:i">@{call.crdate}</f:format.date>
-                                    <span class="d-block text-body-secondary">{call.operation} — {call.latencyMs} ms</span>
+                                    <span class="d-block text-variant">{call.operation} — {call.latencyMs} ms</span>
                                 </td>
                                 <td>
                                     <code class="text-break">{call.configurationIdentifier}</code>
@@ -589,12 +589,12 @@
                                         <f:if condition="{call.qualitySignalUsed} || {call.healthSignalUsed} || {call.costSignalUsed}">
                                             <f:then></f:then>
                                             <f:else>
-                                                <span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.signals.none" default="none — provider priority and the tiebreaks decided" /></span>
+                                                <span class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.signals.none" default="none — provider priority and the tiebreaks decided" /></span>
                                             </f:else>
                                         </f:if>
                                     </span>
                                     <f:if condition="{call.rejectionReasons}">
-                                        <span class="d-block text-body-secondary">
+                                        <span class="d-block text-variant">
                                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.refusedBy" default="Refused by" />:
                                             <f:for each="{call.rejectionReasons}" as="reason"><code class="me-1">{reason}</code></f:for>
                                         </span>
@@ -612,12 +612,12 @@
                                     <f:if condition="{call.complexityMeasured}">
                                         <f:then>
                                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.score" arguments="{0: call.complexityScore}" />
-                                            <span class="d-block text-body-secondary">
+                                            <span class="d-block text-variant">
                                                 <code class="text-break">{call.shape}</code>,
                                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.tools" arguments="{0: call.toolCount}" />,
                                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.bytes" arguments="{0: call.payloadBytes}" />
                                             </span>
-                                            <span class="d-block text-body-secondary">
+                                            <span class="d-block text-variant">
                                                 <f:comment>
                                                     contextMeasured resolves isContextMeasured(), NOT the
                                                     percentage. Fluid casts a numeric condition through
@@ -631,7 +631,7 @@
                                             </span>
                                         </f:then>
                                         <f:else>
-                                            <span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.complexity.unmeasured" default="complexity not measured for this send" /></span>
+                                            <span class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.complexity.unmeasured" default="complexity not measured for this send" /></span>
                                         </f:else>
                                     </f:if>
                                 </td>

@@ -112,19 +112,19 @@ class ModelList {
                 <div class="progress-steps small">
                     <div class="d-flex align-items-center mb-2" id="step-connect">
                         <span class="me-2" id="step-connect-spinner"><typo3-backend-spinner size="small"></typo3-backend-spinner></span>
-                        <span class="text-body-secondary" id="step-connect-text">Connecting to provider...</span>
+                        <span class="text-variant" id="step-connect-text">Connecting to provider...</span>
                     </div>
-                    <div class="d-flex align-items-center mb-2 text-body-secondary" id="step-send" style="color: color-mix(in srgb, var(--typo3-text-color-base), transparent 35%);">
+                    <div class="d-flex align-items-center mb-2 text-variant" id="step-send">
                         <span class="me-2">○</span>
                         <span id="step-send-text">Sending test prompt...</span>
                     </div>
-                    <div class="d-flex align-items-center mb-2 text-body-secondary" id="step-wait" style="color: color-mix(in srgb, var(--typo3-text-color-base), transparent 35%);">
+                    <div class="d-flex align-items-center mb-2 text-variant" id="step-wait">
                         <span class="me-2">○</span>
                         <span id="step-wait-text">Waiting for response...</span>
                     </div>
                 </div>
                 <div class="text-center mt-3">
-                    <small class="text-body-secondary">Elapsed: <span id="elapsed-time">0</span>s</small>
+                    <small class="text-variant">Elapsed: <span id="elapsed-time">0</span>s</small>
                 </div>
                 <div class="alert alert-info mt-3 small">
                     <strong>Note:</strong> Large models or models with thinking/reasoning capabilities may take longer to respond.
@@ -135,13 +135,13 @@ class ModelList {
                     <span class="text-success" aria-hidden="true"><typo3-backend-icon identifier="actions-check-circle" size="large"></typo3-backend-icon></span>
                 </div>
                 <h4 class="text-success">Model Test Successful</h4>
-                <p class="text-body-secondary" id="model-test-success-message"></p>
-                <small class="text-body-secondary">Completed in <span id="success-elapsed">0</span>s</small>
+                <p class="text-variant" id="model-test-success-message"></p>
+                <small class="text-variant">Completed in <span id="success-elapsed">0</span>s</small>
             </div>
             <div class="modal-error alert alert-danger" id="model-test-error" style="display: none;">
-                <h5 class="">Model Test Failed</h5>
+                <h5>Model Test Failed</h5>
                 <p id="model-test-error-message"></p>
-                <small class="text-body-secondary">Failed after <span id="error-elapsed">0</span>s</small>
+                <small class="text-variant">Failed after <span id="error-elapsed">0</span>s</small>
             </div>
         `;
 
@@ -183,8 +183,7 @@ class ModelList {
 
                 if (idx < stepNum) {
                     // Completed step
-                    stepEl.style.color = '';
-                    stepEl.classList.remove('text-body-secondary');
+                    stepEl.classList.remove('text-variant');
                     stepEl.classList.add('text-success');
                     if (spinnerEl) {
                         spinnerEl.outerHTML = '<span class="text-success me-2">✓</span>';
@@ -194,8 +193,7 @@ class ModelList {
                     }
                 } else if (idx === stepNum) {
                     // Current step
-                    stepEl.style.color = '';
-                    stepEl.classList.remove('text-body-secondary');
+                    stepEl.classList.remove('text-variant');
                     const icon = stepEl.querySelector('span:first-child');
                     if (icon && !icon.querySelector('typo3-backend-spinner')) {
                         icon.outerHTML = '<span class="me-2"><typo3-backend-spinner size="small"></typo3-backend-spinner></span>';

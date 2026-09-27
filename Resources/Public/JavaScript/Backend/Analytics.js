@@ -165,13 +165,21 @@ class Analytics {
                         yAxisID: 'yCost',
                         tension: 0.25,
                         fill: true,
+                        pointStyle: 'circle',
                     },
+                    // Colour is not the only cue telling the two lines apart:
+                    // Requests is dashed with diamond points, and the legend
+                    // shows each line's point style.
                     {
                         label: 'Requests',
                         data: trend.map((r) => r.requests),
                         borderColor: this.colors.series2,
+                        backgroundColor: this.colors.series2,
                         yAxisID: 'yReq',
                         tension: 0.25,
+                        borderDash: [6, 4],
+                        pointStyle: 'rectRot',
+                        pointRadius: 4,
                     },
                 ],
             },
@@ -179,7 +187,7 @@ class Analytics {
                 responsive: true,
                 maintainAspectRatio: false,
                 interaction: { mode: 'index', intersect: false },
-                plugins: { legend: { labels: { color: this.colors.text } } },
+                plugins: { legend: { labels: { color: this.colors.text, usePointStyle: true } } },
                 scales: {
                     x: this.axisOptions(),
                     yCost: {

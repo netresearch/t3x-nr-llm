@@ -67,7 +67,7 @@
                         <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.intro.needs.manual" default="text you type into the input field below" /></f:then>
                         <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.intro.needs.resolved" default="input the task resolves by itself — review it below and refresh if it looks stale" /></f:else>
                     </f:if>
-                    <f:if condition="{task.inputType}"> <span class="text-body-secondary">({task.inputType})</span></f:if>
+                    <f:if condition="{task.inputType}"> <span class="text-variant">({task.inputType})</span></f:if>
                 </dd>
                 <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.intro.returns" default="It returns" /></dt>
                 <dd class="col-sm-9 mb-0">{task.outputFormat}</dd>
@@ -129,7 +129,7 @@
                                                     {effectiveConfig.llmModel.provider.name}
                                                     <br /><code class="small">{effectiveConfig.llmModel.provider.adapterType}</code>
                                                 </f:then>
-                                                <f:else><span class="text-body-secondary">-</span></f:else>
+                                                <f:else><span class="text-variant">-</span></f:else>
                                             </f:if>
                                         </dd>
 

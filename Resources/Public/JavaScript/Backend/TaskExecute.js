@@ -413,6 +413,7 @@ class TaskExecute {
         // scheme-independent: a light page on purpose. The frame is its own
         // document, and model-written HTML may carry colours that assume white.
         iframe.style.cssText = 'width:100%;border:none;min-height:200px;background:#fff;';
+        // scheme-independent: dark text and light code blocks on that white page.
         iframe.srcdoc = [
             '<!DOCTYPE html><html><head><meta charset="utf-8"><style>',
             'body{font-family:Verdana,Arial,Helvetica,sans-serif;font-size:12px;padding:12px;margin:0;color:#333;line-height:1.5}',

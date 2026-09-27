@@ -319,11 +319,13 @@ class SetupWizard {
 
             const row = document.createElement('tr');
             row.innerHTML = `
-                <td>
-                    <input type="checkbox" class="form-check-input model-checkbox"
-                           data-index="${escapeHtml(String(index))}"
-                           ${escapeHtml(model.recommended ? 'checked' : '')}
-                           aria-label="Select model ${safeName}">
+                <td class="col-checkbox">
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input model-checkbox"
+                               data-index="${escapeHtml(String(index))}"
+                               ${escapeHtml(model.recommended ? 'checked' : '')}
+                               aria-label="Select model ${safeName}">
+                    </div>
                 </td>
                 <td>
                     <strong>${safeName}</strong>
@@ -438,7 +440,7 @@ class SetupWizard {
                         <strong>${safeName}</strong>
                     </div>
                     <div class="card-body">
-                        <p class=" text-muted small">${safeDescription}</p>
+                        <p class="text-muted small">${safeDescription}</p>
                         <div class="d-flex gap-3 mt-2">
                             <span class="config-temp" title="Temperature">
                                 <span class="badge badge-info">T: ${safeTemp}</span>

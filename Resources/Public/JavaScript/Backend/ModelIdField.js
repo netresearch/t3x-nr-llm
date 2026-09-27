@@ -109,7 +109,7 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
         // Description
         if (model.description) {
             const descEl = document.createElement('div');
-            descEl.className = 'small text-body-secondary';
+            descEl.className = 'small text-variant';
             descEl.style.whiteSpace = 'nowrap';
             descEl.style.overflow = 'hidden';
             descEl.style.textOverflow = 'ellipsis';
@@ -388,7 +388,7 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
         // Toggle dropdown if already open
         const existingDropdown = button.closest('.form-control-wrap').querySelector('.js-model-dropdown');
         if (existingDropdown?.style.display === 'block') {
-            existingDropdown.style.display = 'none';
+            setDropdownOpen(existingDropdown, false);
             return;
         }
 

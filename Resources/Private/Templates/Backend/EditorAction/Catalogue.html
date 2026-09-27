@@ -59,10 +59,10 @@
                                         <core:icon identifier="{offer.action.iconIdentifier}" size="small" alternativeMarkupIdentifier="inline" />
                                         <f:translate key="{offer.action.labelKey}" />
                                     </h3>
-                                    <p class=" text-muted small">
+                                    <p class="text-muted small">
                                         <f:translate key="{offer.action.descriptionKey}" />
                                     </p>
-                                    <p class=" small text-body-secondary mb-0">
+                                    <p class="small text-variant mb-0">
                                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.appliesTo" default="Applies to" />:
                                         <f:for each="{offer.action.recordTypes}" as="recordType"><code class="text-break">{recordType}</code> </f:for>
                                     </p>
@@ -82,7 +82,7 @@
                                                                       id="nrllm-instruction-{offer.toolName}"
                                                                       class="form-control form-control-sm"
                                                                       maxlength="1000" />
-                                                    <small class="form-text text-body-secondary">
+                                                    <small class="form-text text-variant">
                                                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.instruction.hint" default="Leave empty to let the assistant decide. Your note describes the result; it never changes which record is touched." />
                                                     </small>
                                                 </div>
@@ -98,7 +98,7 @@
                                             </f:link.action>
                                         </f:then>
                                         <f:else>
-                                            <small class="text-body-secondary">
+                                            <small class="text-variant">
                                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.needsRecord" default="Select a record to start this action." />
                                             </small>
                                         </f:else>

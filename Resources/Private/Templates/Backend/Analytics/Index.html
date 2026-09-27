@@ -38,7 +38,7 @@
                     </f:switch>
                 </a>
             </f:for>
-            <span class="ms-3 text-body-secondary align-self-center">{from} – {to}</span>
+            <span class="ms-3 text-variant align-self-center">{from} – {to}</span>
         </div>
 
         <f:comment>KPI tiles</f:comment>
@@ -76,7 +76,7 @@
 
         <f:comment>Per-extension table (ADR-178): which extension spent what</f:comment>
         <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.source.title" /></h2>
-        <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.source.description" /></p>
+        <p class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.source.description" /></p>
         <f:if condition="{bySource}">
             <f:then>
                 <div class="table-fit table-fit-wrap">
@@ -89,7 +89,7 @@
                                 <tr>
                                     <td>
                                         <f:if condition="{s.label} == 'unattributed'">
-                                            <f:then><span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.source.unattributed" /></span></f:then>
+                                            <f:then><span class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.source.unattributed" /></span></f:then>
                                             <f:else><code class="text-break">{s.label}</code></f:else>
                                         </f:if>
                                     </td>
@@ -102,7 +102,7 @@
                     </table>
                 </div>
             </f:then>
-            <f:else><p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.source.empty" /></p></f:else>
+            <f:else><p class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.source.empty" /></p></f:else>
         </f:if>
 
         <f:comment>Per-user table</f:comment>
@@ -134,7 +134,7 @@
                                                     <span>{u.budget.percent -> f:format.number(decimals: 0)}% <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.of" /> ${u.budget.limitCost -> f:format.number(decimals: 2)}</span>
                                                 </div>
                                             </f:then>
-                                            <f:else><span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.none" /></span></f:else>
+                                            <f:else><span class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.none" /></span></f:else>
                                         </f:if>
                                     </td>
                                 </tr>
@@ -152,7 +152,7 @@
 
         <f:comment>Fallback rescues — from the telemetry log, not the usage table</f:comment>
         <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.title" /></h2>
-        <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.description" /></p>
+        <p class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.description" /></p>
         <f:if condition="{rescues}">
             <f:then>
                 <div class="table-fit table-fit-wrap">
@@ -174,11 +174,11 @@
                                     <td>{r.operation}</td>
                                     <td>
                                         {r.requestedConfiguration}
-                                        <f:if condition="{r.requestedProvider}"><br /><span class="text-body-secondary">{r.requestedProvider} / {r.requestedModel}</span></f:if>
+                                        <f:if condition="{r.requestedProvider}"><br /><span class="text-variant">{r.requestedProvider} / {r.requestedModel}</span></f:if>
                                     </td>
                                     <td>
                                         {r.servedConfiguration}
-                                        <f:if condition="{r.servedProvider}"><br /><span class="text-body-secondary">{r.servedProvider} / {r.servedModel}</span></f:if>
+                                        <f:if condition="{r.servedProvider}"><br /><span class="text-variant">{r.servedProvider} / {r.servedModel}</span></f:if>
                                         <f:if condition="{r.success}"><f:else><br /><span class="badge badge-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.outcome.failed" /></span></f:else></f:if>
                                     </td>
                                     <td>{r.fallbackAttempts}</td>
@@ -190,13 +190,13 @@
                 </div>
             </f:then>
             <f:else>
-                <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.empty" /></p>
+                <p class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.empty" /></p>
             </f:else>
         </f:if>
 
         <f:comment>Provider health and circuit state — live resilience state (ADR-063), not the selected report range</f:comment>
         <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.title" /></h2>
-        <p class="text-body-secondary">
+        <p class="text-variant">
             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.description"
                          arguments="{0: health.windowSeconds}" />
         </p>
@@ -252,14 +252,14 @@
                                                     <td>{p.avgLatencyMs -> f:format.number(decimals: 0)} ms</td>
                                                 </f:then>
                                                 <f:else>
-                                                    <td class="text-body-secondary">
+                                                    <td class="text-variant">
                                                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.noLatency" />
                                                     </td>
                                                 </f:else>
                                             </f:if>
                                         </f:then>
                                         <f:else>
-                                            <td colspan="4" class="text-body-secondary">
+                                            <td colspan="4" class="text-variant">
                                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.noData" />
                                             </td>
                                         </f:else>
@@ -274,10 +274,10 @@
                                                     <f:defaultCase><span class="badge badge-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.closed" /></span></f:defaultCase>
                                                 </f:switch>
                                                 <f:if condition="{p.consecutiveFailures} > 0">
-                                                    <span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.failures" arguments="{0: p.consecutiveFailures}" /></span>
+                                                    <span class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.failures" arguments="{0: p.consecutiveFailures}" /></span>
                                                 </f:if>
                                             </f:then>
-                                            <f:else><span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.offShort" /></span></f:else>
+                                            <f:else><span class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.offShort" /></span></f:else>
                                         </f:if>
                                     </td>
                                 </tr>
@@ -287,7 +287,7 @@
                 </div>
             </f:then>
             <f:else>
-                <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.empty" /></p>
+                <p class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.empty" /></p>
             </f:else>
         </f:if>
     </div>

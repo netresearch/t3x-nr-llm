@@ -86,7 +86,7 @@
                     </h2>
                 </div>
                 <div class="card-body">
-                    <p class="text-body-secondary mb-4">
+                    <p class="text-variant mb-4">
                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.step1.description" default="Enter your LLM provider's API endpoint and credentials. The wizard will auto-detect the provider type and configure everything for you." />
                     </p>
 
@@ -122,7 +122,7 @@
                             <div>
                                 <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.detected.label" default="Detected:" /></strong> <span id="detected-name"></span>
                                 <span class="badge badge-secondary ms-2" id="detected-adapter"></span>
-                                <div class="small text-body-secondary" id="detected-confidence"></div>
+                                <div class="small text-variant" id="detected-confidence"></div>
                             </div>
                         </div>
                     </div>
@@ -169,7 +169,7 @@
                         <div class="mb-3" role="status"><typo3-backend-spinner size="default"></typo3-backend-spinner>
                             <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.testing.hidden" default="Testing connection..." /></span>
                         </div>
-                        <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testingConnection" default="Testing connection to provider..." /></p>
+                        <p class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testingConnection" default="Testing connection to provider..." /></p>
                     </div>
 
                     <div id="test-success" class="text-center py-4" style="display: none;">
@@ -177,7 +177,7 @@
                             <span class="text-success" aria-hidden="true"><core:icon identifier="actions-check-circle" size="large" /></span>
                         </div>
                         <h3 class="h4 text-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:connectionSuccessful" default="Connection Successful" /></h3>
-                        <p class="text-body-secondary" id="test-success-message"></p>
+                        <p class="text-variant" id="test-success-message"></p>
                     </div>
 
                     <div id="test-error" class="alert alert-danger" style="display: none;">
@@ -218,11 +218,11 @@
                         <div class="mb-3" role="status"><typo3-backend-spinner size="default"></typo3-backend-spinner>
                             <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.discovering.hidden" default="Discovering models..." /></span>
                         </div>
-                        <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:discoveringModels" default="Discovering available models..." /></p>
+                        <p class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:discoveringModels" default="Discovering available models..." /></p>
                     </div>
 
                     <div id="models-list" style="display: none;">
-                        <p class="text-body-secondary mb-3">
+                        <p class="text-variant mb-3">
                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.selectModels.description" default="Select the models you want to add to your configuration. Recommended models are pre-selected." />
                         </p>
                         <div class="table-fit table-fit-wrap">
@@ -230,8 +230,10 @@
                                 <thead>
                                     <tr>
                                         <th scope="col" class="col-checkbox">
-                                            <input type="checkbox" class="form-check-input" id="select-all-models"
-                                                   aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.selectAll')}">
+                                            <div class="form-check">
+                                                <input type="checkbox" class="form-check-input" id="select-all-models"
+                                                       aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.selectAll')}">
+                                            </div>
                                         </th>
                                         <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.col.model" default="Model" /></th>
                                         <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.col.context" default="Context" /></th>
@@ -273,13 +275,13 @@
                         <div class="mb-3" role="status"><typo3-backend-spinner size="default"></typo3-backend-spinner>
                             <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:generatingConfigurations" default="Generating configurations..." /></span>
                         </div>
-                        <p class="text-body-secondary">
+                        <p class="text-variant">
                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.step4.loading" default="Using AI to generate optimal configuration presets..." />
                         </p>
                     </div>
 
                     <div id="configs-list" style="display: none;">
-                        <p class="text-body-secondary mb-3">
+                        <p class="text-variant mb-3">
                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.step4.description" default="The following configuration presets have been generated for common use cases. Select the ones you want to create." />
                         </p>
                         <div class="row" id="configs-container"></div>
@@ -339,7 +341,7 @@
                         <div class="mb-3" role="status"><typo3-backend-spinner size="default"></typo3-backend-spinner>
                             <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:saving" default="Saving..." /></span>
                         </div>
-                        <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:savingConfiguration" default="Saving configuration..." /></p>
+                        <p class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:savingConfiguration" default="Saving configuration..." /></p>
                     </div>
 
                     <div id="save-success" class="text-center py-5" style="display: none;">
@@ -347,7 +349,7 @@
                             <span class="text-success" aria-hidden="true"><core:icon identifier="actions-check-circle" size="large" /></span>
                         </div>
                         <h3 class="h4 text-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:setupComplete" default="Setup Complete!" /></h3>
-                        <p class="text-body-secondary" id="save-success-message"></p>
+                        <p class="text-variant" id="save-success-message"></p>
                         <div class="mt-4">
                             <a href="#" class="btn btn-primary" id="btn-go-providers">
                                 <core:icon identifier="actions-open" size="small" />
