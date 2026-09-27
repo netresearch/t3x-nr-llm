@@ -165,7 +165,8 @@ function collectFiles() {
         };
         walk(base);
     }
-    return files.sort();
+    // Code-unit order, not the locale's: the report reads the same everywhere.
+    return files.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
 /* --------------------------------------------------------------- reporting */
