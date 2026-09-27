@@ -60,10 +60,21 @@ declare(strict_types=1);
  *     colour literal outside the accent's fallback: an icon is drawn in the
  *     text colour so it follows the scheme.
  *
- * Not detected (a value only known at runtime cannot be read from source):
- * a colour held in a variable or built by concatenation and assigned later
- * (`const c = 'black'; el.style.color = c;`), and a named colour in a string
- * that is not tied to a colour key, property or attribute.
+ * What it reads, exactly: a line at a time, the value on the same line after
+ * a colour-carrying key, property, attribute or assignment. In JavaScript
+ * that value is read up to the next `,` `;` `{` or `}`; an array literal
+ * after a colour key and the quoted parts of an expression (`ok ? 'green' :
+ * 'red'`, `c || 'black'`, `c ?? 'black'`) count. Therefore not detected:
+ * a colour held in a variable and assigned later (`el.style.color = c`); a
+ * value after `${…}` inside a template literal, where the braces end the
+ * scan; a declaration or assignment split across lines (`color:` / `black;`);
+ * `@property … { initial-value: black }` (not a colour property); SVG
+ * `<animate to="black">`; and a colour in a string no colour key, property
+ * or attribute names, such as `<meta name="theme-color" content="white">`.
+ * Closing these needs a tokenizer rather than more patterns: an ESLint rule
+ * on espree's AST for JavaScript (espree is already installed with eslint),
+ * postcss for CSS, masterminds/html5 (installed with TYPO3) for templates
+ * and SVG.
  *
  * Exemption: a comment containing `scheme-independent: <reason>` exempts the
  * rules in 1 for exactly one statement — the code on the comment's own line
@@ -248,6 +259,10 @@ $named = implode('|', $namedColours);
 $colourProperty = '(?:[a-z-]*-)?(?:color|background|border|outline|fill|stroke|shadow|filter|text-decoration|column-rule|text-emphasis)(?:-[a-z]+)*';
 $colourPropertyCamel = '(?:[a-z]+(?:Color|Background|Border|Shadow|Fill|Stroke|Style))|(?:color|background|border|outline|fill|stroke|filter|boxShadow|textShadow|caretColor|accentColor|textDecoration|columnRule|textEmphasis|stopColor|floodColor|lightingColor|scrollbarColor|fillStyle|strokeStyle|shadowColor)[A-Za-z]*';
 $quoted = '[\'"`][^\'"`]*(?<![\w-])(?:' . $named . ')(?![\w-])';
+// The value after a colour key or assignment, up to the next `,` `;` `{` `}`:
+// an array literal (Chart.js datasets), or an expression such as
+// `ok ? 'green' : 'red'` or `c || 'black'` whose quoted parts are read.
+$valueExpr = '(?:\[[^\]]*?' . $quoted . '|(?:[^,;{}\[\]\'"`]|\'[^\']*\'|"[^"]*")*?' . $quoted . ')';
 
 $rules = [
     'colour literal' => '/(?<![&\w])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b|%23(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})(?![0-9a-zA-Z])|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(|(?<![\w.-])color\(/',
@@ -255,13 +270,13 @@ $rules = [
     'named colour in a custom property' => '/(?:^|[\s;{"\'`])--[\w-]+\s*:\s*[^;"\'`}]*(?<![\w-])(?:' . $named . ')(?![\w-])/i',
     'named colour in JavaScript' => '/'
         // el.style.color = …, el.style['color'] = …, ctx.fillStyle = …
-        . '\.(?:style\.)?(?:' . $colourPropertyCamel . ')\s*=\s*' . $quoted
-        . '|\.style\[\s*[\'"](?:' . $colourProperty . '|' . $colourPropertyCamel . ')[\'"]\s*\]\s*=\s*' . $quoted
+        . '\.(?:style\.)?(?:' . $colourPropertyCamel . ')\s*=(?!=)\s*' . $valueExpr
+        . '|\.style\[\s*[\'"](?:' . $colourProperty . '|' . $colourPropertyCamel . ')[\'"]\s*\]\s*=(?!=)\s*' . $valueExpr
         // setProperty('color' | '--x', …), setAttribute('fill', …)
         . '|setProperty\(\s*[\'"](?:--[\w-]+|' . $colourProperty . ')[\'"]\s*,\s*' . $quoted
         . '|setAttribute\(\s*[\'"](?:fill|stroke|color|stop-color|flood-color|lighting-color)[\'"]\s*,\s*' . $quoted
         // object keys: Chart.js options, Object.assign(el.style, {…})
-        . '|(?:^|[\s,{(])(?:' . $colourPropertyCamel . '|[\'"]' . $colourProperty . '[\'"])\s*:\s*' . $quoted
+        . '|(?:^|[\s,{(])(?:' . $colourPropertyCamel . '|[\'"](?:' . $colourProperty . '|' . $colourPropertyCamel . ')[\'"])\s*:\s*' . $valueExpr
         . '/i',
     // fill="black" in inline SVG, <font color="red">, and the URL-encoded forms in a data URI.
     'colour attribute' => '/(?<![\w:.-])(?:fill|stroke|stop-color|flood-color|lighting-color|color|bgcolor)\s*(?:=|%3D)\s*(?:\\\\?["\']|%27|%22)?\s*(?:' . $named . ')(?![\w-])/i',

@@ -97,6 +97,10 @@ final class BackendColorsCheckTest extends AbstractUnitTestCase
             'canvas strokeStyle' => ['Resources/Public/JavaScript/Backend/a.js', "ctx.strokeStyle = 'gold';\n", 'named colour in JavaScript'],
             'setAttribute fill' => ['Resources/Public/JavaScript/Backend/a.js', "path.setAttribute('fill', 'black');\n", 'named colour in JavaScript'],
             'setProperty on a custom property' => ['Resources/Public/JavaScript/Backend/a.js', "el.style.setProperty('--nrllm-x', 'black');\n", 'named colour in JavaScript'],
+            'array of colours in a dataset' => ['Resources/Public/JavaScript/Backend/a.js', "const ds = { backgroundColor: ['black', 'white'] };\n", 'named colour in JavaScript'],
+            'ternary assignment' => ['Resources/Public/JavaScript/Backend/a.js', "el.style.color = ok ? 'green' : 'red';\n", 'named colour in JavaScript'],
+            'logical-or default' => ['Resources/Public/JavaScript/Backend/a.js', "el.style.color = c || 'black';\n", 'named colour in JavaScript'],
+            'quoted camelCase key' => ['Resources/Public/JavaScript/Backend/a.js', "const o = { \"backgroundColor\": \"black\" };\n", 'named colour in JavaScript'],
         ];
     }
 
@@ -138,6 +142,9 @@ final class BackendColorsCheckTest extends AbstractUnitTestCase
             'URL-encoded fragment' => ['Resources/Private/Templates/a.html', "<a href=\"https://example.org/a%23section\">x</a>\n"],
             'Chart.js point style and label' => ['Resources/Public/JavaScript/Backend/a.js', "const o = { pointStyle: 'rectRot', label: 'Red team' };\n"],
             'colour from a resolved token' => ['Resources/Public/JavaScript/Backend/a.js', 'probe.style.color = `var(${name})`;' . "\n"],
+            'colour key, then an unrelated label' => ['Resources/Public/JavaScript/Backend/a.js', "const o = { color: this.colors.text, label: 'Red team' };\n"],
+            'comparison, not an assignment' => ['Resources/Public/JavaScript/Backend/a.js', "if (el.style.color === 'red') { x(); }\n"],
+            'expression without a literal' => ['Resources/Public/JavaScript/Backend/a.js', "el.style.color = isDark ? cfg.dark : cfg.light;\n"],
         ];
     }
 

@@ -271,7 +271,10 @@ test.describe('Model test progress (ModelList.js)', () => {
       // updateStep(2) runs 500 ms after the click: two steps done, one current.
       await expect(page.locator('#step-connect')).toHaveClass(/text-success/);
       await expect(page.locator('#step-send')).toHaveClass(/text-success/);
-      await expect(page.locator('#step-wait')).not.toHaveClass(/text-variant/);
+      // Neither a finished nor the current step stays muted.
+      for (const step of ['#step-connect', '#step-send', '#step-wait']) {
+        await expect(page.locator(step)).not.toHaveClass(/text-variant/);
+      }
       for (const text of ['#step-connect-text', '#step-send-text', '#step-wait-text']) {
         expect(await contrastOf(page, text), `${text} in ${scheme}`).toBeGreaterThanOrEqual(4.5);
       }

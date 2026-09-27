@@ -181,9 +181,14 @@ class ModelList {
                 const spinnerEl = container.querySelector(`#step-${step}-spinner`);
                 if (!stepEl) return;
 
+                // A step that is running or done is no longer muted: text-variant
+                // would fade the success colour a finished step takes (2.8:1 on 14.3).
+                if (idx <= stepNum) {
+                    stepEl.classList.remove('text-variant');
+                }
+
                 if (idx < stepNum) {
                     // Completed step
-                    stepEl.classList.remove('text-variant');
                     stepEl.classList.add('text-success');
                     if (spinnerEl) {
                         spinnerEl.outerHTML = '<span class="text-success me-2">✓</span>';
@@ -193,7 +198,6 @@ class ModelList {
                     }
                 } else if (idx === stepNum) {
                     // Current step
-                    stepEl.classList.remove('text-variant');
                     const icon = stepEl.querySelector('span:first-child');
                     if (icon && !icon.querySelector('typo3-backend-spinner')) {
                         icon.outerHTML = '<span class="me-2"><typo3-backend-spinner size="small"></typo3-backend-spinner></span>';
