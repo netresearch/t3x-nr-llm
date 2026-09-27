@@ -1,5 +1,6 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { test, expect, type Page } from '@playwright/test';
 
 /**
@@ -21,6 +22,31 @@ const REPO = resolve(__dirname, '../../..');
 const JS = resolve(REPO, 'Resources/Public/JavaScript');
 const CSS = resolve(REPO, 'Resources/Public/Css');
 const CORE_CSS = resolve(REPO, '.Build/vendor/typo3/cms-backend/Resources/Public/Css/backend.css');
+
+/**
+ * TYPO3 13.4's backend CSS, which the E2E job does not install (it resolves
+ * 14.3). Fetched once from the upstream tag and refused unless it is the
+ * exact file pinned here, so a run measures the same CSS every time.
+ */
+const CORE_134 = {
+  url: 'https://raw.githubusercontent.com/TYPO3/typo3/v13.4.35/typo3/sysext/backend/Resources/Public/Css/backend.css',
+  sha256: '872350960f4f5aeda6698e4b5ef43e66d8067c862c349d08789580fcceee407d',
+  path: resolve(REPO, '.Build/core-css/v13.4.35/backend.css'),
+};
+
+async function core134Css(): Promise<Buffer> {
+  const digest = (data: Buffer) => createHash('sha256').update(data).digest('hex');
+  if (existsSync(CORE_134.path) && digest(readFileSync(CORE_134.path)) === CORE_134.sha256) {
+    return readFileSync(CORE_134.path);
+  }
+  const response = await fetch(CORE_134.url);
+  expect(response.ok, `fetching ${CORE_134.url}: HTTP ${response.status}`).toBe(true);
+  const data = Buffer.from(await response.arrayBuffer());
+  expect(digest(data), `${CORE_134.url} is not the pinned file`).toBe(CORE_134.sha256);
+  mkdirSync(dirname(CORE_134.path), { recursive: true });
+  writeFileSync(CORE_134.path, data);
+  return data;
+}
 
 const STUB_AJAX = `
 export default class AjaxRequest {
@@ -85,6 +111,9 @@ ${modules.map((m) => `<script type="module" src="${ORIGIN}/js/${m}"></script>`).
     if (path === '/core/backend.css') {
       return route.fulfill({ contentType: 'text/css', body: readFileSync(CORE_CSS) });
     }
+    if (path === '/core/v13.4.35/backend.css') {
+      return route.fulfill({ contentType: 'text/css', body: await core134Css() });
+    }
     if (path.startsWith('/css/')) {
       return route.fulfill({ contentType: 'text/css', body: readFileSync(resolve(CSS, path.slice(5))) });
     }
@@ -105,6 +134,12 @@ function coreCss(): string {
   expect(existsSync(CORE_CSS), `core backend CSS not found at ${CORE_CSS}; install the dependencies first`).toBe(true);
   return `<link rel="stylesheet" href="${ORIGIN}/core/backend.css">`;
 }
+
+/** The core CSS each TYPO3 line ships: 14.3 as installed, 13.4.35 pinned. */
+const CORES: Array<[string, () => string]> = [
+  ['TYPO3 14.3 (installed)', coreCss],
+  ['TYPO3 13.4.35 (pinned)', () => `<link rel="stylesheet" href="${ORIGIN}/core/v13.4.35/backend.css">`],
+];
 
 /**
  * WCAG contrast of an element's text against what it is drawn on: the colour's
@@ -255,18 +290,29 @@ test.describe('Overview reachability (OverviewReachability.js)', () => {
 });
 
 test.describe('Model test progress (ModelList.js)', () => {
-  const head = () => `${coreCss()}<script>
+  const head = (css: string, pending: boolean) => `${css}<script>
     globalThis.TYPO3 = { settings: { ajaxUrls: { nrllm_model_test: '/model-test' } } };
-    globalThis.__ajaxPending = true;
+    globalThis.__ajaxPending = ${pending};
+    globalThis.__ajax = { '/model-test': { success: false, error: 'The provider refused the request.' } };
   </script>`;
   const body = `<div class="module"><div class="module-body">
     <button type="button" class="btn btn-default js-test-model" data-uid="7" data-name="GPT-5">Test</button>
     <div id="modal-host"></div>
   </div></div>`;
 
-  for (const scheme of ['light', 'dark'] as Scheme[]) {
-    test(`keeps finished and current steps readable in ${scheme}`, async ({ page }) => {
-      await openPage(page, head(), body, ['Backend/ModelList.js'], scheme);
+  for (const [core, css] of CORES) for (const scheme of ['light', 'dark'] as Scheme[]) {
+    // On 13.4 text-variant is a fixed grey: 4.29:1 on alert-danger in light.
+    test(`keeps the failure line readable on ${core} in ${scheme}`, async ({ page }) => {
+      await openPage(page, head(css(), false), body, ['Backend/ModelList.js'], scheme);
+      await page.locator('.js-test-model').click();
+      const line = page.locator('#model-test-error small');
+      await expect(line).toBeVisible();
+      await expect(line).toContainText('Failed after');
+      expect(await contrastOf(page, '#model-test-error small'), `failure line on ${core} in ${scheme}`).toBeGreaterThanOrEqual(4.5);
+    });
+
+    test(`keeps finished and current steps readable on ${core} in ${scheme}`, async ({ page }) => {
+      await openPage(page, head(css(), true), body, ['Backend/ModelList.js'], scheme);
       await page.locator('.js-test-model').click();
       // updateStep(2) runs 500 ms after the click: two steps done, one current.
       await expect(page.locator('#step-connect')).toHaveClass(/text-success/);
@@ -276,7 +322,7 @@ test.describe('Model test progress (ModelList.js)', () => {
         await expect(page.locator(step)).not.toHaveClass(/text-variant/);
       }
       for (const text of ['#step-connect-text', '#step-send-text', '#step-wait-text']) {
-        expect(await contrastOf(page, text), `${text} in ${scheme}`).toBeGreaterThanOrEqual(4.5);
+        expect(await contrastOf(page, text), `${text} on ${core} in ${scheme}`).toBeGreaterThanOrEqual(4.5);
       }
     });
   }
