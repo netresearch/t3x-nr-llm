@@ -30,7 +30,7 @@
 
                     <f:if condition="{generated.identifier}">
                         <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:field.identifier" default="Identifier" /></dt>
-                        <dd class="col-sm-9"><code>{generated.identifier}</code></dd>
+                        <dd class="col-sm-9"><code class="text-break">{generated.identifier}</code></dd>
                     </f:if>
 
                     <f:if condition="{generated.description}">
@@ -51,7 +51,7 @@
                     <f:if condition="{generated.prompt_template}">
                         <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:field.promptTemplate" default="Prompt Template" /></dt>
                         <dd class="col-sm-9">
-                            <pre class="mb-0 p-2 rounded" style="background: var(--typo3-surface-container-base); white-space: pre-wrap; font-size: 0.85em;">{generated.prompt_template}</pre>
+                            <pre class="mb-0 p-2" style="background: var(--typo3-surface-container-base); white-space: pre-wrap; font-size: 0.85em; border-radius: var(--typo3-component-border-radius);">{generated.prompt_template}</pre>
                         </dd>
                     </f:if>
                 </dl>

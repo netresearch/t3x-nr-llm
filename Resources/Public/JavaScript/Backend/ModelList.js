@@ -17,6 +17,8 @@ import Severity from '@typo3/backend/severity.js';
 import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
 import { postUidAndReload } from '@netresearch/nr-llm/Backend/ModuleAction.js';
 import { escapeHtml } from '@netresearch/nr-llm/Backend/HtmlEscape.js';
+import '@typo3/backend/element/spinner-element.js';
+import '@typo3/backend/element/icon-element.js';
 
 class ModelList {
     constructor() {
@@ -100,23 +102,23 @@ class ModelList {
         // Create DOM element container for modal content (TYPO3 v14 requires DOM element, not HTML string)
         const container = document.createElement('div');
         container.innerHTML = `
-            <div class="modal-loading py-4" id="model-test-loading">
+            <div class="py-4" style="display: flex; flex-direction: column;" id="model-test-loading">
                 <div class="text-center mb-4">
-                    <div class="spinner-border text-primary mb-3" role="status">
+                    <div class="mb-3" role="status"><typo3-backend-spinner size="default"></typo3-backend-spinner>
                         <span class="visually-hidden">Testing model...</span>
                     </div>
                     <h5 class="mb-2">Testing model ${escapeHtml(name)}</h5>
                 </div>
                 <div class="progress-steps small">
                     <div class="d-flex align-items-center mb-2" id="step-connect">
-                        <span class="spinner-border spinner-border-sm text-primary me-2" id="step-connect-spinner"></span>
+                        <span class="me-2" id="step-connect-spinner"><typo3-backend-spinner size="small"></typo3-backend-spinner></span>
                         <span class="text-body-secondary" id="step-connect-text">Connecting to provider...</span>
                     </div>
-                    <div class="d-flex align-items-center mb-2 text-body-secondary" id="step-send" style="opacity: 0.5;">
+                    <div class="d-flex align-items-center mb-2 text-body-secondary" id="step-send" style="color: color-mix(in srgb, var(--typo3-text-color-base), transparent 35%);">
                         <span class="me-2">○</span>
                         <span id="step-send-text">Sending test prompt...</span>
                     </div>
-                    <div class="d-flex align-items-center mb-2 text-body-secondary" id="step-wait" style="opacity: 0.5;">
+                    <div class="d-flex align-items-center mb-2 text-body-secondary" id="step-wait" style="color: color-mix(in srgb, var(--typo3-text-color-base), transparent 35%);">
                         <span class="me-2">○</span>
                         <span id="step-wait-text">Waiting for response...</span>
                     </div>
@@ -130,18 +132,14 @@ class ModelList {
             </div>
             <div class="modal-success text-center py-4" id="model-test-success" style="display: none;">
                 <div class="mb-3">
-                    <span class="badge badge-success fs-4 p-3 rounded-circle">
-                        <span class="icon icon-size-large">
-                            <span class="icon-markup">&#10003;</span>
-                        </span>
-                    </span>
+                    <span class="text-success" aria-hidden="true"><typo3-backend-icon identifier="actions-check-circle" size="large"></typo3-backend-icon></span>
                 </div>
                 <h4 class="text-success">Model Test Successful</h4>
                 <p class="text-body-secondary" id="model-test-success-message"></p>
                 <small class="text-body-secondary">Completed in <span id="success-elapsed">0</span>s</small>
             </div>
             <div class="modal-error alert alert-danger" id="model-test-error" style="display: none;">
-                <h5 class="alert-heading">Model Test Failed</h5>
+                <h5 class="">Model Test Failed</h5>
                 <p id="model-test-error-message"></p>
                 <small class="text-body-secondary">Failed after <span id="error-elapsed">0</span>s</small>
             </div>
@@ -185,7 +183,7 @@ class ModelList {
 
                 if (idx < stepNum) {
                     // Completed step
-                    stepEl.style.opacity = '1';
+                    stepEl.style.color = '';
                     stepEl.classList.remove('text-body-secondary');
                     stepEl.classList.add('text-success');
                     if (spinnerEl) {
@@ -196,11 +194,11 @@ class ModelList {
                     }
                 } else if (idx === stepNum) {
                     // Current step
-                    stepEl.style.opacity = '1';
+                    stepEl.style.color = '';
                     stepEl.classList.remove('text-body-secondary');
                     const icon = stepEl.querySelector('span:first-child');
-                    if (icon && !icon.classList.contains('spinner-border')) {
-                        icon.outerHTML = '<span class="spinner-border spinner-border-sm text-primary me-2"></span>';
+                    if (icon && !icon.querySelector('typo3-backend-spinner')) {
+                        icon.outerHTML = '<span class="me-2"><typo3-backend-spinner size="small"></typo3-backend-spinner></span>';
                     }
                 }
             });

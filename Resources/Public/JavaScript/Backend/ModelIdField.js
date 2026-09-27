@@ -84,6 +84,8 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
         nameEl.className = 'text-truncate';
         nameEl.style.maxWidth = '280px';
         nameEl.textContent = model.name || model.id;
+        // Truncated on screen; the title carries the full name.
+        nameEl.title = model.name || model.id;
         topRow.appendChild(nameEl);
 
         if (model.recommended) {
@@ -232,7 +234,13 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
         if (existing) return existing;
 
         const dropdown = document.createElement('div');
-        dropdown.className = 'js-model-dropdown list-group shadow-sm border';
+        dropdown.className = 'js-model-dropdown list-group border';
+        // The disclosure is announced as such: the button controls the list and
+        // reports whether it is open (see setDropdownOpen()).
+        dropdown.id = button.dataset.inputId + '-models';
+        button.setAttribute('aria-controls', dropdown.id);
+        button.setAttribute('aria-expanded', 'false');
+        dropdown.style.boxShadow = 'var(--typo3-component-box-shadow-strong)';
         dropdown.style.position = 'absolute';
         dropdown.style.zIndex = '1060';
         dropdown.style.maxHeight = '400px';
@@ -252,6 +260,17 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
         }
 
         return dropdown;
+    }
+
+    /**
+     * Show or hide a dropdown and keep its button's aria-expanded in step.
+     */
+    function setDropdownOpen(dropdown, open) {
+        dropdown.style.display = open ? 'block' : 'none';
+        const button = document.querySelector('[aria-controls="' + dropdown.id + '"]');
+        if (button) {
+            button.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
     }
 
     /**
@@ -277,13 +296,17 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
 
         // Filter input
         const filterWrap = document.createElement('div');
-        filterWrap.className = 'p-2 border-bottom sticky-top';
+        filterWrap.className = 'p-2 border-bottom';
+        filterWrap.style.position = 'sticky';
+        filterWrap.style.top = '0';
+        filterWrap.style.zIndex = '1';
         filterWrap.style.backgroundColor = 'var(--typo3-component-bg)';
 
         const filterInput = document.createElement('input');
         filterInput.type = 'text';
         filterInput.className = 'form-control form-control-sm';
         filterInput.placeholder = 'Filter models...';
+        filterInput.setAttribute('aria-label', 'Filter models');
         filterWrap.appendChild(filterInput);
 
         const countEl = document.createElement('div');
@@ -302,7 +325,7 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
             input.value = model.id;
             input.dispatchEvent(new Event('change', { bubbles: true }));
             autoFillFields(model, tableName, inputName);
-            dropdown.style.display = 'none';
+            setDropdownOpen(dropdown, false);
             showStatus(button, 'Selected: ' + (model.name || model.id) + ' \u2014 fields auto-filled', 'success');
         }
 
@@ -340,12 +363,12 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
         // Keyboard: Escape closes dropdown
         filterInput.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
-                dropdown.style.display = 'none';
+                setDropdownOpen(dropdown, false);
                 input.focus();
             }
         });
 
-        dropdown.style.display = 'block';
+        setDropdownOpen(dropdown, true);
         setTimeout(function () { filterInput.focus(); }, 50);
     }
 
@@ -445,7 +468,7 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
     document.addEventListener('click', function (e) {
         document.querySelectorAll('.js-model-dropdown').forEach(function (dropdown) {
             if (!dropdown.contains(e.target) && !e.target.classList.contains('js-fetch-models')) {
-                dropdown.style.display = 'none';
+                setDropdownOpen(dropdown, false);
             }
         });
     });

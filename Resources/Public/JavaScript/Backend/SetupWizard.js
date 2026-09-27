@@ -85,16 +85,19 @@ class SetupWizard {
         document.querySelectorAll('.wizard-step').forEach(stepEl => {
             const stepNum = Number.parseInt(stepEl.dataset.step, 10);
             stepEl.classList.remove('active', 'completed');
+            stepEl.removeAttribute('aria-current');
             if (stepNum < step) {
                 stepEl.classList.add('completed');
             } else if (stepNum === step) {
                 stepEl.classList.add('active');
+                stepEl.setAttribute('aria-current', 'step');
             }
         });
 
-        // Update progress bar
+        // Update progress bar; the value is announced, not only drawn.
         const progress = ((step - 1) / (this.totalSteps - 1)) * 100;
         document.querySelector('.wizard-progress-fill').style.width = `${progress}%`;
+        document.querySelector('.wizard-progress-bar')?.setAttribute('aria-valuenow', String(Math.round(progress)));
 
         this.currentStep = step;
     }
@@ -435,7 +438,7 @@ class SetupWizard {
                         <strong>${safeName}</strong>
                     </div>
                     <div class="card-body">
-                        <p class="card-text text-muted small">${safeDescription}</p>
+                        <p class=" text-muted small">${safeDescription}</p>
                         <div class="d-flex gap-3 mt-2">
                             <span class="config-temp" title="Temperature">
                                 <span class="badge badge-info">T: ${safeTemp}</span>

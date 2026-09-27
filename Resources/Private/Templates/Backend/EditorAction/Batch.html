@@ -24,7 +24,7 @@
             <p>
                 <core:icon identifier="{plan.offer.action.iconIdentifier}" size="small" alternativeMarkupIdentifier="inline" />
                 <strong><f:translate key="{plan.offer.action.labelKey}" /></strong>
-                <span class="badge badge-secondary ms-2"><code>{plan.recordTable}</code></span>
+                <span class="badge badge-secondary ms-2"><code class="text-break">{plan.recordTable}</code></span>
             </p>
             <p class="text-muted">
                 <f:translate key="{plan.offer.action.descriptionKey}" />
@@ -83,8 +83,8 @@
 
     <f:if condition="{plan.estimate.records} > 0">
         <f:then>
-            <div class="table-responsive">
-                <table class="table table-sm">
+            <div class="table-fit table-fit-wrap">
+                <table class="table table-striped">
                     <tbody>
                         <tr>
                             <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.estimate.runs" default="Runs" /></th>
@@ -113,7 +113,7 @@
                         </tr>
                         <tr>
                             <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.estimate.model" default="Model" /></th>
-                            <td><code>{plan.estimate.modelId}</code></td>
+                            <td><code class="text-break">{plan.estimate.modelId}</code></td>
                         </tr>
                         <tr>
                             <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.estimate.price" default="Price range (USD)" /></th>
@@ -170,7 +170,7 @@
 
     <f:if condition="{plan.entries}">
         <f:then>
-            <div class="table-responsive">
+            <div class="table-fit table-fit-wrap">
                 <table class="table table-striped">
                     <thead>
                         <tr>
@@ -181,7 +181,7 @@
                     <tbody>
                         <f:for each="{plan.entries}" as="entry">
                             <tr>
-                                <td><code>{plan.recordTable}</code> #{entry.recordUid}</td>
+                                <td><code class="text-break">{plan.recordTable}</code> #{entry.recordUid}</td>
                                 <td>
                                     <f:if condition="{entry.runnable}">
                                         <f:then>

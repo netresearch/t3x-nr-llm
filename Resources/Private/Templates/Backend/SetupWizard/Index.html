@@ -10,8 +10,13 @@
 <f:layout name="Module" />
 
 <f:section name="Content">
+    <f:asset.module identifier="@typo3/backend/element/spinner-element.js" />
     <div>
     <div class="setup-wizard" id="setup-wizard">
+        <h1>
+            <core:icon identifier="module-nrllm-wizard" size="medium" />
+            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_wizard.xlf:mlang_labels_tablabel" default="Setup Wizard" />
+        </h1>
         <f:comment>
             This wizard starts at the endpoint, which is the last question an
             operator can answer. The earlier one — what do you want to do? —
@@ -35,7 +40,7 @@
         <f:comment>Progress Steps</f:comment>
         <div class="wizard-progress mb-4">
             <div class="wizard-steps d-flex justify-content-between">
-                <div class="wizard-step active" data-step="1">
+                <div class="wizard-step active" data-step="1" aria-current="step">
                     <div class="step-icon">
                         <core:icon identifier="actions-link" size="small" />
                     </div>
@@ -66,8 +71,8 @@
                     <div class="step-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.step.save" default="Save" /></div>
                 </div>
             </div>
-            <div class="wizard-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.progress.aria')}">
-                <div class="wizard-progress-fill" style="width: 0%"></div>
+            <div class="nrllm-progress wizard-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.progress.aria')}">
+                <div class="nrllm-progress-fill wizard-progress-fill" style="width: 0%"></div>
             </div>
         </div>
 
@@ -99,7 +104,7 @@
                         <div class="input-group">
                             <input type="password" class="form-control" id="wizard-apikey"
                                    placeholder="sk-...">
-                            <button type="button" class="btn btn-outline-secondary" id="toggle-apikey"
+                            <button type="button" class="btn btn-default" id="toggle-apikey"
                                     aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.field.apikey.toggle')}">
                                 <core:icon identifier="actions-preview" size="small" />
                             </button>
@@ -161,7 +166,7 @@
                 </div>
                 <div class="card-body">
                     <div id="test-loading" class="text-center py-5">
-                        <div class="spinner-border text-primary mb-3" role="status">
+                        <div class="mb-3" role="status"><typo3-backend-spinner size="default"></typo3-backend-spinner>
                             <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.testing.hidden" default="Testing connection..." /></span>
                         </div>
                         <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testingConnection" default="Testing connection to provider..." /></p>
@@ -169,19 +174,16 @@
 
                     <div id="test-success" class="text-center py-4" style="display: none;">
                         <div class="mb-3">
-                            <span class="badge badge-success fs-4 p-3 rounded-circle">
-                                <core:icon identifier="actions-check" size="large" />
-                            </span>
+                            <span class="text-success" aria-hidden="true"><core:icon identifier="actions-check-circle" size="large" /></span>
                         </div>
-                        <h4 class="text-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:connectionSuccessful" default="Connection Successful" /></h4>
+                        <h3 class="h4 text-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:connectionSuccessful" default="Connection Successful" /></h3>
                         <p class="text-body-secondary" id="test-success-message"></p>
                     </div>
 
                     <div id="test-error" class="alert alert-danger" style="display: none;">
-                        <h4 class="alert-heading">
-                            <core:icon identifier="actions-ban" size="small" />
+                        <h3 class="h4"><core:icon identifier="actions-ban" size="small" />
                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.connectionFailed" default="Connection Failed" />
-                        </h4>
+                        </h3>
                         <p id="test-error-message"></p>
                         <hr>
                         <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.connectionFailed.hint" default="Please check your endpoint URL and API key, then try again." /></p>
@@ -213,7 +215,7 @@
                 </div>
                 <div class="card-body">
                     <div id="models-loading" class="text-center py-5">
-                        <div class="spinner-border text-primary mb-3" role="status">
+                        <div class="mb-3" role="status"><typo3-backend-spinner size="default"></typo3-backend-spinner>
                             <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.discovering.hidden" default="Discovering models..." /></span>
                         </div>
                         <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:discoveringModels" default="Discovering available models..." /></p>
@@ -223,18 +225,18 @@
                         <p class="text-body-secondary mb-3">
                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.selectModels.description" default="Select the models you want to add to your configuration. Recommended models are pre-selected." />
                         </p>
-                        <div class="table-responsive">
+                        <div class="table-fit table-fit-wrap">
                             <table class="table table-hover" id="models-table">
                                 <thead>
                                     <tr>
-                                        <th scope="col" style="width: 40px;">
+                                        <th scope="col" class="col-checkbox">
                                             <input type="checkbox" class="form-check-input" id="select-all-models"
                                                    aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.selectAll')}">
                                         </th>
                                         <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.col.model" default="Model" /></th>
                                         <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.col.context" default="Context" /></th>
                                         <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.col.capabilities" default="Capabilities" /></th>
-                                        <th scope="col" style="width: 100px;"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.col.recommended" default="Recommended" /></th>
+                                        <th scope="col" class="col-nowrap"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.col.recommended" default="Recommended" /></th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -268,7 +270,7 @@
                 </div>
                 <div class="card-body">
                     <div id="configs-loading" class="text-center py-5">
-                        <div class="spinner-border text-primary mb-3" role="status">
+                        <div class="mb-3" role="status"><typo3-backend-spinner size="default"></typo3-backend-spinner>
                             <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:generatingConfigurations" default="Generating configurations..." /></span>
                         </div>
                         <p class="text-body-secondary">
@@ -309,17 +311,17 @@
                 </div>
                 <div class="card-body">
                     <div id="review-content">
-                        <h5><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.section.provider" default="Provider" /></h5>
+                        <h3 class="h5"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.section.provider" default="Provider" /></h3>
                         <div class="card mb-3">
                             <div class="card-body" id="review-provider"></div>
                         </div>
 
-                        <h5><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.section.models" default="Models" /> (<span id="review-models-count">0</span>)</h5>
+                        <h3 class="h5"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.section.models" default="Models" /> (<span id="review-models-count">0</span>)</h3>
                         <div class="card mb-3">
                             <ul class="list-group list-group-flush" id="review-models"></ul>
                         </div>
 
-                        <h5><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.section.configurations" default="Configurations" /> (<span id="review-configs-count">0</span>)</h5>
+                        <h3 class="h5"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.section.configurations" default="Configurations" /> (<span id="review-configs-count">0</span>)</h3>
                         <div class="card mb-3">
                             <ul class="list-group list-group-flush" id="review-configs"></ul>
                         </div>
@@ -334,7 +336,7 @@
                     </div>
 
                     <div id="save-loading" class="text-center py-5" style="display: none;">
-                        <div class="spinner-border text-primary mb-3" role="status">
+                        <div class="mb-3" role="status"><typo3-backend-spinner size="default"></typo3-backend-spinner>
                             <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:saving" default="Saving..." /></span>
                         </div>
                         <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:savingConfiguration" default="Saving configuration..." /></p>
@@ -342,11 +344,9 @@
 
                     <div id="save-success" class="text-center py-5" style="display: none;">
                         <div class="mb-3">
-                            <span class="badge badge-success fs-1 p-4 rounded-circle">
-                                <core:icon identifier="actions-check" size="large" />
-                            </span>
+                            <span class="text-success" aria-hidden="true"><core:icon identifier="actions-check-circle" size="large" /></span>
                         </div>
-                        <h4 class="text-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:setupComplete" default="Setup Complete!" /></h4>
+                        <h3 class="h4 text-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:setupComplete" default="Setup Complete!" /></h3>
                         <p class="text-body-secondary" id="save-success-message"></p>
                         <div class="mt-4">
                             <a href="#" class="btn btn-primary" id="btn-go-providers">
@@ -361,10 +361,9 @@
                     </div>
 
                     <div id="save-error" class="alert alert-danger" style="display: none;">
-                        <h4 class="alert-heading">
-                            <core:icon identifier="actions-ban" size="small" />
+                        <h3 class="h4"><core:icon identifier="actions-ban" size="small" />
                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.saveFailed" default="Save Failed" />
-                        </h4>
+                        </h3>
                         <p id="save-error-message"></p>
                     </div>
                 </div>

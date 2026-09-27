@@ -9,6 +9,7 @@
 <f:layout name="Module" />
 
 <f:section name="Content">
+    <f:asset.module identifier="@typo3/backend/element/spinner-element.js" />
     <h1><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.page.title" default="Test LLM Provider" /></h1>
 
     <f:be.infobox state="-1" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.info.title', default: 'Raw provider test')}">
@@ -65,25 +66,25 @@
                             </div>
 
                             <div id="responseDetails" style="display: none;">
-                                <h4><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.response.content" default="Content" /></h4>
+                                <h3 class="h4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.response.content" default="Content" /></h3>
                                 <pre id="responseContent" class="p-3" style="background: var(--typo3-surface-container-base);"></pre>
 
-                                <h4><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.response.usage" default="Usage" /></h4>
-                                <table class="table table-sm">
+                                <h3 class="h4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.response.usage" default="Usage" /></h3>
+                                <table class="table table-striped">
                                     <tr>
-                                        <td><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.usage.model" default="Model" /></td>
+                                        <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.usage.model" default="Model" /></th>
                                         <td id="responseModel"></td>
                                     </tr>
                                     <tr>
-                                        <td><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.usage.promptTokens" default="Prompt Tokens" /></td>
+                                        <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.usage.promptTokens" default="Prompt Tokens" /></th>
                                         <td id="promptTokens"></td>
                                     </tr>
                                     <tr>
-                                        <td><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.usage.completionTokens" default="Completion Tokens" /></td>
+                                        <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.usage.completionTokens" default="Completion Tokens" /></th>
                                         <td id="completionTokens"></td>
                                     </tr>
                                     <tr>
-                                        <td><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.usage.totalTokens" default="Total Tokens" /></td>
+                                        <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.usage.totalTokens" default="Total Tokens" /></th>
                                         <td id="totalTokens"></td>
                                     </tr>
                                 </table>
@@ -91,7 +92,7 @@
                         </div>
 
                         <div id="loadingIndicator" style="display: none;">
-                            <div class="spinner-border text-primary" role="status">
+                            <div role="status"><typo3-backend-spinner size="default"></typo3-backend-spinner>
                                 <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.loading" default="Sending request..." /></span>
                             </div>
                             <span class="ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.loading" default="Sending request..." /></span>
@@ -142,7 +143,7 @@
                         </form>
 
                         <div id="translationLoading" class="mt-3" style="display: none;">
-                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                            <div role="status"><typo3-backend-spinner size="small"></typo3-backend-spinner></div>
                             <span class="ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.loading" default="Sending request..." /></span>
                         </div>
                         <div id="translationError" class="alert alert-danger mt-3" style="display: none;">
@@ -181,14 +182,14 @@
                         </form>
 
                         <div id="imageLoading" class="mt-3" style="display: none;">
-                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                            <div role="status"><typo3-backend-spinner size="small"></typo3-backend-spinner></div>
                             <span class="ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.loading" default="Sending request..." /></span>
                         </div>
                         <div id="imageError" class="alert alert-danger mt-3" style="display: none;">
                             <span id="imageErrorMessage"></span>
                         </div>
                         <div id="imageResult" class="mt-3" style="display: none;">
-                            <img id="imagePreview" class="img-fluid rounded" alt="" style="display: none;" />
+                            <img id="imagePreview" class="img-fluid" style="border-radius: var(--typo3-component-border-radius); display: none;" alt="" />
                             <a id="imageLink" class="btn btn-default btn-sm" target="_blank" rel="noopener" style="display: none;">
                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.image.open" default="Open the generated image" />
                             </a>

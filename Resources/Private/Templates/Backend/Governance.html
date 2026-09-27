@@ -21,7 +21,7 @@
         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.readonly.text" default="These keys are instance-wide and are changed in the Install Tool under Settings > Extension Configuration > nr_llm. This page deliberately cannot change them: writing extension configuration rewrites the whole merged array and would materialise every shipped default (ADR-140)." />
     </f:be.infobox>
 
-    <div class="table-fit">
+    <div class="table-fit table-fit-wrap">
         <table class="table table-striped table-hover">
             <thead>
                 <tr>
@@ -33,7 +33,7 @@
             <tbody>
                 <f:for each="{policyRows}" as="row">
                     <tr>
-                        <td><code>{row.key}</code></td>
+                        <td><code class="text-break">{row.key}</code></td>
                         <td>
                             <f:if condition="{row.known}">
                                 <f:then><strong>{row.value}</strong></f:then>
@@ -187,7 +187,7 @@
             </p>
         </f:be.infobox>
 
-        <div class="table-fit">
+        <div class="table-fit table-fit-wrap">
             <table class="table table-striped">
                 <thead>
                     <tr>
@@ -222,8 +222,8 @@
                             </f:if>
                             <div class="small">{simulationToolMessage}</div>
                             <ul class="mb-0 small">
-                                <li><code>{simulation.tool.toolName}</code> &mdash; <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.dataClass" default="data class" />: <code>{simulation.tool.dataClass.value}</code></li>
-                                <li><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.zone" default="trust zone reachable" />: <code>{simulation.tool.zone.value}</code> (<f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.ceiling" default="permits at most" /> <code>{simulation.tool.ceiling.value}</code>)</li>
+                                <li><code class="text-break">{simulation.tool.toolName}</code> &mdash; <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.dataClass" default="data class" />: <code class="text-break">{simulation.tool.dataClass.value}</code></li>
+                                <li><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.zone" default="trust zone reachable" />: <code class="text-break">{simulation.tool.zone.value}</code> (<f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.ceiling" default="permits at most" /> <code class="text-break">{simulation.tool.ceiling.value}</code>)</li>
                                 <f:if condition="{simulation.tool.observedOnly}">
                                     <li class="text-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.observed" default="Reported only, because enforcement is set to observe, so the tool was still offered." /></li>
                                 </f:if>
@@ -290,7 +290,7 @@
                                  default="This installation differs from the selected profile in {0} setting(s)." />
                 </f:be.infobox>
 
-                <div class="table-fit">
+                <div class="table-fit table-fit-wrap">
                     <table class="table table-striped">
                         <thead>
                             <tr>
@@ -303,7 +303,7 @@
                         <tbody>
                             <f:for each="{deviations}" as="deviation">
                                 <tr>
-                                    <td><code>{deviation.key}</code></td>
+                                    <td><code class="text-break">{deviation.key}</code></td>
                                     <td>
                                         <f:if condition="{deviation.unknown}">
                                             <f:then>
@@ -412,7 +412,7 @@
                     </p>
                     <f:if condition="{routing.namedModel}">
                         <f:then>
-                            <p class="mb-0"><code>{routing.namedModel.modelId}</code> — {routing.namedModel.name}</p>
+                            <p class="mb-0"><code class="text-break">{routing.namedModel.modelId}</code> — {routing.namedModel.name}</p>
                         </f:then>
                         <f:else>
                             <p class="mb-0 text-warning">
@@ -431,7 +431,7 @@
                 </f:variable>
                 <f:be.infobox state="{f:if(condition: routing.selection, then: 0, else: 2)}" title="{routingTitle -> f:format.trim()}">
                     <f:if condition="{routing.selection}">
-                        <p class="mb-1"><code>{routing.decision.selected.modelId}</code> — {routing.decision.selected.name}</p>
+                        <p class="mb-1"><code class="text-break">{routing.decision.selected.modelId}</code> — {routing.decision.selected.name}</p>
                     </f:if>
                     <ul class="mb-0 small">
                         <li>
@@ -445,7 +445,7 @@
                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routing.enforcement.label" default="Operation capability" />:
                             <f:if condition="{routing.requiredCapability}">
                                 <f:then>
-                                    <code>{routing.requiredCapability.value}</code> —
+                                    <code class="text-break">{routing.requiredCapability.value}</code> —
                                     <f:if condition="{routing.operationCapabilityEnforcing}">
                                         <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routing.enforcement.enforcing" default="enforcing: models that declare capabilities without it were refused." /></f:then>
                                         <f:else><span class="text-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routing.enforcement.observing" default="observing: the requirement did NOT constrain this decision." /></span></f:else>
@@ -474,7 +474,7 @@
 
                 <f:if condition="{routingEligible}">
                     <h3 class="h5 mt-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routing.eligible.heading" default="Eligible, in rank order" /></h3>
-                    <div class="table-fit">
+                    <div class="table-fit table-fit-wrap">
                         <table class="table table-striped table-hover">
                             <thead>
                                 <tr>
@@ -489,7 +489,7 @@
                                 <f:for each="{routingEligible}" as="routeCandidate" iteration="rank">
                                     <tr>
                                         <td>{rank.cycle}</td>
-                                        <td><code>{routeCandidate.modelId}</code><span class="d-block small text-body-secondary">{routeCandidate.name}</span></td>
+                                        <td><code class="text-break">{routeCandidate.modelId}</code><span class="d-block small text-body-secondary">{routeCandidate.name}</span></td>
                                         <td><code class="text-body-secondary">{routeCandidate.provider}</code></td>
                                         <td>{routeCandidate.score}</td>
                                         <td class="small">
@@ -519,7 +519,7 @@
 
                 <f:if condition="{routingRejected}">
                     <h3 class="h5 mt-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routing.rejected.heading" default="Refused, and why" /></h3>
-                    <div class="table-fit">
+                    <div class="table-fit table-fit-wrap">
                         <table class="table table-striped">
                             <thead>
                                 <tr>
@@ -531,7 +531,7 @@
                             <tbody>
                                 <f:for each="{routingRejected}" as="routeCandidate">
                                     <tr>
-                                        <td><code>{routeCandidate.modelId}</code><span class="d-block small text-body-secondary">{routeCandidate.name}</span></td>
+                                        <td><code class="text-break">{routeCandidate.modelId}</code><span class="d-block small text-body-secondary">{routeCandidate.name}</span></td>
                                         <td><code class="text-body-secondary">{routeCandidate.provider}</code></td>
                                         <td><f:translate key="{routeCandidate.reasonKey}" /></td>
                                     </tr>
@@ -551,7 +551,7 @@
 
     <f:if condition="{routedCalls}">
         <f:then>
-            <div class="table-fit">
+            <div class="table-fit table-fit-wrap">
                 <table class="table table-striped table-hover">
                     <thead>
                         <tr>
@@ -570,7 +570,7 @@
                                     <span class="d-block text-body-secondary">{call.operation} — {call.latencyMs} ms</span>
                                 </td>
                                 <td>
-                                    <code>{call.configurationIdentifier}</code>
+                                    <code class="text-break">{call.configurationIdentifier}</code>
                                     <f:if condition="{call.success} == 0">
                                         <span class="d-block small text-danger"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.failed" default="failed" /></span>
                                     </f:if>
@@ -578,7 +578,7 @@
                                         <span class="d-block small text-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.fallbackAttempts" arguments="{0: call.fallbackAttempts}" /></span>
                                     </f:if>
                                 </td>
-                                <td><code>{call.servedModel}</code></td>
+                                <td><code class="text-break">{call.servedModel}</code></td>
                                 <td class="small">
                                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.mode" arguments="{0: call.policyMode, 1: call.candidateCount}" />
                                     <span class="d-block">
@@ -613,7 +613,7 @@
                                         <f:then>
                                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.score" arguments="{0: call.complexityScore}" />
                                             <span class="d-block text-body-secondary">
-                                                <code>{call.shape}</code>,
+                                                <code class="text-break">{call.shape}</code>,
                                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.tools" arguments="{0: call.toolCount}" />,
                                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.bytes" arguments="{0: call.payloadBytes}" />
                                             </span>

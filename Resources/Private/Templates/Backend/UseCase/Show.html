@@ -31,7 +31,7 @@
                 <f:be.infobox state="2">
                     <p class="mb-1">
                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.preflight.missing" default="No active model satisfies this pack's requirement:" />
-                        <code>{plan.preflight.missingRequirement}</code>
+                        <code class="text-break">{plan.preflight.missingRequirement}</code>
                     </p>
                     <f:if condition="{plan.preflight.remedy}">
                         <p class="mb-0">
@@ -57,6 +57,7 @@
                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.plan.title" default="What this pack installs" />
                         </h2>
                     </div>
+                    <div class="table-fit table-fit-wrap">
                     <table class="table table-striped mb-0">
                         <thead>
                             <tr>
@@ -71,7 +72,7 @@
                                     <core:icon identifier="actions-system-extension-configure" size="small" />
                                     {plan.configuration.label}
                                 </td>
-                                <td><code>{plan.configuration.identifier}</code></td>
+                                <td><code class="text-break">{plan.configuration.identifier}</code></td>
                                 <td>
                                     <f:render section="State" arguments="{installed: plan.configuration.installed}" />
                                 </td>
@@ -82,7 +83,7 @@
                                         <core:icon identifier="module-nrllm-task" size="small" />
                                         {item.label}
                                     </td>
-                                    <td><code>{item.identifier}</code></td>
+                                    <td><code class="text-break">{item.identifier}</code></td>
                                     <td><f:render section="State" arguments="{installed: item.installed}" /></td>
                                 </tr>
                             </f:for>
@@ -92,12 +93,13 @@
                                         <core:icon identifier="module-nrllm-snippet" size="small" />
                                         {item.label}
                                     </td>
-                                    <td><code>{item.identifier}</code></td>
+                                    <td><code class="text-break">{item.identifier}</code></td>
                                     <td><f:render section="State" arguments="{installed: item.installed}" /></td>
                                 </tr>
                             </f:for>
                         </tbody>
                     </table>
+                    </div>
                     <f:comment>
                         Not a record, and installing writes it anyway: without the
                         tag link the pack's snippets are composed into nothing.
@@ -107,7 +109,7 @@
                             <p class="mb-0 small">
                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.plan.snippetTags" default="Installing also adds these snippet tags to the configuration's selection, so the pack's snippets reach its prompts:" />
                                 <f:for each="{plan.missingSnippetTags}" as="tag">
-                                    <code>{tag}</code>
+                                    <code class="text-break">{tag}</code>
                                 </f:for>
                             </p>
                         </div>
@@ -130,9 +132,9 @@
                         <ul class="mb-1">
                             <f:for each="{plan.incomingSnippets}" as="incoming">
                                 <li>
-                                    {incoming.name} <code>{incoming.identifier}</code>
+                                    {incoming.name} <code class="text-break">{incoming.identifier}</code>
                                     <f:if condition="{incoming.dataClass}">
-                                        — <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.dataClass" default="data class" />: <code>{incoming.dataClass}</code>
+                                        — <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.dataClass" default="data class" />: <code class="text-break">{incoming.dataClass}</code>
                                     </f:if>
                                 </li>
                             </f:for>
@@ -156,7 +158,7 @@
                         </p>
                         <ul class="mb-1">
                             <f:for each="{plan.affectedConfigurations}" as="affected">
-                                <li>{affected.name} <code>{affected.identifier}</code></li>
+                                <li>{affected.name} <code class="text-break">{affected.identifier}</code></li>
                             </f:for>
                         </ul>
                         <p class="mb-0 small">
@@ -252,7 +254,7 @@
                             <ul class="list-unstyled mb-2">
                                 <f:for each="{plan.toolGroups}" as="group">
                                     <li class="mb-1">
-                                        <code>{group.group}</code>
+                                        <code class="text-break">{group.group}</code>
                                         <f:if condition="{group.labelKey}">
                                             <span class="text-body-secondary"><f:translate key="{group.labelKey}" default="" /></span>
                                         </f:if>
@@ -302,7 +304,7 @@
                                             <f:if condition="{action.declaration}">
                                                 <strong><f:translate key="{action.declaration.labelKey}" default="{action.toolName}" /></strong>
                                             </f:if>
-                                            <code>{action.toolName}</code>
+                                            <code class="text-break">{action.toolName}</code>
                                             <f:render section="ToolState" arguments="{known: action.declared, enabled: action.enabled}" />
                                         </div>
                                         <f:if condition="{action.declaration}">
@@ -314,7 +316,7 @@
                                             <div class="small">
                                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.editorActions.recordTypes" default="Applies to:" />
                                                 <f:for each="{action.recordTypes}" as="recordType">
-                                                    <code>{recordType}</code>
+                                                    <code class="text-break">{recordType}</code>
                                                 </f:for>
                                             </div>
                                         </f:if>
@@ -328,7 +330,7 @@
                                         <f:if condition="{action.group}">
                                             <div class="small">
                                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.editorActions.group" default="Tool group:" />
-                                                <code>{action.group}</code>
+                                                <code class="text-break">{action.group}</code>
                                             </div>
                                         </f:if>
                                     </li>

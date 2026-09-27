@@ -4,7 +4,7 @@
 -->
 <f:if condition="{terminal}">
     <f:then>
-        <div class="table-fit">
+        <div class="table-fit table-fit-wrap">
             <table class="table table-striped">
                 <caption class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.heading.terminal" default="Recent runs" /></caption>
                 <thead>
@@ -21,10 +21,10 @@
                 <tbody>
                     <f:for each="{terminal}" as="run">
                         <tr>
-                            <td><code>{run.configLabel}</code></td>
+                            <td><code class="text-break">{run.configLabel}</code></td>
                             <td>{run.status}</td>
-                            <td><f:format.date date="@{run.createdAt}" format="Y-m-d H:i" /></td>
-                            <td>
+                            <td class="col-datetime"><f:format.date date="@{run.createdAt}" format="Y-m-d H:i" /></td>
+                            <td class="col-datetime">
                                 <f:if condition="{run.finishedAt} > 0"><f:format.date date="@{run.finishedAt}" format="Y-m-d H:i" /></f:if>
                             </td>
                             <td>

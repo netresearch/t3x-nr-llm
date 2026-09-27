@@ -104,6 +104,41 @@ class Analytics {
             .addEventListener('change', () => this.render());
     }
 
+    /**
+     * Put the chart's numbers next to it as a visually hidden table. A canvas
+     * is a picture; its role="img" label names it, and this table is where a
+     * screen reader finds the values. Re-rendering replaces the table.
+     */
+    describeChart(canvas, headers, rows) {
+        const holder = canvas.parentElement;
+        holder.querySelector(':scope > table.visually-hidden')?.remove();
+        const table = document.createElement('table');
+        table.className = 'visually-hidden';
+        const caption = document.createElement('caption');
+        caption.textContent = canvas.getAttribute('aria-label') || '';
+        table.appendChild(caption);
+        const head = table.createTHead().insertRow();
+        headers.forEach((text) => {
+            const th = document.createElement('th');
+            th.scope = 'col';
+            th.textContent = text;
+            head.appendChild(th);
+        });
+        const body = table.createTBody();
+        rows.forEach((cells) => {
+            const tr = body.insertRow();
+            cells.forEach((value, i) => {
+                const cell = document.createElement(i === 0 ? 'th' : 'td');
+                if (i === 0) {
+                    cell.scope = 'row';
+                }
+                cell.textContent = String(value ?? '');
+                tr.appendChild(cell);
+            });
+        });
+        holder.appendChild(table);
+    }
+
     axisOptions() {
         return {
             ticks: { color: this.colors.text },
@@ -116,6 +151,7 @@ class Analytics {
         if (!canvas) {
             return;
         }
+        this.describeChart(canvas, ['Date', 'Est. cost ($)', 'Requests'], trend.map((r) => [r.date, r.cost, r.requests]));
         this.charts.push(new globalThis.Chart(canvas, {
             type: 'line',
             data: {
@@ -169,6 +205,7 @@ class Analytics {
         if (!canvas) {
             return;
         }
+        this.describeChart(canvas, ['Name', 'Est. cost ($)'], rows.map((r) => [r.label, r.cost]));
         this.charts.push(new globalThis.Chart(canvas, {
             type: 'bar',
             data: {

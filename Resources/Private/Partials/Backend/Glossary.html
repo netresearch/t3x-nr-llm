@@ -11,12 +11,14 @@
 {namespace core=TYPO3\CMS\Core\ViewHelpers}
 <div class="card mb-4">
     <div class="card-header py-2">
-        <button type="button" class="btn btn-link text-decoration-none p-0 collapsed"
-                data-bs-toggle="collapse" data-bs-target="#nrllm-glossary"
-                aria-expanded="false" aria-controls="nrllm-glossary">
-            <core:icon identifier="actions-info" size="small" />
-            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.title" default="Terms &amp; Parameters" />
-        </button>
+        <h2 class="h6 mb-0">
+            <button type="button" class="btn btn-link text-decoration-none p-0 collapsed"
+                    data-bs-toggle="collapse" data-bs-target="#nrllm-glossary"
+                    aria-expanded="false" aria-controls="nrllm-glossary">
+                <core:icon identifier="actions-info" size="small" />
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.title" default="Terms &amp; Parameters" />
+            </button>
+        </h2>
     </div>
     <div class="collapse" id="nrllm-glossary">
         <div class="card-body">
@@ -25,7 +27,7 @@
             </p>
             <div class="row">
                 <div class="col-md-6">
-                    <h4><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.section.terms" default="Terms" /></h4>
+                    <h3 class="h4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.section.terms" default="Terms" /></h3>
                     <dl class="row mb-0">
                         <dt class="col-sm-4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.term.provider.label" default="Provider" /></dt>
                         <dd class="col-sm-8"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.term.provider.text" default="An API connection to an LLM service (OpenAI, Claude, Gemini, Ollama, …). Stores endpoint, adapter type and the encrypted API key." /></dd>
@@ -62,7 +64,7 @@
                     </dl>
                 </div>
                 <div class="col-md-6">
-                    <h4><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.section.params" default="Numeric parameters" /></h4>
+                    <h3 class="h4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.section.params" default="Numeric parameters" /></h3>
                     <dl class="row mb-0">
                         <dt class="col-sm-4"><code>temperature</code></dt>
                         <dd class="col-sm-8"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.param.temperature" default="Randomness of the output (typically 0–2). Lower = more focused and deterministic, higher = more creative." /></dd>

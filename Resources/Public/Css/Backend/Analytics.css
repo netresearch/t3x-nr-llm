@@ -3,15 +3,13 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-/* Chart and budget-bar palette as light-dark() pairs: core switches the used
-   colour scheme by html[data-color-scheme], and light-dark() follows it.
-   Analytics.js resolves each token through a computed `color` before handing
-   it to Chart.js, which cannot evaluate light-dark() itself. Series, fills and
-   bars are graphics, so 3:1 applies: #257880 is 4.1:1 on its track, #b25e00
-   4.7:1 on white (the former #2f99a4 / #e8a33d were 2.7:1 / 2.2:1). */
+/* Chart palette as light-dark() pairs: core switches the used colour scheme
+   by html[data-color-scheme], and light-dark() follows it. Analytics.js
+   resolves each token through a computed `color` before handing it to
+   Chart.js, which cannot evaluate light-dark() itself. Series are graphics,
+   so 3:1 applies: #257880 is 5.2:1 and #b25e00 4.7:1 on white (the former
+   #2f99a4 / #e8a33d were 3.4:1 / 2.2:1). */
 .nrllm-analytics {
-    --nrllm-track: var(--typo3-surface-container-high);
-    --nrllm-fill: light-dark(#257880, #43b3bd);
     --nrllm-chart-series-1: light-dark(#257880, #43b3bd);
     --nrllm-chart-series-1-fill: light-dark(rgba(37, 120, 128, .15), rgba(67, 179, 189, .2));
     --nrllm-chart-series-2: light-dark(#b25e00, #f0b45c);
@@ -44,5 +42,21 @@
    parent, so the parent MUST have a fixed height or the canvas grows unbounded. */
 .nrllm-canvas-wrap { position: relative; height: 240px; }
 .nrllm-trend-box { position: relative; height: 320px; margin-bottom: 1.5rem; }
-.nrllm-budget-bar { background: var(--nrllm-track); border-radius: 4px; height: 8px; overflow: hidden; min-width: 120px; }
-.nrllm-budget-bar > span { display: block; height: 100%; background: var(--nrllm-fill); }
+/* Progress bar: a plain role="progressbar" element. Fill on track in core's
+   colours: at least 5.3:1 fill against track and 6.1:1 against the card, in
+   both schemes on 13.4 and 14.3. (Core's <typo3-backend-progress-bar> is
+   @internal, reaches 1.1:1 fill against track in dark, and keeps its role in
+   the shadow DOM, where it cannot be named.) */
+.nrllm-progress {
+    display: block;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--typo3-surface-container-high);
+}
+.nrllm-progress-fill {
+    display: block;
+    height: 100%;
+    background: var(--typo3-component-primary-color);
+}
+.nrllm-analytics .nrllm-progress { flex: 1 1 auto; min-width: 120px; }

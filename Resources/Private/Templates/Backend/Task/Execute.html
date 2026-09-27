@@ -10,6 +10,7 @@
 <f:layout name="Module" />
 
 <f:section name="Content">
+    <f:asset.module identifier="@typo3/backend/element/spinner-element.js" />
     <div data-task-execute data-task-uid="{task.uid}">
 
         <div class="d-flex justify-content-between align-items-center mb-4">
@@ -172,7 +173,7 @@
                             <hr class="my-3" />
                             <details>
                                 <summary class="mb-2"><strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:field.systemPrompt" default="System Prompt" /></strong></summary>
-                                <pre class="p-3 rounded mb-0" style="background: var(--typo3-surface-container-base); white-space: pre-wrap; font-size: 0.85em; max-height: 200px; overflow-y: auto;">{effectiveConfig.systemPrompt}</pre>
+                                <pre class="p-3 mb-0" style="background: var(--typo3-surface-container-base); white-space: pre-wrap; font-size: 0.85em; max-height: 200px; overflow-y: auto; border-radius: var(--typo3-component-border-radius);">{effectiveConfig.systemPrompt}</pre>
                             </details>
                         </f:if>
                     </f:then>
@@ -217,13 +218,13 @@
                                         <div class="card-body">
                                             <div class="row g-2">
                                                 <div class="col-md-5">
-                                                    <label class="form-label small"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.selectTable" default="Select Table" /></label>
+                                                    <label for="tableSelect" class="form-label small"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.selectTable" default="Select Table" /></label>
                                                     <select class="form-select form-select-sm" id="tableSelect">
                                                         <option value=""><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.loadTables" default="-- Load tables --" /></option>
                                                     </select>
                                                 </div>
                                                 <div class="col-md-5">
-                                                    <label class="form-label small"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.selectRecords" default="Select Records" /></label>
+                                                    <label for="recordSelect" class="form-label small"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.selectRecords" default="Select Records" /></label>
                                                     <select class="form-select form-select-sm" id="recordSelect" multiple size="4" disabled>
                                                         <option value=""><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.selectTableFirst" default="Select a table first" /></option>
                                                     </select>
@@ -280,13 +281,13 @@
                         </div>
 
                         <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-success btn-lg" id="executeBtn">
+                            <button type="button" class="btn btn-success" id="executeBtn">
                                 <span class="btn-content">
                                     <core:icon identifier="actions-play" size="small" />
                                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.execute" default="Execute Task" />
                                 </span>
                                 <span class="btn-loading d-none">
-                                    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                    <span class="me-1" role="status" aria-hidden="true"><typo3-backend-spinner size="small"></typo3-backend-spinner></span>
                                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.executing" default="Executing..." />
                                 </span>
                             </button>
@@ -308,7 +309,7 @@
                         </h2>
                     </div>
                     <div class="card-body">
-                        <pre class="p-3 rounded" style="background: var(--typo3-surface-container-base); max-height: 200px; overflow-y: auto;"><code>{task.promptTemplate}</code></pre>
+                        <pre class="p-3" style="background: var(--typo3-surface-container-base); max-height: 200px; overflow-y: auto; border-radius: var(--typo3-component-border-radius);"><code class="text-break">{task.promptTemplate}</code></pre>
                         <small class="text-muted">
                             <code>{"{{input}}"}</code> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.promptTemplate.hint" default="will be replaced with the input above." />
                         </small>
@@ -325,7 +326,7 @@
                             <span class="badge badge-secondary ms-2">{task.outputFormat}</span>
                         </h2>
                         <div id="outputStatus" class="d-none">
-                            <span class="spinner-border spinner-border-sm text-primary" role="status">
+                            <span role="status"><typo3-backend-spinner size="small"></typo3-backend-spinner>
                                 <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.processing" default="Processing..." /></span>
                             </span>
                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.processing" default="Processing..." />
@@ -338,14 +339,11 @@
                         </div>
 
                         <div id="outputLoading" class="d-none text-center py-5">
-                            <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
+                            <div class="mb-3" role="status"><typo3-backend-spinner size="large"></typo3-backend-spinner>
                                 <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.processing" default="Processing..." /></span>
                             </div>
                             <h4 class="text-primary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.loading.title" default="Processing request..." /></h4>
                             <p class="text-muted mb-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.loading.message" default="Sending to LLM and waiting for response" /></p>
-                            <div class="progress mx-auto" style="width: 200px; height: 4px;">
-                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width: 100%"></div>
-                            </div>
                             <p class="text-muted mt-3 small">
                                 <span id="elapsedTime">0</span>s elapsed
                             </p>
@@ -361,15 +359,15 @@
                         <div id="outputResult" class="d-none">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <div class="btn-group btn-group-sm" role="group" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.formatAria', default: 'Output format')}" id="outputFormatToggle">
-                                    <button type="button" class="btn btn-outline-secondary active" data-format="plain" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.plainTitle', default: 'Plain text')}">
+                                    <button type="button" class="btn btn-default active" aria-pressed="true" data-format="plain" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.plainTitle', default: 'Plain text')}">
                                         <core:icon identifier="actions-code" size="small" />
                                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.plain" default="Plain" />
                                     </button>
-                                    <button type="button" class="btn btn-outline-secondary" data-format="html" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.htmlTitle', default: 'Rendered HTML')}">
+                                    <button type="button" class="btn btn-default" aria-pressed="false" data-format="html" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.htmlTitle', default: 'Rendered HTML')}">
                                         <core:icon identifier="actions-template-new" size="small" />
                                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.html" default="HTML" />
                                     </button>
-                                    <button type="button" class="btn btn-outline-secondary" data-format="markdown" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.markdownTitle', default: 'Rendered Markdown')}">
+                                    <button type="button" class="btn btn-default" aria-pressed="false" data-format="markdown" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.markdownTitle', default: 'Rendered Markdown')}">
                                         <core:icon identifier="actions-file" size="small" />
                                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.markdown" default="Markdown" />
                                     </button>
@@ -380,7 +378,7 @@
                                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.tokensLabel" default="Tokens:" /> <span id="outputTokens">-</span>
                                 </small>
                             </div>
-                            <div id="outputContent" class="p-3 rounded" style="background: var(--typo3-surface-container-base); max-height: 500px; overflow-y: auto;"></div>
+                            <div id="outputContent" class="p-3" style="background: var(--typo3-surface-container-base); max-height: 500px; overflow-y: auto; border-radius: var(--typo3-component-border-radius);"></div>
 
                             <div class="mt-3">
                                 <button type="button" class="btn btn-sm btn-default" id="copyOutputBtn">

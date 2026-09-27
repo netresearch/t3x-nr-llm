@@ -9,6 +9,7 @@
 import AjaxRequest from '@typo3/core/ajax/ajax-request.js';
 import Notification from '@typo3/backend/notification.js';
 import { escapeHtml } from '@netresearch/nr-llm/Backend/HtmlEscape.js';
+import '@typo3/backend/element/spinner-element.js';
 
 class TaskExecute {
     constructor() {
@@ -178,7 +179,7 @@ class TaskExecute {
 
         this.loadRecordsBtn.disabled = true;
         const originalBtnHtml = this.loadRecordsBtn.innerHTML;
-        this.loadRecordsBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
+        this.loadRecordsBtn.innerHTML = '<span role="status"><typo3-backend-spinner size="small"></typo3-backend-spinner><span class="visually-hidden">Loading...</span></span>';
 
         try {
             const formData = new FormData();
@@ -223,7 +224,7 @@ class TaskExecute {
     async refreshInput() {
         this.refreshInputBtn.disabled = true;
         const originalHtml = this.refreshInputBtn.innerHTML;
-        this.refreshInputBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Refreshing...';
+        this.refreshInputBtn.innerHTML = '<span role="status"><typo3-backend-spinner size="small"></typo3-backend-spinner></span> Refreshing...';
 
         try {
             const formData = new FormData();
@@ -351,7 +352,9 @@ class TaskExecute {
     updateFormatToggle() {
         if (!this.formatToggle) return;
         this.formatToggle.querySelectorAll('[data-format]').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.format === this._activeFormat);
+            const pressed = btn.dataset.format === this._activeFormat;
+            btn.classList.toggle('active', pressed);
+            btn.setAttribute('aria-pressed', pressed ? 'true' : 'false');
         });
     }
 
@@ -412,7 +415,7 @@ class TaskExecute {
         iframe.style.cssText = 'width:100%;border:none;min-height:200px;background:#fff;';
         iframe.srcdoc = [
             '<!DOCTYPE html><html><head><meta charset="utf-8"><style>',
-            'body{font-family:system-ui,sans-serif;font-size:14px;padding:12px;margin:0;color:#333;line-height:1.5}',
+            'body{font-family:Verdana,Arial,Helvetica,sans-serif;font-size:12px;padding:12px;margin:0;color:#333;line-height:1.5}',
             'pre{background:#f5f5f5;padding:8px;border-radius:4px;overflow-x:auto}',
             'code{background:#f0f0f0;padding:2px 4px;border-radius:3px;font-size:0.9em}',
             'table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:6px 8px}',
@@ -441,9 +444,12 @@ class TaskExecute {
     renderMarkdownOutput(content) {
         const rendered = escapeHtml(content)
             // Headers
+            // Headers: the output sits under the page's h1 and the section's h2,
+            // so a model's "# Title" becomes h3 and deeper levels follow, in
+            // core's heading sizes rather than inline ones.
             .replace(/^(#{1,6})\s+(\S.*)$/gm, (_, hashes, text) => {
-                const level = hashes.length;
-                return '<h' + level + ' style="margin:0.8em 0 0.4em;font-size:' + (1.4 - level * 0.1) + 'em">' + text + '</h' + level + '>';
+                const level = Math.min(hashes.length + 2, 6);
+                return '<h' + level + ' style="margin:0.8em 0 0.4em">' + text + '</h' + level + '>';
             })
             // Code blocks
             .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre style="background:var(--typo3-surface-container-base);padding:8px;border-radius:4px;overflow-x:auto"><code>$2</code></pre>')
@@ -453,10 +459,12 @@ class TaskExecute {
             .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
             // Italic
             .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-            // Unordered lists
-            .replace(/^[-*]\s+(\S.*)$/gm, '<li>$1</li>')
-            // Ordered lists
-            .replace(/^\d+\.\s+(\S.*)$/gm, '<li>$1</li>')
+            // Lists: items are marked first, then each run of them is wrapped in
+            // its list element, so no <li> stands outside a <ul> or <ol>.
+            .replace(/^[-*]\s+(\S.*)$/gm, '<uli>$1</uli>')
+            .replace(/^\d+\.\s+(\S.*)$/gm, '<oli>$1</oli>')
+            .replace(/(?:<uli>.*<\/uli>\n?)+/g, (run) => '<ul>' + run.replaceAll('\n', '').replace(/<(\/?)uli>/g, '<$1li>') + '</ul>')
+            .replace(/(?:<oli>.*<\/oli>\n?)+/g, (run) => '<ol>' + run.replaceAll('\n', '').replace(/<(\/?)oli>/g, '<$1li>') + '</ol>')
             // Horizontal rule
             .replace(/^---+$/gm, '<hr style="margin:1em 0">')
             // Line breaks
@@ -532,6 +540,7 @@ class TaskExecute {
         this.outcomeBar.querySelectorAll('[data-outcome]').forEach(button => {
             button.disabled = false;
             button.classList.remove('active');
+            button.setAttribute('aria-pressed', 'false');
         });
     }
 
@@ -563,8 +572,12 @@ class TaskExecute {
             if (response.success) {
                 // The stored answer replaces any earlier one, so the UI shows
                 // exactly one active button rather than accumulating them.
-                this.outcomeBar.querySelectorAll('[data-outcome]').forEach(other => other.classList.remove('active'));
+                this.outcomeBar.querySelectorAll('[data-outcome]').forEach(other => {
+                    other.classList.remove('active');
+                    other.setAttribute('aria-pressed', 'false');
+                });
                 button.classList.add('active');
+                button.setAttribute('aria-pressed', 'true');
             } else {
                 Notification.error('Rating not saved', response.error || 'Unknown error');
             }

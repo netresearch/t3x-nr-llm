@@ -5,7 +5,7 @@
 <f:for each="{run.pendingCalls}" as="call">
     <div class="mb-2">
         <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.pendingCall" default="Pending tool call" />:</strong>
-        <code>{call.name}</code>
+        <code class="text-break">{call.name}</code>
         <f:if condition="{call.toolStillRegistered} == false">
             <span class="badge badge-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.toolGone" default="The tool for this call is no longer registered." /></span>
         </f:if>
@@ -34,7 +34,7 @@
         </f:if>
         <details class="mt-1">
             <summary><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.arguments" default="Arguments" /></summary>
-            <pre class="mt-1 mb-0"><code>{call.argumentsJson}</code></pre>
+            <pre class="mt-1 mb-0"><code class="text-break">{call.argumentsJson}</code></pre>
         </details>
     </div>
 </f:for>

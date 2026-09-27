@@ -94,7 +94,7 @@ final class ModelIdElement extends AbstractFormElement
             htmlspecialchars($tableName, ENT_QUOTES, 'UTF-8'),
         );
         $html[] = '    </div>';
-        $html[] = '    <div class="js-model-status mt-1" style="display:none;"></div>';
+        $html[] = '    <div class="js-model-status mt-1" role="status" style="display:none;"></div>';
         $html[] = '  </div>';
         $html[] = '</div>';
 

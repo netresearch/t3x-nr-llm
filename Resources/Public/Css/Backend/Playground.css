@@ -26,7 +26,7 @@
     --pg-danger: var(--typo3-text-color-danger);
     --pg-code-bg: var(--typo3-surface-container-base);
     --pg-radius: 6px;
-    --pg-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    --pg-mono: var(--typo3-font-family-code);
 }
 
 /* ---- overrides panel ---- */
@@ -85,7 +85,7 @@
 }
 
 .nrllm-pg-cell-k {
-    font-size: 10px;
+    font-size: var(--typo3-font-size-small);
     text-transform: uppercase;
     letter-spacing: .05em;
     color: var(--pg-muted);
@@ -184,9 +184,15 @@
     display: flex;
     align-items: center;
     gap: 9px;
+    width: 100%;
     padding: 9px 12px;
+    border: 0;
     border-bottom: 1px solid var(--pg-border-soft);
     border-left: 3px solid transparent;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: start;
     cursor: pointer;
 }
 
@@ -226,6 +232,11 @@
     flex: 1;
 }
 
+.nrllm-pg-st1,
+.nrllm-pg-st2 {
+    display: block;
+}
+
 .nrllm-pg-st1 {
     font-size: 12.5px;
     font-weight: 600;
@@ -236,14 +247,14 @@
 }
 
 .nrllm-pg-st2 {
-    font-size: 10.5px;
+    font-size: var(--typo3-font-size-small);
     color: var(--pg-muted);
     font-family: var(--pg-mono);
 }
 
 .nrllm-pg-sr {
     margin-left: auto;
-    font-size: 10.5px;
+    font-size: var(--typo3-font-size-small);
     color: var(--pg-muted);
     font-family: var(--pg-mono);
     font-variant-numeric: tabular-nums;
@@ -344,7 +355,7 @@
 
 .nrllm-pg-mh {
     padding: 5px 10px;
-    font-size: 10.5px;
+    font-size: var(--typo3-font-size-small);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .03em;

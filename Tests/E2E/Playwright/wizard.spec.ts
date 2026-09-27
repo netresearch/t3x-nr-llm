@@ -495,7 +495,7 @@ test.describe('Task Wizard - Create with AI', () => {
         await expect(warning).toContainText('No LLM configuration available');
 
         // Should have link to configurations page
-        const configLink = warning.locator('a.alert-link');
+        const configLink = warning.locator('a');
         await expect(configLink).toContainText('Configurations');
       }
     });

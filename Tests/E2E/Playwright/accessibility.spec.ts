@@ -138,18 +138,21 @@ test.describe('Accessibility Tests @accessibility', () => {
       const page = authenticatedPage;
       const moduleFrame = await navigateToProviders(page);
 
-      // Check if modal exists in DOM (hidden)
-      const modal = moduleFrame.locator('#test-modal');
-      const modalExists = await modal.count() > 0;
-
-      if (modalExists) {
-        // Modal should have proper ARIA attributes
-        const ariaLabelledby = await modal.getAttribute('aria-labelledby');
-        const ariaHidden = await modal.getAttribute('aria-hidden');
-
-        // Modal should reference its title
-        expect(ariaLabelledby || ariaHidden).toBeTruthy();
+      const testButton = moduleFrame.locator('.js-test-connection').first();
+      if (await testButton.count() === 0) {
+        test.skip();
+        return;
       }
+
+      // The connection test opens core's modal in the top document; the
+      // module frame carries no modal markup of its own.
+      await testButton.click();
+      const modal = page.locator('.t3js-modal').first();
+      await expect(modal).toBeVisible();
+
+      const results = await new AxeBuilder({ page }).include('.t3js-modal').analyze();
+      const critical = results.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious');
+      expect(critical).toEqual([]);
     });
   });
 

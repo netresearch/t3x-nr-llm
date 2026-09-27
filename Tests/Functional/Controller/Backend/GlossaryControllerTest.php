@@ -71,7 +71,7 @@ final class GlossaryControllerTest extends AbstractFunctionalTestCase
         self::assertStringNotContainsString('Deleted EN-DE', $body);
         // Record 1 holds two usable pairs; the column shows what takes effect.
         self::assertMatchesRegularExpression(
-            '#<strong>Shop DE-EN</strong></td>\s*<td><code>main</code></td>\s*<td><code>de</code> → <code>en</code></td>\s*<td>2</td>#',
+            '#<strong>Shop DE-EN</strong></td>\s*<td><code class="text-break">main</code></td>\s*<td><code class="text-break">de</code> → <code class="text-break">en</code></td>\s*<td>2</td>#',
             $body,
         );
         // Within one site and pair the list puts the record the translation

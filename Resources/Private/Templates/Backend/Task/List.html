@@ -69,10 +69,11 @@
                             </h2>
                         </div>
                         <div class="card-body p-0">
+                            <div class="table-fit table-fit-wrap">
                             <table class="table table-striped table-hover mb-0">
                                 <thead>
                                     <tr>
-                                        <th scope="col" style="width: 40px;"><span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:field.status" default="Status" /></span></th>
+                                        <th scope="col" class="col-icon"><span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:field.status" default="Status" /></span></th>
                                         <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.col.name" default="Name" /></th>
                                         <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.col.identifier" default="Identifier" /></th>
                                         <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.col.input" default="Input" /></th>
@@ -80,13 +81,13 @@
                                         <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.col.cost" default="Cost (30d)" /></th>
                                         <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.col.requests" default="Requests (30d)" /></th>
                                         <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.col.tokens" default="Tokens (30d)" /></th>
-                                        <th scope="col" style="width: 200px;"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:actions" default="Actions" /></th>
+                                        <th scope="col" class="col-control"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:actions" default="Actions" /></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <f:for each="{group.tasks}" as="task">
                                         <tr class="{f:if(condition: '!{task.isActive}', then: 'table-secondary')}">
-                                            <td>
+                                            <td class="col-icon">
                                                 <f:if condition="{task.isActive}">
                                                     <f:then>
                                                         <span class="badge badge-success" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.title.active')}">
@@ -111,7 +112,7 @@
                                                     <br><small class="text-muted">{task.description}</small>
                                                 </f:if>
                                             </td>
-                                            <td><code>{task.identifier}</code></td>
+                                            <td><code class="text-break">{task.identifier}</code></td>
                                             <td>
                                                 <span class="badge badge-secondary">{task.inputType}</span>
                                             </td>
@@ -121,7 +122,7 @@
                                             <td>{costByTask.{task.uid}}</td>
                                             <td>{reqByTask.{task.uid}}</td>
                                             <td>{tokByTask.{task.uid}}</td>
-                                            <td>
+                                            <td class="col-control">
                                                 <div class="btn-group btn-group-sm">
                                                     <f:if condition="{task.isActive}">
                                                         <f:link.action action="executeForm" controller="Backend\TaskExecution" arguments="{uid: task.uid}" class="btn btn-success" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.action.execute')}">
@@ -138,6 +139,7 @@
                                     </f:for>
                                 </tbody>
                             </table>
+                            </div>
                         </div>
                     </div>
                 </f:for>

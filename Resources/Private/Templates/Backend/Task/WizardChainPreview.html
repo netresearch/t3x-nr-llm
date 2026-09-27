@@ -53,7 +53,7 @@
 
                         <f:if condition="{chain.task.identifier}">
                             <dt class="col-sm-3">Identifier</dt>
-                            <dd class="col-sm-9"><code>{chain.task.identifier}</code></dd>
+                            <dd class="col-sm-9"><code class="text-break">{chain.task.identifier}</code></dd>
                         </f:if>
 
                         <f:if condition="{chain.task.description}">
@@ -70,7 +70,7 @@
                         <f:if condition="{chain.task.prompt_template}">
                             <dt class="col-sm-3">Prompt Template</dt>
                             <dd class="col-sm-9">
-                                <pre class="mb-0 p-2 rounded" style="background: var(--typo3-surface-container-base); white-space: pre-wrap; font-size: 0.85em;">{chain.task.prompt_template}</pre>
+                                <pre class="mb-0 p-2" style="background: var(--typo3-surface-container-base); white-space: pre-wrap; font-size: 0.85em; border-radius: var(--typo3-component-border-radius);">{chain.task.prompt_template}</pre>
                             </dd>
                         </f:if>
                     </dl>
@@ -114,7 +114,7 @@
 
                             <f:if condition="{chain.configuration.identifier}">
                                 <dt class="col-sm-3">Identifier</dt>
-                                <dd class="col-sm-9"><code>{chain.configuration.identifier}</code></dd>
+                                <dd class="col-sm-9"><code class="text-break">{chain.configuration.identifier}</code></dd>
                             </f:if>
 
                             <f:if condition="{chain.configuration.description}">
@@ -125,7 +125,7 @@
                             <f:if condition="{chain.configuration.system_prompt}">
                                 <dt class="col-sm-3">System Prompt</dt>
                                 <dd class="col-sm-9">
-                                    <pre class="mb-0 p-2 rounded" style="background: var(--typo3-surface-container-base); white-space: pre-wrap; font-size: 0.85em;">{chain.configuration.system_prompt}</pre>
+                                    <pre class="mb-0 p-2" style="background: var(--typo3-surface-container-base); white-space: pre-wrap; font-size: 0.85em; border-radius: var(--typo3-component-border-radius);">{chain.configuration.system_prompt}</pre>
                                 </dd>
                             </f:if>
 

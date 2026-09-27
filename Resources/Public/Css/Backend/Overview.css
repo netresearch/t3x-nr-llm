@@ -157,10 +157,10 @@
     margin-bottom: 8px;
 }
 
+/* Wraps instead of truncating: an ellipsis hid long provider names from
+   everyone without a pointer to hover a title with. */
 .nrllm-ov-bar-label {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
 }
 
 .nrllm-ov-bar-track {
@@ -234,15 +234,21 @@
     transform: translateY(-1px);
 }
 
-/* The whole card is a link. The anchor is empty, so define the stretched-link
-   overlay explicitly rather than relying on the backend Bootstrap build (which
-   does not reach the module iframe): its ::after covers the position:relative
-   card, making the whole card clickable. */
+/* The whole card is a link. The anchor is empty, so the stretched-link overlay
+   is defined here: TYPO3 13.4's backend CSS ships .stretched-link, 14.3's does
+   not. Its ::after covers the position:relative card, making it clickable. */
 .nrllm-ov-card .stretched-link::after {
     content: "";
     position: absolute;
     inset: 0;
     z-index: 1;
+}
+
+/* The anchor has no box of its own (0px high), so its focus outline is never
+   drawn. Keyboard focus is shown on the card instead, with core's focus ring. */
+.nrllm-ov-card:has(.stretched-link:focus-visible) {
+    outline: var(--typo3-outline-width) var(--typo3-outline-style) color-mix(in srgb, var(--typo3-component-focus-border-color), transparent var(--typo3-outline-transparent-mix));
+    outline-offset: 2px;
 }
 
 /* Only the footer actions sit above the stretched ::after so they remain
@@ -335,7 +341,7 @@
     right: 10px;
     z-index: 2;
     pointer-events: none;
-    font-size: 10.5px;
+    font-size: var(--typo3-font-size-small);
     font-weight: 700;
     letter-spacing: .02em;
     text-transform: uppercase;

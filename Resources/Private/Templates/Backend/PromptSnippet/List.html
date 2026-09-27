@@ -47,20 +47,21 @@
             <f:else>
                 <div class="card mb-4">
                     <div class="card-body p-0">
+                        <div class="table-fit table-fit-wrap">
                         <table class="table table-striped table-hover mb-0">
                             <thead>
                                 <tr>
-                                    <th scope="col" style="width: 40px;"><span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:field.status" default="Status" /></span></th>
+                                    <th scope="col" class="col-icon"><span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:field.status" default="Status" /></span></th>
                                     <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.col.name" default="Name" /></th>
                                     <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.col.identifier" default="Identifier" /></th>
                                     <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.col.tags" default="Tags" /></th>
-                                    <th scope="col" style="width: 120px;"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:actions" default="Actions" /></th>
+                                    <th scope="col" class="col-control"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:actions" default="Actions" /></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <f:for each="{snippets}" as="snippet">
                                     <tr class="{f:if(condition: '!{snippet.isActive}', then: 'table-secondary')}">
-                                        <td>
+                                        <td class="col-icon">
                                             <f:if condition="{snippet.isActive}">
                                                 <f:then>
                                                     <span class="badge badge-success" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.title.active')}">
@@ -82,13 +83,13 @@
                                                 <br><small class="text-muted">{snippet.description}</small>
                                             </f:if>
                                         </td>
-                                        <td><code>{snippet.identifier}</code></td>
+                                        <td><code class="text-break">{snippet.identifier}</code></td>
                                         <td>
                                             <f:for each="{snippet.tagList}" as="tag">
                                                 <span class="badge badge-info me-1">{tag}</span>
                                             </f:for>
                                         </td>
-                                        <td>
+                                        <td class="col-control">
                                             <div class="btn-group btn-group-sm">
                                                 <a href="{editUrls.{snippet.uid}}" class="btn btn-default" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.action.edit')}" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.action.edit')}">
                                                     <core:icon identifier="actions-open" size="small" />
@@ -99,6 +100,7 @@
                                 </f:for>
                             </tbody>
                         </table>
+                        </div>
                     </div>
                 </div>
             </f:else>

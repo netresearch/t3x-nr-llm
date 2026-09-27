@@ -226,7 +226,7 @@ final class UseCasePackRenderTest extends AbstractFunctionalTestCase
         // The group is the half that says WHERE the switch is: the Tools module
         // lists the action under it (ADR-135 puts the writers in `editing`).
         self::assertStringContainsString('Tool group:', $body);
-        self::assertStringContainsString('<code>editing</code>', $body);
+        self::assertStringContainsString('<code class="text-break">editing</code>', $body);
         // Disabled by default, and the screen has to say so rather than imply
         // the pack turns it on.
         self::assertStringContainsString('Disabled', $body);

@@ -895,6 +895,12 @@
             <trans-unit id="analytics.kpi.models">
                 <source>Models</source>
             </trans-unit>
+            <trans-unit id="analytics.range.group">
+                <source>Date range</source>
+            </trans-unit>
+            <trans-unit id="analytics.trend.label">
+                <source>Estimated cost and requests per day</source>
+            </trans-unit>
             <trans-unit id="analytics.breakdown.provider">
                 <source>By provider</source>
             </trans-unit>

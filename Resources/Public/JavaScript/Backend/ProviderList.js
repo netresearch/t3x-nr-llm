@@ -17,6 +17,8 @@ import Severity from '@typo3/backend/severity.js';
 import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
 import { postUidAndReload } from '@netresearch/nr-llm/Backend/ModuleAction.js';
 import { escapeHtml } from '@netresearch/nr-llm/Backend/HtmlEscape.js';
+import '@typo3/backend/element/spinner-element.js';
+import '@typo3/backend/element/icon-element.js';
 
 class ProviderList {
     constructor() {
@@ -74,25 +76,21 @@ class ProviderList {
         // Create DOM element container for modal content (TYPO3 v14 requires DOM element, not HTML string)
         const container = document.createElement('div');
         container.innerHTML = `
-            <div class="modal-loading text-center py-4" id="provider-test-loading">
-                <div class="spinner-border text-primary mb-3" role="status">
+            <div class="text-center py-4" style="display: flex; flex-direction: column; align-items: center;" id="provider-test-loading">
+                <div class="mb-3" role="status"><typo3-backend-spinner size="default"></typo3-backend-spinner>
                     <span class="visually-hidden">Testing connection...</span>
                 </div>
                 <p class="text-body-secondary">Testing connection to ${escapeHtml(name)}...</p>
             </div>
             <div class="modal-success text-center py-4" id="provider-test-success" style="display: none;">
                 <div class="mb-3">
-                    <span class="badge badge-success fs-4 p-3 rounded-circle">
-                        <span class="icon icon-size-large">
-                            <span class="icon-markup">&#10003;</span>
-                        </span>
-                    </span>
+                    <span class="text-success" aria-hidden="true"><typo3-backend-icon identifier="actions-check-circle" size="large"></typo3-backend-icon></span>
                 </div>
                 <h4 class="text-success">Connection Successful</h4>
                 <p class="text-body-secondary" id="provider-test-success-message"></p>
             </div>
             <div class="modal-error alert alert-danger" id="provider-test-error" style="display: none;">
-                <h5 class="alert-heading">Connection Failed</h5>
+                <h5 class="">Connection Failed</h5>
                 <p id="provider-test-error-message"></p>
             </div>
         `;

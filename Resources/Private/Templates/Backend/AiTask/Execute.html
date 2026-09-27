@@ -17,6 +17,7 @@
 </f:comment>
 
 <f:section name="Content">
+    <f:asset.module identifier="@typo3/backend/element/spinner-element.js" />
     <div data-task-execute data-task-uid="{task.uid}">
 
         <div class="d-flex justify-content-between align-items-center mb-4">
@@ -81,13 +82,13 @@
                         </div>
 
                         <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-success btn-lg" id="executeBtn">
+                            <button type="button" class="btn btn-success" id="executeBtn">
                                 <span class="btn-content">
                                     <core:icon identifier="actions-play" size="small" />
                                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.execute" default="Execute Task" />
                                 </span>
                                 <span class="btn-loading d-none">
-                                    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                    <span class="me-1" role="status" aria-hidden="true"><typo3-backend-spinner size="small"></typo3-backend-spinner></span>
                                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.executing" default="Executing..." />
                                 </span>
                             </button>
@@ -111,7 +112,7 @@
                             <span class="badge badge-secondary ms-2">{task.outputFormat}</span>
                         </h2>
                         <div id="outputStatus" class="d-none">
-                            <span class="spinner-border spinner-border-sm text-primary" role="status">
+                            <span role="status"><typo3-backend-spinner size="small"></typo3-backend-spinner>
                                 <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.processing" default="Processing..." /></span>
                             </span>
                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.processing" default="Processing..." />
@@ -124,14 +125,11 @@
                         </div>
 
                         <div id="outputLoading" class="d-none text-center py-5">
-                            <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
+                            <div class="mb-3" role="status"><typo3-backend-spinner size="large"></typo3-backend-spinner>
                                 <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.processing" default="Processing..." /></span>
                             </div>
-                            <h4 class="text-primary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.loading.title" default="Processing request..." /></h4>
+                            <h3 class="h4 text-primary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.loading.title" default="Processing request..." /></h3>
                             <p class="text-muted mb-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.loading.message" default="Sending to LLM and waiting for response" /></p>
-                            <div class="progress mx-auto" style="width: 200px; height: 4px;">
-                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width: 100%"></div>
-                            </div>
                             <p class="text-muted mt-3 small">
                                 <span id="elapsedTime">0</span>s elapsed
                             </p>
@@ -148,10 +146,10 @@
                             <span class="small text-body-secondary">
                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:outcome.prompt" default="Was this useful?" />
                             </span>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" data-outcome="helpful">
+                            <button type="button" class="btn btn-sm btn-default" aria-pressed="false" data-outcome="helpful">
                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:outcome.helpful" default="Yes" />
                             </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" data-outcome="not_helpful">
+                            <button type="button" class="btn btn-sm btn-default" aria-pressed="false" data-outcome="not_helpful">
                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:outcome.notHelpful" default="No" />
                             </button>
                         </div>
@@ -159,15 +157,15 @@
                         <div id="outputResult" class="d-none">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <div class="btn-group btn-group-sm" role="group" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.formatAria', default: 'Output format')}" id="outputFormatToggle">
-                                    <button type="button" class="btn btn-outline-secondary active" data-format="plain" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.plainTitle', default: 'Plain text')}">
+                                    <button type="button" class="btn btn-default active" aria-pressed="true" data-format="plain" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.plainTitle', default: 'Plain text')}">
                                         <core:icon identifier="actions-code" size="small" />
                                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.plain" default="Plain" />
                                     </button>
-                                    <button type="button" class="btn btn-outline-secondary" data-format="html" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.htmlTitle', default: 'Rendered HTML')}">
+                                    <button type="button" class="btn btn-default" aria-pressed="false" data-format="html" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.htmlTitle', default: 'Rendered HTML')}">
                                         <core:icon identifier="actions-template-new" size="small" />
                                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.html" default="HTML" />
                                     </button>
-                                    <button type="button" class="btn btn-outline-secondary" data-format="markdown" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.markdownTitle', default: 'Rendered Markdown')}">
+                                    <button type="button" class="btn btn-default" aria-pressed="false" data-format="markdown" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.markdownTitle', default: 'Rendered Markdown')}">
                                         <core:icon identifier="actions-file" size="small" />
                                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.markdown" default="Markdown" />
                                     </button>
@@ -178,7 +176,7 @@
                                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.tokensLabel" default="Tokens:" /> <span id="outputTokens">-</span>
                                 </small>
                             </div>
-                            <div id="outputContent" class="p-3 rounded" style="background: var(--typo3-surface-container-base); max-height: 500px; overflow-y: auto;"></div>
+                            <div id="outputContent" class="p-3" style="background: var(--typo3-surface-container-base); max-height: 500px; overflow-y: auto; border-radius: var(--typo3-component-border-radius);"></div>
 
                             <div class="mt-3">
                                 <button type="button" class="btn btn-sm btn-default" id="copyOutputBtn">

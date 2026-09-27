@@ -45,21 +45,22 @@
             <f:else>
                 <div class="card mb-4">
                     <div class="card-body p-0">
+                        <div class="table-fit table-fit-wrap">
                         <table class="table table-striped table-hover mb-0">
                             <thead>
                                 <tr>
-                                    <th scope="col" style="width: 40px;"><span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:field.status" default="Status" /></span></th>
+                                    <th scope="col" class="col-icon"><span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:field.status" default="Status" /></span></th>
                                     <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:translationGlossary.col.name" default="Name" /></th>
                                     <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:translationGlossary.col.site" default="Site" /></th>
                                     <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:translationGlossary.col.languages" default="Languages" /></th>
                                     <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:translationGlossary.col.terms" default="Term pairs" /></th>
-                                    <th scope="col" style="width: 120px;"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:actions" default="Actions" /></th>
+                                    <th scope="col" class="col-control"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:actions" default="Actions" /></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <f:for each="{glossaries}" as="glossary">
                                     <tr class="{f:if(condition: '{glossary.hidden}', then: 'table-secondary')}">
-                                        <td>
+                                        <td class="col-icon">
                                             <f:if condition="{glossary.hidden}">
                                                 <f:then>
                                                     <span class="badge badge-secondary" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:translationGlossary.hidden')}">
@@ -76,10 +77,10 @@
                                             </f:if>
                                         </td>
                                         <td><strong>{glossary.name}</strong></td>
-                                        <td><code>{glossary.siteIdentifier}</code></td>
-                                        <td><code>{glossary.sourceLanguage}</code> → <code>{glossary.targetLanguage}</code></td>
+                                        <td><code class="text-break">{glossary.siteIdentifier}</code></td>
+                                        <td><code class="text-break">{glossary.sourceLanguage}</code> → <code class="text-break">{glossary.targetLanguage}</code></td>
                                         <td>{glossary.termCount}</td>
-                                        <td>
+                                        <td class="col-control">
                                             <div class="btn-group btn-group-sm">
                                                 <a href="{editUrls.{glossary.uid}}" class="btn btn-default" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.action.edit')}" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.action.edit')}">
                                                     <core:icon identifier="actions-open" size="small" />
@@ -90,6 +91,7 @@
                                 </f:for>
                             </tbody>
                         </table>
+                        </div>
                     </div>
                 </div>
             </f:else>
