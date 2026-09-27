@@ -92,7 +92,7 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
             const badge = document.createElement('span');
             badge.className = 'badge badge-success ms-1';
             badge.textContent = 'recommended';
-            badge.style.fontSize = '0.7em';
+            badge.style.fontSize = 'var(--typo3-font-size-small)';
             topRow.appendChild(badge);
         }
 
@@ -131,9 +131,8 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
 
         if (metaParts.length > 0) {
             const metaRow = document.createElement('div');
-            metaRow.className = 'small mt-1';
-            metaRow.style.color = 'var(--typo3-text-color-variant)';
-            metaRow.style.fontSize = '0.78em';
+            metaRow.className = 'text-variant mt-1';
+            metaRow.style.fontSize = 'var(--typo3-font-size-small)';
             metaRow.textContent = metaParts.join('  \u2502  ');
             item.appendChild(metaRow);
         }
@@ -360,13 +359,15 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
             }, 150);
         });
 
-        // Keyboard: Escape closes dropdown
-        filterInput.addEventListener('keydown', function (e) {
+        // Keyboard: Escape closes the list from the filter or from any item.
+        // Assigned rather than added: the list element is reused on reopen.
+        dropdown.onkeydown = function (e) {
             if (e.key === 'Escape') {
+                e.preventDefault();
                 setDropdownOpen(dropdown, false);
                 input.focus();
             }
-        });
+        };
 
         setDropdownOpen(dropdown, true);
         setTimeout(function () { filterInput.focus(); }, 50);
@@ -467,7 +468,13 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
     // Close dropdown when clicking outside
     document.addEventListener('click', function (e) {
         document.querySelectorAll('.js-model-dropdown').forEach(function (dropdown) {
-            if (!dropdown.contains(e.target) && !e.target.classList.contains('js-fetch-models')) {
+            // A click on the button's icon targets the SVG inside it, and the
+            // button's handler may already have replaced that SVG ("Fetching…"),
+            // so ask the path recorded at dispatch rather than e.target.
+            const fromButton = e.composedPath().some(function (node) {
+                return node instanceof Element && node.classList.contains('js-fetch-models');
+            });
+            if (!dropdown.contains(e.target) && !fromButton) {
                 setDropdownOpen(dropdown, false);
             }
         });

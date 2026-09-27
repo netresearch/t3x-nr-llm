@@ -112,7 +112,7 @@ class ModelList {
                 <div class="progress-steps small">
                     <div class="d-flex align-items-center mb-2" id="step-connect">
                         <span class="me-2" id="step-connect-spinner"><typo3-backend-spinner size="small"></typo3-backend-spinner></span>
-                        <span class="text-variant" id="step-connect-text">Connecting to provider...</span>
+                        <span id="step-connect-text">Connecting to provider...</span>
                     </div>
                     <div class="d-flex align-items-center mb-2 text-variant" id="step-send">
                         <span class="me-2">○</span>
@@ -141,7 +141,7 @@ class ModelList {
             <div class="modal-error alert alert-danger" id="model-test-error" style="display: none;">
                 <h5>Model Test Failed</h5>
                 <p id="model-test-error-message"></p>
-                <small class="text-variant">Failed after <span id="error-elapsed">0</span>s</small>
+                <small>Failed after <span id="error-elapsed">0</span>s</small>
             </div>
         `;
 

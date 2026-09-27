@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Widgets\DataProvider\GovernanceBlocksOverTimeDataProvider;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionClassConstant;
 
 #[CoversClass(GovernanceBlocksOverTimeDataProvider::class)]
 final class GovernanceBlocksOverTimeDataProviderTest extends AbstractUnitTestCase
@@ -91,7 +92,7 @@ final class GovernanceBlocksOverTimeDataProviderTest extends AbstractUnitTestCas
         $colors = $shaped['datasets'][0]['backgroundColor'];
 
         self::assertCount(count(GovernanceDecision::cases()), $colors);
-        self::assertNotContains('#8E8E8E', $colors, 'A decision fell through to the grey fallback — give it a colour in DECISION_COLORS.');
+        self::assertNotContains((new ReflectionClassConstant(GovernanceBlocksOverTimeDataProvider::class, 'FALLBACK_COLOR'))->getValue(), $colors, 'A decision fell through to the grey fallback — give it a colour in DECISION_COLORS.');
         self::assertSame($colors, array_unique($colors), 'Two decisions share a colour, so the chart cannot tell them apart.');
     }
 

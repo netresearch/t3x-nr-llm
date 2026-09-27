@@ -68,8 +68,8 @@ final class ChartPaletteContrastTest extends AbstractUnitTestCase
         self::assertIsArray($colors);
         self::assertNotEmpty($colors);
 
-        // The grey every provider falls back to for a key it does not know.
-        $colors['(fallback)'] = '#8E8E8E';
+        // The grey the provider falls back to for a key it does not know.
+        $colors['(fallback)'] = (new ReflectionClassConstant($class, 'FALLBACK_COLOR'))->getValue();
 
         foreach ($colors as $key => $hex) {
             self::assertIsString($hex);
@@ -90,7 +90,7 @@ final class ChartPaletteContrastTest extends AbstractUnitTestCase
         $colors = (new ReflectionClassConstant(AgentRunsByStatusDataProvider::class, 'STATUS_COLORS'))->getValue();
         self::assertIsArray($colors);
         self::assertNotEmpty($colors);
-        $colors['(fallback)'] = '#8E8E8E';
+        $colors['(fallback)'] = (new ReflectionClassConstant(AgentRunsByStatusDataProvider::class, 'FALLBACK_COLOR'))->getValue();
 
         foreach ($colors as $key => $hex) {
             self::assertIsString($hex);

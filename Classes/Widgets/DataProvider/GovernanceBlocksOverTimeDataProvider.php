@@ -35,12 +35,15 @@ final readonly class GovernanceBlocksOverTimeDataProvider implements ChartDataPr
 
     private const LLL = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:';
 
+    /** Grey for a key without a colour; held to the same 3:1 on both cards. */
+    private const FALLBACK_COLOR = '#8E8E8E';
+
     /**
      * Semantic colour per decision.
      *
      * Every {@see GovernanceDecision} case must have one — asserted by
      * {@see \Netresearch\NrLlm\Tests\Unit\Widgets\DataProvider\GovernanceBlocksOverTimeDataProviderTest}.
-     * The grey fallback below stays for a case added at runtime by another
+     * The grey FALLBACK_COLOR stays for a case added at runtime by another
      * extension, not as a licence to leave one out here: `context_blocked`
      * shipped without a colour and rendered as an unnamed grey bar (`#763`).
      *
@@ -101,7 +104,7 @@ final readonly class GovernanceBlocksOverTimeDataProvider implements ChartDataPr
 
             $chartLabels[] = $labels[$case->value] ?? $case->value;
             $data[]        = $count;
-            $colors[]      = self::DECISION_COLORS[$case->value] ?? '#8E8E8E';
+            $colors[]      = self::DECISION_COLORS[$case->value] ?? self::FALLBACK_COLOR;
         }
 
         return [

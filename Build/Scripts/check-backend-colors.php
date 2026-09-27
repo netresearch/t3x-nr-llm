@@ -23,15 +23,19 @@ declare(strict_types=1);
  * (not the vendored Chart.js), and the icons in Resources/Public/Icons.
  * Comments are ignored. Refused:
  *
- *  1. colour literals — hex, rgb()/rgba()/hsl()/hsla()/hwb()/lab()/lch()/
- *     oklab()/oklch()/color() — anywhere, and any of the 148 CSS named
- *     colours as the value of a property that carries colour (color,
- *     background, border, outline, fill, stroke, box-shadow, text-shadow,
- *     caret-color, accent-color, text-decoration, column-rule, …), whether
- *     written as a declaration (`color: black`), a JavaScript style
- *     assignment (`el.style.backgroundColor = 'white'`) or a
- *     setProperty() call. A value inside light-dark() carries both schemes
- *     and passes;
+ *  1. colour literals — hex (also URL-encoded as `%23…` in a data URI),
+ *     rgb()/rgba()/hsl()/hsla()/hwb()/lab()/lch()/oklab()/oklch()/color() —
+ *     anywhere, and any of the 148 CSS named colours as the value of a
+ *     property that carries colour (color, background, border, outline,
+ *     fill, stroke, filter, box-shadow, text-shadow, caret-color,
+ *     accent-color, text-decoration, column-rule, …) or of a custom property
+ *     (`--x: black`), whether written as a declaration, a JavaScript style
+ *     assignment (`el.style.backgroundColor = 'white'`, `el.style['color']`),
+ *     a setProperty() or setAttribute() call, a canvas `fillStyle` /
+ *     `strokeStyle`, an object key (Chart.js options, `Object.assign(
+ *     el.style, …)`), or an attribute (`fill="black"` in inline SVG,
+ *     `<font color>`, `fill%3D%27black%27` in a data URI). A value inside
+ *     light-dark() carries both schemes and passes;
  *  2. `var(--bs-…)`: TYPO3 never sets data-bs-theme, so Bootstrap's variables
  *     keep their light values in the dark scheme;
  *  3. own scheme switches — `@media (prefers-color-scheme` and
@@ -51,8 +55,15 @@ declare(strict_types=1);
  *  5. in an icon (every SVG except `*.legacy.svg`, the v13 teal tiles, and
  *     Extension.svg, the full-colour extension tile), any fill, stroke,
  *     stop-color, color, flood-color or lighting-color other than
- *     `currentColor`, `none` or `var(--nr-icon-accent, <fallback>)`: an icon
- *     is drawn in the text colour so it follows the scheme.
+ *     `currentColor`, `none` or `var(--nr-icon-accent, <fallback>)`, as an
+ *     attribute, in a style attribute or in the icon's own <style>, and any
+ *     colour literal outside the accent's fallback: an icon is drawn in the
+ *     text colour so it follows the scheme.
+ *
+ * Not detected (a value only known at runtime cannot be read from source):
+ * a colour held in a variable or built by concatenation and assigned later
+ * (`const c = 'black'; el.style.color = c;`), and a named colour in a string
+ * that is not tied to a colour key, property or attribute.
  *
  * Exemption: a comment containing `scheme-independent: <reason>` exempts the
  * rules in 1 for exactly one statement — the code on the comment's own line
@@ -144,6 +155,14 @@ function stripPropertyNames(string $line): string
 }
 
 /**
+ * Blank out the names in var(--…) references, keeping declarations (`--x: black`) intact.
+ */
+function stripVarReferences(string $line): string
+{
+    return preg_replace_callback('/var\(\s*--[\w-]+/', static fn(array $m): string => 'var(' . str_repeat(' ', strlen($m[0]) - 4), $line) ?? $line;
+}
+
+/**
  * Line indexes a `scheme-independent:` comment exempts: exactly one statement.
  *
  * @param list<string> $rawLines
@@ -226,22 +245,39 @@ $named = implode('|', $namedColours);
 
 // A property that carries colour, in CSS spelling (`box-shadow`) and in the
 // DOM's camelCase spelling (`boxShadow`).
-$colourProperty = '(?:[a-z-]*-)?(?:color|background|border|outline|fill|stroke|shadow|text-decoration|column-rule|text-emphasis)(?:-[a-z]+)*';
-$colourPropertyCamel = '(?:color|background|border|outline|fill|stroke|boxShadow|textShadow|caretColor|accentColor|textDecoration|columnRule|textEmphasis|stopColor|floodColor|lightingColor|scrollbarColor)[A-Za-z]*';
+$colourProperty = '(?:[a-z-]*-)?(?:color|background|border|outline|fill|stroke|shadow|filter|text-decoration|column-rule|text-emphasis)(?:-[a-z]+)*';
+$colourPropertyCamel = '(?:[a-z]+(?:Color|Background|Border|Shadow|Fill|Stroke|Style))|(?:color|background|border|outline|fill|stroke|filter|boxShadow|textShadow|caretColor|accentColor|textDecoration|columnRule|textEmphasis|stopColor|floodColor|lightingColor|scrollbarColor|fillStyle|strokeStyle|shadowColor)[A-Za-z]*';
+$quoted = '[\'"`][^\'"`]*(?<![\w-])(?:' . $named . ')(?![\w-])';
 
 $rules = [
-    'colour literal' => '/(?<![&\w])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(|(?<![\w.-])color\(/',
+    'colour literal' => '/(?<![&\w])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b|%23(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})(?![0-9a-zA-Z])|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(|(?<![\w.-])color\(/',
     'named colour' => '/(?:^|[\s;{"\'`])' . $colourProperty . '\s*:\s*[^;"\'`}]*(?<![\w-])(?:' . $named . ')(?![\w-])/i',
-    'named colour in a style assignment' => '/\.style\.' . $colourPropertyCamel . '\s*=\s*[\'"`][^\'"`]*(?<![\w-])(?:' . $named . ')(?![\w-])'
-        . '|setProperty\(\s*[\'"]' . $colourProperty . '[\'"]\s*,\s*[\'"`][^\'"`]*(?<![\w-])(?:' . $named . ')(?![\w-])/i',
+    'named colour in a custom property' => '/(?:^|[\s;{"\'`])--[\w-]+\s*:\s*[^;"\'`}]*(?<![\w-])(?:' . $named . ')(?![\w-])/i',
+    'named colour in JavaScript' => '/'
+        // el.style.color = …, el.style['color'] = …, ctx.fillStyle = …
+        . '\.(?:style\.)?(?:' . $colourPropertyCamel . ')\s*=\s*' . $quoted
+        . '|\.style\[\s*[\'"](?:' . $colourProperty . '|' . $colourPropertyCamel . ')[\'"]\s*\]\s*=\s*' . $quoted
+        // setProperty('color' | '--x', …), setAttribute('fill', …)
+        . '|setProperty\(\s*[\'"](?:--[\w-]+|' . $colourProperty . ')[\'"]\s*,\s*' . $quoted
+        . '|setAttribute\(\s*[\'"](?:fill|stroke|color|stop-color|flood-color|lighting-color)[\'"]\s*,\s*' . $quoted
+        // object keys: Chart.js options, Object.assign(el.style, {…})
+        . '|(?:^|[\s,{(])(?:' . $colourPropertyCamel . '|[\'"]' . $colourProperty . '[\'"])\s*:\s*' . $quoted
+        . '/i',
+    // fill="black" in inline SVG, <font color="red">, and the URL-encoded forms in a data URI.
+    'colour attribute' => '/(?<![\w:.-])(?:fill|stroke|stop-color|flood-color|lighting-color|color|bgcolor)\s*(?:=|%3D)\s*(?:\\\\?["\']|%27|%22)?\s*(?:' . $named . ')(?![\w-])/i',
     'Bootstrap variable' => '/var\(--bs-/',
     'own scheme switch' => '/@media\s*\(\s*prefers-color-scheme|\[data-color-scheme/',
     'scheme-pinned class' => '/(?<![\w-])(?:text-bg-[a-z]+|bg-(?:light|white|dark|body(?:-[a-z]+)?|[a-z]+-subtle)|text-(?:dark|white|black|light)|text-body(?:-[a-z]+)?|table-(?:light|dark)|btn-(?:light|dark|secondary)|btn-outline-[a-z]+|alert-(?:light|dark))(?![\w-])/',
     'Bootstrap colour on a badge' => '/\bbadge\b[^"\'`>]*(?<![\w-])bg-(?:primary|secondary|success|info|warning|danger)(?![\w-])/',
 ];
-$exemptable = ['colour literal', 'named colour', 'named colour in a style assignment'];
+$exemptable = ['colour literal', 'named colour', 'named colour in a custom property', 'named colour in JavaScript', 'colour attribute'];
+// Rules that read colour values see var(--…) references blanked, so a
+// reference such as var(--pg-teal) is not a named colour.
+$valueRules = ['named colour in a custom property', 'named colour in JavaScript', 'colour attribute'];
 
-$iconPaint = '/(?:^|[\s;"\'])(fill|stroke|stop-color|color|flood-color|lighting-color)\s*(?:=\s*"([^"]*)"|=\s*\'([^\']*)\'|:\s*([^;"\']*))/i';
+// `{` so paint inside an icon's own <style> (`path{fill:#000}`) is read too.
+$iconPaint = '/(?:^|[\s;"\'{])(fill|stroke|stop-color|color|flood-color|lighting-color)\s*(?:=\s*"([^"]*)"|=\s*\'([^\']*)\'|:\s*([^;"\'}<]*))/i';
+$iconAccent = '/var\(\s*--nr-icon-accent\s*,\s*#[0-9a-fA-F]{3,8}\s*\)/i';
 $allowedPaint = '/^(?:currentColor|none|var\(--nr-icon-accent\s*,\s*#[0-9a-fA-F]{3,8}\s*\))$/i';
 
 $offenders = [];
@@ -263,6 +299,10 @@ foreach ($files as $file) {
                     $offenders[] = sprintf('%s:%d  icon paint: %s="%s" (allowed: currentColor, none, var(--nr-icon-accent, …))', $relative, $index + 1, $match[1], $value);
                 }
             }
+            // Any other colour in the icon, wherever it sits, apart from the accent's fallback.
+            if (preg_match($rules['colour literal'], (string)preg_replace($iconAccent, '', $line)) === 1) {
+                $offenders[] = sprintf('%s:%d  colour literal: %s', $relative, $index + 1, trim($rawLines[$index]));
+            }
         }
         continue;
     }
@@ -274,7 +314,11 @@ foreach ($files as $file) {
             if (isset($exempt[$index]) && in_array($name, $exemptable, true)) {
                 continue;
             }
-            $subject = str_starts_with($name, 'named colour') ? stripPropertyNames($line) : $line;
+            $subject = match (true) {
+                in_array($name, $valueRules, true) => stripVarReferences($line),
+                $name === 'named colour' => stripPropertyNames($line),
+                default => $line,
+            };
             if (preg_match($pattern, $subject) === 1) {
                 $offenders[] = sprintf('%s:%d  %s: %s', $relative, $index + 1, $name, trim($rawLines[$index]));
             }

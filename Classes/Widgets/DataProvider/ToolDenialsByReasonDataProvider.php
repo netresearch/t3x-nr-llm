@@ -33,6 +33,9 @@ final readonly class ToolDenialsByReasonDataProvider implements ChartDataProvide
 
     private const LLL = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:';
 
+    /** Grey for a key without a colour; held to the same 3:1 on both cards. */
+    private const FALLBACK_COLOR = '#8E8E8E';
+
     /**
      * Semantic colour per denial reason; a missing key falls back to grey.
      *
@@ -99,7 +102,7 @@ final readonly class ToolDenialsByReasonDataProvider implements ChartDataProvide
 
             $chartLabels[] = $labels[$case->value] ?? $case->value;
             $data[]        = $count;
-            $colors[]      = self::REASON_COLORS[$case->value] ?? '#8E8E8E';
+            $colors[]      = self::REASON_COLORS[$case->value] ?? self::FALLBACK_COLOR;
         }
 
         return [
