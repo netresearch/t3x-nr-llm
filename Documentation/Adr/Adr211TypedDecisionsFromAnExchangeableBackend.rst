@@ -188,11 +188,17 @@ classification, selection and rubric scoring are the same operation.
 
    A run is stored and compared under the grader its gradings report, and
    the decision grader reports its yardstick,
-   ``decision:<backend>:<model>:v<profile version>``. A TypeSafe run and an ``llm`` run of the same set,
-   or runs on two model versions, are therefore separate series and never
+   ``decision:<backend>:<model>:v<profile version>``. A TypeSafe run and an
+   ``llm`` run of the same set, or runs on two model versions, are therefore
+   separate series and never
    each other's regression baseline — the reason the ``llm_judge`` results
    are none either. A run whose gradings disagree (a decision failed for some
-   prompts) falls back to the requested identifier, ``decision``.
+   prompts) has no single yardstick: it is stored under the requested
+   identifier, ``decision``, and never compared. A failed decision reports
+   ``decision:failed``, so a run in which every decision failed is a series
+   of its own and no clean run ever shares the plain identifier. The grader
+   judges the response against the task and the system prompt the call ran
+   with, so an ignored instruction counts against it.
 
 Consequences
 ============
