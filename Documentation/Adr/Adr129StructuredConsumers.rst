@@ -4,7 +4,8 @@
 ADR-129: In-repo consumers of structured output
 ==================================================
 
-:Status: Accepted (the LLM judge consumer is replaced by the decision grader — see :ref:`ADR-211 <adr-211>`)
+:Status: Accepted (the LLM judge consumer is replaced by the decision
+         grader — see :ref:`ADR-211 <adr-211>`)
 :Date: 2026-08-05
 :Amended: 2026-09-28 by :ref:`ADR-211 <adr-211>`
 

@@ -33,240 +33,269 @@ consumer then invents its own question format, its own reading of a
 self-reported "confidence", and its own answer to "what does a failed call
 mean".
 
-In September 2026 TypeSafe published Jev (``POST /v1/systemone``), a model
-that generates no text at all. It takes a ``state`` and a map of typed
-questions — ``noul`` (yes/no, answered as the probability of yes), ``choice``
-(one option out of up to 255, with a probability per option and a
-``confidence``) and ``score`` (2 to 10 ordered levels, a probability-weighted
-value, a probability per level and a ``confidence``) — and bills input tokens
-only. The API reference is explicit that a ``noul`` answer carries no
-``confidence``, that aliases such as ``jev-latest`` move without notice, that
-English is the primary training language, and that the model can be steered
-by adversarial content in the state.
+Models now exist that make such decisions natively. In September 2026
+TypeSafe published Jev (``POST /v1/systemone``), a model that generates no
+text: it takes a ``state`` and a map of typed questions — ``noul`` (yes/no,
+answered as the probability of yes), ``choice`` (one option out of up to 255,
+with a probability per option and a ``confidence``) and ``score`` (2 to 10
+ordered levels, a probability-weighted value, a probability per level and a
+``confidence``) — and bills input tokens only. Its documentation is explicit
+that a ``noul`` answer carries no ``confidence``, that aliases such as
+``jev-latest`` move without notice, that English is the primary training
+language, and that adversarial content in the state can move the answer.
+Freely available natural-language-inference models answer the same three
+question shapes locally as zero-shot classification — for example
+``MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7`` (MIT, trained
+on German among other languages) — with probabilities that are the model's
+distribution, not a calibration.
 
 The existing code decides a good part of the shape:
 
-* :php:`ProviderInterface` requires chat, completion and embedding methods.
-  A backend that answers typed questions and generates nothing cannot honour
-  it without stub methods.
-* The specialized services (:ref:`ADR-096 <adr-096>` to
-  :ref:`ADR-100 <adr-100>`) already give a non-chat HTTP call the whole
-  shared lifecycle: an nr-vault secret behind the audited secure client,
-  input screening before egress (:ref:`ADR-098 <adr-098>`), the budget gate,
-  the middleware pipeline with telemetry, circuit breaker and usage.
-* :php:`UsageMiddleware` records a token-shaped result per call on the
-  telemetry row (:ref:`ADR-174 <adr-174>`), with ``NULL`` where nothing was
-  measured.
+* Every model an administrator can choose is a ``Provider`` record, a
+  ``Model`` record with capabilities, and an ``LlmConfiguration`` that a
+  consumer names per use case. Budget per configuration, usage and pricing
+  per model, fallback chains, the circuit breaker on provider exceptions and
+  the provider's trust zone all hang on these records.
+* :php:`ProviderInterface` requires chat, completion and embedding methods;
+  a provider that lacks one throws :php:`UnsupportedFeatureException` there
+  (Claude and Groq for embeddings), and optional abilities are separate
+  contracts (streaming, tools, vision, documents).
+* ``Model`` stores prices as integer cents per million tokens. Jev's
+  0.042 USD is 4.2 cents and cannot be stored.
+* :php:`UsageMiddleware` records a typed response per call on the telemetry
+  row (:ref:`ADR-174 <adr-174>`), with ``NULL`` where nothing was measured.
 * :php:`GuardrailInterface::checkOutput()` receives only the
   :php:`CompletionResponse`, and :php:`InputGuardrailInterface::checkInput()`
   one string. Neither sees the task or the evidence an answer should be
   judged against, so a judgement "does this answer the question from these
   sources" cannot be a guardrail without a new contract.
-* ``completeStructuredForConfiguration()`` already runs a schema-bound call
-  against a *named* configuration.
+* ``completeStructuredForConfiguration()`` runs a schema-bound call against a
+  named configuration, but returns only the decoded array: the model that
+  answered and the tokens of a repair round-trip are lost.
 
 Decision
 ========
 
-**A new** ``@api`` **service,** :php:`DecisionServiceInterface`, **that
-evaluates a subject against a named, versioned profile of typed questions
-and returns typed answers, through a backend the administrator chooses.**
-The feature is called *decision*, not *judge* and not after any vendor:
-classification, selection and rubric scoring are the same operation.
+**A decision is a model operation like chat or embeddings. A model that
+decides natively is a** ``Model`` **record with the capability**
+``decision`` **behind a provider adapter that implements**
+:php:`DecisionCapableInterface`\ **; any chat model can answer the same
+questions through structured output. A new** ``@api`` **service,**
+:php:`DecisionServiceInterface`\ **, evaluates a subject against a named,
+versioned profile of typed questions on a configuration and returns typed
+answers.** The feature is called *decision*, not *judge* and not after a
+vendor: classification, selection and rubric scoring are one operation.
 
 1. **Neutral question types.** :php:`YesNoQuestion`, :php:`ChoiceQuestion`
-   and :php:`ScoreQuestion`. Their constructors enforce the limits a backend
-   would otherwise reject after a round-trip: a choice has 2 to 255 options,
-   a score 2 to 10 levels, a key is a lower-case identifier. A choice takes
-   its option names as a list and their descriptions as a separate map: one
-   map of name to description cannot tell ``['red', 'green']`` from options
-   named ``"0"`` and ``"1"``, which PHP stores under the same integer keys.
-   The vendor word ``noul`` stays inside the TypeSafe adapter.
+   and :php:`ScoreQuestion`, with :php:`DecisionSubject` and
+   :php:`DecisionAnswer`, are domain value objects, because a provider
+   contract reads them. Their constructors enforce the limits a backend
+   would otherwise reject after a round-trip: a choice has 2 to 255 unique
+   options, a score 2 to 10 levels, a key is a lower-case identifier. A
+   choice takes its option names as a list and their descriptions as a
+   separate map: one map of name to description cannot tell
+   ``['red', 'green']`` from options named ``"0"`` and ``"1"``, which PHP
+   stores under the same integer keys. Vendor vocabulary (``noul``) stays
+   inside its adapter.
 
-2. **Profiles are declared by the consumer, the backend by the operator.** A
+2. **Profiles are declared by the consumer, the model by the operator.** A
    consumer extension implements :php:`DecisionProfileProviderInterface`
    (tag ``nr_llm.decision_profile``, the discovery pattern of
    :ref:`ADR-056 <adr-056>` and :ref:`ADR-060 <adr-060>`). A
    :php:`DecisionProfile` carries an identifier, an integer version, its
    questions, the subject fields it requires (``task``, ``candidate``,
-   ``evidence``) and, optionally, the backends its data may be sent to. The
-   registry refuses a duplicate identifier when it is built. Which backend
-   answers is extension configuration (``decision.backend``), so a consumer
-   never names a vendor or holds a key. A profile that allows no configured
-   backend is refused, not sent elsewhere.
+   ``evidence``) and the **data class** of its subject
+   (:php:`ToolDataClass`, default editor content). A request names a
+   configuration, or the service uses the one in the extension setting
+   ``decision.configuration``; the default chat configuration is never
+   used. A consumer therefore picks a decision model per use case exactly
+   as it picks any other model, and never holds a key.
 
-3. **Criteria come from the profile, never from the subject.** The subject is
-   data. The instructions, options and levels a backend receives are the
-   profile's, so a document under judgement cannot rewrite the rubric it is
-   sent with. It can still try to sway the answer: TypeSafe documents that
-   adversarial content moves its judgement, and the ``llm`` backend reads the
-   subject in the same prompt as the questions, however firmly it is told to
-   treat it as data. This narrows the manipulation risk and does not close
-   it, which is the reason the service returns information and decides
-   nothing.
+3. **Data policy through the trust zone.** Before any request, the service
+   checks the profile's data class against the trust zone of the provider
+   that will receive the subject (:php:`TrustZoneResolver`, the ceiling
+   :ref:`ADR-094 <adr-094>` introduced for tools). A profile whose subject is
+   internal configuration is refused on an external-global provider,
+   whichever model that is. This replaces a list of permitted backend names,
+   which said nothing about where a backend sends its data.
 
-4. **Two backends behind** :php:`DecisionBackendInterface` **(tag**
-   ``nr_llm.decision_backend``\ **).**
+4. **Two paths, chosen by the model.** The service resolves the
+   configuration's model for ``ProviderOperation::Decision``.
 
-   * ``typesafe`` — a specialized service on :php:`AbstractSpecializedService`,
-     so the call gets the vault-held key, input screening of every subject
-     field before egress, the budget middleware's check before the request
-     is sent, telemetry, circuit breaker and usage without new plumbing. A
-     response without a usage block still counts as a request. A ``422`` —
-     a subject over the context limit, a question TypeSafe refuses — throws
-     a ``BACKEND_REJECTED`` decision exception, apart from failures and
-     outages. The model defaults to the pinned
-     ``jev-1.13.0``, not an alias: thresholds calibrated against one version
-     must not move under a caller silently. The versioned model id the
-     response reports is kept on the result. Cost is input tokens times a
-     configured price (default 0.042 USD per million input tokens, the
-     published price of ``jev-1.13.0``); an empty price records no cost
-     rather than a cost of zero.
-   * ``llm`` — a schema-bound call through
-     ``completeStructuredForConfiguration()`` against a configuration the
-     operator names (``decision.llm.configuration``). It never falls back to
-     the default chat configuration, so switching the generator does not
-     switch the yardstick. Each question is asked for a hard label — ``yes``
-     or ``no``, one option, one level index — because a probability a chat
-     model writes into its output is not a measured one.
+   * *Native* — the model declares ``decision`` and its adapter implements
+     :php:`DecisionCapableInterface`:
+     ``LlmServiceManager::decideForConfiguration()`` screens every subject field through the input guardrails, enters the
+     middleware pipeline with the configuration (budget per configuration
+     and user, fallback, circuit breaker, telemetry, usage), and calls the
+     adapter. The adapter returns a typed :php:`DecisionResponse`; the
+     manager prices it with the model that actually served, fallback
+     included. Two adapters ship: ``typesafe`` (Jev, pinned default model
+     ``jev-1.13.0``, because thresholds tuned on one version must not move
+     under a caller) and ``decision_sidecar``, a local zero-shot NLI service
+     in ``Build/decision`` that needs no key and keeps the subject on the
+     host — for tests, local development and comparison.
+   * *Structured* — any other model, typically a chat model: a schema-bound
+     call through ``completeStructuredForConfiguration()`` asking every
+     question for a hard label (``yes``/``no``, one option, one level index),
+     because a probability a chat model writes into its text is not a
+     measured one.
 
-   The ``llm`` backend needs what the structured call so far threw away: the
-   model that actually answered (a fallback may have served it) and the
-   tokens of every attempt, the rejected first answer of a repair included.
-   So ``completeStructured()`` and ``completeStructuredForConfiguration()``
-   **return a** :php:`StructuredCompletionResponse` — the validated ``data``,
-   the accepted :php:`CompletionResponse`, the summed :php:`UsageStatistics`
-   and the number of attempts — instead of the bare array. This is a
-   breaking change for every caller, taken instead of a second method beside
-   each of the two: one structured call per path, carrying what it did.
+   The structured path needs what the structured call so far threw away: the
+   model that actually answered and the tokens of every attempt, the
+   rejected first answer of a repair included. So ``completeStructured()``
+   and ``completeStructuredForConfiguration()`` **return a**
+   :php:`StructuredCompletionResponse` — the validated ``data``, the
+   accepted :php:`CompletionResponse`, the summed :php:`UsageStatistics` and
+   the number of attempts — instead of the bare array. This is a breaking
+   change for every caller, taken instead of a second method beside each of
+   the two.
 
-5. **The result says what was measured.** :php:`DecisionResult` carries, per
+5. **Prices are decimal.** ``Model`` keeps its unit, cents per million
+   tokens, and stores it as a decimal, so a price of 4.2 cents is a price and
+   not 4 or 0. This is a breaking change of ``Model``'s price getters from
+   ``int`` to ``float``.
+
+6. **The result says what was measured.** :php:`DecisionResult` carries, per
    question, the answer (the probability of yes, the chosen option, the score
    value), the per-option or per-level probabilities and the ``confidence``
-   **as the backend reported them, empty or null where it reported none** —
-   so a yes/no answer from TypeSafe has no confidence, and an ``llm`` answer
-   has neither probabilities nor confidence. A ``calibrated`` flag names which
-   of the two a caller holds, the ``model`` field names the version that
-   answered, and token counts and cost are null when the backend did not
-   report them (a measured zero and an absent measurement stay distinct,
-   constitution principle VI).
+   **as the model reported them, empty or null where it reported none**. Its
+   :php:`ProbabilityKind` names which kind a caller holds: ``Calibrated``
+   (a vendor's calibrated distribution, TypeSafe), ``Distribution`` (the
+   model's own probabilities, uncalibrated — the NLI sidecar) or ``None``
+   (hard labels, the structured path). The result names the configuration,
+   the provider and the model that answered; token counts and cost are
+   ``null`` when nothing reported them (a measured zero and an absent
+   measurement stay distinct, constitution principle VI).
 
-6. **A failure is an exception, never a result.** An unknown profile, a
-   missing subject field, an unconfigured or disallowed backend, a transport
-   failure and an answer that does not match the questions asked all throw
-   :php:`DecisionException`. Budget denials and input-guardrail denials keep
-   their own types. No code path turns "the judge could not be asked" into an
-   answer, so a caller cannot treat an outage as a pass by forgetting a
-   status check.
+7. **A failure is an exception, never a result.** An unknown profile or
+   configuration, a missing subject field, a data class the provider may not
+   receive, a model that can neither decide nor chat, a request the provider
+   rejects as invalid, a transport failure and an answer that does not match
+   the questions asked — wrong key, type, option, level range or probability
+   keys, or a result claiming another profile or version — all throw
+   :php:`DecisionException` with a named code. Budget denials and guardrail
+   denials keep their own types. No code path turns "the model could not be
+   asked" into an answer.
 
-7. **No verdict, no enforcement.** The service returns answers. Thresholds,
+8. **No verdict, no enforcement.** The service returns answers. Thresholds,
    what follows from an answer (warn, block, retry, ask a human) and every
-   permission check stay in the caller's code. Nothing in nr-llm acts on a
-   decision in this change.
+   permission check stay in the caller's code.
 
-8. **An operation of its own.** ``ProviderOperation::Decision`` labels the
-   TypeSafe call in telemetry and usage. It maps to no
-   :php:`ModelCapability`: the TypeSafe backend is not a ``Model`` record and
-   reaches no model selection, so a capability would be a declaration nothing
-   reads (the same reasoning :php:`OperationCapabilityMap` gives for
-   translation). The ``llm`` backend is labelled as the chat call it is.
+9. **Criteria come from the profile, never from the subject.** The
+   instructions, options and levels a model receives are the profile's, so a
+   document under judgement cannot replace the rubric it is sent with. It can
+   still try to sway the answer — TypeSafe documents that, and a chat model
+   reads the subject in the same prompt as the questions. This narrows the
+   manipulation risk and does not close it, which is the reason for point 8.
 
-9. **The decision grader replaces the LLM judge.** :php:`DecisionGrader`
-   (grader identifier ``decision``) grades a golden prompt through the
-   built-in profile ``nr_llm.task_fulfilment`` on whichever backend is
-   configured, and :php:`LlmJudgeGrader` (``llm_judge``) is removed. Keeping
-   both would leave two judges with two failure semantics, one of them bound
-   to the default chat configuration; the ``llm`` backend is that judge with a
-   named configuration. ``nrllm:eval:run --grader decision`` therefore
-   compares a TypeSafe judgement with an ``llm`` judgement on the same golden
-   sets, which closes ADR-060's open "dedicated judge" follow-up. The grader,
-   not the service, folds a failure into a failed grade, because in an offline
-   run one bad call must not abort the set — the rule ADR-060 set for the
-   judge it replaces. The judge's free-text ``reason`` is not carried over:
-   the grading reason names the level the backend chose, and a model-written
-   justification is no evidence of how it decided.
+10. **An operation and a capability.** ``ProviderOperation::Decision``
+    labels the native call and maps to ``ModelCapability::DECISION``, which
+    the operation map enforces for criteria-mode selection. Model discovery
+    writes the capability for the two decision adapters, and the backend
+    module's model and configuration tests send a decision probe to a
+    decision model instead of a completion it cannot answer. A default
+    configuration must be able to chat, so a decision model can never become
+    the target of every generic ``chat()`` call.
 
-   A run is stored and compared under the grader its gradings report, and
-   the decision grader reports its yardstick,
-   ``decision:<backend>:<model>:v<profile version>``. A TypeSafe run and an
-   ``llm`` run of the same set, or runs on two model versions, are therefore
-   separate series and never
-   each other's regression baseline — the reason the ``llm_judge`` results
-   are none either. A run whose gradings disagree (a decision failed for some
-   prompts) has no single yardstick: it is stored under the requested
-   identifier, ``decision``, and never compared. A failed decision reports
-   ``decision:failed``, so a run in which every decision failed is a series
-   of its own and no clean run ever shares the plain identifier. The grader
-   judges the response against the task and the system prompt the call ran
-   with, so an ignored instruction counts against it.
+11. **The decision grader replaces the LLM judge.** :php:`DecisionGrader`
+    (grader identifier ``decision``) grades a golden prompt through the
+    built-in profile ``nr_llm.task_fulfilment`` on the configured decision
+    configuration, and :php:`LlmJudgeGrader` (``llm_judge``) is removed:
+    keeping both would leave two judges with two failure semantics, one of
+    them bound to the default chat configuration. The grader, not the
+    service, folds a failure into a failed grade, because in an offline run
+    one bad call must not abort the set. The grader judges the response
+    against the task and the system prompt the call ran with, so an ignored
+    instruction counts against it.
+
+    A run is stored and compared under the grader its gradings report, and
+    the decision grader reports its yardstick,
+    ``decision:<provider>:<model>:v<profile version>``. Runs on two providers
+    or two model versions are separate series and never each other's
+    regression baseline. A run whose gradings disagree (a decision failed for
+    some prompts) is stored under ``decision`` and never compared; a failed
+    decision reports ``decision:failed``, so no clean run shares either
+    identifier. With ``--fail-on-regression`` both are a failure: a gate that
+    stays green while the judge is down is the outage-read-as-pass this
+    record rules out.
 
 Consequences
 ============
 
-* A consumer asks for a judgement through one typed contract, and an operator
-  can change the backend, or keep the data in-house with the ``llm`` backend,
-  without a code change in the consumer.
-* TypeSafe is a new external data recipient. It is reached only when the
-  operator configures it, receives only screened subject fields, and a profile
-  can forbid it. Region, retention and contract questions for confidential
-  data are the operator's to settle before enabling it; nothing here answers
-  them.
-* A TypeSafe call is billed, budgeted and visible like every other AI call,
-  under its own operation. An ``llm`` call is billed under the configuration
-  it ran on; its result carries the tokens of every attempt, and a cost only
-  where the provider reported one — the priced cost is in the usage record,
-  not recomputed here.
+* A consumer asks for a judgement through one typed contract and picks the
+  model per use case like any other; an operator changes the model — TypeSafe,
+  a local NLI sidecar, any chat model — without a code change in the
+  consumer, and the trust zone decides where a subject may go.
+* A decision call is budgeted, priced, observed and failed over like every
+  other model call, through the same records.
+* TypeSafe is a new external data recipient. It is reached only through a
+  configuration an operator creates, receives only screened subject fields,
+  and a profile's data class can keep a subject away from it. Region,
+  retention and contract questions for confidential data are the operator's
+  to settle; nothing here answers them.
 * Breaking: ``completeStructured*()`` returns a
-  :php:`StructuredCompletionResponse`; a caller reads ``->data`` where it read
-  the array.
-* Breaking: ``--grader llm_judge`` and :php:`LlmJudgeGrader` are gone; a run
-  that used them passes ``--grader decision`` and configures a backend.
-  Stored ``llm_judge`` results stay in ``tx_nrllm_eval_result`` but are no
-  regression baseline for ``decision`` runs, because the yardstick changed.
-* ``ProviderOperation::Decision`` is a new case. A consumer that matches the
-  enum exhaustively without a default arm must add it.
+  :php:`StructuredCompletionResponse`; a caller reads ``->data``.
+* Breaking: ``Model`` prices are ``float`` cents per million tokens.
+* Breaking: ``--grader llm_judge`` and :php:`LlmJudgeGrader` are gone. Stored
+  ``llm_judge`` results stay in ``tx_nrllm_eval_result`` but are no
+  regression baseline for ``decision`` runs.
+* ``LlmServiceManagerInterface`` gains ``decideForConfiguration()``; an
+  implementation outside nr-llm must add it.
+* ``ProviderOperation::Decision`` and ``ModelCapability::DECISION`` are new
+  cases. A consumer that matches either enum exhaustively must add them.
+* The structured path's result carries the tokens of every attempt and a cost
+  only where the provider reported one; the priced cost of a chat call is in
+  its usage record. Surfacing it on the response is a change to the chat
+  pipeline, not to this service.
 
-Not in this change, each with the reason:
+Follow-ups, each with the reason it is not here:
 
+* **A profile-to-configuration assignment in the backend.** Today a consumer
+  passes a configuration or the extension setting names one for all
+  profiles. An assignment per profile needs its own record and module view.
 * **Guardrail, cache and streaming integration.** A decision needs task and
   evidence that neither guardrail contract carries; a cached decision would
-  need profile version, backend model and access context in its key; a check
-  after a streamed response prevents nothing. Each needs its own design once a
-  consumer runs decisions in the request path.
-* **Enforcement modes** (observe / warn / block / review). They belong with the
-  first implicit use, and must be proven against measured error rates per
-  profile first.
-* **A reranker on the decision backend, routing signals, cascades and agent
-  checkpoints.** They consume this service; each is justified by its own
-  measurement, not by this one.
-* **Quality on German content.** TypeSafe states English is where accuracy is
-  best. Whether a profile works on German content is measured per profile with
-  ``--grader decision``, not assumed.
+  need profile version, model and access context in its key; a check after a
+  streamed response prevents nothing.
+* **Enforcement modes, cascades, routing signals, agent checkpoints and a
+  reranker on a decision model.** They consume this service, and each needs
+  measured error rates per profile first — which ``--grader decision`` on
+  TypeSafe, the NLI sidecar and a chat model now produces, German content
+  included.
 
 Alternatives considered
 =======================
 
-**Implement TypeSafe as a** :php:`ProviderInterface` **adapter.** Rejected: it
-would need chat, completion and embedding methods that can only throw, and it
-would appear in every provider list as a model that cannot chat.
+**Decisions as a specialized service configured in the extension settings**
+(the first draft of this record: one backend per installation, the key in
+``decision.typesafe.*``). Rejected: without a ``Model`` record a consumer
+cannot pick a decision model per use case, an installation cannot run two,
+there is no budget per configuration, the circuit breaker never trips on a
+specialized-service exception, and the only data policy was a list of backend
+names. The review of that draft found each of these as a separate defect.
+
+**A** ``ProviderInterface`` **method for decisions.** Rejected:
+``ProviderInterface`` is an extension point that gains no abstract member
+within a major version (:ref:`ADR-127 <adr-127>`); an opt-in contract beside
+streaming, tools and vision is the established shape.
 
 **A** ``ModelType::JUDGE`` **or a** ``supportsJudge`` **flag.** Rejected: a
-generative model can judge, and a decision model cannot generate. The role is
-the profile's, not the model's.
+generative model can judge, and a decision model cannot generate. The
+capability states what the model can answer; the role is the profile's.
+
+**A boolean** ``calibrated`` **flag.** Rejected: it cannot tell an NLI
+model's own probabilities from a calibrated vendor distribution, and calling
+the former calibrated would mislead every threshold built on it.
 
 **A status field instead of exceptions** (evaluated / undeterminable /
 unavailable / invalid). Rejected: every consumer would have to check it, and
-one that did not would read an outage as an empty set of answers. The typed
-exceptions of the reranker and the translators are the precedent.
+one that did not would read an outage as an empty set of answers.
 
-**Reuse** :php:`LlmJudgeGrader` **at request time.** Rejected: its failure
-mode (score 0) is right for an offline run and wrong for a request, and it is
-bound to the default chat configuration.
-
-**Keep** :php:`LlmJudgeGrader` **next to the decision grader.** Rejected: two
-judges for one purpose, of which the older can only ever ask the default
-configuration.
+**Reuse or keep** :php:`LlmJudgeGrader`\ **.** Rejected: its failure mode
+(score 0) is wrong at request time, it is bound to the default chat
+configuration, and beside the decision grader it would be a second judge for
+one purpose.
 
 **Follow** ``jev-latest``\ **.** Rejected as the default: TypeSafe itself
 advises pinning a version once thresholds are tuned. An operator can still
-configure the alias.
+name the alias as the model id.
