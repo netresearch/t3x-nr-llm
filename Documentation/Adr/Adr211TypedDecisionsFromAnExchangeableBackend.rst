@@ -8,7 +8,9 @@ ADR-211: Typed decisions from an exchangeable backend
 
 :Status: Accepted
 :Date: 2026-09-28
-:Amends: :ref:`ADR-060 <adr-060>` (the LLM judge grader)
+:Amends: :ref:`ADR-060 <adr-060>` (the LLM judge grader),
+   :ref:`ADR-082 <adr-082>` (what the structured methods return),
+   :ref:`ADR-129 <adr-129>` (the judge as a structured consumer)
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -117,6 +119,16 @@ classification, selection and rubric scoring are the same operation.
      or ``no``, one option, one level index — because a probability a chat
      model writes into its output is not a measured one.
 
+   The ``llm`` backend needs what the structured call so far threw away: the
+   model that actually answered (a fallback may have served it) and the
+   tokens of every attempt, the rejected first answer of a repair included.
+   So ``completeStructured()`` and ``completeStructuredForConfiguration()``
+   **return a** :php:`StructuredCompletionResponse` — the validated ``data``,
+   the accepted :php:`CompletionResponse`, the summed :php:`UsageStatistics`
+   and the number of attempts — instead of the bare array. This is a
+   breaking change for every caller, taken instead of a second method beside
+   each of the two: one structured call per path, carrying what it did.
+
 5. **The result says what was measured.** :php:`DecisionResult` carries, per
    question, the answer (the probability of yes, the chosen option, the score
    value), the per-option or per-level probabilities and the ``confidence``
@@ -178,6 +190,9 @@ Consequences
   under its own operation. An ``llm`` call is billed under the configuration
   it ran on; its result carries no token counts, because the structured call
   returns none to the caller.
+* Breaking: ``completeStructured*()`` returns a
+  :php:`StructuredCompletionResponse`; a caller reads ``->data`` where it read
+  the array.
 * Breaking: ``--grader llm_judge`` and :php:`LlmJudgeGrader` are gone; a run
   that used them passes ``--grader decision`` and configures a backend.
   Stored ``llm_judge`` results stay in ``tx_nrllm_eval_result`` but are no
