@@ -4,8 +4,9 @@
 ADR-128: Provider-native structured output
 ===========================================
 
-:Status: Accepted
+:Status: Accepted (callers consume a typed response, not the decoded array — see :ref:`ADR-211 <adr-211>`)
 :Date: 2026-08-05
+:Amended: 2026-09-28 by :ref:`ADR-211 <adr-211>`
 
 Context
 =======

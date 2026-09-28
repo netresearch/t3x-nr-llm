@@ -10,6 +10,7 @@ ADR-211: Typed decisions from an exchangeable backend
 :Date: 2026-09-28
 :Amends: :ref:`ADR-060 <adr-060>` (the LLM judge grader),
    :ref:`ADR-082 <adr-082>` (what the structured methods return),
+   :ref:`ADR-128 <adr-128>` (what their callers consume),
    :ref:`ADR-129 <adr-129>` (the judge as a structured consumer)
 :Authors: Netresearch DTT GmbH
 
@@ -76,8 +77,11 @@ classification, selection and rubric scoring are the same operation.
 1. **Neutral question types.** :php:`YesNoQuestion`, :php:`ChoiceQuestion`
    and :php:`ScoreQuestion`. Their constructors enforce the limits a backend
    would otherwise reject after a round-trip: a choice has 2 to 255 options,
-   a score 2 to 10 levels, a key is a non-empty identifier. The vendor word
-   ``noul`` stays inside the TypeSafe adapter.
+   a score 2 to 10 levels, a key is a lower-case identifier. A choice takes
+   its option names as a list and their descriptions as a separate map: one
+   map of name to description cannot tell ``['red', 'green']`` from options
+   named ``"0"`` and ``"1"``, which PHP stores under the same integer keys.
+   The vendor word ``noul`` stays inside the TypeSafe adapter.
 
 2. **Profiles are declared by the consumer, the backend by the operator.** A
    consumer extension implements :php:`DecisionProfileProviderInterface`
@@ -86,7 +90,7 @@ classification, selection and rubric scoring are the same operation.
    :php:`DecisionProfile` carries an identifier, an integer version, its
    questions, the subject fields it requires (``task``, ``candidate``,
    ``evidence``) and, optionally, the backends its data may be sent to. The
-   registry refuses a duplicate identifier at container build. Which backend
+   registry refuses a duplicate identifier when it is built. Which backend
    answers is extension configuration (``decision.backend``), so a consumer
    never names a vendor or holds a key. A profile that allows no configured
    backend is refused, not sent elsewhere.
@@ -94,8 +98,11 @@ classification, selection and rubric scoring are the same operation.
 3. **Criteria come from the profile, never from the subject.** The subject is
    data. The instructions, options and levels a backend receives are the
    profile's, so a document under judgement cannot rewrite the rubric it is
-   judged by. This narrows, and does not close, the manipulation risk TypeSafe
-   documents; it is the reason the service returns information and decides
+   sent with. It can still try to sway the answer: TypeSafe documents that
+   adversarial content moves its judgement, and the ``llm`` backend reads the
+   subject in the same prompt as the questions, however firmly it is told to
+   treat it as data. This narrows the manipulation risk and does not close
+   it, which is the reason the service returns information and decides
    nothing.
 
 4. **Two backends behind** :php:`DecisionBackendInterface` **(tag**
@@ -103,8 +110,12 @@ classification, selection and rubric scoring are the same operation.
 
    * ``typesafe`` — a specialized service on :php:`AbstractSpecializedService`,
      so the call gets the vault-held key, input screening of every subject
-     field before egress, the budget gate, telemetry, circuit breaker and
-     usage without new plumbing. The model defaults to the pinned
+     field before egress, the budget middleware's check before the request
+     is sent, telemetry, circuit breaker and usage without new plumbing. A
+     response without a usage block still counts as a request. A ``422`` —
+     a subject over the context limit, a question TypeSafe refuses — throws
+     a ``BACKEND_REJECTED`` decision exception, apart from failures and
+     outages. The model defaults to the pinned
      ``jev-1.13.0``, not an alias: thresholds calibrated against one version
      must not move under a caller silently. The versioned model id the
      response reports is kept on the result. Cost is input tokens times a
@@ -175,6 +186,14 @@ classification, selection and rubric scoring are the same operation.
    the grading reason names the level the backend chose, and a model-written
    justification is no evidence of how it decided.
 
+   A run is stored and compared under the grader its gradings report, and
+   the decision grader reports its yardstick,
+   ``decision:<backend>:<model>:v<profile version>``. A TypeSafe run and an ``llm`` run of the same set,
+   or runs on two model versions, are therefore separate series and never
+   each other's regression baseline — the reason the ``llm_judge`` results
+   are none either. A run whose gradings disagree (a decision failed for some
+   prompts) falls back to the requested identifier, ``decision``.
+
 Consequences
 ============
 
@@ -188,8 +207,9 @@ Consequences
   them.
 * A TypeSafe call is billed, budgeted and visible like every other AI call,
   under its own operation. An ``llm`` call is billed under the configuration
-  it ran on; its result carries no token counts, because the structured call
-  returns none to the caller.
+  it ran on; its result carries the tokens of every attempt, and a cost only
+  where the provider reported one — the priced cost is in the usage record,
+  not recomputed here.
 * Breaking: ``completeStructured*()`` returns a
   :php:`StructuredCompletionResponse`; a caller reads ``->data`` where it read
   the array.
