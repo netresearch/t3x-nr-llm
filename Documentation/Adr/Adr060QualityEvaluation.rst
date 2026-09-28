@@ -6,9 +6,9 @@
 ADR-060: Quality evaluation — golden sets, grading and regression detection
 ===========================================================================
 
-:Status: Accepted (quality is no longer only a separate hook — see :ref:`ADR-142 <adr-142>`)
+:Status: Accepted (quality is no longer only a separate hook — see :ref:`ADR-142 <adr-142>`; the LLM judge is replaced by the decision grader — see :ref:`ADR-211 <adr-211>`)
 :Date: 2026-07-14
-:Amended: 2026-08-10 by :ref:`ADR-142 <adr-142>`
+:Amended: 2026-08-10 by :ref:`ADR-142 <adr-142>`; 2026-09-28 by :ref:`ADR-211 <adr-211>`
 :Authors: Netresearch DTT GmbH
 
 .. note::
