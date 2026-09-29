@@ -94,10 +94,12 @@ class SetupWizard {
             }
         });
 
-        // Update progress bar; the value is announced, not only drawn.
+        // Update the progress bar: a native <progress>, which announces its value.
         const progress = ((step - 1) / (this.totalSteps - 1)) * 100;
-        document.querySelector('.wizard-progress-fill').style.width = `${progress}%`;
-        document.querySelector('.wizard-progress-bar')?.setAttribute('aria-valuenow', String(Math.round(progress)));
+        const bar = document.querySelector('.wizard-progress-bar');
+        if (bar) {
+            bar.value = Math.round(progress);
+        }
 
         this.currentStep = step;
     }

@@ -125,13 +125,10 @@
                                         <f:if condition="{u.budget}">
                                             <f:then>
                                                 <div class="d-flex align-items-center gap-2">
-                                                    <span class="nrllm-progress"
-                                                          role="progressbar"
-                                                          aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.barAria')}"
-                                                          aria-valuenow="{u.budget.percent -> f:format.number(decimals: 0)}"
-                                                          aria-valuemin="0"
-                                                          aria-valuemax="100"><span class="nrllm-progress-fill" style="width: {u.budget.percent -> f:format.number(decimals: 0)}%"></span></span>
-                                                    <span>{u.budget.percent -> f:format.number(decimals: 0)}% <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.of" /> ${u.budget.limitCost -> f:format.number(decimals: 2)}</span>
+                                                    <progress class="nrllm-progress" max="100" value="{u.budget.percent -> f:format.number(decimals: 0)}"
+                                                              aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.barAria')}"
+                                                              aria-valuetext="{u.budget.percent -> f:format.number(decimals: 0)}% {f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.of')} ${u.budget.limitCost -> f:format.number(decimals: 2)}"></progress>
+                                                    <span aria-hidden="true">{u.budget.percent -> f:format.number(decimals: 0)}% <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.of" /> ${u.budget.limitCost -> f:format.number(decimals: 2)}</span>
                                                 </div>
                                             </f:then>
                                             <f:else><span class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.none" /></span></f:else>

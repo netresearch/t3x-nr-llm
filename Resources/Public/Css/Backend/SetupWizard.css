@@ -87,22 +87,36 @@
     color: var(--sw-success-text);
 }
 
-/* Progress bar: a plain role="progressbar" element. Fill on track in core's
-   colours: at least 5.3:1 fill against track and 6.1:1 against the card, in
-   both schemes on 13.4 and 14.3. (Core's <typo3-backend-progress-bar> is
-   @internal, reaches 1.1:1 fill against track in dark, and keeps its role in
-   the shadow DOM, where it cannot be named.) */
+/* Progress bar: a native <progress>, which carries the progressbar role, its
+   value, range and name itself. Each engine draws it from its own
+   pseudo-elements: the track is the element's background (Firefox) and
+   ::-webkit-progress-bar (Chromium, WebKit), the fill ::-moz-progress-bar and
+   ::-webkit-progress-value. Fill --typo3-component-primary-color on a
+   --typo3-surface-container-high track; the contrast measured per engine,
+   core and scheme is in Tests/E2E/Playwright/backend-js-modules.spec.ts.
+   (Core's <typo3-backend-progress-bar> is @internal, reaches 1.1:1 fill
+   against track in dark, and keeps its role in the shadow DOM, where it
+   cannot be named. Core 14.3 ships no .progress CSS.) */
 .nrllm-progress {
+    -webkit-appearance: none;
+    appearance: none;
     display: block;
+    width: 100%;
     height: 8px;
+    border: 0;
     border-radius: 4px;
     overflow: hidden;
-    background: var(--typo3-surface-container-high);
+    background-color: var(--typo3-surface-container-high);
+    color: var(--typo3-component-primary-color);
 }
-.nrllm-progress-fill {
-    display: block;
-    height: 100%;
-    background: var(--typo3-component-primary-color);
+.nrllm-progress::-webkit-progress-bar {
+    background-color: var(--typo3-surface-container-high);
+}
+.nrllm-progress::-webkit-progress-value {
+    background-color: var(--typo3-component-primary-color);
+}
+.nrllm-progress::-moz-progress-bar {
+    background-color: var(--typo3-component-primary-color);
 }
 
 /* The wizard's bar runs behind the step icons. */
@@ -110,10 +124,6 @@
     height: 4px;
     margin-top: -28px;
     margin-bottom: 20px;
-}
-
-.wizard-progress-fill {
-    transition: width 0.3s ease;
 }
 
 /* Wizard Panels */
@@ -231,7 +241,6 @@
 /* Steps, panels and cards move only for users who have not asked for less motion. */
 @media (prefers-reduced-motion: reduce) {
     .wizard-step .step-icon,
-    .wizard-progress-fill,
     .wizard-panel,
     .config-card {
         animation: none;

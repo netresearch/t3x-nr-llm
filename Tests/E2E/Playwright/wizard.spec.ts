@@ -47,9 +47,9 @@ test.describe('Setup Wizard - 5-Step Provider Onboarding', () => {
       const page = authenticatedPage;
       const moduleFrame = await navigateToSetupWizard(page);
 
-      const progressBar = moduleFrame.locator('.wizard-progress-bar');
+      const progressBar = moduleFrame.getByRole('progressbar', { name: /progress/i });
       await expect(progressBar).toBeVisible();
-      await expect(progressBar).toHaveAttribute('aria-valuenow', '0');
+      await expect(progressBar).toHaveJSProperty('value', 0);
     });
 
     test('should start on step 1 (Connect)', async ({ authenticatedPage }) => {
@@ -695,11 +695,11 @@ test.describe('Wizard Accessibility', () => {
     const page = authenticatedPage;
     const moduleFrame = await navigateToSetupWizard(page);
 
-    const progressBar = moduleFrame.locator('.wizard-progress-bar');
-    await expect(progressBar).toHaveAttribute('role', 'progressbar');
-    await expect(progressBar).toHaveAttribute('aria-valuemin', '0');
-    await expect(progressBar).toHaveAttribute('aria-valuemax', '100');
-    await expect(progressBar).toHaveAttribute('aria-label', /progress/i);
+    // A native <progress>: role, value, range and name come from the element.
+    const progressBar = moduleFrame.locator('progress.wizard-progress-bar');
+    await expect(progressBar).toHaveRole('progressbar');
+    await expect(progressBar).toHaveJSProperty('max', 100);
+    await expect(progressBar).toHaveAccessibleName(/progress/i);
   });
 
   test('config wizard form should have proper labels', async ({ authenticatedPage }) => {

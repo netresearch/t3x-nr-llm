@@ -15,6 +15,10 @@ import { test, expect, type Page } from '@playwright/test';
  * layers are replaced. Where a test measures colour or size it loads core's
  * backend CSS as installed in `.Build` (the TYPO3 the E2E job runs) and the
  * extension's own stylesheet. No backend login is needed.
+ *
+ * The progress-bar tests load no module: they read, from a screenshot, the
+ * colours each engine paints a native <progress> in. CI runs them in Chromium;
+ * Firefox and WebKit are a local run with those projects added.
  */
 
 const ORIGIN = 'http://nrllm-js.test';
@@ -322,6 +326,99 @@ test.describe('Model test progress (ModelList.js)', () => {
       for (const text of ['#step-connect-text', '#step-send-text', '#step-wait-text']) {
         expect(await contrastOf(page, text), `${text} on ${core} in ${scheme}`).toBeGreaterThanOrEqual(4.5);
       }
+    });
+  }
+});
+
+/**
+ * WCAG contrast of two sRGB colours given as [r, g, b].
+ */
+function ratio(a: number[], b: number[]): number {
+  const lum = ([r, g, bl]: number[]) => {
+    const f = (v: number) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(bl);
+  };
+  const [x, y] = [lum(a), lum(b)];
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+
+/**
+ * The colours a native <progress> at 50 % is drawn in, read from a screenshot:
+ * the pseudo-elements that paint fill and track differ per engine and are not
+ * all readable through getComputedStyle. The PNG is decoded by the page's own
+ * canvas. `surface` is sampled just outside the bar: left of it in a row,
+ * below it where the bar spans its container.
+ */
+async function progressPixels(page: Page, selector: string, surfaceBelow: boolean) {
+  const box = (await page.locator(selector).boundingBox())!;
+  const clip = { x: Math.max(0, box.x - 6), y: Math.max(0, box.y - 6), width: box.width + 12, height: box.height + 12 };
+  // scale: 'css' keeps one image pixel per CSS pixel on a device scale above 1 (Desktop Safari: 2).
+  const png = (await page.screenshot({ clip, scale: 'css' })).toString('base64');
+  const at = (x: number, y: number) => [Math.round(x - clip.x), Math.round(y - clip.y)];
+  const middle = box.y + box.height / 2;
+  const points = {
+    fill: at(box.x + box.width * 0.25, middle),
+    track: at(box.x + box.width * 0.75, middle),
+    surface: surfaceBelow ? at(box.x + box.width / 2, box.y + box.height + 4) : at(box.x - 3, middle),
+  };
+  return page.evaluate(async ({ png, points }) => {
+    const img = new Image();
+    img.src = `data:image/png;base64,${png}`;
+    await img.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(img, 0, 0);
+    const read = ([x, y]: number[]) => Array.from(ctx.getImageData(x, y, 1, 1).data.slice(0, 3));
+    return { fill: read(points.fill), track: read(points.track), surface: read(points.surface) };
+  }, { png, points });
+}
+
+/** What a core token computes to in the scheme now set, as [r, g, b]. */
+function tokenColour(page: Page, token: string): Promise<number[]> {
+  return page.evaluate((t) => {
+    const probe = document.createElement('span');
+    probe.style.color = `var(${t})`;
+    document.body.appendChild(probe);
+    const c = getComputedStyle(probe).color;
+    probe.remove();
+    const m = c.startsWith('color(srgb') ? c.slice(10).match(/[\d.]+/g)!.map((v) => Number(v) * 255) : c.match(/[\d.]+/g)!.map(Number);
+    return m.slice(0, 3).map(Math.round);
+  }, token);
+}
+
+test.describe('Progress bars (native <progress>)', () => {
+  // The budget bars sit in a striped table: both row backgrounds are a surface.
+  const analytics = `<div class="nrllm-analytics"><table class="table table-striped"><tbody>
+      <tr><td><div class="d-flex align-items-center gap-2"><progress id="bar-1" class="nrllm-progress" max="100" value="50" aria-label="Budget usage" aria-valuetext="50% of $10.00"></progress><span aria-hidden="true">50% of $10.00</span></div></td></tr>
+      <tr><td><div class="d-flex align-items-center gap-2"><progress id="bar-2" class="nrllm-progress" max="100" value="50" aria-label="Budget usage" aria-valuetext="50% of $10.00"></progress><span aria-hidden="true">50% of $10.00</span></div></td></tr>
+      </tbody></table></div>`;
+  const bars: Array<[string, string, string, string, boolean]> = [
+    // name, stylesheet, markup, selector, surface below the bar
+    ['analytics budget bar, odd row', 'Analytics.css', analytics, '#bar-1', false],
+    ['analytics budget bar, even row', 'Analytics.css', analytics, '#bar-2', false],
+    ['setup wizard bar', 'SetupWizard.css', `<div class="setup-wizard"><div class="wizard-progress"><div class="wizard-steps" style="height: 40px"></div>
+      <progress id="wizard-bar" class="nrllm-progress wizard-progress-bar" max="100" value="50" aria-label="Setup wizard progress"></progress></div></div>`, '#wizard-bar', true],
+  ];
+
+  for (const [core, css] of CORES) for (const scheme of ['light', 'dark'] as Scheme[]) for (const [name, sheet, markup, selector, below] of bars) {
+    test(`draws the ${name} in core colours with 3:1 on ${core} in ${scheme}`, async ({ page, browserName }) => {
+      await openPage(page, `${css()}<link rel="stylesheet" href="${ORIGIN}/css/Backend/${sheet}">`,
+        `<div class="module"><div class="module-body">${markup}</div></div>`, [], scheme);
+      const bar = page.locator(selector);
+      await expect(bar).toHaveRole('progressbar');
+      await expect(bar).toHaveAccessibleName(/progress|usage/i);
+      const { fill, track, surface } = await progressPixels(page, selector, below);
+      // The engine paints the tokens, not its default bar.
+      const near = (a: number[], b: number[]) => a.every((v, i) => Math.abs(v - b[i]) <= 3);
+      expect(near(fill, await tokenColour(page, '--typo3-component-primary-color')), `fill ${fill}`).toBe(true);
+      expect(near(track, await tokenColour(page, '--typo3-surface-container-high')), `track ${track}`).toBe(true);
+      const fillTrack = ratio(fill, track);
+      const fillSurface = ratio(fill, surface);
+      test.info().annotations.push({ type: 'contrast', description: `${browserName} | ${core} | ${scheme} | ${name} | fill/track ${fillTrack.toFixed(2)} | fill/surface ${fillSurface.toFixed(2)}` });
+      expect(fillTrack, 'fill against track').toBeGreaterThanOrEqual(3);
+      expect(fillSurface, 'fill against the surface').toBeGreaterThanOrEqual(3);
     });
   }
 });
