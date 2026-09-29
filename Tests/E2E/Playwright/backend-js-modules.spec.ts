@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import AxeBuilder from '@axe-core/playwright';
 import { test, expect, type Page } from '@playwright/test';
 
 /**
@@ -391,8 +392,8 @@ function tokenColour(page: Page, token: string): Promise<number[]> {
 test.describe('Progress bars (native <progress>)', () => {
   // The budget bars sit in a striped table: both row backgrounds are a surface.
   const analytics = `<div class="nrllm-analytics"><table class="table table-striped"><tbody>
-      <tr><td><div class="d-flex align-items-center gap-2"><progress id="bar-1" class="nrllm-progress" max="100" value="50" aria-label="Budget usage" aria-valuetext="50% of $10.00"></progress><span aria-hidden="true">50% of $10.00</span></div></td></tr>
-      <tr><td><div class="d-flex align-items-center gap-2"><progress id="bar-2" class="nrllm-progress" max="100" value="50" aria-label="Budget usage" aria-valuetext="50% of $10.00"></progress><span aria-hidden="true">50% of $10.00</span></div></td></tr>
+      <tr><td><div class="d-flex align-items-center gap-2"><progress id="bar-1" class="nrllm-progress" max="100" value="50" aria-label="Budget usage" aria-describedby="nrllm-budget-0"></progress><span id="nrllm-budget-0">50% of $10.00</span></div></td></tr>
+      <tr><td><div class="d-flex align-items-center gap-2"><progress id="bar-2" class="nrllm-progress" max="100" value="50" aria-label="Budget usage" aria-describedby="nrllm-budget-1"></progress><span id="nrllm-budget-1">50% of $10.00</span></div></td></tr>
       </tbody></table></div>`;
   const bars: Array<[string, string, string, string, boolean]> = [
     // name, stylesheet, markup, selector, surface below the bar
@@ -419,6 +420,39 @@ test.describe('Progress bars (native <progress>)', () => {
       test.info().annotations.push({ type: 'contrast', description: `${browserName} | ${core} | ${scheme} | ${name} | fill/track ${fillTrack.toFixed(2)} | fill/surface ${fillSurface.toFixed(2)}` });
       expect(fillTrack, 'fill against track').toBeGreaterThanOrEqual(3);
       expect(fillSurface, 'fill against the surface').toBeGreaterThanOrEqual(3);
+    });
+  }
+
+  // Chromium does not expose aria-valuetext on a native <progress> (its tree
+  // carries valuetext ""), so the budget limit is visible text that describes
+  // the bar. The template must keep that markup; the browser must expose it.
+  test('gives the budget bar its limit as a description a screen reader gets', async ({ page, browserName }) => {
+    const template = readFileSync(resolve(REPO, 'Resources/Private/Templates/Backend/Analytics/Index.html'), 'utf8');
+    expect(template).toContain('aria-describedby="nrllm-budget-{userIteration.index}"');
+    expect(template).toContain('<span id="nrllm-budget-{userIteration.index}">');
+    expect(template).not.toMatch(/aria-valuetext="/);
+
+    await openPage(page, `${coreCss()}<link rel="stylesheet" href="${ORIGIN}/css/Backend/Analytics.css">`,
+      `<div class="module"><div class="module-body">${analytics}</div></div>`, []);
+    const bar = page.locator('#bar-1');
+    await expect(bar).toHaveAccessibleName('Budget usage');
+    await expect(bar).toHaveAccessibleDescription('50% of $10.00');
+    await expect(page.locator('#nrllm-budget-0')).toBeVisible();
+    if (browserName === 'chromium') {
+      // The browser's own accessibility tree, not Playwright's computation.
+      const cdp = await page.context().newCDPSession(page);
+      const { nodes } = await cdp.send('Accessibility.getFullAXTree');
+      const bars = nodes.filter((n: any) => n.role?.value === 'progressbar');
+      expect(bars.map((n: any) => n.description?.value)).toEqual(['50% of $10.00', '50% of $10.00']);
+    }
+  });
+
+  for (const [core, css] of CORES) for (const scheme of ['light', 'dark'] as Scheme[]) {
+    test(`has no axe violation in the budget and wizard bars on ${core} in ${scheme}`, async ({ page }) => {
+      await openPage(page, `${css()}<link rel="stylesheet" href="${ORIGIN}/css/Backend/Analytics.css"><link rel="stylesheet" href="${ORIGIN}/css/Backend/SetupWizard.css">`,
+        `<div class="module"><div class="module-body">${analytics}${bars[2][2]}</div></div>`, [], scheme);
+      const results = await new AxeBuilder({ page }).include('.nrllm-analytics').include('.setup-wizard').analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
     });
   }
 });

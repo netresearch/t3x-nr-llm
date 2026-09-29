@@ -60,7 +60,20 @@
                 "action": "composer install"
             },
             {
-                "action": "npm ci"
+                "action": "npm ci",
+                "config": {
+                    "allow-failure": true
+                },
+                "conditions": [
+                    {
+                        "exec": "\\CaptainHook\\App\\Hook\\Condition\\FileChanged\\Any",
+                        "args": [
+                            [
+                                "package-lock.json"
+                            ]
+                        ]
+                    }
+                ]
             }
         ]
     },
@@ -71,7 +84,20 @@
                 "action": "composer install"
             },
             {
-                "action": "npm ci"
+                "action": "npm ci",
+                "config": {
+                    "allow-failure": true
+                },
+                "conditions": [
+                    {
+                        "exec": "\\CaptainHook\\App\\Hook\\Condition\\FileChanged\\Any",
+                        "args": [
+                            [
+                                "package-lock.json"
+                            ]
+                        ]
+                    }
+                ]
             }
         ]
     },

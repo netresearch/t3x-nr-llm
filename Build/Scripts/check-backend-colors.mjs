@@ -174,6 +174,7 @@ const ANIMATION_VALUE_ATTRIBUTES = new Set(['to', 'from', 'values', 'by']);
 const ANIMATED_ELEMENTS = new Set(['animate', 'set', 'animatecolor']);
 // Attributes that hold a URL: `href="#abc"` is a fragment, not a colour.
 const URL_ATTRIBUTES = new Set(['href', 'src', 'xlink:href', 'action', 'formaction', 'poster', 'data', 'cite']);
+const SRCSET_ATTRIBUTES = new Set(['srcset', 'imagesrcset']);
 // Attributes that name elements by id or selector: `data-bs-target="#fade"` is an id.
 const REFERENCE_ATTRIBUTES = new Set(['id', 'for', 'form', 'list', 'headers', 'usemap', 'data-bs-target', 'data-target',
     'data-bs-parent', 'data-parent', 'aria-controls', 'aria-describedby', 'aria-labelledby', 'aria-owns',
@@ -350,9 +351,10 @@ const COLOUR_LITERALS = [
  * colour. A data URI in such an attribute is read when the markup is parsed.
  */
 function withoutReferences(markup) {
-    return markup.replace(/([\s"'](?:[\w:-]+))(\s*=\s*)("[^"]*"|'[^']*')/g, (all, name, eq) => {
+    // Quoted and unquoted values: `href="#fade"`, `href='#fade'`, `href=#fade`.
+    return markup.replace(/([\s"'](?:[\w:-]+))(\s*=\s*)("[^"]*"|'[^']*'|[^\s"'=<>`]+)/g, (all, name, eq) => {
         const attribute = name.slice(1).toLowerCase();
-        return URL_ATTRIBUTES.has(attribute) || REFERENCE_ATTRIBUTES.has(attribute) || attribute === 'srcset'
+        return URL_ATTRIBUTES.has(attribute) || REFERENCE_ATTRIBUTES.has(attribute) || SRCSET_ATTRIBUTES.has(attribute)
             ? `${name}${eq}""`
             : all;
     });

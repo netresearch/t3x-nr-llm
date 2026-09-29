@@ -360,6 +360,18 @@
             "Resources/Private/Templates/Backend/a.html",
             "<img srcset=\"a.png, data:image/svg+xml,%3Csvg%3E%3Cpath fill='white'/%3E%3C/svg%3E\" alt=\"\">\n",
             "colour attribute"
+        ],
+        [
+            "markup in a translation target",
+            "Resources/Private/Language/locallang.xlf",
+            "<xliff><file><body><trans-unit id=\"a\"><source>Budget</source><target>&lt;span style=\"color:#f00\"&gt;Budget&lt;/span&gt;</target></trans-unit></body></file></xliff>\n",
+            "colour literal"
+        ],
+        [
+            "data URI in a link imagesrcset",
+            "Resources/Private/Templates/Backend/a.html",
+            "<link rel=\"preload\" as=\"image\" imagesrcset=\"data:image/svg+xml,%3Csvg%3E%3Cpath fill='white'/%3E%3C/svg%3E 1x\">\n",
+            "colour attribute"
         ]
     ],
     "refusedByParsing": [
@@ -826,6 +838,11 @@
             "fragments in markup held in JavaScript",
             "Resources/Public/JavaScript/Backend/a.js",
             "el.innerHTML = '<a href=\"#fade\" data-bs-target=\"#cafe\" aria-controls=\"bad\">x</a>';\n"
+        ],
+        [
+            "unquoted fragments in markup held in JavaScript",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "el.innerHTML = '<a href=#fade data-bs-target=#cafe>x</a>';\n"
         ]
     ]
 }

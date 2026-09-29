@@ -7,9 +7,9 @@
 # the backend colour check (`npm run lint:colors`). It runs on Node.js and
 # reads JavaScript, CSS and HTML with espree, css-tree and parse5 from
 # node_modules, so it needs npm on PATH and `npm ci` done in the repository
-# root. The post-checkout and post-merge hooks run `npm ci` next to
-# `composer install`; this guard names what is missing instead of letting
-# npm fail with a module-resolution error.
+# root. The post-checkout and post-merge hooks run `npm ci` when
+# package-lock.json changes, not in a new worktree; this guard names what is
+# missing instead of letting npm fail with a module-resolution error.
 
 set -eu
 cd "$(dirname "$0")/../.."
@@ -21,7 +21,7 @@ fi
 
 for package in espree css-tree parse5; do
     if [ ! -d "node_modules/$package" ]; then
-        echo "ci:test:colors: node_modules/$package is missing. Run 'npm ci' in the repository root (the post-checkout and post-merge hooks run it after the next checkout or merge)." >&2
+        echo "ci:test:colors: node_modules/$package is missing. Run 'npm ci' in the repository root (the post-checkout and post-merge hooks run it only when package-lock.json changes)." >&2
         exit 1
     fi
 done

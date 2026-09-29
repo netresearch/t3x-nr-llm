@@ -115,7 +115,7 @@
                             <tr><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.user" /></th><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.cost" /></th><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.requests" /></th><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.tokens" /></th><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.budget" /></th></tr>
                         </thead>
                         <tbody>
-                            <f:for each="{perUser}" as="u">
+                            <f:for each="{perUser}" as="u" iteration="userIteration">
                                 <tr>
                                     <td>{u.label}</td>
                                     <td>~${u.cost -> f:format.number(decimals: 2)}</td>
@@ -125,10 +125,11 @@
                                         <f:if condition="{u.budget}">
                                             <f:then>
                                                 <div class="d-flex align-items-center gap-2">
+                                                    <f:comment>The limit reaches screen readers as the bar's description: Chromium drops aria-valuetext on a native progress.</f:comment>
                                                     <progress class="nrllm-progress" max="100" value="{u.budget.percent -> f:format.number(decimals: 0)}"
                                                               aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.barAria')}"
-                                                              aria-valuetext="{u.budget.percent -> f:format.number(decimals: 0)}% {f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.of')} ${u.budget.limitCost -> f:format.number(decimals: 2)}"></progress>
-                                                    <span aria-hidden="true">{u.budget.percent -> f:format.number(decimals: 0)}% <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.of" /> ${u.budget.limitCost -> f:format.number(decimals: 2)}</span>
+                                                              aria-describedby="nrllm-budget-{userIteration.index}"></progress>
+                                                    <span id="nrllm-budget-{userIteration.index}">{u.budget.percent -> f:format.number(decimals: 0)}% <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.of" /> ${u.budget.limitCost -> f:format.number(decimals: 2)}</span>
                                                 </div>
                                             </f:then>
                                             <f:else><span class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.none" /></span></f:else>
