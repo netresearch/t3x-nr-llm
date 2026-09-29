@@ -173,6 +173,25 @@ final class CandidateRankerTest extends TestCase
     }
 
     #[Test]
+    public function aPriceBelowOneCentIsCheaperNotUnpriced(): void
+    {
+        // Decimal prices (ADR-211): 0.042 USD per million tokens is 4.2 cents,
+        // and a fraction of a cent must neither round to "unpriced" nor tie.
+        $ranked = (new CandidateRanker())->rank(
+            [
+                $this->model('unpriced', costInput: 0.0, costOutput: 0.0),
+                $this->model('cent', costInput: 1.0, costOutput: 0.0),
+                $this->model('fraction', costInput: 0.4, costOutput: 0.0),
+                $this->model('jev', costInput: 4.2, costOutput: 0.0),
+            ],
+            RoutingPolicyMode::ECONOMY,
+            [],
+        );
+
+        self::assertSame(['fraction', 'cent', 'jev', 'unpriced'], $this->ids($ranked));
+    }
+
+    #[Test]
     public function noSignalsAreCollectedInTheDefaultMode(): void
     {
         // Asking a quality store and a telemetry window per candidate costs
@@ -209,8 +228,8 @@ final class CandidateRankerTest extends TestCase
     private function model(
         string $name,
         int $providerPriority = 50,
-        int $costInput = 10,
-        int $costOutput = 10,
+        float $costInput = 10.0,
+        float $costOutput = 10.0,
         bool $isDefault = false,
         string $providerIdentifier = 'openai',
     ): Model {

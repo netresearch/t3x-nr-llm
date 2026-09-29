@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Service\SetupWizard\Discovery\MistralModelDiscoverer;
 use Netresearch\NrLlm\Service\SetupWizard\Discovery\OllamaModelDiscoverer;
 use Netresearch\NrLlm\Service\SetupWizard\Discovery\OpenAiModelDiscoverer;
 use Netresearch\NrLlm\Service\SetupWizard\Discovery\OpenRouterModelDiscoverer;
+use Netresearch\NrLlm\Service\SetupWizard\Discovery\TypeSafeModelDiscoverer;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -44,6 +45,7 @@ use RuntimeException;
 #[CoversClass(OllamaModelDiscoverer::class)]
 #[CoversClass(OpenAiModelDiscoverer::class)]
 #[CoversClass(OpenRouterModelDiscoverer::class)]
+#[CoversClass(TypeSafeModelDiscoverer::class)]
 final class CapabilitySeedTest extends AbstractUnitTestCase
 {
     #[Test]
@@ -305,6 +307,8 @@ final class CapabilitySeedTest extends AbstractUnitTestCase
             OllamaModelDiscoverer::class,
             OpenAiModelDiscoverer::class,
             OpenRouterModelDiscoverer::class,
+            // Its fallback always carries the pinned Jev version.
+            TypeSafeModelDiscoverer::class,
         ] as $class) {
             foreach ($this->discovererFor($class, null)->discover('https://unreachable.invalid', 'k')->models as $model) {
                 $models[] = $model;

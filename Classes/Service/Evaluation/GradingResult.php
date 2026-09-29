@@ -14,8 +14,8 @@ namespace Netresearch\NrLlm\Service\Evaluation;
  *
  * `score` is normalised to 0.0-1.0. `passed` is the pass/fail verdict a
  * grader derives from that score (all assertions satisfied for the
- * deterministic grader; score above the judge's threshold for the LLM
- * judge). `grader` records which strategy produced the verdict and `reason`
+ * deterministic grader; scaled level above the threshold for the
+ * decision grader). `grader` records which strategy produced the verdict and `reason`
  * carries a short human-readable justification for run output and audit.
  */
 final readonly class GradingResult

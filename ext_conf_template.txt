@@ -104,6 +104,13 @@ rerankerEndpoint =
 rerankerTimeout = 30
 
 # =============================================================================
+# Typed decisions (ADR-211)
+# =============================================================================
+
+# cat=decision; type=string; label=Decision Configuration: Identifier of the LLM configuration that answers a decision whose request names none. Its model decides natively when it declares the capability "decision" (TypeSafe, the local decision sidecar), otherwise a chat model answers through structured output. Never falls back to the default chat configuration.
+decision.configuration =
+
+# =============================================================================
 # Testing
 # =============================================================================
 

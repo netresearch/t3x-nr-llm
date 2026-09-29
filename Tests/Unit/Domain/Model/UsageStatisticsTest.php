@@ -238,4 +238,19 @@ class UsageStatisticsTest extends AbstractUnitTestCase
         self::assertSame(0, $restored->completionTokens);
         self::assertSame(0, $restored->totalTokens);
     }
+
+    #[Test]
+    public function plusAddsTheCountsAndTheCostWhenBothAreKnown(): void
+    {
+        $sum = (new UsageStatistics(10, 20, 30, 0.5))->plus(new UsageStatistics(1, 2, 3, 0.25));
+
+        self::assertSame([11, 22, 33, 0.75], [$sum->promptTokens, $sum->completionTokens, $sum->totalTokens, $sum->estimatedCost]);
+    }
+
+    #[Test]
+    public function plusLeavesTheCostUnknownWhenEitherPartIsUnknown(): void
+    {
+        self::assertNull((new UsageStatistics(1, 1, 2, 0.5))->plus(new UsageStatistics(1, 1, 2))->estimatedCost);
+        self::assertNull((new UsageStatistics(1, 1, 2))->plus(new UsageStatistics(1, 1, 2, 0.5))->estimatedCost);
+    }
 }

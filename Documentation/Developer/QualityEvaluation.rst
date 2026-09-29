@@ -116,11 +116,34 @@ Two grading strategies sit behind :php:`GraderInterface`:
 
 * **deterministic** (default) — evaluates the assertions with no LLM call and
   no tokens.
-* **llm_judge** (opt-in) — asks a judge model through :php:`CompletionService`
-  to score the response ``0.0``–``1.0`` with a justification. It uses the
-  reference answer when one is declared. Because it spends tokens, it runs only
-  when explicitly selected; an unknown grader name falls back to the
-  deterministic grader.
+* **decision** (opt-in) — asks the decision service
+  (:ref:`api-decision-service`) the built-in profile
+  ``nr_llm.task_fulfilment``: how well the response fulfils its task, on five
+  levels, with the reference answer as evidence when one is declared. The
+  level is scaled to ``0.0``–``1.0`` and passes from ``0.6``. It runs on the
+  configuration the extension setting ``decision.configuration`` names —
+  a decision model such as TypeSafe or the local sidecar, or a chat model
+  asked through structured output — so the same golden set can be graded by
+  several models and the results compared. Because it spends tokens, it runs
+  only when explicitly selected.
+
+``nrllm:eval:run`` refuses a grader name it does not know — ``llm_judge``
+included, which the decision grader replaces (:ref:`ADR-211 <adr-211>`).
+:php:`EvaluationService::run()` called directly falls back to the
+deterministic grader instead, so it never spends tokens by accident.
+
+A run is stored under the grader its gradings report. The decision grader
+reports its yardstick — ``decision:<provider>:<model>:v<profile version>``,
+for example ``decision:typesafe:jev-1.13.0:v1`` — so a TypeSafe run and a
+chat-model run of the same set, or runs on two model versions, are separate
+series and never each other's regression baseline. A run in which some
+decisions failed, or in which the model changed, has no single yardstick: it
+is stored as plain ``decision`` and never compared. A run in which every
+decision failed is ``decision:failed``. Neither can pass a gate: with
+``--fail-on-regression`` both exit non-zero, without it they are reported as
+not compared. The grader judges the response against the task *and*
+the system prompt the call ran with — the prompt's own or the run's base
+one — so a response that ignored "answer in French" does not pass.
 
 .. _developer-quality-evaluation-running:
 
@@ -134,8 +157,8 @@ Use the ``nrllm:eval:run`` command:
     # Deterministic grading against the configured default model
     vendor/bin/typo3 nrllm:eval:run nr_ai_search.faq
 
-    # Evaluate a specific model with the LLM judge
-    vendor/bin/typo3 nrllm:eval:run nr_ai_search.faq --model gpt-5.2 --grader llm_judge
+    # Evaluate a specific model with the decision grader
+    vendor/bin/typo3 nrllm:eval:run nr_ai_search.faq --model gpt-5.2 --grader decision
 
     # Fail (non-zero exit) if quality regressed against the previous run — for CI
     vendor/bin/typo3 nrllm:eval:run nr_ai_search.faq --fail-on-regression

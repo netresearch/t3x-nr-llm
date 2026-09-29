@@ -11,8 +11,11 @@ namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\StructuredCompletionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Exception\StructuredResponseMismatchException;
 use Netresearch\NrLlm\Service\Budget\AutoPopulatesBeUserUidTrait;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -124,42 +127,15 @@ final readonly class CompletionService implements CompletionServiceInterface
      *                                  when the response still fails to match
      *                                  after one repair attempt (1784500001)
      *
-     * @return array<string, mixed> The decoded, schema-valid JSON payload
+     * @return StructuredCompletionResponse the decoded, schema-valid payload with the answering response and the usage of every attempt
      */
-    public function completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): array
+    public function completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): StructuredCompletionResponse
     {
-        // Pre-flight BEFORE the first provider call: a schema outside the
-        // subset fails validation for every possible response, and finding
-        // that out after the repair round-trip costs two paid requests.
-        if (!$this->schemaValidator->supportsSchema($schema)) {
-            throw new InvalidArgumentException(
-                'The schema lies outside the supported strict subset (ADR-126); it would reject every response.',
-                1784500003,
-            );
-        }
-
-        // The schema rides along for providers that can enforce it natively
-        // (ADR-128); the prompt instruction and the strict validation below
-        // stay — native enforcement narrows, local validation decides.
-        $options    = ($options ?? new ChatOptions())->withResponseFormat('json')->withResponseSchema($schema);
-        $schemaJson = $this->encodeSchema($schema);
-
-        $first  = $this->complete($this->withSchemaInstruction($prompt, $schemaJson), $options)->content;
-        $result = $this->decodeAndValidate($first, $schema);
-        if ($result !== null) {
-            return $result;
-        }
-
-        // One controlled repair round-trip: show the model its invalid output
-        // and the schema, and ask again.
-        $repaired = $this->complete($this->withRepairInstruction($prompt, $schemaJson, $first), $options)->content;
-        $result   = $this->decodeAndValidate($repaired, $schema);
-        if ($result !== null) {
-            return $result;
-        }
-
-        throw new InvalidArgumentException(
-            'Structured completion did not match the required schema after one repair attempt.',
+        return $this->structured(
+            fn(string $prompt, ChatOptions $options): CompletionResponse => $this->complete($prompt, $options),
+            $prompt,
+            $schema,
+            $options,
             1784500001,
         );
     }
@@ -198,14 +174,14 @@ final readonly class CompletionService implements CompletionServiceInterface
         return $this->complete($prompt, $this->applyCreativePresets($options ?? new ChatOptions()));
     }
 
-    public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
+    public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null, ?ModelResolution $resolution = null): CompletionResponse
     {
         $options      = $this->autoPopulateBeUserUid($options ?? new ChatOptions());
         $optionsArray = $options->toArray();
         $this->validateOptions($optionsArray);
         $options = $this->normalizeOptionsResponseFormat($options, $optionsArray);
 
-        return $this->llmManager->completeForConfiguration($prompt, $configuration, $options);
+        return $this->llmManager->completeForConfiguration($prompt, $configuration, $options, $resolution);
     }
 
     public function completeJsonForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): array
@@ -224,13 +200,34 @@ final readonly class CompletionService implements CompletionServiceInterface
      *
      * @throws InvalidArgumentException when the response still fails to match the
      *                                  schema after one repair attempt
-     *
-     * @return array<string, mixed>
      */
-    public function completeStructuredForConfiguration(string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null): array
+    public function completeStructuredForConfiguration(string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null, ?ModelResolution $resolution = null): StructuredCompletionResponse
     {
-        // Same pre-flight as completeStructured(): never pay for a schema
-        // that cannot be satisfied.
+        return $this->structured(
+            fn(string $prompt, ChatOptions $options): CompletionResponse => $this->completeForConfiguration($prompt, $configuration, $options, $resolution),
+            $prompt,
+            $schema,
+            $options,
+            1784500002,
+        );
+    }
+
+    /**
+     * The schema-bound call both structured methods share: pre-flight the
+     * schema, ask, validate, and repair once.
+     *
+     * Pre-flight BEFORE the first provider call: a schema outside the subset
+     * fails validation for every possible response, and finding that out
+     * after the repair round-trip costs two paid requests. The schema rides
+     * along for providers that can enforce it natively (ADR-128); the prompt
+     * instruction and the strict validation stay — native enforcement
+     * narrows, local validation decides.
+     *
+     * @param callable(string, ChatOptions): CompletionResponse $complete
+     * @param array<string, mixed>                              $schema
+     */
+    private function structured(callable $complete, string $prompt, array $schema, ?ChatOptions $options, int $failureCode): StructuredCompletionResponse
+    {
         if (!$this->schemaValidator->supportsSchema($schema)) {
             throw new InvalidArgumentException(
                 'The schema lies outside the supported strict subset (ADR-126); it would reject every response.',
@@ -238,26 +235,26 @@ final readonly class CompletionService implements CompletionServiceInterface
             );
         }
 
-        // Same ride-along as completeStructured(): native enforcement narrows,
-        // local strict validation decides.
         $options    = ($options ?? new ChatOptions())->withResponseFormat('json')->withResponseSchema($schema);
         $schemaJson = $this->encodeSchema($schema);
 
-        $first  = $this->completeForConfiguration($this->withSchemaInstruction($prompt, $schemaJson), $configuration, $options)->content;
-        $result = $this->decodeAndValidate($first, $schema);
+        $first  = $complete($this->withSchemaInstruction($prompt, $schemaJson), $options);
+        $result = $this->decodeAndValidate($first->content, $schema);
         if ($result !== null) {
-            return $result;
+            return new StructuredCompletionResponse($result, $first, $first->usage, 1);
         }
 
-        $repaired = $this->completeForConfiguration($this->withRepairInstruction($prompt, $schemaJson, $first), $configuration, $options)->content;
-        $result   = $this->decodeAndValidate($repaired, $schema);
+        // One controlled repair round-trip: show the model its invalid output
+        // and the schema, and ask again.
+        $repaired = $complete($this->withRepairInstruction($prompt, $schemaJson, $first->content), $options);
+        $result   = $this->decodeAndValidate($repaired->content, $schema);
         if ($result !== null) {
-            return $result;
+            return new StructuredCompletionResponse($result, $repaired, $first->usage->plus($repaired->usage), 2);
         }
 
-        throw new InvalidArgumentException(
+        throw new StructuredResponseMismatchException(
             'Structured completion did not match the required schema after one repair attempt.',
-            1784500002,
+            $failureCode,
         );
     }
 

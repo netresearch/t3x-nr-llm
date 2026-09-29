@@ -88,9 +88,14 @@ class Model extends AbstractEntity
 
     protected int $defaultTimeout = 120;
 
-    protected int $costInput = 0;
+    /**
+     * Cents per million input tokens. A decimal (ADR-211): a price below one
+     * cent per million tokens is a price, not zero.
+     */
+    protected float $costInput = 0.0;
 
-    protected int $costOutput = 0;
+    /** Cents per million output tokens, decimal like {@see $costInput}. */
+    protected float $costOutput = 0.0;
 
     protected bool $isActive = true;
 
@@ -333,12 +338,12 @@ class Model extends AbstractEntity
         return $this->defaultTimeout;
     }
 
-    public function getCostInput(): int
+    public function getCostInput(): float
     {
         return $this->costInput;
     }
 
-    public function getCostOutput(): int
+    public function getCostOutput(): float
     {
         return $this->costOutput;
     }
@@ -484,14 +489,14 @@ class Model extends AbstractEntity
         $this->defaultTimeout = max(0, $defaultTimeout);
     }
 
-    public function setCostInput(int $costInput): void
+    public function setCostInput(float $costInput): void
     {
-        $this->costInput = max(0, $costInput);
+        $this->costInput = $this->storablePrice($costInput);
     }
 
-    public function setCostOutput(int $costOutput): void
+    public function setCostOutput(float $costOutput): void
     {
-        $this->costOutput = max(0, $costOutput);
+        $this->costOutput = $this->storablePrice($costOutput);
     }
 
     /**
@@ -499,7 +504,7 @@ class Model extends AbstractEntity
      */
     public function setCostInputDollars(float $dollars): void
     {
-        $this->costInput = (int)round($dollars * 100);
+        $this->costInput = $this->storablePrice($dollars * 100);
     }
 
     /**
@@ -507,7 +512,18 @@ class Model extends AbstractEntity
      */
     public function setCostOutputDollars(float $dollars): void
     {
-        $this->costOutput = (int)round($dollars * 100);
+        $this->costOutput = $this->storablePrice($dollars * 100);
+    }
+
+    /**
+     * Not negative, and rounded to the two decimals the column stores — the
+     * precision TYPO3's backend form keeps for a decimal field — so a value
+     * read back equals the value set, whichever way it was written. Two
+     * decimals of a cent per million tokens resolve 0.0001 USD per million.
+     */
+    private function storablePrice(float $cents): float
+    {
+        return max(0.0, round($cents, 2));
     }
 
     public function setIsActive(bool $isActive): void
@@ -577,6 +593,14 @@ class Model extends AbstractEntity
         return $this->hasCapability(ModelCapability::CHAT->value);
     }
 
+    /**
+     * Whether the model answers typed decision questions natively (ADR-211).
+     */
+    public function supportsDecision(): bool
+    {
+        return $this->hasCapability(ModelCapability::DECISION->value);
+    }
+
     public function supportsCompletion(): bool
     {
         return $this->hasCapability(ModelCapability::COMPLETION->value);
@@ -632,6 +656,7 @@ class Model extends AbstractEntity
             ModelCapability::TOOLS->value => 'Tool Use',
             ModelCapability::JSON_MODE->value => 'JSON Mode',
             ModelCapability::AUDIO->value => 'Audio',
+            ModelCapability::DECISION->value => 'Decisions',
         ];
     }
 

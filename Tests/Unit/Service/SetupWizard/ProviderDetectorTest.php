@@ -153,6 +153,18 @@ class ProviderDetectorTest extends AbstractUnitTestCase
         self::assertEquals(0.9, $result->confidence);
     }
 
+    // ==================== TypeSafe detection ====================
+
+    #[Test]
+    public function detectRecognizesTypeSafe(): void
+    {
+        $result = $this->subject->detect('https://api.typesafe.ai/v1');
+
+        self::assertEquals('typesafe', $result->adapterType);
+        self::assertEquals('TypeSafe', $result->suggestedName);
+        self::assertEquals(1.0, $result->confidence);
+    }
+
     // ==================== Ollama detection ====================
 
     #[Test]
@@ -364,6 +376,8 @@ class ProviderDetectorTest extends AbstractUnitTestCase
         self::assertArrayHasKey('fireworks', $types);
         self::assertArrayHasKey('perplexity', $types);
         self::assertArrayHasKey('custom', $types);
+        self::assertArrayHasKey('typesafe', $types);
+        self::assertArrayHasKey('decision_sidecar', $types);
     }
 
     #[Test]
@@ -398,6 +412,7 @@ class ProviderDetectorTest extends AbstractUnitTestCase
             'fireworks bare gains /inference/v1' => ['https://api.fireworks.ai', 'fireworks', 'https://api.fireworks.ai/inference/v1'],
             // Perplexity's canonical base has no version segment, so it stays a bare host.
             'perplexity bare stays bare'        => ['https://api.perplexity.ai', 'perplexity', 'https://api.perplexity.ai'],
+            'typesafe bare gains /v1'           => ['https://api.typesafe.ai', 'typesafe', 'https://api.typesafe.ai/v1'],
             // Ollama's adapter adds "api/" itself, so its base URL must stay a bare host.
             'ollama bare stays bare'            => ['http://localhost:11434', 'ollama', 'http://localhost:11434'],
             'ollama scheme-less stays bare'     => ['localhost:11434', 'ollama', 'http://localhost:11434'],

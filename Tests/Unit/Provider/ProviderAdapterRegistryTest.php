@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Provider\AbstractProvider;
 use Netresearch\NrLlm\Provider\ClaudeProvider;
+use Netresearch\NrLlm\Provider\DecisionSidecarProvider;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\GeminiProvider;
 use Netresearch\NrLlm\Provider\GroqProvider;
@@ -22,6 +23,7 @@ use Netresearch\NrLlm\Provider\OllamaProvider;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
 use Netresearch\NrLlm\Provider\OpenRouterProvider;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
+use Netresearch\NrLlm\Provider\TypeSafeProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Tests\Unit\Provider\Fixtures\UnreachableProvider;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -84,6 +86,8 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
             'ollama' => [AdapterType::Ollama->value, OllamaProvider::class],
             'azure_openai' => [AdapterType::AzureOpenAI->value, OpenAiProvider::class],
             'custom' => [AdapterType::Custom->value, OpenAiProvider::class],
+            'typesafe' => [AdapterType::TypeSafe->value, TypeSafeProvider::class],
+            'decision_sidecar' => [AdapterType::DecisionSidecar->value, DecisionSidecarProvider::class],
         ];
     }
 
@@ -241,6 +245,8 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
             'together exists' => [AdapterType::Together->value, true],
             'fireworks exists' => [AdapterType::Fireworks->value, true],
             'perplexity exists' => [AdapterType::Perplexity->value, true],
+            'typesafe exists' => [AdapterType::TypeSafe->value, true],
+            'decision_sidecar exists' => [AdapterType::DecisionSidecar->value, true],
             'unknown does not exist' => ['unknown_type', false],
             'empty does not exist' => ['', false],
         ];

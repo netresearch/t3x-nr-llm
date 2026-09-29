@@ -11,7 +11,9 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Evaluation\Fixture;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\StructuredCompletionResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use RuntimeException;
@@ -54,22 +56,17 @@ final class StaticCompletionService implements CompletionServiceInterface
         return [];
     }
 
-    public function completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): array
+    public function completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): StructuredCompletionResponse
     {
-        $this->receivedPrompts[] = $prompt;
-        if ($this->throw) {
-            throw new RuntimeException('provider unavailable', 1794000099);
-        }
-
         // Behave like the real service: the canned content, decoded. Callers
         // that seed plain text (deterministic-path tests) never reach this.
-        $decoded = json_decode($this->content, true);
-        if (!is_array($decoded)) {
-            return [];
-        }
+        $response = $this->complete($prompt, $options);
+        $decoded  = json_decode($response->content, true);
 
-        /** @var array<string, mixed> $decoded */
-        return $decoded;
+        /** @var array<string, mixed> $data */
+        $data = is_array($decoded) ? $decoded : [];
+
+        return new StructuredCompletionResponse($data, $response, $response->usage, 1);
     }
 
     public function completeMarkdown(string $prompt, ?ChatOptions $options = null): string
@@ -87,7 +84,7 @@ final class StaticCompletionService implements CompletionServiceInterface
         return $this->complete($prompt, $options);
     }
 
-    public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
+    public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null, ?ModelResolution $resolution = null): CompletionResponse
     {
         return $this->complete($prompt, $options);
     }
@@ -99,11 +96,9 @@ final class StaticCompletionService implements CompletionServiceInterface
         return [];
     }
 
-    public function completeStructuredForConfiguration(string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null): array
+    public function completeStructuredForConfiguration(string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null, ?ModelResolution $resolution = null): StructuredCompletionResponse
     {
-        $this->receivedPrompts[] = $prompt;
-
-        return [];
+        return $this->completeStructured($prompt, $schema, $options);
     }
 
     public function completeMarkdownForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): string

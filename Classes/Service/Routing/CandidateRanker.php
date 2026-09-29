@@ -61,8 +61,8 @@ final readonly class CandidateRanker
     ) {}
 
     /**
-     * @param list<Model>                                                                                                                                                $models   eligible models only — a rejected candidate has no score to compute
-     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param list<Model>                                                                                                                                                      $models   eligible models only — a rejected candidate has no score to compute
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int|float, preferLowestCost?: bool} $criteria
      *
      * @return list<RoutingCandidate> best first
      */
@@ -224,12 +224,14 @@ final readonly class CandidateRanker
     {
         $costA = $a->getCostInput() + $a->getCostOutput();
         $costB = $b->getCostInput() + $b->getCostOutput();
-        if ($costA === 0) {
-            $costA = PHP_INT_MAX;
+        // Prices are decimal (ADR-211): compare against 0.0, or an unpriced
+        // model would sort as the cheapest instead of last.
+        if ($costA <= 0.0) {
+            $costA = PHP_FLOAT_MAX;
         }
 
-        if ($costB === 0) {
-            $costB = PHP_INT_MAX;
+        if ($costB <= 0.0) {
+            $costB = PHP_FLOAT_MAX;
         }
 
         return $costA <=> $costB;

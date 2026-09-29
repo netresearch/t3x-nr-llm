@@ -114,6 +114,13 @@ services:
     alias: Netresearch\NrLlm\Service\Tool\UnavailableToolsResolver
     public: true
 
+  # Typed decisions by a consumer-declared profile, from the backend the
+  # operator configures (ADR-211). Public because consumer extensions look it
+  # up by interface, as they do the completion service.
+  Netresearch\NrLlm\Service\Decision\DecisionServiceInterface:
+    alias: Netresearch\NrLlm\Service\Decision\DecisionService
+    public: true
+
   Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface:
     alias: Netresearch\NrLlm\Service\UsageAnalyticsService
 

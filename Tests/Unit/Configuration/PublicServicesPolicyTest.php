@@ -48,7 +48,9 @@ final class PublicServicesPolicyTest extends TestCase
      *   `nr_llm.keyword_search.index_backed` variant) + 1 reranker
      *   protocol entry (ADR-075: RerankerInterface, factory-built), plus the
      *   ConversationService concrete + ConversationServiceInterface alias
-     *   (ADR-083: a stateful feature service beside Completion) = 19 —
+     *   (ADR-083: a stateful feature service beside Completion), plus the
+     *   DecisionServiceInterface alias (ADR-211: typed decisions, looked up
+     *   by consumer extensions like the completion service) = 20 —
      *   LlmServiceManager, ProviderAdapterRegistry, and the
      *   Completion/Vision/Embedding/Translation/ToolCalling (ADR-051)
      *   feature pairs.
@@ -76,7 +78,7 @@ final class PublicServicesPolicyTest extends TestCase
      *   ToolDataHandler (created by every writing tool, not shared, like the
      *   core DataHandler it extends — ADR-206).
      *
-     * Total: 19 + 9 + 1 + 5 + 4 = **38**.
+     * Total: 20 + 9 + 1 + 5 + 4 = **39**.
      *
      * To intentionally change this number: update both this
      * constant AND the matching breakdown in
@@ -84,7 +86,7 @@ final class PublicServicesPolicyTest extends TestCase
      * authority, superseding ADR-094's count) in the same PR — the diff is
      * the audit trail.
      */
-    private const EXPECTED_PUBLIC_TRUE_COUNT = 38;
+    private const EXPECTED_PUBLIC_TRUE_COUNT = 39;
 
     private const SERVICES_YAML_PATH = __DIR__ . '/../../../Configuration/Services.yaml';
 

@@ -11,13 +11,21 @@ namespace Netresearch\NrLlm\Tests\Unit\Controller\Backend;
 
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\DecisionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionAnswer;
+use Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionSubject;
+use Netresearch\NrLlm\Domain\ValueObject\Decision\ProbabilityKind;
+use Netresearch\NrLlm\Domain\ValueObject\Decision\YesNoQuestion;
+use Netresearch\NrLlm\Provider\Contract\DecisionCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
+use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -1225,8 +1233,18 @@ final class ConfigurationControllerTest extends TestCase
 
         // A readonly property cannot be re-set, so swap the collaborator and
         // build a fresh controller rather than patching the shared one.
+        // Asked for a decision model first (ADR-211); a chat model resolved
+        // there is no decision model, so the completion resolution decides.
+        $operations = [];
         $this->modelSelectionService = $this->createMock(ModelSelectionServiceInterface::class);
-        $this->modelSelectionService->expects(self::once())->method('resolveModel')->willReturn($resolved);
+        $this->modelSelectionService->expects(self::exactly(2))->method('resolveModel')->willReturnCallback(
+            static function (LlmConfiguration $configuration, ProviderOperation $operation) use (&$operations, $resolved): Model {
+                self::assertSame('criteria_mode', $configuration->getIdentifier());
+                $operations[] = $operation;
+
+                return $resolved;
+            },
+        );
         $subject = $this->createControllerWithDependencies();
 
         $this->configurationRepository->method('findByUid')->willReturn($configuration);
@@ -1240,6 +1258,120 @@ final class ConfigurationControllerTest extends TestCase
         $response = $subject->testConfigurationAction($this->createRequest(['uid' => 1]));
 
         self::assertSame(200, $response->getStatusCode());
+        self::assertSame([ProviderOperation::Decision, ProviderOperation::Completion], $operations);
+    }
+
+    #[Test]
+    public function aDecisionConfigurationIsTestedWithADecisionProbe(): void
+    {
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('judge');
+
+        $provider = new Provider();
+        $provider->setName('TypeSafe');
+
+        $resolved = new Model();
+        $resolved->setModelId('jev-1.13.0');
+        $resolved->setCapabilities('decision');
+        $resolved->setProvider($provider);
+
+        $this->modelSelectionService = $this->createMock(ModelSelectionServiceInterface::class);
+        $this->modelSelectionService->expects(self::once())->method('resolveModel')
+            ->with($configuration, ProviderOperation::Decision)
+            ->willReturn($resolved);
+        $subject = $this->createControllerWithDependencies();
+
+        $this->configurationRepository->method('findByUid')->willReturn($configuration);
+
+        $adapter = $this->createMockForIntersectionOfInterfaces([ProviderInterface::class, DecisionCapableInterface::class]);
+        $adapter->expects(self::never())->method('complete');
+        $adapter->expects(self::once())->method('decide')
+            ->willReturnCallback(static function (DecisionSubject $subject, array $questions, array $options): DecisionResponse {
+                self::assertCount(1, $questions);
+                self::assertInstanceOf(YesNoQuestion::class, $questions[0]);
+                self::assertNotNull($subject->candidate);
+                self::assertSame('jev-1.13.0', $options['model'] ?? null);
+
+                return new DecisionResponse(
+                    ['probe' => DecisionAnswer::yesNo('probe', 0.87)],
+                    'jev-1.13.0-reported',
+                    new UsageStatistics(19, 0, 19),
+                    ProbabilityKind::Calibrated,
+                    'typesafe',
+                );
+            });
+        $this->providerAdapterRegistry->method('createAdapterFromModel')->willReturn($adapter);
+
+        $response = $subject->testConfigurationAction($this->createRequest(['uid' => 1]));
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue($data['success']);
+        self::assertSame('jev-1.13.0-reported', $data['model']);
+        self::assertIsString($data['content']);
+        self::assertStringContainsString('0.87', $data['content']);
+        self::assertSame(['promptTokens' => 19, 'completionTokens' => 0, 'totalTokens' => 19], $data['usage']);
+    }
+
+    #[Test]
+    public function aDecisionModelOnAProviderThatCannotDecideFailsTheTest(): void
+    {
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('judge');
+
+        // The form's default "chat" kept next to "decision", on a chat provider.
+        $resolved = new Model();
+        $resolved->setModelId('gpt-4o');
+        $resolved->setCapabilities('chat,decision');
+        $resolved->setProvider(new Provider());
+
+        $this->modelSelectionService = $this->createMock(ModelSelectionServiceInterface::class);
+        $this->modelSelectionService->method('resolveModel')->willReturn($resolved);
+        $subject = $this->createControllerWithDependencies();
+
+        $this->configurationRepository->method('findByUid')->willReturn($configuration);
+
+        // A chat test would pass here and every decision would then fail.
+        $adapter = $this->createMock(ProviderInterface::class);
+        $adapter->expects(self::never())->method('complete');
+        $this->providerAdapterRegistry->method('createAdapterFromModel')->willReturn($adapter);
+
+        $response = $subject->testConfigurationAction($this->createRequest(['uid' => 1]));
+        $data     = $this->decodeJsonResponse($response);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertFalse($data['success']);
+        self::assertIsString($data['error']);
+        self::assertStringContainsString('gpt-4o', $data['error']);
+    }
+
+    #[Test]
+    public function aConfigurationWithoutADecisionModelFallsBackToTheCompletionModel(): void
+    {
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('chat');
+
+        $resolved = new Model();
+        $resolved->setModelId('gpt-4o');
+        $resolved->setProvider(new Provider());
+
+        $this->modelSelectionService = $this->createMock(ModelSelectionServiceInterface::class);
+        $this->modelSelectionService->method('resolveModel')->willReturnCallback(
+            static fn(LlmConfiguration $configuration, ProviderOperation $operation): Model => $operation === ProviderOperation::Decision
+                ? throw new UnsupportedFeatureException('no decision model matches the criteria', 8244372205)
+                : $resolved,
+        );
+        $subject = $this->createControllerWithDependencies();
+
+        $this->configurationRepository->method('findByUid')->willReturn($configuration);
+
+        $adapter = $this->createMock(ProviderInterface::class);
+        $adapter->expects(self::once())->method('complete')->willReturn(
+            new CompletionResponse('hi', 'gpt-4o', new UsageStatistics(3, 1, 4)),
+        );
+        $this->providerAdapterRegistry->method('createAdapterFromModel')->willReturn($adapter);
+
+        self::assertSame(200, $subject->testConfigurationAction($this->createRequest(['uid' => 1]))->getStatusCode());
     }
 
     #[Test]

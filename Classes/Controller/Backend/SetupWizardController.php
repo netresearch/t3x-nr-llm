@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Controller\Backend\Response\GeneratedConfigurationsRespons
 use Netresearch\NrLlm\Controller\Backend\Response\ProviderDetectionResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\WizardSaveResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\WizardTestConnectionResponse;
+use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
@@ -410,6 +411,11 @@ final class SetupWizardController extends ActionController
             $this->persistenceManager->persistAll();
         }
 
+        // At most one default model, as ModelRepository::setAsDefault() keeps
+        // it: the first eligible one wins, since a provider may recommend
+        // several (Ollama recommends every installed model).
+        $defaultAssigned = false;
+
         // Create models
         foreach ($modelsData as $modelData) {
             if (!is_array($modelData)) {
@@ -444,8 +450,14 @@ final class SetupWizardController extends ActionController
             // (ADR-055: 0 = unknown, consumers probe live otherwise).
             $model->setDimensions(EmbeddingModelDimensions::forModelId($modelId));
             $model->setCapabilities(implode(',', array_filter($modelCapabilities, is_string(...))));
+            // The price discovery found, in cents per million tokens; the
+            // setters round to what the column stores and refuse negatives.
+            $model->setCostInput(is_numeric($modelData['costInput'] ?? null) ? (float)$modelData['costInput'] : 0.0);
+            $model->setCostOutput(is_numeric($modelData['costOutput'] ?? null) ? (float)$modelData['costOutput'] : 0.0);
             $model->setIsActive(true);
-            $model->setIsDefault((bool)($modelData['recommended'] ?? false));
+            $isDefault = !$defaultAssigned && $this->becomesDefaultModel($modelData);
+            $defaultAssigned = $defaultAssigned || $isDefault;
+            $model->setIsDefault($isDefault);
             if ($pid >= 0) {
                 $model->setPid($pid);
             }
@@ -467,12 +479,30 @@ final class SetupWizardController extends ActionController
     private function hasNewDefaultModel(array $modelsData): bool
     {
         foreach ($modelsData as $modelData) {
-            if (is_array($modelData) && ($modelData['selected'] ?? false) && ($modelData['recommended'] ?? false)) {
+            if (is_array($modelData) && ($modelData['selected'] ?? false) && $this->becomesDefaultModel($modelData)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * A recommended model becomes the default only if it can chat: the
+     * default model serves generic chat calls, which a decision-only model
+     * (ADR-211) refuses. Its recommendation still stands within its provider.
+     *
+     * @param array<mixed> $modelData
+     */
+    private function becomesDefaultModel(array $modelData): bool
+    {
+        if (!($modelData['recommended'] ?? false)) {
+            return false;
+        }
+
+        $capabilities = is_array($modelData['capabilities'] ?? null) ? $modelData['capabilities'] : [];
+
+        return $capabilities === [] || in_array(ModelCapability::CHAT->value, $capabilities, true);
     }
 
     /**
@@ -569,6 +599,8 @@ final class SetupWizardController extends ActionController
                 capabilities: is_array($modelData['capabilities'] ?? null) ? array_values(array_filter($modelData['capabilities'], is_string(...))) : ['chat'],
                 contextLength: is_numeric($modelData['contextLength'] ?? null) ? (int)$modelData['contextLength'] : 0,
                 maxOutputTokens: is_numeric($modelData['maxOutputTokens'] ?? null) ? (int)$modelData['maxOutputTokens'] : 0,
+                costInput: is_numeric($modelData['costInput'] ?? null) ? (float)$modelData['costInput'] : 0.0,
+                costOutput: is_numeric($modelData['costOutput'] ?? null) ? (float)$modelData['costOutput'] : 0.0,
                 recommended: (bool)($modelData['recommended'] ?? false),
             );
         }

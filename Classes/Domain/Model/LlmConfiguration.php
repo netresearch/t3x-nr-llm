@@ -223,7 +223,7 @@ class LlmConfiguration extends AbstractEntity
     /**
      * Get model selection criteria as array.
      *
-     * @return array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool}
+     * @return array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int|float, preferLowestCost?: bool}
      */
     public function getModelSelectionCriteriaArray(): array
     {
@@ -236,7 +236,7 @@ class LlmConfiguration extends AbstractEntity
             return [];
         }
 
-        /** @var array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $decoded */
+        /** @var array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int|float, preferLowestCost?: bool} $decoded */
         return $decoded;
     }
 
@@ -602,7 +602,7 @@ class LlmConfiguration extends AbstractEntity
     /**
      * Set model selection criteria from array.
      *
-     * @param array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int|float, preferLowestCost?: bool} $criteria
      */
     public function setModelSelectionCriteriaArray(array $criteria): void
     {

@@ -38,6 +38,11 @@ final readonly class DeterministicGrader implements GraderInterface
         return self::IDENTIFIER;
     }
 
+    /**
+     * Needs nothing beyond the prompt's own assertions.
+     */
+    public function assertReady(): void {}
+
     public function grade(string $response, GoldenPrompt $prompt): GradingResult
     {
         if ($prompt->assertions === []) {
@@ -45,7 +50,7 @@ final readonly class DeterministicGrader implements GraderInterface
                 false,
                 0.0,
                 self::IDENTIFIER,
-                'No deterministic assertions declared; use the llm_judge grader for reference-only prompts.',
+                'No deterministic assertions declared; use the decision grader for reference-only prompts.',
             );
         }
 

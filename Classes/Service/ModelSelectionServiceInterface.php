@@ -100,14 +100,14 @@ interface ModelSelectionServiceInterface
     /**
      * Find a model matching the given criteria.
      *
-     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int|float, preferLowestCost?: bool} $criteria
      */
     public function findMatchingModel(array $criteria): ?Model;
 
     /**
      * Find all models matching the given criteria.
      *
-     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int|float, preferLowestCost?: bool} $criteria
      *
      * @return Model[]
      */
@@ -116,7 +116,7 @@ interface ModelSelectionServiceInterface
     /**
      * Check if a model matches the given criteria.
      *
-     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int|float, preferLowestCost?: bool} $criteria
      */
     public function modelMatchesCriteria(Model $model, array $criteria): bool;
 

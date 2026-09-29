@@ -148,4 +148,25 @@ final class FakeCompletionServiceTest extends TestCase
     {
         return new CompletionResponse($content, 'fake-model', new UsageStatistics(0, 0, 0));
     }
+
+    #[Test]
+    public function structuredMethodsWrapTheCannedPayloadAsOneAttempt(): void
+    {
+        $subject = new FakeCompletionService();
+        $subject->structuredResult = ['score' => 3];
+
+        $default = $subject->completeStructured('a', ['type' => 'object']);
+        $named = $subject->completeStructuredForConfiguration('b', new LlmConfiguration(), ['type' => 'object']);
+
+        foreach ([$default, $named] as $structured) {
+            self::assertSame(['score' => 3], $structured->data);
+            self::assertSame(1, $structured->attempts);
+            self::assertSame(FakeCompletionService::STRUCTURED_MODEL, $structured->response->model);
+            self::assertSame('{"score":3}', $structured->response->content);
+            self::assertSame(0, $structured->usage->totalTokens);
+        }
+
+        self::assertCount(1, $subject->completeStructuredCalls);
+        self::assertCount(1, $subject->completeStructuredForConfigurationCalls);
+    }
 }

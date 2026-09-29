@@ -11,17 +11,22 @@ namespace Netresearch\NrLlm\Service;
 
 use Generator;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\DecisionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionQuestion;
+use Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionSubject;
 use Netresearch\NrLlm\Domain\ValueObject\InjectedContext;
 use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
+use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
+use Netresearch\NrLlm\Service\Option\DecisionOptions;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
@@ -92,7 +97,7 @@ interface LlmServiceManagerInterface
      * low-level completeWithConfiguration(), the caller passes a typed
      * ChatOptions rather than a raw metadata/override array.
      */
-    public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse;
+    public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null, ?ModelResolution $resolution = null): CompletionResponse;
 
     /**
      * Chat using a specific LLM configuration (database-backed provider resolution).
@@ -162,6 +167,21 @@ interface LlmServiceManagerInterface
      * @param string|array<int, string> $input
      */
     public function embedForConfiguration(string|array $input, LlmConfiguration $configuration, ?EmbeddingOptions $options = null): EmbeddingResponse;
+
+    /**
+     * Ask a decision model of the configuration typed questions about a
+     * subject (ADR-211). The subject is screened by the input guardrails;
+     * the call runs the pipeline of the configuration.
+     *
+     * `$resolution` hands over a routing decision the caller already took for
+     * this configuration (#922), so the model it checked — a trust zone, say —
+     * is the model that serves; a fallback configuration resolves for itself.
+     *
+     * @param list<DecisionQuestion> $questions
+     *
+     * @throws UnsupportedFeatureException when the resolved model's provider cannot make decisions
+     */
+    public function decideForConfiguration(DecisionSubject $subject, array $questions, LlmConfiguration $configuration, ?DecisionOptions $options = null, ?ModelResolution $resolution = null): DecisionResponse;
 
     /**
      * Legacy array-shaped vision-content fixtures are accepted for

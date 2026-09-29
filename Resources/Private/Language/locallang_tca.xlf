@@ -350,6 +350,12 @@
             <trans-unit id="tx_nrllm_provider.adapter_type.custom">
                 <source>Custom (OpenAI-compatible)</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.typesafe">
+                <source>TypeSafe (decisions)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.decision_sidecar">
+                <source>Local decision sidecar</source>
+            </trans-unit>
             <trans-unit id="tx_nrllm_provider.endpoint_url">
                 <source>Endpoint URL</source>
             </trans-unit>
@@ -558,6 +564,12 @@
             </trans-unit>
             <trans-unit id="tx_nrllm_model.capabilities.transcription.description">
                 <source>Transcribe audio to text (speech-to-text). Used by the specialized Whisper service to resolve its default model.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities.decision">
+                <source>Decisions</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities.decision.description">
+                <source>Answer typed yes/no, choice and score questions natively, without generating text (TypeSafe, the local decision sidecar).</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.default_timeout">
                 <source>Default Timeout</source>

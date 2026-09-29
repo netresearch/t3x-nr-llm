@@ -42,14 +42,15 @@ Full test matrix in root `AGENTS.md` Commands section.
 | `Domain/ValueObject/` | Immutable payloads across the runtime — `ChatMessage` is the central one (constructed via `::system()` / `::user()` / `::toolResult()`) |
 | `Exception/` | Core domain exceptions (access, configuration, budget, guardrail, context) — all implement `NrLlmExceptionInterface` |
 | `Form/` | ModelIdElement (TCA element), ModelConstraintsWizard (field wizard), and the GuardrailItems / SiteItems / SnippetTagItems / ToolGroupItems item providers |
-| `Provider/` | 7 adapters: OpenAI, Claude, Gemini, Groq, Mistral, Ollama, OpenRouter |
-| `Provider/Contract/` | ProviderInterface, Streaming/Tool/Vision/DocumentCapableInterface |
+| `Provider/` | Chat adapters (OpenAI, Claude, Gemini, Groq, Mistral, Ollama, OpenRouter, …) and the decision adapters TypeSafe and the local decision sidecar on `AbstractDecisionProvider` (ADR-211) |
+| `Provider/Contract/` | ProviderInterface, Streaming/Tool/Vision/Document/DecisionCapableInterface |
 | `Provider/Exception/` | Typed provider exceptions (authentication, configuration, connection, rate limit, response, unsupported feature, circuit open, fallback exhausted) |
 | `Service/` | LlmServiceManager, CacheManager, ModelSelectionService, WizardGeneratorService, BudgetService |
 | `Provider/Middleware/` | Middleware pipeline (Fallback, Budget, Usage, Cache) — see ADR-026 |
 | `Service/Feature/` | CompletionService, ConversationService, EmbeddingService, ToolCallingService, TranslationService, VisionService — each with its interface |
+| `Service/Decision/` | DecisionService: typed decisions by a consumer-declared profile (DI tag `nr_llm.decision_profile`) on a configuration's model — natively through `LlmServiceManager::decideForConfiguration()` for a model that declares `decision`, through structured output (`StructuredDecisionAsker`) for a chat model — ADR-211 |
 | `Service/Glossary/` | GlossaryResolver: the site glossary for a language pair, read by TranslationService (ADR-208) |
-| `Service/Option/` | ChatOptions, EmbeddingOptions, ToolOptions, TranslationOptions, VisionOptions on `AbstractOptions`, plus the budget-aware trait and interface |
+| `Service/Option/` | ChatOptions, DecisionOptions, EmbeddingOptions, ToolOptions, TranslationOptions, VisionOptions on `AbstractOptions`, plus the budget-aware trait and interface |
 | `Service/SetupWizard/` | ProviderDetector, ModelDiscovery (facade), ConfigurationGenerator + DTOs; `Discovery/` holds one model discoverer per provider |
 | `Specialized/` | Image (DALL-E, FAL), Speech (Whisper, TTS), Translation (DeepL, LLM, DeepL glossary sync) |
 | `Hook/` | ProviderEndpointNormalizationHook |

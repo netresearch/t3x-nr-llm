@@ -200,6 +200,8 @@ available models, and generates a ready-to-use configuration. Paste your API key
 | Groq | `groq` | Chat, Streaming (fast inference) |
 | Azure OpenAI | `azure_openai` | Same as OpenAI |
 | Any OpenAI-compatible | `custom` | Varies (vLLM, LocalAI, LiteLLM, …) |
+| TypeSafe | `typesafe` | Decisions (typed yes/no, choice and score answers) |
+| Local decision sidecar | `decision_sidecar` | Decisions (local NLI model, no API key) |
 
 ---
 

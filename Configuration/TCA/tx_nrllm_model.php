@@ -245,6 +245,11 @@ return [
                         'value' => 'transcription',
                         'icon' => 'actions-file-audio',
                     ],
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.decision',
+                        'value' => 'decision',
+                        'icon' => 'actions-check-square',
+                    ],
                 ],
                 'default' => 'chat',
             ],
@@ -288,6 +293,8 @@ return [
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.cost_input.description',
             'config' => [
                 'type' => 'number',
+                // A decimal (ADR-211): 4.2 cents per million tokens is a price.
+                'format' => 'decimal',
                 'size' => 10,
                 'range' => [
                     'lower' => 0,
@@ -300,6 +307,8 @@ return [
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.cost_output.description',
             'config' => [
                 'type' => 'number',
+                // A decimal (ADR-211): 4.2 cents per million tokens is a price.
+                'format' => 'decimal',
                 'size' => 10,
                 'range' => [
                     'lower' => 0,

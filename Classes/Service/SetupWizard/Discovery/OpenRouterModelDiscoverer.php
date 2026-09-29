@@ -86,8 +86,10 @@ final class OpenRouterModelDiscoverer extends AbstractModelDiscoverer
             capabilities: $this->capabilitiesFrom($model),
             contextLength: $contextLength,
             maxOutputTokens: 0,
-            costInput: (int)($promptCost * 100000000),
-            costOutput: (int)($completionCost * 100000000),
+            // Dollars per token -> cents per million tokens, kept to the two
+            // decimals the model record stores.
+            costInput: round($promptCost * 100000000, 2),
+            costOutput: round($completionCost * 100000000, 2),
             recommended: false,
             capabilitiesFromApi: true,
         );

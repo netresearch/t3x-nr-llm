@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Provider\Fallback\FallbackCandidateResolver;
+use Netresearch\NrLlm\Provider\Middleware\FailureClassifier;
 use Netresearch\NrLlm\Provider\Middleware\FallbackMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
@@ -373,6 +374,70 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
 
         self::assertSame('ok', $result);
         self::assertSame(['p', 'a', 'b', 'c'], $calls);
+    }
+
+    #[Test]
+    public function aFallbackThatCannotServeTheOperationIsSkipped(): void
+    {
+        $primary = $this->makeConfig('p', new FallbackChain(['chat-only', 'b']));
+        $chatOnly = $this->makeConfig('chat-only');
+        $b        = $this->makeConfig('b');
+
+        $this->repositoryStub->method('findOneByIdentifier')
+            ->willReturnMap([
+                ['chat-only', $chatOnly],
+                ['b', $b],
+            ]);
+
+        $calls  = [];
+        $result = $this->makePipeline()->run(
+            ProviderCallContext::forConfiguration(ProviderOperation::Decision, $primary),
+            function (ProviderCallContext $ctx) use (&$calls): string {
+                $config = $ctx->configuration;
+                assert($config instanceof LlmConfiguration);
+                $calls[] = $config->getIdentifier();
+
+                return match ($config->getIdentifier()) {
+                    'p'         => throw new ProviderConnectionException('overloaded', 529),
+                    'chat-only' => throw new UnsupportedFeatureException('cannot make decisions', 1795211061),
+                    default     => 'decided',
+                };
+            },
+        );
+
+        self::assertSame('decided', $result);
+        self::assertSame(['p', 'chat-only', 'b'], $calls);
+    }
+
+    #[Test]
+    public function aChainOfFallbacksThatCannotServeKeepsThePrimarysFailure(): void
+    {
+        $primary  = $this->makeConfig('p', new FallbackChain(['chat-only']));
+        $chatOnly = $this->makeConfig('chat-only');
+        $this->repositoryStub->method('findOneByIdentifier')->willReturnMap([['chat-only', $chatOnly]]);
+
+        $outage = new ProviderConnectionException('overloaded', 529);
+
+        $exhausted = $this->captureException(
+            FallbackChainExhaustedException::class,
+            fn(): mixed => $this->makePipeline()->run(
+                ProviderCallContext::forConfiguration(ProviderOperation::Decision, $primary),
+                static function (ProviderCallContext $ctx) use ($outage): never {
+                    $config = $ctx->configuration;
+                    assert($config instanceof LlmConfiguration);
+
+                    throw $config->getIdentifier() === 'p' ? $outage : new UnsupportedFeatureException('cannot make decisions', 1795211061);
+                },
+            ),
+        );
+
+        // The outage is what went wrong; the sibling that cannot decide is recorded, not reported instead.
+        self::assertSame($outage, $exhausted->getAttemptErrors()[0]['error']);
+        self::assertSame(['p', 'chat-only'], $exhausted->getAttemptedConfigurations());
+        self::assertSame($outage, $exhausted->getPrevious());
+        self::assertSame($outage, $exhausted->decisiveError());
+        // So a queue retry or a breaker sees an outage it may retry, not "unsupported".
+        self::assertTrue(FailureClassifier::classify($exhausted)->isRetryable());
     }
 
     #[Test]

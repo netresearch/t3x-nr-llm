@@ -12,11 +12,17 @@ namespace Netresearch\NrLlm\Tests\Unit\Controller\Backend;
 use LogicException;
 use Netresearch\NrLlm\Controller\Backend\ModelTestController;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\DecisionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionAnswer;
+use Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionSubject;
+use Netresearch\NrLlm\Domain\ValueObject\Decision\ProbabilityKind;
+use Netresearch\NrLlm\Domain\ValueObject\Decision\YesNoQuestion;
+use Netresearch\NrLlm\Provider\Contract\DecisionCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
@@ -429,6 +435,90 @@ final class ModelTestControllerTest extends TestCase
         $body = $this->decodeJsonResponse($this->subject->testModelAction($this->createRequest(['uid' => 12])));
 
         self::assertFalse($body['success']);
+    }
+
+    private function decisionModel(): Model
+    {
+        $provider = new Provider();
+        $provider->setName('TypeSafe');
+
+        $model = new Model();
+        $model->setName('Jev 1.13');
+        $model->setModelId('jev-1.13.0');
+        $model->setProvider($provider);
+        $model->setCapabilities('decision');
+
+        return $model;
+    }
+
+    #[Test]
+    public function aDecisionModelIsProbedWithOneYesNoQuestion(): void
+    {
+        $this->modelRepository->method('findByUid')->willReturn($this->decisionModel());
+
+        $adapter = $this->createMockForIntersectionOfInterfaces([ProviderInterface::class, DecisionCapableInterface::class]);
+        $adapter->expects(self::never())->method('complete');
+        $adapter->expects(self::once())->method('decide')
+            ->willReturnCallback(static function (DecisionSubject $subject, array $questions, array $options): DecisionResponse {
+                self::assertNotNull($subject->candidate, 'the test prompt is the candidate');
+                self::assertCount(1, $questions);
+                self::assertInstanceOf(YesNoQuestion::class, $questions[0]);
+                self::assertSame(['model' => 'jev-1.13.0'], $options);
+
+                return new DecisionResponse(
+                    ['probe' => DecisionAnswer::yesNo('probe', 0.87)],
+                    'jev-1.13.0',
+                    new UsageStatistics(23, 0, 23),
+                    ProbabilityKind::Calibrated,
+                    'typesafe',
+                );
+            });
+        $this->providerAdapterRegistry->method('createAdapterFromModel')->willReturn($adapter);
+
+        $body = $this->decodeJsonResponse($this->subject->testModelAction($this->createRequest(['uid' => 14])));
+
+        self::assertTrue($body['success']);
+        self::assertIsString($body['message']);
+        self::assertStringContainsString('0.87', $body['message']);
+        self::assertStringContainsString('23', $body['message']);
+    }
+
+    #[Test]
+    public function aDecisionModelThatAlsoKeepsTheChatDefaultIsStillProbedWithADecision(): void
+    {
+        $model = $this->decisionModel();
+        // The model form defaults capabilities to "chat".
+        $model->setCapabilities('chat,decision');
+        $this->modelRepository->method('findByUid')->willReturn($model);
+
+        $adapter = $this->createMockForIntersectionOfInterfaces([ProviderInterface::class, DecisionCapableInterface::class]);
+        $adapter->expects(self::never())->method('complete');
+        $adapter->expects(self::once())->method('decide')->willReturn(new DecisionResponse(
+            ['probe' => DecisionAnswer::yesNo('probe', 0.5)],
+            'jev-1.13.0',
+            new UsageStatistics(5, 0, 5),
+            ProbabilityKind::Calibrated,
+            'typesafe',
+        ));
+        $this->providerAdapterRegistry->method('createAdapterFromModel')->willReturn($adapter);
+
+        self::assertTrue($this->decodeJsonResponse($this->subject->testModelAction($this->createRequest(['uid' => 16])))['success']);
+    }
+
+    #[Test]
+    public function aDecisionModelOnAProviderThatCannotDecideIsNotASuccess(): void
+    {
+        $this->modelRepository->method('findByUid')->willReturn($this->decisionModel());
+
+        $adapter = $this->createMock(ProviderInterface::class);
+        $adapter->expects(self::never())->method('complete');
+        $this->providerAdapterRegistry->method('createAdapterFromModel')->willReturn($adapter);
+
+        $body = $this->decodeJsonResponse($this->subject->testModelAction($this->createRequest(['uid' => 15])));
+
+        self::assertFalse($body['success']);
+        self::assertIsString($body['message']);
+        self::assertStringContainsString('Jev 1.13', $body['message']);
     }
 
     private function createModel(int $uid, bool $isActive, bool $isDefault = false): Model

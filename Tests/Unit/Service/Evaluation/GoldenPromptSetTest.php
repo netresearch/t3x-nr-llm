@@ -89,4 +89,17 @@ final class GoldenPromptSetTest extends TestCase
         $prompt = new GoldenPrompt('p', 'prompt', [], null, 'reference answer');
         self::assertSame('reference answer', $prompt->reference);
     }
+
+    #[Test]
+    public function withSystemPromptReplacesOnlyTheSystemPrompt(): void
+    {
+        $assertions = [Assertion::contains('Bonjour')];
+        $prompt = new GoldenPrompt('greet', 'Greet the user', $assertions, 'Be brief.', 'Bonjour !');
+
+        $applied = $prompt->withSystemPrompt('Answer in French.');
+
+        self::assertSame(['greet', 'Greet the user', $assertions, 'Answer in French.', 'Bonjour !'], [$applied->id, $applied->prompt, $applied->assertions, $applied->systemPrompt, $applied->reference]);
+        self::assertSame('Be brief.', $prompt->systemPrompt, 'the original is unchanged');
+        self::assertNull($prompt->withSystemPrompt(null)->systemPrompt);
+    }
 }

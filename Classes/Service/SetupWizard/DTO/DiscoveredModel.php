@@ -23,8 +23,8 @@ final readonly class DiscoveredModel
      * @param array<string> $capabilities        List of capabilities (chat, vision, tools, etc.)
      * @param int           $contextLength       Context window size in tokens
      * @param int           $maxOutputTokens     Maximum output tokens
-     * @param int           $costInput           Cost per 1M input tokens in cents
-     * @param int           $costOutput          Cost per 1M output tokens in cents
+     * @param float         $costInput           Cost per 1M input tokens in cents
+     * @param float         $costOutput          Cost per 1M output tokens in cents
      * @param bool          $recommended         Whether this model is recommended for general use
      * @param bool          $capabilitiesFromApi Whether `$capabilities` was derived from the
      *                                           provider's own response payload. False — the
@@ -43,8 +43,8 @@ final readonly class DiscoveredModel
         public array $capabilities = ['chat'],
         public int $contextLength = 0,
         public int $maxOutputTokens = 0,
-        public int $costInput = 0,
-        public int $costOutput = 0,
+        public float $costInput = 0.0,
+        public float $costOutput = 0.0,
         public bool $recommended = false,
         public bool $capabilitiesFromApi = false,
     ) {}

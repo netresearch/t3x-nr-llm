@@ -176,7 +176,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
                 (new ChatOptions())->withSystemPrompt($this->getConfigurationSystemPrompt()),
             );
 
-            return $this->normalizeConfigurationResult($parsed, $description);
+            return $this->normalizeConfigurationResult($parsed->data, $description);
         } catch (BudgetExceededException $e) {
             // A budget denial is an answer, not a generation failure — the
             // fallback would disguise it as "the LLM produced nothing".
@@ -212,7 +212,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
                 (new ChatOptions())->withSystemPrompt($this->getTaskSystemPrompt()),
             );
 
-            return $this->normalizeTaskResult($parsed, $description);
+            return $this->normalizeTaskResult($parsed->data, $description);
         } catch (BudgetExceededException $e) {
             throw $e;
         } catch (Throwable $e) {
@@ -249,7 +249,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
                 (new ChatOptions())->withSystemPrompt($this->getFullChainSystemPrompt()),
             );
 
-            return $this->normalizeFullChainResult($parsed, $description);
+            return $this->normalizeFullChainResult($parsed->data, $description);
         } catch (BudgetExceededException $e) {
             throw $e;
         } catch (Throwable $e) {

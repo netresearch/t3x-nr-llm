@@ -84,7 +84,7 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
      * Criteria mode only. Fixed mode chooses nothing — the operator named the
      * model — so there is no decision to explain.
      *
-     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int|float, preferLowestCost?: bool} $criteria
      */
     public function decide(array $criteria): RoutingDecision
     {
@@ -249,9 +249,9 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
      * rule exists once, here, and both the resolution and the readout read it,
      * so the page cannot show a decision the runtime would not have taken.
      *
-     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int|float, preferLowestCost?: bool} $criteria
      *
-     * @return array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool}
+     * @return array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int|float, preferLowestCost?: bool}
      */
     private function constrainedCriteria(array $criteria, ?ModelCapability $capability, bool $enforcing): array
     {
@@ -267,7 +267,7 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
     /**
      * Find a model matching the given criteria.
      *
-     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int|float, preferLowestCost?: bool} $criteria
      */
     public function findMatchingModel(array $criteria): ?Model
     {
@@ -280,7 +280,7 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
     /**
      * Find all models matching the given criteria.
      *
-     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int|float, preferLowestCost?: bool} $criteria
      *
      * @return Model[]
      */
@@ -306,7 +306,7 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
     /**
      * Check if a model matches the given criteria.
      *
-     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int|float, preferLowestCost?: bool} $criteria
      */
     public function modelMatchesCriteria(Model $model, array $criteria): bool
     {

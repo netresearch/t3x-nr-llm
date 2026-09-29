@@ -91,21 +91,27 @@ Optional
 
    Comma-separated capabilities: ``chat``,
    ``completion``, ``embeddings``, ``vision``,
-   ``streaming``, ``tools``.
+   ``streaming``, ``tools``, ``decision`` — the
+   last for a model that answers typed decision
+   questions natively
+   (:ref:`api-decision-service`).
 
 .. confval:: cost_input
    :name: confval-model-cost-input
-   :type: integer
+   :type: decimal
    :Default: 0
 
-   Cost per 1M input tokens in cents.
+   Cost per 1M input tokens in cents, with up
+   to two decimals — 0.042 USD is ``4.2``.
+   ``0`` means unpriced: no cost is recorded.
 
 .. confval:: cost_output
    :name: confval-model-cost-output
-   :type: integer
+   :type: decimal
    :Default: 0
 
-   Cost per 1M output tokens in cents.
+   Cost per 1M output tokens in cents, with up
+   to two decimals.
 
 .. confval:: is_default
    :name: confval-model-is-default

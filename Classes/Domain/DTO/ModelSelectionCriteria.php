@@ -26,21 +26,21 @@ final readonly class ModelSelectionCriteria implements JsonSerializable
      * @param list<string> $capabilities     Required model capabilities
      * @param list<string> $adapterTypes     Allowed provider adapter types
      * @param int          $minContextLength Minimum context length requirement
-     * @param int          $maxCostInput     Maximum input cost (in cents per 1M tokens)
+     * @param float        $maxCostInput     Maximum input cost in cents per 1M tokens, decimal like the model's price (ADR-211); 0 = no cap
      * @param bool         $preferLowestCost Whether to prefer the lowest cost model
      */
     public function __construct(
         public array $capabilities = [],
         public array $adapterTypes = [],
         public int $minContextLength = 0,
-        public int $maxCostInput = 0,
+        public float $maxCostInput = 0.0,
         public bool $preferLowestCost = false,
     ) {}
 
     /**
      * Create from array.
      *
-     * @param array{capabilities?: list<string>, adapterTypes?: list<string>, minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $data
+     * @param array{capabilities?: list<string>, adapterTypes?: list<string>, minContextLength?: int, maxCostInput?: int|float, preferLowestCost?: bool} $data
      */
     public static function fromArray(array $data): self
     {
@@ -48,7 +48,7 @@ final readonly class ModelSelectionCriteria implements JsonSerializable
             capabilities: $data['capabilities'] ?? [],
             adapterTypes: $data['adapterTypes'] ?? [],
             minContextLength: $data['minContextLength'] ?? 0,
-            maxCostInput: $data['maxCostInput'] ?? 0,
+            maxCostInput: (float)($data['maxCostInput'] ?? 0.0),
             preferLowestCost: $data['preferLowestCost'] ?? false,
         );
     }
@@ -67,14 +67,14 @@ final readonly class ModelSelectionCriteria implements JsonSerializable
             return new self();
         }
 
-        /** @var array{capabilities?: list<string>, adapterTypes?: list<string>, minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $data */
+        /** @var array{capabilities?: list<string>, adapterTypes?: list<string>, minContextLength?: int, maxCostInput?: int|float, preferLowestCost?: bool} $data */
         return self::fromArray($data);
     }
 
     /**
      * Convert to array.
      *
-     * @return array{capabilities: list<string>, adapterTypes: list<string>, minContextLength: int, maxCostInput: int, preferLowestCost: bool}
+     * @return array{capabilities: list<string>, adapterTypes: list<string>, minContextLength: int, maxCostInput: float, preferLowestCost: bool}
      */
     public function toArray(): array
     {
@@ -96,7 +96,7 @@ final readonly class ModelSelectionCriteria implements JsonSerializable
     }
 
     /**
-     * @return array{capabilities: list<string>, adapterTypes: list<string>, minContextLength: int, maxCostInput: int, preferLowestCost: bool}
+     * @return array{capabilities: list<string>, adapterTypes: list<string>, minContextLength: int, maxCostInput: float, preferLowestCost: bool}
      */
     public function jsonSerialize(): array
     {
@@ -189,7 +189,7 @@ final readonly class ModelSelectionCriteria implements JsonSerializable
     /**
      * Create a new instance with maximum input cost.
      */
-    public function withMaxCostInput(int $maxCostInput): self
+    public function withMaxCostInput(float $maxCostInput): self
     {
         return new self(
             capabilities: $this->capabilities,

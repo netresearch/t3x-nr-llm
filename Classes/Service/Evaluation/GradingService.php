@@ -9,24 +9,25 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Evaluation;
 
+use Netresearch\NrLlm\Service\Evaluation\Grader\DecisionGrader;
 use Netresearch\NrLlm\Service\Evaluation\Grader\DeterministicGrader;
 use Netresearch\NrLlm\Service\Evaluation\Grader\GraderInterface;
-use Netresearch\NrLlm\Service\Evaluation\Grader\LlmJudgeGrader;
+use RuntimeException;
 
 /**
  * Selects a grading strategy and grades a response against a golden prompt
  * (ADR-060).
  *
- * The deterministic grader is the default; the LLM judge is opt-in via the
- * grader identifier because it spends tokens. An unknown identifier falls
- * back to the deterministic grader — evaluation must never silently invoke
- * the token-spending judge.
+ * The deterministic grader is the default; the decision grader (ADR-211) is
+ * opt-in via the grader identifier because it spends tokens. An unknown
+ * identifier falls back to the deterministic grader — evaluation must never
+ * silently invoke the token-spending grader.
  */
 final readonly class GradingService
 {
     public function __construct(
         private DeterministicGrader $deterministicGrader,
-        private LlmJudgeGrader $llmJudgeGrader,
+        private DecisionGrader $decisionGrader,
     ) {}
 
     public function grade(string $response, GoldenPrompt $prompt, string $graderId = DeterministicGrader::IDENTIFIER): GradingResult
@@ -35,17 +36,25 @@ final readonly class GradingService
     }
 
     /**
+     * @throws RuntimeException when the grader cannot grade at all ({@see GraderInterface::assertReady()})
+     */
+    public function assertReady(string $graderId = DeterministicGrader::IDENTIFIER): void
+    {
+        $this->resolveGrader($graderId)->assertReady();
+    }
+
+    /**
      * @return list<string>
      */
     public function availableGraders(): array
     {
-        return [DeterministicGrader::IDENTIFIER, LlmJudgeGrader::IDENTIFIER];
+        return [DeterministicGrader::IDENTIFIER, DecisionGrader::IDENTIFIER];
     }
 
     private function resolveGrader(string $graderId): GraderInterface
     {
         return match ($graderId) {
-            LlmJudgeGrader::IDENTIFIER => $this->llmJudgeGrader,
+            DecisionGrader::IDENTIFIER => $this->decisionGrader,
             default => $this->deterministicGrader,
         };
     }

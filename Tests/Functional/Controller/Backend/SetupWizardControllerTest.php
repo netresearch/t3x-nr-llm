@@ -546,6 +546,87 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         self::assertSame(0, $this->dimensionsOfModelId('gpt-5'));
     }
 
+    #[Test]
+    public function aRecommendedDecisionModelKeepsItsPriceButNeverBecomesTheDefaultModel(): void
+    {
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_WIZARD_SAVE);
+        $request = $request->withHeader('Content-Type', self::APPLICATION_JSON);
+        $request = $request->withBody(Utils::streamFor(json_encode([
+            'provider' => [
+                'suggestedName' => 'TypeSafe',
+                'adapterType' => 'typesafe',
+                'endpoint' => 'https://api.typesafe.ai/v1',
+                'apiKey' => 'ts-test-key-12345',
+            ],
+            'models' => [
+                [
+                    'modelId' => 'jev-1.13.0',
+                    'name' => 'Jev 1.13',
+                    'capabilities' => ['decision'],
+                    'costInput' => 4.2,
+                    'costOutput' => 0.0,
+                    'selected' => true,
+                    'recommended' => true,
+                ],
+            ],
+            'configurations' => [],
+            'pid' => 0,
+        ])));
+
+        self::assertSame(200, $this->controller->saveAction($request)->getStatusCode());
+
+        $row = $this->modelRow('jev-1.13.0');
+        self::assertIsNumeric($row['cost_input']);
+        self::assertSame(4.2, (float)$row['cost_input'], 'the discovered price is kept');
+        // Generic chat calls go to the default model, which a decision model refuses.
+        self::assertSame(0, (int)$row['is_default']);
+    }
+
+    #[Test]
+    public function severalRecommendedChatModelsYieldOneDefaultModel(): void
+    {
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_WIZARD_SAVE);
+        $request = $request->withHeader('Content-Type', self::APPLICATION_JSON);
+        $request = $request->withBody(Utils::streamFor(json_encode([
+            'provider' => [
+                'suggestedName' => 'Local Ollama',
+                'adapterType' => 'ollama',
+                'endpoint' => 'http://ollama:11434',
+                'apiKey' => '',
+            ],
+            // Ollama recommends every installed model.
+            'models' => [
+                ['modelId' => 'llama3:latest', 'name' => 'Llama 3', 'capabilities' => ['chat'], 'selected' => true, 'recommended' => true],
+                ['modelId' => 'qwen:latest', 'name' => 'Qwen', 'capabilities' => ['chat'], 'selected' => true, 'recommended' => true],
+            ],
+            'configurations' => [],
+            'pid' => 0,
+        ])));
+
+        self::assertSame(200, $this->controller->saveAction($request)->getStatusCode());
+
+        self::assertSame(1, (int)$this->modelRow('llama3:latest')['is_default'], 'the first eligible model');
+        self::assertSame(0, (int)$this->modelRow('qwen:latest')['is_default']);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function modelRow(string $modelId): array
+    {
+        $queryBuilder = $this->getConnectionPool()->getQueryBuilderForTable('tx_nrllm_model');
+        $queryBuilder->getRestrictions()->removeAll();
+        $row = $queryBuilder
+            ->select('cost_input', 'is_default')
+            ->from('tx_nrllm_model')
+            ->where($queryBuilder->expr()->eq('model_id', $queryBuilder->createNamedParameter($modelId)))
+            ->executeQuery()
+            ->fetchAssociative();
+        self::assertIsArray($row);
+
+        return $row;
+    }
+
     private function dimensionsOfModelId(string $modelId): int
     {
         $queryBuilder = $this->getConnectionPool()->getQueryBuilderForTable('tx_nrllm_model');

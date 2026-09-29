@@ -56,6 +56,22 @@ final readonly class UsageStatistics
     }
 
     /**
+     * The usage of two calls together. The cost is known only when both are:
+     * a sum with an unknown part is not a measured cost.
+     */
+    public function plus(self $other): self
+    {
+        return new self(
+            $this->promptTokens + $other->promptTokens,
+            $this->completionTokens + $other->completionTokens,
+            $this->totalTokens + $other->totalTokens,
+            $this->estimatedCost !== null && $other->estimatedCost !== null
+                ? $this->estimatedCost + $other->estimatedCost
+                : null,
+        );
+    }
+
+    /**
      * Serialize to an array shape suitable for cache storage.
      *
      * @return array{promptTokens: int, completionTokens: int, totalTokens: int, estimatedCost: ?float}

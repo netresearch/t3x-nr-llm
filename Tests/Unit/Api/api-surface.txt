@@ -55,7 +55,7 @@ Netresearch\NrLlm\Domain\DTO\FallbackChain (class)
   property readonly configurationIdentifiers: array
 
 Netresearch\NrLlm\Domain\DTO\ModelSelectionCriteria (class)
-  constructor(array $capabilities = …, array $adapterTypes = …, int $minContextLength = …, int $maxCostInput = …, bool $preferLowestCost = …)
+  constructor(array $capabilities = …, array $adapterTypes = …, int $minContextLength = …, float $maxCostInput = …, bool $preferLowestCost = …)
   method allowsAdapterType(string $adapterType): bool
   method hasCriteria(): bool
   method jsonSerialize(): array
@@ -67,11 +67,11 @@ Netresearch\NrLlm\Domain\DTO\ModelSelectionCriteria (class)
   method withAdapterType(string $adapterType): self
   method withCapability(Netresearch\NrLlm\Domain\Enum\ModelCapability|string $capability): self
   method withLowestCostPreference(bool $preferLowestCost = …): self
-  method withMaxCostInput(int $maxCostInput): self
+  method withMaxCostInput(float $maxCostInput): self
   method withMinContextLength(int $minContextLength): self
   property readonly adapterTypes: array
   property readonly capabilities: array
-  property readonly maxCostInput: int
+  property readonly maxCostInput: float
   property readonly minContextLength: int
   property readonly preferLowestCost: bool
 
@@ -215,6 +215,7 @@ Netresearch\NrLlm\Domain\Enum\ModelCapability (enum)
   case AUDIO = "audio"
   case CHAT = "chat"
   case COMPLETION = "completion"
+  case DECISION = "decision"
   case EMBEDDINGS = "embeddings"
   case IMAGE = "image"
   case JSON_MODE = "json_mode"
@@ -378,6 +379,7 @@ Netresearch\NrLlm\Domain\Model\AdapterType (enum)
   case Anthropic = "anthropic"
   case AzureOpenAI = "azure_openai"
   case Custom = "custom"
+  case DecisionSidecar = "decision_sidecar"
   case Fireworks = "fireworks"
   case Gemini = "gemini"
   case Groq = "groq"
@@ -387,6 +389,7 @@ Netresearch\NrLlm\Domain\Model\AdapterType (enum)
   case OpenRouter = "openrouter"
   case Perplexity = "perplexity"
   case Together = "together"
+  case TypeSafe = "typesafe"
   method defaultEndpoint(): string
   method label(): string
   method requiresApiKey(): bool
@@ -412,6 +415,15 @@ Netresearch\NrLlm\Domain\Model\CompletionResponse (class)
   property readonly provider: string
   property readonly thinking: ?string
   property readonly toolCalls: ?array
+  property readonly usage: Netresearch\NrLlm\Domain\Model\UsageStatistics
+
+Netresearch\NrLlm\Domain\Model\DecisionResponse (class)
+  constructor(array $answers, string $model, Netresearch\NrLlm\Domain\Model\UsageStatistics $usage, Netresearch\NrLlm\Domain\ValueObject\Decision\ProbabilityKind $probabilityKind, string $provider = …)
+  method withUsage(Netresearch\NrLlm\Domain\Model\UsageStatistics $usage): self
+  property readonly answers: array
+  property readonly model: string
+  property readonly probabilityKind: Netresearch\NrLlm\Domain\ValueObject\Decision\ProbabilityKind
+  property readonly provider: string
   property readonly usage: Netresearch\NrLlm\Domain\Model\UsageStatistics
 
 Netresearch\NrLlm\Domain\Model\EmbeddingResponse (class)
@@ -534,9 +546,9 @@ Netresearch\NrLlm\Domain\Model\Model (class)
   method getCapabilityProvenance(): array
   method getCapabilitySet(): Netresearch\NrLlm\Domain\DTO\CapabilitySet
   method getContextLength(): int
-  method getCostInput(): int
+  method getCostInput(): float
   method getCostInputDollars(): float
-  method getCostOutput(): int
+  method getCostOutput(): float
   method getCostOutputDollars(): float
   method getCrdate(): int
   method getDefaultTimeout(): int
@@ -563,9 +575,9 @@ Netresearch\NrLlm\Domain\Model\Model (class)
   method setCapabilitiesArray(array $capabilities): void
   method setCapabilitySet(Netresearch\NrLlm\Domain\DTO\CapabilitySet $capabilitySet): void
   method setContextLength(int $contextLength): void
-  method setCostInput(int $costInput): void
+  method setCostInput(float $costInput): void
   method setCostInputDollars(float $dollars): void
-  method setCostOutput(int $costOutput): void
+  method setCostOutput(float $costOutput): void
   method setCostOutputDollars(float $dollars): void
   method setDefaultTimeout(int $defaultTimeout): void
   method setDescription(string $description): void
@@ -582,6 +594,7 @@ Netresearch\NrLlm\Domain\Model\Model (class)
   method supportsAudio(): bool
   method supportsChat(): bool
   method supportsCompletion(): bool
+  method supportsDecision(): bool
   method supportsEmbeddings(): bool
   method supportsJsonMode(): bool
   method supportsStreaming(): bool
@@ -686,6 +699,13 @@ Netresearch\NrLlm\Domain\Model\Skill (class)
   method setTrustLevel(string $trustLevel): void
   method setUnsupportedNotes(string $unsupportedNotes): void
 
+Netresearch\NrLlm\Domain\Model\StructuredCompletionResponse (class)
+  constructor(array $data, Netresearch\NrLlm\Domain\Model\CompletionResponse $response, Netresearch\NrLlm\Domain\Model\UsageStatistics $usage, int $attempts)
+  property readonly attempts: int
+  property readonly data: array
+  property readonly response: Netresearch\NrLlm\Domain\Model\CompletionResponse
+  property readonly usage: Netresearch\NrLlm\Domain\Model\UsageStatistics
+
 Netresearch\NrLlm\Domain\Model\TranslationResult (class)
   constructor(string $translation, string $sourceLanguage, string $targetLanguage, float $confidence, Netresearch\NrLlm\Domain\Model\UsageStatistics $usage, ?array $alternatives = …, ?array $metadata = …)
   method getAlternatives(): array
@@ -704,6 +724,7 @@ Netresearch\NrLlm\Domain\Model\UsageStatistics (class)
   constructor(int $promptTokens, int $completionTokens, int $totalTokens, ?float $estimatedCost = …)
   method getCost(): ?float
   method getTotal(): int
+  method plus(self $other): self
   method static fromArray(array $data): self
   method static fromTokens(int $promptTokens, int $completionTokens, ?float $estimatedCost = …): self
   method toArray(): array
@@ -853,6 +874,96 @@ Netresearch\NrLlm\Domain\ValueObject\ContextFitResult (class)
   property readonly messages: array
   property readonly overflowAtFloor: bool
   property readonly pruned: bool
+
+Netresearch\NrLlm\Domain\ValueObject\Decision\ChoiceQuestion (class)
+  const MAX_OPTIONS = 255
+  const MIN_OPTIONS = 2
+  constructor(string $key, string $instructions, array $options, array $descriptions = …)
+  method describe(string $option): string
+  method instructions(): string
+  method key(): string
+  method type(): Netresearch\NrLlm\Domain\ValueObject\Decision\QuestionType
+  property readonly descriptions: array
+  property readonly instructions: string
+  property readonly key: string
+  property readonly options: array
+
+Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionAnswer (class)
+  method static choice(string $key, string $option, array $probabilities = …, ?float $confidence = …): self
+  method static score(string $key, float $value, array $probabilities = …, ?float $confidence = …): self
+  method static yesNo(string $key, float $probabilityOfYes, ?float $confidence = …): self
+  property readonly choice: ?string
+  property readonly confidence: ?float
+  property readonly key: string
+  property readonly probabilities: array
+  property readonly type: Netresearch\NrLlm\Domain\ValueObject\Decision\QuestionType
+  property readonly value: ?float
+
+Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionQuestion (interface)
+  method instructions(): string
+  method key(): string
+  method type(): Netresearch\NrLlm\Domain\ValueObject\Decision\QuestionType
+
+Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionSubject (class)
+  constructor(?string $task = …, ?string $candidate = …, array $evidence = …)
+  method has(Netresearch\NrLlm\Domain\ValueObject\Decision\SubjectField $field): bool
+  method map(callable $transform): self
+  method toState(): array
+  property readonly candidate: ?string
+  property readonly evidence: array
+  property readonly task: ?string
+
+Netresearch\NrLlm\Domain\ValueObject\Decision\ProbabilityKind (enum)
+  case Calibrated = "calibrated"
+  case Distribution = "distribution"
+  case None = "none"
+  method static cases(): array
+  method static from(int|string $value): static
+  method static tryFrom(int|string $value): ?static
+  property readonly name: string
+  property readonly value: string
+
+Netresearch\NrLlm\Domain\ValueObject\Decision\QuestionType (enum)
+  case Choice = "choice"
+  case Score = "score"
+  case YesNo = "yes_no"
+  method static cases(): array
+  method static from(int|string $value): static
+  method static tryFrom(int|string $value): ?static
+  property readonly name: string
+  property readonly value: string
+
+Netresearch\NrLlm\Domain\ValueObject\Decision\ScoreQuestion (class)
+  const MAX_LEVELS = 10
+  const MIN_LEVELS = 2
+  constructor(string $key, string $instructions, array $levels)
+  method instructions(): string
+  method key(): string
+  method maxLevel(): int
+  method type(): Netresearch\NrLlm\Domain\ValueObject\Decision\QuestionType
+  property readonly instructions: string
+  property readonly key: string
+  property readonly levels: array
+
+Netresearch\NrLlm\Domain\ValueObject\Decision\SubjectField (enum)
+  case Candidate = "candidate"
+  case Evidence = "evidence"
+  case Task = "task"
+  method static cases(): array
+  method static from(int|string $value): static
+  method static tryFrom(int|string $value): ?static
+  property readonly name: string
+  property readonly value: string
+
+Netresearch\NrLlm\Domain\ValueObject\Decision\YesNoQuestion (class)
+  constructor(string $key, string $instructions, string $yesMeans = …, string $noMeans = …)
+  method instructions(): string
+  method key(): string
+  method type(): Netresearch\NrLlm\Domain\ValueObject\Decision\QuestionType
+  property readonly instructions: string
+  property readonly key: string
+  property readonly noMeans: string
+  property readonly yesMeans: string
 
 Netresearch\NrLlm\Domain\ValueObject\GuardrailResult (class)
   method static allow(): self
@@ -1037,6 +1148,11 @@ Netresearch\NrLlm\Exception\InvalidArgumentException (class)
 
 Netresearch\NrLlm\Exception\NrLlmExceptionInterface (interface)
 
+Netresearch\NrLlm\Exception\StructuredResponseMismatchException (class)
+
+Netresearch\NrLlm\Provider\Contract\DecisionCapableInterface (interface)
+  method decide(Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionSubject $subject, array $questions, array $options = …): Netresearch\NrLlm\Domain\Model\DecisionResponse
+
 Netresearch\NrLlm\Provider\Contract\DocumentCapableInterface (interface)
   method getSupportedDocumentFormats(): array
   method supportsDocuments(): bool
@@ -1075,9 +1191,15 @@ Netresearch\NrLlm\Provider\Exception\CircuitOpenException (class)
 
 Netresearch\NrLlm\Provider\Exception\FallbackChainExhaustedException (class)
   constructor(string $message, int $code, array $attemptErrors, ?Throwable $previous = …)
+  method decisiveError(): ?Throwable
   method getAttemptErrors(): array
   method getAttemptedConfigurations(): array
   method static fromAttempts(array $attempts): self
+
+Netresearch\NrLlm\Provider\Exception\InvalidDecisionResponseException (class)
+  constructor(string $message, int $httpStatus = …, ?Throwable $previous = …, string $responseBody = …, string $endpoint = …)
+  method static forQuestion(string $provider, string $key, string $reason): self
+  method static forResponse(string $reason, ?Throwable $previous = …): self
 
 Netresearch\NrLlm\Provider\Exception\ProviderAuthenticationException (class)
   constructor(string $message, int $httpStatus = …, ?Throwable $previous = …, string $responseBody = …, string $endpoint = …)
@@ -1126,6 +1248,7 @@ Netresearch\NrLlm\Provider\Middleware\ProviderMiddlewareInterface (interface)
 Netresearch\NrLlm\Provider\Middleware\ProviderOperation (enum)
   case Chat = "chat"
   case Completion = "complete"
+  case Decision = "decision"
   case Embedding = "embed"
   case ImageEdit = "image_edit"
   case ImageGeneration = "image"
@@ -1262,6 +1385,71 @@ Netresearch\NrLlm\Service\CacheManagerInterface (interface)
   method sanitizeCacheTag(string $value): string
   method set(string $cacheKey, array $data, int $lifetime = …, array $tags = …): void
 
+Netresearch\NrLlm\Service\Decision\DecisionException (class)
+  const DATA_CLASS_NOT_PERMITTED = 1795211044
+  const FAILED = 1795211046
+  const INVALID_ANSWER = 1795211047
+  const INVALID_PROFILE = 1795211050
+  const MISSING_SUBJECT_FIELD = 1795211041
+  const MODEL_CANNOT_DECIDE = 1795211045
+  const NO_CONFIGURATION = 1795211042
+  const NO_SUCH_ANSWER = 1795211048
+  const REJECTED = 1795211049
+  const UNKNOWN_CONFIGURATION = 1795211043
+  const UNKNOWN_PROFILE = 1795211040
+  method static dataClassNotPermitted(string $profile, Netresearch\NrLlm\Domain\Enum\ToolDataClass $dataClass, string $configuration, Netresearch\NrLlm\Domain\Enum\TrustZone $zone): self
+  method static failed(string $configuration, Throwable $previous): self
+  method static invalidAnswer(string $configuration, string $key, string $reason, ?Throwable $previous = …): self
+  method static invalidProfile(string $provider, string $reason, ?Throwable $previous = …): self
+  method static missingSubjectField(string $profile, Netresearch\NrLlm\Domain\ValueObject\Decision\SubjectField $field): self
+  method static modelCannotDecide(string $configuration, string $reason, ?Throwable $previous = …): self
+  method static noConfiguration(): self
+  method static noSuchAnswer(string $profile, string $key): self
+  method static rejected(string $configuration, Throwable $previous): self
+  method static unknownConfiguration(string $configuration): self
+  method static unknownProfile(string $profile): self
+
+Netresearch\NrLlm\Service\Decision\DecisionRequest (class)
+  constructor(string $profile, Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionSubject $subject, ?string $configuration = …, ?int $beUserUid = …, string $callerSourceExtension = …, string $callerSourceOperation = …)
+  method withBeUserUid(int $beUserUid): self
+  property readonly beUserUid: ?int
+  property readonly callerSourceExtension: string
+  property readonly callerSourceOperation: string
+  property readonly configuration: ?string
+  property readonly profile: string
+  property readonly subject: Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionSubject
+
+Netresearch\NrLlm\Service\Decision\DecisionResult (class)
+  constructor(string $profile, int $profileVersion, string $configuration, string $provider, string $model, Netresearch\NrLlm\Domain\ValueObject\Decision\ProbabilityKind $probabilityKind, array $answers, ?int $inputTokens = …, ?int $outputTokens = …, ?float $cost = …)
+  method answer(string $key): Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionAnswer
+  property readonly answers: array
+  property readonly configuration: string
+  property readonly cost: ?float
+  property readonly inputTokens: ?int
+  property readonly model: string
+  property readonly outputTokens: ?int
+  property readonly probabilityKind: Netresearch\NrLlm\Domain\ValueObject\Decision\ProbabilityKind
+  property readonly profile: string
+  property readonly profileVersion: int
+  property readonly provider: string
+
+Netresearch\NrLlm\Service\Decision\DecisionServiceInterface (interface)
+  method assertAvailable(string $profile, ?string $configuration = …): void
+  method evaluate(Netresearch\NrLlm\Service\Decision\DecisionRequest $request): Netresearch\NrLlm\Service\Decision\DecisionResult
+
+Netresearch\NrLlm\Service\Decision\Profile\DecisionProfile (class)
+  constructor(string $identifier, int $version, array $questions, array $requires = …, Netresearch\NrLlm\Domain\Enum\ToolDataClass $dataClass = …, string $description = …)
+  property readonly dataClass: Netresearch\NrLlm\Domain\Enum\ToolDataClass
+  property readonly description: string
+  property readonly identifier: string
+  property readonly questions: array
+  property readonly requires: array
+  property readonly version: int
+
+Netresearch\NrLlm\Service\Decision\Profile\DecisionProfileProviderInterface (interface)
+  const TAG_NAME = "nr_llm.decision_profile"
+  method getDecisionProfiles(): array
+
 Netresearch\NrLlm\Service\Evaluation\EvaluatableRetrieverInterface (interface)
   const TAG_NAME = "nr_llm.evaluatable_retriever"
   method getIdentifier(): string
@@ -1282,13 +1470,13 @@ Netresearch\NrLlm\Service\Feature\CompletionService (class)
   method completeCreativeForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method completeFactual(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method completeFactualForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
-  method completeForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …, ?Netresearch\NrLlm\Domain\ValueObject\ModelResolution $resolution = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method completeJson(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): array
   method completeJsonForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): array
   method completeMarkdown(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): string
   method completeMarkdownForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): string
-  method completeStructured(string $prompt, array $schema, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): array
-  method completeStructuredForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $schema, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): array
+  method completeStructured(string $prompt, array $schema, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\StructuredCompletionResponse
+  method completeStructuredForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $schema, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …, ?Netresearch\NrLlm\Domain\ValueObject\ModelResolution $resolution = …): Netresearch\NrLlm\Domain\Model\StructuredCompletionResponse
 
 Netresearch\NrLlm\Service\Feature\CompletionServiceInterface (interface)
   method complete(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
@@ -1296,13 +1484,13 @@ Netresearch\NrLlm\Service\Feature\CompletionServiceInterface (interface)
   method completeCreativeForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method completeFactual(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method completeFactualForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
-  method completeForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …, ?Netresearch\NrLlm\Domain\ValueObject\ModelResolution $resolution = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method completeJson(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): array
   method completeJsonForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): array
   method completeMarkdown(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): string
   method completeMarkdownForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): string
-  method completeStructured(string $prompt, array $schema, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): array
-  method completeStructuredForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $schema, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): array
+  method completeStructured(string $prompt, array $schema, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\StructuredCompletionResponse
+  method completeStructuredForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $schema, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …, ?Netresearch\NrLlm\Domain\ValueObject\ModelResolution $resolution = …): Netresearch\NrLlm\Domain\Model\StructuredCompletionResponse
 
 Netresearch\NrLlm\Service\Feature\ConversationService (class)
   constructor(Netresearch\NrLlm\Service\LlmServiceManagerInterface $llmManager, Netresearch\NrLlm\Service\Session\AiSessionRepositoryInterface $sessions, Netresearch\NrLlm\Service\ConfigurationResolver $configurationResolver, ?Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface $contextWindow = …, ?Psr\Log\LoggerInterface $logger = …, ?Netresearch\NrLlm\Service\Skill\SkillComposer $skillComposer = …, ?Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver $snippetResolver = …, ?Netresearch\NrLlm\Service\ModelSelectionServiceInterface $modelSelection = …)
@@ -1424,9 +1612,10 @@ Netresearch\NrLlm\Service\LlmServiceManager (class)
   method chatWithTools(array $messages, array $tools, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method chatWithToolsForConfiguration(array $messages, array $tools, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference $run = …, ?Netresearch\NrLlm\Domain\ValueObject\InjectedContext $injectedContext = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method complete(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
-  method completeForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …, ?Netresearch\NrLlm\Domain\ValueObject\ModelResolution $resolution = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method completeWithConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $metadata = …, array $optionOverrides = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method configureProvider(string $identifier, array $config): void
+  method decideForConfiguration(Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionSubject $subject, array $questions, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\DecisionOptions $options = …, ?Netresearch\NrLlm\Domain\ValueObject\ModelResolution $resolution = …): Netresearch\NrLlm\Domain\Model\DecisionResponse
   method embed(array|string $input, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): Netresearch\NrLlm\Domain\Model\EmbeddingResponse
   method embedForConfiguration(array|string $input, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): Netresearch\NrLlm\Domain\Model\EmbeddingResponse
   method getAdapterFromConfiguration(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration): Netresearch\NrLlm\Provider\Contract\ProviderInterface
@@ -1451,9 +1640,10 @@ Netresearch\NrLlm\Service\LlmServiceManagerInterface (interface)
   method chatWithTools(array $messages, array $tools, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method chatWithToolsForConfiguration(array $messages, array $tools, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference $run = …, ?Netresearch\NrLlm\Domain\ValueObject\InjectedContext $injectedContext = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method complete(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
-  method completeForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …, ?Netresearch\NrLlm\Domain\ValueObject\ModelResolution $resolution = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method completeWithConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $metadata = …, array $optionOverrides = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method configureProvider(string $identifier, array $config): void
+  method decideForConfiguration(Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionSubject $subject, array $questions, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\DecisionOptions $options = …, ?Netresearch\NrLlm\Domain\ValueObject\ModelResolution $resolution = …): Netresearch\NrLlm\Domain\Model\DecisionResponse
   method embed(array|string $input, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): Netresearch\NrLlm\Domain\Model\EmbeddingResponse
   method embedForConfiguration(array|string $input, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): Netresearch\NrLlm\Domain\Model\EmbeddingResponse
   method getAvailableProviders(): array
@@ -1530,6 +1720,14 @@ Netresearch\NrLlm\Service\Option\ChatOptions (class)
   method withSystemPrompt(string $systemPrompt): static
   method withTemperature(float $temperature): static
   method withTopP(float $topP): static
+
+Netresearch\NrLlm\Service\Option\DecisionOptions (class)
+  constructor(?int $beUserUid = …, ?float $plannedCost = …)
+  method getBeUserUid(): ?int
+  method getPlannedCost(): ?float
+  method toArray(): array
+  method withBeUserUid(int $beUserUid): static
+  method withPlannedCost(float $plannedCost): static
 
 Netresearch\NrLlm\Service\Option\EmbeddingOptions (class)
   constructor(?string $model = …, ?int $dimensions = …, int $cacheTtl = …, ?string $provider = …, ?int $beUserUid = …, ?float $plannedCost = …)
@@ -1981,18 +2179,19 @@ Netresearch\NrLlm\Testing\FakeBudgetService (class)
   property throwable: ?Throwable
 
 Netresearch\NrLlm\Testing\FakeCompletionService (class)
+  const STRUCTURED_MODEL = "fake-structured"
   method complete(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method completeCreative(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method completeCreativeForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method completeFactual(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method completeFactualForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
-  method completeForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …, ?Netresearch\NrLlm\Domain\ValueObject\ModelResolution $resolution = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method completeJson(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): array
   method completeJsonForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): array
   method completeMarkdown(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): string
   method completeMarkdownForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): string
-  method completeStructured(string $prompt, array $schema, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): array
-  method completeStructuredForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $schema, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): array
+  method completeStructured(string $prompt, array $schema, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\StructuredCompletionResponse
+  method completeStructuredForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $schema, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …, ?Netresearch\NrLlm\Domain\ValueObject\ModelResolution $resolution = …): Netresearch\NrLlm\Domain\Model\StructuredCompletionResponse
   property completeCalls: array
   property completeCreativeCalls: array
   property completeCreativeForConfigurationCalls: array
@@ -2010,6 +2209,14 @@ Netresearch\NrLlm\Testing\FakeCompletionService (class)
   property responses: array
   property structuredResult: array
   property throwable: ?Throwable
+
+Netresearch\NrLlm\Testing\FakeDecisionService (class)
+  method assertAvailable(string $profile, ?string $configuration = …): void
+  method evaluate(Netresearch\NrLlm\Service\Decision\DecisionRequest $request): Netresearch\NrLlm\Service\Decision\DecisionResult
+  property requests: array
+  property results: array
+  property throwable: ?Throwable
+  property unavailable: ?Throwable
 
 Netresearch\NrLlm\Testing\FakeEmbeddingService (class)
   method cosineSimilarity(array $vectorA, array $vectorB): float

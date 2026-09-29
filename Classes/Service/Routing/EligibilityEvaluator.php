@@ -42,7 +42,7 @@ final readonly class EligibilityEvaluator
     /**
      * Why this model may not serve this call, or null when it may.
      *
-     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int|float, preferLowestCost?: bool} $criteria
      */
     public function evaluate(Model $model, array $criteria): ?RoutingRejectionReason
     {
@@ -81,7 +81,7 @@ final readonly class EligibilityEvaluator
      * in a persisted CSV are dropped at parse time rather than matched against
      * an equally-unknown criteria string.
      *
-     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int|float, preferLowestCost?: bool} $criteria
      */
     private function matchesCapabilities(Model $model, array $criteria): bool
     {
@@ -110,7 +110,7 @@ final readonly class EligibilityEvaluator
      * never filled it, and refusing every such model would break them for a fact
      * nobody ever stated.
      *
-     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int|float, preferLowestCost?: bool} $criteria
      */
     private function matchesOperationCapability(Model $model, array $criteria): bool
     {
@@ -133,7 +133,7 @@ final readonly class EligibilityEvaluator
      * A model with no provider fails an explicit adapter restriction: the
      * restriction cannot be shown to be met.
      *
-     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int|float, preferLowestCost?: bool} $criteria
      */
     private function matchesAdapterTypes(Model $model, array $criteria): bool
     {
@@ -156,7 +156,7 @@ final readonly class EligibilityEvaluator
      * requirement cannot be shown to be satisfied, so the model is refused
      * rather than gambled on.
      *
-     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int|float, preferLowestCost?: bool} $criteria
      */
     private function matchesMinContextLength(Model $model, array $criteria): bool
     {
@@ -176,7 +176,7 @@ final readonly class EligibilityEvaluator
      * model is usually a local one, and refusing it for a cost ceiling it may
      * well satisfy would be the wrong direction.
      *
-     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int|float, preferLowestCost?: bool} $criteria
      */
     private function matchesMaxCostInput(Model $model, array $criteria): bool
     {

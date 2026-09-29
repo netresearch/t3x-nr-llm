@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Provider\Middleware;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\DecisionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -31,7 +32,8 @@ use Throwable;
  * second source of truth.
  *
  * Recognised response shapes:
- *  - CompletionResponse / EmbeddingResponse / VisionResponse (typed path)
+ *  - CompletionResponse / EmbeddingResponse / VisionResponse / DecisionResponse
+ *    (typed path)
  *  - `array{usage: array, provider: string, ...}` (array payload emitted by
  *    feature services that opt in to CacheMiddleware — CacheMiddleware
  *    stores `array<string, mixed>`, so the terminal is wrapped with a
@@ -340,6 +342,7 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
             $result instanceof CompletionResponse
             || $result instanceof EmbeddingResponse
             || $result instanceof VisionResponse
+            || $result instanceof DecisionResponse
         ) {
             return [$result->usage, $result->provider, $result->model];
         }

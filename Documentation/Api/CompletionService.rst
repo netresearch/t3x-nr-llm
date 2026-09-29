@@ -54,7 +54,7 @@ CompletionService
       :param ?ChatOptions $options: Optional configuration (temperature defaults to 1.2)
       :returns: CompletionResponse
 
-   .. php:method:: completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): array
+   .. php:method:: completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): StructuredCompletionResponse
 
       Completion validated against a JSON schema from the strict named
       subset (:ref:`ADR-126 <adr-126>`): ``type``, ``enum``, ``const``,
@@ -70,7 +70,11 @@ CompletionService
       :param string $prompt: The prompt text
       :param array $schema: JSON schema inside the strict subset
       :param ?ChatOptions $options: Optional configuration
-      :returns: array The decoded, schema-valid JSON payload
+      :returns: StructuredCompletionResponse ``data`` holds the decoded,
+         schema-valid payload; ``response`` is the attempt that passed (its
+         ``model`` names what answered); ``usage`` sums every attempt, the
+         rejected one of a repair included; ``attempts`` is 1 or 2
+         (:ref:`ADR-211 <adr-211>`)
       :throws: InvalidArgumentException on an out-of-subset schema
          (``1784500003``) or when the response still fails the schema
          after one repair attempt (``1784500001``)

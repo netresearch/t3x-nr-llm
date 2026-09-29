@@ -9,10 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Command;
 
+use Netresearch\NrLlm\Service\Decision\DecisionException;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepositoryInterface;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationService;
 use Netresearch\NrLlm\Service\Evaluation\GoldenPromptSet;
 use Netresearch\NrLlm\Service\Evaluation\GoldenPromptSetRegistry;
+use Netresearch\NrLlm\Service\Evaluation\Grader\DecisionGrader;
 use Netresearch\NrLlm\Service\Evaluation\Grader\DeterministicGrader;
 use Netresearch\NrLlm\Service\Evaluation\RegressionDetector;
 use Netresearch\NrLlm\Service\Evaluation\RegressionThresholds;
@@ -32,8 +34,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * the same (set, model) and reports any regression (ADR-060).
  *
  * Explicitly invoked — nothing here runs in the request pipeline. The
- * deterministic grader is the default; `--grader llm_judge` opts into the
- * token-spending LLM judge.
+ * deterministic grader is the default; `--grader decision` opts into the
+ * token-spending decision grader (ADR-211).
  */
 #[AsCommand(
     name: 'nrllm:eval:run',
@@ -57,7 +59,7 @@ final class EvalRunCommand extends Command
     {
         $this
             ->addArgument('set', InputArgument::REQUIRED, 'Golden prompt set identifier (e.g. nr_llm.smoke)')
-            ->addOption('grader', null, InputOption::VALUE_REQUIRED, 'Grader: deterministic or llm_judge', DeterministicGrader::IDENTIFIER)
+            ->addOption('grader', null, InputOption::VALUE_REQUIRED, 'Grader: deterministic or decision', DeterministicGrader::IDENTIFIER)
             ->addOption('model', null, InputOption::VALUE_REQUIRED, 'Model id to evaluate; defaults to the configured default')
             ->addOption('provider', null, InputOption::VALUE_REQUIRED, 'Provider id to evaluate against')
             ->addOption('max-pass-rate-drop', null, InputOption::VALUE_REQUIRED, 'Pass-rate drop (0..1) that counts as a regression', '0.1')
@@ -92,10 +94,38 @@ final class EvalRunCommand extends Command
             return Command::FAILURE;
         }
 
-        $result = $this->evaluationService->run($set, $graderId, $this->buildBaseOptions($input));
+        try {
+            $result = $this->evaluationService->run($set, $graderId, $this->buildBaseOptions($input));
+        } catch (DecisionException $e) {
+            // The decision grader cannot grade this run at all; nothing was spent.
+            $io->error(sprintf('The "%s" grader cannot run: %s', $graderId, $e->getMessage()));
+
+            return Command::FAILURE;
+        }
 
         $io->title(sprintf('Evaluation: %s', $set->identifier));
         $this->renderEvaluations($io, $result);
+
+        // A run without one yardstick, or one in which no model answered at
+        // all, cannot be compared — and a gate must not read "could not
+        // judge" as "no regression" (ADR-211).
+        if (!$result->sharesOneYardstick() || $result->grader === DecisionGrader::FAILED_SERIES) {
+            $this->repository->save($result);
+            $io->section('Regression check');
+            $reason = $result->grader === DecisionGrader::FAILED_SERIES
+                ? 'Not compared: no decision of this run could be made (stored as "%s").'
+                : 'Not compared: the gradings of this run do not share one yardstick (stored as "%s"). '
+                    . 'A decision failed for some prompts, or the model changed during the run.';
+            if ($input->getOption('fail-on-regression') === true) {
+                $io->error(sprintf($reason, $result->grader));
+
+                return Command::FAILURE;
+            }
+
+            $io->warning(sprintf($reason, $result->grader));
+
+            return Command::SUCCESS;
+        }
 
         $previous = $this->repository->findLatest($result->setIdentifier, $result->model, $result->grader);
         $this->repository->save($result);

@@ -64,6 +64,8 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
         AdapterType::Ollama->value => OllamaProvider::class,
         AdapterType::AzureOpenAI->value => OpenAiProvider::class, // Azure uses OpenAI-compatible API
         AdapterType::Custom->value => OpenAiProvider::class, // Custom assumes OpenAI-compatible API
+        AdapterType::TypeSafe->value => TypeSafeProvider::class, // decisions only (ADR-211)
+        AdapterType::DecisionSidecar->value => DecisionSidecarProvider::class, // local decisions (ADR-211)
     ];
 
     /**

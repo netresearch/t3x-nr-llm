@@ -88,8 +88,10 @@ CREATE TABLE tx_nrllm_model (
     default_timeout int(11) DEFAULT '120' NOT NULL,
 
     -- Pricing (cents per 1M tokens)
-    cost_input int(11) unsigned DEFAULT '0' NOT NULL,
-    cost_output int(11) unsigned DEFAULT '0' NOT NULL,
+    -- Cents per million tokens, two decimals (ADR-211): 4.2 is 0.042 USD. The
+    -- smallest price stored is 0.01 cents (0.0001 USD) per million tokens.
+    cost_input decimal(12,2) DEFAULT '0.00' NOT NULL,
+    cost_output decimal(12,2) DEFAULT '0.00' NOT NULL,
 
     -- Status
     is_active tinyint(1) DEFAULT '1' NOT NULL,
@@ -853,7 +855,9 @@ CREATE TABLE tx_nrllm_eval_result (
     -- Run identity
     set_identifier varchar(190) DEFAULT '' NOT NULL,
     model_id varchar(150) DEFAULT '' NOT NULL,
-    grader varchar(50) DEFAULT '' NOT NULL,
+    -- The decision grader names its backend, model and profile version here
+    -- ("decision:typesafe:jev-1.13.0:v1", ADR-211), hence the width.
+    grader varchar(190) DEFAULT '' NOT NULL,
 
     -- Aggregate metrics (pass_rate / mean_score normalised 0.0000-1.0000)
     prompt_count int(11) unsigned DEFAULT '0' NOT NULL,

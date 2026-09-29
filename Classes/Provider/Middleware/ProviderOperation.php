@@ -43,4 +43,11 @@ enum ProviderOperation: string
     // observable and guarded by the circuit breaker like any provider HTTP call,
     // but labelled honestly rather than as a translation.
     case Metadata = 'metadata';
+
+    // A typed decision (ADR-211): a model that declares `decision` answers
+    // yes/no, choice and score questions about a subject and generates no
+    // text. Only the native call through a DecisionCapableInterface adapter
+    // carries this label; a chat model asked through structured output is
+    // labelled as the chat call it is.
+    case Decision = 'decision';
 }
