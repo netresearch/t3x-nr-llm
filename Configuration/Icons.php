@@ -19,10 +19,11 @@ use TYPO3\CMS\Core\Information\Typo3Version;
 // the markup core uses for its own icons, which inherits `color`. `source`
 // keeps the inline variant (module menu) reading the same file, and the
 // fragment is the id on that file's root <svg>.
+$iconPath = 'EXT:nr_llm/Resources/Public/Icons/';
 $currentColorIcon = static fn(string $file): array => [
     'provider' => SvgSpriteIconProvider::class,
-    'sprite' => 'EXT:nr_llm/Resources/Public/Icons/' . $file . '.svg#nrllm-' . strtolower($file),
-    'source' => 'EXT:nr_llm/Resources/Public/Icons/' . $file . '.svg',
+    'sprite' => $iconPath . $file . '.svg#nrllm-' . strtolower($file),
+    'source' => $iconPath . $file . '.svg',
 ];
 
 // TYPO3 v14 ships a redesigned backend: use the flat, three-color icons that
@@ -33,7 +34,7 @@ $moduleIcon = (new Typo3Version())->getMajorVersion() >= 14
     ? $currentColorIcon
     : static fn(string $file): array => [
         'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/' . $file . '.legacy.svg',
+        'source' => $iconPath . $file . '.legacy.svg',
     ];
 
 return [

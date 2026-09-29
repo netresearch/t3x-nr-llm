@@ -270,6 +270,90 @@
             "Resources/Public/JavaScript/Backend/a.js",
             "const o = { \"backgroundColor\": \"black\" };\n",
             "named colour in JavaScript"
+        ],
+        [
+            "data URI in a srcset",
+            "Resources/Private/Templates/Backend/a.html",
+            "<img srcset=\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='white' d='M0 0h1v1z'/%3E%3C/svg%3E 1x\" alt=\"\">\n",
+            "colour attribute"
+        ],
+        [
+            "data URI as a later srcset candidate",
+            "Resources/Private/Templates/Backend/a.html",
+            "<img srcset=\"a.png 1x, data:image/svg+xml,%3Csvg%3E%3Cpath fill='white'/%3E%3C/svg%3E 2x\" alt=\"\">\n",
+            "colour attribute"
+        ],
+        [
+            "named colour from ${} in insertRule",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "sheet.insertRule(`.nrllm-x { color: ${dark ? 'white' : 'black'} }`);\n",
+            "named colour"
+        ],
+        [
+            "named colour from ${} in cssText",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "el.style.cssText = `color: ${dark ? 'white' : 'black'}`;\n",
+            "named colour"
+        ],
+        [
+            "named colour concatenated into cssText",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "el.style.cssText = 'color: ' + (dark ? 'white' : 'black');\n",
+            "named colour"
+        ],
+        [
+            "matchMedia listener reading matches",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {\n    document.body.classList.toggle('nrllm-dark', e.matches);\n});\n",
+            "own scheme switch"
+        ],
+        [
+            "matchMedia listener destructuring matches",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "matchMedia('(prefers-color-scheme: dark)').addListener(({ matches }) => render(matches));\n",
+            "own scheme switch"
+        ],
+        [
+            "dataset.bsTheme",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "document.documentElement.dataset.bsTheme = 'dark';\n",
+            "own scheme switch"
+        ],
+        [
+            "text-bg- concatenated",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "el.className = 'badge text-bg-' + state;\n",
+            "scheme-pinned class"
+        ],
+        [
+            "scheme-pinned class in a label",
+            "Resources/Private/Language/locallang.xlf",
+            "<xliff><file><body><trans-unit id=\"a\"><source>&lt;span class=\"badge text-bg-warning\"&gt;x&lt;/span&gt;</source></trans-unit></body></file></xliff>\n",
+            "scheme-pinned class"
+        ],
+        [
+            "inline style in a CDATA label",
+            "Resources/Private/Language/locallang.xlf",
+            "<xliff><file><body><trans-unit id=\"a\"><source><![CDATA[<span style=\"color: white\">x</span>]]></source></trans-unit></body></file></xliff>\n",
+            "named colour"
+        ],
+        [
+            "Bootstrap variable in a label",
+            "Resources/Private/Language/locallang.xlf",
+            "<xliff><file><body><trans-unit id=\"a\"><source>&lt;span style=\"color: var(--bs-body-color)\"&gt;x&lt;/span&gt;</source></trans-unit></body></file></xliff>\n",
+            "Bootstrap variable"
+        ],
+        [
+            "hex text beside a fragment link in markup",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "el.innerHTML = '<a href=\"#top\">#fff</a>';\n",
+            "colour literal"
+        ],
+        [
+            "state class assembled by Fluid",
+            "Resources/Private/Templates/Backend/a.html",
+            "<span class=\"badge text-bg-{state}\">x</span>\n",
+            "scheme-pinned class"
         ]
     ],
     "refusedByParsing": [
@@ -545,6 +629,20 @@
             "el.style.color = 'navy )';\n",
             1,
             "named colour in JavaScript"
+        ],
+        [
+            "JavaScript in a module script",
+            "Resources/Private/Templates/Backend/a.html",
+            "<script type=\"module\">\ndocument.body.style.color = 'white';\n</script>\n",
+            2,
+            "named colour in JavaScript"
+        ],
+        [
+            "text-bg- concatenated in an inline script",
+            "Resources/Private/Templates/Backend/a.html",
+            "<div></div>\n<script>\nel.className = 'text-bg-' + state;\n</script>\n",
+            3,
+            "scheme-pinned class"
         ]
     ],
     "accepted": [
@@ -712,6 +810,16 @@
             "lone # in a colour value",
             "Resources/Public/JavaScript/Backend/a.js",
             "el.style.color = '#';\n"
+        ],
+        [
+            "fragment in data-bs-target",
+            "Resources/Private/Templates/Backend/a.html",
+            "<button data-bs-target=\"#fade\" type=\"button\">x</button>\n"
+        ],
+        [
+            "fragments in markup held in JavaScript",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "el.innerHTML = '<a href=\"#fade\" data-bs-target=\"#cafe\" aria-controls=\"bad\">x</a>';\n"
         ]
     ]
 }

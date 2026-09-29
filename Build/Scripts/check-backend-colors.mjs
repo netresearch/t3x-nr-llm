@@ -20,12 +20,16 @@
  * WHATWG HTML parser's tokenizer, which reads SVG as foreign content). Nested
  * code goes through the same parsers: `<style>` and `<f:asset.css>` text and
  * `style` attributes as CSS; `<script>` and `<f:asset.script>` text as
- * JavaScript; `srcdoc`, `data:` URIs and translation labels as HTML. In
- * JavaScript, a string is parsed as HTML when it holds a tag, and as CSS only
- * where the code uses it as CSS: `style.cssText`, `el.style =`,
- * `setAttribute('style', …)`, `insertRule()`, `replaceSync()` / one-argument
- * `replace()`, and the text of an element created as `<style>`. Any other
- * JavaScript string is read for colour literals only. The regular-expression
+ * JavaScript; `srcdoc`, `data:` URIs (also each candidate of a `srcset`) and
+ * translation labels, CDATA included, as HTML. In JavaScript, a string is
+ * parsed as HTML when it holds a tag, and as CSS only where the code uses it
+ * as CSS: `style.cssText`, `el.style =`, `setAttribute('style', …)`,
+ * `insertRule()`, `replaceSync()` / one-argument `replace()`, and the text of
+ * an element created as `<style>`; CSS assembled there from a template literal
+ * or a concatenation is read with each value a `${…}` or operand may produce
+ * in its place. Any other JavaScript string is read for colour literals only,
+ * outside the values of URL and reference attributes in markup
+ * (`href="#fade"`, `data-bs-target="#fade"`). The regular-expression
  * version of this check lost three review rounds in a row to forms it could
  * not see.
  *
@@ -42,27 +46,30 @@
  *     …), of a custom property (`--x: black`) or of `@property …
  *     initial-value`. In JavaScript: the value assigned to a colour property
  *     (`el.style.color = …`, `el.style['color'] = …`, `ctx.fillStyle = …`),
- * *     given to a colour key of an object (Chart.js options and their
+ *     given to a colour key of an object (Chart.js options and their
  *     scriptable functions, `Object.assign(el.style, …)`), or passed to
  *     setProperty() / setAttribute() — read through arrays and array
  *     indexing, `? :`, `||`, `??`, string concatenation, `.join()` of
  *     literals, template literals and what their `${…}` produce, and what an
  *     arrow or function returns, across any number of lines. In templates and
  *     SVG: colour attributes (`fill`, `stroke`, `stop-color`, `color`,
- *     `bgcolor`, …), `<animate>`/`<set>` values and `<meta
- *     name="theme-color">`; each quoted argument of a Fluid inline expression
+ *     `bgcolor`, …), `<animate>`/`<set>` values, `<meta
+ *     name="theme-color">` and any colour literal in another attribute,
+ *     except in URL and reference attributes (`href`, `src`, `srcset`, `id`,
+ *     `for`, `data-bs-target`, `aria-controls`, …); each quoted argument of a Fluid inline expression
  *     in a `style` or colour attribute (`{f:if(… then: 'white')}`) is read in
  *     its place. A value inside light-dark() carries both schemes and passes;
  *  2. `var(--bs-…)`: TYPO3 never sets data-bs-theme, so Bootstrap's variables
- *     keep their light values in the dark scheme;
+ *     keep their light values in the dark scheme. This rule and the class
+ *     rules in 4 also read the text of translation labels;
  *  3. own scheme switches — any at-rule asking for `prefers-color-scheme`
  *     (`@media`, `@import`, …), a `media=` attribute doing the same,
  *     `matchMedia('(prefers-color-scheme …)')` unless its result is only
- *     given a change listener (with the backend scheme on "auto", a chart
- *     that reads resolved colours must read them again when the OS scheme
- *     changes), `[data-color-scheme` selectors, and `data-bs-theme`: an
- *     unguarded query renders dark for a user who chose Light while the OS
- *     is dark;
+ *     given a change listener that does not read `matches` (with the backend
+ *     scheme on "auto", a chart that reads resolved colours must read them
+ *     again when the OS scheme changes), `[data-color-scheme` selectors, and
+ *     `data-bs-theme` (also `el.dataset.bsTheme = …`): an unguarded query
+ *     renders dark for a user who chose Light while the OS is dark;
  *  4. Bootstrap classes that core's backend CSS does not define, or defines
  *     for one scheme only: `text-bg-*`, `bg-light|white|dark|body*|*-subtle`,
  *     `text-dark|white|black|light`, `text-body*` (not defined on 13.4.35 or
@@ -71,8 +78,9 @@
  *     defined on either), `alert-light|dark`, and a Bootstrap `bg-*` colour
  *     on a badge — read from the class attribute's tokens, so a Fluid
  *     expression's quotes do not hide it — and a state class assembled at
- *     runtime (`text-bg-${…}`, `text-bg-{…}`). Core uses `badge badge-*` and `btn-default` (v14.3.7: 585
- *     btn-default, 2 btn-secondary in templates). `alert-*` itself is allowed:
+ *     runtime (`text-bg-${…}`, `'text-bg-' + …`, Fluid's `text-bg-{…}`).
+ *     Core uses `badge badge-*` and `btn-default` (v14.3.7: 585 btn-default,
+ *     2 btn-secondary in templates). `alert-*` itself is allowed:
  *     13.4.35 and 14.3.7 define alert-default|primary|secondary|info|notice|
  *     success|warning|danger on the surface-container tokens, and core's own
  *     templates use them (14 uses at v14.3.7);
@@ -94,6 +102,10 @@
  *  - a JavaScript string used as CSS in a way not listed above (handed to a
  *    helper, stored and assigned later): it is read for colour literals, not
  *    for named colours;
+ *  - a `prefers-color-scheme` query held in a variable (`const q = '(…)';
+ *    matchMedia(q)`), and a change listener defined elsewhere and passed by
+ *    name (`addEventListener('change', onChange)`): the query text and the
+ *    listener body are in other statements, the same data-flow limit;
  *  - CSS system colours (`Canvas`, `CanvasText`, …) are allowed on purpose:
  *    they follow `color-scheme`, which core sets from the backend scheme.
  *
@@ -150,19 +162,33 @@ const COLOUR_FUNCTIONS = new Set(['rgb', 'rgba', 'hsl', 'hsla', 'hwb', 'lab', 'l
 // A property that carries colour, in CSS spelling (`box-shadow`) and in the
 // DOM's camelCase spelling (`boxShadow`, `fillStyle`).
 const CSS_COLOUR_PROPERTY = /^(?:[a-z-]*-)?(?:color|background|border|outline|fill|stroke|shadow|filter|text-decoration|column-rule|text-emphasis)(?:-[a-z]+)*$/i;
-const JS_COLOUR_KEY = /^(?:[a-z][A-Za-z]*(?:Color|Background|Border|Shadow|Fill|Stroke|Style)|(?:color|background|border|outline|fill|stroke|filter|boxShadow|textShadow|caretColor|accentColor|textDecoration|columnRule|textEmphasis|stopColor|floodColor|lightingColor|scrollbarColor|fillStyle|strokeStyle|shadowColor)[A-Za-z]*)$/;
+// A JavaScript key: a word ending in a colour word (`borderColor`, `fillStyle`), or one
+// starting with a colour property (`backgroundColor`, `strokeStyle`, `colorScheme`).
+const JS_COLOUR_KEY_END = /^[a-z][A-Za-z]*(?:Color|Background|Border|Shadow|Fill|Stroke|Style)$/;
+const JS_COLOUR_KEY_START = ['color', 'background', 'border', 'outline', 'fill', 'stroke', 'filter', 'boxShadow', 'textShadow',
+    'caretColor', 'accentColor', 'textDecoration', 'columnRule', 'textEmphasis', 'stopColor', 'floodColor', 'lightingColor',
+    'scrollbarColor', 'fillStyle', 'strokeStyle', 'shadowColor'];
 const COLOUR_ATTRIBUTES = new Set(['fill', 'stroke', 'stop-color', 'flood-color', 'lighting-color', 'color', 'bgcolor']);
 const PAINT_ATTRIBUTES = new Set(['fill', 'stroke', 'stop-color', 'color', 'flood-color', 'lighting-color']);
 const ANIMATION_VALUE_ATTRIBUTES = new Set(['to', 'from', 'values', 'by']);
+const ANIMATED_ELEMENTS = new Set(['animate', 'set', 'animatecolor']);
 // Attributes that hold a URL: `href="#abc"` is a fragment, not a colour.
 const URL_ATTRIBUTES = new Set(['href', 'src', 'xlink:href', 'action', 'formaction', 'poster', 'data', 'cite']);
+// Attributes that name elements by id or selector: `data-bs-target="#fade"` is an id.
+const REFERENCE_ATTRIBUTES = new Set(['id', 'for', 'form', 'list', 'headers', 'usemap', 'data-bs-target', 'data-target',
+    'data-bs-parent', 'data-parent', 'aria-controls', 'aria-describedby', 'aria-labelledby', 'aria-owns',
+    'aria-activedescendant', 'aria-details', 'aria-errormessage', 'aria-flowto']);
 const ALLOWED_PAINT = /^(?:currentcolor|none|var\(\s*--nr-icon-accent\s*,\s*#[0-9a-f]{3,8}\s*\))$/i;
 
 // Token rules: exact class names and tokens, read from the comment-free text.
 const TOKEN_RULES = [
     ['Bootstrap variable', /var\(--bs-/],
     ['own scheme switch', /@media\s*\(\s*prefers-color-scheme|\[data-color-scheme|data-bs-theme/],
-    ['scheme-pinned class', /(?<![\w-])(?:text-bg-[a-z]+|bg-(?:light|white|dark|body(?:-[a-z]+)?|[a-z]+-subtle)|text-(?:dark|white|black|light)|text-body(?:-[a-z]+)?|table-(?:light|dark)|btn-(?:light|dark|secondary)|btn-outline-[a-z]+|alert-(?:light|dark))(?![\w-])/],
+    ['scheme-pinned class', /(?<![\w-])text-bg-[a-z]+(?![\w-])/],
+    ['scheme-pinned class', /(?<![\w-])bg-(?:light|white|dark|body(?:-[a-z]+)?|[a-z]+-subtle)(?![\w-])/],
+    ['scheme-pinned class', /(?<![\w-])text-(?:dark|white|black|light|body(?:-[a-z]+)?)(?![\w-])/],
+    ['scheme-pinned class', /(?<![\w-])(?:table|alert)-(?:light|dark)(?![\w-])/],
+    ['scheme-pinned class', /(?<![\w-])btn-(?:light|dark|secondary|outline-[a-z]+)(?![\w-])/],
     // A state class assembled at runtime: `text-bg-${state}`, Fluid's `text-bg-{state}`.
     ['scheme-pinned class', /(?<![\w-])text-bg-(?:\$\{|\{)/],
     ['Bootstrap colour on a badge', /\bbadge\b[^"'`>]*(?<![\w-])bg-(?:primary|secondary|success|info|warning|danger)(?![\w-])/],
@@ -170,6 +196,8 @@ const TOKEN_RULES = [
 const BADGE_COLOUR = /^bg-(?:primary|secondary|success|info|warning|danger)$/;
 const EXEMPTABLE = new Set(['colour literal', 'named colour', 'named colour in a custom property', 'named colour in JavaScript', 'colour attribute']);
 const PLACEHOLDER = 'nrllmexpr';
+// A state class assembled at runtime in JavaScript: 'text-bg-' + state.
+const ASSEMBLED_STATE_CLASS = new RegExp(`(?<![\\w-])text-bg-${PLACEHOLDER}`);
 
 /* ------------------------------------------------------------------ files */
 
@@ -249,13 +277,16 @@ function blank(source, ranges) {
 }
 
 function tokenRules(report, text) {
-    text.split('\n').forEach((line, index) => {
-        for (const [rule, pattern] of TOKEN_RULES) {
-            if (pattern.test(line)) {
-                report.add(index + 1, rule);
-            }
+    text.split('\n').forEach((line, index) => tokenRulesAt(report, line, index + 1));
+}
+
+/** The token rules over one text, reported on one line. */
+function tokenRulesAt(report, text, line) {
+    for (const [rule, pattern] of TOKEN_RULES) {
+        if (pattern.test(text)) {
+            report.add(line, rule);
         }
-    });
+    }
 }
 
 /* --------------------------------------------------------------------- CSS */
@@ -300,9 +331,31 @@ function checkValueAst(value, { named, onLiteral, onNamed, onDataUri, accent = f
 /** Colour literals in text that is not CSS (a JS string, an HTML attribute). */
 function rawLiterals(text, onLiteral) {
     const stripped = stripLightDark(text).replace(/var\(\s*--nr-icon-accent\s*,\s*#[0-9a-fA-F]{3,8}\s*\)/g, '');
-    if (/(?<![&\w])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b|%23(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})(?![0-9a-zA-Z])|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(|(?<![\w.-])color\(/.test(stripped)) {
+    if (COLOUR_LITERALS.some((pattern) => pattern.test(stripped))) {
         onLiteral();
     }
+}
+
+// Hex (`#fff`, and `%23fff` in a data URI) and the colour functions, in text.
+const COLOUR_LITERALS = [
+    /(?<![&\w])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b/,
+    /%23(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})(?![0-9a-zA-Z])/,
+    /\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(/,
+    /(?<![\w.-])color\(/,
+];
+
+/**
+ * Markup with the values of its URL and reference attributes emptied: a
+ * fragment (`href="#fade"`) or a target (`data-bs-target="#fade"`) is not a
+ * colour. A data URI in such an attribute is read when the markup is parsed.
+ */
+function withoutReferences(markup) {
+    return markup.replace(/([\s"'](?:[\w:-]+))(\s*=\s*)("[^"]*"|'[^']*')/g, (all, name, eq) => {
+        const attribute = name.slice(1).toLowerCase();
+        return URL_ATTRIBUTES.has(attribute) || REFERENCE_ATTRIBUTES.has(attribute) || attribute === 'srcset'
+            ? `${name}${eq}""`
+            : all;
+    });
 }
 
 /** Remove light-dark(…) calls, bracket-balanced. */
@@ -449,35 +502,54 @@ function checkDataUri(report, url, line, icon) {
  * in its place, and the text with every expression replaced by a placeholder.
  */
 function fluidVariants(text) {
-    const spans = [];
-    for (let i = 0; i < text.length; i++) {
-        if (text[i] !== '{') continue;
-        let depth = 0;
-        let j = i;
-        for (; j < text.length; j++) {
-            if (text[j] === '{') depth++;
-            else if (text[j] === '}' && --depth === 0) break;
-        }
-        if (j >= text.length) break;
-        spans.push([i, j + 1]);
-        i = j;
-    }
+    const spans = braceSpans(text);
     if (spans.length === 0) return [text];
-    const fill = (replacements) => {
-        let out = '';
-        let at = 0;
-        spans.forEach(([start, end], k) => {
-            out += text.slice(at, start) + replacements[k];
-            at = end;
-        });
-        return out + text.slice(at);
-    };
-    const neutral = spans.map(() => PLACEHOLDER);
+    const statics = [];
+    let at = 0;
+    for (const [start, end] of spans) {
+        statics.push(text.slice(at, start));
+        at = end;
+    }
+    statics.push(text.slice(at));
+    const choices = spans.map(([start, end]) => [...text.slice(start, end).matchAll(/'([^']*)'|"([^"]*)"/g)].map((m) => m[1] ?? m[2]));
+    return substitutions(statics, choices);
+}
+
+/** The [start, end) spans of the outermost balanced `{…}` groups. */
+function braceSpans(text) {
+    const spans = [];
+    let start = text.indexOf('{');
+    while (start !== -1) {
+        const end = closingBrace(text, start);
+        if (end === -1) break;
+        spans.push([start, end + 1]);
+        start = text.indexOf('{', end + 1);
+    }
+    return spans;
+}
+
+function closingBrace(text, start) {
+    let depth = 0;
+    for (let j = start; j < text.length; j++) {
+        if (text[j] === '{') depth++;
+        else if (text[j] === '}' && --depth === 0) return j;
+    }
+    return -1;
+}
+
+/**
+ * Static text with dynamic slots between its parts (`statics` has one more
+ * entry than `choices`): the text with every slot as the placeholder, and for
+ * each slot each of its possible values in its place, the others neutral.
+ */
+function substitutions(statics, choices) {
+    const fill = (replacements) => statics.reduce((out, part, k) => out + (k === 0 ? '' : replacements[k - 1]) + part, '');
+    const neutral = choices.map(() => PLACEHOLDER);
     const variants = new Set([fill(neutral)]);
-    spans.forEach(([start, end], k) => {
-        for (const match of text.slice(start, end).matchAll(/'([^']*)'|"([^"]*)"/g)) {
+    choices.forEach((values, k) => {
+        for (const value of values) {
             const replacements = [...neutral];
-            replacements[k] = match[1] ?? match[2];
+            replacements[k] = value;
             variants.add(fill(replacements));
         }
     });
@@ -613,6 +685,93 @@ function valueTokens(text, { named, onLiteral, onNamed }) {
     });
 }
 
+/** One attribute of a start tag; `name` is lower case. */
+function checkAttribute(report, { tag, token, name, value, where, icon }) {
+    if (name === 'style') {
+        for (const variant of fluidVariants(value)) {
+            checkCss(report, variant, { context: 'declarationList', line: where, icon, exemptions: false, fallbackLine: where });
+        }
+        return;
+    }
+    if (name === 'srcdoc') {
+        checkHtml(report, value, { line: where, flat: true, icon });
+        return;
+    }
+    if (name === 'class') {
+        checkClassAttribute(report, value, where);
+        return;
+    }
+    if (name === 'media') {
+        if (/prefers-color-scheme/i.test(value)) report.add(where, 'own scheme switch');
+        return;
+    }
+    if (URL_ATTRIBUTES.has(name)) {
+        if (/^\s*data:/i.test(value)) checkDataUri(report, value.trim(), where, icon);
+        return;
+    }
+    if (name === 'srcset' || name === 'imagesrcset') {
+        for (const candidate of srcsetUrls(value)) {
+            if (/^data:/i.test(candidate)) checkDataUri(report, candidate, where, icon);
+        }
+        return;
+    }
+    if (REFERENCE_ATTRIBUTES.has(name)) {
+        return;
+    }
+    if (COLOUR_ATTRIBUTES.has(name)) {
+        const paint = icon && PAINT_ATTRIBUTES.has(name);
+        for (const variant of fluidVariants(value)) {
+            checkValueText(report, variant, where, { named: true, namedRule: 'colour attribute', icon: paint });
+        }
+        return;
+    }
+    if (ANIMATED_ELEMENTS.has(tag) && ANIMATION_VALUE_ATTRIBUTES.has(name)) {
+        if (animatesColour(token)) {
+            for (const part of value.split(';')) {
+                checkValueText(report, part, where, { named: true, namedRule: 'colour attribute', icon });
+            }
+        }
+        return;
+    }
+    if (isThemeColour(tag, token, name)) {
+        checkValueText(report, value, where, { named: true, namedRule: 'colour attribute' });
+        return;
+    }
+    // Any other attribute: a colour literal is still a colour.
+    rawLiterals(value, () => report.add(where, 'colour literal'));
+}
+
+/** Read as class tokens, so Fluid's quotes (`{f:if(… then: 'bg-success')}`) do not hide one. */
+function checkClassAttribute(report, value, where) {
+    const classes = value.split(/[^\w-]+/);
+    if (classes.includes('badge') && classes.some((c) => BADGE_COLOUR.test(c))) {
+        report.add(where, 'Bootstrap colour on a badge');
+    }
+}
+
+/**
+ * The URLs of a srcset: candidates end at a width or density descriptor
+ * (`… 1x`, `… 480w`) or at a comma followed by whitespace. A data URI keeps
+ * its own commas and, unencoded, its spaces.
+ */
+function srcsetUrls(value) {
+    return value
+        .split(/\s+\d+(?:\.\d+)?[wx](?=\s*(?:,|$))\s*,?/)
+        .flatMap((part) => part.split(/,\s+/))
+        .map((url) => url.trim())
+        .filter((url) => url !== '');
+}
+
+/** An `<animate>`/`<set>` that animates a colour (or names no attribute). */
+function animatesColour(token) {
+    const target = (attr(token, 'attributeName')?.value ?? '').toLowerCase();
+    return target === '' || COLOUR_ATTRIBUTES.has(target) || CSS_COLOUR_PROPERTY.test(target);
+}
+
+function isThemeColour(tag, token, name) {
+    return tag === 'meta' && name === 'content' && (attr(token, 'name')?.value ?? '').toLowerCase() === 'theme-color';
+}
+
 /**
  * Check HTML: a template, an SVG icon, or markup held in a string.
  * Token lines are shifted by `line - 1`, so markup inside a template literal
@@ -642,43 +801,8 @@ function checkHtml(report, source, { line = 1, flat = false, icon = false, exemp
     scanHtml(source, {
         onStartTag(tag, token) {
             for (const { name, value } of token.attrs) {
-                const lower = name.toLowerCase();
                 const where = lineAt(token.location?.attrs?.[name]?.startLine ?? token.location?.startLine);
-                if (lower === 'style') {
-                    for (const variant of fluidVariants(value)) {
-                        checkCss(report, variant, { context: 'declarationList', line: where, icon, exemptions: false, fallbackLine: where });
-                    }
-                } else if (lower === 'srcdoc') {
-                    checkHtml(report, value, { line: where, flat: true, icon });
-                } else if (lower === 'class') {
-                    // Read as class tokens, so Fluid's quotes (`{f:if(… then: 'bg-success')}`) do not hide one.
-                    const classes = value.split(/[^\w-]+/);
-                    if (classes.includes('badge') && classes.some((c) => BADGE_COLOUR.test(c))) {
-                        report.add(where, 'Bootstrap colour on a badge');
-                    }
-                } else if (lower === 'media') {
-                    if (/prefers-color-scheme/i.test(value)) {
-                        report.add(where, 'own scheme switch');
-                    }
-                } else if (URL_ATTRIBUTES.has(lower) && /^\s*data:/i.test(value)) {
-                    checkDataUri(report, value.trim(), where, icon);
-                } else if (COLOUR_ATTRIBUTES.has(lower)) {
-                    for (const variant of fluidVariants(value)) {
-                        checkValueText(report, variant, where, { named: true, namedRule: 'colour attribute', icon: icon && PAINT_ATTRIBUTES.has(lower) });
-                    }
-                } else if ((tag === 'animate' || tag === 'set' || tag === 'animatecolor') && ANIMATION_VALUE_ATTRIBUTES.has(lower)) {
-                    const target = (attr(token, 'attributeName')?.value ?? '').toLowerCase();
-                    if (target === '' || COLOUR_ATTRIBUTES.has(target) || CSS_COLOUR_PROPERTY.test(target)) {
-                        for (const part of value.split(';')) {
-                            checkValueText(report, part, where, { named: true, namedRule: 'colour attribute', icon });
-                        }
-                    }
-                } else if (tag === 'meta' && lower === 'content' && (attr(token, 'name')?.value ?? '').toLowerCase() === 'theme-color') {
-                    checkValueText(report, value, where, { named: true, namedRule: 'colour attribute' });
-                } else if (!URL_ATTRIBUTES.has(lower)) {
-                    // Any other attribute: a colour literal is still a colour.
-                    rawLiterals(value, () => report.add(where, 'colour literal'));
-                }
+                checkAttribute(report, { tag, token, name: name.toLowerCase(), value, where, icon });
             }
         },
         onText(tag, token, text, loc) {
@@ -716,29 +840,35 @@ function staticText(node) {
             return typeof node.value === 'string' ? node.value : null;
         case 'TemplateLiteral':
             return node.quasis.map((q) => q.value.cooked ?? q.value.raw).join(PLACEHOLDER);
-        case 'BinaryExpression': {
-            if (node.operator !== '+') return null;
-            const left = staticText(node.left);
-            const right = staticText(node.right);
-            if (left === null && right === null) return null;
-            return (left ?? PLACEHOLDER) + (right ?? PLACEHOLDER);
-        }
-        case 'CallExpression': {
-            // [ '…', '…' ].join('')
-            const callee = node.callee;
-            if (callee.type === 'MemberExpression' && !callee.computed && callee.property.name === 'join'
-                && callee.object.type === 'ArrayExpression') {
-                const parts = callee.object.elements.map(staticText);
-                if (parts.every((p) => p !== null)) {
-                    const sep = node.arguments.length ? staticText(node.arguments[0]) : ',';
-                    return parts.join(sep ?? '');
-                }
-            }
-            return null;
-        }
+        case 'BinaryExpression':
+            return concatenationText(node);
+        case 'CallExpression':
+            return joinText(node);
         default:
             return null;
     }
+}
+
+/** `'…' + x`: the static parts, anything else as the placeholder; null if nothing is static. */
+function concatenationText(node) {
+    if (node.operator !== '+') return null;
+    const left = staticText(node.left);
+    const right = staticText(node.right);
+    if (left === null && right === null) return null;
+    return (left ?? PLACEHOLDER) + (right ?? PLACEHOLDER);
+}
+
+/** `['…', '…'].join('')` of literals. */
+function joinText(node) {
+    const callee = node.callee;
+    if (callee.type !== 'MemberExpression' || callee.computed || callee.property.name !== 'join'
+        || callee.object.type !== 'ArrayExpression') {
+        return null;
+    }
+    const parts = callee.object.elements.map(staticText);
+    if (!parts.every((p) => p !== null)) return null;
+    const sep = node.arguments.length ? staticText(node.arguments[0]) : ',';
+    return parts.join(sep ?? '');
 }
 
 /** The static texts an expression may produce: through ? :, ||, ??, arrays. */
@@ -811,7 +941,9 @@ function keyName(property) {
 }
 
 function isColourKey(name) {
-    return typeof name === 'string' && (JS_COLOUR_KEY.test(name) || CSS_COLOUR_PROPERTY.test(name));
+    if (typeof name !== 'string') return false;
+    return JS_COLOUR_KEY_END.test(name) || CSS_COLOUR_PROPERTY.test(name)
+        || (/^[A-Za-z]+$/.test(name) && JS_COLOUR_KEY_START.some((start) => name.startsWith(start)));
 }
 
 /**
@@ -841,39 +973,56 @@ function checkJs(outer, source, { line = 1, flat = false } = {}) {
         return;
     }
 
-    // Parents and the nodes an exemption can cover.
-    const exemptable = [];
-    const parents = new Map();
-    const walk = (node, parent, visitor) => {
-        if (!node || typeof node.type !== 'string') return;
-        parents.set(node, parent);
-        visitor(node, parent);
-        for (const key of espree.VisitorKeys[node.type] ?? []) {
-            const child = node[key];
-            if (Array.isArray(child)) child.forEach((c) => walk(c, node, visitor));
-            else walk(child, node, visitor);
-        }
-    };
-    const styleElements = new Set();
-    walk(ast, null, (node) => {
-        if (JS_EXEMPTABLE.has(node.type)) {
-            exemptable.push(node);
-        }
-        // `const s = document.createElement('style')`: s's text is CSS.
-        const init = node.type === 'VariableDeclarator' ? node.init : (node.type === 'AssignmentExpression' ? node.right : null);
-        const target = node.type === 'VariableDeclarator' ? node.id : (node.type === 'AssignmentExpression' ? node.left : null);
-        if (init?.type === 'CallExpression' && calleeName(init) === 'createElement'
-            && staticText(init.arguments[0])?.toLowerCase() === 'style' && target?.type === 'Identifier') {
-            styleElements.add(target.name);
-        }
+    // Parents, the nodes an exemption can cover, and the <style> elements.
+    const js = { report, parents: new Map(), exemptable: [], styleElements: new Set(), handled: new Set() };
+    walkJs(ast, null, js.parents, (node) => {
+        if (JS_EXEMPTABLE.has(node.type)) js.exemptable.push(node);
+        const styleElement = styleElementName(node);
+        if (styleElement !== null) js.styleElements.add(styleElement);
     });
+    applyJsExemptions(report, ast.comments, js.exemptable);
 
-    for (const comment of ast.comments) {
+    walkJs(ast, null, js.parents, (node, parent) => {
+        colourContext(js, node, parent);
+        maximalStaticText(js, node, parent);
+    });
+}
+
+function walkJs(node, parent, parents, visitor) {
+    if (!node || typeof node.type !== 'string') return;
+    parents.set(node, parent);
+    visitor(node, parent);
+    for (const key of espree.VisitorKeys[node.type] ?? []) {
+        const child = node[key];
+        if (Array.isArray(child)) child.forEach((c) => walkJs(c, node, parents, visitor));
+        else walkJs(child, node, parents, visitor);
+    }
+}
+
+/** `const s = document.createElement('style')` (or `s = …`): s's text is CSS. */
+function styleElementName(node) {
+    let init = null;
+    let target = null;
+    if (node.type === 'VariableDeclarator') {
+        init = node.init;
+        target = node.id;
+    } else if (node.type === 'AssignmentExpression') {
+        init = node.right;
+        target = node.left;
+    }
+    if (init?.type === 'CallExpression' && calleeName(init) === 'createElement'
+        && staticText(init.arguments[0])?.toLowerCase() === 'style' && target?.type === 'Identifier') {
+        return target.name;
+    }
+    return null;
+}
+
+function applyJsExemptions(report, comments, exemptable) {
+    for (const comment of comments) {
         if (!comment.value.includes('scheme-independent:')) continue;
-        const loc = { start: comment.loc.start, end: comment.loc.end, startOffset: comment.range[0], endOffset: comment.range[1] };
-        const line = loc.start.line;
-        const before = (report.lines[line - 1] ?? '').slice(0, loc.start.column).trim();
-        const after = (report.lines[loc.end.line - 1] ?? '').slice(loc.end.column).trim();
+        const line = comment.loc.start.line;
+        const before = (report.lines[line - 1] ?? '').slice(0, comment.loc.start.column).trim();
+        const after = (report.lines[comment.loc.end.line - 1] ?? '').slice(comment.loc.end.column).trim();
         let target;
         if (before !== '' || after !== '') {
             // A node that starts on the comment's line; a comment trailing a
@@ -883,94 +1032,185 @@ function checkJs(outer, source, { line = 1, flat = false } = {}) {
                 .sort((a, b) => (a.loc.end.line - a.loc.start.line) - (b.loc.end.line - b.loc.start.line))[0];
         } else {
             target = exemptable
-                .filter((n) => n.range[0] >= loc.endOffset)
+                .filter((n) => n.range[0] >= comment.range[1])
                 .sort((a, b) => a.range[0] - b.range[0] || b.range[1] - a.range[1])[0];
         }
         if (target) report.exemptRange(target.loc.start.line, target.loc.end.line);
     }
+}
 
-    const colourValue = (expression, fallbackRule = 'named colour in JavaScript') => {
-        for (const { text, node } of candidateTexts(expression)) {
-            checkValueText(report, text, node.loc.start.line, { named: true, namedRule: fallbackRule });
-        }
-    };
-    const cssText = (expression, context = 'declarationList') => {
-        for (const { text, node } of candidateTexts(expression)) {
-            checkCss(report, text, { context, line: node.loc.start.line, exemptions: false, fallbackLine: node.loc.start.line });
-        }
-    };
-    const styleSheet = (expression) => cssText(expression, 'stylesheet');
+/* The sinks: where an expression's texts are read as a colour value or as CSS. */
 
-    // Maximal static texts: every string the code holds, checked once.
-    const handled = new Set();
-    walk(ast, null, (node, parent) => {
-        // Colour contexts.
-        if (node.type === 'AssignmentExpression') {
-            const name = propertyName(node.left);
-            if (name === 'cssText' || name === 'style') {
-                // el.style.cssText = …, el.style = …
-                cssText(node.right);
-            } else if ((name === 'textContent' || name === 'innerText' || name === 'innerHTML')
-                && node.left.object.type === 'Identifier' && styleElements.has(node.left.object.name)) {
-                styleSheet(node.right);
-            } else if (isColourKey(name)) {
-                colourValue(node.right);
-            }
-        } else if (node.type === 'Property' && !node.method) {
-            const name = keyName(node);
-            if (isColourKey(name)) {
-                colourValue(node.value);
-            }
-        } else if (node.type === 'CallExpression' && calleeName(node) === 'matchMedia') {
-            // Deciding by the OS scheme (`.matches`, or keeping the list) is an own
-            // switch. Only listening for its change is not: with the backend
-            // scheme on "auto", light-dark() follows the OS, and a chart that
-            // reads its colours once has to read them again.
-            const use = parent?.type === 'MemberExpression' && parent.object === node ? propertyName(parent) : null;
-            const listensOnly = use === 'addEventListener' || use === 'addListener';
-            if (!listensOnly && candidateTexts(node.arguments[0]).some(({ text }) => /prefers-color-scheme/i.test(text))) {
-                report.add(node.loc.start.line, 'own scheme switch');
-            }
-        } else if (node.type === 'CallExpression' && node.callee.type === 'MemberExpression') {
-            const method = propertyName(node.callee);
-            const first = staticText(node.arguments[0]);
-            // sheet.insertRule(…), sheet.replaceSync(…), sheet.replace(…) (one argument: not String#replace)
-            if (method === 'insertRule' || method === 'replaceSync' || (method === 'replace' && node.arguments.length === 1)) {
-                styleSheet(node.arguments[0]);
-            } else if (method === 'setProperty' && typeof first === 'string' && (first.startsWith('--') || CSS_COLOUR_PROPERTY.test(first))) {
-                colourValue(node.arguments[1]);
-            } else if (method === 'setAttribute' && typeof first === 'string') {
-                const attribute = first.toLowerCase();
-                if (attribute === 'style') {
-                    cssText(node.arguments[1]);
-                } else if (COLOUR_ATTRIBUTES.has(attribute)) {
-                    colourValue(node.arguments[1]);
-                }
-            }
-        }
+function colourValue(report, expression, fallbackRule = 'named colour in JavaScript') {
+    for (const { text, node } of candidateTexts(expression)) {
+        checkValueText(report, text, node.loc.start.line, { named: true, namedRule: fallbackRule });
+    }
+}
 
-        // Every maximal static text: colour literals anywhere, HTML parsed.
-        const text = staticText(node);
-        if (text === null || handled.has(node)) return;
-        if (parent && staticText(parent) !== null && (parent.type === 'BinaryExpression' || parent.type === 'CallExpression')) return;
-        if (parent && parent.type === 'ArrayExpression' && parents.get(parent)?.type === 'MemberExpression'
-            && parents.get(parents.get(parent))?.type === 'CallExpression' && staticText(parents.get(parents.get(parent))) !== null) return;
-        handled.add(node);
-        const line = node.loc.start.line;
-        rawLiterals(text, () => report.add(line, 'colour literal'));
-        if (/<[a-zA-Z]/.test(text)) {
-            // A literal or template keeps its line breaks; anything assembled does not.
-            checkHtml(report, text, { line, flat: node.type !== 'TemplateLiteral' && node.type !== 'Literal' });
+function cssText(report, expression, context = 'declarationList') {
+    for (const { text, node } of candidateTexts(expression)) {
+        for (const variant of cssVariants(node, text)) {
+            checkCss(report, variant, { context, line: node.loc.start.line, exemptions: false, fallbackLine: node.loc.start.line });
+        }
+    }
+}
+
+/**
+ * CSS assembled from a template literal or a concatenation: each value a
+ * `${…}` (or a non-literal operand) may produce, read in its place
+ * (`color: ${dark ? 'white' : 'black'}`), as fluidVariants does for Fluid.
+ */
+function cssVariants(node, text) {
+    const parts = dynamicParts(node);
+    return parts === null ? [text] : substitutions(parts.statics, parts.choices);
+}
+
+function dynamicParts(node) {
+    if (node.type === 'TemplateLiteral') {
+        return {
+            statics: node.quasis.map((q) => q.value.cooked ?? q.value.raw),
+            choices: node.expressions.map((e) => candidateTexts(e).map((c) => c.text)),
+        };
+    }
+    if (node.type !== 'BinaryExpression' || node.operator !== '+') return null;
+    const statics = [''];
+    const choices = [];
+    for (const operand of concatenationOperands(node)) {
+        const text = staticText(operand);
+        if (text === null) {
+            choices.push(candidateTexts(operand).map((c) => c.text));
+            statics.push('');
+        } else {
+            statics[statics.length - 1] += text;
+        }
+    }
+    return { statics, choices };
+}
+
+function concatenationOperands(node) {
+    if (node.type !== 'BinaryExpression' || node.operator !== '+') return [node];
+    return [...concatenationOperands(node.left), ...concatenationOperands(node.right)];
+}
+
+function styleSheet(report, expression) {
+    cssText(report, expression, 'stylesheet');
+}
+
+/** Assignments, properties and calls that give a value a colour meaning. */
+function colourContext(js, node, parent) {
+    if (node.type === 'AssignmentExpression') {
+        colourAssignment(js, node);
+    } else if (node.type === 'Property' && !node.method) {
+        if (isColourKey(keyName(node))) colourValue(js.report, node.value);
+    } else if (node.type === 'CallExpression' && calleeName(node) === 'matchMedia') {
+        matchMediaCall(js, node, parent);
+    } else if (node.type === 'CallExpression' && node.callee.type === 'MemberExpression') {
+        colourMethodCall(js, node);
+    }
+}
+
+function colourAssignment(js, node) {
+    const name = propertyName(node.left);
+    if (name === 'bsTheme' && propertyName(node.left.object) === 'dataset') {
+        // el.dataset.bsTheme = …: data-bs-theme, the same switch as in a template.
+        js.report.add(node.loc.start.line, 'own scheme switch');
+    } else if (name === 'cssText' || name === 'style') {
+        // el.style.cssText = …, el.style = …
+        cssText(js.report, node.right);
+    } else if ((name === 'textContent' || name === 'innerText' || name === 'innerHTML')
+        && node.left.object.type === 'Identifier' && js.styleElements.has(node.left.object.name)) {
+        styleSheet(js.report, node.right);
+    } else if (isColourKey(name)) {
+        colourValue(js.report, node.right);
+    }
+}
+
+function matchMediaCall(js, node, parent) {
+    if (!candidateTexts(node.arguments[0]).some(({ text }) => /prefers-color-scheme/i.test(text))) return;
+    // Deciding by the OS scheme (`.matches`, or keeping the list) is an own
+    // switch. Only listening for its change is not: with the backend
+    // scheme on "auto", light-dark() follows the OS, and a chart that
+    // reads its colours once has to read them again. A listener that reads
+    // `.matches` decides by the OS scheme again.
+    const use = parent?.type === 'MemberExpression' && parent.object === node ? propertyName(parent) : null;
+    const listensOnly = use === 'addEventListener' || use === 'addListener';
+    if (!listensOnly || readsMatches(listenerOf(use, js.parents.get(parent)))) {
+        js.report.add(node.loc.start.line, 'own scheme switch');
+    }
+}
+
+/** The callback given to `addEventListener(type, cb)` / `addListener(cb)`. */
+function listenerOf(use, call) {
+    if (call?.type !== 'CallExpression') return null;
+    return use === 'addEventListener' ? call.arguments[1] : call.arguments[0];
+}
+
+/** Whether a function written in place reads `matches` (`e.matches`, `({ matches })`). */
+function readsMatches(callback) {
+    if (callback?.type !== 'ArrowFunctionExpression' && callback?.type !== 'FunctionExpression') return false;
+    let found = false;
+    walkJs(callback, null, new Map(), (node, parent) => {
+        if ((node.type === 'MemberExpression' && propertyName(node) === 'matches')
+            || (node.type === 'Property' && parent?.type === 'ObjectPattern' && keyName(node) === 'matches')) {
+            found = true;
         }
     });
+    return found;
+}
+
+function colourMethodCall(js, node) {
+    const method = propertyName(node.callee);
+    const first = staticText(node.arguments[0]);
+    // sheet.insertRule(…), sheet.replaceSync(…), sheet.replace(…) (one argument: not String#replace)
+    if (method === 'insertRule' || method === 'replaceSync' || (method === 'replace' && node.arguments.length === 1)) {
+        styleSheet(js.report, node.arguments[0]);
+    } else if (method === 'setProperty' && typeof first === 'string' && (first.startsWith('--') || CSS_COLOUR_PROPERTY.test(first))) {
+        colourValue(js.report, node.arguments[1]);
+    } else if (method === 'setAttribute' && typeof first === 'string') {
+        const attribute = first.toLowerCase();
+        if (attribute === 'style') {
+            cssText(js.report, node.arguments[1]);
+        } else if (COLOUR_ATTRIBUTES.has(attribute)) {
+            colourValue(js.report, node.arguments[1]);
+        }
+    }
+}
+
+/** Every maximal static text, checked once: colour literals anywhere, HTML parsed. */
+function maximalStaticText(js, node, parent) {
+    const text = staticText(node);
+    if (text === null || js.handled.has(node) || isPartOfStaticText(js.parents, parent)) return;
+    js.handled.add(node);
+    const line = node.loc.start.line;
+    const markup = /<[a-zA-Z]/.test(text);
+    // In markup, `href="#fade"` and `data-bs-target="#fade"` are references, not colours.
+    rawLiterals(markup ? withoutReferences(text) : text, () => js.report.add(line, 'colour literal'));
+    if (ASSEMBLED_STATE_CLASS.test(text)) {
+        // 'text-bg-' + state, `text-bg-${state}`
+        js.report.add(line, 'scheme-pinned class');
+    }
+    if (markup) {
+        // A literal or template keeps its line breaks; anything assembled does not.
+        checkHtml(js.report, text, { line, flat: node.type !== 'TemplateLiteral' && node.type !== 'Literal' });
+    }
+}
+
+/** A text inside a larger static text (a concatenation, a `[…].join()`) is read with it. */
+function isPartOfStaticText(parents, parent) {
+    if ((parent?.type === 'BinaryExpression' || parent?.type === 'CallExpression') && staticText(parent) !== null) return true;
+    if (parent?.type !== 'ArrayExpression') return false;
+    const member = parents.get(parent);
+    const call = member?.type === 'MemberExpression' ? parents.get(member) : null;
+    return call?.type === 'CallExpression' && staticText(call) !== null;
 }
 
 /* ---------------------------------------------------------- translations */
 
 /**
- * A label may carry markup (`&lt;span style="…"&gt;`), which the backend
- * renders as HTML: the decoded text of each <source> and <target> is checked
- * as HTML, on the line its element starts.
+ * A label may carry markup (`&lt;span style="…"&gt;`, or a CDATA section),
+ * which the backend renders as HTML: the decoded text of each <source> and
+ * <target> is checked as HTML, and against the token rules (class names,
+ * `var(--bs-…)`), on the line its element starts.
  */
 function checkTranslations(report, source) {
     let unit = null;
@@ -982,6 +1222,7 @@ function checkTranslations(report, source) {
         onEndTag(token) {
             if (unit && token.tagName.toLowerCase() === unit.tag) {
                 checkHtml(report, unit.text, { line: unit.line, flat: true });
+                tokenRulesAt(report, unit.text, unit.line);
                 unit = null;
             }
         },
@@ -997,6 +1238,9 @@ function checkTranslations(report, source) {
         onEof() {},
         onParseError: null,
     });
+    // XLIFF is XML: read `<![CDATA[…]]>` as text, as in foreign content, not
+    // as the bogus comment an HTML tokenizer makes of it.
+    tokenizer.inForeignNode = true;
     tokenizer.write(source, true);
 }
 

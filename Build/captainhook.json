@@ -58,6 +58,9 @@
         "actions": [
             {
                 "action": "composer install"
+            },
+            {
+                "action": "npm ci"
             }
         ]
     },
@@ -66,6 +69,9 @@
         "actions": [
             {
                 "action": "composer install"
+            },
+            {
+                "action": "npm ci"
             }
         ]
     },
