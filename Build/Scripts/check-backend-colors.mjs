@@ -197,7 +197,7 @@ const BADGE_COLOUR = /^bg-(?:primary|secondary|success|info|warning|danger)$/;
 const EXEMPTABLE = new Set(['colour literal', 'named colour', 'named colour in a custom property', 'named colour in JavaScript', 'colour attribute']);
 const PLACEHOLDER = 'nrllmexpr';
 // A state class assembled at runtime in JavaScript: 'text-bg-' + state.
-const ASSEMBLED_STATE_CLASS = new RegExp(`(?<![\\w-])text-bg-${PLACEHOLDER}`);
+const ASSEMBLED_STATE_CLASS = new RegExp(String.raw`(?<![\w-])text-bg-${PLACEHOLDER}`);
 
 /* ------------------------------------------------------------------ files */
 
@@ -686,33 +686,39 @@ function valueTokens(text, { named, onLiteral, onNamed }) {
 }
 
 /** One attribute of a start tag; `name` is lower case. */
-function checkAttribute(report, { tag, token, name, value, where, icon }) {
-    if (name === 'style') {
-        for (const variant of fluidVariants(value)) {
-            checkCss(report, variant, { context: 'declarationList', line: where, icon, exemptions: false, fallbackLine: where });
-        }
-        return;
-    }
-    if (name === 'srcdoc') {
-        checkHtml(report, value, { line: where, flat: true, icon });
-        return;
-    }
-    if (name === 'class') {
-        checkClassAttribute(report, value, where);
-        return;
-    }
-    if (name === 'media') {
+function checkAttribute(report, attribute) {
+    const check = Object.hasOwn(ATTRIBUTE_CHECKS, attribute.name) ? ATTRIBUTE_CHECKS[attribute.name] : checkOtherAttribute;
+    check(report, attribute);
+}
+
+// Attributes read by their name alone.
+const ATTRIBUTE_CHECKS = {
+    style: (report, { value, where, icon }) => checkStyleAttribute(report, value, where, icon),
+    srcdoc: (report, { value, where, icon }) => checkHtml(report, value, { line: where, flat: true, icon }),
+    class: (report, { value, where }) => checkClassAttribute(report, value, where),
+    media: (report, { value, where }) => {
         if (/prefers-color-scheme/i.test(value)) report.add(where, 'own scheme switch');
-        return;
+    },
+    srcset: checkSrcset,
+    imagesrcset: checkSrcset,
+};
+
+function checkStyleAttribute(report, value, where, icon) {
+    for (const variant of fluidVariants(value)) {
+        checkCss(report, variant, { context: 'declarationList', line: where, icon, exemptions: false, fallbackLine: where });
     }
+}
+
+function checkSrcset(report, { value, where, icon }) {
+    for (const candidate of srcsetUrls(value)) {
+        if (/^data:/i.test(candidate)) checkDataUri(report, candidate, where, icon);
+    }
+}
+
+/** Any other attribute: URL, reference, colour, animation value, theme colour or plain text. */
+function checkOtherAttribute(report, { tag, token, name, value, where, icon }) {
     if (URL_ATTRIBUTES.has(name)) {
         if (/^\s*data:/i.test(value)) checkDataUri(report, value.trim(), where, icon);
-        return;
-    }
-    if (name === 'srcset' || name === 'imagesrcset') {
-        for (const candidate of srcsetUrls(value)) {
-            if (/^data:/i.test(candidate)) checkDataUri(report, candidate, where, icon);
-        }
         return;
     }
     if (REFERENCE_ATTRIBUTES.has(name)) {
@@ -726,10 +732,9 @@ function checkAttribute(report, { tag, token, name, value, where, icon }) {
         return;
     }
     if (ANIMATED_ELEMENTS.has(tag) && ANIMATION_VALUE_ATTRIBUTES.has(name)) {
-        if (animatesColour(token)) {
-            for (const part of value.split(';')) {
-                checkValueText(report, part, where, { named: true, namedRule: 'colour attribute', icon });
-            }
+        const parts = animatesColour(token) ? value.split(';') : [];
+        for (const part of parts) {
+            checkValueText(report, part, where, { named: true, namedRule: 'colour attribute', icon });
         }
         return;
     }
@@ -737,7 +742,7 @@ function checkAttribute(report, { tag, token, name, value, where, icon }) {
         checkValueText(report, value, where, { named: true, namedRule: 'colour attribute' });
         return;
     }
-    // Any other attribute: a colour literal is still a colour.
+    // A colour literal is still a colour.
     rawLiterals(value, () => report.add(where, 'colour literal'));
 }
 
@@ -755,11 +760,23 @@ function checkClassAttribute(report, value, where) {
  * its own commas and, unencoded, its spaces.
  */
 function srcsetUrls(value) {
-    return value
-        .split(/\s+\d+(?:\.\d+)?[wx](?=\s*(?:,|$))\s*,?/)
-        .flatMap((part) => part.split(/,\s+/))
-        .map((url) => url.trim())
-        .filter((url) => url !== '');
+    const urls = [];
+    let words = [];
+    const flush = () => {
+        const url = words.join(' ').replace(/,$/, '');
+        if (url !== '') urls.push(url);
+        words = [];
+    };
+    for (const word of value.trim().split(/\s+/)) {
+        if (/^\d+(?:\.\d+)?[wx],?$/.test(word)) {
+            flush();
+            continue;
+        }
+        if (words.at(-1)?.endsWith(',')) flush();
+        words.push(word);
+    }
+    flush();
+    return urls;
 }
 
 /** An `<animate>`/`<set>` that animates a colour (or names no attribute). */

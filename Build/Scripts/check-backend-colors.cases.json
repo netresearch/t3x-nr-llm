@@ -354,6 +354,12 @@
             "Resources/Private/Templates/Backend/a.html",
             "<span class=\"badge text-bg-{state}\">x</span>\n",
             "scheme-pinned class"
+        ],
+        [
+            "data URI after a srcset candidate without descriptor",
+            "Resources/Private/Templates/Backend/a.html",
+            "<img srcset=\"a.png, data:image/svg+xml,%3Csvg%3E%3Cpath fill='white'/%3E%3C/svg%3E\" alt=\"\">\n",
+            "colour attribute"
         ]
     ],
     "refusedByParsing": [
