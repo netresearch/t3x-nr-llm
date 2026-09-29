@@ -8,7 +8,8 @@ ADR-211: Typed decisions from an exchangeable backend
 
 :Status: Accepted
 :Date: 2026-09-28
-:Amends: :ref:`ADR-060 <adr-060>` (the LLM judge grader),
+:Amends: :ref:`ADR-013 <adr-013>` (prices stored as integers),
+   :ref:`ADR-060 <adr-060>` (the LLM judge grader),
    :ref:`ADR-082 <adr-082>` (what the structured methods return),
    :ref:`ADR-128 <adr-128>` (what their callers consume),
    :ref:`ADR-129 <adr-129>` (the judge as a structured consumer)
@@ -199,9 +200,12 @@ vendor: classification, selection and rubric scoring are one operation.
     the operation map enforces for criteria-mode selection. Model discovery
     writes the capability for the two decision adapters, and the backend
     module's model and configuration tests send a decision probe to a
-    decision model instead of a completion it cannot answer. A default
-    configuration must be able to chat, so a decision model can never become
-    the target of every generic ``chat()`` call.
+    decision model instead of a completion it cannot answer. A decision model
+    answers no chat call, so it must not serve generic ``chat()`` calls: the
+    setup wizard never makes such a model the default model, and the
+    operator documentation says not to make a decision configuration the
+    default configuration. A chat call that still reaches one fails with
+    ``UnsupportedFeatureException`` rather than an answer.
 
 11. **The decision grader replaces the LLM judge.** :php:`DecisionGrader`
     (grader identifier ``decision``) grades a golden prompt through the
