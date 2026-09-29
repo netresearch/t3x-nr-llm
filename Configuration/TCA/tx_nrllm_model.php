@@ -21,7 +21,7 @@ return [
         'enablecolumns' => [
             'disabled' => 'hidden',
         ],
-        'iconfile' => 'EXT:nr_llm/Resources/Public/Icons/Model.svg',
+        'typeicon_classes' => ['default' => 'nrllm-record-model'],
         'rootLevel' => -1,
         'security' => [
             'ignorePageTypeRestriction' => true,

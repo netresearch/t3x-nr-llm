@@ -302,7 +302,7 @@ final class McpServerControllerTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('X-Api-Key', $body);
         // And a stored placement the module does not offer is printed verbatim,
         // not collapsed into the bearer label the transport falls back to.
-        self::assertStringContainsString('<code>query</code>', $body);
+        self::assertStringContainsString('<code class="text-break">query</code>', $body);
         // The credentials themselves are vault identifiers and must never surface.
         self::assertStringNotContainsString('e6f1a2b3-0000-4000-8000-000000000001', $body);
         self::assertStringNotContainsString('e6f1a2b3-0000-4000-8000-000000000002', $body);

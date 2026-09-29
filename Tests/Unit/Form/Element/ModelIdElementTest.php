@@ -67,6 +67,8 @@ final class ModelIdElementTest extends AbstractUnitTestCase
         self::assertStringContainsString('<button type="button"', $html);
         self::assertStringContainsString('Fetch Models</button>', $html);
         self::assertStringContainsString('data-fetch-url="/test-ajax-url"', $html);
+        // The list it opens starts closed, and assistive tech is told so before any script runs.
+        self::assertStringContainsString('aria-expanded="false"', $html);
     }
 
     public function testRenderWithEmptyData(): void

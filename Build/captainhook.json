@@ -34,6 +34,9 @@
             },
             {
                 "action": "composer ci:test:repo"
+            },
+            {
+                "action": "composer ci:test:colors"
             }
         ]
     },
@@ -55,6 +58,22 @@
         "actions": [
             {
                 "action": "composer install"
+            },
+            {
+                "action": "npm ci",
+                "config": {
+                    "allow-failure": true
+                },
+                "conditions": [
+                    {
+                        "exec": "\\CaptainHook\\App\\Hook\\Condition\\FileChanged\\Any",
+                        "args": [
+                            [
+                                "package-lock.json"
+                            ]
+                        ]
+                    }
+                ]
             }
         ]
     },
@@ -63,6 +82,22 @@
         "actions": [
             {
                 "action": "composer install"
+            },
+            {
+                "action": "npm ci",
+                "config": {
+                    "allow-failure": true
+                },
+                "conditions": [
+                    {
+                        "exec": "\\CaptainHook\\App\\Hook\\Condition\\FileChanged\\Any",
+                        "args": [
+                            [
+                                "package-lock.json"
+                            ]
+                        ]
+                    }
+                ]
             }
         ]
     },

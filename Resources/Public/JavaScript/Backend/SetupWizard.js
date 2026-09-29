@@ -85,16 +85,21 @@ class SetupWizard {
         document.querySelectorAll('.wizard-step').forEach(stepEl => {
             const stepNum = Number.parseInt(stepEl.dataset.step, 10);
             stepEl.classList.remove('active', 'completed');
+            stepEl.removeAttribute('aria-current');
             if (stepNum < step) {
                 stepEl.classList.add('completed');
             } else if (stepNum === step) {
                 stepEl.classList.add('active');
+                stepEl.setAttribute('aria-current', 'step');
             }
         });
 
-        // Update progress bar
+        // Update the progress bar: a native <progress>, which announces its value.
         const progress = ((step - 1) / (this.totalSteps - 1)) * 100;
-        document.querySelector('.wizard-progress-fill').style.width = `${progress}%`;
+        const bar = document.querySelector('.wizard-progress-bar');
+        if (bar) {
+            bar.value = Math.round(progress);
+        }
 
         this.currentStep = step;
     }
@@ -288,7 +293,7 @@ class SetupWizard {
             // would then also hide a genuinely removed escapeHtml() there.
             let capabilities = '';
             for (const cap of (model.capabilities || ['chat'])) {
-                capabilities += `<span class="badge bg-secondary">${escapeHtml(cap)}</span>`;
+                capabilities += `<span class="badge badge-secondary">${escapeHtml(cap)}</span>`;
             }
 
             let contextStr = '-';
@@ -311,16 +316,18 @@ class SetupWizard {
 
             let recommendedBadge = '<span class="text-muted">-</span>';
             if (model.recommended) {
-                recommendedBadge = '<span class="badge bg-success">Recommended</span>';
+                recommendedBadge = '<span class="badge badge-success">Recommended</span>';
             }
 
             const row = document.createElement('tr');
             row.innerHTML = `
-                <td>
-                    <input type="checkbox" class="form-check-input model-checkbox"
-                           data-index="${escapeHtml(String(index))}"
-                           ${escapeHtml(model.recommended ? 'checked' : '')}
-                           aria-label="Select model ${safeName}">
+                <td class="col-checkbox">
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input model-checkbox"
+                               data-index="${escapeHtml(String(index))}"
+                               ${escapeHtml(model.recommended ? 'checked' : '')}
+                               aria-label="Select model ${safeName}">
+                    </div>
                 </td>
                 <td>
                     <strong>${safeName}</strong>
@@ -435,13 +442,13 @@ class SetupWizard {
                         <strong>${safeName}</strong>
                     </div>
                     <div class="card-body">
-                        <p class="card-text text-muted small">${safeDescription}</p>
+                        <p class="text-muted small">${safeDescription}</p>
                         <div class="d-flex gap-3 mt-2">
                             <span class="config-temp" title="Temperature">
-                                <span class="badge bg-info">T: ${safeTemp}</span>
+                                <span class="badge badge-info">T: ${safeTemp}</span>
                             </span>
                             <span class="config-tokens" title="Max Tokens">
-                                <span class="badge bg-secondary">${safeMaxTokens} tokens</span>
+                                <span class="badge badge-secondary">${safeMaxTokens} tokens</span>
                             </span>
                         </div>
                     </div>
@@ -511,7 +518,7 @@ class SetupWizard {
             </div>
             <div>
                 <strong>${safeProviderName}</strong>
-                <span class="badge bg-secondary ms-2">${safeAdapterType}</span>
+                <span class="badge badge-secondary ms-2">${safeAdapterType}</span>
                 <div class="small text-muted">${safeEndpoint}</div>
             </div>
         `;
@@ -523,7 +530,7 @@ class SetupWizard {
         for (const m of selectedModels) {
             modelsHtml += `
             <li class="list-group-item">
-                <span class="badge bg-primary">${escapeHtml(m.modelId)}</span>
+                <span class="badge badge-primary">${escapeHtml(m.modelId)}</span>
                 <span>${escapeHtml(m.name)}</span>
             </li>
         `;
@@ -537,7 +544,7 @@ class SetupWizard {
         for (const c of selectedConfigs) {
             configsHtml += `
             <li class="list-group-item">
-                <span class="badge bg-info">${escapeHtml(c.identifier)}</span>
+                <span class="badge badge-info">${escapeHtml(c.identifier)}</span>
                 <span>${escapeHtml(c.name)}</span>
             </li>
         `;

@@ -22,8 +22,8 @@
 
         <div class="mb-3">
             <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.heading" default="See also" />:</strong>
-            <a href="{be:moduleLink(route: 'nrllm_tools')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:seeAlso.manageTools" default="Manage tools" /></a>
-            <a href="{be:moduleLink(route: 'nrllm_playground')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:seeAlso.playground" default="Tool Playground" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_tools')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:seeAlso.manageTools" default="Manage tools" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_playground')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:seeAlso.playground" default="Tool Playground" /></a>
         </div>
 
         <f:if condition="{f:count(subject: servers)}">
@@ -32,14 +32,14 @@
                     <div class="card mb-4" data-mcp-server="{entry.record.uid}">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <div>
-                                <strong>{entry.record.name}</strong>
-                                <code class="ms-2">{entry.record.identifier}</code>
+                                <h2 class="h5 d-inline mb-0">{entry.record.name}</h2>
+                                <code class="ms-2 text-break">{entry.record.identifier}</code>
                                 <f:if condition="{entry.record.enabled}">
-                                    <f:then><span class="badge text-bg-success ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.enabled" default="Enabled" /></span></f:then>
-                                    <f:else><span class="badge text-bg-secondary ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.disabled" default="Disabled" /></span></f:else>
+                                    <f:then><span class="badge badge-success ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.enabled" default="Enabled" /></span></f:then>
+                                    <f:else><span class="badge badge-secondary ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.disabled" default="Disabled" /></span></f:else>
                                 </f:if>
                                 <f:if condition="{entry.record.lastContact}">
-                                    <f:else><span class="badge text-bg-warning ms-2" data-nrllm-mcp-never="{entry.record.uid}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.lastContact.never" default="Never reached" /></span></f:else>
+                                    <f:else><span class="badge badge-warning ms-2" data-nrllm-mcp-never="{entry.record.uid}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.lastContact.never" default="Never reached" /></span></f:else>
                                 </f:if>
                             </div>
                             <div class="btn-group">
@@ -58,7 +58,7 @@
                         <div class="card-body">
                             <dl class="row mb-2">
                                 <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.url" default="Endpoint" /></dt>
-                                <dd class="col-sm-9"><code>{entry.record.url}</code></dd>
+                                <dd class="col-sm-9"><code class="text-break">{entry.record.url}</code></dd>
 
                                 <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.transport" default="Transport" /></dt>
                                 <dd class="col-sm-9">{entry.transport}</dd>
@@ -72,9 +72,9 @@
                                                  because the transport's fallback would read as "the
                                                  configuration is fine" for a value nobody typed on purpose. -->
                                             <f:switch expression="{entry.record.authPlacement}">
-                                                <f:case value="header"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.header" default="Vault secret in header" /> <code>{entry.record.authHeaderName}</code></f:case>
+                                                <f:case value="header"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.header" default="Vault secret in header" /> <code class="text-break">{entry.record.authHeaderName}</code></f:case>
                                                 <f:case value="bearer"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.bearer" default="Bearer token from the vault" /></f:case>
-                                                <f:defaultCase><span class="text-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.other" default="Stored placement, not one this module offers" /></span> <code>{entry.record.authPlacement}</code></f:defaultCase>
+                                                <f:defaultCase><span class="text-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.other" default="Stored placement, not one this module offers" /></span> <code class="text-break">{entry.record.authPlacement}</code></f:defaultCase>
                                             </f:switch>
                                         </f:then>
                                         <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.none" default="None — requests are sent unauthenticated" /></f:else>
@@ -84,7 +84,7 @@
                                 <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.dataClass" default="Data class" /></dt>
                                 <dd class="col-sm-9">
                                     <f:if condition="{entry.usable}">
-                                        <f:then><code>{entry.record.dataClass}</code></f:then>
+                                        <f:then><code class="text-break">{entry.record.dataClass}</code></f:then>
                                         <f:else><span class="text-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.undeclared" default="No data class declared — this server supplies no tools until you declare one." /></span></f:else>
                                     </f:if>
                                 </dd>
@@ -129,23 +129,23 @@
                             <h3 class="h6"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:tools.title" default="Imported tools" /></h3>
                             <f:if condition="{f:count(subject: entry.tools)}">
                                 <f:then>
-                                    <div class="table-responsive">
-                                        <table class="table table-sm">
+                                    <div class="table-fit table-fit-wrap">
+                                        <table class="table table-striped">
                                             <thead>
                                                 <tr>
-                                                    <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:tools.localName" default="Local name" /></th>
-                                                    <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:tools.remoteName" default="Name on the server" /></th>
-                                                    <th></th>
+                                                    <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:tools.localName" default="Local name" /></th>
+                                                    <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:tools.remoteName" default="Name on the server" /></th>
+                                                    <th scope="col"><span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:tools.state" default="State" /></span></th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 <f:for each="{entry.tools}" as="tool">
                                                     <tr>
-                                                        <td><code>{tool.toolName}</code></td>
-                                                        <td><code>{tool.remoteName}</code></td>
+                                                        <td><code class="text-break">{tool.toolName}</code></td>
+                                                        <td><code class="text-break">{tool.remoteName}</code></td>
                                                         <td>
                                                             <f:if condition="{tool.orphaned}">
-                                                                <span class="badge text-bg-warning"
+                                                                <span class="badge badge-warning"
                                                                       title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:tools.orphanedHint')}">
                                                                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:tools.orphaned" default="Gone from the server" />
                                                                 </span>
@@ -158,7 +158,7 @@
                                     </div>
                                 </f:then>
                                 <f:else>
-                                    <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:tools.none" default="No tools imported yet." /></p>
+                                    <p class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:tools.none" default="No tools imported yet." /></p>
                                 </f:else>
                             </f:if>
                         </div>

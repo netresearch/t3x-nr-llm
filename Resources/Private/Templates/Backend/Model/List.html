@@ -19,10 +19,10 @@
 
         <div class="mb-3">
             <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.heading" default="See also" />:</strong>
-            <a href="{be:moduleLink(route: 'nrllm_configurations')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.next.configurations" default="Next: create Configurations" /></a>
-            <a href="{be:moduleLink(route: 'nrllm_providers')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.providers" default="Providers" /></a>
-            <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.help" default="Open Help" /></a>
-            <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="badge text-bg-info text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_configurations')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.next.configurations" default="Next: create Configurations" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_providers')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.providers" default="Providers" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.help" default="Open Help" /></a>
+            <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="badge badge-info text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" /></a>
         </div>
 
         <f:render partial="Backend/Glossary" />
@@ -38,7 +38,7 @@
 
         <f:if condition="{models -> f:count()}">
             <f:then>
-                <div class="table-fit">
+                <div class="table-fit table-fit-wrap">
                     <table class="table table-striped table-hover">
                         <thead>
                             <tr>
@@ -61,34 +61,34 @@
                                     <td>
                                         <strong>{model.name}</strong>
                                         <f:if condition="{model.isDefault}">
-                                            <span class="badge text-bg-primary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:default" default="Default" /></span>
+                                            <span class="badge badge-primary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:default" default="Default" /></span>
                                         </f:if>
                                         <f:if condition="{model.description}">
-                                            <br /><span class="text-body-secondary">{model.description}</span>
+                                            <br /><span class="text-variant">{model.description}</span>
                                         </f:if>
                                     </td>
-                                    <td><code>{model.identifier}</code></td>
+                                    <td><code class="text-break">{model.identifier}</code></td>
                                     <td>
                                         <f:if condition="{model.provider}">
                                             <f:then>
-                                                <span class="badge text-bg-info">{model.provider.name}</span>
+                                                <span class="badge badge-info">{model.provider.name}</span>
                                             </f:then>
                                             <f:else>
-                                                <span class="badge text-bg-warning" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.orphaned.title')}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:noProvider" default="No provider" /></span>
+                                                <span class="badge badge-warning" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.orphaned.title')}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:noProvider" default="No provider" /></span>
                                             </f:else>
                                         </f:if>
                                     </td>
-                                    <td><code>{model.modelId}</code></td>
+                                    <td><code class="text-break">{model.modelId}</code></td>
                                     <td>
                                         <f:for each="{model.capabilityProvenance}" as="provenance">
                                             <f:if condition="{provenance.verified}">
                                                 <f:then>
-                                                    <span class="badge text-bg-secondary"
+                                                    <span class="badge badge-secondary"
                                                           title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.capability.confirmed', arguments: {0: '{f:format.date(date: provenance.confirmedAt, format: \'Y-m-d H:i\')}'}, default: 'Confirmed by provider discovery')}">{provenance.name}</span>
                                                 </f:then>
                                                 <f:else>
                                                     <f:variable name="unverifiedTitle"><f:switch expression="{provenance.sourceValue}"><f:case value="catalog"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.capability.catalog" default="From the bundled model catalog — the provider did not report this capability, so this is an assumption" /></f:case><f:defaultCase><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.capability.operator" default="Declared by an operator — never confirmed against the provider" /></f:defaultCase></f:switch></f:variable>
-                                                    <span class="badge text-bg-warning" title="{unverifiedTitle}">
+                                                    <span class="badge badge-warning" title="{unverifiedTitle}">
                                                         {provenance.name}
                                                         <core:icon identifier="actions-question" size="small" />
                                                     </span>
@@ -97,14 +97,14 @@
                                         </f:for>
                                         <f:if condition="{model.capabilitiesConfirmedDate}">
                                             <f:then>
-                                                <div class="small text-body-secondary">
+                                                <div class="small text-variant">
                                                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.capability.lastConfirmed"
                                                                  arguments="{0: '{f:format.date(date: model.capabilitiesConfirmedDate, format: \'Y-m-d H:i\')}'}"
                                                                  default="Last confirmed {0}" />
                                                 </div>
                                             </f:then>
                                             <f:else>
-                                                <div class="small text-body-secondary">
+                                                <div class="small text-variant">
                                                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.capability.neverConfirmed" default="Never confirmed against the provider" />
                                                 </div>
                                             </f:else>
@@ -113,20 +113,20 @@
                                     <td>
                                         <f:if condition="{model.contextLength}">
                                             <f:then>
-                                                <span class="text-body-secondary">{model.formattedContextLength}</span>
+                                                <span class="text-variant">{model.formattedContextLength}</span>
                                             </f:then>
                                             <f:else>
-                                                <span class="text-body-secondary">-</span>
+                                                <span class="text-variant">-</span>
                                             </f:else>
                                         </f:if>
                                     </td>
                                     <td>
                                         <f:if condition="{model.isActive}">
                                             <f:then>
-                                                <span class="badge text-bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:active" default="Active" /></span>
+                                                <span class="badge badge-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:active" default="Active" /></span>
                                             </f:then>
                                             <f:else>
-                                                <span class="badge text-bg-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:inactive" default="Inactive" /></span>
+                                                <span class="badge badge-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:inactive" default="Inactive" /></span>
                                             </f:else>
                                         </f:if>
                                     </td>
@@ -141,10 +141,10 @@
                                                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.reassignProvider" default="Reassign Provider" />
                                                 </a>
                                             </f:if>
-                                            <a href="{editUrls.{model.uid}}" class="btn btn-secondary btn-sm" title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}" aria-label="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}">
+                                            <a href="{editUrls.{model.uid}}" class="btn btn-default btn-sm" title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}" aria-label="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}">
                                                 <core:icon identifier="actions-open" size="small" />
                                             </a>
-                                            <button type="button" class="btn btn-secondary btn-sm js-toggle-active"
+                                            <button type="button" class="btn btn-default btn-sm js-toggle-active"
                                                     data-uid="{model.uid}"
                                                     title="{f:if(condition: model.isActive, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:deactivate\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:activate\')}')}"
                                                     aria-label="{f:if(condition: model.isActive, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:deactivate\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:activate\')}')}">
@@ -153,7 +153,7 @@
                                                     <f:else><core:icon identifier="actions-toggle-off" size="small" /></f:else>
                                                 </f:if>
                                             </button>
-                                            <button type="button" class="btn btn-secondary btn-sm js-set-default"
+                                            <button type="button" class="btn btn-default btn-sm js-set-default"
                                                     data-uid="{model.uid}"
                                                     title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:setDefault')}"
                                                     aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:setDefault')}"
@@ -161,14 +161,14 @@
                                                 <core:icon identifier="actions-star" size="small" />
                                             </button>
                                             <f:if condition="{model.provider}">
-                                                <button type="button" class="btn btn-secondary btn-sm js-verify-capabilities"
+                                                <button type="button" class="btn btn-default btn-sm js-verify-capabilities"
                                                         data-uid="{model.uid}"
                                                         title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.verifyCapabilities')}"
                                                         aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.verifyCapabilities')}">
                                                     <core:icon identifier="actions-refresh" size="small" />
                                                 </button>
                                             </f:if>
-                                            <button type="button" class="btn btn-secondary btn-sm js-test-model"
+                                            <button type="button" class="btn btn-default btn-sm js-test-model"
                                                     data-uid="{model.uid}"
                                                     data-name="{model.name}"
                                                     title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testModel')}"
@@ -220,43 +220,6 @@
                 </div>
             </div>
         </f:if>
-    </div>
-
-    <f:comment>Model Test Modal</f:comment>
-    <div class="modal fade" id="test-modal" tabindex="-1" aria-labelledby="test-modal-label" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h4 class="modal-title" id="test-modal-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:modelTest" default="Model Test" /></h4>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:close')}"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="test-model-name" class="mb-3">
-                        <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model" default="Model" />:</strong>
-                        <span id="test-model-label"></span>
-                    </div>
-                    <div id="test-loading" class="text-center py-4">
-                        <span class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testing" default="Testing..." /></span>
-                        </span>
-                        <div class="mt-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testingModel" default="Testing model..." /></div>
-                    </div>
-                    <div id="test-success" class="alert alert-success" style="display: none;">
-                        <core:icon identifier="actions-check" size="small" />
-                        <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:success" default="Success!" /></strong>
-                        <div id="test-success-message" class="mt-2"></div>
-                    </div>
-                    <div id="test-error" class="alert alert-danger" style="display: none;">
-                        <core:icon identifier="actions-ban" size="small" />
-                        <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error" default="Error" /></strong>
-                        <div id="test-error-message" class="mt-2"></div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><f:translate key="LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:close" default="Close" /></button>
-                </div>
-            </div>
-        </div>
     </div>
 </f:section>
 

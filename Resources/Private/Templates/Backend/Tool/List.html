@@ -22,10 +22,10 @@
 
         <div class="mb-3">
             <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.heading" default="See also" />:</strong>
-            <a href="{be:moduleLink(route: 'nrllm_playground')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:seeAlso.playground" default="Tool Playground" /></a>
-            <a href="{be:moduleLink(route: 'nrllm_configurations')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.list.title" default="Configurations" /></a>
-            <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.help" default="Open Help" /></a>
-            <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="badge text-bg-info text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_playground')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:seeAlso.playground" default="Tool Playground" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_configurations')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.list.title" default="Configurations" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.help" default="Open Help" /></a>
+            <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="badge badge-info text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" /></a>
         </div>
 
         <f:render partial="Backend/Glossary" />
@@ -42,28 +42,29 @@
                                     <strong>
                                         <core:icon identifier="actions-folder" size="small" />
                                         <f:if condition="{groupStates.{groupName}.labelKey}">
-                                            <f:then><f:translate key="{groupStates.{groupName}.labelKey}" /> <code class="text-body-secondary">{groupName}</code></f:then>
-                                            <f:else><code>{groupName}</code></f:else>
+                                            <f:then><f:translate key="{groupStates.{groupName}.labelKey}" /> <code class="text-variant">{groupName}</code></f:then>
+                                            <f:else><code class="text-break">{groupName}</code></f:else>
                                         </f:if>
                                     </strong>
                                     <f:if condition="{groupStates.{groupName}.enabled}">
                                         <f:then>
-                                            <span class="badge bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.enabled" default="Enabled" /></span>
+                                            <span class="badge badge-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.enabled" default="Enabled" /></span>
                                         </f:then>
                                         <f:else>
-                                            <span class="badge bg-secondary">✕ <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.disabled" default="Disabled" /></span>
-                                            <small class="text-body-secondary ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:group.disabledHint" default="All tools of this group are refused; per-tool toggles have no effect while the group is disabled." /></small>
+                                            <span class="badge badge-secondary">✕ <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.disabled" default="Disabled" /></span>
+                                            <small class="text-variant ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:group.disabledHint" default="All tools of this group are refused; per-tool toggles have no effect while the group is disabled." /></small>
                                         </f:else>
                                     </f:if>
                                 </div>
                                 <button type="button"
-                                        class="btn btn-sm js-toolgroup-toggle {f:if(condition: groupStates.{groupName}.enabled, then: 'btn-outline-secondary', else: 'btn-outline-success')}"
+                                        class="btn btn-sm js-toolgroup-toggle {f:if(condition: groupStates.{groupName}.enabled, then: 'btn-default', else: 'btn-success')}"
                                         data-group="{groupName}"
                                         data-enabled="{f:if(condition: groupStates.{groupName}.enabled, then: '1', else: '0')}">
                                     <f:if condition="{groupStates.{groupName}.enabled}">
                                         <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:group.disable" default="Disable group" /></f:then>
                                         <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:group.enable" default="Enable group" /></f:else>
                                     </f:if>
+                                    <span class="visually-hidden">{groupName}</span>
                                 </button>
                             </div>
                             <ul class="list-group list-group-flush">
@@ -73,53 +74,54 @@
                                         <div class="me-3">
                                             <f:if condition="{action}">
                                                 <f:then>
-                                                    <strong><core:icon identifier="{action.iconIdentifier}" size="small" /> <f:translate key="{action.labelKey}" /></strong>
-                                                    <span class="badge bg-warning text-dark"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:manage.action.editorAction" default="Editor action" /></span>
+                                                    <strong><core:icon identifier="{action.iconIdentifier}" size="small" alternativeMarkupIdentifier="inline" /> <f:translate key="{action.labelKey}" /></strong>
+                                                    <span class="badge badge-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:manage.action.editorAction" default="Editor action" /></span>
                                                 </f:then>
                                                 <f:else>
-                                                    <strong><code>{tool.name}</code></strong>
+                                                    <strong><code class="text-break">{tool.name}</code></strong>
                                                 </f:else>
                                             </f:if>
                                             <f:if condition="{tool.enabled}">
                                                 <f:then>
-                                                    <span class="badge bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.enabled" default="Enabled" /></span>
+                                                    <span class="badge badge-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.enabled" default="Enabled" /></span>
                                                 </f:then>
                                                 <f:else>
-                                                    <span class="badge bg-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.disabled" default="Disabled" /></span>
+                                                    <span class="badge badge-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.disabled" default="Disabled" /></span>
                                                 </f:else>
                                             </f:if>
                                             <f:if condition="{tool.overridden}">
                                                 <f:then>
-                                                    <span class="badge bg-info"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.overridden" default="Override" /></span>
+                                                    <span class="badge badge-info"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.overridden" default="Override" /></span>
                                                 </f:then>
                                                 <f:else>
-                                                    <span class="badge bg-light text-dark"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.default" default="Default" /></span>
+                                                    <span class="badge badge-default"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.default" default="Default" /></span>
                                                 </f:else>
                                             </f:if>
                                             <f:if condition="{action}">
                                                 <f:then>
-                                                    <br><small class="text-body-secondary"><f:translate key="{action.descriptionKey}" /></small>
-                                                    <br><small class="text-body-secondary">
-                                                        <code>{tool.name}</code>
+                                                    <br><small class="text-variant"><f:translate key="{action.descriptionKey}" /></small>
+                                                    <br><small class="text-variant">
+                                                        <code class="text-break">{tool.name}</code>
                                                         · <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:manage.action.appliesTo" default="Applies to" />:
-                                                        <f:for each="{action.recordTypes}" as="recordType"><code>{recordType}</code> </f:for>
+                                                        <f:for each="{action.recordTypes}" as="recordType"><code class="text-break">{recordType}</code> </f:for>
                                                     </small>
                                                 </f:then>
                                                 <f:else>
                                                     <f:if condition="{tool.description}">
-                                                        <br><small class="text-body-secondary">{tool.description}</small>
+                                                        <br><small class="text-variant">{tool.description}</small>
                                                     </f:if>
                                                 </f:else>
                                             </f:if>
                                         </div>
                                         <button type="button"
-                                                class="btn btn-sm js-tool-toggle {f:if(condition: tool.toolEnabled, then: 'btn-outline-secondary', else: 'btn-outline-success')}"
+                                                class="btn btn-sm js-tool-toggle {f:if(condition: tool.toolEnabled, then: 'btn-default', else: 'btn-success')}"
                                                 data-tool="{tool.name}"
                                                 data-enabled="{f:if(condition: tool.toolEnabled, then: '1', else: '0')}">
                                             <f:if condition="{tool.toolEnabled}">
                                                 <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.disable" default="Disable" /></f:then>
                                                 <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.enable" default="Enable" /></f:else>
                                             </f:if>
+                                            <span class="visually-hidden">{tool.name}</span>
                                         </button>
                                     </li>
                                 </f:for>
@@ -130,7 +132,7 @@
                     <f:else>
                         <f:be.infobox state="-1">
                             <p class="mb-1"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.empty" default="No tools are registered. Add a tool by tagging a ToolInterface implementation with nr_llm.tool." /></p>
-                            <p class="mb-0 text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:playground.empty.developer" default="Developers: implement Netresearch\NrLlm\Service\Tool\ToolInterface and tag it with nr_llm.tool to register a new tool." /></p>
+                            <p class="mb-0 text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:playground.empty.developer" default="Developers: implement Netresearch\NrLlm\Service\Tool\ToolInterface and tag it with nr_llm.tool to register a new tool." /></p>
                         </f:be.infobox>
                     </f:else>
                 </f:if>

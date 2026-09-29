@@ -55,7 +55,7 @@ final class ModelListCapabilityCellRenderTest extends AbstractFunctionalTestCase
     {
         $body = $this->render([$this->confirmedModel()]);
 
-        self::assertStringContainsString('class="badge text-bg-secondary"', $body);
+        self::assertStringContainsString('class="badge badge-secondary"', $body);
         self::assertStringContainsString(
             'title="Confirmed by provider discovery on 2026-08-11 09:30">chat</span>',
             $body,
@@ -72,7 +72,7 @@ final class ModelListCapabilityCellRenderTest extends AbstractFunctionalTestCase
     {
         $body = $this->render([$this->unconfirmedModel()]);
 
-        self::assertStringContainsString('badge text-bg-warning', $body);
+        self::assertStringContainsString('badge badge-warning', $body);
         self::assertStringContainsString('Never confirmed against the provider', $body);
         self::assertStringContainsString('Declared by an operator', $body);
         self::assertStringNotContainsString('Last confirmed', $body);
@@ -91,7 +91,7 @@ final class ModelListCapabilityCellRenderTest extends AbstractFunctionalTestCase
             'title="Confirmed by provider discovery on 2026-08-11 09:30">chat</span>',
             $body,
         );
-        self::assertStringContainsString('class="badge text-bg-warning"', $body);
+        self::assertStringContainsString('class="badge badge-warning"', $body);
         self::assertStringContainsString('Declared by an operator', $body);
         self::assertStringContainsString('tools', $body);
         self::assertStringContainsString('Last confirmed 2026-08-11 09:30', $body);
@@ -109,7 +109,7 @@ final class ModelListCapabilityCellRenderTest extends AbstractFunctionalTestCase
 
         $body = $this->render([$model]);
 
-        self::assertStringContainsString('badge text-bg-warning', $body);
+        self::assertStringContainsString('badge badge-warning', $body);
         self::assertStringContainsString('From the bundled model catalog', $body);
         self::assertStringNotContainsString('Declared by an operator', $body);
     }

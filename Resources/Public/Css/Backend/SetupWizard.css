@@ -6,47 +6,21 @@
 /**
  * Setup Wizard Styles
  *
- * Colour is carried by local tokens (house pattern, see Overview.css) so the
- * wizard reads in both TYPO3 v13/v14 backend light and dark colour schemes:
- * light defaults below, dark values via prefers-color-scheme AND the explicit
- * [data-color-scheme="dark"] backend toggle.
+ * Colour is carried by local tokens that map to the TYPO3 backend variables,
+ * which core switches by the backend's own colour scheme (see Overview.css).
  */
 
 .setup-wizard {
-    --sw-neutral: #e0e0e0;
-    --sw-muted: #666;
-    --sw-primary: var(--typo3-primary-color, #0078d4);
-    --sw-active-text: #005a9e;
-    --sw-success: #28a745;
-    --sw-success-text: #1e7e34;
-    --sw-surface-muted: #f0f0f0;
-    --sw-shadow: rgba(0, 0, 0, .1);
+    --sw-neutral: var(--typo3-surface-container-high);
+    --sw-muted: color-mix(in srgb, var(--typo3-text-color-base), transparent 35%);
+    --sw-primary: var(--typo3-state-primary-bg);
+    --sw-active-text: var(--typo3-text-color-primary);
+    --sw-success: var(--typo3-state-success-bg);
+    --sw-success-text: var(--typo3-text-color-success);
+    --sw-surface-muted: var(--typo3-surface-container-base);
+    --sw-shadow: light-dark(rgba(0, 0, 0, .1), rgba(0, 0, 0, .4));
     max-width: 900px;
     margin: 0 auto;
-}
-
-@media (prefers-color-scheme: dark) {
-    .setup-wizard {
-        --sw-neutral: #3a3d43;
-        --sw-muted: #9aa0a8;
-        --sw-active-text: #8fcdf0;
-        --sw-success: #2f7d3d;
-        --sw-success-text: #8fd07a;
-        --sw-surface-muted: #2c2e33;
-        --sw-shadow: rgba(0, 0, 0, .4);
-    }
-}
-
-/* TYPO3 backend explicit dark scheme (overrides system preference). */
-:root[data-color-scheme="dark"] .setup-wizard,
-[data-color-scheme="dark"] .setup-wizard {
-    --sw-neutral: #3a3d43;
-    --sw-muted: #9aa0a8;
-    --sw-active-text: #8fcdf0;
-    --sw-success: #2f7d3d;
-    --sw-success-text: #8fd07a;
-    --sw-surface-muted: #2c2e33;
-    --sw-shadow: rgba(0, 0, 0, .4);
 }
 
 /* Progress Steps */
@@ -86,7 +60,7 @@
 }
 
 .wizard-step.active .step-icon .icon {
-    filter: brightness(0) invert(1);
+    color: var(--typo3-state-primary-color);
 }
 
 .wizard-step.completed .step-icon {
@@ -95,7 +69,7 @@
 }
 
 .wizard-step.completed .step-icon .icon {
-    filter: brightness(0) invert(1);
+    color: var(--typo3-state-success-color);
 }
 
 .wizard-step .step-label {
@@ -105,30 +79,51 @@
 }
 
 .wizard-step.active .step-label {
-    /* Darker/lighter shade per scheme for WCAG AA contrast (6:1 on white) */
     color: var(--sw-active-text);
     font-weight: 600;
 }
 
 .wizard-step.completed .step-label {
-    /* Darker/lighter shade per scheme for WCAG AA contrast (4.9:1 on white) */
     color: var(--sw-success-text);
 }
 
-/* Progress Bar */
-.wizard-progress-bar {
-    height: 4px;
-    background: var(--sw-neutral);
-    border-radius: 2px;
-    margin-top: -28px;
-    margin-bottom: 20px;
+/* Progress bar: a native <progress>, which carries the progressbar role, its
+   value, range and name itself. Each engine draws it from its own
+   pseudo-elements: the track is the element's background (Firefox) and
+   ::-webkit-progress-bar (Chromium, WebKit), the fill ::-moz-progress-bar and
+   ::-webkit-progress-value. Fill --typo3-component-primary-color on a
+   --typo3-surface-container-high track; the contrast measured per engine,
+   core and scheme is in Tests/E2E/Playwright/backend-js-modules.spec.ts.
+   (Core's <typo3-backend-progress-bar> is @internal, reaches 1.1:1 fill
+   against track in dark, and keeps its role in the shadow DOM, where it
+   cannot be named. Core 14.3 ships no .progress CSS.) */
+.nrllm-progress {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    width: 100%;
+    height: 8px;
+    border: 0;
+    border-radius: 4px;
+    overflow: hidden;
+    background-color: var(--typo3-surface-container-high);
+    color: var(--typo3-component-primary-color);
+}
+.nrllm-progress::-webkit-progress-bar {
+    background-color: var(--typo3-surface-container-high);
+}
+.nrllm-progress::-webkit-progress-value {
+    background-color: var(--typo3-component-primary-color);
+}
+.nrllm-progress::-moz-progress-bar {
+    background-color: var(--typo3-component-primary-color);
 }
 
-.wizard-progress-fill {
-    height: 100%;
-    background: var(--sw-primary);
-    border-radius: 2px;
-    transition: width 0.3s ease;
+/* The wizard's bar runs behind the step icons. */
+.wizard-progress-bar {
+    height: 4px;
+    margin-top: -28px;
+    margin-bottom: 20px;
 }
 
 /* Wizard Panels */
@@ -184,26 +179,7 @@
     color: var(--sw-muted);
 }
 
-/* Model table */
-#models-table .form-check-input,
-#models-table .model-checkbox {
-    width: 20px;
-    height: 20px;
-    min-width: 20px;
-    min-height: 20px;
-    cursor: pointer;
-    /* Ensure visibility regardless of TYPO3 backend styles */
-    opacity: 1 !important;
-    visibility: visible !important;
-    position: relative !important;
-    margin: 0;
-    display: inline-block;
-    vertical-align: middle;
-    appearance: auto;
-    -webkit-appearance: checkbox;
-    -moz-appearance: checkbox;
-}
-
+/* Model table: the checkboxes are core's .form-check markup. */
 #models-table th:first-child,
 #models-table td:first-child {
     width: 50px;
@@ -212,19 +188,8 @@
 }
 
 #models-table .badge {
-    font-size: 10px;
+    font-size: var(--typo3-font-size-small);
     margin-right: 4px;
-}
-
-/* Select all checkbox */
-#select-all-models {
-    width: 20px;
-    height: 20px;
-    min-width: 20px;
-    min-height: 20px;
-    cursor: pointer;
-    opacity: 1 !important;
-    visibility: visible !important;
 }
 
 /* Review lists */
@@ -252,23 +217,9 @@
 }
 
 /* Success state */
-#save-success .badge {
-    width: 80px;
-    height: 80px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
 #save-success .icon {
     width: 32px;
     height: 32px;
-}
-
-/* Loading spinner sizing */
-.spinner-border {
-    width: 3rem;
-    height: 3rem;
 }
 
 /* Responsive */
@@ -284,5 +235,15 @@
 
     .wizard-progress-bar {
         margin-top: -22px;
+    }
+}
+
+/* Steps, panels and cards move only for users who have not asked for less motion. */
+@media (prefers-reduced-motion: reduce) {
+    .wizard-step .step-icon,
+    .wizard-panel,
+    .config-card {
+        animation: none;
+        transition: none;
     }
 }

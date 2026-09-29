@@ -35,22 +35,30 @@ final readonly class GovernanceBlocksOverTimeDataProvider implements ChartDataPr
 
     private const LLL = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:';
 
+    /** Grey for a key without a colour; held to the same 3:1 on both cards. */
+    private const FALLBACK_COLOR = '#8E8E8E';
+
     /**
      * Semantic colour per decision.
      *
      * Every {@see GovernanceDecision} case must have one — asserted by
      * {@see \Netresearch\NrLlm\Tests\Unit\Widgets\DataProvider\GovernanceBlocksOverTimeDataProviderTest}.
-     * The grey fallback below stays for a case added at runtime by another
+     * The grey FALLBACK_COLOR stays for a case added at runtime by another
      * extension, not as a licence to leave one out here: `context_blocked`
      * shipped without a colour and rendered as an unnamed grey bar (`#763`).
+     *
+     * Core's chart widget draws one palette in both backend schemes, so every
+     * colour sits in the luminance band that clears 3:1 on a white card and on
+     * a dark (#262626) card. The colours are not what tells the bars apart
+     * (neighbours are 1.00–1.43:1): each bar has its own axis label and a gap.
      */
     private const DECISION_COLORS = [
-        'tool_denied'       => '#607D8B',
-        'response_blocked'  => '#D9534F',
-        'approval_required' => '#E8A33D',
-        'content_filter'    => '#8E2A27',
-        'write_unapproved'  => '#7B4FA8',
-        'context_blocked'   => '#17877D',
+        'tool_denied'       => '#7692A0',
+        'response_blocked'  => '#DF6A66',
+        'approval_required' => '#BD830F',
+        'content_filter'    => '#C84179',
+        'write_unapproved'  => '#8D5FBB',
+        'context_blocked'   => '#178277',
     ];
 
     public function __construct(
@@ -96,7 +104,7 @@ final readonly class GovernanceBlocksOverTimeDataProvider implements ChartDataPr
 
             $chartLabels[] = $labels[$case->value] ?? $case->value;
             $data[]        = $count;
-            $colors[]      = self::DECISION_COLORS[$case->value] ?? '#9E9E9E';
+            $colors[]      = self::DECISION_COLORS[$case->value] ?? self::FALLBACK_COLOR;
         }
 
         return [

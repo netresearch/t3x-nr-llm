@@ -33,13 +33,23 @@ final readonly class ToolDenialsByReasonDataProvider implements ChartDataProvide
 
     private const LLL = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:';
 
-    /** Semantic colour per denial reason; a missing key falls back to grey. */
+    /** Grey for a key without a colour; held to the same 3:1 on both cards. */
+    private const FALLBACK_COLOR = '#8E8E8E';
+
+    /**
+     * Semantic colour per denial reason; a missing key falls back to grey.
+     *
+     * Core's chart widget draws one palette in both backend schemes, so every
+     * colour sits in the luminance band that clears 3:1 on a white card and on
+     * a dark (#262626) card. The colours are not what tells the bars apart
+     * (neighbours are 1.00–1.43:1): each bar has its own axis label and a gap.
+     */
     private const REASON_COLORS = [
-        'notRegistered'      => '#607D8B',
-        'toolDisabled'       => '#9E9E9E',
-        'requiresAdmin'      => '#D9534F',
-        'configurationGroup' => '#E8A33D',
-        'trustZone'          => '#8E2A27',
+        'notRegistered'      => '#7692A0',
+        'toolDisabled'       => '#747474',
+        'requiresAdmin'      => '#DF6A66',
+        'configurationGroup' => '#BD830F',
+        'trustZone'          => '#C84179',
     ];
 
     public function __construct(
@@ -92,7 +102,7 @@ final readonly class ToolDenialsByReasonDataProvider implements ChartDataProvide
 
             $chartLabels[] = $labels[$case->value] ?? $case->value;
             $data[]        = $count;
-            $colors[]      = self::REASON_COLORS[$case->value] ?? '#9E9E9E';
+            $colors[]      = self::REASON_COLORS[$case->value] ?? self::FALLBACK_COLOR;
         }
 
         return [

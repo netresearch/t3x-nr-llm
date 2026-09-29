@@ -3,42 +3,18 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-/* Scheme-aware palette (house pattern, see Overview.css): light defaults,
-   dark values via prefers-color-scheme AND the explicit backend toggle.
-   The --nrllm-chart-* tokens are read by Analytics.js at render time so the
-   Chart.js series/tick/grid colours follow the active colour scheme. */
+/* Chart palette as light-dark() pairs: core switches the used colour scheme
+   by html[data-color-scheme], and light-dark() follows it. Analytics.js
+   resolves each token through a computed `color` before handing it to
+   Chart.js, which cannot evaluate light-dark() itself. Series are graphics,
+   so 3:1 applies: #257880 is 5.2:1 and #b25e00 4.7:1 on white (the former
+   #2f99a4 / #e8a33d were 3.4:1 / 2.2:1). */
 .nrllm-analytics {
-    --nrllm-track: #e9ecef;
-    --nrllm-fill: #2f99a4;
-    --nrllm-chart-series-1: #2f99a4;
-    --nrllm-chart-series-1-fill: rgba(47, 153, 164, .15);
-    --nrllm-chart-series-2: #e8a33d;
-    --nrllm-chart-text: #495057;
-    --nrllm-chart-grid: rgba(0, 0, 0, .1);
-}
-
-@media (prefers-color-scheme: dark) {
-    .nrllm-analytics {
-        --nrllm-track: #3a3d43;
-        --nrllm-fill: #43b3bd;
-        --nrllm-chart-series-1: #43b3bd;
-        --nrllm-chart-series-1-fill: rgba(67, 179, 189, .2);
-        --nrllm-chart-series-2: #f0b45c;
-        --nrllm-chart-text: #9aa0a8;
-        --nrllm-chart-grid: rgba(255, 255, 255, .12);
-    }
-}
-
-/* TYPO3 backend explicit dark scheme (overrides system preference). */
-:root[data-color-scheme="dark"] .nrllm-analytics,
-[data-color-scheme="dark"] .nrllm-analytics {
-    --nrllm-track: #3a3d43;
-    --nrllm-fill: #43b3bd;
-    --nrllm-chart-series-1: #43b3bd;
-    --nrllm-chart-series-1-fill: rgba(67, 179, 189, .2);
-    --nrllm-chart-series-2: #f0b45c;
-    --nrllm-chart-text: #9aa0a8;
-    --nrllm-chart-grid: rgba(255, 255, 255, .12);
+    --nrllm-chart-series-1: light-dark(#257880, #43b3bd);
+    --nrllm-chart-series-1-fill: light-dark(rgba(37, 120, 128, .15), rgba(67, 179, 189, .2));
+    --nrllm-chart-series-2: light-dark(#b25e00, #f0b45c);
+    --nrllm-chart-text: var(--typo3-text-color-base);
+    --nrllm-chart-grid: light-dark(rgba(0, 0, 0, .1), rgba(255, 255, 255, .12));
 }
 
 .nrllm-kpi-grid {
@@ -48,13 +24,13 @@
     margin-bottom: 1.5rem;
 }
 .nrllm-kpi-tile {
-    border: 1px solid var(--typo3-component-border-color, #d7d7d7);
+    border: 1px solid var(--typo3-component-border-color);
     border-radius: 6px;
     padding: 1rem;
-    background: var(--typo3-component-bg, #fff);
+    background: var(--typo3-component-bg);
 }
 .nrllm-kpi-tile .nrllm-kpi-value { font-size: 1.6rem; font-weight: 600; }
-.nrllm-kpi-tile .nrllm-kpi-label { color: var(--typo3-text-color-secondary, #6c757d); font-size: .85rem; }
+.nrllm-kpi-tile .nrllm-kpi-label { color: var(--typo3-text-color-secondary); font-size: .85rem; }
 .nrllm-chart-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -66,5 +42,37 @@
    parent, so the parent MUST have a fixed height or the canvas grows unbounded. */
 .nrllm-canvas-wrap { position: relative; height: 240px; }
 .nrllm-trend-box { position: relative; height: 320px; margin-bottom: 1.5rem; }
-.nrllm-budget-bar { background: var(--nrllm-track, #e9ecef); border-radius: 4px; height: 8px; overflow: hidden; min-width: 120px; }
-.nrllm-budget-bar > span { display: block; height: 100%; background: var(--nrllm-fill, #2f99a4); }
+/* Progress bar: a native <progress>, which carries the progressbar role, its
+   value, range and name itself. Each engine draws it from its own
+   pseudo-elements: the track is the element's background (Firefox) and
+   ::-webkit-progress-bar (Chromium, WebKit), the fill ::-moz-progress-bar and
+   ::-webkit-progress-value. Fill --typo3-component-primary-color on a
+   --typo3-surface-container-high track; the contrast measured per engine,
+   core and scheme is in Tests/E2E/Playwright/backend-js-modules.spec.ts.
+   (Core's <typo3-backend-progress-bar> is @internal, reaches 1.1:1 fill
+   against track in dark, and keeps its role in the shadow DOM, where it
+   cannot be named. Core 14.3 ships no .progress CSS.) */
+.nrllm-progress {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    width: 100%;
+    height: 8px;
+    border: 0;
+    border-radius: 4px;
+    overflow: hidden;
+    background-color: var(--typo3-surface-container-high);
+    color: var(--typo3-component-primary-color);
+}
+.nrllm-progress::-webkit-progress-bar {
+    background-color: var(--typo3-surface-container-high);
+}
+.nrllm-progress::-webkit-progress-value {
+    background-color: var(--typo3-component-primary-color);
+}
+.nrllm-progress::-moz-progress-bar {
+    background-color: var(--typo3-component-primary-color);
+}
+/* In the budget cell's flex row: a <progress> is about 10em wide by default,
+   which would become its flex basis. */
+.nrllm-analytics .nrllm-progress { flex: 1 1 120px; width: 120px; min-width: 120px; }

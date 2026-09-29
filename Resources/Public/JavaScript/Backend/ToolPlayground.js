@@ -352,8 +352,12 @@ class ToolPlayground {
         steps.forEach((step, index) => {
             const row = this.buildStepRow(step, index);
             row.addEventListener('click', () => {
-                list.querySelectorAll('.nrllm-pg-slrow').forEach(r => r.classList.remove('is-active'));
+                list.querySelectorAll('.nrllm-pg-slrow').forEach(r => {
+                    r.classList.remove('is-active');
+                    r.removeAttribute('aria-current');
+                });
                 row.classList.add('is-active');
+                row.setAttribute('aria-current', 'true');
                 this.showDetail(detail, step, data);
             });
             list.appendChild(row);
@@ -441,16 +445,21 @@ class ToolPlayground {
     }
 
     buildStepRow(step, index) {
-        const row = document.createElement('div');
+        // A button, so the step list is reachable and operable by keyboard; the
+        // selected step carries aria-current. Everything inside is phrasing
+        // content (span), which is what a button may contain.
+        const row = document.createElement('button');
+        row.type = 'button';
         row.className = 'nrllm-pg-slrow';
 
         const icon = document.createElement('span');
         icon.className = 'nrllm-pg-si';
-        const title = document.createElement('div');
+        icon.setAttribute('aria-hidden', 'true');
+        const title = document.createElement('span');
         title.className = 'nrllm-pg-st1';
-        const sub = document.createElement('div');
+        const sub = document.createElement('span');
         sub.className = 'nrllm-pg-st2';
-        const metrics = document.createElement('div');
+        const metrics = document.createElement('span');
         metrics.className = 'nrllm-pg-sr';
 
         if (step.kind === 'request') {
@@ -502,7 +511,7 @@ class ToolPlayground {
             metrics.textContent = `${this.ms(step.durationMs)} · ${this.num(step.totalTokens)}t`;
         }
 
-        const body = document.createElement('div');
+        const body = document.createElement('span');
         body.className = 'nrllm-pg-sbody';
         body.appendChild(title);
         body.appendChild(sub);
@@ -636,12 +645,17 @@ class ToolPlayground {
     }
 
     artifactTable(columns, rows) {
+        // Core's table in core's scroll wrapper; the class name used before was
+        // defined nowhere, so the table rendered with browser defaults.
+        const wrap = document.createElement('div');
+        wrap.className = 'table-fit table-fit-wrap';
         const table = document.createElement('table');
-        table.className = 'nrllm-pg-artifact-table';
+        table.className = 'table table-striped';
         const thead = document.createElement('thead');
         const htr = document.createElement('tr');
         columns.forEach((col) => {
             const th = document.createElement('th');
+            th.scope = 'col';
             th.textContent = typeof col === 'string' ? col : String(col);
             htr.appendChild(th);
         });
@@ -658,7 +672,8 @@ class ToolPlayground {
             tbody.appendChild(tr);
         });
         table.appendChild(tbody);
-        return table;
+        wrap.appendChild(table);
+        return wrap;
     }
 
     /**
@@ -725,26 +740,60 @@ class ToolPlayground {
     }
 
     tabBox(tabs) {
+        // WAI-ARIA tabs: one tab stop for the list (roving tabindex), arrows,
+        // Home and End move between tabs, and the panel is labelled by its tab.
+        this.tabBoxCount = (this.tabBoxCount || 0) + 1;
+        const prefix = 'nrllm-pg-tabs-' + this.tabBoxCount;
         const box = document.createElement('div');
         const bar = document.createElement('div');
         bar.className = 'nrllm-pg-tabs';
+        bar.setAttribute('role', 'tablist');
         const pane = document.createElement('div');
         pane.className = 'nrllm-pg-tabpane';
+        pane.id = prefix + '-panel';
+        pane.setAttribute('role', 'tabpanel');
+        pane.tabIndex = 0;
+
+        const select = (btn, build) => {
+            bar.querySelectorAll('.nrllm-pg-tab').forEach(b => {
+                b.setAttribute('aria-selected', 'false');
+                b.tabIndex = -1;
+            });
+            btn.setAttribute('aria-selected', 'true');
+            btn.tabIndex = 0;
+            pane.setAttribute('aria-labelledby', btn.id);
+            pane.textContent = '';
+            pane.appendChild(build());
+        };
 
         tabs.forEach(([label, build], i) => {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'nrllm-pg-tab';
+            btn.id = prefix + '-tab-' + i;
             btn.textContent = label;
+            btn.setAttribute('role', 'tab');
+            btn.setAttribute('aria-controls', pane.id);
             btn.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
-            btn.addEventListener('click', () => {
-                bar.querySelectorAll('.nrllm-pg-tab').forEach(b => b.setAttribute('aria-selected', 'false'));
-                btn.setAttribute('aria-selected', 'true');
-                pane.textContent = '';
-                pane.appendChild(build());
+            btn.tabIndex = i === 0 ? 0 : -1;
+            btn.addEventListener('click', () => select(btn, build));
+            btn.addEventListener('keydown', (e) => {
+                const all = [...bar.querySelectorAll('.nrllm-pg-tab')];
+                const at = all.indexOf(btn);
+                const to = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: all.length - 1 }[e.key];
+                if (to === undefined) {
+                    return;
+                }
+                e.preventDefault();
+                const next = all[(to + all.length) % all.length];
+                next.focus();
+                next.click();
             });
             bar.appendChild(btn);
         });
+        if (tabs.length > 0) {
+            pane.setAttribute('aria-labelledby', prefix + '-tab-0');
+        }
 
         box.appendChild(bar);
         box.appendChild(pane);
@@ -791,9 +840,10 @@ class ToolPlayground {
         const iframe = document.createElement('iframe');
         iframe.sandbox = '';
         iframe.className = 'nrllm-pg-final-frame';
+        // scheme-independent: dark text on the frame's light page (Playground.css).
         iframe.srcdoc = [
             '<!DOCTYPE html><html><head><meta charset="utf-8"><style>',
-            'body{font-family:system-ui,sans-serif;font-size:14px;padding:12px;margin:0;color:#333;line-height:1.5;white-space:pre-wrap;word-break:break-word}',
+            'body{font-family:Verdana,Arial,Helvetica,sans-serif;font-size:12px;padding:12px;margin:0;color:#333;line-height:1.5;white-space:pre-wrap;word-break:break-word}',
             '</style></head><body>',
             escapeHtml(finalContent),
             '</body></html>',

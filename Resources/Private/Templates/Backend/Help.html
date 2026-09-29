@@ -113,19 +113,22 @@
             <h2 class="card-title mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.faq.title" default="Frequently asked questions" /></h2>
         </div>
         <div class="card-body">
-            <div class="accordion" id="faqAccordion">
+            <div class="panel-group" id="faqAccordion">
 
-                <div class="accordion-item">
-                    <h3 class="accordion-header" id="faqHeading1">
-                        <button class="accordion-button collapsed" type="button"
-                                data-bs-toggle="collapse" data-bs-target="#faqCollapse1"
+                <div class="panel panel-default">
+                    <h3 class="panel-heading">
+                        <div class="panel-heading-row">
+                            <button class="panel-button collapsed" type="button" id="faqHeading1"
+                                    data-bs-toggle="collapse" data-bs-target="#faqCollapse1"
                                 aria-expanded="false" aria-controls="faqCollapse1">
-                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.faq.q1" default="Can I use multiple providers at the same time?" />
-                        </button>
+                                <span class="panel-title"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.faq.q1" default="Can I use multiple providers at the same time?" /></span>
+                                <span class="caret"></span>
+                            </button>
+                        </div>
                     </h3>
-                    <div id="faqCollapse1" class="accordion-collapse collapse"
+                    <div id="faqCollapse1" class="panel-collapse collapse"
                          aria-labelledby="faqHeading1" data-bs-parent="#faqAccordion">
-                        <div class="accordion-body">
+                        <div class="panel-body">
                             <p>
                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.faq.a1" default="Yes. You can register as many providers as you need. Each configuration references a specific provider and model. Different features (chat, translation, vision) can use different providers." />
                             </p>
@@ -133,17 +136,20 @@
                     </div>
                 </div>
 
-                <div class="accordion-item">
-                    <h3 class="accordion-header" id="faqHeading2">
-                        <button class="accordion-button collapsed" type="button"
-                                data-bs-toggle="collapse" data-bs-target="#faqCollapse2"
+                <div class="panel panel-default">
+                    <h3 class="panel-heading">
+                        <div class="panel-heading-row">
+                            <button class="panel-button collapsed" type="button" id="faqHeading2"
+                                    data-bs-toggle="collapse" data-bs-target="#faqCollapse2"
                                 aria-expanded="false" aria-controls="faqCollapse2">
-                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.faq.q2" default="How are API keys stored?" />
-                        </button>
+                                <span class="panel-title"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.faq.q2" default="How are API keys stored?" /></span>
+                                <span class="caret"></span>
+                            </button>
+                        </div>
                     </h3>
-                    <div id="faqCollapse2" class="accordion-collapse collapse"
+                    <div id="faqCollapse2" class="panel-collapse collapse"
                          aria-labelledby="faqHeading2" data-bs-parent="#faqAccordion">
-                        <div class="accordion-body">
+                        <div class="panel-body">
                             <p>
                                 <f:format.raw><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.faq.a2" default="API keys are encrypted using the nr-vault extension's envelope encryption." /></f:format.raw>
                             </p>
@@ -151,17 +157,20 @@
                     </div>
                 </div>
 
-                <div class="accordion-item">
-                    <h3 class="accordion-header" id="faqHeading3">
-                        <button class="accordion-button collapsed" type="button"
-                                data-bs-toggle="collapse" data-bs-target="#faqCollapse3"
+                <div class="panel panel-default">
+                    <h3 class="panel-heading">
+                        <div class="panel-heading-row">
+                            <button class="panel-button collapsed" type="button" id="faqHeading3"
+                                    data-bs-toggle="collapse" data-bs-target="#faqCollapse3"
                                 aria-expanded="false" aria-controls="faqCollapse3">
-                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.faq.q3" default="Can I use a local LLM (e.g., Ollama)?" />
-                        </button>
+                                <span class="panel-title"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.faq.q3" default="Can I use a local LLM (e.g., Ollama)?" /></span>
+                                <span class="caret"></span>
+                            </button>
+                        </div>
                     </h3>
-                    <div id="faqCollapse3" class="accordion-collapse collapse"
+                    <div id="faqCollapse3" class="panel-collapse collapse"
                          aria-labelledby="faqHeading3" data-bs-parent="#faqAccordion">
-                        <div class="accordion-body">
+                        <div class="panel-body">
                             <p>
                                 <f:format.raw><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.faq.a3" default="Yes. The Ollama adapter supports local LLM instances." /></f:format.raw>
                             </p>
@@ -169,17 +178,20 @@
                     </div>
                 </div>
 
-                <div class="accordion-item">
-                    <h3 class="accordion-header" id="faqHeading4">
-                        <button class="accordion-button collapsed" type="button"
-                                data-bs-toggle="collapse" data-bs-target="#faqCollapse4"
+                <div class="panel panel-default">
+                    <h3 class="panel-heading">
+                        <div class="panel-heading-row">
+                            <button class="panel-button collapsed" type="button" id="faqHeading4"
+                                    data-bs-toggle="collapse" data-bs-target="#faqCollapse4"
                                 aria-expanded="false" aria-controls="faqCollapse4">
-                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.faq.q4" default="How are tasks exposed to editors?" />
-                        </button>
+                                <span class="panel-title"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.faq.q4" default="How are tasks exposed to editors?" /></span>
+                                <span class="caret"></span>
+                            </button>
+                        </div>
                     </h3>
-                    <div id="faqCollapse4" class="accordion-collapse collapse"
+                    <div id="faqCollapse4" class="panel-collapse collapse"
                          aria-labelledby="faqHeading4" data-bs-parent="#faqAccordion">
-                        <div class="accordion-body">
+                        <div class="panel-body">
                             <p>
                                 <f:format.raw><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.faq.a4" default="Tasks are simple one-shot prompts defined here in the LLM module." /></f:format.raw>
                             </p>

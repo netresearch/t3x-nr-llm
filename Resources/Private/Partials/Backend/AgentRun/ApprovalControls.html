@@ -5,9 +5,9 @@
 <f:for each="{run.pendingCalls}" as="call">
     <div class="mb-2">
         <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.pendingCall" default="Pending tool call" />:</strong>
-        <code>{call.name}</code>
+        <code class="text-break">{call.name}</code>
         <f:if condition="{call.toolStillRegistered} == false">
-            <span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.toolGone" default="The tool for this call is no longer registered." /></span>
+            <span class="badge badge-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.toolGone" default="The tool for this call is no longer registered." /></span>
         </f:if>
         <f:if condition="{call.previewStale}">
             <div class="alert alert-warning py-1 px-2 mt-1 mb-0">
@@ -28,13 +28,13 @@
                     </f:for>
                 </ul>
                 <f:if condition="{call.previewFailed} == false">
-                    <small class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.previewCapturedAtPause" default="Captured when the run paused. If the record changes before you approve, nothing is written and you are asked again." /></small>
+                    <small class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.previewCapturedAtPause" default="Captured when the run paused. If the record changes before you approve, nothing is written and you are asked again." /></small>
                 </f:if>
             </div>
         </f:if>
         <details class="mt-1">
             <summary><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.arguments" default="Arguments" /></summary>
-            <pre class="mt-1 mb-0"><code>{call.argumentsJson}</code></pre>
+            <pre class="mt-1 mb-0"><code class="text-break">{call.argumentsJson}</code></pre>
         </details>
     </div>
 </f:for>

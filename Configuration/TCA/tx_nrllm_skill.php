@@ -20,7 +20,7 @@ return [
         'enablecolumns' => [
             'disabled' => 'hidden',
         ],
-        'iconfile' => 'EXT:nr_llm/Resources/Public/Icons/Skill.svg',
+        'typeicon_classes' => ['default' => 'nrllm-record-skill'],
         'rootLevel' => -1,
         'security' => [
             'ignorePageTypeRestriction' => true,

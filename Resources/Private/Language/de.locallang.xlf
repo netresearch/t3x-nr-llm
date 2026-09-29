@@ -1188,6 +1188,14 @@
                 <source>Models</source>
                 <target>Modelle</target>
             </trans-unit>
+            <trans-unit id="analytics.range.group">
+                <source>Date range</source>
+                <target>Zeitraum</target>
+            </trans-unit>
+            <trans-unit id="analytics.trend.label">
+                <source>Estimated cost and requests per day</source>
+                <target>Geschätzte Kosten und Anfragen pro Tag</target>
+            </trans-unit>
             <trans-unit id="analytics.breakdown.provider">
                 <source>By provider</source>
                 <target>Nach Anbieter</target>

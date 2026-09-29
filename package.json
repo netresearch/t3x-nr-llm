@@ -16,14 +16,18 @@
     "test:accessibility": "playwright test --grep @accessibility",
     "test:a11y": "playwright test --grep @accessibility",
     "axe": "node landingpage/axe-audit.mjs",
-    "lint:js": "eslint"
+    "lint:js": "eslint",
+    "lint:colors": "node Build/Scripts/check-backend-colors.mjs && node --test Build/Scripts/check-backend-colors.test.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "^1.61.1",
     "@types/node": "^24.0.0",
+    "css-tree": "^3.2.1",
     "eslint": "^10.0.0",
+    "eslint-plugin-no-unsanitized": "^4.1.2",
+    "espree": "^11.2.0",
     "globals": "^17.0.0",
-    "eslint-plugin-no-unsanitized": "^4.1.2"
+    "parse5": "^8.0.1"
   }
 }

@@ -19,12 +19,12 @@
 
         <div class="mb-3">
             <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.heading" default="See also" />:</strong>
-            <a href="{be:moduleLink(route: 'nrllm_providers')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.providers" default="Providers" /></a>
-            <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.help" default="Open Help" /></a>
-            <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="badge text-bg-info text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_providers')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.providers" default="Providers" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.help" default="Open Help" /></a>
+            <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="badge badge-info text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" /></a>
         </div>
 
-        <div class="btn-group mb-3" role="group" aria-label="Date range">
+        <div class="btn-group mb-3" role="group" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.range.group', default: 'Date range')}">
             <f:for each="{presets}" as="p">
                 <a href="{rangeLinks.{p}}"
                    class="btn btn-sm {f:if(condition: '{p} == {preset}', then: 'btn-primary', else: 'btn-default')}"
@@ -38,7 +38,7 @@
                     </f:switch>
                 </a>
             </f:for>
-            <span class="ms-3 text-body-secondary align-self-center">{from} – {to}</span>
+            <span class="ms-3 text-variant align-self-center">{from} – {to}</span>
         </div>
 
         <f:comment>KPI tiles</f:comment>
@@ -66,20 +66,20 @@
         </div>
 
         <f:comment>Chart mount points (rendered by Analytics.js once Task 7 lands)</f:comment>
-        <div class="nrllm-trend-box"><canvas id="nrllm-trend-chart"></canvas></div>
+        <div class="nrllm-trend-box"><canvas id="nrllm-trend-chart" role="img" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.trend.label', default: 'Estimated cost and requests per day')}"></canvas></div>
         <div class="nrllm-chart-grid">
-            <div class="nrllm-chart-box"><h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.provider" /></h3><div class="nrllm-canvas-wrap"><canvas id="nrllm-provider-chart"></canvas></div></div>
-            <div class="nrllm-chart-box"><h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.model" /></h3><div class="nrllm-canvas-wrap"><canvas id="nrllm-model-chart"></canvas></div></div>
-            <div class="nrllm-chart-box"><h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.service" /></h3><div class="nrllm-canvas-wrap"><canvas id="nrllm-service-chart"></canvas></div></div>
-            <div class="nrllm-chart-box"><h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.source" /></h3><div class="nrllm-canvas-wrap"><canvas id="nrllm-source-chart"></canvas></div></div>
+            <div class="nrllm-chart-box"><h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.provider" /></h2><div class="nrllm-canvas-wrap"><canvas id="nrllm-provider-chart" role="img" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.provider')}"></canvas></div></div>
+            <div class="nrllm-chart-box"><h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.model" /></h2><div class="nrllm-canvas-wrap"><canvas id="nrllm-model-chart" role="img" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.model')}"></canvas></div></div>
+            <div class="nrllm-chart-box"><h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.service" /></h2><div class="nrllm-canvas-wrap"><canvas id="nrllm-service-chart" role="img" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.service')}"></canvas></div></div>
+            <div class="nrllm-chart-box"><h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.source" /></h2><div class="nrllm-canvas-wrap"><canvas id="nrllm-source-chart" role="img" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.source')}"></canvas></div></div>
         </div>
 
         <f:comment>Per-extension table (ADR-178): which extension spent what</f:comment>
-        <h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.source.title" /></h3>
-        <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.source.description" /></p>
+        <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.source.title" /></h2>
+        <p class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.source.description" /></p>
         <f:if condition="{bySource}">
             <f:then>
-                <div class="table-fit">
+                <div class="table-fit table-fit-wrap">
                     <table class="table table-striped">
                         <thead>
                             <tr><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.extension" /></th><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.cost" /></th><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.requests" /></th><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.tokens" /></th></tr>
@@ -89,8 +89,8 @@
                                 <tr>
                                     <td>
                                         <f:if condition="{s.label} == 'unattributed'">
-                                            <f:then><span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.source.unattributed" /></span></f:then>
-                                            <f:else><code>{s.label}</code></f:else>
+                                            <f:then><span class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.source.unattributed" /></span></f:then>
+                                            <f:else><code class="text-break">{s.label}</code></f:else>
                                         </f:if>
                                     </td>
                                     <td>~${s.cost -> f:format.number(decimals: 2)}</td>
@@ -102,20 +102,20 @@
                     </table>
                 </div>
             </f:then>
-            <f:else><p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.source.empty" /></p></f:else>
+            <f:else><p class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.source.empty" /></p></f:else>
         </f:if>
 
         <f:comment>Per-user table</f:comment>
-        <h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.peruser.title" /></h3>
+        <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.peruser.title" /></h2>
         <f:if condition="{perUser}">
             <f:then>
-                <div class="table-fit">
+                <div class="table-fit table-fit-wrap">
                     <table class="table table-striped">
                         <thead>
                             <tr><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.user" /></th><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.cost" /></th><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.requests" /></th><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.tokens" /></th><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.budget" /></th></tr>
                         </thead>
                         <tbody>
-                            <f:for each="{perUser}" as="u">
+                            <f:for each="{perUser}" as="u" iteration="userIteration">
                                 <tr>
                                     <td>{u.label}</td>
                                     <td>~${u.cost -> f:format.number(decimals: 2)}</td>
@@ -125,16 +125,14 @@
                                         <f:if condition="{u.budget}">
                                             <f:then>
                                                 <div class="d-flex align-items-center gap-2">
-                                                    <span class="nrllm-budget-bar"
-                                                          role="progressbar"
-                                                          aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.barAria')}"
-                                                          aria-valuenow="{u.budget.percent -> f:format.number(decimals: 0)}"
-                                                          aria-valuemin="0"
-                                                          aria-valuemax="100"><span style="width: {u.budget.percent -> f:format.number(decimals: 0)}%"></span></span>
-                                                    <span>{u.budget.percent -> f:format.number(decimals: 0)}% <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.of" /> ${u.budget.limitCost -> f:format.number(decimals: 2)}</span>
+                                                    <f:comment>The limit reaches screen readers as the bar's description: Chromium drops aria-valuetext on a native progress.</f:comment>
+                                                    <progress class="nrllm-progress" max="100" value="{u.budget.percent -> f:format.number(decimals: 0)}"
+                                                              aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.barAria')}"
+                                                              aria-describedby="nrllm-budget-{userIteration.index}"></progress>
+                                                    <span id="nrllm-budget-{userIteration.index}">{u.budget.percent -> f:format.number(decimals: 0)}% <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.of" /> ${u.budget.limitCost -> f:format.number(decimals: 2)}</span>
                                                 </div>
                                             </f:then>
-                                            <f:else><span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.none" /></span></f:else>
+                                            <f:else><span class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.none" /></span></f:else>
                                         </f:if>
                                     </td>
                                 </tr>
@@ -151,11 +149,11 @@
         </f:if>
 
         <f:comment>Fallback rescues — from the telemetry log, not the usage table</f:comment>
-        <h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.title" /></h3>
-        <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.description" /></p>
+        <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.title" /></h2>
+        <p class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.description" /></p>
         <f:if condition="{rescues}">
             <f:then>
-                <div class="table-fit">
+                <div class="table-fit table-fit-wrap">
                     <table class="table table-striped">
                         <thead>
                             <tr>
@@ -170,16 +168,16 @@
                         <tbody>
                             <f:for each="{rescues}" as="r">
                                 <tr>
-                                    <td><f:format.date format="Y-m-d H:i">@{r.when}</f:format.date></td>
+                                    <td class="col-datetime"><f:format.date format="Y-m-d H:i">@{r.when}</f:format.date></td>
                                     <td>{r.operation}</td>
                                     <td>
                                         {r.requestedConfiguration}
-                                        <f:if condition="{r.requestedProvider}"><br /><span class="text-body-secondary">{r.requestedProvider} / {r.requestedModel}</span></f:if>
+                                        <f:if condition="{r.requestedProvider}"><br /><span class="text-variant">{r.requestedProvider} / {r.requestedModel}</span></f:if>
                                     </td>
                                     <td>
                                         {r.servedConfiguration}
-                                        <f:if condition="{r.servedProvider}"><br /><span class="text-body-secondary">{r.servedProvider} / {r.servedModel}</span></f:if>
-                                        <f:if condition="{r.success}"><f:else><br /><span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.outcome.failed" /></span></f:else></f:if>
+                                        <f:if condition="{r.servedProvider}"><br /><span class="text-variant">{r.servedProvider} / {r.servedModel}</span></f:if>
+                                        <f:if condition="{r.success}"><f:else><br /><span class="badge badge-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.outcome.failed" /></span></f:else></f:if>
                                     </td>
                                     <td>{r.fallbackAttempts}</td>
                                     <td>{r.latencyMs} ms</td>
@@ -190,13 +188,13 @@
                 </div>
             </f:then>
             <f:else>
-                <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.empty" /></p>
+                <p class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.empty" /></p>
             </f:else>
         </f:if>
 
         <f:comment>Provider health and circuit state — live resilience state (ADR-063), not the selected report range</f:comment>
-        <h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.title" /></h3>
-        <p class="text-body-secondary">
+        <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.title" /></h2>
+        <p class="text-variant">
             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.description"
                          arguments="{0: health.windowSeconds}" />
         </p>
@@ -224,7 +222,7 @@
 
         <f:if condition="{health.providers}">
             <f:then>
-                <div class="table-fit">
+                <div class="table-fit table-fit-wrap">
                     <table class="table table-striped">
                         <thead>
                             <tr>
@@ -252,14 +250,14 @@
                                                     <td>{p.avgLatencyMs -> f:format.number(decimals: 0)} ms</td>
                                                 </f:then>
                                                 <f:else>
-                                                    <td class="text-body-secondary">
+                                                    <td class="text-variant">
                                                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.noLatency" />
                                                     </td>
                                                 </f:else>
                                             </f:if>
                                         </f:then>
                                         <f:else>
-                                            <td colspan="4" class="text-body-secondary">
+                                            <td colspan="4" class="text-variant">
                                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.noData" />
                                             </td>
                                         </f:else>
@@ -268,17 +266,16 @@
                                         <f:if condition="{health.circuitBreakerEnabled}">
                                             <f:then>
                                                 <f:switch expression="{p.circuit}">
-                                                    <f:comment>text-bg-warning, not -danger: white on the danger red is 4.37:1 at
-                                                    badge size, and an operator resolves this state rather than the system failing it.</f:comment>
-                                                    <f:case value="open"><span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.open" /></span></f:case>
-                                                    <f:case value="half_open"><span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.halfOpen" /></span></f:case>
-                                                    <f:defaultCase><span class="badge text-bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.closed" /></span></f:defaultCase>
+                                                    <f:comment>badge-warning, not -danger: an operator resolves this state rather than the system failing it.</f:comment>
+                                                    <f:case value="open"><span class="badge badge-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.open" /></span></f:case>
+                                                    <f:case value="half_open"><span class="badge badge-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.halfOpen" /></span></f:case>
+                                                    <f:defaultCase><span class="badge badge-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.closed" /></span></f:defaultCase>
                                                 </f:switch>
                                                 <f:if condition="{p.consecutiveFailures} > 0">
-                                                    <span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.failures" arguments="{0: p.consecutiveFailures}" /></span>
+                                                    <span class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.failures" arguments="{0: p.consecutiveFailures}" /></span>
                                                 </f:if>
                                             </f:then>
-                                            <f:else><span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.offShort" /></span></f:else>
+                                            <f:else><span class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.offShort" /></span></f:else>
                                         </f:if>
                                     </td>
                                 </tr>
@@ -288,7 +285,7 @@
                 </div>
             </f:then>
             <f:else>
-                <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.empty" /></p>
+                <p class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.empty" /></p>
             </f:else>
         </f:if>
     </div>
