@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.38.1] - 2026-09-30
+
 ### Fixed
 
 - **TYPO3 v14 no longer logs a TCA migration deprecation for nine nr_llm tables.** The TCA files no longer set `ctrl.searchFields`, which v14 removed (#106972) and strips with a deprecation. The backend search scope is unchanged on both versions (the `search_records` tool never reads nr_llm tables, so nothing changes for it): on v14 every input, text and datetime column the automatic migration used to mark `searchable => false` now carries that flag itself (23 columns, among them `tx_nrllm_provider.api_key`, `tx_nrllm_mcp_server.auth_credential`, `tx_nrllm_skill.body` and `tx_nrllm_task.prompt_template`), and v13, which ignores the flag, gets the former `searchFields` from `Configuration/TCA/Overrides/v13_search_fields.php`, which applies on v13 only.
@@ -4172,7 +4174,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.38.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.38.1...HEAD
+[0.38.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.38.0...v0.38.1
 [0.38.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.6...v0.38.0
 [0.37.6]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.5...v0.37.6
 [0.37.5]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.4...v0.37.5
