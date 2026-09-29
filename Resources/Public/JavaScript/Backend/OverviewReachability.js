@@ -16,7 +16,7 @@ import AjaxRequest from '@typo3/core/ajax/ajax-request.js';
 
 class OverviewReachability {
   constructor() {
-    // Status words for the aria-label (screen-reader status, not colour-only).
+    // Status words for the visually hidden status text (not colour-only).
     // English fallbacks; the template may override with localized values via
     // data-label-* on the reachability container.
     this.labels = { up: 'reachable', down: 'unreachable', unknown: 'status unknown' };
@@ -84,8 +84,9 @@ class OverviewReachability {
 
   /**
    * Set a provider badge's state. Status is reflected by the glyph (via the
-   * state class) AND announced to assistive tech via aria-label, so it never
-   * relies on colour alone (WCAG 1.4.1).
+   * state class) AND written as visually hidden text inside the badge, so it
+   * never relies on colour alone (WCAG 1.4.1). Not aria-label: on a generic
+   * span that name is not exposed, and screen readers read only the provider.
    *
    * @param {Element|null} badge
    * @param {string} status
@@ -94,7 +95,6 @@ class OverviewReachability {
     if (badge === null) {
       return;
     }
-    const name = badge.textContent.trim();
     const word = this.labels[status] || this.labels.unknown;
     badge.classList.remove('is-unknown', 'is-up', 'is-down');
     // up = reachable, down = configured but unreachable, anything else
@@ -106,7 +106,18 @@ class OverviewReachability {
     } else {
       badge.classList.add('is-unknown');
     }
-    badge.setAttribute('aria-label', `${name}: ${word}`);
+    this.setWord(badge, word);
+  }
+
+  /**
+   * @param {Element} badge
+   * @param {string} word
+   */
+  setWord(badge, word) {
+    const text = badge.querySelector('.nrllm-ov-reach-word');
+    if (text !== null) {
+      text.textContent = `: ${word}`;
+    }
     badge.setAttribute('title', word);
   }
 
@@ -115,9 +126,7 @@ class OverviewReachability {
     document.querySelectorAll('.nrllm-ov-reach-badge').forEach((badge) => {
       badge.classList.remove('is-up', 'is-down');
       badge.classList.add('is-unknown');
-      const name = badge.textContent.trim();
-      badge.setAttribute('aria-label', `${name}: ${word}`);
-      badge.setAttribute('title', word);
+      this.setWord(badge, word);
     });
   }
 }

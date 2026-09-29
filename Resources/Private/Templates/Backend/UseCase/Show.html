@@ -31,7 +31,7 @@
                 <f:be.infobox state="2">
                     <p class="mb-1">
                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.preflight.missing" default="No active model satisfies this pack's requirement:" />
-                        <code>{plan.preflight.missingRequirement}</code>
+                        <code class="text-break">{plan.preflight.missingRequirement}</code>
                     </p>
                     <f:if condition="{plan.preflight.remedy}">
                         <p class="mb-0">
@@ -57,6 +57,7 @@
                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.plan.title" default="What this pack installs" />
                         </h2>
                     </div>
+                    <div class="table-fit table-fit-wrap">
                     <table class="table table-striped mb-0">
                         <thead>
                             <tr>
@@ -71,7 +72,7 @@
                                     <core:icon identifier="actions-system-extension-configure" size="small" />
                                     {plan.configuration.label}
                                 </td>
-                                <td><code>{plan.configuration.identifier}</code></td>
+                                <td><code class="text-break">{plan.configuration.identifier}</code></td>
                                 <td>
                                     <f:render section="State" arguments="{installed: plan.configuration.installed}" />
                                 </td>
@@ -82,7 +83,7 @@
                                         <core:icon identifier="module-nrllm-task" size="small" />
                                         {item.label}
                                     </td>
-                                    <td><code>{item.identifier}</code></td>
+                                    <td><code class="text-break">{item.identifier}</code></td>
                                     <td><f:render section="State" arguments="{installed: item.installed}" /></td>
                                 </tr>
                             </f:for>
@@ -92,12 +93,13 @@
                                         <core:icon identifier="module-nrllm-snippet" size="small" />
                                         {item.label}
                                     </td>
-                                    <td><code>{item.identifier}</code></td>
+                                    <td><code class="text-break">{item.identifier}</code></td>
                                     <td><f:render section="State" arguments="{installed: item.installed}" /></td>
                                 </tr>
                             </f:for>
                         </tbody>
                     </table>
+                    </div>
                     <f:comment>
                         Not a record, and installing writes it anyway: without the
                         tag link the pack's snippets are composed into nothing.
@@ -107,7 +109,7 @@
                             <p class="mb-0 small">
                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.plan.snippetTags" default="Installing also adds these snippet tags to the configuration's selection, so the pack's snippets reach its prompts:" />
                                 <f:for each="{plan.missingSnippetTags}" as="tag">
-                                    <code>{tag}</code>
+                                    <code class="text-break">{tag}</code>
                                 </f:for>
                             </p>
                         </div>
@@ -130,9 +132,9 @@
                         <ul class="mb-1">
                             <f:for each="{plan.incomingSnippets}" as="incoming">
                                 <li>
-                                    {incoming.name} <code>{incoming.identifier}</code>
+                                    {incoming.name} <code class="text-break">{incoming.identifier}</code>
                                     <f:if condition="{incoming.dataClass}">
-                                        — <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.dataClass" default="data class" />: <code>{incoming.dataClass}</code>
+                                        — <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.dataClass" default="data class" />: <code class="text-break">{incoming.dataClass}</code>
                                     </f:if>
                                 </li>
                             </f:for>
@@ -156,7 +158,7 @@
                         </p>
                         <ul class="mb-1">
                             <f:for each="{plan.affectedConfigurations}" as="affected">
-                                <li>{affected.name} <code>{affected.identifier}</code></li>
+                                <li>{affected.name} <code class="text-break">{affected.identifier}</code></li>
                             </f:for>
                         </ul>
                         <p class="mb-0 small">
@@ -173,7 +175,7 @@
                                 <core:icon identifier="actions-check" size="small" />
                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.install" default="Create the missing records" />
                             </button>
-                            <span class="ms-2 text-body-secondary">
+                            <span class="ms-2 text-variant">
                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.install.hint" default="Existing records with the same identifier are left untouched. The only field an install adds to is the configuration's snippet-tag selection." />
                             </span>
                         </f:form>
@@ -207,7 +209,7 @@
                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.capabilities" default="Required model capabilities" />
                         </h2>
                         <f:for each="{pack.requiredCapabilities}" as="capability">
-                            <span class="badge text-bg-secondary">{capability}</span>
+                            <span class="badge badge-secondary">{capability}</span>
                         </f:for>
                     </div>
                 </div>
@@ -225,7 +227,7 @@
                         <p class="mb-1">
                             <strong><f:translate key="{pack.recommendedGovernanceProfile.labelKey}" default="{pack.recommendedGovernanceProfile.value}" /></strong>
                         </p>
-                        <p class="small text-body-secondary mb-2">
+                        <p class="small text-variant mb-2">
                             <f:translate key="{pack.recommendedGovernanceProfile.descriptionKey}" default="" />
                         </p>
                         <p class="small mb-0">
@@ -252,9 +254,9 @@
                             <ul class="list-unstyled mb-2">
                                 <f:for each="{plan.toolGroups}" as="group">
                                     <li class="mb-1">
-                                        <code>{group.group}</code>
+                                        <code class="text-break">{group.group}</code>
                                         <f:if condition="{group.labelKey}">
-                                            <span class="text-body-secondary"><f:translate key="{group.labelKey}" default="" /></span>
+                                            <span class="text-variant"><f:translate key="{group.labelKey}" default="" /></span>
                                         </f:if>
                                         <f:render section="ToolState" arguments="{known: group.registered, enabled: group.enabled}" />
                                     </li>
@@ -302,11 +304,11 @@
                                             <f:if condition="{action.declaration}">
                                                 <strong><f:translate key="{action.declaration.labelKey}" default="{action.toolName}" /></strong>
                                             </f:if>
-                                            <code>{action.toolName}</code>
+                                            <code class="text-break">{action.toolName}</code>
                                             <f:render section="ToolState" arguments="{known: action.declared, enabled: action.enabled}" />
                                         </div>
                                         <f:if condition="{action.declaration}">
-                                            <div class="small text-body-secondary">
+                                            <div class="small text-variant">
                                                 <f:translate key="{action.declaration.descriptionKey}" default="" />
                                             </div>
                                         </f:if>
@@ -314,7 +316,7 @@
                                             <div class="small">
                                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.editorActions.recordTypes" default="Applies to:" />
                                                 <f:for each="{action.recordTypes}" as="recordType">
-                                                    <code>{recordType}</code>
+                                                    <code class="text-break">{recordType}</code>
                                                 </f:for>
                                             </div>
                                         </f:if>
@@ -328,7 +330,7 @@
                                         <f:if condition="{action.group}">
                                             <div class="small">
                                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.editorActions.group" default="Tool group:" />
-                                                <code>{action.group}</code>
+                                                <code class="text-break">{action.group}</code>
                                             </div>
                                         </f:if>
                                     </li>
@@ -368,19 +370,19 @@
 
         <div class="mb-3">
             <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.heading" default="See also" />:</strong>
-            <f:link.action action="index" class="badge text-bg-secondary text-decoration-none">
+            <f:link.action action="index" class="badge badge-secondary text-decoration-none">
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:index.title" default="What do you want to do?" />
             </f:link.action>
-            <a href="{wizardUrl}" class="badge text-bg-secondary text-decoration-none">
+            <a href="{wizardUrl}" class="badge badge-secondary text-decoration-none">
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_wizard.xlf:mlang_labels_tablabel" default="Setup Wizard" />
             </a>
-            <a href="{configurationsUrl}" class="badge text-bg-secondary text-decoration-none">
+            <a href="{configurationsUrl}" class="badge badge-secondary text-decoration-none">
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.list.title" default="Configurations" />
             </a>
-            <a href="{tasksUrl}" class="badge text-bg-secondary text-decoration-none">
+            <a href="{tasksUrl}" class="badge badge-secondary text-decoration-none">
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_task.xlf:mlang_labels_tablabel" default="Tasks" />
             </a>
-            <a href="{snippetsUrl}" class="badge text-bg-secondary text-decoration-none">
+            <a href="{snippetsUrl}" class="badge badge-secondary text-decoration-none">
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_snippet.xlf:mlang_labels_tablabel" default="Prompt Snippets" />
             </a>
         </div>
@@ -397,12 +399,12 @@
         <f:then>
             <f:if condition="{enabled}">
                 <f:then>
-                    <span class="badge text-bg-success">
+                    <span class="badge badge-success">
                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.toolState.enabled" default="Enabled" />
                     </span>
                 </f:then>
                 <f:else>
-                    <span class="badge text-bg-warning">
+                    <span class="badge badge-warning">
                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.toolState.disabled" default="Disabled" />
                     </span>
                 </f:else>
@@ -410,16 +412,15 @@
         </f:then>
         <f:else>
             <f:comment>
-                Not `text-bg-danger`: white on the backend's danger red is 4.37:1 at
-                badge size and fails WCAG AA (check-badge-contrast.php refuses it).
-                Not `text-bg-warning` either — that is already "Disabled", and the two
-                states are not the same one: an operator resolves Disabled by flipping
+                Not `badge-danger`: nothing here failed. Not `badge-warning` either —
+                that is already "Disabled", and the two states are not the same one:
+                an operator resolves Disabled by flipping
                 a switch, while this identifier does not exist here at all and
                 installing the pack will not produce it. Secondary reads as absent,
                 which is what it is; the label and the paragraph below carry the
                 meaning, so colour is not the only channel.
             </f:comment>
-            <span class="badge text-bg-secondary">
+            <span class="badge badge-secondary">
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.toolState.unknown" default="Not available here" />
             </span>
         </f:else>
@@ -429,12 +430,12 @@
 <f:section name="State">
     <f:if condition="{installed}">
         <f:then>
-            <span class="badge text-bg-secondary">
+            <span class="badge badge-secondary">
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.state.installed" default="Already there" />
             </span>
         </f:then>
         <f:else>
-            <span class="badge text-bg-success">
+            <span class="badge badge-success">
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.state.pending" default="Would be created" />
             </span>
         </f:else>

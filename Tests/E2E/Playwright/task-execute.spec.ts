@@ -160,10 +160,9 @@ test.describe('Task Execute Module', () => {
       const outputLoading = moduleFrame.locator('#outputLoading');
       await expect(outputLoading).toHaveCount(1);
 
-      // Verify progress bar exists with animation class
-      const progressBar = moduleFrame.locator('#outputLoading .progress-bar');
-      await expect(progressBar).toHaveCount(1);
-      await expect(progressBar).toHaveClass(/progress-bar-animated/);
+      // Core's spinner, not Bootstrap's .progress, which TYPO3 14 does not style
+      const spinner = moduleFrame.locator('#outputLoading typo3-backend-spinner');
+      await expect(spinner).toHaveCount(1);
 
       // Verify elapsed time counter exists
       const elapsedTime = moduleFrame.locator('#elapsedTime');

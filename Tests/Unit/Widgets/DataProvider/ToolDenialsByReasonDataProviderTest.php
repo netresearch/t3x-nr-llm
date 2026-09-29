@@ -39,7 +39,7 @@ final class ToolDenialsByReasonDataProviderTest extends AbstractUnitTestCase
         self::assertSame(['Tool disabled', 'Requires admin', 'Trust zone ceiling'], $shaped['labels']);
         self::assertSame('Denials', $shaped['datasets'][0]['label']);
         self::assertSame([8, 2, 5], $shaped['datasets'][0]['data']);
-        self::assertSame(['#9E9E9E', '#D9534F', '#8E2A27'], $shaped['datasets'][0]['backgroundColor']);
+        self::assertSame(['#747474', '#DF6A66', '#C84179'], $shaped['datasets'][0]['backgroundColor']);
     }
 
     #[Test]

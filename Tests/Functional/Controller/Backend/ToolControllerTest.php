@@ -181,14 +181,14 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         // The record type it applies to, and the icon that illustrates it.
         // Both markup-anchored: a bare "pages" also occurs in the module chrome,
         // and would pass with the record-type list removed.
-        self::assertStringContainsString('<code>pages</code>', $body);
+        self::assertStringContainsString('<code class="text-break">pages</code>', $body);
         self::assertStringContainsString('icon-nrllm-editor-action-page-metadata', $body);
         // The model-facing description is NOT what an administrator reads here.
         self::assertStringNotContainsString('model-facing description of write_tool', $body);
         // The wire name stays VISIBLE as the technical detail — asserted as the
         // rendered text, not as the toggle's data-tool attribute, which is there
         // for every tool whether or not the wire name is shown.
-        self::assertStringContainsString('<code>write_tool</code>', $body);
+        self::assertStringContainsString('<code class="text-break">write_tool</code>', $body);
     }
 
     /**
@@ -216,7 +216,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
 
         // The broken row: wire name and model-facing description, as for any
         // tool that declares nothing.
-        self::assertStringContainsString('<code>broken_tool</code>', $body);
+        self::assertStringContainsString('<code class="text-break">broken_tool</code>', $body);
         self::assertStringContainsString('model-facing description of broken_tool', $body);
         self::assertStringContainsString('data-tool="broken_tool"', $body);
         // The sound declaration beside it is unaffected.

@@ -82,6 +82,8 @@ final class ModelIdElement extends AbstractFormElement
             . 'data-input-id="%s" '
             . 'data-provider-uid="%d" '
             . 'data-table="%s" '
+            // A disclosure button: ModelIdField.js keeps this in step with the list.
+            . 'aria-expanded="false" '
             . 'title="Fetch available models from provider API">'
             . '<span class="icon icon-size-small"><span class="icon-markup">'
             . '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">'
@@ -94,7 +96,7 @@ final class ModelIdElement extends AbstractFormElement
             htmlspecialchars($tableName, ENT_QUOTES, 'UTF-8'),
         );
         $html[] = '    </div>';
-        $html[] = '    <div class="js-model-status mt-1" style="display:none;"></div>';
+        $html[] = '    <div class="js-model-status mt-1" role="status" style="display:none;"></div>';
         $html[] = '  </div>';
         $html[] = '</div>';
 

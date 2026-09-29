@@ -147,6 +147,10 @@
                 <source>Name on the server</source>
                 <target>Name auf dem Server</target>
             </trans-unit>
+            <trans-unit id="tools.state">
+                <source>State</source>
+                <target>Zustand</target>
+            </trans-unit>
             <trans-unit id="tools.orphaned">
                 <source>Gone from the server</source>
                 <target>Auf dem Server verschwunden</target>

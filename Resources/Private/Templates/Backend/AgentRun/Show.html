@@ -24,13 +24,13 @@
 
         <section aria-labelledby="run-summary-heading">
             <h2 id="run-summary-heading"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.summary" default="Run" /></h2>
-            <div class="table-fit">
+            <div class="table-fit table-fit-wrap">
                 <table class="table table-striped">
                     <caption class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.summary" default="Run" /></caption>
                     <tbody>
                         <tr>
                             <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.uuid" default="Correlation" /></th>
-                            <td><code>{run.uuid}</code></td>
+                            <td><code class="text-break">{run.uuid}</code></td>
                         </tr>
                         <tr>
                             <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.status" default="Status" /></th>
@@ -38,11 +38,11 @@
                         </tr>
                         <tr>
                             <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.config" default="Configuration" /></th>
-                            <td><code>{run.configurationIdentifier}</code></td>
+                            <td><code class="text-break">{run.configurationIdentifier}</code></td>
                         </tr>
                         <tr>
                             <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.created" default="Created" /></th>
-                            <td><f:format.date date="@{run.crdate}" format="Y-m-d H:i:s" /></td>
+                            <td class="col-datetime"><f:format.date date="@{run.crdate}" format="Y-m-d H:i:s" /></td>
                         </tr>
                         <tr>
                             <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.finished" default="Finished" /></th>
@@ -63,7 +63,7 @@
                         <f:if condition="{run.errorClass}">
                             <tr>
                                 <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.errorClass" default="Error class" /></th>
-                                <td><code>{run.errorClass}</code></td>
+                                <td><code class="text-break">{run.errorClass}</code></td>
                             </tr>
                         </f:if>
                     </tbody>
@@ -80,7 +80,7 @@
 
             <f:if condition="{timeline}">
                 <f:then>
-                    <div class="table-fit">
+                    <div class="table-fit table-fit-wrap">
                         <table class="table table-striped">
                             <caption class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.timeline" default="Timeline" /></caption>
                             <thead>
@@ -97,9 +97,9 @@
                             <tbody>
                                 <f:for each="{timeline}" as="entry">
                                     <tr>
-                                        <td><f:format.date date="@{entry.occurredAt}" format="H:i:s" /></td>
+                                        <td class="col-datetime"><f:format.date date="@{entry.occurredAt}" format="H:i:s" /></td>
                                         <td><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.source.{entry.source}" /></td>
-                                        <td><code>{entry.kind}</code></td>
+                                        <td><code class="text-break">{entry.kind}</code></td>
                                         <td><f:if condition="{entry.round} > 0">{entry.round}</f:if></td>
                                         <td class="text-end"><f:if condition="{entry.durationMs} > 0">{entry.durationMs}</f:if></td>
                                         <td>
@@ -108,7 +108,7 @@
                                             </f:if>
                                         </td>
                                         <td>
-                                            <code>{entry.detail}</code>
+                                            <code class="text-break">{entry.detail}</code>
                                             <f:if condition="{entry.approvalAttribution}">
                                                 <div class="mt-1">
                                                     <f:render partial="Backend/AgentRun/ApprovalAttribution" arguments="{attribution: entry.approvalAttribution}" />
@@ -122,7 +122,7 @@
                     </div>
                 </f:then>
                 <f:else>
-                    <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.empty" default="This run recorded no steps, provider calls or governance decisions." /></p>
+                    <p class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.empty" default="This run recorded no steps, provider calls or governance decisions." /></p>
                 </f:else>
             </f:if>
         </section>

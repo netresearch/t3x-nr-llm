@@ -12,10 +12,9 @@
  * PageRenderer::addJsFile (the UMD build auto-registers all chart types).
  *
  * Colours are not hardcoded: they are read at render time from the
- * `--nrllm-chart-*` custom properties defined in Analytics.css, which carry
- * light/dark values for both the OS preference and the explicit TYPO3
- * [data-color-scheme] backend toggle. On a scheme change the charts are
- * destroyed and re-rendered with the then-current palette.
+ * `--nrllm-chart-*` custom properties defined in Analytics.css, which are
+ * light-dark() pairs following the backend colour scheme. On a scheme change
+ * the charts are destroyed and re-rendered with the then-current palette.
  */
 class Analytics {
     constructor() {
@@ -62,21 +61,33 @@ class Analytics {
 
     /**
      * Resolve the scheme-dependent chart palette from the CSS custom
-     * properties on the module wrapper (fallbacks mirror the light values
-     * in Analytics.css).
+     * properties on the module wrapper.
+     *
+     * A custom property is returned as written, so `getPropertyValue()` would
+     * hand Chart.js the unevaluated `light-dark(…)` string. Assigning the
+     * token to a real colour property and reading the computed value lets the
+     * browser pick the branch for the active scheme and returns an rgb() value.
      */
     readColors() {
         const scope = document.querySelector('.nrllm-analytics') || document.body;
-        const style = globalThis.getComputedStyle(scope);
-        const read = (name, fallback) => style.getPropertyValue(name).trim() || fallback;
-
-        return {
-            series1: read('--nrllm-chart-series-1', '#2f99a4'),
-            series1Fill: read('--nrllm-chart-series-1-fill', 'rgba(47,153,164,0.15)'),
-            series2: read('--nrllm-chart-series-2', '#e8a33d'),
-            text: read('--nrllm-chart-text', '#495057'),
-            grid: read('--nrllm-chart-grid', 'rgba(0,0,0,0.1)'),
+        const probe = document.createElement('span');
+        probe.hidden = true;
+        scope.appendChild(probe);
+        const read = (name) => {
+            probe.style.color = `var(${name})`;
+            return globalThis.getComputedStyle(probe).color;
         };
+
+        const colors = {
+            series1: read('--nrllm-chart-series-1'),
+            series1Fill: read('--nrllm-chart-series-1-fill'),
+            series2: read('--nrllm-chart-series-2'),
+            text: read('--nrllm-chart-text'),
+            grid: read('--nrllm-chart-grid'),
+        };
+        probe.remove();
+
+        return colors;
     }
 
     /**
@@ -93,6 +104,41 @@ class Analytics {
             .addEventListener('change', () => this.render());
     }
 
+    /**
+     * Put the chart's numbers next to it as a visually hidden table. A canvas
+     * is a picture; its role="img" label names it, and this table is where a
+     * screen reader finds the values. Re-rendering replaces the table.
+     */
+    describeChart(canvas, headers, rows) {
+        const holder = canvas.parentElement;
+        holder.querySelector(':scope > table.visually-hidden')?.remove();
+        const table = document.createElement('table');
+        table.className = 'visually-hidden';
+        const caption = document.createElement('caption');
+        caption.textContent = canvas.getAttribute('aria-label') || '';
+        table.appendChild(caption);
+        const head = table.createTHead().insertRow();
+        headers.forEach((text) => {
+            const th = document.createElement('th');
+            th.scope = 'col';
+            th.textContent = text;
+            head.appendChild(th);
+        });
+        const body = table.createTBody();
+        rows.forEach((cells) => {
+            const tr = body.insertRow();
+            cells.forEach((value, i) => {
+                const cell = document.createElement(i === 0 ? 'th' : 'td');
+                if (i === 0) {
+                    cell.scope = 'row';
+                }
+                cell.textContent = String(value ?? '');
+                tr.appendChild(cell);
+            });
+        });
+        holder.appendChild(table);
+    }
+
     axisOptions() {
         return {
             ticks: { color: this.colors.text },
@@ -105,6 +151,7 @@ class Analytics {
         if (!canvas) {
             return;
         }
+        this.describeChart(canvas, ['Date', 'Est. cost ($)', 'Requests'], trend.map((r) => [r.date, r.cost, r.requests]));
         this.charts.push(new globalThis.Chart(canvas, {
             type: 'line',
             data: {
@@ -118,13 +165,21 @@ class Analytics {
                         yAxisID: 'yCost',
                         tension: 0.25,
                         fill: true,
+                        pointStyle: 'circle',
                     },
+                    // Colour is not the only cue telling the two lines apart:
+                    // Requests is dashed with diamond points, and the legend
+                    // shows each line's point style.
                     {
                         label: 'Requests',
                         data: trend.map((r) => r.requests),
                         borderColor: this.colors.series2,
+                        backgroundColor: this.colors.series2,
                         yAxisID: 'yReq',
                         tension: 0.25,
+                        borderDash: [6, 4],
+                        pointStyle: 'rectRot',
+                        pointRadius: 4,
                     },
                 ],
             },
@@ -132,7 +187,7 @@ class Analytics {
                 responsive: true,
                 maintainAspectRatio: false,
                 interaction: { mode: 'index', intersect: false },
-                plugins: { legend: { labels: { color: this.colors.text } } },
+                plugins: { legend: { labels: { color: this.colors.text, usePointStyle: true } } },
                 scales: {
                     x: this.axisOptions(),
                     yCost: {
@@ -158,6 +213,7 @@ class Analytics {
         if (!canvas) {
             return;
         }
+        this.describeChart(canvas, ['Name', 'Est. cost ($)'], rows.map((r) => [r.label, r.cost]));
         this.charts.push(new globalThis.Chart(canvas, {
             type: 'bar',
             data: {

@@ -25,6 +25,8 @@ $finder = (new Finder())
         '.ddev',
         'config',
         'Documentation-GENERATED-temp',
+        // npm packages (`npm run lint:colors` needs them locally); some ship PHP.
+        'node_modules',
         'var',
     ])
     ->notPath([

@@ -74,7 +74,7 @@ final class AgentRunsByStatusDataProviderTest extends AbstractUnitTestCase
             'failed'    => 1,
         ], self::LABELS);
 
-        self::assertSame(['#4CAF50', '#D9534F'], $shaped['datasets'][0]['backgroundColor']);
+        self::assertSame(['#45A048', '#D43B36'], $shaped['datasets'][0]['backgroundColor']);
     }
 
     #[Test]

@@ -22,7 +22,7 @@ return [
         'enablecolumns' => [
             'disabled' => 'hidden',
         ],
-        'iconfile' => 'EXT:nr_llm/Resources/Public/Icons/Provider.svg',
+        'typeicon_classes' => ['default' => 'nrllm-record-provider'],
         'rootLevel' => -1,
         'security' => [
             'ignorePageTypeRestriction' => true,

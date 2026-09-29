@@ -9,6 +9,7 @@
 <f:layout name="Module" />
 
 <f:section name="Content">
+    <f:asset.module identifier="@typo3/backend/element/spinner-element.js" />
     <div>
         <h1>
             <core:icon identifier="actions-bolt" size="medium" />
@@ -67,11 +68,11 @@
                                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.shared.generateWithAi" default="Generate with AI" />
                                     </span>
                                     <span class="btn-loading d-none">
-                                        <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                                        <span class="me-1" role="status"><typo3-backend-spinner size="small"></typo3-backend-spinner></span>
                                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.shared.generating" default="Generating... this may take a moment" />
                                     </span>
                                 </button>
-                                <f:link.action action="list" class="btn btn-secondary">
+                                <f:link.action action="list" class="btn btn-default">
                                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.shared.cancel" default="Cancel" />
                                 </f:link.action>
                             </div>
@@ -82,7 +83,7 @@
                             <core:icon identifier="actions-exclamation-triangle" size="small" />
                             <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.shared.noConfig.title" default="No LLM configuration available." /></strong>
                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.shared.noConfig.hint" default="You need at least one active configuration with a model assigned before you can use the AI wizard." />
-                            <a href="{configurationsUrl}" class="alert-link"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.task.goToConfigurations" default="Go to Configurations" /></a>
+                            <a href="{configurationsUrl}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.task.goToConfigurations" default="Go to Configurations" /></a>
                         </div>
                     </f:else>
                 </f:if>
@@ -93,14 +94,11 @@
         <div class="d-none" id="wizard-loading">
             <div class="card mt-4">
                 <div class="card-body text-center py-5">
-                    <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
+                    <div class="mb-3" role="status"><typo3-backend-spinner size="large"></typo3-backend-spinner>
                         <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.shared.generatingShort" default="Generating..." /></span>
                     </div>
-                    <h4 class="text-primary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.task.loading.title" default="Generating task..." /></h4>
+                    <h2 class="h4 text-primary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.task.loading.title" default="Generating task..." /></h2>
                     <p class="text-muted mb-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.task.loading.message" default="The AI is creating your task. This usually takes 10-30 seconds." /></p>
-                    <div class="progress mx-auto" style="width: 200px; height: 4px;">
-                        <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width: 100%"></div>
-                    </div>
                     <p class="text-muted mt-3 small">
                         <span id="wizard-elapsed">0</span>s elapsed
                     </p>

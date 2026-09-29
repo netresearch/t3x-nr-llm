@@ -14,7 +14,7 @@
             <core:icon identifier="module-nrllm-task" size="medium" />
             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.title" default="AI actions" />
         </h1>
-        <f:link.action action="list" controller="Backend\AgentRun" class="btn btn-secondary">
+        <f:link.action action="list" controller="Backend\AgentRun" class="btn btn-default">
             <core:icon identifier="module-nrllm-runs" size="small" />
             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:aitasks.btn.approvals" default="Approvals" />
         </f:link.action>
@@ -30,7 +30,7 @@
                 <!-- No <code> inside the badge: TYPO3's global `code{color:…!important}`
                      beats the badge's own white text and would render the table name at
                      1.43:1 on the grey badge, while the uid beside it stays white. -->
-                <span class="badge text-bg-secondary">{recordTable} #{recordUid}</span>
+                <span class="badge badge-secondary">{recordTable} #{recordUid}</span>
             </p>
         </f:then>
         <f:else>
@@ -47,7 +47,7 @@
                 <h2 class="mt-4">
                     <f:if condition="{group.labelKey}">
                         <f:then><f:translate key="{group.labelKey}" /></f:then>
-                        <f:else><code>{group.name}</code></f:else>
+                        <f:else><code class="text-break">{group.name}</code></f:else>
                     </f:if>
                 </h2>
                 <div class="row">
@@ -56,15 +56,15 @@
                             <div class="card h-100">
                                 <div class="card-body">
                                     <h3 class="card-title h5">
-                                        <core:icon identifier="{offer.action.iconIdentifier}" size="small" />
+                                        <core:icon identifier="{offer.action.iconIdentifier}" size="small" alternativeMarkupIdentifier="inline" />
                                         <f:translate key="{offer.action.labelKey}" />
                                     </h3>
-                                    <p class="card-text text-muted small">
+                                    <p class="text-muted small">
                                         <f:translate key="{offer.action.descriptionKey}" />
                                     </p>
-                                    <p class="card-text small text-body-secondary mb-0">
+                                    <p class="small text-variant mb-0">
                                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.appliesTo" default="Applies to" />:
-                                        <f:for each="{offer.action.recordTypes}" as="recordType"><code>{recordType}</code> </f:for>
+                                        <f:for each="{offer.action.recordTypes}" as="recordType"><code class="text-break">{recordType}</code> </f:for>
                                     </p>
                                 </div>
                                 <div class="card-footer">
@@ -82,7 +82,7 @@
                                                                       id="nrllm-instruction-{offer.toolName}"
                                                                       class="form-control form-control-sm"
                                                                       maxlength="1000" />
-                                                    <small class="form-text text-body-secondary">
+                                                    <small class="form-text text-variant">
                                                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.instruction.hint" default="Leave empty to let the assistant decide. Your note describes the result; it never changes which record is touched." />
                                                     </small>
                                                 </div>
@@ -98,7 +98,7 @@
                                             </f:link.action>
                                         </f:then>
                                         <f:else>
-                                            <small class="text-body-secondary">
+                                            <small class="text-variant">
                                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.needsRecord" default="Select a record to start this action." />
                                             </small>
                                         </f:else>

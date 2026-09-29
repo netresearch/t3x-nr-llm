@@ -53,7 +53,7 @@ async function loadDeeplQuota() {
         const used = data.limit > 0
             ? `${format.format(data.used)} of ${format.format(data.limit)} characters used (${format.format(data.usedPercent)} %)`
             : `${format.format(data.used)} characters used, no limit reported`;
-        target.className = 'text-body-secondary';
+        target.className = 'text-variant';
         target.textContent = `${used} · ${PLAN_LABELS[data.plan] ?? data.plan}`;
     } catch (error) {
         target.className = 'text-danger';

@@ -166,9 +166,10 @@ test.describe('Provider AJAX Actions', () => {
       // Wait for modal to appear (modal shows test results)
       await page.waitForTimeout(2000);
 
-      // Check for modal visibility (test results shown in modal)
-      const modalInFrame = moduleFrame.locator('#test-modal, .modal.show, .modal-dialog');
-      const modalVisible = await modalInFrame.first().isVisible();
+      // The result opens in core's modal, which TYPO3 renders in the top
+      // document, not in the module frame.
+      const modal = page.locator('.t3js-modal');
+      const modalVisible = await modal.first().isVisible();
 
       // Modal should appear with test results
       expect(modalVisible).toBe(true);

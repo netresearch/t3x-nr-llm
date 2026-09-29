@@ -29,11 +29,11 @@ when the module has entries but none is the default; nothing when empty.</f:comm
 <f:section name="defaultBadge">
     <f:if condition="{status.hasDefault}">
         <f:then>
-            <span class="badge text-bg-success"><core:icon identifier="actions-check" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.default.has" default="has default" /></span>
+            <span class="badge badge-success"><core:icon identifier="actions-check" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.default.has" default="has default" /></span>
         </f:then>
         <f:else>
             <f:if condition="{status.count} > 0">
-                <span class="badge text-bg-warning"><core:icon identifier="actions-exclamation-triangle" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.default.none" default="no default" /></span>
+                <span class="badge badge-warning"><core:icon identifier="actions-exclamation-triangle" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.default.none" default="no default" /></span>
             </f:if>
         </f:else>
     </f:if>
@@ -125,7 +125,7 @@ when the module has entries but none is the default; nothing when empty.</f:comm
 
         <f:comment>=================== Set up &amp; manage grid ===================</f:comment>
         <h2 class="mt-4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.manage.title" default="Set up &amp; manage" /></h2>
-        <p class="nrllm-ov-legend text-body-secondary">
+        <p class="nrllm-ov-legend text-variant">
             <span class="nrllm-ov-sw is-ready"></span> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.legend.ready" default="ready" />
             <span class="nrllm-ov-sw is-next"></span> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.legend.next" default="next / empty" />
             · <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.legend.link" default="every card links to its module" />
@@ -173,7 +173,7 @@ when the module has entries but none is the default; nothing when empty.</f:comm
                         <div class="nrllm-ov-reach" data-label-up="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.reach.up', default: 'reachable')}" data-label-down="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.reach.down', default: 'unreachable')}" data-label-unknown="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.reach.unknown', default: 'status unknown')}">
                             <span class="nrllm-ov-reach-lab"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.reach.label" default="Reachability (live, no tokens):" /></span>
                             <f:for each="{configuredProviders}" as="p">
-                                <span class="nrllm-ov-reach-badge is-unknown" data-nrllm-provider="{p.identifier}" aria-label="{p.name}: {f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.reach.unknown', default: 'status unknown')}" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.reach.unknown', default: 'status unknown')}"><span class="nrllm-ov-reach-ico" aria-hidden="true"></span>{p.name}</span>
+                                <span class="nrllm-ov-reach-badge is-unknown" data-nrllm-provider="{p.identifier}" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.reach.unknown', default: 'status unknown')}"><span class="nrllm-ov-reach-ico" aria-hidden="true"></span><span class="nrllm-ov-reach-name">{p.name}</span><span class="visually-hidden nrllm-ov-reach-word">: {f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.reach.unknown', default: 'status unknown')}</span></span>
                             </f:for>
                         </div>
                     </f:if>

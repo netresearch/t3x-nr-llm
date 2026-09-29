@@ -30,7 +30,7 @@
 
                     <f:if condition="{generated.identifier}">
                         <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:field.identifier" default="Identifier" /></dt>
-                        <dd class="col-sm-9"><code>{generated.identifier}</code></dd>
+                        <dd class="col-sm-9"><code class="text-break">{generated.identifier}</code></dd>
                     </f:if>
 
                     <f:if condition="{generated.description}">
@@ -51,7 +51,7 @@
                     <f:if condition="{generated.prompt_template}">
                         <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:field.promptTemplate" default="Prompt Template" /></dt>
                         <dd class="col-sm-9">
-                            <pre class="mb-0 p-2 bg-body-tertiary rounded" style="white-space: pre-wrap; font-size: 0.85em;">{generated.prompt_template}</pre>
+                            <pre class="mb-0 p-2" style="background: var(--typo3-surface-container-base); white-space: pre-wrap; font-size: 0.85em; border-radius: var(--typo3-component-border-radius);">{generated.prompt_template}</pre>
                         </dd>
                     </f:if>
                 </dl>
@@ -62,13 +62,13 @@
             <div class="card-body py-2">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <small class="text-body-secondary">
+                        <small class="text-variant">
                             <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.preview.yourDescription" default="Your description:" /></strong> {description}
                         </small>
                     </div>
                     <div>
                         <f:if condition="{usedConfig}">
-                            <small class="text-body-secondary">
+                            <small class="text-variant">
                                 <core:icon identifier="actions-system-extension-configure" size="small" />
                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.preview.generatedWith" default="Generated with" /> <strong>{usedConfig.name}</strong>
                                 <f:if condition="{usedConfig.llmModel}">
@@ -80,8 +80,8 @@
                             </small>
                         </f:if>
                         <f:if condition="!{usedConfig}">
-                            <small class="text-body-secondary">
-                                <span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.preview.generatedWithoutAi" default="Generated without AI (fallback)" /></span>
+                            <small class="text-variant">
+                                <span class="badge badge-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.preview.generatedWithoutAi" default="Generated without AI (fallback)" /></span>
                             </small>
                         </f:if>
                     </div>
@@ -94,15 +94,15 @@
                 <core:icon identifier="actions-open" size="small" />
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.preview.openEditor" default="Open in Editor" />
             </a>
-            <f:link.action action="wizardGenerate" arguments="{description: description, configurationUid: configurationUid}" class="btn btn-secondary">
+            <f:link.action action="wizardGenerate" arguments="{description: description, configurationUid: configurationUid}" class="btn btn-default">
                 <core:icon identifier="actions-refresh" size="small" />
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.preview.regenerate" default="Regenerate" />
             </f:link.action>
-            <f:link.action action="wizardForm" class="btn btn-secondary">
+            <f:link.action action="wizardForm" class="btn btn-default">
                 <core:icon identifier="actions-edit" size="small" />
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.preview.editDescription" default="Edit Description" />
             </f:link.action>
-            <f:link.action action="list" class="btn btn-secondary">
+            <f:link.action action="list" class="btn btn-default">
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.preview.backToList" default="Back to List" />
             </f:link.action>
         </div>

@@ -111,6 +111,9 @@
             <trans-unit id="tools.remoteName">
                 <source>Name on the server</source>
             </trans-unit>
+            <trans-unit id="tools.state">
+                <source>State</source>
+            </trans-unit>
             <trans-unit id="tools.orphaned">
                 <source>Gone from the server</source>
             </trans-unit>

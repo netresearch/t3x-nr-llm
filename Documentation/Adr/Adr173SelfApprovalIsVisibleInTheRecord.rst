@@ -192,10 +192,10 @@ about a future act, which is ADR-172's subject and not this one's.
 Consequences
 ============
 
-The marker is a badge (``text-bg-warning``) for :php:`SELF` and plain secondary
+The marker is a badge (``badge-warning``) for :php:`SELF` and plain secondary
 text for the other three. Self-approval is a fact worth spotting, not a failure
-of the system — the same reasoning that keeps ``text-bg-danger`` out of this
-project's templates.
+of the system — the reason this project marks operator-resolvable states with
+``badge-warning`` rather than ``badge-danger``.
 
 All four labels are full sentences rather than a short badge vocabulary. A
 column of one-word chips ("Self", "Second person", "Unknown") reads faster and

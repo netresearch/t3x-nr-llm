@@ -20,7 +20,7 @@ return [
         'enablecolumns' => [
             'disabled' => 'hidden',
         ],
-        'iconfile' => 'EXT:nr_llm/Resources/Public/Icons/Snippet.svg',
+        'typeicon_classes' => ['default' => 'nrllm-record-snippet'],
         'rootLevel' => -1,
         'security' => [
             'ignorePageTypeRestriction' => true,

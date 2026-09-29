@@ -14,6 +14,11 @@ name: JavaScript Lint
 # Thin caller of the shared script-check reusable, so the checkout pin and
 # harden-runner stay maintained centrally. `pre-command` installs the npm
 # devDependencies the runner does not ship.
+#
+# The job also runs the backend colour check and its tests (`npm run
+# lint:colors`). The check parses JavaScript, CSS and HTML with espree,
+# css-tree and parse5, which live in node_modules, so it cannot run in the
+# shared repo-checks job: that job runs no dependency install by design.
 
 on:
   push:
@@ -31,4 +36,4 @@ jobs:
       contents: read
     with:
       pre-command: npm ci --no-audit --no-fund
-      check-cmd: npx eslint
+      check-cmd: npx eslint && npm run lint:colors

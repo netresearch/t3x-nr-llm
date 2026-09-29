@@ -39,7 +39,7 @@ final class RunTerminationReasonsDataProviderTest extends AbstractUnitTestCase
         self::assertCount(1, $shaped['datasets']);
         self::assertSame('Runs', $shaped['datasets'][0]['label']);
         self::assertSame([20, 7, 4], $shaped['datasets'][0]['data']);
-        self::assertSame(['#4CAF50', '#E8731A', '#8E2A27'], $shaped['datasets'][0]['backgroundColor']);
+        self::assertSame(['#45A048', '#BB5715', '#9F57B7'], $shaped['datasets'][0]['backgroundColor']);
     }
 
     #[Test]
