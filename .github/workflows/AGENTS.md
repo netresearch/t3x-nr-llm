@@ -17,6 +17,7 @@ GitHub Actions workflows and CI/CD automation. **This repository defines no work
 | `check-template-drift.yml` | Template drift against the org's typo3-extension template |
 | `checks.yml` | Security, betterleaks, zizmor, fuzz, licence audit, CodeQL, scorecard, dependency review, PR quality |
 | `ci.yml` | Lint, PHPStan, unit/functional tests, Rector, fuzz + weekly mutation, docs |
+| `decision-sidecar.yml` | Tests and lock check of the local decision sidecar (`Build/decision`, ADR-211) |
 | `community.yml` | Community health |
 | `dco.yml` | DCO sign-off |
 | `docs.yml` | Documentation rendering |

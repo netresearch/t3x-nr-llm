@@ -1,0 +1,37 @@
+name: Decision Sidecar
+
+# Runs the tests and the lock check of the local decision sidecar
+# (Build/decision, ADR-211). The sidecar is the backend nr-llm's decision
+# service is tested against without a paid key, so a regression in its request
+# validation or its mapping of the three question types must fail a pull
+# request — tests nothing runs protect nothing.
+#
+# The tests need only the standard library: app.py imports torch and
+# transformers lazily, and test_app.py fakes the classifier, so no model is
+# downloaded here. The lock check proves requirements.lock still matches
+# requirements.txt, which the image build installs with --require-hashes.
+#
+# Thin caller of the shared python-ci reusable, so the checkout pin and
+# harden-runner stay maintained centrally.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  decision-sidecar:
+    uses: netresearch/.github/.github/workflows/python-ci.yml@main
+    permissions:
+      contents: read
+    with:
+      working-directory: Build/decision
+      python-versions: '["3.14"]'
+      cache: ""
+      install-cmd: python -m pip install ruff==0.16.9
+      lint-cmd: ruff check --no-fix . && ruff format --check .
+      test-cmd: python -m unittest -v test_app.py && ./check-lock-matches-requirements.sh
