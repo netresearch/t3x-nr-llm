@@ -795,6 +795,16 @@
             "document.querySelector('#model-id');\n"
         ],
         [
+            "selector string starting with hex letters",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "document.querySelector('#add-model');\n"
+        ],
+        [
+            "id selector starting with hex letters in a data attribute",
+            "Resources/Private/Templates/Backend/a.html",
+            "<div data-target-selector=\"#add-form\">x</div>\n"
+        ],
+        [
             "currentColor",
             "Resources/Public/Css/Backend/a.css",
             ".x { color: currentColor; fill: currentColor; }\n"

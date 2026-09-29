@@ -339,7 +339,7 @@ function rawLiterals(text, onLiteral) {
 
 // Hex (`#fff`, and `%23fff` in a data URI) and the colour functions, in text.
 const COLOUR_LITERALS = [
-    /(?<![&\w])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b/,
+    /(?<![&\w])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})(?![\w-])/,
     /%23(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})(?![0-9a-zA-Z])/,
     /\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(/,
     /(?<![\w.-])color\(/,
