@@ -370,6 +370,181 @@
             "el.setAttribute('style', 'color: black');\n",
             1,
             "named colour"
+        ],
+        [
+            "CSS in <f:asset.css>",
+            "Resources/Private/Templates/a.html",
+            "<f:asset.css identifier=\"nrllm-x\">\n.nrllm-x { background: black; }\n</f:asset.css>\n",
+            2,
+            "named colour"
+        ],
+        [
+            "JavaScript in an inline <script>",
+            "Resources/Private/Templates/a.html",
+            "<script>\ndocument.querySelector('.x').style.color = 'white';\n</script>\n",
+            2,
+            "named colour in JavaScript"
+        ],
+        [
+            "JavaScript in <f:asset.script>",
+            "Resources/Private/Templates/a.html",
+            "<f:asset.script identifier=\"nrllm-x\">\nel.style.background = \"black\";\n</f:asset.script>\n",
+            2,
+            "named colour in JavaScript"
+        ],
+        [
+            "data URI in an img src",
+            "Resources/Private/Templates/a.html",
+            "<img src=\"data:image/svg+xml,%3Csvg%3E%3Cpath fill='%23ffffff'/%3E%3C/svg%3E\" alt=\"\">\n",
+            1,
+            "colour literal"
+        ],
+        [
+            "el.style = string",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "el.style = 'color: white; background: black';\n",
+            1,
+            "named colour"
+        ],
+        [
+            "insertRule",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "sheet.insertRule('.nrllm-x { color: white; }');\n",
+            1,
+            "named colour"
+        ],
+        [
+            "replaceSync",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "const sheet = new CSSStyleSheet();\nsheet.replaceSync('.nrllm-x { color: white }');\n",
+            2,
+            "named colour"
+        ],
+        [
+            "textContent of a <style> element",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "const s = document.createElement('style');\ns.textContent = '.nrllm-x { background: white; }';\n",
+            2,
+            "named colour"
+        ],
+        [
+            "Chart.js scriptable option",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "new Chart(ctx, { data: { datasets: [{ borderColor: (c) => (c.raw > 5 ? 'red' : 'green') }] } });\n",
+            1,
+            "named colour in JavaScript"
+        ],
+        [
+            "function returning a colour",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "const o = { color: function (c) { if (c) { return 'red'; } return 'green'; } };\n",
+            1,
+            "named colour in JavaScript"
+        ],
+        [
+            "indexed array literal",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "el.style.color = ['white', 'black'][i];\n",
+            1,
+            "named colour in JavaScript"
+        ],
+        [
+            "comment trailing a closing brace exempts nothing",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "function f(el) {\n    el.style.color = 'white';\n} // scheme-independent: x\n",
+            2,
+            "named colour in JavaScript"
+        ],
+        [
+            "exemption above a class covers one statement in it",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "// scheme-independent: print preview\nexport default class X {\n    a() { this.el.style.color = '#000'; }\n    b() { this.el.style.background = 'white'; }\n}\n",
+            4,
+            "named colour in JavaScript"
+        ],
+        [
+            "media attribute asking for the OS scheme",
+            "Resources/Private/Templates/a.html",
+            "<link rel=\"stylesheet\" href=\"dark.css\" media=\"(prefers-color-scheme: dark)\">\n",
+            1,
+            "own scheme switch"
+        ],
+        [
+            "matchMedia deciding by the OS scheme",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "if (window.matchMedia('(prefers-color-scheme: dark)').matches) {\n    x();\n}\n",
+            1,
+            "own scheme switch"
+        ],
+        [
+            "@import asking for the OS scheme",
+            "Resources/Public/Css/Backend/a.css",
+            "@import url(\"dark.css\") (prefers-color-scheme: dark);\n",
+            1,
+            "own scheme switch"
+        ],
+        [
+            "data-bs-theme set from JavaScript",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "document.documentElement.setAttribute('data-bs-theme', 'dark');\n",
+            1,
+            "own scheme switch"
+        ],
+        [
+            "badge colour inside a Fluid expression",
+            "Resources/Private/Templates/a.html",
+            "<span class=\"badge {f:if(condition: ok, then: 'bg-success', else: 'bg-danger')}\">x</span>\n",
+            1,
+            "Bootstrap colour on a badge"
+        ],
+        [
+            "named colour inside ${…}",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "el.style.color = `${dark ? 'white' : 'black'}`;\n",
+            1,
+            "named colour in JavaScript"
+        ],
+        [
+            "named colour in a Fluid f:if in style",
+            "Resources/Private/Templates/a.html",
+            "<div style=\"color: {f:if(condition: dark, then: 'white', else: 'black')}\">x</div>\n",
+            1,
+            "named colour"
+        ],
+        [
+            "state class assembled at runtime",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "el.insertAdjacentHTML('beforeend', `<span class=\"badge text-bg-${state}\">x</span>`);\n",
+            1,
+            "scheme-pinned class"
+        ],
+        [
+            "markup in a translation",
+            "Resources/Private/Language/locallang.xlf",
+            "<xliff><file><body><trans-unit id=\"a\">\n<source>&lt;span style=\"color:#f00\"&gt;x&lt;/span&gt;</source>\n</trans-unit></body></file></xliff>\n",
+            2,
+            "colour literal"
+        ],
+        [
+            "parse error",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "with (obj) { el.style.color = 'white'; }\n",
+            1,
+            "parse error"
+        ],
+        [
+            "icon paint through url(#…)",
+            "Resources/Public/Icons/a.svg",
+            "<svg><path fill=\"url(#g)\" d=\"M0 0h1v1z\"/></svg>\n",
+            1,
+            "icon paint"
+        ],
+        [
+            "colour value the value parser rejects",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "el.style.color = 'navy )';\n",
+            1,
+            "named colour in JavaScript"
         ]
     ],
     "accepted": [
@@ -512,6 +687,31 @@
             "colour words in text content",
             "Resources/Private/Templates/a.html",
             "<p>Black box, white paper</p>\n"
+        ],
+        [
+            "matchMedia only to hear the scheme change",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "globalThis.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => render());\n"
+        ],
+        [
+            "CSS system colours (they follow color-scheme)",
+            "Resources/Public/Css/Backend/a.css",
+            ".x { background: Canvas; color: CanvasText; }\n"
+        ],
+        [
+            "String#replace with two arguments",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "const s = 'a b'.replace('b', 'white');\n"
+        ],
+        [
+            "textContent of an element that is not <style>",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "const p = document.createElement('p');\np.textContent = 'color: white';\n"
+        ],
+        [
+            "lone # in a colour value",
+            "Resources/Public/JavaScript/Backend/a.js",
+            "el.style.color = '#';\n"
         ]
     ]
 }

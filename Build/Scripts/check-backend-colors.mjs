@@ -17,14 +17,21 @@
  *
  * The files are parsed, not pattern-matched: JavaScript with espree (the
  * parser ESLint uses), CSS with css-tree, templates and SVG with parse5 (the
- * WHATWG HTML parser, which reads SVG as foreign content). CSS and HTML that
- * live inside JavaScript strings, attributes, `<style>` elements, `srcdoc`
- * and data URIs are parsed the same way. The regular-expression version of
- * this check lost three review rounds in a row to forms it could not see.
+ * WHATWG HTML parser's tokenizer, which reads SVG as foreign content). Nested
+ * code goes through the same parsers: `<style>` and `<f:asset.css>` text and
+ * `style` attributes as CSS; `<script>` and `<f:asset.script>` text as
+ * JavaScript; `srcdoc`, `data:` URIs and translation labels as HTML. In
+ * JavaScript, a string is parsed as HTML when it holds a tag, and as CSS only
+ * where the code uses it as CSS: `style.cssText`, `el.style =`,
+ * `setAttribute('style', …)`, `insertRule()`, `replaceSync()` / one-argument
+ * `replace()`, and the text of an element created as `<style>`. Any other
+ * JavaScript string is read for colour literals only. The regular-expression
+ * version of this check lost three review rounds in a row to forms it could
+ * not see.
  *
  * Scanned: Fluid templates and partials, backend CSS, backend JavaScript
- * (not the vendored Chart.js), and the icons in Resources/Public/Icons.
- * Comments are ignored. Refused:
+ * (not the vendored Chart.js), the icons in Resources/Public/Icons, and the
+ * labels in Resources/Private/Language. Comments are ignored. Refused:
  *
  *  1. colour literals — hex (also `%23…` in a data URI), rgb()/rgba()/hsl()/
  *     hsla()/hwb()/lab()/lch()/oklab()/oklch()/color() — in any CSS value, in
@@ -35,27 +42,36 @@
  *     …), of a custom property (`--x: black`) or of `@property …
  *     initial-value`. In JavaScript: the value assigned to a colour property
  *     (`el.style.color = …`, `el.style['color'] = …`, `ctx.fillStyle = …`),
- *     given to a colour key of an object (Chart.js options, `Object.assign(
- *     el.style, …)`), or passed to setProperty() / setAttribute() — read
- *     through arrays, `? :`, `||`, `??`, string concatenation, `.join()` of
- *     literals and template literals, across any number of lines. Any string
- *     that holds HTML is parsed as HTML, `cssText` and a `style` attribute as
- *     CSS. In templates and SVG: colour attributes (`fill`, `stroke`,
- *     `stop-color`, `color`, `bgcolor`, …), `<animate>`/`<set>` values,
- *     `<meta name="theme-color">`, and `srcdoc`, which is parsed as HTML. A
- *     value inside light-dark() carries both schemes and passes;
+ * *     given to a colour key of an object (Chart.js options and their
+ *     scriptable functions, `Object.assign(el.style, …)`), or passed to
+ *     setProperty() / setAttribute() — read through arrays and array
+ *     indexing, `? :`, `||`, `??`, string concatenation, `.join()` of
+ *     literals, template literals and what their `${…}` produce, and what an
+ *     arrow or function returns, across any number of lines. In templates and
+ *     SVG: colour attributes (`fill`, `stroke`, `stop-color`, `color`,
+ *     `bgcolor`, …), `<animate>`/`<set>` values and `<meta
+ *     name="theme-color">`; each quoted argument of a Fluid inline expression
+ *     in a `style` or colour attribute (`{f:if(… then: 'white')}`) is read in
+ *     its place. A value inside light-dark() carries both schemes and passes;
  *  2. `var(--bs-…)`: TYPO3 never sets data-bs-theme, so Bootstrap's variables
  *     keep their light values in the dark scheme;
- *  3. own scheme switches — `@media (prefers-color-scheme` and
- *     `[data-color-scheme` selectors: an unguarded media query renders dark
- *     for a user who chose Light while the OS is dark;
+ *  3. own scheme switches — any at-rule asking for `prefers-color-scheme`
+ *     (`@media`, `@import`, …), a `media=` attribute doing the same,
+ *     `matchMedia('(prefers-color-scheme …)')` unless its result is only
+ *     given a change listener (with the backend scheme on "auto", a chart
+ *     that reads resolved colours must read them again when the OS scheme
+ *     changes), `[data-color-scheme` selectors, and `data-bs-theme`: an
+ *     unguarded query renders dark for a user who chose Light while the OS
+ *     is dark;
  *  4. Bootstrap classes that core's backend CSS does not define, or defines
  *     for one scheme only: `text-bg-*`, `bg-light|white|dark|body*|*-subtle`,
  *     `text-dark|white|black|light`, `text-body*` (not defined on 13.4.35 or
  *     14.3.7, so it does nothing — core's muted text is `text-variant`),
  *     `table-light|dark`, `btn-light|dark|secondary`, `btn-outline-*` (not
  *     defined on either), `alert-light|dark`, and a Bootstrap `bg-*` colour
- *     on a badge. Core uses `badge badge-*` and `btn-default` (v14.3.7: 585
+ *     on a badge — read from the class attribute's tokens, so a Fluid
+ *     expression's quotes do not hide it — and a state class assembled at
+ *     runtime (`text-bg-${…}`, `text-bg-{…}`). Core uses `badge badge-*` and `btn-default` (v14.3.7: 585
  *     btn-default, 2 btn-secondary in templates). `alert-*` itself is allowed:
  *     13.4.35 and 14.3.7 define alert-default|primary|secondary|info|notice|
  *     success|warning|danger on the surface-container tokens, and core's own
@@ -68,16 +84,26 @@
  *     `<animate>`/`<set>` value — and any colour literal outside the accent's
  *     fallback: an icon is drawn in the text colour so it follows the scheme.
  *
- * Not detected: a colour held in a variable and assigned later
- * (`const c = 'black'; … el.style.color = c;`). Seeing it needs data-flow
- * tracking across statements and functions, which a parser alone does not
- * give; the check reads the expression at the point of use.
+ * Not detected, and why:
+ *  - a colour held in a variable and used later (`const c = 'black'; …
+ *    el.style.color = c;`), and a Fluid variable used in a style attribute
+ *    (`<f:variable name="accent" value="white" />` … `style="color:
+ *    {accent}"`): both need data-flow tracking across statements, which a
+ *    parser alone does not give. A hex value there is still a colour
+ *    literal wherever it is written;
+ *  - a JavaScript string used as CSS in a way not listed above (handed to a
+ *    helper, stored and assigned later): it is read for colour literals, not
+ *    for named colours;
+ *  - CSS system colours (`Canvas`, `CanvasText`, …) are allowed on purpose:
+ *    they follow `color-scheme`, which core sets from the backend scheme.
  *
  * Exemption: a comment containing `scheme-independent: <reason>` exempts the
- * value rules in 1 for exactly one syntax node — the statement, object
- * property, CSS declaration or rule on the comment's own line if there is
- * code there, otherwise the first such node after it; in a template the next
- * element's start tag.
+ * value rules in 1 for exactly one syntax node: in JavaScript a statement
+ * (not a whole class, function or block) or an object property; in CSS a
+ * declaration or rule; in a template the next element's start tag. A
+ * comment that shares its line with code exempts only a node that starts on
+ * that line, so one trailing a closing brace exempts nothing; otherwise the
+ * first such node after the comment.
  *
  * Usage: node Build/Scripts/check-backend-colors.mjs [root]
  */
@@ -96,6 +122,7 @@ const SOURCES = [
     ['Resources/Public/Css', '.css'],
     ['Resources/Public/JavaScript/Backend', '.js'],
     ['Resources/Public/Icons', '.svg'],
+    ['Resources/Private/Language', '.xlf'],
 ];
 /** Icons that are not drawn in currentColor, and why. */
 const ICON_EXCEPTIONS = new Set([
@@ -134,10 +161,13 @@ const ALLOWED_PAINT = /^(?:currentcolor|none|var\(\s*--nr-icon-accent\s*,\s*#[0-
 // Token rules: exact class names and tokens, read from the comment-free text.
 const TOKEN_RULES = [
     ['Bootstrap variable', /var\(--bs-/],
-    ['own scheme switch', /@media\s*\(\s*prefers-color-scheme|\[data-color-scheme/],
+    ['own scheme switch', /@media\s*\(\s*prefers-color-scheme|\[data-color-scheme|data-bs-theme/],
     ['scheme-pinned class', /(?<![\w-])(?:text-bg-[a-z]+|bg-(?:light|white|dark|body(?:-[a-z]+)?|[a-z]+-subtle)|text-(?:dark|white|black|light)|text-body(?:-[a-z]+)?|table-(?:light|dark)|btn-(?:light|dark|secondary)|btn-outline-[a-z]+|alert-(?:light|dark))(?![\w-])/],
+    // A state class assembled at runtime: `text-bg-${state}`, Fluid's `text-bg-{state}`.
+    ['scheme-pinned class', /(?<![\w-])text-bg-(?:\$\{|\{)/],
     ['Bootstrap colour on a badge', /\bbadge\b[^"'`>]*(?<![\w-])bg-(?:primary|secondary|success|info|warning|danger)(?![\w-])/],
 ];
+const BADGE_COLOUR = /^bg-(?:primary|secondary|success|info|warning|danger)$/;
 const EXEMPTABLE = new Set(['colour literal', 'named colour', 'named colour in a custom property', 'named colour in JavaScript', 'colour attribute']);
 const PLACEHOLDER = 'nrllmexpr';
 
@@ -166,7 +196,10 @@ function collectFiles() {
         walk(base);
     }
     // Code-unit order, not the locale's: the report reads the same everywhere.
-    return files.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    return files.sort((a, b) => {
+        if (a === b) return 0;
+        return a < b ? -1 : 1;
+    });
 }
 
 /* --------------------------------------------------------------- reporting */
@@ -305,20 +338,19 @@ function lineOf(node, fallback) {
  */
 function checkCss(report, source, { context = 'stylesheet', line = 1, column = 1, icon = false, exemptions = true, fallbackLine = line } = {}) {
     const comments = [];
-    let ast;
-    try {
-        ast = csstree.parse(source, {
-            context,
-            positions: true,
-            line,
-            column,
-            parseCustomProperty: true,
-            onParseError: () => {},
-            onComment: (value, loc) => comments.push({ value, loc }),
-        });
-    } catch {
-        return;
-    }
+    // No try/catch: in the stylesheet and declaration-list contexts css-tree
+    // recovers from syntax errors through onParseError (keeping the text as a
+    // Raw node). Measured over 29 malformed inputs, none threw; the 'value'
+    // context threw on 22 (see checkValueText).
+    const ast = csstree.parse(source, {
+        context,
+        positions: true,
+        line,
+        column,
+        parseCustomProperty: true,
+        onParseError: () => {},
+        onComment: (value, loc) => comments.push({ value, loc }),
+    });
 
     const exemptNodes = [];
     csstree.walk(ast, {
@@ -342,7 +374,8 @@ function checkCss(report, source, { context = 'stylesheet', line = 1, column = 1
 
     csstree.walk(ast, {
         enter(node) {
-            if (node.type === 'Atrule' && node.name.toLowerCase() === 'media' && node.prelude
+            // @media, @import, @supports, @container: any prelude that asks for the OS scheme.
+            if (node.type === 'Atrule' && node.prelude
                 && /prefers-color-scheme/i.test(csstree.generate(node.prelude))) {
                 report.add(lineOf(node, fallbackLine), 'own scheme switch');
             }
@@ -383,10 +416,11 @@ function exemptionTarget(nodes, loc, lines) {
     const after = (lines[loc.end.line - 1] ?? '').slice(loc.end.column - 1).trim();
     const onSameLine = before !== '' || (after !== '' && !after.startsWith('*/'));
     if (onSameLine) {
-        // The innermost node that covers the comment's line.
-        const covering = nodes.filter((n) => n.loc.start.line <= line && n.loc.end.line >= line);
-        covering.sort((a, b) => (a.loc.end.line - a.loc.start.line) - (b.loc.end.line - b.loc.start.line));
-        return covering[0] ?? null;
+        // A node that starts on the comment's line, the innermost one; a comment
+        // trailing a closing brace exempts nothing.
+        const starting = nodes.filter((n) => n.loc.start.line === line);
+        starting.sort((a, b) => (a.loc.end.line - a.loc.start.line) - (b.loc.end.line - b.loc.start.line));
+        return starting[0] ?? null;
     }
     // Otherwise the first node that starts after the comment, outermost first.
     const after2 = nodes.filter((n) => n.loc.start.offset >= loc.end.offset);
@@ -395,6 +429,7 @@ function exemptionTarget(nodes, loc, lines) {
 }
 
 function checkDataUri(report, url, line, icon) {
+    rawLiterals(url, () => report.add(line, 'colour literal'));
     if (!/^data:image\/svg\+xml/i.test(url)) {
         return;
     }
@@ -405,15 +440,59 @@ function checkDataUri(report, url, line, icon) {
     } catch {
         // Leave it encoded; the raw literal scan below still reads `%23…`.
     }
-    rawLiterals(url, () => report.add(line, 'colour literal'));
     checkHtml(report, markup, { line, flat: true, icon });
+}
+
+/**
+ * The texts a template attribute may hold once Fluid has run: each quoted
+ * argument of an inline expression (`{f:if(… then: 'white', else: 'black')}`)
+ * in its place, and the text with every expression replaced by a placeholder.
+ */
+function fluidVariants(text) {
+    const spans = [];
+    for (let i = 0; i < text.length; i++) {
+        if (text[i] !== '{') continue;
+        let depth = 0;
+        let j = i;
+        for (; j < text.length; j++) {
+            if (text[j] === '{') depth++;
+            else if (text[j] === '}' && --depth === 0) break;
+        }
+        if (j >= text.length) break;
+        spans.push([i, j + 1]);
+        i = j;
+    }
+    if (spans.length === 0) return [text];
+    const fill = (replacements) => {
+        let out = '';
+        let at = 0;
+        spans.forEach(([start, end], k) => {
+            out += text.slice(at, start) + replacements[k];
+            at = end;
+        });
+        return out + text.slice(at);
+    };
+    const neutral = spans.map(() => PLACEHOLDER);
+    const variants = new Set([fill(neutral)]);
+    spans.forEach(([start, end], k) => {
+        for (const match of text.slice(start, end).matchAll(/'([^']*)'|"([^"]*)"/g)) {
+            const replacements = [...neutral];
+            replacements[k] = match[1] ?? match[2];
+            variants.add(fill(replacements));
+        }
+    });
+    return [...variants];
 }
 
 /* -------------------------------------------------------------- HTML / SVG */
 
 // Elements whose content the tokenizer must read as text, as a browser does.
+// Elements whose text is handed to the checker: CSS or JavaScript.
+const TEXT_ELEMENTS = new Set(['style', 'f:asset.css', 'script', 'f:asset.script']);
 const TEXT_MODE = new Map([
     ['style', TokenizerMode.RAWTEXT],
+    ['f:asset.css', TokenizerMode.RAWTEXT],
+    ['f:asset.script', TokenizerMode.RAWTEXT],
     ['xmp', TokenizerMode.RAWTEXT],
     ['script', TokenizerMode.SCRIPT_DATA],
     ['textarea', TokenizerMode.RCDATA],
@@ -426,10 +505,10 @@ const TEXT_MODE = new Map([
  * where HTML tree construction would drop them. `<f:comment>` content and
  * HTML comments are skipped and reported to `onComment`.
  */
-function scanHtml(source, { onStartTag, onStyleText, onComment }) {
+function scanHtml(source, { onStartTag, onText, onComment }) {
     let fluidCommentDepth = 0;
     let fluidCommentStart = null;
-    let styleText = null;
+    let block = null;
     const handler = {
         onStartTag(token) {
             const tag = token.tagName.toLowerCase();
@@ -443,7 +522,7 @@ function scanHtml(source, { onStartTag, onStyleText, onComment }) {
             if (mode !== undefined && !token.selfClosing) {
                 tokenizer.state = mode;
                 tokenizer.lastStartTagName = tag;
-                if (tag === 'style') styleText = { text: '', location: null };
+                if (TEXT_ELEMENTS.has(tag)) block = { tag, token, text: '', location: null };
             }
         },
         onEndTag(token) {
@@ -452,18 +531,18 @@ function scanHtml(source, { onStartTag, onStyleText, onComment }) {
                 if (--fluidCommentDepth === 0) onComment?.({ ...fluidCommentStart, endOffset: token.location.endOffset, fluid: true });
                 return;
             }
-            if (tag === 'style' && styleText) {
-                onStyleText?.(styleText.text, styleText.location);
-                styleText = null;
+            if (block && tag === block.tag) {
+                onText?.(block.tag, block.token, block.text, block.location);
+                block = null;
             }
         },
         onComment(token) {
             if (fluidCommentDepth === 0) onComment?.({ ...token.location, data: token.data });
         },
         onCharacter(token) {
-            if (styleText) {
-                styleText.location ??= token.location;
-                styleText.text += token.chars;
+            if (block) {
+                block.location ??= token.location;
+                block.text += token.chars;
             }
         },
         onWhitespaceCharacter(token) {
@@ -490,11 +569,17 @@ function checkValueText(report, text, line, { named, namedRule, icon = false }) 
         }
         return;
     }
+    // The 'value' context throws on malformed input (a lone `#`, `navy )`)
+    // despite onParseError. Such text is read from css-tree's token stream.
     let value;
     try {
         value = csstree.parse(text, { context: 'value', onParseError: () => {} });
     } catch {
-        rawLiterals(text, () => report.add(line, 'colour literal'));
+        valueTokens(text, {
+            named,
+            onLiteral: () => report.add(line, 'colour literal'),
+            onNamed: () => report.add(line, namedRule),
+        });
         return;
     }
     checkValueAst(value, {
@@ -502,6 +587,29 @@ function checkValueText(report, text, line, { named, namedRule, icon = false }) 
         onLiteral: () => report.add(line, 'colour literal'),
         onNamed: () => report.add(line, namedRule),
         onDataUri: (n) => checkDataUri(report, n.value, line, false),
+    });
+}
+
+/** Colour tokens in text the value parser rejects: identifiers, hashes, colour functions. */
+function valueTokens(text, { named, onLiteral, onNamed }) {
+    const T = csstree.tokenTypes;
+    let skipDepth = 0;
+    csstree.tokenize(text, (type, start, end) => {
+        const token = text.slice(start, end);
+        if (skipDepth > 0) {
+            if (type === T.Function || type === T.LeftParenthesis) skipDepth++;
+            else if (type === T.RightParenthesis) skipDepth--;
+            return;
+        }
+        if (type === T.Function) {
+            const name = token.slice(0, -1).toLowerCase();
+            if (name === 'light-dark') skipDepth = 1;
+            else if (COLOUR_FUNCTIONS.has(name)) onLiteral();
+        } else if (type === T.Hash && /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(token)) {
+            onLiteral();
+        } else if (type === T.Ident && named && NAMED_COLOURS.has(token.toLowerCase())) {
+            onNamed();
+        }
     });
 }
 
@@ -537,11 +645,27 @@ function checkHtml(report, source, { line = 1, flat = false, icon = false, exemp
                 const lower = name.toLowerCase();
                 const where = lineAt(token.location?.attrs?.[name]?.startLine ?? token.location?.startLine);
                 if (lower === 'style') {
-                    checkCss(report, value, { context: 'declarationList', line: where, icon, exemptions: false, fallbackLine: where });
+                    for (const variant of fluidVariants(value)) {
+                        checkCss(report, variant, { context: 'declarationList', line: where, icon, exemptions: false, fallbackLine: where });
+                    }
                 } else if (lower === 'srcdoc') {
                     checkHtml(report, value, { line: where, flat: true, icon });
+                } else if (lower === 'class') {
+                    // Read as class tokens, so Fluid's quotes (`{f:if(… then: 'bg-success')}`) do not hide one.
+                    const classes = value.split(/[^\w-]+/);
+                    if (classes.includes('badge') && classes.some((c) => BADGE_COLOUR.test(c))) {
+                        report.add(where, 'Bootstrap colour on a badge');
+                    }
+                } else if (lower === 'media') {
+                    if (/prefers-color-scheme/i.test(value)) {
+                        report.add(where, 'own scheme switch');
+                    }
+                } else if (URL_ATTRIBUTES.has(lower) && /^\s*data:/i.test(value)) {
+                    checkDataUri(report, value.trim(), where, icon);
                 } else if (COLOUR_ATTRIBUTES.has(lower)) {
-                    checkValueText(report, value, where, { named: true, namedRule: 'colour attribute', icon: icon && PAINT_ATTRIBUTES.has(lower) });
+                    for (const variant of fluidVariants(value)) {
+                        checkValueText(report, variant, where, { named: true, namedRule: 'colour attribute', icon: icon && PAINT_ATTRIBUTES.has(lower) });
+                    }
                 } else if ((tag === 'animate' || tag === 'set' || tag === 'animatecolor') && ANIMATION_VALUE_ATTRIBUTES.has(lower)) {
                     const target = (attr(token, 'attributeName')?.value ?? '').toLowerCase();
                     if (target === '' || COLOUR_ATTRIBUTES.has(target) || CSS_COLOUR_PROPERTY.test(target)) {
@@ -557,15 +681,25 @@ function checkHtml(report, source, { line = 1, flat = false, icon = false, exemp
                 }
             }
         },
-        onStyleText(text, loc) {
+        onText(tag, token, text, loc) {
             const start = lineAt(loc?.startLine);
-            checkCss(report, text, {
-                line: start,
-                column: flat ? 1 : (loc?.startCol ?? 1),
-                icon,
-                exemptions: !flat && shift === 0,
-                fallbackLine: start,
-            });
+            if (tag === 'style' || tag === 'f:asset.css') {
+                checkCss(report, text, {
+                    line: start,
+                    column: flat ? 1 : (loc?.startCol ?? 1),
+                    icon,
+                    exemptions: !flat && shift === 0,
+                    fallbackLine: start,
+                });
+                return;
+            }
+            // <script>, <f:asset.script>: JavaScript unless its type says otherwise.
+            const type = (attr(token, 'type')?.value ?? '').trim().toLowerCase();
+            if (type === '' || type === 'module' || /(?:java|ecma)script/.test(type)) {
+                checkJs(report, text, { line: start, flat });
+            } else if (/html|template/.test(type)) {
+                checkHtml(report, text, { line: start, flat });
+            }
         },
     });
 
@@ -621,11 +755,46 @@ function candidateTexts(node) {
             return candidateTexts(node.expressions[node.expressions.length - 1]);
         case 'AssignmentExpression':
             return candidateTexts(node.right);
+        case 'ArrowFunctionExpression':
+        case 'FunctionExpression':
+            // Chart.js scriptable options: the value is what the function returns.
+            return node.body.type === 'BlockStatement' ? returnedExpressions(node.body).flatMap(candidateTexts) : candidateTexts(node.body);
+        case 'MemberExpression':
+            // ['white', 'black'][i]
+            return node.computed && node.object.type === 'ArrayExpression' ? candidateTexts(node.object) : [];
+        case 'TemplateLiteral':
+            // The literal's own text, and what each `${…}` may produce.
+            return [{ text: staticText(node), node }, ...node.expressions.flatMap(candidateTexts)];
         default: {
             const text = staticText(node);
             return text === null ? [] : [{ text, node }];
         }
     }
+}
+
+/** The expressions a function body returns, not looking into nested functions. */
+function returnedExpressions(block) {
+    const found = [];
+    const visit = (node) => {
+        if (!node || typeof node.type !== 'string' || /Function/.test(node.type)) return;
+        if (node.type === 'ReturnStatement') {
+            if (node.argument) found.push(node.argument);
+            return;
+        }
+        for (const key of espree.VisitorKeys[node.type] ?? []) {
+            const child = node[key];
+            if (Array.isArray(child)) child.forEach(visit);
+            else visit(child);
+        }
+    };
+    block.body.forEach(visit);
+    return found;
+}
+
+/** The name a call is made to: `matchMedia` for both `matchMedia(…)` and `window.matchMedia(…)`. */
+function calleeName(call) {
+    if (call.callee.type === 'Identifier') return call.callee.name;
+    return propertyName(call.callee);
 }
 
 function propertyName(member) {
@@ -645,7 +814,25 @@ function isColourKey(name) {
     return typeof name === 'string' && (JS_COLOUR_KEY.test(name) || CSS_COLOUR_PROPERTY.test(name));
 }
 
-function checkJs(report, source) {
+/**
+ * Findings of a fragment (a <script> in a template) land on its file's lines:
+ * shifted by `line - 1`, or all on `line` when the fragment is `flat`.
+ */
+function fragmentReport(report, source, line, flat) {
+    const map = (l) => (flat ? line : l + line - 1);
+    return {
+        lines: source.split('\n'),
+        add: (l, rule, detail) => report.add(map(l), rule, detail),
+        exemptRange: (from, to) => report.exemptRange(map(from), map(to)),
+    };
+}
+
+// Nodes a `scheme-independent:` comment can exempt: single statements and
+// object properties, never a whole class, function or block.
+const JS_EXEMPTABLE = new Set(['ExpressionStatement', 'VariableDeclaration', 'ReturnStatement', 'ThrowStatement', 'Property', 'PropertyDefinition']);
+
+function checkJs(outer, source, { line = 1, flat = false } = {}) {
+    const report = line === 1 && !flat ? outer : fragmentReport(outer, source, line, flat);
     let ast;
     try {
         ast = espree.parse(source, { ecmaVersion: 'latest', sourceType: 'module', loc: true, range: true, comment: true });
@@ -667,9 +854,17 @@ function checkJs(report, source) {
             else walk(child, node, visitor);
         }
     };
+    const styleElements = new Set();
     walk(ast, null, (node) => {
-        if (/Statement$|Declaration$/.test(node.type) || node.type === 'Property') {
+        if (JS_EXEMPTABLE.has(node.type)) {
             exemptable.push(node);
+        }
+        // `const s = document.createElement('style')`: s's text is CSS.
+        const init = node.type === 'VariableDeclarator' ? node.init : (node.type === 'AssignmentExpression' ? node.right : null);
+        const target = node.type === 'VariableDeclarator' ? node.id : (node.type === 'AssignmentExpression' ? node.left : null);
+        if (init?.type === 'CallExpression' && calleeName(init) === 'createElement'
+            && staticText(init.arguments[0])?.toLowerCase() === 'style' && target?.type === 'Identifier') {
+            styleElements.add(target.name);
         }
     });
 
@@ -681,8 +876,10 @@ function checkJs(report, source) {
         const after = (report.lines[loc.end.line - 1] ?? '').slice(loc.end.column).trim();
         let target;
         if (before !== '' || after !== '') {
+            // A node that starts on the comment's line; a comment trailing a
+            // closing brace exempts nothing.
             target = exemptable
-                .filter((n) => n.loc.start.line <= line && n.loc.end.line >= line && n.type !== 'Program')
+                .filter((n) => n.loc.start.line === line)
                 .sort((a, b) => (a.loc.end.line - a.loc.start.line) - (b.loc.end.line - b.loc.start.line))[0];
         } else {
             target = exemptable
@@ -697,11 +894,12 @@ function checkJs(report, source) {
             checkValueText(report, text, node.loc.start.line, { named: true, namedRule: fallbackRule });
         }
     };
-    const cssText = (expression) => {
+    const cssText = (expression, context = 'declarationList') => {
         for (const { text, node } of candidateTexts(expression)) {
-            checkCss(report, text, { context: 'declarationList', line: node.loc.start.line, exemptions: false, fallbackLine: node.loc.start.line });
+            checkCss(report, text, { context, line: node.loc.start.line, exemptions: false, fallbackLine: node.loc.start.line });
         }
     };
+    const styleSheet = (expression) => cssText(expression, 'stylesheet');
 
     // Maximal static texts: every string the code holds, checked once.
     const handled = new Set();
@@ -709,8 +907,12 @@ function checkJs(report, source) {
         // Colour contexts.
         if (node.type === 'AssignmentExpression') {
             const name = propertyName(node.left);
-            if (name === 'cssText') {
+            if (name === 'cssText' || name === 'style') {
+                // el.style.cssText = …, el.style = …
                 cssText(node.right);
+            } else if ((name === 'textContent' || name === 'innerText' || name === 'innerHTML')
+                && node.left.object.type === 'Identifier' && styleElements.has(node.left.object.name)) {
+                styleSheet(node.right);
             } else if (isColourKey(name)) {
                 colourValue(node.right);
             }
@@ -719,10 +921,23 @@ function checkJs(report, source) {
             if (isColourKey(name)) {
                 colourValue(node.value);
             }
+        } else if (node.type === 'CallExpression' && calleeName(node) === 'matchMedia') {
+            // Deciding by the OS scheme (`.matches`, or keeping the list) is an own
+            // switch. Only listening for its change is not: with the backend
+            // scheme on "auto", light-dark() follows the OS, and a chart that
+            // reads its colours once has to read them again.
+            const use = parent?.type === 'MemberExpression' && parent.object === node ? propertyName(parent) : null;
+            const listensOnly = use === 'addEventListener' || use === 'addListener';
+            if (!listensOnly && candidateTexts(node.arguments[0]).some(({ text }) => /prefers-color-scheme/i.test(text))) {
+                report.add(node.loc.start.line, 'own scheme switch');
+            }
         } else if (node.type === 'CallExpression' && node.callee.type === 'MemberExpression') {
             const method = propertyName(node.callee);
             const first = staticText(node.arguments[0]);
-            if (method === 'setProperty' && typeof first === 'string' && (first.startsWith('--') || CSS_COLOUR_PROPERTY.test(first))) {
+            // sheet.insertRule(…), sheet.replaceSync(…), sheet.replace(…) (one argument: not String#replace)
+            if (method === 'insertRule' || method === 'replaceSync' || (method === 'replace' && node.arguments.length === 1)) {
+                styleSheet(node.arguments[0]);
+            } else if (method === 'setProperty' && typeof first === 'string' && (first.startsWith('--') || CSS_COLOUR_PROPERTY.test(first))) {
                 colourValue(node.arguments[1]);
             } else if (method === 'setAttribute' && typeof first === 'string') {
                 const attribute = first.toLowerCase();
@@ -748,6 +963,41 @@ function checkJs(report, source) {
             checkHtml(report, text, { line, flat: node.type !== 'TemplateLiteral' && node.type !== 'Literal' });
         }
     });
+}
+
+/* ---------------------------------------------------------- translations */
+
+/**
+ * A label may carry markup (`&lt;span style="…"&gt;`), which the backend
+ * renders as HTML: the decoded text of each <source> and <target> is checked
+ * as HTML, on the line its element starts.
+ */
+function checkTranslations(report, source) {
+    let unit = null;
+    const tokenizer = new Tokenizer({ sourceCodeLocationInfo: true }, {
+        onStartTag(token) {
+            const tag = token.tagName.toLowerCase();
+            if (tag === 'source' || tag === 'target') unit = { tag, line: token.location?.startLine ?? 1, text: '' };
+        },
+        onEndTag(token) {
+            if (unit && token.tagName.toLowerCase() === unit.tag) {
+                checkHtml(report, unit.text, { line: unit.line, flat: true });
+                unit = null;
+            }
+        },
+        onCharacter(token) {
+            if (unit) unit.text += token.chars;
+        },
+        onWhitespaceCharacter(token) {
+            if (unit) unit.text += token.chars;
+        },
+        onComment() {},
+        onNullCharacter() {},
+        onDoctype() {},
+        onEof() {},
+        onParseError: null,
+    });
+    tokenizer.write(source, true);
 }
 
 /* ------------------------------------------------------------------- main */
@@ -778,6 +1028,8 @@ for (const file of collectFiles()) {
         tokenRules(report, blank(source, ranges));
     } else if (extension === '.svg') {
         checkHtml(report, source, { icon: true });
+    } else if (extension === '.xlf') {
+        checkTranslations(report, source);
     } else {
         const comments = checkHtml(report, source, { exemptions: true });
         tokenRules(report, blank(source, comments));

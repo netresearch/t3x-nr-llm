@@ -110,7 +110,7 @@
             "@ci:test:php:functional"
         ],
         "ci:test:agent-docs": "php Build/Scripts/check-agent-doc-symlinks.php",
-        "ci:test:colors": "node Build/Scripts/check-backend-colors.mjs",
+        "ci:test:colors": "npm run lint:colors",
         "ci:test:changelog": [
             "php Build/Scripts/check-changelog-unreleased.php",
             "php Build/Scripts/check-changelog-released-sections.php"

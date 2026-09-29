@@ -5,6 +5,8 @@
 <!-- AGENTS-GENERATED:START overview -->
 ## Overview
 GitHub Actions workflows and CI/CD automation. **This repository defines no workflow jobs of its own**: every workflow is a thin caller of a shared `netresearch/*` reusable workflow, so action pinning, runner hardening and security review happen once there — for all callers. `composer ci:test:workflows` (pre-commit and CI) refuses a job with local steps; the single exception is the aggregate `gate` job in `checks.yml`, which evaluates the other jobs' results and therefore cannot be a reusable-workflow call.
+
+**The backend colour check is not in `ci:test:repo`.** `Build/Scripts/check-backend-colors.mjs` parses JavaScript, CSS and HTML with espree, css-tree and parse5 from `node_modules`, and the shared `repo-checks` job installs no dependencies by design. It runs in `js-lint.yml` instead (`npx eslint && npm run lint:colors`, after `npm ci`), and locally as `composer ci:test:colors` (which calls `npm run lint:colors`) from the captainhook pre-commit hook. `js-lint / check` is not a required status check.
 <!-- AGENTS-GENERATED:END overview -->
 
 <!-- AGENTS-GENERATED:START filemap -->
@@ -48,7 +50,7 @@ GitHub Actions workflows and CI/CD automation. **This repository defines no work
 
 <!-- AGENTS-GENERATED:START code-style -->
 ## Workflow conventions
-- **No local jobs.** A repo-specific check goes in the shared workflow's `repo-checks` job, not in a job here: set `run-repo-checks: true` in `ci.yml` and add the command to the `ci:test:repo` composer script. That script is also what pre-commit runs, so the local and CI halves are the same command.
+- **No local jobs.** A repo-specific check goes in the shared workflow's `repo-checks` job, not in a job here: set `run-repo-checks: true` in `ci.yml` and add the command to the `ci:test:repo` composer script. That script is also what pre-commit runs, so the local and CI halves are the same command. A check that needs installed dependencies cannot run there; the colour check is the one such case (see Overview).
 - Why this is a rule and not a preference: a local job carries its own action pins, and a wrong pin does not fail like a normal check. Repo and org both set `sha_pinning_required`, so a tag ref kills the run at `Set up job` — before any step executes, so the log has no step output — and zizmor, Opengrep, CodeQL and SonarCloud then each flag the same lines. On 2026-08-11 that was six red checks for one mistake, none of them naming the cause.
 - **Pin third-party actions** to a full commit SHA, never a mutable tag (the shared workflows do this centrally; it only becomes your problem in the exempted `gate` job).
 - **Minimal permissions**: top-level `permissions:` block on every workflow; job-level `contents: read` on reusable calls.
