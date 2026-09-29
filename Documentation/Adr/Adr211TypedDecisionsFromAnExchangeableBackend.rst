@@ -113,9 +113,14 @@ vendor: classification, selection and rubric scoring are one operation.
    as it picks any other model, and never holds a key.
 
 3. **Data policy through the trust zone.** Before any request, the service
-   checks the profile's data class against the trust zone of the provider
-   that will receive the subject (:php:`TrustZoneResolver`, the ceiling
-   :ref:`ADR-094 <adr-094>` introduced for tools). A profile whose subject is
+   checks the profile's data class against the least trusted zone the call
+   can reach — the provider of the model that will serve it and every
+   provider one fallback hop away, a criteria-mode fallback counted as
+   external-global (:php:`TrustZoneResolver`, the ceiling
+   :ref:`ADR-094 <adr-094>` introduced for tools). The model is resolved
+   once and that routing decision is handed to the call, so the model
+   checked is the model that serves; the input-context gate reads the same
+   decision. A profile whose subject is
    internal configuration is refused on an external-global provider,
    whichever model that is. This replaces a list of permitted backend names,
    which said nothing about where a backend sends its data.
@@ -124,12 +129,14 @@ vendor: classification, selection and rubric scoring are one operation.
    configuration's model for ``ProviderOperation::Decision``. Where that
    yields no decision model — a fixed chat model, or criteria that match no
    decision model — the structured path runs as the chat call it is: it
-   resolves for ``ProviderOperation::Chat`` (requiring ``chat``) and is
+   resolves for ``ProviderOperation::Chat`` (a model that declares ``chat``,
+   or one that declares no capabilities at all) and is
    recorded under that operation, so telemetry and usage name what
    actually ran.
 
-   * *Native* — the model declares ``decision`` and its adapter implements
-     :php:`DecisionCapableInterface`:
+   * *Native* — the model declares ``decision``; its adapter must implement
+     :php:`DecisionCapableInterface`, and one that does not is refused as a
+     model that cannot decide rather than asked through the other path:
      ``LlmServiceManager::decideForConfiguration()`` screens every subject
      field through the input guardrails, enters the middleware pipeline
      with the configuration (budget per configuration and user, fallback,
@@ -158,9 +165,11 @@ vendor: classification, selection and rubric scoring are one operation.
    the two.
 
 5. **Prices are decimal.** ``Model`` keeps its unit, cents per million
-   tokens, and stores it as a decimal, so a price of 4.2 cents is a price and
-   not 4 or 0. This is a breaking change of ``Model``'s price getters from
-   ``int`` to ``float``.
+   tokens, and stores it with two decimals — the precision TYPO3's backend
+   form keeps for a decimal field — so a price of 4.2 cents is a price and
+   not 4 or 0; the smallest price stored is 0.01 cents per million tokens.
+   This is a breaking change of ``Model``'s price getters from ``int`` to
+   ``float``, and of the criteria cap on the input price with them.
 
 6. **The result says what was measured.** :php:`DecisionResult` carries, per
    question, the answer (the probability of yes, the chosen option, the score
@@ -179,10 +188,13 @@ vendor: classification, selection and rubric scoring are one operation.
    receive, a model that can neither decide nor chat, a request the provider
    rejects as invalid, a transport failure and an answer that does not match
    the questions asked — wrong key, type, option, level range or probability
-   keys, or a result claiming another profile or version — all throw
-   :php:`DecisionException` with a named code. Budget denials and guardrail
-   denials keep their own types. No code path turns "the model could not be
-   asked" into an answer.
+   keys — all throw :php:`DecisionException` with a named code. Budget,
+   guardrail and input-context trust-zone denials keep their own types, as
+   policy a caller may handle. No code path turns "the model could not be
+   asked" into an answer. A fallback configuration whose model cannot serve
+   the operation at all is skipped rather than reported in place of the
+   primary's failure — for every operation, since the same holds for a
+   sibling that lacks embeddings or vision.
 
 8. **No verdict, no enforcement.** The service returns answers. Thresholds,
    what follows from an answer (warn, block, retry, ask a human) and every
@@ -214,7 +226,11 @@ vendor: classification, selection and rubric scoring are one operation.
     keeping both would leave two judges with two failure semantics, one of
     them bound to the default chat configuration. The grader, not the
     service, folds a failure into a failed grade, because in an offline run
-    one bad call must not abort the set. The grader judges the response
+    one bad call must not abort the set. What would fail every grade — no
+    configuration, a profile that cannot be used, a model that cannot answer,
+    a trust zone that may not receive the task — is checked before the run
+    spends its first completion (``assertAvailable()``), and refuses the run
+    instead. The grader judges the response
     against the task and the system prompt the call ran with, so an ignored
     instruction counts against it.
 
