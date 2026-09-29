@@ -46,8 +46,11 @@ Build five **native, read-only** tools — own implementations inspired by
 those catalogues, with no dependency on either extension:
 
 ``search_records``
-    Full-text search across tables declaring TCA ``searchFields``
-    (mcp_server's Search as the model).
+    Full-text search across the record fields the TYPO3 backend search
+    covers, as ``SearchableSchemaFieldsCollector`` resolves them
+    (``ctrl.searchFields`` on v13, or every input/text column without it; the
+    per-column ``searchable`` flag on v14;
+    mcp_server's Search as the model).
 
 ``get_page_content``
     One page plus its content elements in column/sorting order (mcp_server's

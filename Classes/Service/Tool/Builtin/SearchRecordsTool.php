@@ -25,11 +25,15 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
- * Full-text search across the tables that declare TCA `searchFields`.
+ * Full-text search across the record fields the TYPO3 backend search covers,
+ * as the core's {@see SearchableSchemaFieldsCollector} resolves them: on v13 a
+ * table's `ctrl.searchFields`, or every input/text column when it sets none;
+ * on v14 every column whose type is searchable and whose config does not set
+ * `searchable => false`.
  *
  * Inspired by the Search tool of EXT:mcp_server (hauptsache.net,
  * GPL-2.0-or-later); own implementation. Per table a LIKE query runs across
- * the declared search fields and returns compact `table:uid` hits with a
+ * those fields and returns compact `table:uid` hits with a
  * short excerpt around the first matching field.
  *
  * Security contract (see {@see ToolInterface} and ADR-042): the table set is
@@ -72,7 +76,7 @@ final readonly class SearchRecordsTool implements ToolInterface
     {
         return ToolSpec::function(
             'search_records',
-            'Full-text search across the TYPO3 tables that define TCA searchFields (pages, content '
+            'Full-text search across the record fields the TYPO3 backend search covers (pages, content '
             . 'elements, ...). Returns table:uid hits with a short excerpt around the match. A hit on a '
             . 'language-aware table names its language and, for a translation, the uid of the record it '
             . 'translates — a translation is not a duplicate. Deleted and hidden records are excluded.',
@@ -183,8 +187,9 @@ final readonly class SearchRecordsTool implements ToolInterface
     /**
      * The tables this call may search, mapped to their searchable fields as
      * resolved by the core's {@see SearchableSchemaFieldsCollector} (the
-     * cross-version source: `ctrl.searchFields` on v13, the per-column
-     * `searchable` flag on v14), minus credential-ish columns.
+     * cross-version source: `ctrl.searchFields` on v13, or every input/text
+     * column without it; the per-column `searchable` flag on v14), minus
+     * credential-ish columns.
      *
      * @return array<string, list<string>>
      */

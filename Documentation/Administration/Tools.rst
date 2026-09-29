@@ -140,7 +140,10 @@ The remaining tools follow the same pattern:
    non-credential profile columns and ships disabled.
 
 ``search_records``
-   Full-text search across the tables that define TCA ``searchFields``.
+   Full-text search across the record fields the TYPO3 backend search
+   covers. On TYPO3 v13 these are a table's ``ctrl.searchFields``, or every
+   input and text column when the table sets none; on TYPO3 v14 every column
+   of a searchable type whose TCA does not set ``'searchable' => false``.
    Returns compact ``table:uid`` hits with a short excerpt around the match.
    Credential and nr-llm configuration tables are never searched; non-admins
    are limited to their ``tables_select`` tables and to hits on pages they

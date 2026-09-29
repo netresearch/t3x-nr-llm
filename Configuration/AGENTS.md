@@ -43,7 +43,7 @@ Configuration/
 └── Services.Dashboard.php   # Dashboard widgets DI
 ```
 
-New tables get a per-table file directly under `TCA/`; nr_llm does not extend foreign tables. `TCA/Overrides/v13_search_fields.php` is the only override: the base files set no `ctrl.searchFields` (TYPO3 v14 removed it, #106972, and logs a deprecation when it is set) and mark every input/text/datetime column that must stay out of the backend search — and out of the `search_records` tool — with `'searchable' => false`. TYPO3 v13 ignores that flag, so the override sets `searchFields` there. A new table gets both: `searchable => false` where needed, and its `searchFields` entry in the override.
+New tables get a per-table file directly under `TCA/`; nr_llm does not extend foreign tables. `TCA/Overrides/v13_search_fields.php` is the only override: the base files set no `ctrl.searchFields` (TYPO3 v14 removed it, #106972, and logs a deprecation when it is set) and mark every input/text/datetime column that must stay out of the backend list-module and live search with `'searchable' => false` (the `search_records` tool never reads `tx_nrllm*` tables; `TableReadAccessService` denylists them). TYPO3 v13 ignores that flag, so the override sets `searchFields` there. A new table gets both: `searchable => false` where needed, and its `searchFields` entry in the override.
 
 ### Database Tables
 

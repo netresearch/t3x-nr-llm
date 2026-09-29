@@ -20,10 +20,11 @@ use TYPO3\CMS\Core\Schema\SearchableSchemaFieldsCollector;
  *
  * TYPO3 v13 derives it from `ctrl.searchFields` (set by
  * Configuration/TCA/Overrides/v13_search_fields.php), TYPO3 v14 from the
- * per-column `searchable` flag. The core collector answers for both, and it is
- * also what the search_records tool reads, so a column that becomes searchable
- * here becomes visible to the LLM there. Select and user columns were listed in
- * `searchFields` but are not searchable on either version.
+ * per-column `searchable` flag. The core collector answers for both; it feeds
+ * the list-module and live search. The search_records tool reads the same
+ * collector but never an nr_llm table (TableReadAccessService denylists the
+ * `tx_nrllm` prefix). Select and user columns were listed in `searchFields`
+ * but are not searchable on either version.
  */
 #[CoversNothing]
 final class SearchScopeTest extends AbstractFunctionalTestCase

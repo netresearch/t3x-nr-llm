@@ -8,7 +8,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- **TYPO3 v14 no longer logs a TCA migration deprecation for nine nr_llm tables.** The TCA files no longer set `ctrl.searchFields`, which v14 removed (#106972) and strips with a deprecation. The backend search scope, and with it what the `search_records` tool can read, is unchanged on both versions: on v14 every input, text and datetime column the automatic migration used to mark `searchable => false` now carries that flag itself (23 columns, among them `tx_nrllm_provider.api_key`, `tx_nrllm_mcp_server.auth_credential`, `tx_nrllm_skill.body` and `tx_nrllm_task.prompt_template`), and v13, which ignores the flag, gets the former `searchFields` from `Configuration/TCA/Overrides/v13_search_fields.php`, which applies on v13 only.
+- **TYPO3 v14 no longer logs a TCA migration deprecation for nine nr_llm tables.** The TCA files no longer set `ctrl.searchFields`, which v14 removed (#106972) and strips with a deprecation. The backend search scope is unchanged on both versions (the `search_records` tool never reads nr_llm tables, so nothing changes for it): on v14 every input, text and datetime column the automatic migration used to mark `searchable => false` now carries that flag itself (23 columns, among them `tx_nrllm_provider.api_key`, `tx_nrllm_mcp_server.auth_credential`, `tx_nrllm_skill.body` and `tx_nrllm_task.prompt_template`), and v13, which ignores the flag, gets the former `searchFields` from `Configuration/TCA/Overrides/v13_search_fields.php`, which applies on v13 only.
+- **The `search_records` description no longer says it covers only tables that define TCA `searchFields`.** The tool reads the core's search scope: on v13 a table's `searchFields`, or every input and text column when it sets none; on v14 the per-column `searchable` flag. The description sent to the model, `Documentation/Administration/Tools.rst` and ADR-042 now say that.
 
 ## [0.38.0] - 2026-09-27
 
