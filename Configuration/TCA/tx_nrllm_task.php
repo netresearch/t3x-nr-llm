@@ -17,7 +17,6 @@ return [
         'delete' => 'deleted',
         'sortby' => 'sorting',
         'default_sortby' => 'category ASC, sorting ASC, name ASC',
-        'searchFields' => 'identifier,name,description,category',
         'enablecolumns' => [
             'disabled' => 'hidden',
         ],
@@ -144,6 +143,7 @@ return [
                 'rows' => 15,
                 'required' => true,
                 'placeholder' => 'Analyze the following log entries and provide a summary of issues found:\n\n{{input}}',
+                'searchable' => false,
             ],
         ],
         'input_type' => [

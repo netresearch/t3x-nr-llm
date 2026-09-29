@@ -18,7 +18,6 @@ return [
         'crdate' => 'crdate',
         'delete' => 'deleted',
         'default_sortby' => 'name ASC',
-        'searchFields' => 'identifier,name,description,url',
         'enablecolumns' => [
             'disabled' => 'hidden',
         ],
@@ -106,12 +105,15 @@ return [
                 'required' => true,
             ],
         ],
-        'auth_credential' => VaultFieldHelper::getSecureFieldConfig(
-            'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.auth_credential',
-            [
-                'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.auth_credential.description',
-                'size' => 50,
-            ],
+        'auth_credential' => array_replace_recursive(
+            VaultFieldHelper::getSecureFieldConfig(
+                'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.auth_credential',
+                [
+                    'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.auth_credential.description',
+                    'size' => 50,
+                ],
+            ),
+            ['config' => ['searchable' => false]],
         ),
         'auth_placement' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.auth_placement',
@@ -136,6 +138,7 @@ return [
                 'size' => 30,
                 'max' => 190,
                 'trim' => true,
+                'searchable' => false,
             ],
         ],
         // Egress ceiling every tool of this server is measured against
@@ -199,6 +202,7 @@ return [
                 'cols' => 40,
                 'rows' => 3,
                 'readOnly' => true,
+                'searchable' => false,
             ],
         ],
         'last_imported' => [
@@ -206,6 +210,7 @@ return [
             'config' => [
                 'type' => 'datetime',
                 'readOnly' => true,
+                'searchable' => false,
             ],
         ],
         'tool_count' => [
@@ -226,6 +231,7 @@ return [
             'config' => [
                 'type' => 'datetime',
                 'readOnly' => true,
+                'searchable' => false,
             ],
         ],
         'last_latency_ms' => [

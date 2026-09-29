@@ -32,7 +32,6 @@ return [
         // applies is decided by uid (ADR-208), and a drag order in the list
         // module would suggest otherwise.
         'default_sortby' => 'site_identifier ASC, source_language ASC, target_language ASC, uid ASC',
-        'searchFields' => 'name,site_identifier,entries',
         'enablecolumns' => [
             'disabled' => 'hidden',
         ],
@@ -104,6 +103,7 @@ return [
                 'eval' => 'alpha,lower',
                 'required' => true,
                 'placeholder' => 'de',
+                'searchable' => false,
             ],
         ],
         'target_language' => [
@@ -118,6 +118,7 @@ return [
                 'eval' => 'alpha,lower',
                 'required' => true,
                 'placeholder' => 'en',
+                'searchable' => false,
             ],
         ],
         'entries' => [

@@ -16,7 +16,6 @@ return [
         'crdate' => 'crdate',
         'delete' => 'deleted',
         'default_sortby' => 'name ASC',
-        'searchFields' => 'identifier,name,description',
         'enablecolumns' => [
             'disabled' => 'hidden',
         ],
@@ -99,6 +98,7 @@ return [
                 'type' => 'text',
                 'cols' => 80,
                 'rows' => 12,
+                'searchable' => false,
             ],
         ],
         'body_checksum' => [
@@ -108,6 +108,7 @@ return [
                 'size' => 30,
                 'max' => 64,
                 'readOnly' => true,
+                'searchable' => false,
             ],
         ],
         'source_sha' => [
@@ -117,6 +118,7 @@ return [
                 'size' => 30,
                 'max' => 64,
                 'readOnly' => true,
+                'searchable' => false,
             ],
         ],
         'raw_frontmatter' => [
@@ -197,6 +199,7 @@ return [
                 'cols' => 40,
                 'rows' => 3,
                 'readOnly' => true,
+                'searchable' => false,
             ],
         ],
         'allowed_tools' => [

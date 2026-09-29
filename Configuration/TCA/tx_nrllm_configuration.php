@@ -20,7 +20,6 @@ return [
         'crdate' => 'crdate',
         'sortby' => 'sorting',
         'default_sortby' => 'name ASC',
-        'searchFields' => 'identifier,name,description',
         'delete' => 'deleted',
         'enablecolumns' => [
             'disabled' => 'hidden',
@@ -384,6 +383,7 @@ return [
                 'trim' => true,
                 'placeholder' => '{"configurationIdentifiers":["claude-sonnet","ollama-local"]}',
                 'default' => '',
+                'searchable' => false,
             ],
         ],
         // SHA-256 checksum of the configuration preset this record was imported from; written by

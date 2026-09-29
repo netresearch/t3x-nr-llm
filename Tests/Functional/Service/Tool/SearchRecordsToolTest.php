@@ -23,8 +23,8 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 /**
  * Functional tests for SearchRecordsTool (ADR-042).
  *
- * Load-bearing: the search finds seeded content through the TCA
- * searchFields, hidden rows never reach the output, and the sensitive-table
+ * Load-bearing: the search finds seeded content through the core's search
+ * scope, hidden rows never reach the output, and the sensitive-table
  * denylist holds even for an admin.
  */
 #[CoversClass(SearchRecordsTool::class)]

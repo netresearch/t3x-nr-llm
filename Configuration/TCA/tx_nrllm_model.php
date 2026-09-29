@@ -16,7 +16,6 @@ return [
         'crdate' => 'crdate',
         'sortby' => 'sorting',
         'default_sortby' => 'name ASC',
-        'searchFields' => 'identifier,name,description,model_id',
         'delete' => 'deleted',
         'enablecolumns' => [
             'disabled' => 'hidden',
@@ -263,6 +262,7 @@ return [
                 'type' => 'input',
                 'size' => 40,
                 'readOnly' => true,
+                'searchable' => false,
             ],
         ],
         'capabilities_confirmed_at' => [
@@ -280,6 +280,7 @@ return [
                 'type' => 'input',
                 'size' => 20,
                 'readOnly' => true,
+                'searchable' => false,
             ],
         ],
         'cost_input' => [
