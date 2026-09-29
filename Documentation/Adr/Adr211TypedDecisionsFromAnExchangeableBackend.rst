@@ -120,13 +120,19 @@ vendor: classification, selection and rubric scoring are one operation.
    which said nothing about where a backend sends its data.
 
 4. **Two paths, chosen by the model.** The service resolves the
-   configuration's model for ``ProviderOperation::Decision``.
+   configuration's model for ``ProviderOperation::Decision``. Where that
+   yields no decision model — a fixed chat model, or criteria that match no
+   decision model — the structured path runs as the chat call it is: it
+   resolves for ``ProviderOperation::Chat`` (requiring ``chat``) and is
+   recorded under that operation, so telemetry and usage name what
+   actually ran.
 
    * *Native* — the model declares ``decision`` and its adapter implements
      :php:`DecisionCapableInterface`:
-     ``LlmServiceManager::decideForConfiguration()`` screens every subject field through the input guardrails, enters the
-     middleware pipeline with the configuration (budget per configuration
-     and user, fallback, circuit breaker, telemetry, usage), and calls the
+     ``LlmServiceManager::decideForConfiguration()`` screens every subject
+     field through the input guardrails, enters the middleware pipeline
+     with the configuration (budget per configuration and user, fallback,
+     circuit breaker, telemetry, usage), and calls the
      adapter. The adapter returns a typed :php:`DecisionResponse`; the
      manager prices it with the model that actually served, fallback
      included. Two adapters ship: ``typesafe`` (Jev, pinned default model
