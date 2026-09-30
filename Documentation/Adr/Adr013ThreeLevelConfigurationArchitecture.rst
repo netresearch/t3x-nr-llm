@@ -6,8 +6,10 @@
 ADR-013: Three-level configuration architecture (Provider-Model-Configuration)
 ===========================================================================
 
-:Status: Accepted
+:Status: Accepted (prices are decimal, not integers — see
+         :ref:`ADR-211 <adr-211>`)
 :Date: 2024-12-27
+:Amended: 2026-09-29 by :ref:`ADR-211 <adr-211>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-013-context:

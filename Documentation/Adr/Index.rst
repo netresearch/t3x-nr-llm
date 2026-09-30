@@ -593,3 +593,4 @@ Tools
    Adr208ASiteGlossaryReachesBothTranslators
    Adr209TheTranslationDraftTranslatesItsText
    Adr210ACallerCanAskWhichToolsRunWithoutApproval
+   Adr211TypedDecisionsFromAnExchangeableBackend

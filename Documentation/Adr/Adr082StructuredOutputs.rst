@@ -6,8 +6,10 @@
 ADR-082: Schema-validated structured outputs with one repair round-trip
 ============================================================================
 
-:Status: Accepted
+:Status: Accepted (the methods return a typed response — see
+         :ref:`ADR-211 <adr-211>`)
 :Date: 2026-07-18
+:Amended: 2026-09-28 by :ref:`ADR-211 <adr-211>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-082-context:
