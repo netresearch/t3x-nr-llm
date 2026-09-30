@@ -117,6 +117,13 @@ final readonly class ProxyDetector
             return true;
         }
 
+        // nr-vault takes its `no` list from `getenv('NO_PROXY') ?: getenv('no_proxy')`
+        // in the SAPI-first view. An empty value there (e.g. `fastcgi_param NO_PROXY ""`)
+        // leaves its option without a list while the process list still reads as one.
+        if ($this->sapiEnv('NO_PROXY') === '' && $this->sapiEnv('no_proxy') === '') {
+            return true;
+        }
+
         $lists = [...$this->env('NO_PROXY'), ...$this->env('no_proxy')];
 
         foreach ($lists as $list) {
@@ -194,6 +201,16 @@ final readonly class ProxyDetector
             [$sapiView, $this->processEnv($name)],
             static fn(mixed $value): bool => is_string($value) && $value !== '',
         )));
+    }
+
+    /**
+     * A variable as getenv($name) returns it, SAPI first; '' when unset or empty.
+     */
+    private function sapiEnv(string $name): string
+    {
+        $value = $this->environment !== null ? ($this->environment[$name] ?? false) : getenv($name);
+
+        return is_string($value) ? $value : '';
     }
 
     /**

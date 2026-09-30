@@ -419,6 +419,9 @@ final class ExternalUrlGuardTest extends TestCase
         yield 'ALL_PROXY in the process, NO_PROXY in the SAPI only' => ['https://example.org/', ['ALL_PROXY' => $proxy, 'NO_PROXY' => 'example.org'], ['ALL_PROXY' => $proxy], false];
         yield 'both in the process' => ['http://example.org/', ['http_proxy' => $proxy, 'NO_PROXY' => 'example.org'], ['http_proxy' => $proxy, 'NO_PROXY' => 'example.org'], true];
         yield 'the proxy in the SAPI only' => ['https://example.org/', ['HTTPS_PROXY' => $proxy], [], false];
+        yield 'a SAPI list that does not exclude, a process list that does' => ['https://example.org/', ['HTTPS_PROXY' => $proxy, 'NO_PROXY' => 'other.org'], ['HTTPS_PROXY' => $proxy, 'NO_PROXY' => 'example.org'], false];
+        yield 'an empty SAPI NO_PROXY hides the process list from nr-vault' => ['https://example.org/', ['HTTPS_PROXY' => $proxy, 'NO_PROXY' => ''], ['HTTPS_PROXY' => $proxy, 'NO_PROXY' => 'example.org'], false];
+        yield 'lowercase no_proxy in both views' => ['http://example.org/', ['http_proxy' => $proxy, 'no_proxy' => 'example.org'], ['http_proxy' => $proxy, 'no_proxy' => 'example.org'], true];
     }
 
     /**
