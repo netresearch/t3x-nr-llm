@@ -76,11 +76,14 @@ class JsonSchemaValidatorFuzzyTest extends AbstractFuzzyTestCase
     /**
      * Arbitrary JSON-decodable values: scalars, lists, maps, shallow nesting.
      *
+     * Eris 1.2 types oneOf() as `Generator<T>|T ...`; PHPStan cannot resolve one T
+     * over generators of different element types, hence argument.templateType.
+     *
      * @return Generator\OneOfGenerator<mixed>
      */
     private function jsonValue(): Generator\OneOfGenerator
     {
-        $scalar = Generator\oneOf( // @phpstan-ignore function.notFound
+        $scalar = Generator\oneOf( // @phpstan-ignore function.notFound, argument.templateType
             Generator\int(), // @phpstan-ignore function.notFound
             Generator\float(), // @phpstan-ignore function.notFound
             Generator\string(), // @phpstan-ignore function.notFound
@@ -88,7 +91,7 @@ class JsonSchemaValidatorFuzzyTest extends AbstractFuzzyTestCase
             Generator\constant(null), // @phpstan-ignore function.notFound
         );
 
-        return Generator\oneOf( // @phpstan-ignore function.notFound
+        return Generator\oneOf( // @phpstan-ignore function.notFound, argument.templateType
             $scalar,
             Generator\seq($scalar), // @phpstan-ignore function.notFound
             Generator\associative([ // @phpstan-ignore function.notFound
@@ -106,7 +109,7 @@ class JsonSchemaValidatorFuzzyTest extends AbstractFuzzyTestCase
      */
     private function subsetSchema(): Generator\OneOfGenerator
     {
-        return Generator\oneOf( // @phpstan-ignore function.notFound
+        return Generator\oneOf( // @phpstan-ignore function.notFound, argument.templateType, return.type
             Generator\constant(['type' => 'string']), // @phpstan-ignore function.notFound
             Generator\constant(['type' => 'integer']), // @phpstan-ignore function.notFound
             Generator\constant(['type' => 'number']), // @phpstan-ignore function.notFound
