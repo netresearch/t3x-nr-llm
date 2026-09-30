@@ -159,10 +159,13 @@ that endpoint alone and attested that neither reviews nor checks were required.
   and is archived as historical; see [SECURITY_AUDIT.md](SECURITY_AUDIT.md)
   for the scope of continuous and later targeted verification. Its claim
   that SonarCloud is the only non-blocking check is also stale.
-- **Security policy needs updating.** `SECURITY.md` still lists only 0.13.x
-  as supported and suggests API-key storage that does not describe today's
-  nr-vault integration. This review does not invent a new support policy;
-  Level 3 support-lifecycle claims need current evidence.
+- **The support policy is recent.** `SECURITY.md` listed only 0.13.x as
+  supported until 0.38.1. It now names the latest release line as the only
+  supported one and ends a line's support with the next minor release, which
+  matches the release history (no tag has ever been cut below an already
+  released higher version). `VersionConsistencyTest` ties the table to
+  `ext_emconf.php`; how the policy is kept over time is not yet evidenced by
+  more than one release.
 
 ## How to verify
 
