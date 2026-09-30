@@ -28,11 +28,14 @@ use GuzzleHttp\Utils;
 final readonly class ProxyDetector
 {
     /**
-     * @param array<string, string>|null $environment test seam; null reads getenv()
+     * @param array<string, string>|null $environment        test seam for getenv($name), the SAPI view first; null reads it
+     * @param array<string, string>|null $processEnvironment test seam for getenv($name, true), the process view; null
+     *                                                       reads it, or repeats $environment when that is given
      */
     public function __construct(
         private ?array $environment = null,
         private ?string $sapi = null,
+        private ?array $processEnvironment = null,
     ) {}
 
     public function appliesTo(string $scheme, string $host): bool
@@ -105,13 +108,16 @@ final readonly class ProxyDetector
             return false;
         }
 
-        // nr-vault reads NO_PROXY first, the transport no_proxy first, and
-        // they may see different environments; a host counts as excluded only
-        // when every list that is set excludes it.
-        $lists = [...$this->env('NO_PROXY'), ...$this->env('no_proxy')];
-        if ($lists === []) {
+        // The transport's own fallback reads the process environment only,
+        // so a no-proxy list that the SAPI alone sets never reaches it; without
+        // a list there the proxy applies. Where lists are set, nr-vault reads
+        // NO_PROXY first and the transport no_proxy first, so a host counts as
+        // excluded only when every set list, in either view, excludes it.
+        if ($this->processEnv('NO_PROXY') === null && $this->processEnv('no_proxy') === null) {
             return true;
         }
+
+        $lists = [...$this->env('NO_PROXY'), ...$this->env('no_proxy')];
 
         foreach ($lists as $list) {
             if (!$this->excluded($host, explode(',', $list))) {
@@ -174,21 +180,33 @@ final readonly class ProxyDetector
     }
 
     /**
-     * Every non-empty value of a variable. nr-vault reads getenv($name), which
-     * asks the SAPI first (fastcgi_param, SetEnv); Guzzle 7.12+ reads
-     * getenv($name, true), the process environment only. Both views count.
+     * Every non-empty value of a variable in either view. nr-vault reads
+     * getenv($name), which asks the SAPI first (fastcgi_param, SetEnv); Guzzle
+     * 7.12+ and 8 read getenv($name, true), the process environment only.
      *
      * @return list<string>
      */
     private function env(string $name): array
     {
-        $values = $this->environment !== null
-            ? [$this->environment[$name] ?? false]
-            : [getenv($name), getenv($name, true)];
+        $sapiView = $this->environment !== null ? ($this->environment[$name] ?? false) : getenv($name);
 
         return array_values(array_unique(array_filter(
-            $values,
+            [$sapiView, $this->processEnv($name)],
             static fn(mixed $value): bool => is_string($value) && $value !== '',
         )));
+    }
+
+    /**
+     * The non-empty value of a variable in the process environment, as the transport reads it.
+     */
+    private function processEnv(string $name): ?string
+    {
+        $value = match (true) {
+            $this->processEnvironment !== null => $this->processEnvironment[$name] ?? false,
+            $this->environment !== null        => $this->environment[$name] ?? false,
+            default                            => getenv($name, true),
+        };
+
+        return is_string($value) && $value !== '' ? $value : null;
     }
 }

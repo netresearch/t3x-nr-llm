@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Web;
 
+use GuzzleHttp\Handler\ProxyEnvironment;
+use GuzzleHttp\ProxyOptions;
 use Netresearch\NrLlm\Service\Tool\EgressPolicyService;
 use Netresearch\NrLlm\Service\Tool\Web\ExternalFetchSettings;
 use Netresearch\NrLlm\Service\Tool\Web\ExternalFetchTarget;
@@ -42,6 +44,7 @@ final class ExternalUrlGuardTest extends TestCase
      * @param array<string, list<string>> $dns
      * @param array<string, mixed>        $settings extra keys under tools.fetchExternalUrl
      * @param array<string, string>       $env      environment seen by the proxy detector
+     * @param array<string, string>|null  $process  process environment, where it differs from $env
      * @param list<Site>                  $sites
      */
     private function guard(
@@ -52,6 +55,7 @@ final class ExternalUrlGuardTest extends TestCase
         array $settings = [],
         array $env = [],
         array $sites = [],
+        ?array $process = null,
     ): ExternalUrlGuard {
         $siteFinder = self::createStub(SiteFinder::class);
         $siteFinder->method('getAllSites')->willReturn($sites);
@@ -82,7 +86,7 @@ final class ExternalUrlGuardTest extends TestCase
             $resolver,
             new IpAddressClassifier(),
             new ExternalFetchSettings($configuration),
-            new ProxyDetector($env, 'fpm-fcgi'),
+            new ProxyDetector($env, 'fpm-fcgi', $process),
         );
     }
 
@@ -369,6 +373,7 @@ final class ExternalUrlGuardTest extends TestCase
         // nr-vault drops these and Guzzle's client defaults read the environment by rules of their own.
         yield 'a TYPO3 proxy of true' => ['https://example.org/', [], true];
         yield 'a TYPO3 proxy array without a string entry' => ['https://example.org/', [], ['https' => ['http://proxy.corp:3128']]];
+        yield 'a TYPO3 proxy array of unknown keys' => ['https://example.org/', [], ['foo' => 'bar']];
     }
 
     /**
@@ -400,6 +405,34 @@ final class ExternalUrlGuardTest extends TestCase
     }
 
     /**
+     * The transport reads its no-proxy list from the process environment only
+     * (getenv($name, true)); a list the SAPI alone sets (fastcgi_param, SetEnv)
+     * never reaches it, while getenv($name) sees both.
+     *
+     * @return iterable<string, array{0: string, 1: array<string, string>, 2: array<string, string>, 3: bool}>
+     */
+    public static function environmentViews(): iterable
+    {
+        $proxy = 'http://proxy.corp:3128';
+
+        yield 'http_proxy in the process, NO_PROXY in the SAPI only' => ['http://example.org/', ['http_proxy' => $proxy, 'NO_PROXY' => 'example.org'], ['http_proxy' => $proxy], false];
+        yield 'ALL_PROXY in the process, NO_PROXY in the SAPI only' => ['https://example.org/', ['ALL_PROXY' => $proxy, 'NO_PROXY' => 'example.org'], ['ALL_PROXY' => $proxy], false];
+        yield 'both in the process' => ['http://example.org/', ['http_proxy' => $proxy, 'NO_PROXY' => 'example.org'], ['http_proxy' => $proxy, 'NO_PROXY' => 'example.org'], true];
+        yield 'the proxy in the SAPI only' => ['https://example.org/', ['HTTPS_PROXY' => $proxy], [], false];
+    }
+
+    /**
+     * @param array<string, string> $sapi
+     * @param array<string, string> $process
+     */
+    #[Test]
+    #[DataProvider('environmentViews')]
+    public function aNoProxyListCountsOnlyWhereTheTransportReadsIt(string $url, array $sapi, array $process, bool $allowed): void
+    {
+        self::assertSame($allowed, $this->guard(['example.org' => ['93.184.215.14']], env: $sapi, process: $process)->check('web', $url)->allowed);
+    }
+
+    /**
      * A host in the `no` list of a per-scheme TYPO3 proxy is final for the
      * Guzzle this suite installs (7.12 and later, 8): the environment proxy
      * is not consulted for it.
@@ -407,6 +440,10 @@ final class ExternalUrlGuardTest extends TestCase
     #[Test]
     public function aTypo3NoListExclusionIsFinal(): void
     {
+        if (!class_exists(ProxyOptions::class) && !class_exists(ProxyEnvironment::class)) {
+            self::markTestSkipped('Before Guzzle 7.12 libcurl reads the environment after a no-list match.');
+        }
+
         $GLOBALS['TYPO3_CONF_VARS']['HTTP']['proxy'] = ['https' => 'http://proxy.corp:3128', 'no' => ['example.org']];
         $dns = ['example.org' => ['93.184.215.14'], 'other.org' => ['93.184.215.15']];
         $env = ['HTTPS_PROXY' => 'http://env-proxy.corp:3128'];
