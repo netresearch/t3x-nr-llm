@@ -33,8 +33,6 @@ use Netresearch\NrLlm\Tests\Fixtures\Mcp\RecordedContacts;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\SlowVaultHttpClient;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrVault\Http\CancellationSignalInterface;
-use Netresearch\NrVault\Http\DnsResolverInterface;
-use Netresearch\NrVault\Http\SecureHttpClientFactory;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -849,12 +847,7 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
         $transport = new McpHttpTransport(
             $vaultService,
             // No DNS, so the SSRF host gate answers without a network call.
-            new SecureHttpClientFactory(new class implements DnsResolverInterface {
-                public function resolve(string $host): array
-                {
-                    return [];
-                }
-            }),
+            $this->createPublicDnsHttpClientFactory(),
             new RequestFactory(new GuzzleClientFactory()),
             new StreamFactory(),
         );

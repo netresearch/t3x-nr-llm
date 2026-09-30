@@ -14,6 +14,7 @@ use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Exception\ResponseException;
 use GuzzleHttp\Promise\Create;
 use GuzzleHttp\Promise\PromiseInterface;
 use GuzzleHttp\Psr7\Request;
@@ -111,7 +112,7 @@ final class FetchExternalUrlToolTest extends TestCase
 
             $next         = array_shift($this->script);
             if ($next === null) {
-                return Create::rejectionFor(new ConnectException('no scripted response', $request));
+                return $this->rejected(new ConnectException('no scripted response', $request));
             }
 
             if ($next instanceof Throwable) {
@@ -123,7 +124,7 @@ final class FetchExternalUrlToolTest extends TestCase
                 try {
                     $onHeaders($next);
                 } catch (Throwable $e) {
-                    return Create::rejectionFor(new RequestException('An error was encountered during the on_headers event', $request, $next, $e));
+                    return $this->rejected($this->onHeadersFailure($request, $next, $e));
                 }
             }
 
@@ -131,7 +132,7 @@ final class FetchExternalUrlToolTest extends TestCase
             $sink = $options['sink'] ?? null;
             if ($sink instanceof BoundedSinkStream && $sink->write($body) < strlen($body)) {
                 // What curl does on a short write.
-                return Create::rejectionFor(new RequestException('cURL error 23: Failure writing output to destination', $request));
+                return $this->rejected(new RequestException('cURL error 23: Failure writing output to destination', $request));
             }
 
             return Create::promiseFor($next);
@@ -139,7 +140,7 @@ final class FetchExternalUrlToolTest extends TestCase
 
         $clientFactory = new class ($handler, $pinning) implements ExternalFetchClientFactoryInterface {
             /**
-             * @param Closure(RequestInterface, array<string, mixed>): PromiseInterface $handler
+             * @param Closure(RequestInterface, array<mixed>): PromiseInterface $handler
              */
             public function __construct(private readonly Closure $handler, private readonly bool $pinning) {}
 
@@ -155,6 +156,37 @@ final class FetchExternalUrlToolTest extends TestCase
         };
 
         return new FetchExternalUrlTool($guard, $clientFactory, new HtmlTextExtractor(), $fetchSettings, $clock);
+    }
+
+    /**
+     * A rejected promise whose reason is typed `mixed`: guzzlehttp/promises 3
+     * (Guzzle 8) types the reason invariantly, so a promise rejected with a
+     * concrete exception class does not satisfy a plain `PromiseInterface`
+     * return, while promises 2 (Guzzle 7) has no template types at all.
+     */
+    private function rejected(mixed $reason): PromiseInterface
+    {
+        return Create::rejectionFor($reason);
+    }
+
+    /**
+     * What the transport raises when the on_headers callback throws: Guzzle 8
+     * a ResponseException, Guzzle 7 a RequestException carrying the response.
+     * The class is chosen at run time, because each one's constructor exists
+     * in one major only.
+     */
+    private function onHeadersFailure(RequestInterface $request, ResponseInterface $response, Throwable $previous): Throwable
+    {
+        // Widened on purpose: PHPStan would otherwise fold the ternary for the
+        // installed Guzzle and check the other major's constructor.
+        /** @var class-string<Throwable> $class */
+        $class = class_exists(ResponseException::class)
+            ? ResponseException::class
+            : RequestException::class;
+        $exception = new $class('An error was encountered during the on_headers event', $request, $response, $previous);
+        self::assertInstanceOf(Throwable::class, $exception);
+
+        return $exception;
     }
 
     /**

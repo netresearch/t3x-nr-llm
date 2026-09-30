@@ -16,6 +16,7 @@ declare(strict_types=1);
  * additions live here.
  */
 
+use Rector\CodeQuality\Rector\Identical\SimplifyBoolIdenticalTrueRector;
 use Rector\Config\RectorConfig;
 use Rector\Php81\Rector\Property\ReadOnlyPropertyRector;
 use Rector\Php82\Rector\Class_\ReadOnlyClassRector;
@@ -110,6 +111,12 @@ return static function (RectorConfig $rectorConfig) use ($configure): void {
         ReadOnlyClassRector::class => [
             __DIR__ . '/../../Classes/Form/Tca/SnippetTagItems.php',
             __DIR__ . '/../../Classes/Form/Tca/SiteItems.php',
+        ],
+        // Each Guzzle major types its own isHostInNoProxy() bool, so Rector
+        // drops that call's `=== true`; the other major's call is unknown to
+        // PHPStan and returns mixed, which the comparison keeps a bool.
+        SimplifyBoolIdenticalTrueRector::class => [
+            __DIR__ . '/../../Classes/Service/Tool/Web/ProxyDetector.php',
         ],
         // Skip Fuzzy tests - Eris\Generator namespace functions conflict with auto-imports
         __DIR__ . '/../../Tests/Fuzzy/',

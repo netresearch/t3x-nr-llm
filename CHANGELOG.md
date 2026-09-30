@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **nr-vault 1.x is accepted.** The requirement is `^0.16.0 || ^1.1`, so an installation can take nr-vault 1.1, which a site needs before it can update extensions that require nr-vault 1.x. Two things change with it. nr-vault 1.x refuses an endpoint host that DNS does not resolve, so a provider or MCP server reached through `/etc/hosts` or a container runtime's resolver (an Ollama container addressed as `ollama`, for example) needs a literal entry in `$GLOBALS['TYPO3_CONF_VARS']['HTTP']['allowed_hosts']`. And nr-vault 1.x allows Guzzle 8, which TYPO3 13.4.35 and 14.3.7 or later allow as well, so a composer update can install it.
+- **`fetch_external_url` supports Guzzle 8.** Its proxy check matched the no-proxy list with `GuzzleHttp\Utils::isHostInNoProxy()`, which Guzzle 8 moved to `GuzzleHttp\ProxyOptions`; it now calls whichever of the two the installed Guzzle provides.
+
+### Security
+
+- **`fetch_external_url` recognises more of the proxies its requests go through.** The check decides whether a request would leave through a proxy, where the guard's address pin does not reach the connection. It read only the variables nr-vault turns into its proxy option, and missed these cases: lowercase `http_proxy` under a web server and `all_proxy`/`ALL_PROXY`, which the transport reads when nr-vault's option decides nothing for the request's scheme; an empty `$GLOBALS['TYPO3_CONF_VARS']['HTTP']['proxy']`, after which nr-vault reads the environment; a per-scheme proxy array without an entry for the request's scheme; a proxy value nr-vault drops (neither a string nor an array with a string `http`, `https` or `no` entry), after which Guzzle's client defaults apply; a host in the `no` list of that array under Guzzle before 7.12, where libcurl then read the environment; and a proxy variable set only in the SAPI environment (`fastcgi_param`, `SetEnv`) or only in the process environment, which nr-vault and Guzzle read differently. In these cases the request could go through a proxy while the guard treated it as direct. They now get the same treatment as any other proxied fetch (refused unless `allowViaProxy` and an allowlist permit it). A host counts as excluded from an environment proxy only when the process environment sets `NO_PROXY` or `no_proxy`, which is where the transport reads it, nr-vault's view does not read both as empty or unset, and every list set in either environment excludes it.
+
 ## [0.38.1] - 2026-09-30
 
 ### Fixed
