@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Typed decisions from an exchangeable backend
 
 Consumers need judgements rather than text — is this passage relevant, does
