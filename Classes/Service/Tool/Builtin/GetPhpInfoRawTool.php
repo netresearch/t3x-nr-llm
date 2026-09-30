@@ -46,6 +46,8 @@ final readonly class GetPhpInfoRawTool implements ToolInterface, ToolDataClassIn
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
         ob_start();
+        // Deliberate: admin-only, disabled by default (see the class docblock).
+        // nosemgrep: php.lang.security.phpinfo-use.phpinfo-use
         phpinfo(INFO_ALL);
         $info = ob_get_clean();
 

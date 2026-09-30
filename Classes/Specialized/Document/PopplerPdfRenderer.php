@@ -165,6 +165,8 @@ final readonly class PopplerPdfRenderer implements PdfRasterizerInterface
     private function run(array $command): string
     {
         try {
+            // argv array, no shell: proc_open() executes $command[0] directly.
+            // nosemgrep: php.lang.security.exec-use.exec-use
             $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
         } catch (Throwable $e) {
             // TYPO3's error handler can turn proc_open()'s "binary not found" warning
