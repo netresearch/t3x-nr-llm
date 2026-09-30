@@ -186,6 +186,21 @@ All PRs require review by a code owner before merging. Reviews focus on:
 - Security considerations
 - Documentation completeness
 
+## Governance and policies
+
+This extension follows the organisation-wide Netresearch policies wherever it
+has no file of its own:
+
+- [Governance](https://github.com/netresearch/.github/blob/main/GOVERNANCE.md): ownership, the roles (organisation owner, repository admin, maintainer, contributor) and their responsibilities for reviews, merges, releases and vulnerability reports, how decisions are made and how disagreements are resolved.
+- [Roadmap](https://github.com/netresearch/.github/blob/main/ROADMAP.md): the maintenance commitment for all repositories. The feature roadmap of this extension is [ROADMAP.md](ROADMAP.md), which takes precedence.
+- [Handling of dependency and code analysis findings](https://github.com/netresearch/.github/blob/main/SECURITY.md#handling-of-dependency-and-code-analysis-findings): which vulnerability, licence and static-analysis findings must be fixed, by when, and how exceptions are recorded.
+- [Secret management](https://github.com/netresearch/.github/blob/main/SECURITY.md#secret-management): where CI and release credentials are stored, who may use them, and when they are rotated.
+- [Access roster](https://github.com/netresearch/.github/blob/main/docs/access-roster.md): every account with admin, maintain or write access to this repository, by role.
+
+Review assignment in this repository is [.github/CODEOWNERS](.github/CODEOWNERS):
+every path is owned by the `@netresearch/typo3` team. Supported versions and
+the vulnerability reporting process are in [SECURITY.md](SECURITY.md).
+
 ## Questions?
 
 Open an issue or start a discussion!
