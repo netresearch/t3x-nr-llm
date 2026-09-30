@@ -11,8 +11,8 @@
 >
     <project
         title="TYPO3 LLM Extension"
-        version="0.38.1"
-        release="0.38.1"
+        version="0.38.2"
+        release="0.38.2"
         copyright="since 2025 by Netresearch DTT GmbH"
     />
 

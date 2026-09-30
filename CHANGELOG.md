@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.38.2] - 2026-09-30
+
 ### Changed
 
 - **nr-vault 1.x is accepted.** The requirement is `^0.16.0 || ^1.1`, so an installation can take nr-vault 1.1, which a site needs before it can update extensions that require nr-vault 1.x. Two things change with it. nr-vault 1.x refuses an endpoint host that DNS does not resolve, so a provider or MCP server reached through `/etc/hosts` or a container runtime's resolver (an Ollama container addressed as `ollama`, for example) needs a literal entry in `$GLOBALS['TYPO3_CONF_VARS']['HTTP']['allowed_hosts']`. And nr-vault 1.x allows Guzzle 8, which TYPO3 13.4.35 and 14.3.7 or later allow as well, so a composer update can install it.
@@ -4183,7 +4185,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.38.1...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.38.2...HEAD
+[0.38.2]: https://github.com/netresearch/t3x-nr-llm/compare/v0.38.1...v0.38.2
 [0.38.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.38.0...v0.38.1
 [0.38.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.6...v0.38.0
 [0.37.6]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.5...v0.37.6
