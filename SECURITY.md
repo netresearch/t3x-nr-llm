@@ -18,8 +18,8 @@ an older release line.
   a vulnerability is in the newest release only, and users of an older line
   upgrade to it.
 - **Upgrading within 0.x:** while the extension is pre-1.0, a minor release
-  may contain breaking changes, and each one is listed in `CHANGELOG.md` under
-  a BREAKING heading ([API stability](Documentation/Api/Stability.rst)).
+  may contain breaking changes, and each one is marked **BREAKING** in
+  `CHANGELOG.md` ([API stability](Documentation/Api/Stability.rst)).
 - **Getting support:** questions and bug reports go to the
   [issue tracker](https://github.com/netresearch/t3x-nr-llm/issues) or
   [discussions](https://github.com/netresearch/t3x-nr-llm/discussions);
