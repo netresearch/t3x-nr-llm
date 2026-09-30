@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Security Controls for Solo Maintainer Project
 
 This document describes compensating security controls implemented for this solo-maintainer project,

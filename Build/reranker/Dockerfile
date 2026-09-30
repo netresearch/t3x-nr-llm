@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 # Cross-encoder reranker sidecar for nr_llm (ADR-075).
 # CPU image; the model is baked in at build time so the container starts offline.
 FROM python:3.14-slim

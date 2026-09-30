@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Cross-encoder reranker sidecar (ADR-075)
 
 A minimal HTTP service that rescores `(query, passage)` pairs with a

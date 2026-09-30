@@ -1,4 +1,9 @@
 /*
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ * SPDX-FileCopyrightText: Netresearch DTT GmbH
+ */
+
+/*
  * Progressive enhancement for the nr-llm landing site:
  *   - theme toggle (light/dark), defaulting to the OS preference, persisted in localStorage
  *   - section scrollspy that marks the current in-page nav link

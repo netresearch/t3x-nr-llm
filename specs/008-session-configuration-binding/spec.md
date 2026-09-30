@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Every conversation has a configuration (#894)
 
 ADR-151 bound a conversation to the configuration it was opened with, and

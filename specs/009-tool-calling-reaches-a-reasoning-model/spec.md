@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Tool calling reaches a reasoning model (#965)
 
 `OpenAiProvider::chatCompletionWithTools()` posts every tool request to

@@ -1,3 +1,8 @@
+/*
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ * SPDX-FileCopyrightText: Netresearch DTT GmbH
+ */
+
 import { test, expect, getModuleFrame, navigateToTasks, taskExecuteFormUrl } from './fixtures';
 import type { Page, FrameLocator } from '@playwright/test';
 

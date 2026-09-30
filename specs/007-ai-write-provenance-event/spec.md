@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # A generic AI-write provenance event (#896)
 
 Since ADR-182 the extension knows, as a queryable fact rather than as free-form

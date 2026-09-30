@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 # Local decision sidecar for nr_llm (NLI zero-shot classifier).
 # CPU image; the model is baked in at build time so the container starts offline.
 # Pinned by digest, like the packages by hash: a rebuild uses the base that

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 """Unit tests for the decision sidecar — stdlib only, no model download.
 
 Run from the repository root:  python -m unittest Build/decision/test_app.py

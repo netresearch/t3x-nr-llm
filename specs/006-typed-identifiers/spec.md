@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Typed provider identifiers (#893), step one
 
 Four concepts travel through this extension as bare `string`: the provider

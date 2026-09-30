@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 #
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+#
 # Run the functional suite with one PHPUnit process per test class.
 #
 # Functional tests are the CI critical path: eight matrix cells at 8-11min each

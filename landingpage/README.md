@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # nr-llm landing page
 
 Static, bilingual (EN/DE) landing page for the `nr-llm` TYPO3 extension, plus a

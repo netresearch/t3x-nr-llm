@@ -1,3 +1,5 @@
+{# SPDX-License-Identifier: GPL-2.0-or-later #}
+{# SPDX-FileCopyrightText: Netresearch DTT GmbH #}
 {% extends "base.html.j2" %}
 
 {% macro icon(name) %}
@@ -17,7 +19,7 @@
 {% macro codeblock(code, lang, id) %}
 <div class="codeblock">
   <span class="codeblock__label">{{ lang }}</span>
-  <button class="copy-btn" type="button" data-copy="{{ id }}" aria-label="{{ s.copy }}" hidden>⧉</button>
+  <button class="copy-btn" type="button" data-copy="{{ id }}" aria-label="{{ s['copy'] }}" hidden>⧉</button>
   <pre id="{{ id }}" tabindex="0"><code>{{ code }}</code></pre>
 </div>
 {% endmacro %}

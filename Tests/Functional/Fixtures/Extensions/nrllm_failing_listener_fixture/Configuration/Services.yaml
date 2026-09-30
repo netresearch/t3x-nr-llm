@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 services:
   # A listener of the reference index update, which the DataHandler runs after
   # the hooks of a run (ADR-206). It does nothing until a test switches it on.

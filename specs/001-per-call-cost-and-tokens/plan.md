@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Implementation plan — per-call cost and real token counts
 
 **Spec**: `spec.md` | **Created**: 2026-08-16 | **Status**: Draft | **Constitution**: `.specify/memory/constitution.md`

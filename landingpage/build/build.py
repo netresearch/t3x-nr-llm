@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 # /// script
 # requires-python = ">=3.11"
 # dependencies = ["jinja2>=3.1", "docutils>=0.21"]

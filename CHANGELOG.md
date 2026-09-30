@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Changelog
 
 All notable changes to this extension are documented here. The format is based on
@@ -27,6 +29,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **An evaluation run is stored under the grader its gradings report (ADR-211).** When every grading of a run names the same grader, `EvaluationService::run()` stores that one instead of the requested identifier. The decision grader names its yardstick — `decision:<provider>:<model>:v<profile version>` — so a TypeSafe run and a chat-model run of the same set, or runs on two model versions, are separate series and never each other's regression baseline. A run in which some decisions failed or the model changed has no single yardstick (`SetEvaluationResult::sharesOneYardstick()`): it is stored as `decision` and never compared; one in which every decision failed is `decision:failed`. With `--fail-on-regression`, `nrllm:eval:run` exits non-zero for both. Graders now see the system prompt the call ran with (`GoldenPrompt::withSystemPrompt()`), and the decision grader judges the response against it as part of the task. `tx_nrllm_eval_result.grader` widens from 50 to 190 characters (database compare).
 
 - **BREAKING: `completeStructured()` and `completeStructuredForConfiguration()` return a `StructuredCompletionResponse` (ADR-211).** It carries the validated payload as `data`, the `CompletionResponse` that passed validation (its `model` names what answered, after a fallback too), the `UsageStatistics` of every attempt — the rejected first answer of a repair round-trip included — and the number of attempts. Callers read `->data` where they read the array. An answer that still misses the schema after the repair round-trip throws the new `StructuredResponseMismatchException`, an `InvalidArgumentException` as before, with the same codes. `FakeCompletionService` wraps its `structuredResult` accordingly. `UsageStatistics::plus()` adds two usages; the sum has a cost only when both parts have one.
+
+- **`SECURITY.md` names the release line that is supported, and when support ends.** It listed 0.13.x. It now lists 0.38.x as the only line that receives bug and security fixes, marks every older line unsupported, and states the rule: a line's support ends with the next minor release, and fixes are not backported. `VersionConsistencyTest` fails when the table names a line other than the one in `ext_emconf.php`. The API-key advice now describes the nr-vault storage the extension uses.
+
+- **Release archives no longer ship development, CI and agent files.** `.gitattributes` excluded `infection.json5`, a file that does not exist, instead of `infection.json.dist`, and did not list the Node, Playwright, Codecov, Renovate, SonarCloud and gitleaks configuration, the Makefile, `docs/`, the contributor and compliance documents or the `AGENTS.md` / `CLAUDE.md` / `GEMINI.md` files. The ZIP and TAR archives now contain `Classes/`, `Configuration/`, `Documentation/`, `Resources/`, the `ext_*` files, `composer.json`, `LICENSE`, `README.md`, `CHANGELOG.md` and `SECURITY.md`.
 
 ### Removed
 

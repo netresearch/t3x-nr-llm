@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # An approval binds to the state its preview showed (#887, #888)
 
 ADR-136 stores what a pending write WOULD do and shows it on the approval card.

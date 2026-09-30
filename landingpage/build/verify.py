@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+#
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 """Build gate for the landing page.
 
 Checks the rendered artefact, not the sources: the point is what a visitor and a
@@ -39,6 +43,13 @@ REQUIRED_META = (
 )
 
 LANDING_PAGES = ("en/index.html", "de/index.html")
+
+# A Python object's repr in the output means a template looked up a name that
+# resolved to something other than the intended value. Jinja's `s.copy` on a
+# dict returns the dict's copy() method, not the "copy" key, and every copy
+# button then carried "<built-in method copy of dict object at 0x…>" as its
+# accessible name.
+PYTHON_REPR = re.compile(r"(?:<|&lt;)(?:built-in method|bound method|function) ")
 
 
 def strip_markup(html: str) -> str:
@@ -86,6 +97,11 @@ def main() -> int:
         return 1
 
     manifest = check_manifest()
+
+    for page in sorted(PUBLIC.rglob("*.html")):
+        leak = PYTHON_REPR.search(page.read_text(encoding="utf-8"))
+        if leak:
+            errors.append(f"{page.relative_to(PUBLIC)}: a Python object repr is rendered: {leak.group(0)!r}")
 
     for relative in LANDING_PAGES:
         page = PUBLIC / relative

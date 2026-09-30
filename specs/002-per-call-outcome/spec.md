@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Per-call outcome signal (#772)
 
 ADR-156's second activation criterion asks whether quality degrades on a

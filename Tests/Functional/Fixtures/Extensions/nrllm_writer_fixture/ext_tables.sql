@@ -1,3 +1,6 @@
+-- SPDX-License-Identifier: GPL-2.0-or-later
+-- SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 #
 # Business columns only; uid, pid and the ctrl-declared columns come from the TCA.
 #

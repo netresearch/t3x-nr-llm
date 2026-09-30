@@ -1,4 +1,9 @@
 /*
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ * SPDX-FileCopyrightText: Netresearch DTT GmbH
+ */
+
+/*
  * Client-side full-text search for the nr-llm landing site.
  * - Loads a prebuilt JSON index and builds a MiniSearch instance (shared singleton).
  * - Enhances any [data-search] element into an accessible combobox.

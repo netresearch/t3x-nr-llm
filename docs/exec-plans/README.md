@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Execution Plans
 
 Working documents for multi-step changes (features, migrations, large refactors). One markdown file per plan.

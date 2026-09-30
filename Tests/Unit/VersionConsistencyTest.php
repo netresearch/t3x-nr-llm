@@ -88,6 +88,37 @@ final class VersionConsistencyTest extends AbstractUnitTestCase
         );
     }
 
+    /**
+     * SECURITY.md names the release line that receives fixes. It still said
+     * 0.13.x at 0.38.1 because nothing tied it to the version, so
+     * the line is asserted here: the release commit of every minor release must
+     * move the table along. Patch releases stay on the same line and need no edit.
+     */
+    #[Test]
+    public function securityPolicySupportsTheCurrentReleaseLine(): void
+    {
+        self::assertSame(
+            1,
+            preg_match('/^(\d+)\.(\d+)\.\d+$/', $this->extEmConfVersion(), $version),
+            'ext_emconf.php must declare a MAJOR.MINOR.PATCH version',
+        );
+        $line = $version[1] . '.' . $version[2];
+
+        $security = (string)file_get_contents($this->repoRoot() . '/SECURITY.md');
+        preg_match_all('/^\|\s*([^|]+?)\s*\|.*:white_check_mark:/m', $security, $supported);
+
+        self::assertSame(
+            [$line . '.x'],
+            $supported[1],
+            'SECURITY.md must list exactly the release line of ext_emconf.php (' . $line . '.x) as supported.',
+        );
+        self::assertMatchesRegularExpression(
+            '/^\|\s*<\s*' . preg_quote($line, '/') . '\s*\|\s*:x:\s*\|\s*:x:\s*\|$/m',
+            $security,
+            'SECURITY.md must mark every line below ' . $line . ' as unsupported.',
+        );
+    }
+
     // ==================== support matrix ====================
 
     #[Test]

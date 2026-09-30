@@ -1,3 +1,8 @@
+/*
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ * SPDX-FileCopyrightText: Netresearch DTT GmbH
+ */
+
 import { test, expect, navigateToLlmModule, navigateToProviders, navigateToModels, navigateToConfigurations, navigateToRuns, getModuleFrame } from './fixtures';
 import AxeBuilder from '@axe-core/playwright';
 

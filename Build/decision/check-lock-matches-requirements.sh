@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 #
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+#
 # The image installs from requirements.lock, never from requirements.txt. So a
 # bump to requirements.txt alone changes NOTHING about what is built — it only
 # makes the two files disagree, silently, in the direction where the repository

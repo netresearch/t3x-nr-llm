@@ -1,3 +1,5 @@
+{# SPDX-License-Identifier: GPL-2.0-or-later #}
+{# SPDX-FileCopyrightText: Netresearch DTT GmbH #}
 {% extends "base.html.j2" %}
 {% block main %}
 <section class="section">
@@ -55,7 +57,7 @@
           {% if step.code %}
           <div class="codeblock">
             <span class="codeblock__label">{{ step.lang or 'php' }}</span>
-            <button class="copy-btn" type="button" data-copy="feat-code-{{ f.slug }}-{{ loop.index }}" aria-label="{{ s.copy }}" hidden>⧉</button>
+            <button class="copy-btn" type="button" data-copy="feat-code-{{ f.slug }}-{{ loop.index }}" aria-label="{{ s['copy'] }}" hidden>⧉</button>
             <pre id="feat-code-{{ f.slug }}-{{ loop.index }}" tabindex="0"><code>{{ step.code }}</code></pre>
           </div>
           {% endif %}
