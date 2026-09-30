@@ -117,6 +117,18 @@ parameters:
       message: '#FlexFormTools::(getDataStructureIdentifier|parseDataStructureByIdentifier)\(\) invoked with \d+ parameters#'
       path: ../../Classes/Service/Tool/Builtin/GetFlexFormSchemaTool.php
       reportUnmatched: false
+    # --- Guzzle 7/8 dual-version compatibility ---
+    # Guzzle 8 moved isHostInNoProxy() from Utils to ProxyOptions; the call is
+    # gated by class_exists(ProxyOptions::class), so under each major PHPStan
+    # reports the other major's call.
+    -
+      message: '#^Call to an undefined static method GuzzleHttp\\Utils::isHostInNoProxy\(\)\.$#'
+      path: ../../Classes/Service/Tool/Web/ProxyDetector.php
+      reportUnmatched: false
+    -
+      message: '#^Call to static method isHostInNoProxy\(\) on an unknown class GuzzleHttp\\ProxyOptions\.$#'
+      path: ../../Classes/Service/Tool/Web/ProxyDetector.php
+      reportUnmatched: false
     # --- TYPO3 specifics ---
     -
       message: '#Access to an undefined property object::\$uc#'

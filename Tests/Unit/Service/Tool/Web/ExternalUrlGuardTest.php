@@ -351,6 +351,50 @@ final class ExternalUrlGuardTest extends TestCase
         self::assertTrue($this->guard($dns, env: ['HTTP_PROXY' => 'http://proxy.corp:3128'])->check('web', 'http://example.org/')->allowed);
     }
 
+    /**
+     * When nr-vault's proxy option decides nothing for the scheme, the
+     * transport reads the environment itself (Guzzle 8's ProxyEnv, libcurl
+     * under Guzzle 7): lowercase http_proxy under every SAPI, then all_proxy
+     * and ALL_PROXY. Each of these carries the request past the address pin.
+     *
+     * @return iterable<string, array{0: string, 1: array<string, string>, 2: mixed}>
+     */
+    public static function environmentProxiesTheTransportReads(): iterable
+    {
+        yield 'lowercase http_proxy under a web server' => ['http://example.org/', ['http_proxy' => 'http://proxy.corp:3128'], null];
+        yield 'ALL_PROXY alone' => ['https://example.org/', ['ALL_PROXY' => 'http://proxy.corp:3128'], null];
+        yield 'all_proxy alone' => ['http://example.org/', ['all_proxy' => 'http://proxy.corp:3128'], null];
+        yield 'an empty TYPO3 proxy counts as unset' => ['https://example.org/', ['HTTPS_PROXY' => 'http://proxy.corp:3128'], ''];
+        yield 'a TYPO3 proxy array without this scheme' => ['http://example.org/', ['http_proxy' => 'http://proxy.corp:3128'], ['https' => 'http://proxy.corp:3128']];
+    }
+
+    /**
+     * @param array<string, string> $env
+     */
+    #[Test]
+    #[DataProvider('environmentProxiesTheTransportReads')]
+    public function anEnvironmentProxyTheTransportReadsRefusesTheFetch(string $url, array $env, mixed $typo3Proxy): void
+    {
+        if ($typo3Proxy !== null) {
+            $GLOBALS['TYPO3_CONF_VARS']['HTTP']['proxy'] = $typo3Proxy;
+        }
+
+        $target = $this->guard(['example.org' => ['93.184.215.14']], env: $env)->check('web', $url);
+
+        self::assertFalse($target->allowed);
+        self::assertStringContainsString('HTTP proxy', $target->reason);
+    }
+
+    #[Test]
+    public function aHostIsExcludedOnlyWhenEveryNoProxyListExcludesIt(): void
+    {
+        $dns = ['example.org' => ['93.184.215.14']];
+        $proxy = ['HTTPS_PROXY' => 'http://proxy.corp:3128'];
+
+        self::assertFalse($this->guard($dns, env: $proxy + ['NO_PROXY' => 'example.org', 'no_proxy' => 'other.org'])->check('web', 'https://example.org/')->allowed);
+        self::assertTrue($this->guard($dns, env: $proxy + ['NO_PROXY' => 'example.org', 'no_proxy' => 'example.org'])->check('web', 'https://example.org/')->allowed);
+    }
+
     #[Test]
     public function theProxyIsPermittedOnlyTogetherWithAnAllowlist(): void
     {

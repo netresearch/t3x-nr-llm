@@ -8,11 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- **nr-vault 1.x is accepted.** The requirement is `^0.16.0 || ^1.1`, so an installation can take nr-vault 1.1, which a site needs before it can update extensions that require nr-vault 1.x. Two things change with it. nr-vault 1.x refuses an endpoint host that DNS does not resolve, so a provider or MCP server reached through `/etc/hosts` or a container runtime's resolver (an Ollama container addressed as `ollama`, for example) needs a literal entry in `$GLOBALS['TYPO3_CONF_VARS']['HTTP']['allowed_hosts']`. And nr-vault 1.x allows Guzzle 8, which TYPO3 14.3 then installs.
+- **nr-vault 1.x is accepted.** The requirement is `^0.16.0 || ^1.1`, so an installation can take nr-vault 1.1, which a site needs before it can update extensions that require nr-vault 1.x. Two things change with it. nr-vault 1.x refuses an endpoint host that DNS does not resolve, so a provider or MCP server reached through `/etc/hosts` or a container runtime's resolver (an Ollama container addressed as `ollama`, for example) needs a literal entry in `$GLOBALS['TYPO3_CONF_VARS']['HTTP']['allowed_hosts']`. And nr-vault 1.x allows Guzzle 8, which TYPO3 13.4.35 and 14.3.7 or later allow as well, so a composer update can install it.
+- **`fetch_external_url` supports Guzzle 8.** Its proxy check matched the no-proxy list with `GuzzleHttp\Utils::isHostInNoProxy()`, which Guzzle 8 moved to `GuzzleHttp\ProxyOptions`; it now calls whichever of the two the installed Guzzle provides.
 
-### Fixed
+### Security
 
-- **`fetch_external_url` works under Guzzle 8.** The proxy check called `GuzzleHttp\Utils::isHostInNoProxy()`, which Guzzle 8 moved to `GuzzleHttp\ProxyOptions`; with a proxy and a no-proxy list configured, every fetch ended in a fatal error. The check now calls whichever of the two the installed Guzzle provides.
+- **`fetch_external_url` recognises every proxy the transport uses.** The check decides whether a request would leave through a proxy, where the guard's address pin does not reach the connection. It read only what nr-vault turns into the proxy option, while the transport reads the environment itself when that option decides nothing for the scheme: lowercase `http_proxy` under a web server, `all_proxy`/`ALL_PROXY`, an empty `$GLOBALS['TYPO3_CONF_VARS']['HTTP']['proxy']`, or a per-scheme proxy array without an entry for the request's scheme. In these cases the request went through the proxy while the guard treated it as direct. They now get the same treatment as any other proxied fetch (refused unless `allowViaProxy` and an allowlist permit it), and a host counts as excluded only when both `NO_PROXY` and `no_proxy`, where set, exclude it.
 
 ## [0.38.1] - 2026-09-30
 

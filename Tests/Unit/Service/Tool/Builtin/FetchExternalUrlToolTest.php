@@ -14,6 +14,7 @@ use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Exception\ResponseException;
 use GuzzleHttp\Promise\Create;
 use GuzzleHttp\Promise\PromiseInterface;
 use GuzzleHttp\Psr7\Request;
@@ -111,7 +112,7 @@ final class FetchExternalUrlToolTest extends TestCase
 
             $next         = array_shift($this->script);
             if ($next === null) {
-                return self::rejected(new ConnectException('no scripted response', $request));
+                return $this->rejected(new ConnectException('no scripted response', $request));
             }
 
             if ($next instanceof Throwable) {
@@ -123,7 +124,7 @@ final class FetchExternalUrlToolTest extends TestCase
                 try {
                     $onHeaders($next);
                 } catch (Throwable $e) {
-                    return self::rejected(self::onHeadersFailure($request, $next, $e));
+                    return $this->rejected($this->onHeadersFailure($request, $next, $e));
                 }
             }
 
@@ -131,7 +132,7 @@ final class FetchExternalUrlToolTest extends TestCase
             $sink = $options['sink'] ?? null;
             if ($sink instanceof BoundedSinkStream && $sink->write($body) < strlen($body)) {
                 // What curl does on a short write.
-                return self::rejected(new RequestException('cURL error 23: Failure writing output to destination', $request));
+                return $this->rejected(new RequestException('cURL error 23: Failure writing output to destination', $request));
             }
 
             return Create::promiseFor($next);
@@ -158,17 +159,12 @@ final class FetchExternalUrlToolTest extends TestCase
     }
 
     /**
-     * The block between this call's BEGIN and END markers, asserting the
-     * result ends with the END marker of the same nonce and holds each exactly
-     * once.
-     */
-    /**
      * A rejected promise whose reason is typed `mixed`: guzzlehttp/promises 3
      * (Guzzle 8) types the reason invariantly, so a promise rejected with a
      * concrete exception class does not satisfy a plain `PromiseInterface`
      * return, while promises 2 (Guzzle 7) has no template types at all.
      */
-    private static function rejected(mixed $reason): PromiseInterface
+    private function rejected(mixed $reason): PromiseInterface
     {
         return Create::rejectionFor($reason);
     }
@@ -176,16 +172,16 @@ final class FetchExternalUrlToolTest extends TestCase
     /**
      * What the transport raises when the on_headers callback throws: Guzzle 8
      * a ResponseException, Guzzle 7 a RequestException carrying the response.
-     * The class is picked by name, because each one's constructor exists in
-     * one major only.
+     * The class is chosen at run time, because each one's constructor exists
+     * in one major only.
      */
-    private static function onHeadersFailure(RequestInterface $request, ResponseInterface $response, Throwable $previous): Throwable
+    private function onHeadersFailure(RequestInterface $request, ResponseInterface $response, Throwable $previous): Throwable
     {
         // Widened on purpose: PHPStan would otherwise fold the ternary for the
         // installed Guzzle and check the other major's constructor.
         /** @var class-string<Throwable> $class */
-        $class = class_exists('GuzzleHttp\\Exception\\ResponseException')
-            ? 'GuzzleHttp\\Exception\\ResponseException'
+        $class = class_exists(ResponseException::class)
+            ? ResponseException::class
             : RequestException::class;
         $exception = new $class('An error was encountered during the on_headers event', $request, $response, $previous);
         self::assertInstanceOf(Throwable::class, $exception);
@@ -193,6 +189,11 @@ final class FetchExternalUrlToolTest extends TestCase
         return $exception;
     }
 
+    /**
+     * The block between this call's BEGIN and END markers, asserting the
+     * result ends with the END marker of the same nonce and holds each exactly
+     * once.
+     */
     private function fenced(string $content): string
     {
         self::assertSame(1, preg_match('/<<<BEGIN UNTRUSTED EXTERNAL WEB CONTENT ([0-9a-f]{16}) — [^\n]*>>>\n/u', $content, $m));

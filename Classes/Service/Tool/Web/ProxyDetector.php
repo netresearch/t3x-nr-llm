@@ -9,25 +9,23 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Web;
 
+use GuzzleHttp\ProxyOptions;
 use GuzzleHttp\Utils;
 
 /**
  * Whether a request would leave through an HTTP proxy (ADR-202).
  *
- * Mirrors how nr-vault's client picks its proxy: `$GLOBALS['TYPO3_CONF_VARS']['HTTP']['proxy']`
- * when set (a string for every scheme, or an array keyed by scheme with an
- * optional `no` list), otherwise the environment — `HTTPS_PROXY` always,
- * `HTTP_PROXY` only on the CLI (PHP does not trust it under a web server),
- * with `NO_PROXY` as the exclusion list.
+ * Mirrors how nr-vault's client and the Guzzle transport under it pick a
+ * proxy: `$GLOBALS['TYPO3_CONF_VARS']['HTTP']['proxy']` when it decides (a
+ * string for every scheme, or an array keyed by scheme with an optional `no`
+ * list), otherwise the environment as described at
+ * {@see self::environmentProxyApplies()}.
  *
  * Behind a proxy the proxy resolves the host, so the address pin of the guard
  * does not reach the connection that matters. When in doubt this answers yes.
  */
 final readonly class ProxyDetector
 {
-    /** A string, not `::class`: the class does not exist under Guzzle 7. */
-    private const GUZZLE8_PROXY_OPTIONS = 'GuzzleHttp\\ProxyOptions';
-
     /**
      * @param array<string, string>|null $environment test seam; null reads getenv()
      */
@@ -43,31 +41,65 @@ final readonly class ProxyDetector
         $confVars   = is_array($GLOBALS['TYPO3_CONF_VARS'] ?? null) ? $GLOBALS['TYPO3_CONF_VARS'] : [];
         $http       = is_array($confVars['HTTP'] ?? null) ? $confVars['HTTP'] : [];
         $configured = $http['proxy'] ?? null;
-        if (is_string($configured)) {
-            return $configured !== '';
+        // An empty string counts as unset, as nr-vault's `!empty()` reads it.
+        if (is_string($configured) && $configured !== '') {
+            return true;
         }
 
         if (is_array($configured) && $configured !== []) {
             $proxy = $configured[$scheme] ?? null;
-            if (!is_string($proxy) || $proxy === '') {
-                // An array without a usable entry for this scheme: Guzzle would
-                // not proxy, but a malformed entry is not a reason to guess no.
-                return $proxy !== null;
+            if ($proxy !== null) {
+                // A malformed entry is not a reason to guess no.
+                return !is_string($proxy) || $proxy === '' || !$this->excluded($host, $configured['no'] ?? []);
             }
 
-            return !$this->excluded($host, $configured['no'] ?? []);
+            // No entry for this scheme: the option decides nothing, and the
+            // transport falls back to the environment below.
         }
 
-        $proxy = $scheme === 'https'
-            ? ($this->env('HTTPS_PROXY') ?? $this->env('https_proxy'))
-            : (($this->sapi ?? PHP_SAPI) === 'cli' ? ($this->env('HTTP_PROXY') ?? $this->env('http_proxy')) : null);
+        return $this->environmentProxyApplies($scheme, $host);
+    }
+
+    /**
+     * The environment as any layer under nr-vault's client reads it.
+     *
+     * nr-vault turns `HTTPS_PROXY`/`https_proxy`, and on the CLI
+     * `HTTP_PROXY`/`http_proxy`, into the proxy option. When that option
+     * decides nothing for the scheme, the transport reads the environment
+     * itself: Guzzle 8 (`GuzzleHttp\Handler\ProxyEnv`) and libcurl under
+     * Guzzle 7 take lowercase `http_proxy` under every SAPI, then `all_proxy`
+     * and `ALL_PROXY`. Uppercase `HTTP_PROXY` outside the CLI is read by none
+     * of them (a web server fills it from the `Proxy:` request header).
+     */
+    private function environmentProxyApplies(string $scheme, string $host): bool
+    {
+        $candidates = $scheme === 'https'
+            ? ['HTTPS_PROXY', 'https_proxy']
+            : [...(($this->sapi ?? PHP_SAPI) === 'cli' ? ['HTTP_PROXY'] : []), 'http_proxy'];
+
+        $proxy = null;
+        foreach ([...$candidates, 'all_proxy', 'ALL_PROXY'] as $name) {
+            $proxy ??= $this->env($name);
+        }
+
         if ($proxy === null) {
             return false;
         }
 
-        $noProxy = $this->env('NO_PROXY') ?? $this->env('no_proxy');
+        // nr-vault reads NO_PROXY first, the transport no_proxy first; a host
+        // counts as excluded only when every list that is set excludes it.
+        $lists = array_filter([$this->env('NO_PROXY'), $this->env('no_proxy')], static fn(?string $list): bool => $list !== null);
+        if ($lists === []) {
+            return true;
+        }
 
-        return !$this->excluded($host, $noProxy === null ? [] : explode(',', $noProxy));
+        foreach ($lists as $list) {
+            if (!$this->excluded($host, explode(',', $list))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function excluded(string $host, mixed $noProxy): bool
@@ -87,13 +119,13 @@ final readonly class ProxyDetector
 
         // Guzzle 8 moved the matcher from `Utils` to `ProxyOptions`, same
         // signature; the one that exists is the one the transport uses.
-        $matcher = class_exists(self::GUZZLE8_PROXY_OPTIONS)
-            ? [self::GUZZLE8_PROXY_OPTIONS, 'isHostInNoProxy']
-            : [Utils::class, 'isHostInNoProxy'];
+        // PHPStan sees only the installed major, so one of the two calls is
+        // unknown to it; Build/phpstan/phpstan.neon lets exactly that pass.
+        if (class_exists(ProxyOptions::class)) {
+            return ProxyOptions::isHostInNoProxy($host, $list) === true;
+        }
 
-        // Not callable means neither Guzzle API is there: when in doubt, the
-        // proxy applies (see the class docblock).
-        return is_callable($matcher) && $matcher($host, $list) === true;
+        return Utils::isHostInNoProxy($host, $list) === true;
     }
 
     private function env(string $name): ?string

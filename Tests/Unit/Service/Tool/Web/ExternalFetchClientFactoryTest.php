@@ -42,7 +42,8 @@ final class ExternalFetchClientFactoryTest extends TestCase
         } catch (InvalidArgumentException) {
             $found = false;
         }
-        self::assertTrue($found, 'nr-vault\'s ssrf-dns-pin middleware is on the stack');
+
+        self::assertTrue($found, "nr-vault's ssrf-dns-pin middleware is on the stack");
         self::assertSame(7, $client->getConfig('timeout'));
     }
 }

@@ -16,6 +16,7 @@ declare(strict_types=1);
  * additions live here.
  */
 
+use Rector\CodeQuality\Rector\Identical\SimplifyBoolIdenticalTrueRector;
 use Rector\Config\RectorConfig;
 use Rector\Php81\Rector\Property\ReadOnlyPropertyRector;
 use Rector\Php82\Rector\Class_\ReadOnlyClassRector;
@@ -110,6 +111,12 @@ return static function (RectorConfig $rectorConfig) use ($configure): void {
         ReadOnlyClassRector::class => [
             __DIR__ . '/../../Classes/Form/Tca/SnippetTagItems.php',
             __DIR__ . '/../../Classes/Form/Tca/SiteItems.php',
+        ],
+        // Guzzle 7 types Utils::isHostInNoProxy() bool, so Rector drops the
+        // `=== true`; under Guzzle 8 that method is gone and PHPStan sees a
+        // mixed return, which the comparison keeps a bool.
+        SimplifyBoolIdenticalTrueRector::class => [
+            __DIR__ . '/../../Classes/Service/Tool/Web/ProxyDetector.php',
         ],
         // Skip Fuzzy tests - Eris\Generator namespace functions conflict with auto-imports
         __DIR__ . '/../../Tests/Fuzzy/',
