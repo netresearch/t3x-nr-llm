@@ -1,3 +1,8 @@
+/*
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ * SPDX-FileCopyrightText: Netresearch DTT GmbH
+ */
+
 import { test, expect, navigateToLlmModule, navigateToConfigurations, navigateToProviders, getModuleFrame } from './fixtures';
 
 test.describe('LLM Backend Module - Multi-Tier Architecture', () => {

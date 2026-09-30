@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+#
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 """Build gate for the landing page.
 
 Checks the rendered artefact, not the sources: the point is what a visitor and a

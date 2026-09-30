@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Architecture — nr_llm
 
 Agent-facing component map. For design rationale, the authoritative records are the ADRs under `Documentation/Adr/` (`Documentation/Adr/Index.rst` indexes them and documents the lifecycle). This file states *where things live* and *which dependencies are allowed*; it duplicates no decision text.

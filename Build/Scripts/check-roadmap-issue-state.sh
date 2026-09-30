@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 #
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+#
 # Fails when ROADMAP.md names an issue that is already closed.
 #
 # WHY THIS EXISTS. The file asserts which issues are open, and that assertion

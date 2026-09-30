@@ -1,4 +1,7 @@
 #!/bin/bash
+#
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
 
 ## Description: Render TYPO3 documentation using render-guides
 ## Usage: docs [--clean]

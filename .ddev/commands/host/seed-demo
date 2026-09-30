@@ -1,4 +1,8 @@
 #!/bin/bash
+#
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+#
 ## Description: Seed the demo record graph and usage history (delegates to nrllm:demo:seed)
 ## Usage: seed-demo [days]
 ## Example: ddev seed-demo

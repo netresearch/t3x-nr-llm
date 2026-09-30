@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # The translation draft translates its text (NEXT-166)
 
 `create_translation_draft` runs core's `localize` and hides the result. The new

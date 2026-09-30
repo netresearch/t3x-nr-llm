@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 # Custom Dockerfile for nr_llm TYPO3 extension development
 # Adds PHP extensions and tools needed for LLM development
 

@@ -1,3 +1,6 @@
+-- SPDX-License-Identifier: GPL-2.0-or-later
+-- SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 -- E2E seed (ADR-109): two deterministic waiting agent runs so the Playwright
 -- accessibility suite can exercise the Agent Runs inbox's approve/deny and
 -- schema-input forms (an empty inbox only renders the module chrome).

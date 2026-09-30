@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # nr-llm Engineering Constitution
 
 This file is deliberately short. It states what a specification must satisfy, not how the code is written — the `AGENTS.md` hierarchy already does that, and duplicating it here would create a second source that drifts.

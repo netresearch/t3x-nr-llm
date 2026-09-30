@@ -1,3 +1,6 @@
+-- SPDX-License-Identifier: GPL-2.0-or-later
+-- SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 #
 # Table structure for table 'tx_nrllm_provider'
 # API provider connections (endpoint, credentials, adapter type)

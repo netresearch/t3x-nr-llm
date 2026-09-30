@@ -1,4 +1,7 @@
 #!/bin/bash
+#
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
 
 ## Description: One-shot setup — install TYPO3 v14 + nr_llm + docs + ollama
 ## Usage: setup

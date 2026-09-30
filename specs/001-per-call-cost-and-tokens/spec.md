@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Per-call cost and real token counts
 
 **Feature directory**: `specs/001-per-call-cost-and-tokens` | **Created**: 2026-08-16 | **Status**: Draft | **Source**: [#770](https://github.com/netresearch/t3x-nr-llm/issues/770) | **Related**: ADR-156

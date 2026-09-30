@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Non-admin record management
 
 **Feature directory**: `specs/003-management-architecture` | **Created**: 2026-08-17 | **Updated**: 2026-08-19 | **Status**: Draft | **Source**: [#768](https://github.com/netresearch/t3x-nr-llm/issues/768), [#691](https://github.com/netresearch/t3x-nr-llm/issues/691) | **Record**: ADR-169 (`Accepted` 2026-08-18)

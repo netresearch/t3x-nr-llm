@@ -7,6 +7,9 @@ declare(strict_types=1);
  *
  * For the full copyright and license information, please read the
  * LICENSE file that was distributed with this source code.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ * SPDX-FileCopyrightText: Netresearch DTT GmbH
  */
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;

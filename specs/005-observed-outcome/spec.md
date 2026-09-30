@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Observed editorial outcome (#772)
 
 Spec 002 shipped the explicit half of ADR-176 and left one thing open in

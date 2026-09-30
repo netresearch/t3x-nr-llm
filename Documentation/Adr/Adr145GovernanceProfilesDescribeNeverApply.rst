@@ -1,3 +1,6 @@
+.. SPDX-License-Identifier: CC-BY-4.0
+   SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 .. _adr-145:
 
 =================================================================

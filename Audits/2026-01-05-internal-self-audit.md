@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # HISTORICAL — Security Audit Report, 2026-01-05
 
 > **Superseded. Do not read this as a statement about the shipped extension.**

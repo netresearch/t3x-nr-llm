@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+#
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
 
 #
 # Capture the documentation screenshots — without ddev, without a database

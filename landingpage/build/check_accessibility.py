@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 """Static accessibility and HTML-semantics checks for rendered pages.
 
 Deliberately dependency-free and browser-free: these are the defects that are

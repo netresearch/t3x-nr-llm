@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+#
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+#
 # Validates that ext_emconf.php version matches any semver tag pointing at HEAD.
 # Used as a CaptainHook pre-push hook to prevent pushing mismatched versions.
 set -euo pipefail

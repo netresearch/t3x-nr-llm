@@ -1,3 +1,8 @@
+/*
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ * SPDX-FileCopyrightText: Netresearch DTT GmbH
+ */
+
 // Lints the backend JavaScript. Nothing did before: a file whose methods had
 // landed outside their class passed the whole CI matrix — 71 green checks —
 // because PHPStan does not read JavaScript, the functional suite renders the

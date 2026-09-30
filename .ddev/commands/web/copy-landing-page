@@ -1,4 +1,7 @@
 #!/bin/bash
+#
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
 
 ## Description: Copy landing page to web root
 ## Usage: copy-landing-page
