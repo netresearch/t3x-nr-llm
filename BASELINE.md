@@ -162,7 +162,7 @@ that endpoint alone and attested that neither reviews nor checks were required.
   for the scope of continuous and later targeted verification. Its claim
   that SonarCloud is the only non-blocking check is also stale.
 - **The support policy is recent.** `SECURITY.md` listed only 0.13.x as
-  supported until 0.38.1. It now names the latest release line as the only
+  supported up to and including 0.38.2. It now names the latest release line as the only
   supported one and ends a line's support with the next minor release, which
   matches the release history (no tag has ever been cut below an already
   released higher version). `VersionConsistencyTest` ties the table to
