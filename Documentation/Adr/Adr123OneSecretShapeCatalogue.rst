@@ -42,7 +42,7 @@ value verbatim:
 
 .. code-block:: text
 
-   GITHUB_PAT=ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+   GITHUB_PAT=ghp_<36 alphanumerics>
    STRIPE_LIVE=sk_live_<24 alphanumerics>
 
 Neither name contains ``PASS``, ``KEY``, ``SECRET`` or ``TOKEN``, so neither was
