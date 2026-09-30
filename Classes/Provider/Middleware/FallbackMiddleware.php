@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Provider\Middleware;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Provider\Exception\FallbackChainExhaustedException;
+use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Provider\Fallback\FallbackCandidateResolver;
 use Netresearch\NrLlm\Provider\Fallback\FallbackSkipReason;
 use Netresearch\NrLlm\Service\Health\ProviderHealthServiceInterface;
@@ -182,7 +183,12 @@ final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
 
                 return $result;
             } catch (Throwable $e) {
-                if (!$this->isRetryable($e)) {
+                // A sibling whose model cannot serve this operation at all (a
+                // chat model behind a decision, criteria that match nothing
+                // for it) is no candidate: skipping it keeps the primary's
+                // failure, which the caller must see, instead of replacing it
+                // with a permanent "unsupported" that blames the chain.
+                if (!$e instanceof UnsupportedFeatureException && !$this->isRetryable($e)) {
                     throw $e;
                 }
 

@@ -13,7 +13,9 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Exception\StructuredResponseMismatchException;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\Feature\CompletionService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -870,6 +872,30 @@ class CompletionServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function aHandedOverRoutingDecisionReachesTheManagerOnEveryStructuredAttempt(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+        $resolution = ModelResolution::withoutDecision(null);
+
+        $responses = [
+            $this->createMockResponse('{"grade": 9}'),
+            $this->createMockResponse('{"score": 4}'),
+        ];
+        $seen = [];
+        $llmManagerMock->expects(self::exactly(2))->method('completeForConfiguration')
+            ->willReturnCallback(function (string $prompt, LlmConfiguration $configuration, ?ChatOptions $options, ?ModelResolution $handed) use (&$responses, &$seen): CompletionResponse {
+                $seen[] = $handed;
+
+                return array_shift($responses) ?? self::fail('no response left');
+            });
+
+        $subject->completeStructuredForConfiguration('Rate this', new LlmConfiguration(), ['type' => 'object', 'required' => ['score']], null, $resolution);
+
+        // The first attempt and the repair both run on the decision that was checked.
+        self::assertSame([$resolution, $resolution], $seen);
+    }
+
+    #[Test]
     public function completeForConfigurationValidatesOptions(): void
     {
         $configuration = self::createStub(LlmConfiguration::class);
@@ -1053,8 +1079,8 @@ class CompletionServiceTest extends AbstractUnitTestCase
 
         $result = $subject->completeStructured('Generate metadata', $schema);
 
-        self::assertSame('draft', $result['status']);
-        self::assertSame('hello-world', $result['slug']);
+        self::assertSame('draft', $result->data['status']);
+        self::assertSame('hello-world', $result->data['slug']);
     }
 
     #[Test]
@@ -1075,8 +1101,8 @@ class CompletionServiceTest extends AbstractUnitTestCase
 
         $result = $subject->completeStructured('Generate metadata', $schema);
 
-        self::assertSame('Hello', $result['title']);
-        self::assertSame('World', $result['description']);
+        self::assertSame('Hello', $result->data['title']);
+        self::assertSame('World', $result->data['description']);
     }
 
     #[Test]
@@ -1114,8 +1140,8 @@ class CompletionServiceTest extends AbstractUnitTestCase
         // First response omits the required 'description'; the single repair
         // round-trip supplies it.
         $responses = [
-            $this->createMockResponse('{"title": "Hello"}'),
-            $this->createMockResponse('{"title": "Hello", "description": "World"}'),
+            $this->createMockResponse('{"title": "Hello"}', usage: new UsageStatistics(11, 3, 14)),
+            $this->createMockResponse('{"title": "Hello", "description": "World"}', usage: new UsageStatistics(29, 7, 36)),
         ];
         $index = 0;
         $llmManagerMock->expects(self::exactly(2))->method('chat')
@@ -1125,7 +1151,11 @@ class CompletionServiceTest extends AbstractUnitTestCase
 
         $result = $subject->completeStructured('Generate metadata', ['type' => 'object', 'required' => ['title', 'description']]);
 
-        self::assertSame('World', $result['description']);
+        self::assertSame('World', $result->data['description']);
+        self::assertSame(2, $result->attempts);
+        // The accepted attempt answers; both attempts were paid for.
+        self::assertSame($responses[1], $result->response);
+        self::assertSame([40, 10, 50], [$result->usage->promptTokens, $result->usage->completionTokens, $result->usage->totalTokens]);
     }
 
     #[Test]
@@ -1144,7 +1174,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
 
         $result = $subject->completeStructured('Generate', ['type' => 'object', 'required' => ['ok']]);
 
-        self::assertTrue($result['ok']);
+        self::assertTrue($result->data['ok']);
     }
 
     #[Test]
@@ -1155,8 +1185,44 @@ class CompletionServiceTest extends AbstractUnitTestCase
         $llmManagerMock->expects(self::exactly(2))->method('chat')
             ->willReturn($this->createMockResponse('{"title": "Hello"}'));
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(StructuredResponseMismatchException::class);
+        $this->expectExceptionCode(1784500001);
         $subject->completeStructured('Generate', ['type' => 'object', 'required' => ['description']]);
+    }
+
+    #[Test]
+    public function completeStructuredForConfigurationRepairsOnceAndCountsBothAttempts(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+        $responses = [
+            $this->createMockResponse('{"grade": 9}', usage: new UsageStatistics(13, 2, 15)),
+            $this->createMockResponse('{"score": 4}', model: 'fallback-model', usage: new UsageStatistics(31, 5, 36)),
+        ];
+        $index = 0;
+        $llmManagerMock->expects(self::exactly(2))->method('completeForConfiguration')
+            ->willReturnCallback(function () use (&$responses, &$index): CompletionResponse {
+                return $responses[$index++];
+            });
+
+        $result = $subject->completeStructuredForConfiguration('Rate this', new LlmConfiguration(), ['type' => 'object', 'required' => ['score']]);
+
+        self::assertSame(4, $result->data['score']);
+        self::assertSame(2, $result->attempts);
+        // The model that produced the accepted answer, not the first one.
+        self::assertSame('fallback-model', $result->response->model);
+        self::assertSame([44, 7, 51], [$result->usage->promptTokens, $result->usage->completionTokens, $result->usage->totalTokens]);
+    }
+
+    #[Test]
+    public function completeStructuredForConfigurationThrowsItsOwnCodeWhenTheRepairFailsToo(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+        $llmManagerMock->expects(self::exactly(2))->method('completeForConfiguration')
+            ->willReturn($this->createMockResponse('{"grade": 9}'));
+
+        $this->expectException(StructuredResponseMismatchException::class);
+        $this->expectExceptionCode(1784500002);
+        $subject->completeStructuredForConfiguration('Rate this', new LlmConfiguration(), ['type' => 'object', 'required' => ['score']]);
     }
 
     #[Test]
@@ -1178,7 +1244,8 @@ class CompletionServiceTest extends AbstractUnitTestCase
 
         $result = $subject->completeStructured('Generate metadata', $schema);
 
-        self::assertSame(['title' => 'x'], $result);
+        self::assertSame(['title' => 'x'], $result->data);
+        self::assertSame(1, $result->attempts);
     }
 
     #[Test]
@@ -1190,7 +1257,10 @@ class CompletionServiceTest extends AbstractUnitTestCase
 
         $result = $subject->completeStructuredForConfiguration('Rate this', new LlmConfiguration(), ['type' => 'object', 'required' => ['score']]);
 
-        self::assertSame(5, $result['score']);
+        self::assertSame(5, $result->data['score']);
+        self::assertSame(1, $result->attempts);
+        self::assertSame('test-model', $result->response->model);
+        self::assertSame(30, $result->usage->totalTokens);
     }
 
     /**
@@ -1199,11 +1269,13 @@ class CompletionServiceTest extends AbstractUnitTestCase
     private function createMockResponse(
         string $content,
         string $finishReason = 'stop',
+        string $model = 'test-model',
+        ?UsageStatistics $usage = null,
     ): CompletionResponse {
         return new CompletionResponse(
             content: $content,
-            model: 'test-model',
-            usage: new UsageStatistics(
+            model: $model,
+            usage: $usage ?? new UsageStatistics(
                 promptTokens: 10,
                 completionTokens: 20,
                 totalTokens: 30,

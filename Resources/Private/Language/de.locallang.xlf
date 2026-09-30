@@ -1139,6 +1139,14 @@
                 <source>Model "%s" answered but returned no embedding vector.</source>
                 <target>Modell "%s" hat geantwortet, aber keinen Embedding-Vektor geliefert.</target>
             </trans-unit>
+            <trans-unit id="model.test.decided">
+                <source>Model "%s" answered a yes/no probe with %.2f for yes (tokens: %d in).</source>
+                <target>Modell „%s“ hat eine Ja/Nein-Probe mit %.2f für Ja beantwortet (Tokens: %d ein).</target>
+            </trans-unit>
+            <trans-unit id="model.test.decisionUnsupported">
+                <source>Model "%s" declares decisions, but its provider cannot make any.</source>
+                <target>Modell „%s“ deklariert Entscheidungen, aber sein Provider kann keine treffen.</target>
+            </trans-unit>
             <trans-unit id="model.test.notTestableHere">
                 <source>Model "%s" provides %s. Those services take their credential from the Extension Configuration rather than from this provider record, so this record cannot verify them.</source>
                 <target>Modell "%s" stellt %s bereit. Diese Dienste beziehen ihre Zugangsdaten aus der Extension-Konfiguration und nicht aus diesem Provider-Datensatz — über diesen Datensatz sind sie deshalb nicht prüfbar.</target>
@@ -2975,6 +2983,14 @@
             <trans-unit id="error.config.modelsFailed">
                 <source>Failed to load models. See system log for details.</source>
                 <target>Modelle konnten nicht geladen werden. Siehe Systemprotokoll für Details.</target>
+            </trans-unit>
+            <trans-unit id="config.test.decisionUnsupported">
+                <source>Model "%s" declares decisions, but its provider cannot make any.</source>
+                <target>Modell „%s“ deklariert Entscheidungen, aber sein Provider kann keine treffen.</target>
+            </trans-unit>
+            <trans-unit id="config.test.decided">
+                <source>The model answered a yes/no probe with %.2f for yes.</source>
+                <target>Das Modell hat eine Ja/Nein-Probe mit %.2f für Ja beantwortet.</target>
             </trans-unit>
             <trans-unit id="error.config.noModel">
                 <source>Configuration has no model assigned</source>

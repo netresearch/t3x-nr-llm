@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Provider\Contract\DecisionCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
@@ -51,6 +52,7 @@ final class ModelTestController extends ActionController
 {
     use RequiresBackendAdminTrait;
     use DefensiveLocalizationTrait;
+    use DecisionProbeTrait;
 
     private const ERROR_NO_MODEL_UID = 'No model UID specified';
 
@@ -61,6 +63,9 @@ final class ModelTestController extends ActionController
 
     /** Embed a string through the record's own provider. */
     private const PROBE_EMBEDDINGS = 'embeddings';
+
+    /** Ask the record's decision provider one yes/no question (ADR-211). */
+    private const PROBE_DECISION = 'decision';
 
     /** Nothing here can verify this model — say so rather than guess. */
     private const PROBE_UNSUPPORTED = 'unsupported';
@@ -151,6 +156,10 @@ final class ModelTestController extends ActionController
                 return $this->respondToEmbeddingProbe($model, $adapter);
             }
 
+            if ($probe === self::PROBE_DECISION) {
+                return $this->respondToDecisionProbe($model, $adapter);
+            }
+
             // Make a simple test call - use enough tokens for models with thinking
             $testPrompt = $this->testPromptResolver->resolve();
             $response = $adapter->complete($testPrompt, [
@@ -229,6 +238,14 @@ final class ModelTestController extends ActionController
             return self::PROBE_CHAT;
         }
 
+        // A decision model answers typed questions and no prompt: the chat
+        // probe would be refused by its adapter (ADR-211). Checked first, as
+        // the decision service and the configuration test check it — a
+        // record that also keeps the form's default "chat" is still one.
+        if ($capabilities->has(ModelCapability::DECISION)) {
+            return self::PROBE_DECISION;
+        }
+
         foreach (self::CHAT_SHAPED_CAPABILITIES as $capability) {
             if ($capabilities->has($capability)) {
                 return self::PROBE_CHAT;
@@ -276,6 +293,36 @@ final class ModelTestController extends ActionController
                     ?? 'Model "%s" returned a %d-dimension embedding (tokens: %d in).',
                 $model->getName(),
                 $dimensions,
+                $response->usage->promptTokens,
+            ),
+        ))->jsonSerialize());
+    }
+
+    /**
+     * Ask the decision probe ({@see DecisionProbeTrait}) and report the answer.
+     */
+    private function respondToDecisionProbe(Model $model, ProviderInterface $adapter): ResponseInterface
+    {
+        if (!$adapter instanceof DecisionCapableInterface) {
+            return new JsonResponse((new TestConnectionResponse(
+                success: false,
+                message: sprintf(
+                    $this->translate('model.test.decisionUnsupported')
+                        ?? 'Model "%s" declares decisions, but its provider cannot make any.',
+                    $model->getName(),
+                ),
+            ))->jsonSerialize());
+        }
+
+        $response = $this->probeDecision($adapter, $this->testPromptResolver->resolve(), ['model' => $model->getModelId()]);
+
+        return new JsonResponse((new TestConnectionResponse(
+            success: true,
+            message: sprintf(
+                $this->translate('model.test.decided')
+                    ?? 'Model "%s" answered a yes/no probe with %.2f for yes (tokens: %d in).',
+                $model->getName(),
+                $this->decisionProbeYes($response),
                 $response->usage->promptTokens,
             ),
         ))->jsonSerialize());

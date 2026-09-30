@@ -394,8 +394,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             self::assertArrayHasKey($id, $byId, $id . ' must survive the relevance filter');
             self::assertSame(1050000, $byId[$id]->contextLength);
             self::assertSame(128000, $byId[$id]->maxOutputTokens);
-            self::assertSame($costInput, $byId[$id]->costInput);
-            self::assertSame($costOutput, $byId[$id]->costOutput);
+            self::assertSame((float)$costInput, $byId[$id]->costInput);
+            self::assertSame((float)$costOutput, $byId[$id]->costOutput);
             self::assertContains('tools', $byId[$id]->capabilities);
         }
     }
@@ -886,8 +886,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
 
         assert(isset($byId['gpt-5.5'], $byId['gpt-image-2'], $byId['tts-1'], $byId['tts-1-hd'], $byId['whisper-1']));
         // $5 / $30 per 1M tokens, stored as cents per 1M
-        self::assertSame(500, $byId['gpt-5.5']->costInput);
-        self::assertSame(3000, $byId['gpt-5.5']->costOutput);
+        self::assertSame(500.0, $byId['gpt-5.5']->costInput);
+        self::assertSame(3000.0, $byId['gpt-5.5']->costOutput);
         self::assertTrue($byId['gpt-5.5']->recommended);
         self::assertSame(['image'], $byId['gpt-image-2']->capabilities);
         self::assertSame(['text_to_speech'], $byId['tts-1']->capabilities);
@@ -3224,8 +3224,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             self::assertSame($spec[2], $model->capabilities, $id . ' capabilities');
             self::assertSame($spec[3], $model->contextLength, $id . ' contextLength');
             self::assertSame($spec[4], $model->maxOutputTokens, $id . ' maxOutputTokens');
-            self::assertSame($spec[5], $model->costInput, $id . ' costInput');
-            self::assertSame($spec[6], $model->costOutput, $id . ' costOutput');
+            self::assertSame((float)$spec[5], $model->costInput, $id . ' costInput');
+            self::assertSame((float)$spec[6], $model->costOutput, $id . ' costOutput');
             self::assertSame($spec[7], $model->recommended, $id . ' recommended');
         }
     }
@@ -3261,8 +3261,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         self::assertSame(['chat'], $model->capabilities);
         self::assertSame(0, $model->contextLength);
         self::assertSame(0, $model->maxOutputTokens);
-        self::assertSame(0, $model->costInput);
-        self::assertSame(0, $model->costOutput);
+        self::assertSame(0.0, $model->costInput);
+        self::assertSame(0.0, $model->costOutput);
         self::assertFalse($model->recommended);
     }
 
@@ -3792,8 +3792,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             self::assertSame(['chat', 'vision', 'tools', 'streaming'], $model->capabilities, $id . ' capabilities');
             self::assertSame(200000, $model->contextLength, $id . ' contextLength');
             self::assertSame(32000, $model->maxOutputTokens, $id . ' maxOutputTokens');
-            self::assertSame($spec[2], $model->costInput, $id . ' costInput');
-            self::assertSame($spec[3], $model->costOutput, $id . ' costOutput');
+            self::assertSame((float)$spec[2], $model->costInput, $id . ' costInput');
+            self::assertSame((float)$spec[3], $model->costOutput, $id . ' costOutput');
             self::assertSame($spec[4], $model->recommended, $id . ' recommended');
         }
     }

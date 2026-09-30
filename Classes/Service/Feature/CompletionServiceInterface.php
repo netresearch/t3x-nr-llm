@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\StructuredCompletionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 
@@ -53,9 +55,9 @@ interface CompletionServiceInterface
      * @throws InvalidArgumentException when the response still fails to match the
      *                                  schema after one repair attempt
      *
-     * @return array<string, mixed> The decoded, schema-valid JSON payload
+     * @return StructuredCompletionResponse the decoded, schema-valid payload with the answering response and the usage of every attempt
      */
-    public function completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): array;
+    public function completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): StructuredCompletionResponse;
 
     /**
      * Generate a Markdown-formatted completion (system prompt augmented to request Markdown).
@@ -81,9 +83,13 @@ interface CompletionServiceInterface
      * BudgetMiddleware still enforces the configuration's and the user's
      * limits. Mirrors {@see EmbeddingServiceInterface::embedForConfiguration()}.
      *
+     * @param ModelResolution|null $resolution a routing decision the caller already took for this
+     *                                         configuration (#922) — the model it checked is the model that
+     *                                         serves; a fallback configuration still resolves for itself
+     *
      * @throws InvalidArgumentException
      */
-    public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse;
+    public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null, ?ModelResolution $resolution = null): CompletionResponse;
 
     /**
      * Generate a JSON-formatted completion against a specific LlmConfiguration record.
@@ -98,13 +104,12 @@ interface CompletionServiceInterface
      * The named-configuration counterpart to {@see completeStructured()}.
      *
      * @param array<string, mixed> $schema
+     * @param ModelResolution|null $resolution as {@see completeForConfiguration()}, for every attempt
      *
      * @throws InvalidArgumentException when the response still fails to match the
      *                                  schema after one repair attempt
-     *
-     * @return array<string, mixed>
      */
-    public function completeStructuredForConfiguration(string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null): array;
+    public function completeStructuredForConfiguration(string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null, ?ModelResolution $resolution = null): StructuredCompletionResponse;
 
     /**
      * Generate a Markdown-formatted completion against a specific LlmConfiguration record.

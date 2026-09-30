@@ -52,6 +52,10 @@ Required
    - ``groq`` — Groq inference API
    - ``azure_openai`` — Azure OpenAI Service
    - ``custom`` — OpenAI-compatible endpoint
+   - ``typesafe`` — TypeSafe decision API
+     (decisions only, :ref:`api-decision-service`)
+   - ``decision_sidecar`` — local decision sidecar
+     (decisions only, no API key)
 
 .. confval:: api_key
    :name: confval-provider-api-key

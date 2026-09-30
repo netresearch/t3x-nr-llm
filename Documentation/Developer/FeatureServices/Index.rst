@@ -130,7 +130,8 @@ Methods
    // Creative (high creativity)
    $response = $completionService->completeCreative('Write a haiku about coding');
 
-   // Structured: schema-validated JSON (strict subset, ADR-126)
+   // Structured: schema-validated JSON (strict subset, ADR-126); ->data is
+   // the payload, ->response the answering call, ->usage every attempt
    $data = $completionService->completeStructured('Rate this text', [
        'type'       => 'object',
        'required'   => ['score', 'reason'],
@@ -138,7 +139,7 @@ Methods
            'score'  => ['type' => 'number'],
            'reason' => ['type' => 'string'],
        ],
-   ]);
+   ])->data;
 
 .. _feature-services-vision:
 

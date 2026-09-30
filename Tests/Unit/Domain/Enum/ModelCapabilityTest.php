@@ -20,11 +20,11 @@ use PHPUnit\Framework\TestCase;
 final class ModelCapabilityTest extends TestCase
 {
     #[Test]
-    public function allElevenCasesExist(): void
+    public function allTwelveCasesExist(): void
     {
         $cases = ModelCapability::cases();
 
-        self::assertCount(11, $cases);
+        self::assertCount(12, $cases);
     }
 
     #[Test]
@@ -41,6 +41,7 @@ final class ModelCapabilityTest extends TestCase
         self::assertSame('image', ModelCapability::IMAGE->value);
         self::assertSame('text_to_speech', ModelCapability::TEXT_TO_SPEECH->value);
         self::assertSame('transcription', ModelCapability::TRANSCRIPTION->value);
+        self::assertSame('decision', ModelCapability::DECISION->value);
     }
 
     #[Test]
@@ -48,7 +49,7 @@ final class ModelCapabilityTest extends TestCase
     {
         $values = ModelCapability::values();
 
-        self::assertCount(11, $values);
+        self::assertCount(12, $values);
         self::assertContains('chat', $values);
         self::assertContains('completion', $values);
         self::assertContains('embeddings', $values);

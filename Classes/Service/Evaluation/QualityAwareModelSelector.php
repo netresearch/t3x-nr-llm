@@ -37,9 +37,9 @@ final readonly class QualityAwareModelSelector
     /**
      * Select the highest-quality model among those matching the criteria.
      *
-     * @param array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
-     * @param float                                                                                                                        $minQuality Minimum acceptable quality (0.0 disables the filter); candidates below it,
-     *                                                                                                                                                 or without any quality data, are excluded when this is greater than 0.0
+     * @param array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int|float, preferLowestCost?: bool} $criteria
+     * @param float                                                                                                                              $minQuality Minimum acceptable quality (0.0 disables the filter); candidates below it,
+     *                                                                                                                                                       or without any quality data, are excluded when this is greater than 0.0
      */
     public function selectByQuality(array $criteria, float $minQuality = 0.0): ?Model
     {

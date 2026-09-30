@@ -11,8 +11,11 @@ namespace Netresearch\NrLlm\Tests\Unit\Service;
 
 use ArrayIterator;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
+use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\StructuredCompletionResponse;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
@@ -104,6 +107,18 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     }
 
     /**
+     * The completion service's structured result for a decoded payload.
+     *
+     * @param array<string, mixed> $data
+     */
+    private function structured(array $data): StructuredCompletionResponse
+    {
+        $response = new CompletionResponse(json_encode($data, JSON_THROW_ON_ERROR), 'test-model', new UsageStatistics(0, 0, 0));
+
+        return new StructuredCompletionResponse($data, $response, $response->usage, 1);
+    }
+
+    /**
      * Stub the structured completion to return $result directly — since the
      * ADR-126/128 rewrite the wizard receives the decoded, schema-validated
      * array from completeStructuredForConfiguration(), never raw content.
@@ -114,7 +129,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     {
         $this->completionService
             ->method('completeStructuredForConfiguration')
-            ->willReturn($result);
+            ->willReturn($this->structured($result));
     }
 
     /**
@@ -129,7 +144,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->completionService
             ->method('completeStructuredForConfiguration')
             ->willReturnCallback(
-                function (string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null) use (&$captured, $result): array {
+                function (string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null) use (&$captured, $result): StructuredCompletionResponse {
                     $captured = [
                         'prompt' => $prompt,
                         'configuration' => $configuration,
@@ -137,7 +152,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
                         'options' => $options,
                     ];
 
-                    return $result;
+                    return $this->structured($result);
                 },
             );
     }
@@ -264,7 +279,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->completionService
             ->expects(self::once())
             ->method('completeStructuredForConfiguration')
-            ->willReturn([
+            ->willReturn($this->structured([
                 'identifier' => 'blog-summarizer',
                 'name' => 'Blog Summarizer',
                 'description' => 'Summarizes blog posts into concise paragraphs.',
@@ -275,7 +290,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
                 'frequency_penalty' => 0.1,
                 'presence_penalty' => 0.0,
                 'recommended_model' => 'gpt-5.2',
-            ]);
+            ]));
 
         $result = $this->subject->generateConfiguration('summarize blog posts', $config);
 
@@ -463,12 +478,12 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method('completeStructuredForConfiguration')
             ->with(self::anything(), $defaultConfig, self::anything(), self::anything())
-            ->willReturn([
+            ->willReturn($this->structured([
                 'identifier' => 'auto-config',
                 'name' => 'Auto Config',
                 'description' => 'Uses default config.',
                 'system_prompt' => 'Test.',
-            ]);
+            ]));
 
         $result = $this->subject->generateConfiguration('auto config');
 
@@ -486,14 +501,14 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->completionService
             ->expects(self::once())
             ->method('completeStructuredForConfiguration')
-            ->willReturn([
+            ->willReturn($this->structured([
                 'identifier' => 'summarize-article',
                 'name' => 'Summarize Article',
                 'description' => 'Summarizes articles into key points.',
                 'category' => 'content',
                 'prompt_template' => 'Summarize the following article:\n\n{{input}}',
                 'output_format' => 'markdown',
-            ]);
+            ]));
 
         $result = $this->subject->generateTask('summarize articles', $config);
 
@@ -653,7 +668,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->completionService
             ->expects(self::once())
             ->method('completeStructuredForConfiguration')
-            ->willReturn([
+            ->willReturn($this->structured([
                 'task' => [
                     'identifier' => 'translate-text',
                     'name' => 'Translate Text',
@@ -680,7 +695,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
                     'description' => 'Best for translation tasks.',
                     'capabilities' => 'chat,streaming',
                 ],
-            ]);
+            ]));
 
         $result = $this->subject->generateTaskWithChain('translate content', $config);
 
@@ -1159,12 +1174,12 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method('completeStructuredForConfiguration')
             ->with(self::anything(), $activeConfig, self::anything(), self::anything())
-            ->willReturn([
+            ->willReturn($this->structured([
                 'identifier' => 'fallback-active',
                 'name' => 'Fallback Active',
                 'description' => 'Uses first active config.',
                 'system_prompt' => 'Test.',
-            ]);
+            ]));
 
         $result = $this->subject->generateConfiguration('test fallback active');
 
@@ -1192,12 +1207,12 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->completionService
             ->expects(self::once())
             ->method('completeStructuredForConfiguration')
-            ->willReturn([
+            ->willReturn($this->structured([
                 'identifier' => 'skip-default',
                 'name' => 'Skip Default',
                 'description' => 'Skipped default without model.',
                 'system_prompt' => 'Test.',
-            ]);
+            ]));
 
         $result = $this->subject->generateConfiguration('test skip default');
 
@@ -1243,14 +1258,14 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             $completionService = $this->createMock(CompletionServiceInterface::class);
             $completionService
                 ->method('completeStructuredForConfiguration')
-                ->willReturn([
+                ->willReturn($this->structured([
                     'identifier' => 'cat-' . $category,
                     'name' => 'Category Test',
                     'description' => 'Test.',
                     'category' => $category,
                     'prompt_template' => '{{input}}',
                     'output_format' => 'markdown',
-                ]);
+                ]));
 
             $subject = new WizardGeneratorService(
                 $completionService,
@@ -1277,14 +1292,14 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             $completionService = $this->createMock(CompletionServiceInterface::class);
             $completionService
                 ->method('completeStructuredForConfiguration')
-                ->willReturn([
+                ->willReturn($this->structured([
                     'identifier' => 'fmt-' . $format,
                     'name' => 'Format Test',
                     'description' => 'Test.',
                     'category' => 'general',
                     'prompt_template' => '{{input}}',
                     'output_format' => $format,
-                ]);
+                ]));
 
             $subject = new WizardGeneratorService(
                 $completionService,

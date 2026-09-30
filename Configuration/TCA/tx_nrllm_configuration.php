@@ -171,6 +171,7 @@ return [
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.streaming', 'value' => 'cap:streaming', 'icon' => 'actions-play', 'group' => 'capabilities'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.embeddings', 'value' => 'cap:embeddings', 'icon' => 'actions-database', 'group' => 'capabilities'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.audio', 'value' => 'cap:audio', 'icon' => 'mimetypes-media-audio', 'group' => 'capabilities'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.decision', 'value' => 'cap:decision', 'icon' => 'actions-check-square', 'group' => 'capabilities'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.adapter.openai', 'value' => 'adapter:openai', 'icon' => 'nrllm-provider-openai', 'group' => 'adapters'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.adapter.anthropic', 'value' => 'adapter:anthropic', 'icon' => 'nrllm-provider-claude', 'group' => 'adapters'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.adapter.gemini', 'value' => 'adapter:gemini', 'icon' => 'nrllm-provider-gemini', 'group' => 'adapters'],

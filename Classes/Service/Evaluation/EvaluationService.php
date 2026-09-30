@@ -45,7 +45,7 @@ final readonly class EvaluationService
     /**
      * Execute the set and return the aggregated result.
      *
-     * @param string           $graderId    Grader identifier (default: deterministic; llm_judge is opt-in)
+     * @param string           $graderId    Grader identifier (default: deterministic; decision is opt-in)
      * @param ChatOptions|null $baseOptions Options applied to every call (e.g. the model/provider to evaluate);
      *                                      a prompt's own system prompt overrides the base system prompt
      */
@@ -54,6 +54,10 @@ final readonly class EvaluationService
         string $graderId = DeterministicGrader::IDENTIFIER,
         ?ChatOptions $baseOptions = null,
     ): SetEvaluationResult {
+        // Before the first paid completion: a grader that cannot grade at
+        // all would otherwise fail every prompt after paying for it.
+        $this->gradingService->assertReady($graderId);
+
         $evaluations = [];
         $model = $baseOptions?->getModel() ?? '';
 
@@ -71,10 +75,40 @@ final readonly class EvaluationService
                 $model = $response->model;
             }
 
-            $grading = $this->gradingService->grade($response->content, $prompt, $graderId);
+            // Graded against the system prompt the call actually ran with —
+            // the prompt's own or the run's base one — so a response that
+            // ignored an instruction there is judged as having ignored it.
+            $effectiveSystemPrompt = $options->getSystemPrompt();
+            $gradedPrompt = $effectiveSystemPrompt === $prompt->systemPrompt
+                ? $prompt
+                : $prompt->withSystemPrompt($effectiveSystemPrompt);
+
+            $grading = $this->gradingService->grade($response->content, $gradedPrompt, $graderId);
             $evaluations[] = new PromptEvaluation($prompt->id, $grading, $latencyMs);
         }
 
-        return new SetEvaluationResult($set->identifier, $model, $graderId, $evaluations, time());
+        return new SetEvaluationResult($set->identifier, $model, $this->series($graderId, $evaluations), $evaluations, time());
+    }
+
+    /**
+     * The grader a run is stored and compared under: the one every grading
+     * reports, when they agree. A grader that answers through a configurable
+     * model names it (the decision grader reports its provider, model and
+     * profile version, ADR-211), so runs graded by different yardsticks never
+     * serve as each other's regression baseline. Runs that disagree — a
+     * decision that failed for some prompts, a model switched mid-run —
+     * fall back to the requested identifier and are never compared at all
+     * ({@see SetEvaluationResult::sharesOneYardstick()}).
+     *
+     * @param list<PromptEvaluation> $evaluations
+     */
+    private function series(string $graderId, array $evaluations): string
+    {
+        $graders = array_values(array_unique(array_map(
+            static fn(PromptEvaluation $evaluation): string => $evaluation->result->grader,
+            $evaluations,
+        )));
+
+        return count($graders) === 1 ? $graders[0] : $graderId;
     }
 }

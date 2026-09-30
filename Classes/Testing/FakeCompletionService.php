@@ -12,6 +12,9 @@ namespace Netresearch\NrLlm\Testing;
 use LogicException;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\StructuredCompletionResponse;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Throwable;
@@ -40,6 +43,9 @@ use Throwable;
  */
 final class FakeCompletionService implements CompletionServiceInterface
 {
+    /** The model the canned structured responses report. */
+    public const STRUCTURED_MODEL = 'fake-structured';
+
     /**
      * CompletionResponses returned in FIFO order, one per call across the six
      * response-returning methods.
@@ -57,8 +63,10 @@ final class FakeCompletionService implements CompletionServiceInterface
     public array $jsonResult = [];
 
     /**
-     * Canned result for {@see self::completeStructured()} and
-     * {@see self::completeStructuredForConfiguration()}.
+     * Canned payload for {@see self::completeStructured()} and
+     * {@see self::completeStructuredForConfiguration()}, returned as the
+     * `data` of a one-attempt {@see StructuredCompletionResponse} whose
+     * response reports the model {@see self::STRUCTURED_MODEL} and no tokens.
      *
      * @var array<string, mixed>
      */
@@ -88,7 +96,7 @@ final class FakeCompletionService implements CompletionServiceInterface
     /** @var list<array{prompt: string, options: ?ChatOptions}> */
     public array $completeCreativeCalls = [];
 
-    /** @var list<array{prompt: string, configuration: LlmConfiguration, options: ?ChatOptions}> */
+    /** @var list<array{prompt: string, configuration: LlmConfiguration, options: ?ChatOptions, resolution: ?ModelResolution}> */
     public array $completeForConfigurationCalls = [];
 
     /** @var list<array{prompt: string, configuration: LlmConfiguration, options: ?ChatOptions}> */
@@ -106,7 +114,7 @@ final class FakeCompletionService implements CompletionServiceInterface
     /** @var list<array{prompt: string, schema: array<string, mixed>, options: ?ChatOptions}> */
     public array $completeStructuredCalls = [];
 
-    /** @var list<array{prompt: string, configuration: LlmConfiguration, schema: array<string, mixed>, options: ?ChatOptions}> */
+    /** @var list<array{prompt: string, configuration: LlmConfiguration, schema: array<string, mixed>, options: ?ChatOptions, resolution: ?ModelResolution}> */
     public array $completeStructuredForConfigurationCalls = [];
 
     public function complete(string $prompt, ?ChatOptions $options = null): CompletionResponse
@@ -124,12 +132,12 @@ final class FakeCompletionService implements CompletionServiceInterface
         return $this->jsonResult;
     }
 
-    public function completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): array
+    public function completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): StructuredCompletionResponse
     {
         $this->completeStructuredCalls[] = ['prompt' => $prompt, 'schema' => $schema, 'options' => $options];
         $this->guardThrow();
 
-        return $this->structuredResult;
+        return $this->structuredResponse();
     }
 
     public function completeMarkdown(string $prompt, ?ChatOptions $options = null): string
@@ -154,9 +162,9 @@ final class FakeCompletionService implements CompletionServiceInterface
         return $this->nextResponse(__FUNCTION__);
     }
 
-    public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
+    public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null, ?ModelResolution $resolution = null): CompletionResponse
     {
-        $this->completeForConfigurationCalls[] = ['prompt' => $prompt, 'configuration' => $configuration, 'options' => $options];
+        $this->completeForConfigurationCalls[] = ['prompt' => $prompt, 'configuration' => $configuration, 'options' => $options, 'resolution' => $resolution];
 
         return $this->nextResponse(__FUNCTION__);
     }
@@ -169,12 +177,12 @@ final class FakeCompletionService implements CompletionServiceInterface
         return $this->jsonResult;
     }
 
-    public function completeStructuredForConfiguration(string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null): array
+    public function completeStructuredForConfiguration(string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null, ?ModelResolution $resolution = null): StructuredCompletionResponse
     {
-        $this->completeStructuredForConfigurationCalls[] = ['prompt' => $prompt, 'configuration' => $configuration, 'schema' => $schema, 'options' => $options];
+        $this->completeStructuredForConfigurationCalls[] = ['prompt' => $prompt, 'configuration' => $configuration, 'schema' => $schema, 'options' => $options, 'resolution' => $resolution];
         $this->guardThrow();
 
-        return $this->structuredResult;
+        return $this->structuredResponse();
     }
 
     public function completeMarkdownForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): string
@@ -197,6 +205,18 @@ final class FakeCompletionService implements CompletionServiceInterface
         $this->completeCreativeForConfigurationCalls[] = ['prompt' => $prompt, 'configuration' => $configuration, 'options' => $options];
 
         return $this->nextResponse(__FUNCTION__);
+    }
+
+    private function structuredResponse(): StructuredCompletionResponse
+    {
+        $usage = new UsageStatistics(0, 0, 0);
+
+        return new StructuredCompletionResponse(
+            $this->structuredResult,
+            new CompletionResponse(json_encode($this->structuredResult, JSON_THROW_ON_ERROR), self::STRUCTURED_MODEL, $usage),
+            $usage,
+            1,
+        );
     }
 
     private function nextResponse(string $method): CompletionResponse

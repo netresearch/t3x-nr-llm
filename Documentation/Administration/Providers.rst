@@ -42,7 +42,9 @@ Adding a provider
       adapters: ``openai``, ``anthropic``,
       ``gemini``, ``ollama``, ``openrouter``,
       ``mistral``, ``groq``, ``azure_openai``,
-      ``custom``.
+      ``custom``, and the decision adapters
+      ``typesafe`` and ``decision_sidecar``
+      (:ref:`api-decision-service`).
 
    :guilabel:`API Key`
       Your API key. Stored securely via

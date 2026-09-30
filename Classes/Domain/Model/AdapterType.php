@@ -32,6 +32,11 @@ enum AdapterType: string
     case AzureOpenAI = 'azure_openai';
     case Custom = 'custom';
 
+    // Decision providers (ADR-211): their models answer typed questions and
+    // generate no text.
+    case TypeSafe = 'typesafe';
+    case DecisionSidecar = 'decision_sidecar';
+
     /**
      * Human-readable label for display in UI.
      */
@@ -50,6 +55,8 @@ enum AdapterType: string
             self::Ollama => 'Ollama (Local)',
             self::AzureOpenAI => 'Azure OpenAI',
             self::Custom => 'Custom (OpenAI-compatible)',
+            self::TypeSafe => 'TypeSafe (decisions)',
+            self::DecisionSidecar => 'Local decision sidecar',
         };
     }
 
@@ -73,6 +80,8 @@ enum AdapterType: string
             // Bare host: OllamaProvider adds the "api/" segment to each request path
             // itself, so its base URL must NOT include it (otherwise "/api/api/tags").
             self::Ollama => 'http://localhost:11434',
+            self::TypeSafe => 'https://api.typesafe.ai/v1',
+            self::DecisionSidecar => 'http://decision:8082',
             self::AzureOpenAI, self::Custom => '',
         };
     }
@@ -83,7 +92,7 @@ enum AdapterType: string
     public function requiresApiKey(): bool
     {
         return match ($this) {
-            self::Ollama => false,
+            self::Ollama, self::DecisionSidecar => false,
             default => true,
         };
     }

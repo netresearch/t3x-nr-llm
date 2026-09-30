@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Controller\Backend\Response;
 
 use JsonSerializable;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\DecisionResponse;
 
 /**
  * Response DTO for configuration test AJAX action.
@@ -34,6 +35,20 @@ final readonly class TestConfigurationResponse implements JsonSerializable
         return new self(
             success: true,
             content: $response->content,
+            model: $response->model,
+            usage: UsageResponse::fromUsageStatistics($response->usage),
+        );
+    }
+
+    /**
+     * Create from a decision probe (ADR-211): a decision model answers no
+     * text, so the caller phrases what it answered.
+     */
+    public static function fromDecisionResponse(DecisionResponse $response, string $content): self
+    {
+        return new self(
+            success: true,
+            content: $content,
             model: $response->model,
             usage: UsageResponse::fromUsageStatistics($response->usage),
         );

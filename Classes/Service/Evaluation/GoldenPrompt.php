@@ -17,7 +17,7 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
  * The `id` is unique within its set and identifies the prompt in run
  * results and regression comparisons. `assertions` drive the
  * deterministic grader; `reference` is an optional ideal answer the
- * LLM-as-a-judge grader uses as its grading reference. A prompt needs at
+ * decision grader hands the model as evidence (ADR-211). A prompt needs at
  * least one assertion OR a reference, otherwise there is nothing to grade
  * against.
  */
@@ -50,5 +50,15 @@ final readonly class GoldenPrompt
                 1794000012,
             );
         }
+    }
+
+    /**
+     * The same prompt with another system prompt — the one a run actually
+     * applied, so a grader judges the response against every instruction the
+     * model was given (ADR-211).
+     */
+    public function withSystemPrompt(?string $systemPrompt): self
+    {
+        return new self($this->id, $this->prompt, $this->assertions, $systemPrompt, $this->reference);
     }
 }

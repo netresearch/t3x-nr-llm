@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\ModelSelectionMode;
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\DecisionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
@@ -20,8 +21,13 @@ use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionAnswer;
+use Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionSubject;
+use Netresearch\NrLlm\Domain\ValueObject\Decision\ProbabilityKind;
+use Netresearch\NrLlm\Domain\ValueObject\Decision\YesNoQuestion;
 use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
 use Netresearch\NrLlm\Exception\InputContextTrustZoneException;
+use Netresearch\NrLlm\Provider\Contract\DecisionCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
@@ -38,6 +44,7 @@ use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
@@ -134,6 +141,95 @@ final class InputContextTrustGateEntryPointTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function aHandedOverRoutingDecisionIsWhatTheGateJudgesWithoutASecondResolution(): void
+    {
+        // #922 extended to the gate: the caller took the one routing decision
+        // and hands it over, so the gate reads the zone from that model and
+        // neither the gate nor the terminal asks routing again. Routing here
+        // would pick an external model — were it asked, the send would be
+        // refused.
+        $resolutions = 0;
+        $selection   = self::createStub(ModelSelectionServiceInterface::class);
+        $selection->method('resolveModelForCall')->willReturnCallback(
+            function () use (&$resolutions): ModelResolution {
+                ++$resolutions;
+
+                return ModelResolution::withoutDecision($this->modelIn(TrustZone::EXTERNAL_GLOBAL));
+            },
+        );
+
+        $response = $this->manager($selection)->chatWithConfiguration(
+            [ChatMessage::user('hi')],
+            $this->criteriaConfiguration(),
+            resolution: ModelResolution::withoutDecision($this->modelIn(TrustZone::LOCAL)),
+        );
+
+        self::assertSame('ok', $response->content);
+        self::assertSame(0, $resolutions, 'the handed-over decision is the only one');
+    }
+
+    /**
+     * @return iterable<string, array{TrustZone, bool}>
+     */
+    public static function handedOverDecisionZones(): iterable
+    {
+        yield 'a local model may carry the classified context' => [TrustZone::LOCAL, true];
+        yield 'an external one may not' => [TrustZone::EXTERNAL_GLOBAL, false];
+    }
+
+    #[Test]
+    #[DataProvider('handedOverDecisionZones')]
+    public function aNativeDecisionIsGatedAgainstTheHandedOverModel(TrustZone $zone, bool $permitted): void
+    {
+        // Routing would pick the opposite zone: only the handed-over model decides the verdict.
+        $manager = $this->manager($this->selecting($this->modelIn($zone === TrustZone::LOCAL ? TrustZone::EXTERNAL_GLOBAL : TrustZone::LOCAL)));
+
+        if (!$permitted) {
+            $this->expectException(InputContextTrustZoneException::class);
+        }
+
+        $response = $manager->decideForConfiguration(
+            new DecisionSubject(candidate: 'x'),
+            [new YesNoQuestion('ok', 'Ok?')],
+            $this->criteriaConfiguration(),
+            null,
+            ModelResolution::withoutDecision($this->modelIn($zone)),
+        );
+
+        self::assertSame(1.0, $response->answers['ok']->value);
+    }
+
+    #[Test]
+    public function completeForConfigurationHandsTheDecisionToTheGate(): void
+    {
+        // The entry point the structured decision path runs through.
+        $response = $this->manager($this->selecting($this->modelIn(TrustZone::EXTERNAL_GLOBAL)))->completeForConfiguration(
+            'hi',
+            $this->criteriaConfiguration(),
+            null,
+            ModelResolution::withoutDecision($this->modelIn(TrustZone::LOCAL)),
+        );
+
+        self::assertSame('ok', $response->content);
+    }
+
+    #[Test]
+    public function aHandedOverModelIsJudgedInFixedModeToo(): void
+    {
+        // The configuration names a local model, but the terminal serves the
+        // model it is handed. The gate must judge that one, or classified
+        // context reaches an external provider behind a local verdict.
+        $manager = $this->manager(null);
+
+        $this->expectException(InputContextTrustZoneException::class);
+        $manager->chatWithConfiguration(
+            [ChatMessage::user('hi')],
+            $this->fixedConfiguration(TrustZone::LOCAL),
+            resolution: ModelResolution::withoutDecision($this->modelIn(TrustZone::EXTERNAL_GLOBAL)),
+        );
+    }
+
+    #[Test]
     public function fixedModeResolvesOnceAndOnlyForTheDispatch(): void
     {
         // Characterisation of the unchanged path. A fixed-mode configuration
@@ -179,7 +275,14 @@ final class InputContextTrustGateEntryPointTest extends AbstractUnitTestCase
 
     private function manager(?ModelSelectionServiceInterface $selection): LlmServiceManager
     {
-        $adapter = self::createStub(ProviderInterface::class);
+        $adapter = self::createStubForIntersectionOfInterfaces([ProviderInterface::class, DecisionCapableInterface::class]);
+        $adapter->method('decide')->willReturn(new DecisionResponse(
+            ['ok' => DecisionAnswer::yesNo('ok', 1.0)],
+            'some-model',
+            new UsageStatistics(1, 0, 1),
+            ProbabilityKind::Distribution,
+            'some-provider',
+        ));
         $adapter->method('chatCompletion')->willReturn(new CompletionResponse(
             content: 'ok',
             model: 'some-model',

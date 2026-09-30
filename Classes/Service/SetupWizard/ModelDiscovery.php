@@ -11,12 +11,14 @@ namespace Netresearch\NrLlm\Service\SetupWizard;
 
 use Netresearch\NrLlm\Service\SetupWizard\Discovery\AbstractModelDiscoverer;
 use Netresearch\NrLlm\Service\SetupWizard\Discovery\AnthropicModelDiscoverer;
+use Netresearch\NrLlm\Service\SetupWizard\Discovery\DecisionSidecarModelDiscoverer;
 use Netresearch\NrLlm\Service\SetupWizard\Discovery\GeminiModelDiscoverer;
 use Netresearch\NrLlm\Service\SetupWizard\Discovery\GroqModelDiscoverer;
 use Netresearch\NrLlm\Service\SetupWizard\Discovery\MistralModelDiscoverer;
 use Netresearch\NrLlm\Service\SetupWizard\Discovery\OllamaModelDiscoverer;
 use Netresearch\NrLlm\Service\SetupWizard\Discovery\OpenAiModelDiscoverer;
 use Netresearch\NrLlm\Service\SetupWizard\Discovery\OpenRouterModelDiscoverer;
+use Netresearch\NrLlm\Service\SetupWizard\Discovery\TypeSafeModelDiscoverer;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
 use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
@@ -105,6 +107,9 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             'ollama'     => new OllamaModelDiscoverer($vault, $httpClientFactory, $requestFactory, $streamFactory, $logger),
             'mistral'    => new MistralModelDiscoverer($vault, $httpClientFactory, $requestFactory, $streamFactory, $logger),
             'groq'       => new GroqModelDiscoverer($vault, $httpClientFactory, $requestFactory, $streamFactory, $logger),
+            // Decision providers (ADR-211).
+            'typesafe'         => new TypeSafeModelDiscoverer($vault, $httpClientFactory, $requestFactory, $streamFactory, $logger),
+            'decision_sidecar' => new DecisionSidecarModelDiscoverer($vault, $httpClientFactory, $requestFactory, $streamFactory, $logger),
         ];
     }
 
@@ -150,7 +155,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                     ->withHeader('x-api-key', $apiKey)
                     ->withHeader('anthropic-version', '2023-06-01'),
                 'gemini' => $request->withHeader('x-goog-api-key', $apiKey),
-                'ollama' => $request, // No auth needed
+                'ollama', 'decision_sidecar' => $request, // No auth needed
                 default => $request->withHeader('Authorization', self::AUTH_BEARER_PREFIX . $apiKey),
             };
 

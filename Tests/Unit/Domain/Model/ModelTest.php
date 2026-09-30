@@ -164,6 +164,7 @@ final class ModelTest extends TestCase
         self::assertArrayHasKey(ModelCapability::TOOLS->value, $capabilities);
         self::assertArrayHasKey(ModelCapability::JSON_MODE->value, $capabilities);
         self::assertArrayHasKey(ModelCapability::AUDIO->value, $capabilities);
+        self::assertArrayHasKey(ModelCapability::DECISION->value, $capabilities);
     }
 
     // ========================================
@@ -293,5 +294,71 @@ final class ModelTest extends TestCase
             ModelCapability::CHAT,
             ModelCapability::TOOLS,
         ], $model->getCapabilitySet()->capabilities);
+    }
+
+    // ========================================
+    // Decimal prices and decisions (ADR-211)
+    // ========================================
+
+    #[Test]
+    public function aPriceBelowOneCentPerMillionTokensIsAPriceNotZero(): void
+    {
+        $model = new Model();
+        $model->setCostInput(4.2);
+        $model->setCostOutput(0.75);
+
+        self::assertSame(4.2, $model->getCostInput());
+        self::assertSame(0.75, $model->getCostOutput());
+        self::assertTrue($model->hasPricing());
+    }
+
+    #[Test]
+    public function aPriceIsRoundedToTheTwoDecimalsTheColumnStores(): void
+    {
+        $model = new Model();
+        // What TYPO3's backend form would store for 0.0375.
+        $model->setCostInput(0.0375);
+        $model->setCostOutput(0.004);
+
+        self::assertSame(0.04, $model->getCostInput());
+        self::assertSame(0.0, $model->getCostOutput(), 'below the stored precision is no price');
+    }
+
+    #[Test]
+    public function aNegativePriceIsStoredAsNoPrice(): void
+    {
+        $model = new Model();
+        $model->setCostInput(-0.5);
+        $model->setCostOutput(-120.0);
+
+        self::assertSame(0.0, $model->getCostInput());
+        self::assertSame(0.0, $model->getCostOutput());
+    }
+
+    #[Test]
+    public function aDollarPriceKeepsItsFractionOfACent(): void
+    {
+        $model = new Model();
+        // TypeSafe: 0.042 USD per million input tokens.
+        $model->setCostInputDollars(0.042);
+        $model->setCostOutputDollars(1.5);
+
+        self::assertSame(4.2, $model->getCostInput());
+        self::assertSame(150.0, $model->getCostOutput());
+        self::assertEqualsWithDelta(0.042, $model->getCostInputDollars(), 1e-12);
+    }
+
+    #[Test]
+    public function onlyAModelThatDeclaresDecisionSupportsIt(): void
+    {
+        $decision = new Model();
+        $decision->setCapabilities('decision');
+
+        $chat = new Model();
+        $chat->setCapabilities('chat,json_mode');
+
+        self::assertTrue($decision->supportsDecision());
+        self::assertFalse($decision->supportsChat());
+        self::assertFalse($chat->supportsDecision());
     }
 }

@@ -44,6 +44,8 @@ class AdapterTypeTest extends AbstractUnitTestCase
             'Ollama' => [AdapterType::Ollama, 'ollama'],
             'AzureOpenAI' => [AdapterType::AzureOpenAI, 'azure_openai'],
             'Custom' => [AdapterType::Custom, 'custom'],
+            'TypeSafe' => [AdapterType::TypeSafe, 'typesafe'],
+            'DecisionSidecar' => [AdapterType::DecisionSidecar, 'decision_sidecar'],
         ];
     }
 
@@ -72,6 +74,8 @@ class AdapterTypeTest extends AbstractUnitTestCase
             'Ollama' => [AdapterType::Ollama, 'Ollama (Local)'],
             'AzureOpenAI' => [AdapterType::AzureOpenAI, 'Azure OpenAI'],
             'Custom' => [AdapterType::Custom, 'Custom (OpenAI-compatible)'],
+            'TypeSafe' => [AdapterType::TypeSafe, 'TypeSafe (decisions)'],
+            'DecisionSidecar' => [AdapterType::DecisionSidecar, 'Local decision sidecar'],
         ];
     }
 
@@ -100,6 +104,8 @@ class AdapterTypeTest extends AbstractUnitTestCase
             'Ollama' => [AdapterType::Ollama, 'http://localhost:11434'],
             'AzureOpenAI' => [AdapterType::AzureOpenAI, ''],
             'Custom' => [AdapterType::Custom, ''],
+            'TypeSafe' => [AdapterType::TypeSafe, 'https://api.typesafe.ai/v1'],
+            'DecisionSidecar' => [AdapterType::DecisionSidecar, 'http://decision:8082'],
         ];
     }
 
@@ -128,6 +134,8 @@ class AdapterTypeTest extends AbstractUnitTestCase
             'Ollama does not require key' => [AdapterType::Ollama, false],
             'AzureOpenAI requires key' => [AdapterType::AzureOpenAI, true],
             'Custom requires key' => [AdapterType::Custom, true],
+            'TypeSafe requires key' => [AdapterType::TypeSafe, true],
+            'DecisionSidecar does not require key' => [AdapterType::DecisionSidecar, false],
         ];
     }
 
@@ -136,7 +144,9 @@ class AdapterTypeTest extends AbstractUnitTestCase
     {
         $result = AdapterType::toSelectArray();
 
-        self::assertCount(12, $result);
+        self::assertCount(14, $result);
+        self::assertArrayHasKey('typesafe', $result);
+        self::assertArrayHasKey('decision_sidecar', $result);
         self::assertArrayHasKey('openai', $result);
         self::assertArrayHasKey('anthropic', $result);
         self::assertArrayHasKey('gemini', $result);
@@ -183,7 +193,7 @@ class AdapterTypeTest extends AbstractUnitTestCase
     {
         $cases = AdapterType::cases();
 
-        self::assertCount(12, $cases);
+        self::assertCount(14, $cases);
         self::assertContains(AdapterType::OpenAI, $cases);
         self::assertContains(AdapterType::Anthropic, $cases);
         self::assertContains(AdapterType::Gemini, $cases);
@@ -196,5 +206,7 @@ class AdapterTypeTest extends AbstractUnitTestCase
         self::assertContains(AdapterType::Ollama, $cases);
         self::assertContains(AdapterType::AzureOpenAI, $cases);
         self::assertContains(AdapterType::Custom, $cases);
+        self::assertContains(AdapterType::TypeSafe, $cases);
+        self::assertContains(AdapterType::DecisionSidecar, $cases);
     }
 }

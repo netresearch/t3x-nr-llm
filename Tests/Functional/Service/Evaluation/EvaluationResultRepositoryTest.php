@@ -175,21 +175,24 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function findLatestSegregatesByGrader(): void
     {
-        // A deterministic run and an llm_judge run for the SAME (set, model)
+        // A deterministic run and a decision run for the SAME (set, model)
         // must not be treated as the same series — their pass_rate/mean_score
-        // are not comparable, so regression detection must not pair them.
+        // are not comparable, so regression detection must not pair them. A
+        // stored run of the removed llm_judge grader is no baseline for the
+        // decision grader either (ADR-211): its yardstick was another one.
         $this->repository->save($this->buildResult(4, 4, 1_700_000_000, self::MODEL, 'deterministic'));
-        $this->repository->save($this->buildResult(4, 1, 1_700_000_100, self::MODEL, 'llm_judge'));
+        $this->repository->save($this->buildResult(4, 1, 1_700_000_100, self::MODEL, 'decision'));
+        $this->repository->save($this->buildResult(4, 3, 1_700_000_200, self::MODEL, 'llm_judge'));
 
         $deterministic = $this->repository->findLatest(self::SET, self::MODEL, 'deterministic');
-        $judge = $this->repository->findLatest(self::SET, self::MODEL, 'llm_judge');
+        $decision = $this->repository->findLatest(self::SET, self::MODEL, 'decision');
 
         self::assertNotNull($deterministic);
-        self::assertNotNull($judge);
+        self::assertNotNull($decision);
         self::assertSame(1_700_000_000, $deterministic->runTimestamp);
-        self::assertSame(1_700_000_100, $judge->runTimestamp);
+        self::assertSame(1_700_000_100, $decision->runTimestamp);
         self::assertEqualsWithDelta(1.0, $deterministic->passRate, 0.0001);
-        self::assertEqualsWithDelta(0.25, $judge->passRate, 0.0001);
+        self::assertEqualsWithDelta(0.25, $decision->passRate, 0.0001);
     }
 
     #[Test]

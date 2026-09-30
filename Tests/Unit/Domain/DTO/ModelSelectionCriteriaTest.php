@@ -24,6 +24,16 @@ class ModelSelectionCriteriaTest extends AbstractUnitTestCase
     // ──────────────────────────────────────────────
 
     #[Test]
+    public function aFractionalCapSurvivesTheJsonRoundTrip(): void
+    {
+        // Decimal like the model price it caps (ADR-211): 4.2 cents per million.
+        $criteria = ModelSelectionCriteria::fromJson((new ModelSelectionCriteria(maxCostInput: 4.2))->toJson());
+
+        self::assertSame(4.2, $criteria->maxCostInput);
+        self::assertSame(4.0, ModelSelectionCriteria::fromArray(['maxCostInput' => 4])->maxCostInput, 'a stored integer still reads');
+    }
+
+    #[Test]
     public function constructorUsesDefaults(): void
     {
         $criteria = new ModelSelectionCriteria();
@@ -31,7 +41,7 @@ class ModelSelectionCriteriaTest extends AbstractUnitTestCase
         self::assertSame([], $criteria->capabilities);
         self::assertSame([], $criteria->adapterTypes);
         self::assertSame(0, $criteria->minContextLength);
-        self::assertSame(0, $criteria->maxCostInput);
+        self::assertSame(0.0, $criteria->maxCostInput);
         self::assertFalse($criteria->preferLowestCost);
     }
 
@@ -52,7 +62,7 @@ class ModelSelectionCriteriaTest extends AbstractUnitTestCase
         self::assertSame($capabilities, $criteria->capabilities);
         self::assertSame($adapterTypes, $criteria->adapterTypes);
         self::assertSame(8192, $criteria->minContextLength);
-        self::assertSame(500, $criteria->maxCostInput);
+        self::assertSame(500.0, $criteria->maxCostInput);
         self::assertTrue($criteria->preferLowestCost);
     }
 
@@ -76,7 +86,7 @@ class ModelSelectionCriteriaTest extends AbstractUnitTestCase
         self::assertSame(['chat', 'embeddings'], $criteria->capabilities);
         self::assertSame(['openai'], $criteria->adapterTypes);
         self::assertSame(4096, $criteria->minContextLength);
-        self::assertSame(200, $criteria->maxCostInput);
+        self::assertSame(200.0, $criteria->maxCostInput);
         self::assertTrue($criteria->preferLowestCost);
     }
 
@@ -88,7 +98,7 @@ class ModelSelectionCriteriaTest extends AbstractUnitTestCase
         self::assertSame([], $criteria->capabilities);
         self::assertSame([], $criteria->adapterTypes);
         self::assertSame(0, $criteria->minContextLength);
-        self::assertSame(0, $criteria->maxCostInput);
+        self::assertSame(0.0, $criteria->maxCostInput);
         self::assertFalse($criteria->preferLowestCost);
     }
 
@@ -103,7 +113,7 @@ class ModelSelectionCriteriaTest extends AbstractUnitTestCase
         self::assertSame(['vision'], $criteria->capabilities);
         self::assertSame([], $criteria->adapterTypes);
         self::assertSame(0, $criteria->minContextLength);
-        self::assertSame(100, $criteria->maxCostInput);
+        self::assertSame(100.0, $criteria->maxCostInput);
         self::assertFalse($criteria->preferLowestCost);
     }
 
@@ -127,7 +137,7 @@ class ModelSelectionCriteriaTest extends AbstractUnitTestCase
         self::assertSame(['chat', 'tools'], $criteria->capabilities);
         self::assertSame(['gemini'], $criteria->adapterTypes);
         self::assertSame(16384, $criteria->minContextLength);
-        self::assertSame(300, $criteria->maxCostInput);
+        self::assertSame(300.0, $criteria->maxCostInput);
         self::assertFalse($criteria->preferLowestCost);
     }
 
@@ -139,7 +149,7 @@ class ModelSelectionCriteriaTest extends AbstractUnitTestCase
         self::assertSame([], $criteria->capabilities);
         self::assertSame([], $criteria->adapterTypes);
         self::assertSame(0, $criteria->minContextLength);
-        self::assertSame(0, $criteria->maxCostInput);
+        self::assertSame(0.0, $criteria->maxCostInput);
         self::assertFalse($criteria->preferLowestCost);
     }
 
@@ -191,7 +201,7 @@ class ModelSelectionCriteriaTest extends AbstractUnitTestCase
             'capabilities' => ['chat'],
             'adapterTypes' => ['openai'],
             'minContextLength' => 2048,
-            'maxCostInput' => 150,
+            'maxCostInput' => 150.0,
             'preferLowestCost' => true,
         ];
 
@@ -249,7 +259,7 @@ class ModelSelectionCriteriaTest extends AbstractUnitTestCase
             'capabilities' => ['chat', 'vision', 'tools'],
             'adapterTypes' => ['openai', 'anthropic'],
             'minContextLength' => 32768,
-            'maxCostInput' => 1000,
+            'maxCostInput' => 1000.0,
             'preferLowestCost' => true,
         ];
 
@@ -474,7 +484,7 @@ class ModelSelectionCriteriaTest extends AbstractUnitTestCase
 
         self::assertSame(['openai'], $updated->adapterTypes);
         self::assertSame(4096, $updated->minContextLength);
-        self::assertSame(200, $updated->maxCostInput);
+        self::assertSame(200.0, $updated->maxCostInput);
         self::assertTrue($updated->preferLowestCost);
     }
 
@@ -518,7 +528,7 @@ class ModelSelectionCriteriaTest extends AbstractUnitTestCase
 
         self::assertSame(['chat'], $updated->capabilities);
         self::assertSame(2048, $updated->minContextLength);
-        self::assertSame(100, $updated->maxCostInput);
+        self::assertSame(100.0, $updated->maxCostInput);
         self::assertFalse($updated->preferLowestCost);
     }
 
@@ -551,7 +561,7 @@ class ModelSelectionCriteriaTest extends AbstractUnitTestCase
 
         self::assertSame(['embeddings'], $updated->capabilities);
         self::assertSame(['ollama'], $updated->adapterTypes);
-        self::assertSame(50, $updated->maxCostInput);
+        self::assertSame(50.0, $updated->maxCostInput);
         self::assertTrue($updated->preferLowestCost);
     }
 
@@ -566,8 +576,8 @@ class ModelSelectionCriteriaTest extends AbstractUnitTestCase
 
         $updated = $criteria->withMaxCostInput(500);
 
-        self::assertSame(500, $updated->maxCostInput);
-        self::assertSame(100, $criteria->maxCostInput);
+        self::assertSame(500.0, $updated->maxCostInput);
+        self::assertSame(100.0, $criteria->maxCostInput);
     }
 
     #[Test]
@@ -629,7 +639,7 @@ class ModelSelectionCriteriaTest extends AbstractUnitTestCase
         self::assertSame(['audio'], $updated->capabilities);
         self::assertSame(['openai'], $updated->adapterTypes);
         self::assertSame(2048, $updated->minContextLength);
-        self::assertSame(300, $updated->maxCostInput);
+        self::assertSame(300.0, $updated->maxCostInput);
     }
 
     // ──────────────────────────────────────────────
@@ -651,7 +661,7 @@ class ModelSelectionCriteriaTest extends AbstractUnitTestCase
         self::assertSame(['chat', 'vision'], $criteria->capabilities);
         self::assertSame(['openai', 'anthropic'], $criteria->adapterTypes);
         self::assertSame(8192, $criteria->minContextLength);
-        self::assertSame(500, $criteria->maxCostInput);
+        self::assertSame(500.0, $criteria->maxCostInput);
         self::assertTrue($criteria->preferLowestCost);
         self::assertTrue($criteria->hasCriteria());
     }

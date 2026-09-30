@@ -11,11 +11,14 @@ namespace Netresearch\NrLlm\Tests\Unit\Provider\Middleware;
 
 use LogicException;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\DecisionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionAnswer;
+use Netresearch\NrLlm\Domain\ValueObject\Decision\ProbabilityKind;
 use Netresearch\NrLlm\Domain\ValueObject\ProviderCallUsage;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
@@ -322,6 +325,35 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
         $this->pipeline()->run(
             context: ProviderCallContext::forConfiguration(ProviderOperation::Vision, $this->configuration(uid: 12)),
             terminal: static fn(): VisionResponse => $response,
+        );
+    }
+
+    #[Test]
+    public function tracksDecisionResponse(): void
+    {
+        $this->tracker->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                ProviderOperation::Decision->value,
+                'typesafe',
+                ['tokens' => 317, 'promptTokens' => 317, 'completionTokens' => 0, 'cost' => 0.0000133],
+                21,
+                0,
+                'jev-1.13.0',
+                0,
+            );
+
+        $response = new DecisionResponse(
+            answers: ['ok' => DecisionAnswer::yesNo('ok', 0.9)],
+            model: 'jev-1.13.0',
+            usage: new UsageStatistics(317, 0, 317, 0.0000133),
+            probabilityKind: ProbabilityKind::Calibrated,
+            provider: 'typesafe',
+        );
+
+        $this->pipeline()->run(
+            context: ProviderCallContext::forConfiguration(ProviderOperation::Decision, $this->configuration(uid: 21)),
+            terminal: static fn(): DecisionResponse => $response,
         );
     }
 

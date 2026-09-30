@@ -120,6 +120,8 @@ return [
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.adapter_type.ollama', 'value' => 'ollama'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.adapter_type.azure_openai', 'value' => 'azure_openai'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.adapter_type.custom', 'value' => 'custom'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.adapter_type.typesafe', 'value' => 'typesafe'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.adapter_type.decision_sidecar', 'value' => 'decision_sidecar'],
                 ],
                 'default' => 'openai',
                 'required' => true,

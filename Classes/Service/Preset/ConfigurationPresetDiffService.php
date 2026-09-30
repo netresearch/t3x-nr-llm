@@ -90,7 +90,7 @@ final readonly class ConfigurationPresetDiffService
         $this->addListChange($changes, 'criteria.capabilities', $current['capabilities'], $declared['capabilities']);
         $this->addListChange($changes, 'criteria.adapterTypes', $current['adapterTypes'], $declared['adapterTypes']);
         $this->addIntChange($changes, 'criteria.minContextLength', $current['minContextLength'], $declared['minContextLength']);
-        $this->addIntChange($changes, 'criteria.maxCostInput', $current['maxCostInput'], $declared['maxCostInput']);
+        $this->addFloatChange($changes, 'criteria.maxCostInput', $current['maxCostInput'], $declared['maxCostInput']);
         $this->addBoolChange($changes, 'criteria.preferLowestCost', $current['preferLowestCost'], $declared['preferLowestCost']);
     }
 

@@ -16,6 +16,7 @@ Complete API reference for the TYPO3 LLM extension.
    SupportMatrix
    LlmServiceManager
    CompletionService
+   DecisionService
    EmbeddingService
    VisionService
    DocumentAnalysisService

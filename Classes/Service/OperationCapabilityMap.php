@@ -87,6 +87,9 @@ final class OperationCapabilityMap
             ProviderOperation::Chat   => ModelCapability::CHAT,
             ProviderOperation::Vision => ModelCapability::VISION,
             ProviderOperation::Tools  => ModelCapability::TOOLS,
+            // A decision model is a Model record with a producer (ADR-211):
+            // the TypeSafe and decision-sidecar discoverers write it.
+            ProviderOperation::Decision => ModelCapability::DECISION,
 
             // Not enforced — see the class docblock for the producer gap behind
             // each one. Listed explicitly rather than swept into a default arm

@@ -149,8 +149,8 @@ final class WizardResultTest extends AbstractUnitTestCase
             'capabilities' => ['chat', 'tools'],
             'contextLength' => 128000,
             'maxOutputTokens' => 16384,
-            'costInput' => 250,
-            'costOutput' => 1000,
+            'costInput' => 250.0,
+            'costOutput' => 1000.0,
             'recommended' => true,
         ], $models[0]);
     }

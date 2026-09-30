@@ -9,11 +9,14 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Evaluation;
 
+use Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionAnswer;
+use Netresearch\NrLlm\Domain\ValueObject\Decision\ProbabilityKind;
+use Netresearch\NrLlm\Service\Decision\DecisionResult;
 use Netresearch\NrLlm\Service\Evaluation\GoldenPrompt;
+use Netresearch\NrLlm\Service\Evaluation\Grader\DecisionGrader;
 use Netresearch\NrLlm\Service\Evaluation\Grader\DeterministicGrader;
-use Netresearch\NrLlm\Service\Evaluation\Grader\LlmJudgeGrader;
 use Netresearch\NrLlm\Service\Evaluation\GradingService;
-use Netresearch\NrLlm\Tests\Unit\Service\Evaluation\Fixture\StaticCompletionService;
+use Netresearch\NrLlm\Testing\FakeDecisionService;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -21,12 +24,16 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(GradingService::class)]
 final class GradingServiceTest extends TestCase
 {
-    private function service(string $judgeContent = '{"score":0.9}'): GradingService
+    private FakeDecisionService $decisions;
+
+    protected function setUp(): void
     {
-        return new GradingService(
-            new DeterministicGrader(),
-            new LlmJudgeGrader(new StaticCompletionService($judgeContent)),
-        );
+        $this->decisions = new FakeDecisionService();
+    }
+
+    private function service(): GradingService
+    {
+        return new GradingService(new DeterministicGrader(), new DecisionGrader($this->decisions));
     }
 
     private function prompt(): GoldenPrompt
@@ -38,33 +45,45 @@ final class GradingServiceTest extends TestCase
     public function defaultsToDeterministicGrader(): void
     {
         // The prompt has no assertions, so the deterministic grader reports its
-        // "nothing to grade" verdict — proving it, not the judge, was used.
+        // "nothing to grade" verdict — proving it, not the decision grader, ran.
         $result = $this->service()->grade('any response', $this->prompt());
 
         self::assertSame('deterministic', $result->grader);
         self::assertFalse($result->passed);
+        self::assertSame([], $this->decisions->requests);
     }
 
     #[Test]
     public function unknownGraderFallsBackToDeterministic(): void
     {
-        $result = $this->service()->grade('any', $this->prompt(), 'does-not-exist');
+        $result = $this->service()->grade('any', $this->prompt(), 'llm_judge');
 
         self::assertSame('deterministic', $result->grader);
+        self::assertSame([], $this->decisions->requests, 'the removed judge id must not spend tokens');
     }
 
     #[Test]
-    public function llmJudgeIsUsedWhenRequested(): void
+    public function decisionGraderIsUsedWhenRequested(): void
     {
-        $result = $this->service('{"score":0.9,"reason":"good"}')->grade('any', $this->prompt(), 'llm_judge');
+        $this->decisions->results[] = new DecisionResult(
+            profile: 'nr_llm.task_fulfilment',
+            profileVersion: 1,
+            configuration: 'judge',
+            provider: 'openai',
+            model: 'm',
+            probabilityKind: ProbabilityKind::None,
+            answers: ['fulfilment' => DecisionAnswer::score('fulfilment', 4.0)],
+        );
 
-        self::assertSame('llm_judge', $result->grader);
-        self::assertSame(0.9, $result->score);
+        $result = $this->service()->grade('any', $this->prompt(), 'decision');
+
+        self::assertSame('decision:openai:m:v1', $result->grader);
+        self::assertSame(1.0, $result->score);
     }
 
     #[Test]
     public function availableGradersListsBothStrategies(): void
     {
-        self::assertSame(['deterministic', 'llm_judge'], $this->service()->availableGraders());
+        self::assertSame(['deterministic', 'decision'], $this->service()->availableGraders());
     }
 }

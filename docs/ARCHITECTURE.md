@@ -20,8 +20,8 @@ nr_llm/
 │   ├── Form/                   # TCA form elements and item providers
 │   ├── Hook/                   # ProviderEndpointNormalizationHook
 │   ├── Provider/               # 7 LLM adapters + Contract/ + Exception/ + Middleware/ + CircuitBreaker/ + Fallback/
-│   ├── Service/                # Feature services + wizard, options, budget, analytics, governance, retrieval, tools
-│   ├── Specialized/            # DeepL, speech (Whisper/TTS), image (DALL-E/FAL)
+│   ├── Service/                # Feature services + wizard, options, budget, analytics, governance, retrieval, tools, decisions
+│   ├── Specialized/            # DeepL, speech (Whisper/TTS), image (DALL-E/FAL), TypeSafe decisions
 │   ├── Testing/                # Fake service doubles for consuming extensions' tests
 │   ├── Updates/                # Upgrade wizards
 │   ├── Utility/                # SafeCastTrait, ErrorMessageSanitizerTrait
@@ -45,6 +45,7 @@ nr_llm/
 | Provider adapters | `Classes/Provider/*Provider.php` | One class per LLM vendor, extending `AbstractProvider` |
 | Middleware pipeline | `Classes/Provider/Middleware/` | `MiddlewarePipeline` with Fallback, Budget, Cache, Guardrail, CircuitBreaker, Idempotency, Telemetry, Usage middlewares |
 | Provider registry | `Classes/Provider/ProviderAdapterRegistry.php` | Registry backend controllers use instead of concrete adapters |
+| Decision service | `Classes/Service/Decision/` | Typed decisions (yes/no, choice, score) by a consumer-declared profile, on a configuration's model: natively through a `DecisionCapableInterface` adapter (`TypeSafeProvider`, `DecisionSidecarProvider`) for a model that declares `decision`, through structured output for a chat model — ADR-211 |
 | Setup wizard | `Classes/Service/SetupWizard/` | ProviderDetector, ModelDiscovery facade, ConfigurationGenerator |
 | Cache | `Classes/Service/CacheManager.php` + `Configuration/Caching.php` | `nrllm_responses` cache; backend chosen by host instance |
 

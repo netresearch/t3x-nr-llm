@@ -65,6 +65,9 @@ namespace Netresearch\NrLlm\Domain\Enum;
  *   branches on it, so a wrong assignment widens selection rather than
  *   breaking a call — and no adapter can carry audio yet: `ChatMessage` takes
  *   a `string $content` and has no content parts.
+ * - DECISION — the model answers typed yes/no, choice and score questions
+ *   natively and generates no text (ADR-211). Written by the TypeSafe and
+ *   decision-sidecar discoverers. Enforced for the Decision operation.
  * - IMAGE, TEXT_TO_SPEECH, TRANSCRIPTION — written by the OpenAI discoverer
  *   alone, for its specialized entries. They describe services outside
  *   criteria-mode selection (ADR-138), so no operation enforces them.
@@ -84,6 +87,7 @@ enum ModelCapability: string
     case IMAGE = 'image';
     case TEXT_TO_SPEECH = 'text_to_speech';
     case TRANSCRIPTION = 'transcription';
+    case DECISION = 'decision';
 
     /**
      * Get all capability values as an array.

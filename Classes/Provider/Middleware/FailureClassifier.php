@@ -48,20 +48,23 @@ final readonly class FailureClassifier
 
     /**
      * A fallback chain only wraps retryable per-attempt errors (ADR-026), so the
-     * wrapper itself is retryable. Classify it by its most recent attempt — the
-     * freshest provider condition — so a queue retry (ADR-104) reacts to what
-     * actually failed last rather than to the opaque wrapper (which alone would
-     * classify UNKNOWN, i.e. not retryable). An empty attempt list cannot occur
-     * for a real chain but is treated conservatively as UNKNOWN.
+     * wrapper itself is retryable. Classify it by its decisive attempt — the
+     * most recent failure of a configuration that could serve the operation,
+     * {@see FallbackChainExhaustedException::decisiveError()}; a sibling
+     * skipped as unable to serve it is not the provider condition (ADR-211) —
+     * so a queue retry (ADR-104) reacts to what actually failed rather than to
+     * the opaque wrapper (which alone would classify UNKNOWN, i.e. not
+     * retryable). An empty attempt list cannot occur for a real chain but is
+     * treated conservatively as UNKNOWN.
      */
     private static function fromChain(FallbackChainExhaustedException $e): FailureClass
     {
-        $attempts = $e->getAttemptErrors();
-        if ($attempts === []) {
+        // The most recent failure of a configuration that could serve the
+        // operation; a skipped sibling that could not is not the condition.
+        $lastError = $e->decisiveError();
+        if (!$lastError instanceof Throwable) {
             return FailureClass::UNKNOWN;
         }
-
-        $lastError = $attempts[array_key_last($attempts)]['error'];
 
         // Guard against a pathological nested wrapper: recurse, never loop.
         if ($lastError instanceof FallbackChainExhaustedException) {

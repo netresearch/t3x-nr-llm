@@ -156,15 +156,17 @@ Database table: :sql:`tx_nrllm_model`
    "context_length", "int", "Token limit (e.g., 128000)"
    "max_output_tokens", "int", "Output limit (e.g., 16384)"
    "capabilities", "CSV", "Supported features: ``chat,vision,streaming,tools``"
-   "cost_input", "int", "Cents per 1M input tokens"
-   "cost_output", "int", "Cents per 1M output tokens"
+   "cost_input", "decimal", "Cents per 1M input tokens, two decimals (``4.2`` is 0.042 USD)"
+   "cost_output", "decimal", "Cents per 1M output tokens, two decimals"
    "is_default", "bool", "Default model for this provider"
 
 **Key design points:**
 
 - Models belong to exactly one provider.
 - Capabilities define what the model can do.
-- Pricing stored as integers (cents/1M tokens) to avoid float issues.
+- Pricing stored as ``decimal(12,2)`` cents per 1M tokens — exact to the two
+  decimals TYPO3's backend form keeps, so a price below one cent per million
+  tokens is a price (ADR-211).
 - Same logical model can exist multiple times (different providers).
 
 .. _architecture-configuration-layer:

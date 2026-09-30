@@ -48,7 +48,11 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
      */
     function formatCost(cents) {
         if (!cents || cents === 0) return '';
-        return '$' + (cents / 100).toFixed(2);
+        // Prices are decimal cents with two decimals (ADR-211): 4.2 cents per
+        // million tokens is $0.042, not $0.04. Dollars get up to four
+        // decimals, at least two.
+        const dollars = (cents / 100).toFixed(4).replace(/0{1,2}$/, '');
+        return '$' + dollars;
     }
 
     /**
@@ -60,7 +64,8 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
             chat: 'Chat', completion: 'Completion', embeddings: 'Embed',
             vision: 'Vision', streaming: 'Stream', tools: 'Tools',
             json_mode: 'JSON', audio: 'Audio', reasoning: 'Reasoning',
-            image: 'Image', text_to_speech: 'TTS', transcription: 'Transcribe'
+            image: 'Image', text_to_speech: 'TTS', transcription: 'Transcribe',
+            decision: 'Decisions'
         };
         return capabilities.map(function (cap) {
             return labels[cap] || cap;
@@ -125,7 +130,8 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
         if (maxOut) metaParts.push('Out: ' + maxOut);
         const costIn = formatCost(model.costInput);
         const costOut = formatCost(model.costOutput);
-        if (costIn && costOut) metaParts.push(costIn + ' / ' + costOut + ' per 1M');
+        // A model can bill input only (output free, e.g. a decision model).
+        if (costIn || costOut) metaParts.push((costIn || '$0') + ' / ' + (costOut || '$0') + ' per 1M');
         const caps = renderCapabilities(model.capabilities);
         if (caps) metaParts.push(caps);
 

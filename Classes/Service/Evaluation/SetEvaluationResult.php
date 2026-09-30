@@ -30,6 +30,24 @@ final readonly class SetEvaluationResult
         public int $runTimestamp,
     ) {}
 
+    /**
+     * Whether every grading reports the grader the run is stored under. A
+     * run that does not — some decisions failed, or the model changed
+     * mid-run — has no single yardstick, so it is neither compared with a
+     * previous run nor, since no clean run is stored under the plain
+     * identifier it falls back to, anyone's baseline (ADR-211).
+     */
+    public function sharesOneYardstick(): bool
+    {
+        foreach ($this->evaluations as $evaluation) {
+            if ($evaluation->result->grader !== $this->grader) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public function promptCount(): int
     {
         return count($this->evaluations);

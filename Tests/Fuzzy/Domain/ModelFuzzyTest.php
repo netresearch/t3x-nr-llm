@@ -209,8 +209,25 @@ class ModelFuzzyTest extends AbstractFuzzyTestCase
                 $model->setCostInput($inputCost);
                 $model->setCostOutput($outputCost);
 
-                $this->assertSame($inputCost, $model->getCostInput());
-                $this->assertSame($outputCost, $model->getCostOutput());
+                $this->assertSame((float)$inputCost, $model->getCostInput());
+                $this->assertSame((float)$outputCost, $model->getCostOutput());
+            });
+    }
+
+    #[Test]
+    public function aFractionalPriceReadsBackAsTheTwoDecimalsStored(): void
+    {
+        $this
+            // @phpstan-ignore function.notFound
+            ->forAll(Generator\choose(0, 1_000_000_000))
+            ->then(function (int $hundredths): void {
+                $cents = $hundredths / 100;
+                $model = new Model();
+                $model->setCostInput($cents);
+                $model->setCostOutput($cents + 0.004);
+
+                $this->assertSame(round($cents, 2), $model->getCostInput());
+                $this->assertSame(round($cents, 2), $model->getCostOutput(), 'a third decimal is dropped');
             });
     }
 

@@ -53,6 +53,9 @@ final class ProviderDetector
         // OpenRouter
         'openrouter.ai' => ['openrouter', 'OpenRouter', 1.0],
 
+        // TypeSafe (decisions, ADR-211)
+        'api.typesafe.ai' => ['typesafe', 'TypeSafe', 1.0],
+
         // Mistral
         'api.mistral.ai' => ['mistral', self::PROVIDER_NAME_MISTRAL, 1.0],
         'mistral.ai' => ['mistral', self::PROVIDER_NAME_MISTRAL, 0.9],
@@ -227,6 +230,8 @@ final class ProviderDetector
             'fireworks' => 'Fireworks AI',
             'perplexity' => 'Perplexity',
             'custom' => 'Custom/Other',
+            'typesafe' => 'TypeSafe (decisions)',
+            'decision_sidecar' => 'Local decision sidecar',
         ];
     }
 

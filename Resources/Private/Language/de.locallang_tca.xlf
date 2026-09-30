@@ -463,6 +463,14 @@
                 <source>Custom (OpenAI-compatible)</source>
                 <target>Benutzerdefiniert (OpenAI-kompatibel)</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.typesafe">
+                <source>TypeSafe (decisions)</source>
+                <target>TypeSafe (Entscheidungen)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.decision_sidecar">
+                <source>Local decision sidecar</source>
+                <target>Lokaler Entscheidungs-Sidecar</target>
+            </trans-unit>
             <trans-unit id="tx_nrllm_provider.endpoint_url">
                 <source>Endpoint URL</source>
                 <target>Endpunkt-URL</target>
@@ -740,6 +748,14 @@
             <trans-unit id="tx_nrllm_model.capabilities.transcription.description">
                 <source>Transcribe audio to text (speech-to-text). Used by the specialized Whisper service to resolve its default model.</source>
                 <target>Audio zu Text transkribieren (Sprache-zu-Text). Der spezialisierte Whisper-Dienst ermittelt darüber sein Standardmodell.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities.decision">
+                <source>Decisions</source>
+                <target>Entscheidungen</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities.decision.description">
+                <source>Answer typed yes/no, choice and score questions natively, without generating text (TypeSafe, the local decision sidecar).</source>
+                <target>Typisierte Ja/Nein-, Auswahl- und Score-Fragen nativ beantworten, ohne Text zu erzeugen (TypeSafe, der lokale Entscheidungs-Sidecar).</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.default_timeout">
                 <source>Default Timeout</source>

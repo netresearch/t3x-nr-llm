@@ -127,7 +127,9 @@ Consequences
   ``UnavailableToolsResolverInterface`` a consumer looks up in the container by
   name to feature-detect it — Category B, and to **38** by
   :ref:`ADR-206 <adr-206>`, whose ``ToolDataHandler`` every writing tool
-  creates through ``makeInstance()`` — Category E). This ADR supersedes ADR-094
+  creates through ``makeInstance()`` — Category E, and to **39** by
+  :ref:`ADR-211 <adr-211>`, whose ``DecisionServiceInterface`` consumer
+  extensions resolve by interface — Category A). This ADR supersedes ADR-094
   as the count authority. It is a
   *consumer* interface: call it, do not
   implement or decorate it outside nr_llm — methods and ``AgentRunOutcome``

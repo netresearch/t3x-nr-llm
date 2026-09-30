@@ -57,7 +57,7 @@ final readonly class RoutingDecisionService
      * the configured mode. Null keeps the configured mode, which is the
      * runtime's only path.
      *
-     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int|float, preferLowestCost?: bool} $criteria
      */
     public function decide(array $criteria, ?RoutingPolicyMode $policyMode = null): RoutingDecision
     {

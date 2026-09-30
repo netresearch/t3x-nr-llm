@@ -61,6 +61,8 @@ final class OperationCapabilityMapTest extends TestCase
         // is not an AI generation at all.
         yield 'translation requires nothing' => [ProviderOperation::Translation, null];
         yield 'metadata requires nothing'    => [ProviderOperation::Metadata, null];
+        // A native decision needs a model that declares it (ADR-211).
+        yield 'decision requires decision'   => [ProviderOperation::Decision, ModelCapability::DECISION];
     }
 
     #[Test]

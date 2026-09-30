@@ -11,19 +11,24 @@ namespace Netresearch\NrLlm\Service;
 
 use Generator;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\DecisionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
+use Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionQuestion;
+use Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionSubject;
 use Netresearch\NrLlm\Domain\ValueObject\InjectedContext;
 use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
 use Netresearch\NrLlm\Domain\ValueObject\ProviderAdapterKey;
 use Netresearch\NrLlm\Domain\ValueObject\RequestFacts;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
+use Netresearch\NrLlm\Provider\Contract\DecisionCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
@@ -41,6 +46,7 @@ use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Context\InputContextTrustGate;
 use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
+use Netresearch\NrLlm\Service\Option\DecisionOptions;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
@@ -225,6 +231,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         ProviderOperation $operation,
         int $agentRunUid = 0,
         ?InjectedContext $injectedContext = null,
+        ?ModelResolution $resolution = null,
     ): void {
         if (!$this->inputContextGate instanceof InputContextTrustGate) {
             return;
@@ -235,7 +242,12 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         $this->inputContextGate->assertPermitted(
             $configuration,
             is_int($beUser) ? $beUser : 0,
-            $this->servingModelForGate($configuration, $operation),
+            // A decision the caller already took is the model the terminal
+            // serves, in either selection mode, so it is the one the gate
+            // judges; only without one does the gate ask routing itself.
+            $resolution instanceof ModelResolution
+                ? $resolution->model
+                : $this->servingModelForGate($configuration, $operation),
             $agentRunUid,
             $injectedContext->snippets ?? [],
             $injectedContext->skills ?? [],
@@ -947,12 +959,10 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 );
             },
             $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options),
-            $run,
-            $injectedContext,
-            $this->collectRequestFacts(
+            new PipelineScope($run, $injectedContext, $this->collectRequestFacts(
                 $normalisedMessages,
                 array_map(static fn(ToolSpec $spec): array => $spec->toArray(), $normalisedTools),
-            ),
+            )),
         );
     }
 
@@ -1061,6 +1071,76 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
     }
 
     /**
+     * Ask a decision model of the configuration typed questions about a
+     * subject (ADR-211).
+     *
+     * Every subject field is screened by the input guardrails before the
+     * pipeline is entered, so a REDACT rewrites it and a DENY throws before
+     * any spend. The pipeline runs with the configuration — budget per
+     * configuration and user, fallback, circuit breaker, telemetry, usage —
+     * and the terminal resolves the model for the Decision operation, so a
+     * fallback configuration answers with its own model. The response is
+     * priced with the model that served, which only the terminal knows.
+     *
+     * @param list<DecisionQuestion> $questions
+     *
+     * @throws UnsupportedFeatureException when the resolved model's provider cannot make decisions
+     */
+    public function decideForConfiguration(DecisionSubject $subject, array $questions, LlmConfiguration $configuration, ?DecisionOptions $options = null, ?ModelResolution $resolution = null): DecisionResponse
+    {
+        $options ??= new DecisionOptions();
+        $screened = $subject->map($this->screenInputPrompt(...));
+        $metadata = $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost())
+            + $this->metadata->idempotency($options->getIdempotencyKey())
+            + $this->metadata->callerSource($options);
+
+        return $this->runThroughPipeline(
+            $configuration,
+            ProviderOperation::Decision,
+            function (ProviderCallContext $ctx) use ($screened, $questions, $configuration, $resolution): DecisionResponse {
+                $config = $this->planner->requireConfiguration($ctx);
+                // The handed-over decision belongs to the primary configuration;
+                // a fallback resolves for itself (see chatWithConfiguration()).
+                $taken    = $config === $configuration ? $resolution : null;
+                $llmModel = $this->planner->resolveModel($config, ProviderOperation::Decision, $ctx->telemetrySignals, $taken);
+                $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
+                if (!$adapter instanceof DecisionCapableInterface) {
+                    throw new UnsupportedFeatureException(
+                        sprintf('Provider "%s" cannot make decisions; model "%s" needs a decision provider.', $adapter->getIdentifier(), $llmModel->getModelId()),
+                        1795211061,
+                    );
+                }
+
+                $response = $adapter->decide($screened, $questions, $this->planner->callOptions($config, $llmModel, []));
+
+                return $this->priced($response, $llmModel);
+            },
+            $metadata,
+            new PipelineScope(resolution: $resolution),
+        );
+    }
+
+    /**
+     * The response with the cost of the model that served, unless the
+     * provider priced it itself. An unpriced model or an unreported usage
+     * leaves the cost unknown — never zero.
+     */
+    private function priced(DecisionResponse $response, Model $model): DecisionResponse
+    {
+        $usage = $response->usage;
+        if ($usage->estimatedCost !== null || !$model->hasPricing() || ($usage->promptTokens === 0 && $usage->completionTokens === 0)) {
+            return $response;
+        }
+
+        return $response->withUsage(new UsageStatistics(
+            $usage->promptTokens,
+            $usage->completionTokens,
+            $usage->totalTokens,
+            $model->estimateCost($usage->promptTokens, $usage->completionTokens),
+        ));
+    }
+
+    /**
      * Check if a specific feature is supported by a provider.
      */
     public function supportsFeature(string $feature, ?string $provider = null): bool
@@ -1159,9 +1239,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 return $adapter->chatCompletion($this->applyAndScreenSystemPrompt($bounded, $options), $options);
             },
             $metadata,
-            $run,
-            $injectedContext,
-            $this->collectRequestFacts($normalisedMessages),
+            new PipelineScope($run, $injectedContext, $this->collectRequestFacts($normalisedMessages), $resolution),
         );
     }
 
@@ -1190,12 +1268,10 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 return $adapter->complete($prompt, $options);
             },
             $metadata,
-            null,
-            null,
             // A raw prompt is one user turn — the same list
             // reportPromptOverflow() measures on the way through, so the two
             // records describe the same send.
-            $this->collectRequestFacts([ChatMessage::user($prompt)]),
+            new PipelineScope(facts: $this->collectRequestFacts([ChatMessage::user($prompt)])),
         );
     }
 
@@ -1233,7 +1309,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         );
     }
 
-    public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
+    public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null, ?ModelResolution $resolution = null): CompletionResponse
     {
         $options ??= new ChatOptions();
         [, $optionsArray] = $this->splitProviderKey($options->toArray());
@@ -1251,6 +1327,9 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $configuration,
             $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options),
             $optionsArray,
+            null,
+            null,
+            $resolution,
         );
     }
 
@@ -1275,6 +1354,9 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      * so every round of one run lands on the same trace, and the run's uid joins
      * the metadata for the governance rows the pipeline may write.
      *
+     * `$scope` carries the run, the injected context, the pre-routing facts
+     * and a handed-over routing decision ({@see PipelineScope}).
+     *
      * @param callable(ProviderCallContext): T $terminal
      * @param array<string, mixed>             $metadata
      *
@@ -1285,10 +1367,10 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         ProviderOperation $operation,
         callable $terminal,
         array $metadata = [],
-        ?AgentRunReference $run = null,
-        ?InjectedContext $injectedContext = null,
-        ?RequestFacts $facts = null,
+        PipelineScope $scope = new PipelineScope(),
     ): mixed {
+        $run = $scope->run;
+
         // The run's own uid is authoritative and goes on the LEFT: `$metadata`
         // is caller-supplied on the public entry points, and `+` keeps the left
         // operand, so the other order would let a caller passing both a run and
@@ -1302,7 +1384,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // rather than in each terminal because it is a property of the
         // configuration, not of the payload, and every configuration-driven
         // operation runs through this pipeline.
-        $this->assertContextPermitted($configuration, $metadata, $operation, $run->uid ?? 0, $injectedContext);
+        $this->assertContextPermitted($configuration, $metadata, $operation, $run->uid ?? 0, $scope->injectedContext, $scope->resolution);
 
         // A run's own id wins: inside an agent run every call belongs to that
         // run's trace, and a caller-supplied id would split it. Outside one,
@@ -1319,8 +1401,8 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // the entire point (ADR-174): the terminal is where resolveModel() runs,
         // so anything measured in there is measured after a model was chosen.
         // This is the last moment that is still unambiguously before it.
-        if ($facts instanceof RequestFacts) {
-            $context->telemetrySignals->recordRequestFacts($facts);
+        if ($scope->facts instanceof RequestFacts) {
+            $context->telemetrySignals->recordRequestFacts($scope->facts);
         }
 
         return $this->pipeline->run($context, $terminal);

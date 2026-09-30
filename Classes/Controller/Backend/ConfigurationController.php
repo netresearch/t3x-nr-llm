@@ -16,13 +16,16 @@ use Netresearch\NrLlm\Controller\Backend\Response\ProviderModelsResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\SuccessResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\TestConfigurationResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\ToggleActiveResponse;
+use Netresearch\NrLlm\Domain\Model\DecisionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Provider\Contract\DecisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
+use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
@@ -62,6 +65,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 #[AsController]
 final class ConfigurationController extends ActionController
 {
+    use DecisionProbeTrait;
     use DefensiveLocalizationTrait;
     use ModuleChromeTrait;
     use RequiresBackendAdminTrait;
@@ -386,22 +390,35 @@ final class ConfigurationController extends ActionController
             // returns the directly configured model unchanged for fixed-mode
             // records, is what the runtime does; testing only getLlmModel()
             // reported "has no model assigned" for a configuration that works.
-            // The test below dispatches complete(), so the resolution is scoped
-            // to that operation (ADR-138) — testing a criteria-mode
-            // configuration must exercise the model a completion call would
-            // actually pick, not a differently-capable sibling.
-            $model = $this->modelSelectionService->resolveModel($configuration, ProviderOperation::Completion);
+            // The resolution is scoped to the operation the test dispatches
+            // (ADR-138), so a criteria-mode configuration is tested with the
+            // model that operation would actually pick.
+            $model = $this->resolveTestModel($configuration);
             if (!$model instanceof Model || !$model->getProvider() instanceof Provider) {
                 $response = new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.config.noModel', 'Configuration has no model assigned')))->jsonSerialize(), 400);
             } else {
                 $testPrompt = $this->testPromptResolver->resolve();
                 $adapter = $this->providerAdapterRegistry->createAdapterFromModel($model);
                 $options = $configuration->toOptionsArray();
-                $completionResponse = $adapter->complete($testPrompt, $options);
 
-                $response = new JsonResponse(
-                    TestConfigurationResponse::fromCompletionResponse($completionResponse)->jsonSerialize(),
-                );
+                // A decision model takes typed questions, no prompt (ADR-211).
+                // On a provider that cannot decide it would pass a chat test
+                // and fail every decision, so the test says so instead.
+                if ($model->supportsDecision() && !$adapter instanceof DecisionCapableInterface) {
+                    $response = new JsonResponse((new ErrorResponse(sprintf(
+                        $this->localize(
+                            'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:config.test.decisionUnsupported',
+                            'Model "%s" declares decisions, but its provider cannot make any.',
+                        ),
+                        $model->getModelId(),
+                    )))->jsonSerialize(), 400);
+                } elseif ($model->supportsDecision() && $adapter instanceof DecisionCapableInterface) {
+                    $response = new JsonResponse($this->decisionTestResponse(
+                        $this->probeDecision($adapter, $testPrompt, ['model' => $model->getModelId()] + $options),
+                    )->jsonSerialize());
+                } else {
+                    $response = new JsonResponse(TestConfigurationResponse::fromCompletionResponse($adapter->complete($testPrompt, $options))->jsonSerialize());
+                }
             }
         } catch (ProviderResponseException $e) {
             // Provider returned a typed error response. Surface the actual
@@ -435,6 +452,38 @@ final class ConfigurationController extends ActionController
         }
 
         return $response;
+    }
+
+    /**
+     * The model the test asks: a decision model where the configuration
+     * resolves to one — the service asks such a model natively — otherwise
+     * the model a completion call would pick.
+     */
+    private function resolveTestModel(LlmConfiguration $configuration): ?Model
+    {
+        try {
+            $model = $this->modelSelectionService->resolveModel($configuration, ProviderOperation::Decision);
+        } catch (UnsupportedFeatureException) {
+            $model = null;
+        }
+
+        return $model instanceof Model && $model->supportsDecision()
+            ? $model
+            : $this->modelSelectionService->resolveModel($configuration, ProviderOperation::Completion);
+    }
+
+    private function decisionTestResponse(DecisionResponse $response): TestConfigurationResponse
+    {
+        return TestConfigurationResponse::fromDecisionResponse(
+            $response,
+            sprintf(
+                $this->localize(
+                    'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:config.test.decided',
+                    'The model answered a yes/no probe with %.2f for yes.',
+                ),
+                $this->decisionProbeYes($response),
+            ),
+        );
     }
 
     /**
