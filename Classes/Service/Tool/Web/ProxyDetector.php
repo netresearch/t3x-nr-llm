@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Web;
 
+use GuzzleHttp\Handler\ProxyEnvironment;
 use GuzzleHttp\ProxyOptions;
 use GuzzleHttp\Utils;
 
@@ -41,23 +42,40 @@ final readonly class ProxyDetector
         $confVars   = is_array($GLOBALS['TYPO3_CONF_VARS'] ?? null) ? $GLOBALS['TYPO3_CONF_VARS'] : [];
         $http       = is_array($confVars['HTTP'] ?? null) ? $confVars['HTTP'] : [];
         $configured = $http['proxy'] ?? null;
-        // An empty string counts as unset, as nr-vault's `!empty()` reads it.
-        if (is_string($configured) && $configured !== '') {
+
+        // An empty value counts as unset, as nr-vault's `!empty()` reads it.
+        if (empty($configured)) {
+            return $this->environmentProxyApplies($scheme, $host);
+        }
+
+        if (is_string($configured)) {
             return true;
         }
 
-        if (is_array($configured) && $configured !== []) {
-            $proxy = $configured[$scheme] ?? null;
-            if ($proxy !== null) {
-                // A malformed entry is not a reason to guess no.
-                return !is_string($proxy) || $proxy === '' || !$this->excluded($host, $configured['no'] ?? []);
-            }
-
-            // No entry for this scheme: the option decides nothing, and the
-            // transport falls back to the environment below.
+        // nr-vault drops a value that is neither a string nor an array with a
+        // string `http`, `https` or `no` entry, and then Guzzle's own client
+        // defaults read the environment by rules of their own. Not a reason
+        // to guess no.
+        if (!is_array($configured) || !$this->narrowable($configured)) {
+            return true;
         }
 
-        return $this->environmentProxyApplies($scheme, $host);
+        $proxy = $configured[$scheme] ?? null;
+        if ($proxy === null) {
+            // No entry for this scheme: the option decides nothing, and the
+            // transport falls back to the environment.
+            return $this->environmentProxyApplies($scheme, $host);
+        }
+
+        // A malformed entry is not a reason to guess no either.
+        if (!is_string($proxy) || $proxy === '' || !$this->excluded($host, $configured['no'] ?? [])) {
+            return true;
+        }
+
+        // Excluded by the `no` list. Guzzle 7.12 and later, and Guzzle 8,
+        // treat that as final; before 7.12 the curl handler only unset
+        // CURLOPT_PROXY, and libcurl then read the environment.
+        return $this->guzzleResolvesTheEnvironment() ? false : $this->environmentProxyApplies($scheme, $host);
     }
 
     /**
@@ -66,10 +84,11 @@ final readonly class ProxyDetector
      * nr-vault turns `HTTPS_PROXY`/`https_proxy`, and on the CLI
      * `HTTP_PROXY`/`http_proxy`, into the proxy option. When that option
      * decides nothing for the scheme, the transport reads the environment
-     * itself: Guzzle 8 (`GuzzleHttp\Handler\ProxyEnv`) and libcurl under
-     * Guzzle 7 take lowercase `http_proxy` under every SAPI, then `all_proxy`
-     * and `ALL_PROXY`. Uppercase `HTTP_PROXY` outside the CLI is read by none
-     * of them (a web server fills it from the `Proxy:` request header).
+     * itself (Guzzle 8's `ProxyEnv`, Guzzle 7.12+'s `ProxyEnvironment`,
+     * libcurl before that): lowercase `http_proxy` under every SAPI, then
+     * `all_proxy` and `ALL_PROXY`. Uppercase `HTTP_PROXY` outside the CLI is
+     * read by none of them (a web server fills it from the `Proxy:` request
+     * header).
      */
     private function environmentProxyApplies(string $scheme, string $host): bool
     {
@@ -77,18 +96,19 @@ final readonly class ProxyDetector
             ? ['HTTPS_PROXY', 'https_proxy']
             : [...(($this->sapi ?? PHP_SAPI) === 'cli' ? ['HTTP_PROXY'] : []), 'http_proxy'];
 
-        $proxy = null;
+        $proxied = false;
         foreach ([...$candidates, 'all_proxy', 'ALL_PROXY'] as $name) {
-            $proxy ??= $this->env($name);
+            $proxied = $proxied || $this->env($name) !== [];
         }
 
-        if ($proxy === null) {
+        if (!$proxied) {
             return false;
         }
 
-        // nr-vault reads NO_PROXY first, the transport no_proxy first; a host
-        // counts as excluded only when every list that is set excludes it.
-        $lists = array_filter([$this->env('NO_PROXY'), $this->env('no_proxy')], static fn(?string $list): bool => $list !== null);
+        // nr-vault reads NO_PROXY first, the transport no_proxy first, and
+        // they may see different environments; a host counts as excluded only
+        // when every list that is set excludes it.
+        $lists = [...$this->env('NO_PROXY'), ...$this->env('no_proxy')];
         if ($lists === []) {
             return true;
         }
@@ -100,6 +120,31 @@ final readonly class ProxyDetector
         }
 
         return false;
+    }
+
+    /**
+     * Whether nr-vault's narrowProxy() keeps the configured array.
+     *
+     * @param array<mixed> $configured
+     */
+    private function narrowable(array $configured): bool
+    {
+        if (is_string($configured['http'] ?? null) || is_string($configured['https'] ?? null)) {
+            return true;
+        }
+
+        $no = $configured['no'] ?? null;
+
+        return is_string($no) || (is_array($no) && array_filter($no, is_string(...)) !== []);
+    }
+
+    /**
+     * Guzzle 7.12 added its own environment lookup (`ProxyEnvironment`),
+     * Guzzle 8 renamed it (`ProxyEnv`) and moved the matcher to `ProxyOptions`.
+     */
+    private function guzzleResolvesTheEnvironment(): bool
+    {
+        return class_exists(ProxyOptions::class) || class_exists(ProxyEnvironment::class);
     }
 
     private function excluded(string $host, mixed $noProxy): bool
@@ -128,10 +173,22 @@ final readonly class ProxyDetector
         return Utils::isHostInNoProxy($host, $list) === true;
     }
 
-    private function env(string $name): ?string
+    /**
+     * Every non-empty value of a variable. nr-vault reads getenv($name), which
+     * asks the SAPI first (fastcgi_param, SetEnv); Guzzle 7.12+ reads
+     * getenv($name, true), the process environment only. Both views count.
+     *
+     * @return list<string>
+     */
+    private function env(string $name): array
     {
-        $value = $this->environment !== null ? ($this->environment[$name] ?? false) : getenv($name);
+        $values = $this->environment !== null
+            ? [$this->environment[$name] ?? false]
+            : [getenv($name), getenv($name, true)];
 
-        return is_string($value) && $value !== '' ? $value : null;
+        return array_values(array_unique(array_filter(
+            $values,
+            static fn(mixed $value): bool => is_string($value) && $value !== '',
+        )));
     }
 }

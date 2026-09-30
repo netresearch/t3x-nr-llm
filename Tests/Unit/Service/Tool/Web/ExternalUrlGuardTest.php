@@ -366,6 +366,9 @@ final class ExternalUrlGuardTest extends TestCase
         yield 'all_proxy alone' => ['http://example.org/', ['all_proxy' => 'http://proxy.corp:3128'], null];
         yield 'an empty TYPO3 proxy counts as unset' => ['https://example.org/', ['HTTPS_PROXY' => 'http://proxy.corp:3128'], ''];
         yield 'a TYPO3 proxy array without this scheme' => ['http://example.org/', ['http_proxy' => 'http://proxy.corp:3128'], ['https' => 'http://proxy.corp:3128']];
+        // nr-vault drops these and Guzzle's client defaults read the environment by rules of their own.
+        yield 'a TYPO3 proxy of true' => ['https://example.org/', [], true];
+        yield 'a TYPO3 proxy array without a string entry' => ['https://example.org/', [], ['https' => ['http://proxy.corp:3128']]];
     }
 
     /**
@@ -392,7 +395,24 @@ final class ExternalUrlGuardTest extends TestCase
         $proxy = ['HTTPS_PROXY' => 'http://proxy.corp:3128'];
 
         self::assertFalse($this->guard($dns, env: $proxy + ['NO_PROXY' => 'example.org', 'no_proxy' => 'other.org'])->check('web', 'https://example.org/')->allowed);
+        self::assertFalse($this->guard($dns, env: $proxy + ['NO_PROXY' => 'other.org', 'no_proxy' => 'example.org'])->check('web', 'https://example.org/')->allowed);
         self::assertTrue($this->guard($dns, env: $proxy + ['NO_PROXY' => 'example.org', 'no_proxy' => 'example.org'])->check('web', 'https://example.org/')->allowed);
+    }
+
+    /**
+     * A host in the `no` list of a per-scheme TYPO3 proxy is final for the
+     * Guzzle this suite installs (7.12 and later, 8): the environment proxy
+     * is not consulted for it.
+     */
+    #[Test]
+    public function aTypo3NoListExclusionIsFinal(): void
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['HTTP']['proxy'] = ['https' => 'http://proxy.corp:3128', 'no' => ['example.org']];
+        $dns = ['example.org' => ['93.184.215.14'], 'other.org' => ['93.184.215.15']];
+        $env = ['HTTPS_PROXY' => 'http://env-proxy.corp:3128'];
+
+        self::assertTrue($this->guard($dns, env: $env)->check('web', 'https://example.org/')->allowed);
+        self::assertFalse($this->guard($dns, env: $env)->check('web', 'https://other.org/')->allowed);
     }
 
     #[Test]

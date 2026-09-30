@@ -112,9 +112,9 @@ return static function (RectorConfig $rectorConfig) use ($configure): void {
             __DIR__ . '/../../Classes/Form/Tca/SnippetTagItems.php',
             __DIR__ . '/../../Classes/Form/Tca/SiteItems.php',
         ],
-        // Guzzle 7 types Utils::isHostInNoProxy() bool, so Rector drops the
-        // `=== true`; under Guzzle 8 that method is gone and PHPStan sees a
-        // mixed return, which the comparison keeps a bool.
+        // Each Guzzle major types its own isHostInNoProxy() bool, so Rector
+        // drops that call's `=== true`; the other major's call is unknown to
+        // PHPStan and returns mixed, which the comparison keeps a bool.
         SimplifyBoolIdenticalTrueRector::class => [
             __DIR__ . '/../../Classes/Service/Tool/Web/ProxyDetector.php',
         ],
