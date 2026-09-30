@@ -25,6 +25,9 @@ use GuzzleHttp\Utils;
  */
 final readonly class ProxyDetector
 {
+    /** A string, not `::class`: the class does not exist under Guzzle 7. */
+    private const GUZZLE8_PROXY_OPTIONS = 'GuzzleHttp\\ProxyOptions';
+
     /**
      * @param array<string, string>|null $environment test seam; null reads getenv()
      */
@@ -78,7 +81,19 @@ final readonly class ProxyDetector
             $noProxy,
         ), static fn(string $entry): bool => $entry !== ''));
 
-        return $list !== [] && Utils::isHostInNoProxy($host, $list);
+        if ($list === []) {
+            return false;
+        }
+
+        // Guzzle 8 moved the matcher from `Utils` to `ProxyOptions`, same
+        // signature; the one that exists is the one the transport uses.
+        $matcher = class_exists(self::GUZZLE8_PROXY_OPTIONS)
+            ? [self::GUZZLE8_PROXY_OPTIONS, 'isHostInNoProxy']
+            : [Utils::class, 'isHostInNoProxy'];
+
+        // Not callable means neither Guzzle API is there: when in doubt, the
+        // proxy applies (see the class docblock).
+        return is_callable($matcher) && $matcher($host, $list) === true;
     }
 
     private function env(string $name): ?string

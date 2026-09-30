@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit;
 use Faker\Factory as FakerFactory;
 use Faker\Generator as Faker;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
+use Netresearch\NrVault\Http\DnsResolverInterface;
 use Netresearch\NrVault\Http\SecureHttpClientFactory;
 use Netresearch\NrVault\Http\VaultHttpClientInterface;
 use Netresearch\NrVault\Service\VaultServiceInterface;
@@ -196,6 +197,24 @@ abstract class AbstractUnitTestCase extends TestCase
     protected function createSecureHttpClientFactoryMock(): SecureHttpClientFactory
     {
         return new SecureHttpClientFactory();
+    }
+
+    /**
+     * A factory whose SSRF host gate sees every hostname resolve to one public
+     * address, without a network call.
+     *
+     * An empty answer is not neutral: from nr-vault 1.0 on the gate refuses a
+     * hostname that resolves to nothing (ADR-038 there), so a stub answering
+     * `[]` turns every fixture host into a refused one.
+     */
+    protected function createPublicDnsHttpClientFactory(): SecureHttpClientFactory
+    {
+        return new SecureHttpClientFactory(new class implements DnsResolverInterface {
+            public function resolve(string $host): array
+            {
+                return [['ip' => '93.184.215.14']];
+            }
+        });
     }
 
     /**

@@ -1633,7 +1633,7 @@ class AbstractProviderTest extends AbstractUnitTestCase
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
             $vault ?? $this->createVaultServiceMock(),
-            $this->createSecureHttpClientFactoryMock(),
+            $this->createPublicDnsHttpClientFactory(),
         );
         $provider->configure($config);
 

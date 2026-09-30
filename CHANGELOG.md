@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **nr-vault 1.x is accepted.** The requirement is `^0.16.0 || ^1.1`, so an installation can take nr-vault 1.1, which a site needs before it can update extensions that require nr-vault 1.x. Two things change with it. nr-vault 1.x refuses an endpoint host that DNS does not resolve, so a provider or MCP server reached through `/etc/hosts` or a container runtime's resolver (an Ollama container addressed as `ollama`, for example) needs a literal entry in `$GLOBALS['TYPO3_CONF_VARS']['HTTP']['allowed_hosts']`. And nr-vault 1.x allows Guzzle 8, which TYPO3 14.3 then installs.
+
+### Fixed
+
+- **`fetch_external_url` works under Guzzle 8.** The proxy check called `GuzzleHttp\Utils::isHostInNoProxy()`, which Guzzle 8 moved to `GuzzleHttp\ProxyOptions`; with a proxy and a no-proxy list configured, every fetch ended in a fatal error. The check now calls whichever of the two the installed Guzzle provides.
+
 ## [0.38.1] - 2026-09-30
 
 ### Fixed
