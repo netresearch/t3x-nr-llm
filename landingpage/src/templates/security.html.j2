@@ -46,7 +46,7 @@
     <p class="section__intro">{{ g.example.intro }}</p>
     <div class="codeblock">
       <span class="codeblock__label">{{ g.example.lang or 'php' }}</span>
-      <button class="copy-btn" type="button" data-copy="sec-code" aria-label="{{ s.copy }}" hidden>⧉</button>
+      <button class="copy-btn" type="button" data-copy="sec-code" aria-label="{{ s['copy'] }}" hidden>⧉</button>
       <pre id="sec-code" tabindex="0"><code>{{ g.example.code }}</code></pre>
     </div>
   </div>
