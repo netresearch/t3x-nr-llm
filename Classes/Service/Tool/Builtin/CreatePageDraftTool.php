@@ -252,8 +252,7 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
             return [$plan];
         }
 
-        $t = fn(ApprovalPreviewLabel $label, int|string ...$arguments): string => $this->translator->text($user, $label, ...$arguments);
-        $q = fn(string $value): string => $this->translator->quoted($user, $this->excerpt($value));
+        [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
 
         // ADR-213, in the order of the editorial guidelines: what, where, the
         // new state, the consequence. Nothing here is a field name; the

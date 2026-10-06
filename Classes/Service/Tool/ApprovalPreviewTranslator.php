@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
+use Closure;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 
@@ -49,6 +50,23 @@ final readonly class ApprovalPreviewTranslator
         }
 
         return $arguments === [] ? $text : vsprintf($text, $arguments);
+    }
+
+    /**
+     * {@see self::text()} and {@see self::quoted()} bound to one acting user,
+     * as the two short callables every preview is written with. `$excerpt`
+     * flattens and truncates a value before it is quoted.
+     *
+     * @param Closure(string): string $excerpt
+     *
+     * @return array{Closure(ApprovalPreviewLabel, int|string...): string, Closure(string): string}
+     */
+    public function boundTo(BackendUserAuthentication $user, Closure $excerpt): array
+    {
+        return [
+            fn(ApprovalPreviewLabel $label, int|string ...$arguments): string => $this->text($user, $label, ...$arguments),
+            fn(string $value): string => $this->quoted($user, $excerpt($value)),
+        ];
     }
 
     /**
