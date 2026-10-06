@@ -151,6 +151,10 @@ The remaining tools follow the same pattern:
    Credential and nr-llm configuration tables are never searched; non-admins
    are limited to their ``tables_select`` tables and to hits on pages they
    may show.
+   With ``include_hidden`` the search also returns hidden records, marked
+   ``(hidden)``, so an agent can find a draft it created earlier; a non-admin
+   gets them only on pages where they may edit content and with
+   ``tables_modify`` on the table.
 
 ``get_page_content``
    One page's header data plus its content elements in column/sorting order
@@ -161,7 +165,10 @@ The remaining tools follow the same pattern:
 ``read_records``
    Generic equality-filtered read of one TCA table — never raw SQL. Fields
    are validated against the TCA and credential-like columns are silently
-   dropped; the same table gates as ``search_records`` apply.
+   dropped; the same table gates as ``search_records`` apply. With
+   ``include_hidden`` hidden records are returned too, marked ``(hidden)``,
+   under the same edit-permission rule as ``search_records``; deleted
+   records are never returned.
 
 ``get_record_history``
    One record's change history from ``sys_history``, newest first: when,
