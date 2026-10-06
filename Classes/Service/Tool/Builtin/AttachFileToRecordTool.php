@@ -224,21 +224,29 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
         );
         $dataHandler->process_datamap();
 
+        // The reference row is written before the parent's list, so a refusal
+        // can leave the first half behind: every failure below rolls the
+        // record back to what it was, and says so when that did not work.
         $refused = $this->refuseOnDataHandlerErrors($dataHandler);
         if ($refused instanceof ToolResult) {
-            return $refused;
+            return ToolResult::error($this->withRollbackOutcome($refused->content, $table, $recordUid, $field, $existing, $user));
         }
 
         $newUid = self::toInt($dataHandler->substNEWwithIDs[$placeholder] ?? 0);
         if ($newUid < 1) {
-            return ToolResult::error('The reference was not created, and the DataHandler reported no error.');
+            return ToolResult::error($this->withRollbackOutcome(
+                'The reference was not created, and the DataHandler reported no error.',
+                $table,
+                $recordUid,
+                $field,
+                $existing,
+                $user,
+            ));
         }
 
         $mismatch = $this->readBack($table, $recordUid, $field, $newUid, count($existing) + 1, $texts);
         if ($mismatch !== null) {
-            $this->discard($table, $newUid, $recordUid, $field, $existing, $user);
-
-            return ToolResult::error($mismatch);
+            return ToolResult::error($this->withRollbackOutcome($mismatch, $table, $recordUid, $field, $existing, $user));
         }
 
         return ToolResult::text(sprintf(
@@ -740,20 +748,62 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
     }
 
     /**
-     * Removes a reference whose read-back failed, and writes the record's
-     * counter back to the list it had before the call, so a refused call
-     * leaves the record as it found it.
+     * The failure text, followed by the rollback's own failure when there is one.
+     *
+     * @param list<string> $survivors
+     */
+    private function withRollbackOutcome(string $failure, string $table, int $recordUid, string $field, array $survivors, BackendUserAuthentication $user): string
+    {
+        $unrestored = $this->rollBack($table, $recordUid, $field, $survivors, $user);
+
+        return $unrestored === null ? $failure : $failure . ' ' . $unrestored;
+    }
+
+    /**
+     * Puts the record back as this call found it after a write that failed or
+     * did not read back: the references that were not there before the call are
+     * removed (whatever the DataHandler reported or left unreported, and
+     * without needing the uid it substituted), and the record's counter is
+     * written back to the list it had. The outcome is then read from the
+     * database, not assumed.
      *
      * @param list<string> $survivors the reference uids the record had before this call
+     *
+     * @return string|null what is still inconsistent after the attempt, or null when the record is back as it was
      */
-    private function discard(string $table, int $referenceUid, int $recordUid, string $field, array $survivors, BackendUserAuthentication $user): void
+    private function rollBack(string $table, int $recordUid, string $field, array $survivors, BackendUserAuthentication $user): ?string
     {
-        $removal = GeneralUtility::makeInstance(ToolDataHandler::class);
-        $removal->start([], [self::REFERENCE_TABLE => [$referenceUid => ['delete' => 1]]], $user);
-        $removal->process_cmdmap();
+        $strays = array_values(array_diff($this->existingReferenceUids($table, $recordUid, $field), $survivors));
+        if ($strays !== []) {
+            $cmdmap = [];
+            foreach ($strays as $stray) {
+                $cmdmap[self::REFERENCE_TABLE][(int)$stray] = ['delete' => 1];
+            }
 
-        $restore = GeneralUtility::makeInstance(ToolDataHandler::class);
-        $restore->start([$table => [$recordUid => [$field => implode(',', $survivors)]]], [], $user);
-        $restore->process_datamap();
+            $removal = GeneralUtility::makeInstance(ToolDataHandler::class);
+            $removal->start([], $cmdmap, $user);
+            $removal->process_cmdmap();
+        }
+
+        $record = $this->fetchRow($table, $recordUid);
+        if (self::toInt($record[$field] ?? 0) !== count($survivors)) {
+            $restore = GeneralUtility::makeInstance(ToolDataHandler::class);
+            $restore->start([$table => [$recordUid => [$field => implode(',', $survivors)]]], [], $user);
+            $restore->process_datamap();
+        }
+
+        $record = $this->fetchRow($table, $recordUid);
+        if ($this->existingReferenceUids($table, $recordUid, $field) === $survivors
+            && self::toInt($record[$field] ?? 0) === count($survivors)
+        ) {
+            return null;
+        }
+
+        return sprintf(
+            'The rollback did not restore %s:%d: its "%s" list or counter differs from what it was before this call and needs a look in the backend.',
+            $table,
+            $recordUid,
+            $field,
+        );
     }
 }
