@@ -598,3 +598,4 @@ Tools
    Adr210ACallerCanAskWhichToolsRunWithoutApproval
    Adr211TypedDecisionsFromAnExchangeableBackend
    Adr212AGenericFileAttacherWhereNoNarrowWriterExists
+   Adr213ApprovalPreviewLinesAreInTheActingUsersLanguage

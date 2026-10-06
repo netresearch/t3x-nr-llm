@@ -14,6 +14,8 @@ use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -78,6 +80,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
 
     public function __construct(
         private ConnectionPool $connectionPool,
+        private ApprovalPreviewTranslator $translator,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -172,6 +175,10 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
     /**
      * Both ends of the move and what travels with the page (ADR-136).
      *
+     * The lines are in the language of the ACTING user and carry no field
+     * names (ADR-213); a refusal line stays English, because it is the string
+     * {@see self::execute()} hands the model as well.
+     *
      * Authorised exactly like {@see self::execute()} and against the same
      * EXPLICIT acting user, down to the neutral refusal string. NOT checked
      * here: the live-workspace and backend-environment refusals, which describe
@@ -193,49 +200,48 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
             return [$plan];
         }
 
+        $t = fn(ApprovalPreviewLabel $label, int|string ...$arguments): string => $this->translator->text($user, $label, ...$arguments);
+        $q = fn(string $value): string => $this->translator->quoted($user, $this->excerpt($value));
+
+        // ADR-213, in the order of the editorial guidelines: what, where, the
+        // current state, the new state, the consequences.
         $lines = [
-            sprintf(
-                'Page [%d] "%s", with its content, %d translation(s) and %s:',
-                $plan['uid'],
-                $this->excerpt($plan['title']),
-                $plan['translations'],
-                $plan['subpages'] > self::MAX_COUNTED_SUBPAGES
-                    ? sprintf('more than %d subpages', self::MAX_COUNTED_SUBPAGES)
-                    : sprintf('%d subpage(s)', $plan['subpages']),
-            ),
-            sprintf('from: under page [%d] "%s"', $plan['formerParent'], $this->excerpt($plan['formerParentTitle'])),
+            $t(ApprovalPreviewLabel::MovePageHeading),
+            $t(ApprovalPreviewLabel::MovePagePage, $q($plan['title'])),
+            $t(ApprovalPreviewLabel::MovePageCurrent, $q($plan['formerParentTitle'])),
             $plan['afterUid'] > 0
-                ? sprintf(
-                    'to: under page [%d] "%s", directly after page [%d] "%s"',
-                    $plan['parent'],
-                    $this->excerpt($plan['parentTitle']),
-                    $plan['afterUid'],
-                    $this->excerpt($plan['afterTitle']),
-                )
-                : sprintf('to: under page [%d] "%s", first', $plan['parent'], $this->excerpt($plan['parentTitle'])),
-            sprintf('URL path unchanged: %s (the slug is not regenerated)', $plan['slug'] === '' ? '(none)' : $plan['slug']),
+                ? $t(ApprovalPreviewLabel::MovePageNewAfter, $q($plan['parentTitle']), $q($plan['afterTitle']))
+                : $t(ApprovalPreviewLabel::MovePageNewFirst, $q($plan['parentTitle'])),
+            $plan['subpages'] > self::MAX_COUNTED_SUBPAGES
+                ? $t(ApprovalPreviewLabel::MovePageMovesAlongMany, $plan['translations'], self::MAX_COUNTED_SUBPAGES)
+                : $t(ApprovalPreviewLabel::MovePageMovesAlong, $plan['translations'], $plan['subpages']),
+            $t(
+                ApprovalPreviewLabel::MovePageUrlUnchanged,
+                $plan['slug'] === '' ? $t(ApprovalPreviewLabel::ValueNone) : $plan['slug'],
+            ),
         ];
 
-        if ($plan['siteRootBefore'] !== $plan['siteRootAfter']) {
-            $lines[] = match (0) {
-                $plan['siteRootAfter'] => sprintf(
-                    'moves out of its site: from the site of root page [%d] to outside every site — outside a site the '
-                    . 'page has no frontend address',
-                    $plan['siteRootBefore'],
-                ),
-                $plan['siteRootBefore'] => sprintf(
-                    'moves into a site: from outside every site to the site of root page [%d] — its address follows that '
-                    . 'site from then on',
-                    $plan['siteRootAfter'],
-                ),
-                default => sprintf(
-                    'moves into another site: from the site of root page [%d] to the site of root page [%d] — its address '
-                    . 'follows the other site from then on',
-                    $plan['siteRootBefore'],
-                    $plan['siteRootAfter'],
-                ),
-            };
+        $details = [
+            $t(ApprovalPreviewLabel::TechnicalPage, $plan['uid']),
+            $t(ApprovalPreviewLabel::TechnicalFormerParent, $plan['formerParent']),
+            $t(ApprovalPreviewLabel::TechnicalParentPage, $plan['parent']),
+        ];
+        if ($plan['afterUid'] > 0) {
+            $details[] = $t(ApprovalPreviewLabel::TechnicalAnchorPage, $plan['afterUid']);
         }
+
+        if ($plan['siteRootBefore'] !== $plan['siteRootAfter']) {
+            $lines[] = $t(match (0) {
+                $plan['siteRootAfter']  => ApprovalPreviewLabel::MovePageLeavesSite,
+                $plan['siteRootBefore'] => ApprovalPreviewLabel::MovePageJoinsSite,
+                default                 => ApprovalPreviewLabel::MovePageChangesSite,
+            });
+            $none      = $t(ApprovalPreviewLabel::ValueNone);
+            $details[] = $t(ApprovalPreviewLabel::TechnicalSiteRootBefore, $plan['siteRootBefore'] > 0 ? (string)$plan['siteRootBefore'] : $none);
+            $details[] = $t(ApprovalPreviewLabel::TechnicalSiteRootAfter, $plan['siteRootAfter'] > 0 ? (string)$plan['siteRootAfter'] : $none);
+        }
+
+        $lines[] = $this->translator->technical($user, $details);
 
         return $lines;
     }

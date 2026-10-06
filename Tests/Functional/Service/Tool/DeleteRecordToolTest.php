@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\DeleteRecordTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -128,7 +129,7 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
 
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('default');
 
-        $this->tool = new DeleteRecordTool($this->connectionPool);
+        $this->tool = new DeleteRecordTool($this->connectionPool, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
     }
 
     protected function tearDown(): void
@@ -309,14 +310,20 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function thePreviewOfAPageTranslationCountsTheContentOfItsLanguage(): void
     {
-        $lines = $this->tool->previewCall(
-            ['table' => 'pages', 'uid' => self::PAGE_OPEN_TRANSLATION],
-            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        $arguments = ['table' => 'pages', 'uid' => self::PAGE_OPEN_TRANSLATION];
+
+        $english = $this->previewIn('en', $arguments);
+        self::assertContains('Language: translation, not the default language', $english);
+        self::assertContains(
+            'Deleted with it: content elements in this language on the default-language page: 1, plus every other record in that language there',
+            $english,
         );
 
+        $german = $this->previewIn('de', $arguments);
+        self::assertContains('Sprache: Übersetzung, nicht die Standardsprache', $german);
         self::assertContains(
-            'with the 1 content element(s) in language 1 on its default-language page, and every other record in that language there',
-            $lines,
+            'Wird mitgelöscht: Inhaltselemente in dieser Sprache auf der Seite in Standardsprache: 1, dazu jeder andere Datensatz dieser Sprache dort',
+            $german,
         );
     }
 
@@ -479,29 +486,72 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function thePreviewCountsWhatGoesAlongAndWhatStillPointsAtItAndDeletesNothing(): void
     {
-        $lines = $this->tool->previewCall(
-            ['table' => 'tt_content', 'uid' => self::ELEMENT],
-            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
-        );
+        $arguments = ['table' => 'tt_content', 'uid' => self::ELEMENT];
 
-        self::assertSame('Delete tt_content [20] "Doomed" on page [2] "Open", language 0', $lines[0]);
-        self::assertSame('with its 1 translation(s): [21]', $lines[1]);
-        self::assertStringContainsString('still referenced from 1 other record(s)', $lines[2]);
+        // ADR-213 and rule 25 of the editorial guidelines: the object, where
+        // it is, its language versions, what points at it, whether it comes
+        // back — each as a line, the identifiers last.
+        self::assertSame([
+            'Delete content element',
+            'Content element: “Doomed”',
+            'Location: on page “Open”',
+            'Language: default language',
+            'Translations: 1, deleted with it',
+            'Important: references from other records: 1. Those links or relations will point at a deleted record.',
+            'Recoverable: yes, from the recycler',
+            'Technical details: table tt_content, UID 20, page UID 2, language UID 0, translations UID 21',
+        ], $this->previewIn('en', $arguments));
+        self::assertSame([
+            'Inhaltselement löschen',
+            'Inhaltselement: „Doomed“',
+            'Ort: auf der Seite „Open“',
+            'Sprache: Standardsprache',
+            'Übersetzungen: 1, werden mitgelöscht',
+            'Wichtig: Verweise von anderen Datensätzen: 1. Diese Links oder Verknüpfungen führen danach auf einen gelöschten Datensatz.',
+            'Wiederherstellbar: ja, über den Papierkorb',
+            'Technische Details: Tabelle tt_content, UID 20, Seite UID 2, Sprach-UID 0, Übersetzungen UID 21',
+        ], $this->previewIn('de', $arguments));
         self::assertSame(0, $this->deletedOf('tt_content', self::ELEMENT));
     }
 
     #[Test]
     public function thePreviewOfAPageCountsItsBranchAndContent(): void
     {
-        $lines = $this->tool->previewCall(
-            ['table' => 'pages', 'uid' => self::PAGE_WITH_BRANCH, 'include_subpages' => true],
-            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
-        );
+        $arguments = ['table' => 'pages', 'uid' => self::PAGE_WITH_BRANCH, 'include_subpages' => true];
 
-        self::assertContains('with 1 subpage(s): [4], and 0 translation(s) of them', $lines);
+        $english = $this->previewIn('en', $arguments);
+        self::assertSame('Delete page', $english[0]);
+        self::assertContains('Page: “Branch”', $english);
+        self::assertContains('Translations: none', $english);
+        self::assertContains('Subpages: 1, deleted with it (plus 0 translations of them)', $english);
         // The shortcut on page 3 and the element on its subpage, counted by
-        // table — counts only, never titles.
-        self::assertContains('with the records stored on the page(s), in every language: tt_content 2', $lines);
+        // the table's title in the user's language — counts only, never
+        // titles. The title comes from core's TCA label, so what the German
+        // line says here is whatever core ships for German (this environment
+        // has no core language pack, hence the English title in both).
+        self::assertContains('Records stored on the page (all languages), deleted with it: Page Content: 2', $english);
+        self::assertContains('References from other records: none', $english);
+        self::assertContains('Technical details: table pages, UID 3, language UID 0, subpages UID 4', $english);
+
+        $german = $this->previewIn('de', $arguments);
+        self::assertSame('Seite löschen', $german[0]);
+        self::assertContains('Seite: „Branch“', $german);
+        self::assertContains('Übersetzungen: keine', $german);
+        self::assertContains('Unterseiten: 1, werden mitgelöscht (dazu 0 Übersetzungen davon)', $german);
+        self::assertContains('Auf der Seite gespeicherte Datensätze (alle Sprachen), werden mitgelöscht: Page Content: 2', $german);
+        self::assertContains('Verweise von anderen Datensätzen: keine', $german);
+        self::assertContains('Technische Details: Tabelle pages, UID 3, Sprach-UID 0, Unterseiten UID 4', $german);
+    }
+
+    #[Test]
+    public function thePreviewOfAPageWithoutSubpagesOrRecordsSaysSo(): void
+    {
+        $arguments = ['table' => 'pages', 'uid' => self::PAGE_CLOSED];
+
+        self::assertContains('Subpages: none', $this->previewIn('en', $arguments));
+        self::assertContains('Records stored on the page: none', $this->previewIn('en', $arguments));
+        self::assertContains('Unterseiten: keine', $this->previewIn('de', $arguments));
+        self::assertContains('Auf der Seite gespeicherte Datensätze: keine', $this->previewIn('de', $arguments));
     }
 
     #[Test]
@@ -511,6 +561,22 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
 
         self::assertTrue($this->tool->mayViewerReadPreview($arguments, $this->setUpBackendUser(1)));
         self::assertFalse($this->tool->mayViewerReadPreview($arguments, $this->editor()));
+    }
+
+    /**
+     * The preview as the run's acting administrator reads it, in that user's
+     * language (ADR-213): the `lang` column of the backend user.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return list<string>
+     */
+    private function previewIn(string $language, array $arguments): array
+    {
+        $admin               = $this->setUpBackendUser(1);
+        $admin->user['lang'] = $language;
+
+        return $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($admin));
     }
 
     /**

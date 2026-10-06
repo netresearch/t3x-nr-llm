@@ -4276,6 +4276,239 @@
                 <source>Approved, but the record does not say by whom</source>
                 <target>Freigegeben, aber der Datensatz nennt nicht, von wem</target>
             </trans-unit>
+            <!-- Approval previews (ADR-213) -->
+            <trans-unit id="approvalPreview.value.empty">
+                <source>(empty)</source>
+                <target>(leer)</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.value.none">
+                <source>(none)</source>
+                <target>(keiner)</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.value.quoted">
+                <source>“%s”</source>
+                <target>„%s“</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.details">
+                <source>Technical details: %s</source>
+                <target>Technische Details: %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.more">
+                <source>and %d more</source>
+                <target>und %d weitere</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.page">
+                <source>page UID %d</source>
+                <target>Seite UID %d</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.parentPage">
+                <source>parent page UID %d</source>
+                <target>übergeordnete Seite UID %d</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.formerParentPage">
+                <source>current parent page UID %d</source>
+                <target>bisherige übergeordnete Seite UID %d</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.anchorPage">
+                <source>preceding page UID %d</source>
+                <target>vorangehende Seite UID %d</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.existingPage">
+                <source>existing page with the same title UID %d</source>
+                <target>vorhandene Seite mit gleichem Titel UID %d</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.siteRootBefore">
+                <source>site root page before: %s</source>
+                <target>Website-Startseite vorher: %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.siteRootAfter">
+                <source>site root page after: %s</source>
+                <target>Website-Startseite nachher: %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.record">
+                <source>table %s, UID %d</source>
+                <target>Tabelle %s, UID %d</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.translations">
+                <source>translations UID %s</source>
+                <target>Übersetzungen UID %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.subpages">
+                <source>subpages UID %s</source>
+                <target>Unterseiten UID %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.language">
+                <source>language UID %d</source>
+                <target>Sprach-UID %d</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createPage.heading">
+                <source>Create new page as draft</source>
+                <target>Neue Seite als Entwurf anlegen</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createPage.location">
+                <source>Location: under %s</source>
+                <target>Ort: unter %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createPage.pageTitle">
+                <source>Title: %s</source>
+                <target>Titel: %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createPage.navTitle">
+                <source>Navigation title: %s</source>
+                <target>Navigationstitel: %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createPage.navTitleSame">
+                <source>Navigation title: same as the page title</source>
+                <target>Navigationstitel: wie der Seitentitel</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createPage.pageType">
+                <source>Page type: standard page</source>
+                <target>Seitentyp: Standardseite</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createPage.language">
+                <source>Language: default language</source>
+                <target>Sprache: Standardsprache</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createPage.positionFirst">
+                <source>Position: first subpage</source>
+                <target>Position: erste Unterseite</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createPage.positionAfter">
+                <source>Position: directly after %s</source>
+                <target>Position: direkt nach %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createPage.visibility">
+                <source>Visibility: hidden at first</source>
+                <target>Sichtbarkeit: zunächst verborgen</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createPage.impact">
+                <source>After it is created the page is not publicly visible yet and has no content. It has to be made visible by a person.</source>
+                <target>Die Seite ist nach dem Anlegen noch nicht öffentlich sichtbar und enthält noch keine Inhalte. Sie muss erst von einer Person sichtbar geschaltet werden.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createPage.duplicate">
+                <source>Warning: a page with the same title already exists under this page. Approving creates a second page with that title.</source>
+                <target>Warnung: Unter dieser Seite gibt es bereits eine Seite mit demselben Titel. Mit der Freigabe entsteht eine zweite Seite mit diesem Titel.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createPage.duplicateHidden">
+                <source>Warning: a hidden page with the same title already exists under this page. Approving creates a second page with that title.</source>
+                <target>Warnung: Unter dieser Seite gibt es bereits eine verborgene Seite mit demselben Titel. Mit der Freigabe entsteht eine zweite Seite mit diesem Titel.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.movePage.heading">
+                <source>Move page</source>
+                <target>Seite verschieben</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.movePage.page">
+                <source>Page: %s</source>
+                <target>Seite: %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.movePage.current">
+                <source>Currently: under %s</source>
+                <target>Aktuell: unter %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.movePage.newFirst">
+                <source>New: under %s, as the first subpage</source>
+                <target>Neu: unter %s als erste Unterseite</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.movePage.newAfter">
+                <source>New: under %s, directly after %s</source>
+                <target>Neu: unter %s, direkt nach %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.movePage.movesAlong">
+                <source>Moves along: its content; translations: %d; subpages: %d</source>
+                <target>Wird mitverschoben: Inhalte; Übersetzungen: %d; Unterseiten: %d</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.movePage.movesAlongMany">
+                <source>Moves along: its content; translations: %d; subpages: more than %d</source>
+                <target>Wird mitverschoben: Inhalte; Übersetzungen: %d; Unterseiten: mehr als %d</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.movePage.urlUnchanged">
+                <source>The URL path stays unchanged: %s. It is not regenerated when a page is moved.</source>
+                <target>Der URL-Pfad bleibt unverändert: %s. Er wird beim Verschieben nicht neu erzeugt.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.movePage.leavesSite">
+                <source>Important: the page leaves its website. Outside a website it has no address in the frontend.</source>
+                <target>Wichtig: Die Seite verlässt ihre Website. Außerhalb einer Website hat sie keine Adresse im Frontend.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.movePage.joinsSite">
+                <source>Important: the page becomes part of a website. From then on its address follows that website.</source>
+                <target>Wichtig: Die Seite wird Teil einer Website. Ihre Adresse folgt dieser Website von nun an.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.movePage.changesSite">
+                <source>Important: the page moves into another website. From then on its address follows the other website.</source>
+                <target>Wichtig: Die Seite wechselt in eine andere Website. Ihre Adresse folgt der anderen Website von nun an.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.deleteRecord.headingPage">
+                <source>Delete page</source>
+                <target>Seite löschen</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.deleteRecord.headingContent">
+                <source>Delete content element</source>
+                <target>Inhaltselement löschen</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.deleteRecord.objectPage">
+                <source>Page: %s</source>
+                <target>Seite: %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.deleteRecord.objectContent">
+                <source>Content element: %s</source>
+                <target>Inhaltselement: %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.deleteRecord.location">
+                <source>Location: on page %s</source>
+                <target>Ort: auf der Seite %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.deleteRecord.languageDefault">
+                <source>Language: default language</source>
+                <target>Sprache: Standardsprache</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.deleteRecord.languageTranslation">
+                <source>Language: translation, not the default language</source>
+                <target>Sprache: Übersetzung, nicht die Standardsprache</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.deleteRecord.translationsNone">
+                <source>Translations: none</source>
+                <target>Übersetzungen: keine</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.deleteRecord.translationsSome">
+                <source>Translations: %d, deleted with it</source>
+                <target>Übersetzungen: %d, werden mitgelöscht</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.deleteRecord.subpagesNone">
+                <source>Subpages: none</source>
+                <target>Unterseiten: keine</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.deleteRecord.subpagesSome">
+                <source>Subpages: %d, deleted with it (plus %d translations of them)</source>
+                <target>Unterseiten: %d, werden mitgelöscht (dazu %d Übersetzungen davon)</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.deleteRecord.storedNone">
+                <source>Records stored on the page: none</source>
+                <target>Auf der Seite gespeicherte Datensätze: keine</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.deleteRecord.storedSome">
+                <source>Records stored on the page (all languages), deleted with it: %s</source>
+                <target>Auf der Seite gespeicherte Datensätze (alle Sprachen), werden mitgelöscht: %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.deleteRecord.storedUncountable">
+                <source>%s: could not be counted</source>
+                <target>%s: konnte nicht gezählt werden</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.deleteRecord.translationContent">
+                <source>Deleted with it: content elements in this language on the default-language page: %d, plus every other record in that language there</source>
+                <target>Wird mitgelöscht: Inhaltselemente in dieser Sprache auf der Seite in Standardsprache: %d, dazu jeder andere Datensatz dieser Sprache dort</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.deleteRecord.referencesNone">
+                <source>References from other records: none</source>
+                <target>Verweise von anderen Datensätzen: keine</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.deleteRecord.referencesSome">
+                <source>Important: references from other records: %d. Those links or relations will point at a deleted record.</source>
+                <target>Wichtig: Verweise von anderen Datensätzen: %d. Diese Links oder Verknüpfungen führen danach auf einen gelöschten Datensatz.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.deleteRecord.recoverable">
+                <source>Recoverable: yes, from the recycler</source>
+                <target>Wiederherstellbar: ja, über den Papierkorb</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

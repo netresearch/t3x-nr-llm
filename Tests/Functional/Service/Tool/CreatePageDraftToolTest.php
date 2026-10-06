@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewComparator;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreatePageDraftTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
@@ -91,7 +92,7 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
 
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('default');
 
-        $this->tool = new CreatePageDraftTool($this->connectionPool);
+        $this->tool = new CreatePageDraftTool($this->connectionPool, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
     }
 
     protected function tearDown(): void
@@ -286,22 +287,51 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function thePreviewShowsTheWholeDraftAndWritesNothing(): void
     {
-        $admin = $this->setUpBackendUser(1);
+        $arguments = ['parent' => self::PARENT_OPEN, 'title' => 'Proposed', 'after_page_uid' => self::EXISTING_SUBPAGE];
 
-        $lines = $this->tool->previewCall(
-            ['parent' => self::PARENT_OPEN, 'title' => 'Proposed', 'after_page_uid' => self::EXISTING_SUBPAGE],
-            ToolExecutionContext::fromBackendUser($admin),
-        );
-
-        self::assertCount(6, $lines);
-        self::assertStringContainsString('New page under page [2] "Open"', $lines[0]);
-        self::assertStringContainsString('"Proposed"', $lines[1]);
-        self::assertStringContainsString('same as the title', $lines[2]);
-        self::assertStringContainsString('directly after page [20] "Already there"', $lines[3]);
-        self::assertStringContainsString('standard page', $lines[4]);
-        self::assertStringContainsString('hidden', $lines[5]);
+        // ADR-213: what, where, the new state, the consequence, then the
+        // identifiers. No field name, no English in the German lines.
+        self::assertSame([
+            'Create new page as draft',
+            'Location: under “Open”',
+            'Title: “Proposed”',
+            'Navigation title: same as the page title',
+            'Page type: standard page',
+            'Language: default language',
+            'Position: directly after “Already there”',
+            'Visibility: hidden at first',
+            'After it is created the page is not publicly visible yet and has no content. It has to be made visible by a person.',
+            'Technical details: parent page UID 2, preceding page UID 20',
+        ], $this->previewIn('en', $arguments));
+        self::assertSame([
+            'Neue Seite als Entwurf anlegen',
+            'Ort: unter „Open“',
+            'Titel: „Proposed“',
+            'Navigationstitel: wie der Seitentitel',
+            'Seitentyp: Standardseite',
+            'Sprache: Standardsprache',
+            'Position: direkt nach „Already there“',
+            'Sichtbarkeit: zunächst verborgen',
+            'Die Seite ist nach dem Anlegen noch nicht öffentlich sichtbar und enthält noch keine Inhalte. Sie muss erst von einer Person sichtbar geschaltet werden.',
+            'Technische Details: übergeordnete Seite UID 2, vorangehende Seite UID 20',
+        ], $this->previewIn('de', $arguments));
 
         self::assertSame(3, $this->pageCount(), 'a preview must not create anything');
+    }
+
+    #[Test]
+    public function thePreviewShowsAnExplicitNavigationTitleAndTheFirstPosition(): void
+    {
+        $arguments = ['parent' => self::PARENT_OPEN, 'title' => 'Proposed', 'nav_title' => 'Short'];
+
+        $english = $this->previewIn('en', $arguments);
+        self::assertContains('Navigation title: “Short”', $english);
+        self::assertContains('Position: first subpage', $english);
+
+        $german = $this->previewIn('de', $arguments);
+        self::assertContains('Navigationstitel: „Short“', $german);
+        self::assertContains('Position: erste Unterseite', $german);
+        self::assertContains('Technische Details: übergeordnete Seite UID 2', $german);
     }
 
     /**
@@ -313,41 +343,47 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function thePreviewWarnsWhenTheParentAlreadyHoldsAPageWithThisTitle(): void
     {
-        $admin = $this->setUpBackendUser(1);
         $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
             'uid' => 10073, 'pid' => self::PARENT_OPEN, 'title' => 'Prof. Dr. Max Mustermann', 'doktype' => 1,
             'hidden' => 1, 'sorting' => 3,
         ]);
+        $arguments = ['parent' => self::PARENT_OPEN, 'title' => 'Prof. Dr. Max Mustermann'];
 
-        $lines = $this->tool->previewCall(
-            ['parent' => self::PARENT_OPEN, 'title' => 'Prof. Dr. Max Mustermann'],
-            ToolExecutionContext::fromBackendUser($admin),
-        );
-
-        self::assertCount(7, $lines);
+        $english = $this->previewIn('en', $arguments);
+        self::assertCount(11, $english);
         self::assertSame(
-            'Warning: page [10073] with the same title already exists under this parent (hidden). Approving creates a second page with that title.',
-            $lines[0],
+            'Warning: a hidden page with the same title already exists under this page. Approving creates a second page with that title.',
+            $english[9],
         );
-        self::assertStringContainsString('New page under page [2] "Open"', $lines[1]);
+        self::assertSame('Technical details: parent page UID 2, existing page with the same title UID 10073', $english[10]);
+
+        $german = $this->previewIn('de', $arguments);
+        self::assertSame(
+            'Warnung: Unter dieser Seite gibt es bereits eine verborgene Seite mit demselben Titel. Mit der Freigabe entsteht eine zweite Seite mit diesem Titel.',
+            $german[9],
+        );
+        self::assertSame('Technische Details: übergeordnete Seite UID 2, vorhandene Seite mit gleichem Titel UID 10073', $german[10]);
+
+        // A visible twin gets the sentence without "hidden".
+        $this->connectionPool->getConnectionForTable('pages')->update('pages', ['hidden' => 0], ['uid' => 10073]);
+        self::assertSame(
+            'Warnung: Unter dieser Seite gibt es bereits eine Seite mit demselben Titel. Mit der Freigabe entsteht eine zweite Seite mit diesem Titel.',
+            $this->previewIn('de', $arguments)[9],
+        );
     }
 
     #[Test]
     public function thePreviewDoesNotWarnForADeletedPageATranslationOrAnotherParent(): void
     {
-        $admin = $this->setUpBackendUser(1);
         $pages = $this->connectionPool->getConnectionForTable('pages');
         $pages->insert('pages', ['uid' => 30, 'pid' => self::PARENT_OPEN, 'title' => 'Twin', 'doktype' => 1, 'deleted' => 1]);
         $pages->insert('pages', ['uid' => 31, 'pid' => self::PARENT_OPEN, 'title' => 'Twin', 'doktype' => 1, 'sys_language_uid' => 1, 'l10n_parent' => 30]);
         $pages->insert('pages', ['uid' => 32, 'pid' => self::PARENT_CLOSED, 'title' => 'Twin', 'doktype' => 1]);
 
-        $lines = $this->tool->previewCall(
-            ['parent' => self::PARENT_OPEN, 'title' => 'Twin'],
-            ToolExecutionContext::fromBackendUser($admin),
-        );
+        $lines = $this->previewIn('en', ['parent' => self::PARENT_OPEN, 'title' => 'Twin']);
 
-        self::assertCount(6, $lines);
-        self::assertStringStartsWith('New page under page [2]', $lines[0]);
+        self::assertCount(10, $lines);
+        self::assertStringNotContainsString('Warning', implode("\n", $lines));
     }
 
     /**
@@ -371,8 +407,8 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
             ToolExecutionContext::fromBackendUser($editor),
         );
 
-        self::assertStringStartsWith('New page under page [2]', $lines[0] ?? '');
-        self::assertStringNotContainsString('[33]', implode("\n", $lines));
+        self::assertSame('Create new page as draft', $lines[0] ?? '');
+        self::assertStringNotContainsString('33', implode("\n", $lines));
     }
 
     /**
@@ -392,7 +428,7 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
         $comparator = new ApprovalPreviewComparator($registry);
 
         $shown = $comparator->bound($this->tool->previewCall($arguments, $context));
-        self::assertStringStartsWith('New page under page [2]', $shown[0] ?? '');
+        self::assertSame('Create new page as draft', $shown[0] ?? '');
         $suspended = new SuspendedRunState(
             messages: [],
             pendingCalls: [['id' => 'call_2', 'type' => 'function', 'function' => ['name' => 'create_page_draft', 'arguments' => $arguments]]],
@@ -409,7 +445,7 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
 
         self::assertInstanceOf(SuspendedRunState::class, $bounced);
         self::assertSame([0], $bounced->staleCallIndexes);
-        self::assertStringStartsWith('Warning: page [', $bounced->callPreviews[0]['lines'][0] ?? '');
+        self::assertStringStartsWith('Warning: a hidden page with the same title', $bounced->callPreviews[0]['lines'][9] ?? '');
     }
 
     /**
@@ -446,6 +482,22 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
 
         self::assertTrue($this->tool->mayViewerReadPreview($arguments, $admin));
         self::assertFalse($this->tool->mayViewerReadPreview($arguments, $editor));
+    }
+
+    /**
+     * The preview as the run's acting administrator reads it, in that user's
+     * language (ADR-213): the `lang` column of the backend user.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return list<string>
+     */
+    private function previewIn(string $language, array $arguments): array
+    {
+        $admin               = $this->setUpBackendUser(1);
+        $admin->user['lang'] = $language;
+
+        return $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($admin));
     }
 
     /**

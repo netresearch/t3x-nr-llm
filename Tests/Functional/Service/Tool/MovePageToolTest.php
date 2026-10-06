@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\MovePageTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -95,7 +96,7 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
 
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('default');
 
-        $this->tool = new MovePageTool($this->connectionPool);
+        $this->tool = new MovePageTool($this->connectionPool, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
     }
 
     protected function tearDown(): void
@@ -198,16 +199,20 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
         ]);
 
-        $lines = $this->tool->previewCall(
-            ['uid' => self::MOVED, 'parent' => 11],
-            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
-        );
+        $english = $this->previewIn('en', ['uid' => self::MOVED, 'parent' => 11]);
+        $german  = $this->previewIn('de', ['uid' => self::MOVED, 'parent' => 11]);
 
         self::assertContains(
-            'moves into another site: from the site of root page [1] to the site of root page [11] — its address follows '
-            . 'the other site from then on',
-            $lines,
+            'Important: the page moves into another website. From then on its address follows the other website.',
+            $english,
         );
+        self::assertContains(
+            'Wichtig: Die Seite wechselt in eine andere Website. Ihre Adresse folgt der anderen Website von nun an.',
+            $german,
+        );
+        // The two roots are named for support, not in the editor's lines.
+        self::assertContains('Technical details: page UID 4, current parent page UID 2, parent page UID 11, site root page before: 1, site root page after: 11', $english);
+        self::assertContains('Technische Details: Seite UID 4, bisherige übergeordnete Seite UID 2, übergeordnete Seite UID 11, Website-Startseite vorher: 1, Website-Startseite nachher: 11', $german);
     }
 
     #[Test]
@@ -219,15 +224,13 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
         ]);
 
-        $lines = $this->tool->previewCall(
-            ['uid' => self::MOVED, 'parent' => 12],
-            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
-        );
-
         self::assertContains(
-            'moves out of its site: from the site of root page [1] to outside every site — outside a site the page has '
-            . 'no frontend address',
-            $lines,
+            'Important: the page leaves its website. Outside a website it has no address in the frontend.',
+            $this->previewIn('en', ['uid' => self::MOVED, 'parent' => 12]),
+        );
+        self::assertContains(
+            'Wichtig: Die Seite verlässt ihre Website. Außerhalb einer Website hat sie keine Adresse im Frontend.',
+            $this->previewIn('de', ['uid' => self::MOVED, 'parent' => 12]),
         );
 
         $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
@@ -236,15 +239,13 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
         ]);
 
-        $lines = $this->tool->previewCall(
-            ['uid' => 13, 'parent' => self::SECTION_B],
-            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
-        );
-
         self::assertContains(
-            'moves into a site: from outside every site to the site of root page [1] — its address follows that site '
-            . 'from then on',
-            $lines,
+            'Important: the page becomes part of a website. From then on its address follows that website.',
+            $this->previewIn('en', ['uid' => 13, 'parent' => self::SECTION_B]),
+        );
+        self::assertContains(
+            'Wichtig: Die Seite wird Teil einer Website. Ihre Adresse folgt dieser Website von nun an.',
+            $this->previewIn('de', ['uid' => 13, 'parent' => self::SECTION_B]),
         );
     }
 
@@ -344,18 +345,38 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function thePreviewNamesBothEndsAndTheUnchangedSlugAndMovesNothing(): void
     {
-        $lines = $this->tool->previewCall(
-            ['uid' => self::MOVED, 'after_page_uid' => self::SIBLING_IN_B],
-            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
-        );
+        $arguments = ['uid' => self::MOVED, 'after_page_uid' => self::SIBLING_IN_B];
 
         self::assertSame([
-            'Page [4] "Moved", with its content, 1 translation(s) and 1 subpage(s):',
-            'from: under page [2] "Section A"',
-            'to: under page [3] "Section B", directly after page [8] "Sibling"',
-            'URL path unchanged: /a/moved (the slug is not regenerated)',
-        ], $lines);
+            'Move page',
+            'Page: “Moved”',
+            'Currently: under “Section A”',
+            'New: under “Section B”, directly after “Sibling”',
+            'Moves along: its content; translations: 1; subpages: 1',
+            'The URL path stays unchanged: /a/moved. It is not regenerated when a page is moved.',
+            'Technical details: page UID 4, current parent page UID 2, parent page UID 3, preceding page UID 8',
+        ], $this->previewIn('en', $arguments));
+        self::assertSame([
+            'Seite verschieben',
+            'Seite: „Moved“',
+            'Aktuell: unter „Section A“',
+            'Neu: unter „Section B“, direkt nach „Sibling“',
+            'Wird mitverschoben: Inhalte; Übersetzungen: 1; Unterseiten: 1',
+            'Der URL-Pfad bleibt unverändert: /a/moved. Er wird beim Verschieben nicht neu erzeugt.',
+            'Technische Details: Seite UID 4, bisherige übergeordnete Seite UID 2, übergeordnete Seite UID 3, vorangehende Seite UID 8',
+        ], $this->previewIn('de', $arguments));
         self::assertSame(self::SECTION_A, (int)($this->pageRow(self::MOVED)['pid'] ?? 0));
+    }
+
+    #[Test]
+    public function thePreviewWithoutAnAnchorPutsThePageFirstAndAnUnknownLanguageFallsBackToEnglish(): void
+    {
+        $arguments = ['uid' => self::MOVED, 'parent' => self::SECTION_B];
+
+        self::assertContains('New: under “Section B”, as the first subpage', $this->previewIn('en', $arguments));
+        self::assertContains('Neu: unter „Section B“ als erste Unterseite', $this->previewIn('de', $arguments));
+        // No catalogue for this language: the English source, never a key.
+        self::assertSame($this->previewIn('en', $arguments), $this->previewIn('fr', $arguments));
     }
 
     #[Test]
@@ -365,6 +386,22 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
 
         self::assertTrue($this->tool->mayViewerReadPreview($arguments, $this->setUpBackendUser(1)));
         self::assertFalse($this->tool->mayViewerReadPreview($arguments, $this->editor()));
+    }
+
+    /**
+     * The preview as the run's acting user reads it, in that user's language
+     * (ADR-213): the `lang` column of the backend user.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return list<string>
+     */
+    private function previewIn(string $language, array $arguments): array
+    {
+        $admin               = $this->setUpBackendUser(1);
+        $admin->user['lang'] = $language;
+
+        return $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($admin));
     }
 
     private function editor(): BackendUserAuthentication
