@@ -1530,7 +1530,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             return [null, null, $optionsArray];
         }
 
-        $modelId = $model?->getModelId() ?? '';
+        $modelId = $model->getModelId();
         if ($modelId !== '' && ($optionsArray['model'] ?? null) === null) {
             $optionsArray['model'] = $modelId;
         }
