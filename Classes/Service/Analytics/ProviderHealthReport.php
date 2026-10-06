@@ -82,7 +82,7 @@ final readonly class ProviderHealthReport
 
             $rows[] = [
                 'provider'            => $provider,
-                'sampleCount'         => $score !== null ? $score->sampleCount : 0,
+                'sampleCount'         => $score->sampleCount ?? 0,
                 'score'               => $score?->score,
                 'successRate'         => $score?->successRate,
                 'avgLatencyMs'        => $score?->avgLatencyMs,
