@@ -526,10 +526,10 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
         self::assertContains('Subpages: 1, deleted with it (plus 0 translations of them)', $english);
         // The shortcut on page 3 and the element on its subpage, counted by
         // the table's title in the user's language — counts only, never
-        // titles. The title comes from core's TCA label, so what the German
-        // line says here is whatever core ships for German (this environment
-        // has no core language pack, hence the English title in both).
-        self::assertContains('Records stored on the page (all languages), deleted with it: Page Content: 2', $english);
+        // titles. The title is core's TCA label, so the expectation reads it
+        // from core in that language: with or without a core language pack
+        // installed, the line must carry what core says.
+        self::assertContains('Records stored on the page (all languages), deleted with it: ' . $this->coreTableTitle('tt_content', 'en') . ': 2', $english);
         self::assertContains('References from other records: none', $english);
         self::assertContains('Technical details: table pages, UID 3, language UID 0, subpages UID 4', $english);
 
@@ -538,9 +538,26 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
         self::assertContains('Seite: „Branch“', $german);
         self::assertContains('Übersetzungen: keine', $german);
         self::assertContains('Unterseiten: 1, werden mitgelöscht (dazu 0 Übersetzungen davon)', $german);
-        self::assertContains('Auf der Seite gespeicherte Datensätze (alle Sprachen), werden mitgelöscht: Page Content: 2', $german);
+        self::assertContains('Auf der Seite gespeicherte Datensätze (alle Sprachen), werden mitgelöscht: ' . $this->coreTableTitle('tt_content', 'de') . ': 2', $german);
         self::assertContains('Verweise von anderen Datensätzen: keine', $german);
         self::assertContains('Technische Details: Tabelle pages, UID 3, Sprach-UID 0, Unterseiten UID 4', $german);
+    }
+
+    /**
+     * A table's TCA title as core resolves it in one language.
+     */
+    private function coreTableTitle(string $table, string $language): string
+    {
+        $tca = $GLOBALS['TCA'];
+        self::assertIsArray($tca);
+        $definition = $tca[$table] ?? null;
+        self::assertIsArray($definition);
+        $ctrl = $definition['ctrl'] ?? null;
+        self::assertIsArray($ctrl);
+        $title = $ctrl['title'] ?? null;
+        self::assertIsString($title);
+
+        return trim($this->getService(LanguageServiceFactory::class)->create($language)->sL($title));
     }
 
     #[Test]
