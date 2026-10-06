@@ -139,6 +139,7 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
 
         $gallery = $this->connectionPool->getConnectionForTable(self::GALLERY);
         $gallery->insert(self::GALLERY, ['pid' => 1, 'title' => 'Draft', 'hidden' => 1, 'sys_language_uid' => 0]);
+
         $this->draftUid = (int)$gallery->lastInsertId();
         $gallery->insert(self::GALLERY, ['pid' => 2, 'title' => 'On a closed folder', 'hidden' => 1, 'sys_language_uid' => 0]);
         $this->closedRecordUid = (int)$gallery->lastInsertId();
@@ -147,6 +148,7 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
 
         $cover = $this->connectionPool->getConnectionForTable(self::COVER);
         $cover->insert(self::COVER, ['pid' => 1, 'title' => 'A cover record']);
+
         $this->coverUid = (int)$cover->lastInsertId();
 
         // The DataHandler declares $GLOBALS['LANG'] as a prerequisite, and the

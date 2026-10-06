@@ -73,6 +73,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
     use SafeCastTrait;
     use WritesThroughDataHandlerTrait;
     use FetchesSysFileRowTrait;
+    use FetchesLiveRowTrait;
 
     /**
      * One string for "no such record", "no such file", "not in a permitted
@@ -573,7 +574,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
     {
         $config = $this->fieldConfig($table, $field, $record);
         $raw    = $config[$setting] ?? null;
-        if ($raw === null || $raw === '' || $raw === []) {
+        if (in_array($raw, [null, '', []], true)) {
             return null;
         }
 
@@ -754,35 +755,5 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
         $restore = GeneralUtility::makeInstance(ToolDataHandler::class);
         $restore->start([$table => [$recordUid => [$field => implode(',', $survivors)]]], [], $user);
         $restore->process_datamap();
-    }
-
-    /**
-     * A live, undeleted row by uid — a hidden one included.
-     *
-     * @return array<string, mixed>|null
-     */
-    private function fetchRow(string $table, int $uid): ?array
-    {
-        if ($uid < 1) {
-            return null;
-        }
-
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
-        $queryBuilder->getRestrictions()->removeAll();
-
-        $row = $queryBuilder
-            ->select('*')
-            ->from($table)
-            ->where(
-                $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
-                $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
-                // Live rows only: a workspace version row is another
-                // workspace's draft (ADR-198).
-                ...$this->liveVersionConstraints($queryBuilder, $table),
-            )
-            ->executeQuery()
-            ->fetchAssociative();
-
-        return $row === false ? null : $row;
     }
 }
