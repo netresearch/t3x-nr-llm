@@ -28,3 +28,14 @@ CREATE TABLE tx_writerfixture_variant (
 	title varchar(255) DEFAULT '' NOT NULL,
 	variant varchar(32) DEFAULT '' NOT NULL
 );
+
+CREATE TABLE tx_writerfixture_gallery (
+	title varchar(255) DEFAULT '' NOT NULL,
+	media int(11) unsigned DEFAULT '0' NOT NULL,
+	attachments int(11) unsigned DEFAULT '0' NOT NULL
+);
+
+CREATE TABLE tx_writerfixture_cover (
+	title varchar(255) DEFAULT '' NOT NULL,
+	cover int(11) unsigned DEFAULT '0' NOT NULL
+);

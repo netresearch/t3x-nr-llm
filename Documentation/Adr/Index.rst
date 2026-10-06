@@ -597,3 +597,4 @@ Tools
    Adr209TheTranslationDraftTranslatesItsText
    Adr210ACallerCanAskWhichToolsRunWithoutApproval
    Adr211TypedDecisionsFromAnExchangeableBackend
+   Adr212AGenericFileAttacherWhereNoNarrowWriterExists
