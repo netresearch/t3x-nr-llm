@@ -41,10 +41,12 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * every field list and filter for every user; default query restrictions
  * keep deleted/hidden/timed rows out; and for non-admins each row's page is
  * checked against the acting user's PAGE_SHOW permission before it egresses.
+ * `include_hidden` lifts the hidden restriction only ({@see ReadsHiddenRecordsTrait}).
  */
 final readonly class ReadRecordsTool implements ToolInterface
 {
     use SafeCastTrait;
+    use ReadsHiddenRecordsTrait;
 
     private const NOT_PERMITTED = 'Table not found or not permitted.';
 
@@ -73,7 +75,7 @@ final readonly class ReadRecordsTool implements ToolInterface
             . 'record also carries its language (e.g. sys_language_uid) and its translation parent (e.g. '
             . 'l10n_parent): two records with the same title are one record and its translation when the '
             . 'second has a language above 0 and the first as parent, not duplicates. Deleted and hidden '
-            . 'records are excluded; credential-like columns are never returned.',
+            . 'records are excluded unless "include_hidden" is set; credential-like columns are never returned.',
             [
                 'type'       => 'object',
                 'properties' => [
@@ -106,6 +108,12 @@ final readonly class ReadRecordsTool implements ToolInterface
                     'offset' => [
                         'type'        => 'integer',
                         'description' => 'Rows to skip for pagination (default 0).',
+                    ],
+                    'include_hidden' => [
+                        'type'        => 'boolean',
+                        'description' => 'Optional: also return hidden records, for example a draft created earlier in this '
+                            . 'conversation. Non-admins get hidden records only on pages where they may edit content. '
+                            . 'Hidden rows are marked "(hidden)". Deleted records are never returned. Default false.',
                     ],
                 ],
                 'required' => ['table'],
@@ -163,21 +171,30 @@ final readonly class ReadRecordsTool implements ToolInterface
         // dropped below — an unfiltered read must not leak them to the provider.
         $languageField = $this->languageField($table);
         $queryFields   = $fields;
+        $hiddenColumn  = $this->wantsHiddenRecords($arguments) ? $this->hiddenColumnOf($table) : null;
+        if ($hiddenColumn !== null && !in_array($hiddenColumn, $queryFields, true)) {
+            // Fetched even if not requested: it marks the row and, for a
+            // non-admin, decides whether the row may leave at all.
+            $queryFields[] = $hiddenColumn;
+        }
+
         if (!$user->isAdmin() && $languageField !== null && !in_array($languageField, $queryFields, true)) {
             $queryFields[] = $languageField;
         }
 
-        $rows = $this->fetchRows($table, $queryFields, $filters, $limit, $offset);
+        $rows = $this->fetchRows($table, $queryFields, $filters, $limit, $offset, $hiddenColumn !== null);
 
         // Non-admins only see rows on pages they may show and in languages they
         // may access (fail-closed).
         if (!$user->isAdmin()) {
             $permsClause = self::toStr($user->getPagePermsClause(Permission::PAGE_SHOW));
             $pidAccess   = [];
+            $editAccess  = [];
             $rows        = array_values(array_filter(
                 $rows,
                 fn(array $row): bool => $this->pageIsReadable($table, $row, $permsClause, $pidAccess)
-                    && ($languageField === null || $user->checkLanguageAccess(self::toInt($row[$languageField] ?? 0))),
+                    && ($languageField === null || $user->checkLanguageAccess(self::toInt($row[$languageField] ?? 0)))
+                    && ($hiddenColumn === null || $this->mayReadRowThatMayBeHidden($user, $table, $row, $hiddenColumn, $editAccess)),
             ));
         }
 
@@ -192,7 +209,12 @@ final readonly class ReadRecordsTool implements ToolInterface
         $lines        = [sprintf('Records in %s (%d, offset %d):', $table, count($rows), $offset)];
         $artifactRows = [];
         foreach ($rows as $row) {
-            $lines[]     = sprintf('- %s:%d', $table, self::toInt($row['uid'] ?? 0));
+            $lines[]     = sprintf(
+                '- %s:%d%s',
+                $table,
+                self::toInt($row['uid'] ?? 0),
+                $hiddenColumn !== null && self::toInt($row[$hiddenColumn] ?? 0) !== 0 ? ' (hidden)' : '',
+            );
             $artifactRow = [];
             foreach ($fields as $field) {
                 $value         = $this->formatValue($row[$field] ?? null);
@@ -397,9 +419,13 @@ final readonly class ReadRecordsTool implements ToolInterface
      *
      * @return list<array<string, mixed>>
      */
-    private function fetchRows(string $table, array $fields, array $filters, int $limit, int $offset): array
+    private function fetchRows(string $table, array $fields, array $filters, int $limit, int $offset, bool $includeHidden = false): array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+        if ($includeHidden) {
+            $this->liftHiddenRestriction($queryBuilder);
+        }
+
         // A tool result is sent verbatim to an external LLM provider, so exclude
         // workspace draft/versioned rows (the default restrictions do not) — the
         // provider must never see unpublished content. Mirrors DatabaseSearchBackend.

@@ -187,6 +187,58 @@ final class SearchRecordsToolTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function aHiddenRowIsFoundAndMarkedWhenIncludeHiddenIsSet(): void
+    {
+        $output = $this->tool->execute(['query' => 'hidden gem', 'include_hidden' => true], $this->context)->content;
+
+        self::assertStringContainsString('tt_content:11 · Hidden teaser · pid 1 · language 0 (hidden)', $output);
+        self::assertStringContainsString('match(bodytext)', $output);
+
+        $visible = $this->tool->execute(['query' => 'Netresearch builds', 'include_hidden' => true], $this->context)->content;
+        self::assertStringContainsString('tt_content:10 · About Netresearch · pid 1 · language 0', $visible);
+        self::assertStringNotContainsString('tt_content:10 · About Netresearch · pid 1 · language 0 (hidden)', $visible);
+    }
+
+    #[Test]
+    public function aNonAdminFindsHiddenRowsOnlyOnPagesWhereTheyMayEditContent(): void
+    {
+        $pool  = $this->get(ConnectionPool::class);
+        $pages = $pool->getConnectionForTable('pages');
+        self::assertInstanceOf(Connection::class, $pages);
+        $pages->insert('pages', [
+            'uid' => 7, 'pid' => 0, 'title' => 'Show only', 'doktype' => 1,
+            'sorting' => 7, 'perms_everybody' => Permission::PAGE_SHOW,
+        ]);
+        $pages->insert('pages', [
+            'uid' => 8, 'pid' => 0, 'title' => 'Editable', 'doktype' => 1,
+            'sorting' => 8, 'perms_everybody' => Permission::PAGE_SHOW | Permission::CONTENT_EDIT,
+        ]);
+        $content = $pool->getConnectionForTable('tt_content');
+        $content->insert('tt_content', [
+            'uid' => 50, 'pid' => 7, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
+            'header' => 'Draftmarker show only', 'hidden' => 1,
+        ]);
+        $content->insert('tt_content', [
+            'uid' => 51, 'pid' => 8, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
+            'header' => 'Draftmarker editable', 'hidden' => 1,
+        ]);
+
+        $editor = $this->setUpBackendUser(2);
+        $editor->groupData['tables_select'] = 'tt_content';
+        $editor->groupData['tables_modify'] = 'tt_content';
+        $editor->groupData['webmounts']     = '7,8';
+
+        $output = $this->tool->execute(
+            ['query' => 'Draftmarker', 'table' => 'tt_content', 'include_hidden' => true],
+            ToolExecutionContext::fromBackendUser($editor),
+        )->content;
+
+        self::assertStringContainsString('tt_content:51', $output);
+        self::assertStringNotContainsString('tt_content:50', $output);
+        self::assertStringNotContainsString('show only', $output);
+    }
+
+    #[Test]
     public function tableRestrictionLimitsTheSearch(): void
     {
         $output = $this->tool->execute(['query' => 'Netresearch', 'table' => 'pages'], $this->context)->content;

@@ -124,7 +124,7 @@ final class ReadRecordsToolTest extends TestCase
             . 'record also carries its language (e.g. sys_language_uid) and its translation parent (e.g. '
             . 'l10n_parent): two records with the same title are one record and its translation when the '
             . 'second has a language above 0 and the first as parent, not duplicates. Deleted and hidden '
-            . 'records are excluded; credential-like columns are never returned.',
+            . 'records are excluded unless "include_hidden" is set; credential-like columns are never returned.',
             $spec->description,
         );
         // Pin the whole JSON-Schema parameter block so any dropped item/type is caught.
@@ -161,6 +161,12 @@ final class ReadRecordsToolTest extends TestCase
                     'offset' => [
                         'type'        => 'integer',
                         'description' => 'Rows to skip for pagination (default 0).',
+                    ],
+                    'include_hidden' => [
+                        'type'        => 'boolean',
+                        'description' => 'Optional: also return hidden records, for example a draft created earlier in this '
+                            . 'conversation. Non-admins get hidden records only on pages where they may edit content. '
+                            . 'Hidden rows are marked "(hidden)". Deleted records are never returned. Default false.',
                     ],
                 ],
                 'required' => ['table'],

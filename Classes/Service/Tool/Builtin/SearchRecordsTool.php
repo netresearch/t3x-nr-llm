@@ -48,6 +48,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 final readonly class SearchRecordsTool implements ToolInterface
 {
     use SafeCastTrait;
+    use ReadsHiddenRecordsTrait;
 
     private const DEFAULT_LIMIT = 20;
 
@@ -79,7 +80,7 @@ final readonly class SearchRecordsTool implements ToolInterface
             'Full-text search across the record fields the TYPO3 backend search covers (pages, content '
             . 'elements, ...). Returns table:uid hits with a short excerpt around the match. A hit on a '
             . 'language-aware table names its language and, for a translation, the uid of the record it '
-            . 'translates — a translation is not a duplicate. Deleted and hidden records are excluded.',
+            . 'translates — a translation is not a duplicate. Deleted and hidden records are excluded unless "include_hidden" is set.',
             [
                 'type'       => 'object',
                 'properties' => [
@@ -94,6 +95,12 @@ final readonly class SearchRecordsTool implements ToolInterface
                     'limit' => [
                         'type'        => 'integer',
                         'description' => 'Maximum total hits (default 20, hard cap 50).',
+                    ],
+                    'include_hidden' => [
+                        'type'        => 'boolean',
+                        'description' => 'Optional: also return hidden records, for example a draft created earlier in this '
+                            . 'conversation. Non-admins get hidden records only on pages where they may edit content. '
+                            . 'Hidden rows are marked "(hidden)". Deleted records are never returned. Default false.',
                     ],
                 ],
                 'required' => ['query'],
@@ -133,6 +140,8 @@ final readonly class SearchRecordsTool implements ToolInterface
         $isAdmin     = $user->isAdmin();
         $permsClause = $isAdmin ? '' : self::toStr($user->getPagePermsClause(Permission::PAGE_SHOW));
         $pidAccess   = [];
+        $editAccess  = [];
+        $withHidden  = $this->wantsHiddenRecords($arguments);
 
         $lines     = [];
         $remaining = $limit;
@@ -142,7 +151,8 @@ final readonly class SearchRecordsTool implements ToolInterface
             }
 
             $languageField = $this->languageFields($table)[0];
-            foreach ($this->searchTable($table, $searchFields, $query, $remaining, $isAdmin ? null : $this->allowedLanguages($user, $languageField)) as $row) {
+            $hiddenColumn  = $withHidden ? $this->hiddenColumnOf($table) : null;
+            foreach ($this->searchTable($table, $searchFields, $query, $remaining, $isAdmin ? null : $this->allowedLanguages($user, $languageField), $hiddenColumn) as $row) {
                 // Non-admins only see hits on pages they may show (fail-closed).
                 if (!$isAdmin && !$this->pageIsReadable($table, $row, $permsClause, $pidAccess)) {
                     continue;
@@ -156,7 +166,13 @@ final readonly class SearchRecordsTool implements ToolInterface
                     continue;
                 }
 
-                $lines[] = $this->formatHit($table, $row, $searchFields, $query);
+                // Only the pages a non-admin may SHOW are checked above; an
+                // unpublished hit needs the right to edit it as well.
+                if ($hiddenColumn !== null && !$this->mayReadRowThatMayBeHidden($user, $table, $row, $hiddenColumn, $editAccess)) {
+                    continue;
+                }
+
+                $lines[] = $this->formatHit($table, $row, $searchFields, $query, $hiddenColumn);
                 --$remaining;
                 if ($remaining < 1) {
                     break;
@@ -234,17 +250,22 @@ final readonly class SearchRecordsTool implements ToolInterface
      *
      * @return list<array<string, mixed>>
      */
-    private function searchTable(string $table, array $searchFields, string $query, int $limit, ?array $languages = null): array
+    private function searchTable(string $table, array $searchFields, string $query, int $limit, ?array $languages = null, ?string $hiddenColumn = null): array
     {
         $labelField   = $this->labelField($table);
         $selectFields = array_values(array_unique(array_merge(
             ['uid', 'pid'],
+            $hiddenColumn !== null ? [$hiddenColumn] : [],
             $labelField !== '' ? [$labelField] : [],
             array_values(array_filter($this->languageFields($table))),
             $searchFields,
         )));
 
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+        if ($hiddenColumn !== null) {
+            $this->liftHiddenRestriction($queryBuilder);
+        }
+
         // A tool result is sent verbatim to an external LLM provider, so exclude
         // workspace draft/versioned rows (the default restrictions do not) — the
         // provider must never see unpublished content. Mirrors DatabaseSearchBackend.
@@ -309,7 +330,7 @@ final readonly class SearchRecordsTool implements ToolInterface
      * @param array<string, mixed> $row
      * @param list<string>         $searchFields
      */
-    private function formatHit(string $table, array $row, array $searchFields, string $query): string
+    private function formatHit(string $table, array $row, array $searchFields, string $query, ?string $hiddenColumn = null): string
     {
         $labelField = $this->labelField($table);
         $label      = $labelField !== '' ? self::toStr($row[$labelField] ?? '') : '';
@@ -330,6 +351,10 @@ final readonly class SearchRecordsTool implements ToolInterface
         $parent = $parentField !== null ? self::toInt($row[$parentField] ?? 0) : 0;
         if ($parent > 0) {
             $line .= sprintf(' · translation of %s:%d', $table, $parent);
+        }
+
+        if ($hiddenColumn !== null && self::toInt($row[$hiddenColumn] ?? 0) !== 0) {
+            $line .= ' (hidden)';
         }
 
         foreach ($searchFields as $field) {

@@ -279,4 +279,90 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
         self::assertStringNotContainsString('tt_content:41', $output);
         self::assertStringNotContainsString('LangOneRow', $output);
     }
+
+    /**
+     * The follow-up edit of a draft the agent created itself: a hidden record
+     * is read only when the call asks for it, is marked, and sits beside the
+     * visible rows.
+     */
+    #[Test]
+    public function aHiddenRecordIsReadOnlyWhenIncludeHiddenIsSet(): void
+    {
+        $content = $this->get(ConnectionPool::class)->getConnectionForTable('tt_content');
+        self::assertInstanceOf(Connection::class, $content);
+        $content->insert('tt_content', [
+            'uid' => 32, 'pid' => 1, 'colPos' => 0, 'sorting' => 3,
+            'CType' => 'text', 'header' => 'Gamma draft', 'hidden' => 1,
+        ]);
+        $content->insert('tt_content', [
+            'uid' => 33, 'pid' => 1, 'colPos' => 0, 'sorting' => 4,
+            'CType' => 'text', 'header' => 'Delta removed', 'hidden' => 1, 'deleted' => 1,
+        ]);
+        $context = $this->contextFor($this->setUpBackendUser(1));
+
+        $default = $this->tool->execute(['table' => 'tt_content'], $context)->content;
+        self::assertStringNotContainsString('tt_content:32', $default);
+
+        $included = $this->tool->execute(['table' => 'tt_content', 'include_hidden' => true], $context)->content;
+        self::assertStringContainsString('- tt_content:32 (hidden)', $included);
+        self::assertStringContainsString('header: Gamma draft', $included);
+        self::assertStringContainsString('- tt_content:30' . "\n", $included, 'visible rows stay unmarked');
+        self::assertStringNotContainsString('tt_content:33', $included, 'a deleted record is never returned');
+
+        $byUid = $this->tool->execute(['table' => 'tt_content', 'uid' => 32, 'include_hidden' => 'true'], $context)->content;
+        self::assertStringContainsString('tt_content:32', $byUid);
+    }
+
+    /**
+     * A hidden record is unpublished content that leaves for an external
+     * provider: a non-admin gets it only where the backend would let them edit
+     * it, not merely see the page.
+     */
+    #[Test]
+    public function aNonAdminReadsHiddenRecordsOnlyOnPagesWhereTheyMayEditContent(): void
+    {
+        $pool  = $this->get(ConnectionPool::class);
+        $pages = $pool->getConnectionForTable('pages');
+        self::assertInstanceOf(Connection::class, $pages);
+        $pages->insert('pages', [
+            'uid' => 7, 'pid' => 0, 'title' => 'Show only', 'doktype' => 1,
+            'sorting' => 7, 'perms_everybody' => Permission::PAGE_SHOW,
+        ]);
+        $pages->insert('pages', [
+            'uid' => 8, 'pid' => 0, 'title' => 'Editable', 'doktype' => 1,
+            'sorting' => 8, 'perms_everybody' => Permission::PAGE_SHOW | Permission::CONTENT_EDIT,
+        ]);
+        $content = $pool->getConnectionForTable('tt_content');
+        self::assertInstanceOf(Connection::class, $content);
+        $content->insert('tt_content', [
+            'uid' => 50, 'pid' => 7, 'colPos' => 0, 'sorting' => 1,
+            'CType' => 'text', 'header' => 'DraftOnShowOnlyPage', 'hidden' => 1,
+        ]);
+        $content->insert('tt_content', [
+            'uid' => 51, 'pid' => 8, 'colPos' => 0, 'sorting' => 1,
+            'CType' => 'text', 'header' => 'DraftOnEditablePage', 'hidden' => 1,
+        ]);
+        $content->insert('tt_content', [
+            'uid' => 52, 'pid' => 7, 'colPos' => 0, 'sorting' => 2,
+            'CType' => 'text', 'header' => 'PublishedOnShowOnlyPage',
+        ]);
+
+        $this->setUpBackendUser(2);
+        $editor = $GLOBALS['BE_USER'] ?? null;
+        self::assertInstanceOf(BackendUserAuthentication::class, $editor);
+        $editor->groupData['tables_select'] = 'tt_content';
+        $editor->groupData['tables_modify'] = 'tt_content';
+        $editor->groupData['webmounts']     = '7,8';
+
+        $output = $this->tool->execute(
+            ['table' => 'tt_content', 'include_hidden' => true],
+            $this->contextFor($editor),
+        )->content;
+
+        self::assertStringContainsString('tt_content:51 (hidden)', $output);
+        self::assertStringContainsString('DraftOnEditablePage', $output);
+        self::assertStringNotContainsString('DraftOnShowOnlyPage', $output);
+        self::assertStringNotContainsString('tt_content:50', $output);
+        self::assertStringContainsString('tt_content:52', $output, 'a visible row needs show permission only');
+    }
 }
