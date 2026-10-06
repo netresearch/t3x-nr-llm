@@ -420,7 +420,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
         }
 
         $extension = strtolower(self::toStr($file['extension'] ?? ''));
-        $allowed   = $this->extensionList($table, $field, 'allowed');
+        $allowed   = $this->extensionList($table, $field, 'allowed', $record);
         if ($allowed !== null && !in_array($extension, $allowed, true)) {
             return sprintf(
                 'Refused: field "%s" does not accept a .%s file. It accepts: %s.',
@@ -430,7 +430,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
             );
         }
 
-        $disallowed = $this->extensionList($table, $field, 'disallowed');
+        $disallowed = $this->extensionList($table, $field, 'disallowed', $record);
         if ($disallowed !== null && in_array($extension, $disallowed, true)) {
             return sprintf('Refused: field "%s" does not accept a .%s file.', $field, $extension);
         }
@@ -526,18 +526,53 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
     }
 
     /**
+     * A field's TCA config for one record: the column's own config with the
+     * record type's `columnsOverrides` laid over it. A type field in the
+     * `field:subfield` form is not resolved, the base config applies.
+     *
+     * @param array<string, mixed> $record
+     *
+     * @return array<mixed>
+     */
+    private function fieldConfig(string $table, string $field, array $record): array
+    {
+        $column = ($this->tcaColumnsFor($table) ?? [])[$field] ?? null;
+        $config = is_array($column) && is_array($column['config'] ?? null) ? $column['config'] : [];
+
+        $tca       = $GLOBALS['TCA'] ?? null;
+        $definition = is_array($tca) && is_array($tca[$table] ?? null) ? $tca[$table] : [];
+        $ctrl      = is_array($definition['ctrl'] ?? null) ? $definition['ctrl'] : [];
+        $types     = is_array($definition['types'] ?? null) ? $definition['types'] : [];
+        $typeField = $ctrl['type'] ?? null;
+        if (is_string($typeField) && str_contains($typeField, ':')) {
+            return $config;
+        }
+
+        // A table without a type field has the single type "1".
+        $typeValue = is_string($typeField) && $typeField !== '' ? self::toStr($record[$typeField] ?? '') : '1';
+        $type      = is_array($types[$typeValue] ?? null) ? $types[$typeValue] : (is_array($types['1'] ?? null) ? $types['1'] : []);
+        $overrides = is_array($type['columnsOverrides'] ?? null) ? $type['columnsOverrides'] : [];
+        $override  = is_array($overrides[$field] ?? null) && is_array($overrides[$field]['config'] ?? null) ? $overrides[$field]['config'] : [];
+
+        return array_replace($config, $override);
+    }
+
+    /**
      * The extensions a file field's `allowed` or `disallowed` setting names,
      * lowercased, with the three TCA aliases resolved to the system lists —
      * or null when the field sets none (anything goes / nothing is barred).
      *
+     * The record's type may narrow the setting through
+     * `types.<type>.columnsOverrides`, as the backend form honours it.
+     *
+     * @param array<string, mixed> $record
+     *
      * @return list<string>|null
      */
-    private function extensionList(string $table, string $field, string $setting): ?array
+    private function extensionList(string $table, string $field, string $setting, array $record): ?array
     {
-        $columns = $this->tcaColumnsFor($table) ?? [];
-        $column  = $columns[$field] ?? null;
-        $config  = is_array($column) && is_array($column['config'] ?? null) ? $column['config'] : [];
-        $raw     = $config[$setting] ?? null;
+        $config = $this->fieldConfig($table, $field, $record);
+        $raw    = $config[$setting] ?? null;
         if ($raw === null || $raw === '' || $raw === []) {
             return null;
         }

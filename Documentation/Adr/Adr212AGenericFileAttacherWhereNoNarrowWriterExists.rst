@@ -61,7 +61,8 @@ terms (ADR-135, ADR-146, ADR-180):
   ``hideTable`` or ``readOnly`` are out.
 - **A file field of the table, and an extension it accepts.** The field must be
   a ``type => file`` column; ``allowed`` and ``disallowed`` of that column
-  (with the three ``common-*`` aliases resolved) are applied to the file.
+  (with the three ``common-*`` aliases resolved, and as narrowed by the record
+  type's ``columnsOverrides``) are applied to the file.
   Omitting ``field`` is accepted only where the table has exactly one.
 - **Default language only**, as the sibling does.
 - **Disabled by default**, in the ``editing`` group, a non-idempotent write.

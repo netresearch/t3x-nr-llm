@@ -73,9 +73,13 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
 
     private int $coverUid = 0;
 
+    /** @var mixed The TCA as the test framework built it, put back by tearDown(). */
+    private mixed $originalTca = null;
+
     protected function setUp(): void
     {
         parent::setUp();
+        $this->originalTca = $GLOBALS['TCA'];
         $this->importFixture('BeUsers.csv');
 
         $connectionPool = $this->get(ConnectionPool::class);
@@ -156,8 +160,21 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
 
     protected function tearDown(): void
     {
+        $GLOBALS['TCA'] = $this->originalTca;
         unset($GLOBALS['TYPO3_REQUEST'], $GLOBALS['LANG']);
         parent::tearDown();
+    }
+
+    /**
+     * Lay a change over the TCA for the rest of this test.
+     *
+     * @param array<string, mixed> $patch
+     */
+    private function patchTca(array $patch): void
+    {
+        $tca = $GLOBALS['TCA'];
+        self::assertIsArray($tca);
+        $GLOBALS['TCA'] = array_replace_recursive($tca, $patch);
     }
 
     private function actor(int $uid): BackendUserAuthentication
@@ -336,6 +353,7 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
         yield 'pages has set_page_social_image' => ['pages', 'set_page_social_image'];
         yield 'tt_content has its own tool' => ['tt_content', 'attach_file_to_content_element'];
         yield 'a system table' => ['sys_file_metadata', 'system or sensitive'];
+        yield 'a sensitive table outside the sys_ namespace' => ['fe_users', 'system or sensitive'];
         yield 'a table nobody declares' => ['tx_nothing_here', 'not a table this installation declares'];
     }
 
@@ -347,6 +365,102 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
 
         self::assertTrue($result->isError);
         self::assertStringContainsString($expectedFragment, $result->content);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function refusedTcaFlags(): iterable
+    {
+        yield 'adminOnly' => ['adminOnly'];
+        yield 'hideTable' => ['hideTable'];
+        yield 'readOnly' => ['readOnly'];
+    }
+
+    #[Test]
+    #[DataProvider('refusedTcaFlags')]
+    public function aTableDeclaredAdminOnlyHiddenOrReadOnlyIsRefused(string $flag): void
+    {
+        $this->patchTca([self::COVER => ['ctrl' => [$flag => true]]]);
+        $result = $this->attach(['table' => self::COVER, 'record' => $this->coverUid, 'file' => 1]);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('is declared ' . $flag . ' in its TCA', $result->content);
+        self::assertSame([], $this->references(self::COVER, $this->coverUid, 'cover'));
+    }
+
+    #[Test]
+    public function aUserWithoutTablesModifyOnTheTableIsRefused(): void
+    {
+        $this->connectionPool->getConnectionForTable('be_groups')->update(
+            'be_groups',
+            ['tables_modify' => self::COVER . ',sys_file_reference'],
+            ['uid' => 9],
+        );
+
+        $result = $this->attach(['table' => self::GALLERY, 'record' => $this->draftUid, 'file' => 1, 'field' => 'media'], userUid: 2);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('no tables_modify grant', $result->content);
+        self::assertSame([], $this->references(self::GALLERY, $this->draftUid, 'media'));
+    }
+
+    #[Test]
+    public function aDisallowedExtensionIsRefusedWhereTheFieldAllowsEverythingElse(): void
+    {
+        $this->patchTca([self::GALLERY => ['columns' => ['attachments' => ['config' => ['disallowed' => 'txt']]]]]);
+        $refused  = $this->attach(['table' => self::GALLERY, 'record' => $this->draftUid, 'file' => 3, 'field' => 'attachments']);
+        $accepted = $this->attach(['table' => self::GALLERY, 'record' => $this->draftUid, 'file' => 1, 'field' => 'attachments']);
+
+        self::assertTrue($refused->isError);
+        self::assertStringContainsString('does not accept a .txt file', $refused->content);
+        self::assertFalse($accepted->isError, $accepted->content);
+        self::assertCount(1, $this->references(self::GALLERY, $this->draftUid, 'attachments'));
+    }
+
+    /**
+     * The backend form narrows a field per record type through
+     * `columnsOverrides`; the tool must not accept what that form rejects.
+     */
+    #[Test]
+    public function aTypeOverrideOfTheAllowedListNarrowsTheField(): void
+    {
+        $this->patchTca([self::GALLERY => ['types' => ['1' => ['columnsOverrides' => ['media' => ['config' => ['allowed' => 'png']]]]]]]);
+        $result = $this->attach(['table' => self::GALLERY, 'record' => $this->draftUid, 'file' => 1, 'field' => 'media']);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('does not accept a .jpg file. It accepts: png.', $result->content);
+        self::assertSame([], $this->references(self::GALLERY, $this->draftUid, 'media'));
+    }
+
+    /**
+     * The reference that was already there survives the rollback of the one
+     * that failed, and the counter goes back to what it was.
+     */
+    #[Test]
+    public function aFailedSecondAttachmentLeavesTheFirstOneIntact(): void
+    {
+        self::assertFalse($this->attach(['table' => self::GALLERY, 'record' => $this->draftUid, 'file' => 1, 'field' => 'media'])->isError);
+        $this->connectionPool->getConnectionForTable('be_groups')->update(
+            'be_groups',
+            ['non_exclude_fields' => self::GALLERY . ':media'],
+            ['uid' => 9],
+        );
+
+        $result = $this->attach([
+            'table'       => self::GALLERY,
+            'record'      => $this->draftUid,
+            'file'        => 2,
+            'field'       => 'media',
+            'alternative' => 'An alt text the editor may not set',
+        ], userUid: 2);
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertSame(
+            [['uid' => 1, 'uid_local' => 1, 'sorting_foreign' => 1]],
+            $this->references(self::GALLERY, $this->draftUid, 'media'),
+        );
+        self::assertSame(1, (int)$this->row(self::GALLERY, $this->draftUid)['media']);
     }
 
     #[Test]

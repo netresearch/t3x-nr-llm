@@ -512,10 +512,10 @@ What holds for all of them:
    attach to a **hidden** record: that is the draft the assistant has just
    created, and the tool never changes its visibility.
 
-   Authorised like ``attach_file_to_content_element``: ``tables_modify`` on the
-   table, content-edit rights on the record's page, the field-level grant for
-   the file field, and a file inside a permitted storage and the user's own
-   file mounts. An absent record, an unreachable file and a page the user may
+   Rights are checked before the write: ``tables_modify`` on the table (a
+   check ``attach_file_to_content_element`` does not make), content-edit rights
+   on the record's page, the field-level grant for the file field, and a file
+   inside a permitted storage and the user's own file mounts. An absent record, an unreachable file and a page the user may
    not edit are refused in the same words.
 
    Things worth knowing before enabling it:
@@ -524,7 +524,8 @@ What holds for all of them:
      ``set_page_social_image`` and ``attach_file_to_content_element``, as do
      system and sensitive tables.
    - **The field must be a file field of the table and accept the file.** The
-     ``allowed`` and ``disallowed`` lists of the column apply. The field is only
+     ``allowed`` and ``disallowed`` lists of the column apply, as narrowed by
+     the record type's ``columnsOverrides``. The field is only
      inferred when the table has exactly one.
    - **Title, alternative text and description belong to the reference.** They
      override the file's own for this one place. The copyright is a property of
