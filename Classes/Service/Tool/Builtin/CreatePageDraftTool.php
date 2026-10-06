@@ -15,6 +15,8 @@ use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
@@ -91,6 +93,7 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
 
     public function __construct(
         private ConnectionPool $connectionPool,
+        private ApprovalPreviewTranslator $translator,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -223,6 +226,10 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
      * the whole of what would come into being, which is exactly the set of
      * arguments the model chose.
      *
+     * The lines are in the language of the ACTING user and carry no field
+     * names (ADR-213); a refusal line stays English, because it is the string
+     * {@see self::execute()} hands the model as well.
+     *
      * Authorised exactly like {@see self::execute()} and against the same
      * EXPLICIT acting user, down to the neutral refusal string.
      *
@@ -245,22 +252,41 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
             return [$plan];
         }
 
-        return [
-            ...$this->duplicateWarning($plan['parent'], $plan['title'], $user),
-            sprintf('New page under page [%d] "%s":', $plan['parent'], $this->excerpt($plan['parentTitle'])),
-            sprintf('title: %s', $this->quoted($plan['title'])),
+        [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
+
+        // ADR-213, in the order of the editorial guidelines: what, where, the
+        // new state, the consequence. Nothing here is a field name; the
+        // identifiers sit in the last line.
+        $lines = [
+            $t(ApprovalPreviewLabel::CreatePageHeading),
+            $t(ApprovalPreviewLabel::CreatePageLocation, $q($plan['parentTitle'])),
+            $t(ApprovalPreviewLabel::CreatePageTitle, $q($plan['title'])),
             $plan['navTitle'] === null
-                ? 'navigation title: (same as the title)'
-                : sprintf('navigation title: %s', $this->quoted($plan['navTitle'])),
-            sprintf(
-                'position: %s',
-                $plan['afterUid'] > 0
-                    ? sprintf('directly after page [%d] "%s"', $plan['afterUid'], $this->excerpt($plan['afterTitle']))
-                    : 'first among the subpages',
-            ),
-            'type: standard page, default language, no content yet',
-            'visibility: hidden — a human must unhide it before anyone sees it',
+                ? $t(ApprovalPreviewLabel::CreatePageNavTitleSame)
+                : $t(ApprovalPreviewLabel::CreatePageNavTitle, $q($plan['navTitle'])),
+            $t(ApprovalPreviewLabel::CreatePageType),
+            $t(ApprovalPreviewLabel::CreatePageLanguage),
+            $plan['afterUid'] > 0
+                ? $t(ApprovalPreviewLabel::CreatePagePositionAfter, $q($plan['afterTitle']))
+                : $t(ApprovalPreviewLabel::CreatePagePositionFirst),
+            $t(ApprovalPreviewLabel::CreatePageVisibility),
+            $t(ApprovalPreviewLabel::CreatePageImpact),
         ];
+
+        $details = [$t(ApprovalPreviewLabel::TechnicalParentPage, $plan['parent'])];
+        if ($plan['afterUid'] > 0) {
+            $details[] = $t(ApprovalPreviewLabel::TechnicalAnchorPage, $plan['afterUid']);
+        }
+
+        $duplicate = $this->duplicateOf($plan['parent'], $plan['title'], $user);
+        if ($duplicate !== null) {
+            $lines[]   = $t($duplicate['hidden'] ? ApprovalPreviewLabel::CreatePageDuplicateHidden : ApprovalPreviewLabel::CreatePageDuplicate);
+            $details[] = $t(ApprovalPreviewLabel::TechnicalExistingPage, $duplicate['uid']);
+        }
+
+        $lines[] = $this->translator->technical($user, $details);
+
+        return $lines;
     }
 
     public function isEnabledByDefault(): bool
@@ -404,8 +430,9 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
     }
 
     /**
-     * A warning line when the parent already holds a default-language page
-     * with the same title, hidden ones included; otherwise nothing.
+     * The first default-language page under the parent with the same title,
+     * hidden ones included, that the acting user may see; otherwise null. The
+     * preview turns it into a warning.
      *
      * The approver is the last human between the model and a second copy of
      * the same page. In the demo a follow-up message ("weiter", "habe alles
@@ -427,9 +454,9 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
      * back with the fresh preview instead of executing it; that is how the
      * warning reaches an approver of two concurrent drafts.
      *
-     * @return list<string>
+     * @return array{uid:int, hidden:bool}|null
      */
-    private function duplicateWarning(int $parent, string $title, BackendUserAuthentication $user): array
+    private function duplicateOf(int $parent, string $title, BackendUserAuthentication $user): ?array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
@@ -453,14 +480,13 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
                 continue;
             }
 
-            return [sprintf(
-                'Warning: page [%d] with the same title already exists under this parent%s. Approving creates a second page with that title.',
-                self::toInt($sibling['uid'] ?? 0),
-                self::toInt($sibling[$this->hiddenField()] ?? 0) === 1 ? ' (hidden)' : '',
-            )];
+            return [
+                'uid'    => self::toInt($sibling['uid'] ?? 0),
+                'hidden' => self::toInt($sibling[$this->hiddenField()] ?? 0) === 1,
+            ];
         }
 
-        return [];
+        return null;
     }
 
     /**

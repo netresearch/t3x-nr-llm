@@ -14,6 +14,8 @@ use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -98,6 +100,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
 
     public function __construct(
         private ConnectionPool $connectionPool,
+        private ApprovalPreviewTranslator $translator,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -214,6 +217,10 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
      * The record and everything that goes with it, as the approver reads it
      * (ADR-136).
      *
+     * The lines are in the language of the ACTING user and carry no field
+     * names or table names (ADR-213); a refusal line stays English, because it
+     * is the string {@see self::execute()} hands the model as well.
+     *
      * Authorised exactly like {@see self::execute()} and against the same
      * EXPLICIT acting user, down to the neutral refusal string. NOT checked
      * here: the live-workspace and backend-environment refusals, which describe
@@ -235,56 +242,77 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
             return [$plan];
         }
 
-        $lines = [sprintf(
-            'Delete %s [%d] "%s" on page [%d] "%s", language %d',
-            $plan['table'],
-            $plan['uid'],
-            $this->excerpt($plan['label']),
-            $plan['page'],
-            $this->excerpt($plan['pageTitle']),
-            $plan['language'],
-        )];
+        [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
 
-        if ($plan['translations'] !== []) {
-            $lines[] = sprintf(
-                'with its %d translation(s): %s',
-                count($plan['translations']),
-                implode(', ', array_map(static fn(array $t): string => '[' . $t[1] . ']', $plan['translations'])),
-            );
+        $isPage = $plan['table'] === self::PAGES_TABLE;
+
+        // ADR-213 and the editorial guidelines' rule for destructive actions:
+        // the object, where it is, its language versions, what goes with it,
+        // what points at it, whether it can come back. Only what this tool
+        // already reads for the plan; there is no redirect line because the
+        // tool does not look at redirects.
+        $lines = [
+            $t($isPage ? ApprovalPreviewLabel::DeletePageHeading : ApprovalPreviewLabel::DeleteContentHeading),
+            $t($isPage ? ApprovalPreviewLabel::DeletePageObject : ApprovalPreviewLabel::DeleteContentObject, $q($plan['label'])),
+        ];
+        if (!$isPage) {
+            $lines[] = $t(ApprovalPreviewLabel::DeleteLocation, $q($plan['pageTitle']));
         }
 
-        if ($plan['table'] === self::PAGES_TABLE) {
+        $lines[] = $t($plan['language'] === 0 ? ApprovalPreviewLabel::DeleteLanguageDefault : ApprovalPreviewLabel::DeleteLanguageTranslation);
+
+        if ($plan['language'] === 0) {
+            $lines[] = $plan['translations'] === []
+                ? $t(ApprovalPreviewLabel::DeleteTranslationsNone)
+                : $t(ApprovalPreviewLabel::DeleteTranslationsSome, count($plan['translations']));
+        }
+
+        if ($isPage) {
             if ($plan['language'] > 0) {
-                $lines[] = sprintf(
-                    'with the %d content element(s) in language %d on its default-language page, and every other record in that language there',
-                    $plan['contentCount'],
-                    $plan['language'],
-                );
+                $lines[] = $t(ApprovalPreviewLabel::DeleteTranslationContent, $plan['contentCount']);
             } else {
                 $lines[] = $plan['subpages'] === []
-                    ? 'with no subpages'
-                    : sprintf(
-                        'with %d subpage(s): %s%s, and %d translation(s) of them',
-                        count($plan['subpages']),
-                        implode(', ', array_map(static fn(array $page): string => '[' . $page[1] . ']', array_slice($plan['subpages'], 0, self::LISTED_UIDS))),
-                        count($plan['subpages']) > self::LISTED_UIDS ? sprintf(' and %d more', count($plan['subpages']) - self::LISTED_UIDS) : '',
-                        count($plan['subpageTranslations']),
-                    );
+                    ? $t(ApprovalPreviewLabel::DeleteSubpagesNone)
+                    : $t(ApprovalPreviewLabel::DeleteSubpagesSome, count($plan['subpages']), count($plan['subpageTranslations']));
                 $counts  = [];
                 foreach ($plan['recordCounts'] as $table => $count) {
-                    $counts[] = $count < 0 ? sprintf('%s (could not be counted)', $table) : sprintf('%s %d', $table, $count);
+                    $name     = $this->translator->tableLabel($user, $table);
+                    $counts[] = $count < 0
+                        ? $t(ApprovalPreviewLabel::DeleteStoredUncountable, $name)
+                        : $name . ': ' . $count;
                 }
 
                 $lines[] = $counts === []
-                    ? 'with no records stored on the page(s)'
-                    : 'with the records stored on the page(s), in every language: ' . implode(', ', $counts);
+                    ? $t(ApprovalPreviewLabel::DeleteStoredNone)
+                    : $t(ApprovalPreviewLabel::DeleteStoredSome, implode('; ', $counts));
             }
         }
 
         $lines[] = $plan['referencedBy'] === 0
-            ? 'referenced from no other record'
-            : sprintf('still referenced from %d other record(s) — those links or shortcuts will point at a deleted record', $plan['referencedBy']);
-        $lines[] = 'recoverable: flagged deleted, restorable from the recycler';
+            ? $t(ApprovalPreviewLabel::DeleteReferencesNone)
+            : $t(ApprovalPreviewLabel::DeleteReferencesSome, $plan['referencedBy']);
+        $lines[] = $t(ApprovalPreviewLabel::DeleteRecoverable);
+
+        $details = [$t(ApprovalPreviewLabel::TechnicalRecord, $plan['table'], $plan['uid'])];
+        if (!$isPage) {
+            $details[] = $t(ApprovalPreviewLabel::TechnicalPage, $plan['page']);
+        }
+
+        $details[] = $t(ApprovalPreviewLabel::TechnicalLanguage, $plan['language']);
+        if ($plan['translations'] !== []) {
+            $details[] = $t(ApprovalPreviewLabel::TechnicalTranslations, implode(', ', array_column($plan['translations'], 1)));
+        }
+
+        if ($plan['subpages'] !== []) {
+            $listed = implode(', ', array_slice(array_column($plan['subpages'], 1), 0, self::LISTED_UIDS));
+            $more   = count($plan['subpages']) - self::LISTED_UIDS;
+            $details[] = $t(
+                ApprovalPreviewLabel::TechnicalSubpages,
+                $more > 0 ? $listed . ' ' . $t(ApprovalPreviewLabel::TechnicalMore, $more) : $listed,
+            );
+        }
+
+        $lines[] = $this->translator->technical($user, $details);
 
         return $lines;
     }
