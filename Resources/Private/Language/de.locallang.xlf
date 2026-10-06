@@ -4383,7 +4383,7 @@
             </trans-unit>
             <trans-unit id="approvalPreview.createPage.impact">
                 <source>After it is created the page is not publicly visible yet and has no content. It has to be made visible by a person.</source>
-                <target>Die Seite ist nach dem Anlegen noch nicht öffentlich sichtbar und enthält noch keine Inhalte. Sie muss erst von einer Person sichtbar geschaltet werden.</target>
+                <target>Die Seite ist nach dem Anlegen noch nicht öffentlich sichtbar und enthält noch keine Inhalte. Sie muss erst von einer Person sichtbar gemacht werden.</target>
             </trans-unit>
             <trans-unit id="approvalPreview.createPage.duplicate">
                 <source>Warning: a page with the same title already exists under this page. Approving creates a second page with that title.</source>

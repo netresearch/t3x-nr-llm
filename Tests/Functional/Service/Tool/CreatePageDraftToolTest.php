@@ -312,11 +312,32 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
             'Sprache: Standardsprache',
             'Position: direkt nach „Already there“',
             'Sichtbarkeit: zunächst verborgen',
-            'Die Seite ist nach dem Anlegen noch nicht öffentlich sichtbar und enthält noch keine Inhalte. Sie muss erst von einer Person sichtbar geschaltet werden.',
+            'Die Seite ist nach dem Anlegen noch nicht öffentlich sichtbar und enthält noch keine Inhalte. Sie muss erst von einer Person sichtbar gemacht werden.',
             'Technische Details: übergeordnete Seite UID 2, vorangehende Seite UID 20',
         ], $this->previewIn('de', $arguments));
 
         self::assertSame(3, $this->pageCount(), 'a preview must not create anything');
+    }
+
+    /**
+     * ADR-213 with ADR-184: the lines are compared byte for byte on resume, so
+     * the language of whoever happens to be looking — the ambient
+     * $GLOBALS['LANG'] of the request that renders or resumes — must not reach
+     * them. Only the acting user's `lang` decides.
+     */
+    #[Test]
+    public function thePreviewIgnoresTheLanguageOfTheViewingRequest(): void
+    {
+        $arguments = ['parent' => self::PARENT_OPEN, 'title' => 'Proposed'];
+        $english   = $this->previewIn('en', $arguments);
+        $german    = $this->previewIn('de', $arguments);
+
+        $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('de');
+        self::assertSame($english, $this->previewIn('en', $arguments));
+
+        $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('default');
+        self::assertSame($german, $this->previewIn('de', $arguments));
+        self::assertNotSame($english, $german);
     }
 
     #[Test]
