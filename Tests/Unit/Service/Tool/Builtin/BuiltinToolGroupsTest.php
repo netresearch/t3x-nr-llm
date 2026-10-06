@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolGroup;
 use Netresearch\NrLlm\Service\Tool\Builtin\AttachFileToContentElementTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\AttachFileToRecordTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\BrowseFalFolderTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CheckTypoScriptTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CopyRecordTool;
@@ -133,6 +134,7 @@ final class BuiltinToolGroupsTest extends TestCase
             'set_file_alternative_text' => [SetFileAlternativeTextTool::class, 'editing'],
             'update_fal_asset_meta' => [UpdateFalAssetMetaTool::class, 'editing'],
             'attach_file_to_content_element' => [AttachFileToContentElementTool::class, 'editing'],
+            'attach_file_to_record' => [AttachFileToRecordTool::class, 'editing'],
             'set_page_social_image' => [SetPageSocialImageTool::class, 'editing'],
             'move_content_element' => [MoveContentElementTool::class, 'editing'],
             'create_content_element_draft' => [CreateContentElementDraftTool::class, 'editing'],

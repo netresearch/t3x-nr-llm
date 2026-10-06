@@ -68,6 +68,7 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
     use SafeCastTrait;
     use WritesThroughDataHandlerTrait;
     use FetchesSysFileRowTrait;
+    use FetchesLiveRowTrait;
 
     /**
      * One string for "no such element", "no such file", "not in a permitted
@@ -702,35 +703,5 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
         $restore = GeneralUtility::makeInstance(ToolDataHandler::class);
         $restore->start([self::CONTENT_TABLE => [$elementUid => [$field => implode(',', $survivors)]]], [], $user);
         $restore->process_datamap();
-    }
-
-    /**
-     * For the soft-deleting tables only; see {@see self::fetchFile()}.
-     *
-     * @return array<string, mixed>|null
-     */
-    private function fetchRow(string $table, int $uid): ?array
-    {
-        if ($uid < 1) {
-            return null;
-        }
-
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
-        $queryBuilder->getRestrictions()->removeAll();
-
-        $row = $queryBuilder
-            ->select('*')
-            ->from($table)
-            ->where(
-                $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
-                $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
-                // Live rows only: a workspace version row is another
-                // workspace's draft (ADR-198).
-                ...$this->liveVersionConstraints($queryBuilder, $table),
-            )
-            ->executeQuery()
-            ->fetchAssociative();
-
-        return $row === false ? null : $row;
     }
 }

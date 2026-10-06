@@ -41,20 +41,21 @@ non-admin users.
 The built-in tools
 ==================
 
-nr-llm ships forty-two read-only tools and sixteen writing tools. Each is a
+nr-llm ships forty-two read-only tools and seventeen writing tools. Each is a
 reference implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
 redacted or gated behind a separate ``_raw`` variant. Thirty-eight ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
 ``get_php_info_raw`` and ``list_be_users_raw``), ``fetch_external_url``
-(see :ref:`administration-tools-external-pages`) and all sixteen writing tools
+(see :ref:`administration-tools-external-pages`) and all seventeen writing tools
 (``update_page_metadata``, ``set_page_social_image``,
 ``set_file_alternative_text``, ``update_fal_asset_meta``,
 ``move_content_element``, ``create_content_element_draft``,
 ``create_page_draft``, ``create_translation_draft``,
-``attach_file_to_content_element``, ``create_record_draft``,
-``update_content_element``, ``publish_record``, ``delete_record``,
-``copy_record``, ``move_page``, ``replace_file_reference``) ship
+``attach_file_to_content_element``, ``attach_file_to_record``,
+``create_record_draft``, ``update_content_element``, ``publish_record``,
+``delete_record``, ``copy_record``, ``move_page``,
+``replace_file_reference``) ship
 **disabled** and must be enabled deliberately.
 Many require admin; the read-only structure, content
 and file tools (``get_pagetree``, ``get_tca``, ``get_full_tca``,
@@ -308,15 +309,15 @@ The remaining tools follow the same pattern:
 The writing tools
 =================
 
-Sixteen tools change anything at all: ``update_page_metadata``,
+Seventeen tools change anything at all: ``update_page_metadata``,
 ``set_page_social_image``, ``set_file_alternative_text``,
 ``update_fal_asset_meta``, ``move_content_element``,
 ``create_content_element_draft``, ``create_page_draft``,
 ``create_translation_draft``, ``attach_file_to_content_element``,
-``create_record_draft``, and the six that act on existing pages and content
+``attach_file_to_record``, ``create_record_draft``, and the six that act on existing pages and content
 elements — ``update_content_element``, ``publish_record``,
 ``delete_record``, ``copy_record``, ``move_page`` and
-``replace_file_reference``. All sixteen write through the TYPO3 DataHandler,
+``replace_file_reference``. All seventeen write through the TYPO3 DataHandler,
 as the acting backend user, in the live workspace only, on **one** record per
 call — plus, for a delete, a copy or a page move, what core carries along
 with that record, which the approval card counts (:ref:`ADR-135 <adr-135>`,
@@ -501,6 +502,40 @@ What holds for all of them:
    The new reference is always appended last, and the element's own reference
    count is re-read afterwards. A write that left the relation inconsistent is
    reported as a failure and the reference is removed again.
+
+``attach_file_to_record``
+   References an **existing** managed file from a file field of one record in
+   a table that has no attach tool of its own — the image of a news article
+   (``tx_news_domain_model_news``, field ``fal_media``) is the case it exists
+   for (:ref:`ADR-212 <adr-212>`). It creates exactly one
+   ``sys_file_reference``, never uploads, moves or renames a file, and may
+   attach to a **hidden** record: that is the draft the assistant has just
+   created, and the tool never changes its visibility.
+
+   Rights are checked before the write: ``tables_modify`` on the table (a
+   check ``attach_file_to_content_element`` does not make), content-edit rights
+   on the record's page, the field-level grant for the file field, and a file
+   inside a permitted storage and the user's own file mounts. An absent record, an unreachable file and a page the user may
+   not edit are refused in the same words.
+
+   Things worth knowing before enabling it:
+
+   - **pages and tt_content are refused** and point to
+     ``set_page_social_image`` and ``attach_file_to_content_element``, as do
+     system and sensitive tables.
+   - **The field must be a file field of the table and accept the file.** The
+     ``allowed`` and ``disallowed`` lists of the column apply, as narrowed by
+     the record type's ``columnsOverrides``. The field is only
+     inferred when the table has exactly one.
+   - **Title, alternative text and description belong to the reference.** They
+     override the file's own for this one place. The copyright is a property of
+     the file (``sys_file_metadata``), not of a reference: set it with
+     ``update_fal_asset_meta``.
+   - **Default language only**, and calling twice attaches the file twice.
+
+   For a news draft the first attached image becomes the ``og:image`` of the
+   article page unless a reference flagged for the preview comes first: EXT:news
+   prints the first preview reference, otherwise the first of ``fal_media``.
 
 ``move_content_element``
    Moves one content element to a page and a column. The element keeps its uid,
@@ -905,10 +940,11 @@ A tool that carries an **editor action** declaration
 (:ref:`ADR-152 <adr-152>`) reads differently in that list: it shows an icon,
 its translated name, one sentence written for a human, and the record types it
 addresses — instead of the wire name and the description written for the
-language model. Nine of the sixteen writing tools declare one —
+language model. Nine of the seventeen writing tools declare one —
 ``create_record_draft`` has no subject record and declares none
-(:ref:`ADR-197 <adr-197>`), and the six of :ref:`ADR-198 <adr-198>` are
-reached through the assistant only — and the wire name stays
+(:ref:`ADR-197 <adr-197>`), ``attach_file_to_record`` declares none for the
+same reason (:ref:`ADR-212 <adr-212>`), and the six of
+:ref:`ADR-198 <adr-198>` are reached through the assistant only — and the wire name stays
 visible as the technical detail the toggle acts on. A read-only tool is
 unchanged.
 
@@ -931,7 +967,7 @@ opens the catalogue narrowed to the actions that address that record.
 An editor is offered an action only when all of the following hold, and every
 one of them is an administrator's decision:
 
-* the writing tool is enabled in this module (all sixteen ship
+* the writing tool is enabled in this module (all seventeen ship
   **disabled**);
 * its group — ``editing`` — is enabled, and where the default LLM
   configuration restricts tool groups, ``editing`` is among them;
@@ -1037,7 +1073,7 @@ Group              Tools
 ``editing``        ``update_page_metadata``, ``set_page_social_image``,
                    ``set_file_alternative_text``, ``update_fal_asset_meta``,
                    ``attach_file_to_content_element``,
-                   ``move_content_element``,
+                   ``attach_file_to_record``, ``move_content_element``,
                    ``create_content_element_draft``, ``create_page_draft``,
                    ``create_translation_draft``, ``create_record_draft``,
                    ``update_content_element``, ``publish_record``,

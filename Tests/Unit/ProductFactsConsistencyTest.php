@@ -326,10 +326,10 @@ final class ProductFactsConsistencyTest extends AbstractUnitTestCase
         // against a glob they are themselves derived from cannot fail.
         // Changing these two numbers is a deliberate act — the surfaces move
         // with them.
-        self::assertSame(58, $this->totalToolCount(), 'Builtin tool count changed. Update every surface, then this number.');
+        self::assertSame(59, $this->totalToolCount(), 'Builtin tool count changed. Update every surface, then this number.');
         self::assertSame(10, $this->groupCount(), 'Tool group count changed. Update every surface, then this number.');
 
         self::assertCount($this->totalToolCount(), $this->builtinToolNames());
-        self::assertSame($this->totalToolCount(), $this->readOnlyToolCount() + 16, 'Exactly sixteen builtins write (ADR-134, ADR-135, ADR-146, ADR-180, ADR-192, ADR-195, ADR-197, ADR-198).');
+        self::assertSame($this->totalToolCount(), $this->readOnlyToolCount() + 17, 'Exactly seventeen builtins write (ADR-134, ADR-135, ADR-146, ADR-180, ADR-192, ADR-195, ADR-197, ADR-198, ADR-212).');
     }
 }
