@@ -10,8 +10,8 @@ an older release line.
 
 | Version | Bug fixes          | Security fixes     |
 | ------- | ------------------ | ------------------ |
-| 0.38.x  | :white_check_mark: | :white_check_mark: |
-| < 0.38  | :x:                | :x:                |
+| 0.39.x  | :white_check_mark: | :white_check_mark: |
+| < 0.39  | :x:                | :x:                |
 
 - **End of support:** a release line `0.N.x` stops receiving bug fixes and
   security fixes on the day `0.(N+1).0` is released. From then on, the fix for

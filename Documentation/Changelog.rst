@@ -14,6 +14,35 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-39-0:
+
+Version 0.39.0 (2026-10-07)
+===========================
+
+Typed decisions (ADR-211), hidden-record reading, a tool to attach a file to
+any record's file field, and localised approval previews. Breaking changes to
+the PHP API; full details and the migration in the repository
+``CHANGELOG.md``.
+
+*  **Breaking:** ``completeStructured()`` and
+   ``completeStructuredForConfiguration()`` return a
+   ``StructuredCompletionResponse``; read ``->data`` where the array was read.
+   Implementations of ``CompletionServiceInterface`` and
+   ``LlmServiceManagerInterface`` gain the optional ``?ModelResolution``
+   parameter, the latter also ``decideForConfiguration()``.
+*  **Breaking:** model prices are ``float`` and stored as ``decimal(12,2)``
+   (database compare).
+*  **Breaking:** the ``llm_judge`` evaluation grader is replaced by
+   ``--grader decision``.
+*  ``DecisionServiceInterface``, the TypeSafe provider and a local decision
+   sidecar answer typed yes/no, choice and score questions.
+*  ``read_records`` and ``search_records`` take ``include_hidden`` (#1009).
+*  New writing tool ``attach_file_to_record`` (ADR-212, #1011).
+*  Approval previews of ``create_page_draft``, ``move_page`` and
+   ``delete_record`` use the acting user's language (ADR-213, #1012).
+
+Versions 0.21.0 to 0.38.2 are listed in the repository ``CHANGELOG.md``.
+
 .. _version-0-20-0:
 
 Version 0.20.0 (2026-07-16)
