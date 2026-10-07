@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
-# nr-llm — The Shared AI Foundation for TYPO3
+# LLM Foundation for TYPO3
 
 [![CI](https://github.com/netresearch/t3x-nr-llm/actions/workflows/ci.yml/badge.svg)](https://github.com/netresearch/t3x-nr-llm/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/netresearch/t3x-nr-llm/graph/badge.svg)](https://codecov.io/gh/netresearch/t3x-nr-llm)

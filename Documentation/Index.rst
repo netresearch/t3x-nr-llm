@@ -5,9 +5,9 @@
 
 .. _start:
 
-===================
-TYPO3 LLM extension
-===================
+==============
+LLM Foundation
+==============
 
 .. image:: /Images/netresearch-underline.svg
    :alt:

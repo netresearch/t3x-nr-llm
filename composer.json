@@ -1,6 +1,6 @@
 {
     "name": "netresearch/nr-llm",
-    "description": "Shared AI/LLM foundation for TYPO3 — centralized provider management, encrypted API keys, and ready-to-use services for chat, translation, vision, and embeddings",
+    "description": "LLM Foundation - Shared AI foundation: configure LLM providers once for every AI extension, with encrypted API keys and services for chat, translation, vision and embeddings.",
     "license": "GPL-2.0-or-later",
     "type": "typo3-cms-extension",
     "keywords": [
