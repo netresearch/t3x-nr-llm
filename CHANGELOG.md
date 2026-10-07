@@ -8,7 +8,26 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-10-07
+
+### Upgrading from 0.38
+
+This release contains breaking changes to the PHP API (ADR-211). What a consumer has to change:
+
+- **Code that uses the return value of `completeStructured()` or `completeStructuredForConfiguration()`** gets a `Netresearch\NrLlm\Domain\Model\StructuredCompletionResponse` instead of an array. Read `->data` where the array was read. Code that has to run on 0.38 and 0.39 can accept both: `$data = $result instanceof StructuredCompletionResponse ? $result->data : $result;`.
+- **A class that implements `CompletionServiceInterface`** changes the return type of both structured methods to `StructuredCompletionResponse` and adds the optional last parameter `?ModelResolution $resolution = null` to `completeForConfiguration()` and `completeStructuredForConfiguration()`. Such a class cannot satisfy 0.38 and 0.39 at once; it needs a release that requires `^0.39`.
+- **A class that implements `LlmServiceManagerInterface`** adds `decideForConfiguration()` and the optional `?ModelResolution $resolution` parameter of `completeForConfiguration()`.
+- **Model prices** are `float` (`Model::getCostInput()`, `getCostOutput()`, the setters, `ModelSelectionCriteria::$maxCostInput`). Run the database compare: `tx_nrllm_model.cost_input` and `cost_output` become `decimal(12,2)`, and `tx_nrllm_eval_result.grader` widens to 190 characters.
+- **`nrllm:eval:run --grader llm_judge`** is gone; use `--grader decision` and set the extension setting `decision.configuration`.
+- **Composer constraints** of `^0.38` do not admit 0.39.0: a consumer needs `^0.39` added to its `netresearch/nr-llm` requirement.
+
 ### Added
+
+- **`read_records` and `search_records` can read hidden records (#1009).** The optional argument `include_hidden` (default false) also returns hidden records, marked `(hidden)`, so an agent can read back the hidden draft it created and edit it. Deleted, timed and workspace rows stay excluded. A non-admin gets a hidden record only where the backend would let them edit it: `tables_modify` on the table and content edit on the record's page.
+
+- **New writing tool `attach_file_to_record` (ADR-212, #1011).** Appends one existing managed file to a file field of one record in a table without an attach tool of its own — for example the `fal_media` of a hidden news draft — with title, alternative text and description on the reference. It ships disabled in the `editing` group and every call pauses for approval. It checks `tables_modify`, content edit on the record's page, the field grant, the file storage and the user's file mounts before writing, honours the field's `allowed`/`disallowed` lists, refuses `pages`, `tt_content`, system, sensitive, `adminOnly`, `hideTable` and `readOnly` tables, and rolls the reference back when the read-back fails. The tool count rises from 58 to 59.
+
+- **Localised approval previews (ADR-213, #1012).** The approval card of `create_page_draft`, `move_page` and `delete_record` shows its lines in the acting backend user's language (English and German), in editor wording, ordered what / where / current / new / consequences, with UIDs and table names in a last "Technical details" line. A delete preview lists translations, subpages, stored records, references and whether the record can be restored.
 
 - **Typed decisions: `DecisionServiceInterface` (ADR-211).** `evaluate(DecisionRequest): DecisionResult` answers the yes/no, choice and score questions of a profile about a subject (`task`, `candidate`, `evidence`). A consumer declares versioned profiles through `DecisionProfileProviderInterface` (tag `nr_llm.decision_profile`); a profile names the subject fields it requires and the most sensitive data class its subject can hold, which is checked against the trust zone of every provider the call can reach, fallbacks included, before anything is sent. A choice question takes its option names as a list and their descriptions as a separate map, so options named `"0"`, `"1"` are names like any other; blank criteria and two levels described alike are refused on construction. The service asks the configuration the request names, otherwise the one in the new extension setting `decision.configuration` — never the default configuration. A model that declares the capability `decision` answers natively; any other chat model answers the same questions as hard labels through structured output. The result carries the configuration, the provider and the model that answered, a `ProbabilityKind` (`None`, `Distribution`, `Calibrated`), per answer only what was reported, and token counts and cost that are `null` where nothing was measured. Every failure throws `DecisionException` with a named code (budget and guardrail denials keep their types), and the service verifies one answer of the right type, range and probability keys per question before a caller sees a result. `assertAvailable()` checks profile, configuration, model and trust zone without asking anything, and `nrllm:eval:run --grader decision` uses it to refuse a run before its first paid completion. `FakeDecisionService` is the consumer test double. New public service; the audited public-service count rises to 39.
 
@@ -30,9 +49,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **BREAKING: `completeStructured()` and `completeStructuredForConfiguration()` return a `StructuredCompletionResponse` (ADR-211).** It carries the validated payload as `data`, the `CompletionResponse` that passed validation (its `model` names what answered, after a fallback too), the `UsageStatistics` of every attempt — the rejected first answer of a repair round-trip included — and the number of attempts. Callers read `->data` where they read the array. An answer that still misses the schema after the repair round-trip throws the new `StructuredResponseMismatchException`, an `InvalidArgumentException` as before, with the same codes. `FakeCompletionService` wraps its `structuredResult` accordingly. `UsageStatistics::plus()` adds two usages; the sum has a cost only when both parts have one.
 
-- **`SECURITY.md` names the release line that is supported, and when support ends.** It listed 0.13.x. It now lists 0.38.x as the only line that receives bug and security fixes, marks every older line unsupported, and states the rule: a line's support ends with the next minor release, and fixes are not backported. `VersionConsistencyTest` fails when the table names a line other than the one in `ext_emconf.php`. The API-key advice now describes the nr-vault storage the extension uses.
+- **`SECURITY.md` names the release line that is supported, and when support ends.** It listed 0.13.x. It now lists the current line (0.39.x with this release) as the only line that receives bug and security fixes, marks every older line unsupported, and states the rule: a line's support ends with the next minor release, and fixes are not backported. `VersionConsistencyTest` fails when the table names a line other than the one in `ext_emconf.php`. The API-key advice now describes the nr-vault storage the extension uses.
+
+- **The extension is called "LLM Foundation" everywhere (#1013).** TER, the TYPO3 v14 extension list, docs.typo3.org and the README showed different names (`LLM — Shared AI Foundation for TYPO3`, `TYPO3 LLM Extension`, `nr-llm — The Shared AI Foundation for TYPO3`). `ext_emconf.php`, the title part of the `composer.json` description, `Documentation/guides.xml`, `Documentation/Index.rst` and the README now use one title, and the description is one sentence in `ext_emconf.php` and `composer.json`.
 
 - **Release archives no longer ship development, CI and agent files.** `.gitattributes` excluded `infection.json5`, a file that does not exist, instead of `infection.json.dist`, and did not list the Node, Playwright, Codecov, Renovate, SonarCloud and gitleaks configuration, the Makefile, `docs/`, the contributor and compliance documents or the `AGENTS.md` / `CLAUDE.md` / `GEMINI.md` files. The ZIP and TAR archives now contain `Classes/`, `Configuration/`, `Documentation/`, `Resources/`, the `ext_*` files, `composer.json`, `LICENSE`, `README.md`, `CHANGELOG.md` and `SECURITY.md`.
+
+### Fixed
+
+- **The PHPStan, Rector and dependency-lock checks on `main` pass again (#1010).** A nullable read in `LlmServiceManager` and `ProviderHealthReport`, and the torch and transformers pins in the reranker and decision sidecar locks, which still named the versions before #1002 and #1004.
 
 ### Removed
 
@@ -4217,7 +4242,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.38.2...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.39.0...HEAD
+[0.39.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.38.2...v0.39.0
 [0.38.2]: https://github.com/netresearch/t3x-nr-llm/compare/v0.38.1...v0.38.2
 [0.38.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.38.0...v0.38.1
 [0.38.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.37.6...v0.38.0
