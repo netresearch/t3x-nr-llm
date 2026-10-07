@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
 
 #
 # Bootstrap for the shared TYPO3 extension test runner.
@@ -19,7 +21,23 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
-RUNNER=".Build/bin/runTests.sh"
+# composer.json says where composer puts binaries. Hardcoding .Build/bin was
+# wrong for nine extensions in this fleet: seven use lowercase .build/bin and
+# two use vendor/bin, and there this stub would not have found the runner at
+# all. The runner detects the same thing for itself; the stub has to do it
+# before the runner exists.
+bin_dir() {
+    local dir=""
+    if type jq >/dev/null 2>&1; then
+        dir="$(jq -r '.config["bin-dir"] // ((.config["vendor-dir"] // "vendor") + "/bin") // empty' composer.json 2>/dev/null)"
+    else
+        dir="$(sed -n 's/.*"bin-dir"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' composer.json | head -n1)"
+        [[ -n "${dir}" ]] || dir="$(sed -n 's/.*"vendor-dir"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1\/bin/p' composer.json | head -n1)"
+    fi
+    printf '%s' "${dir:-vendor/bin}"
+}
+
+RUNNER="$(bin_dir)/runTests.sh"
 
 if [[ ! -x "${RUNNER}" ]]; then
     echo "runTests.sh: ${RUNNER} not found — installing dependencies first." >&2
