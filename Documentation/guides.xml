@@ -12,7 +12,7 @@
     theme="typo3docs"
 >
     <project
-        title="TYPO3 LLM Extension"
+        title="LLM Foundation"
         version="0.38.2"
         release="0.38.2"
         copyright="since 2025 by Netresearch DTT GmbH"
