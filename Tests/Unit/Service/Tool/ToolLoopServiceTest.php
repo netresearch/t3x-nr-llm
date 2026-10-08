@@ -1614,13 +1614,13 @@ final class ToolLoopServiceTest extends TestCase
         self::assertSame(42, $capturedOptions->getBeUserUid());
     }
 
-    private function suspend(ToolLoopService $service, ?RunAugmentation $augmentation = null): SuspendedRunState
+    private function suspend(ToolLoopService $service, ?RunAugmentation $augmentation = null, ?ToolExecutionContext $context = null): SuspendedRunState
     {
         try {
             $service->runLoop(
                 [$this->userTurn('delete it')],
                 $this->localConfiguration(),
-                ToolExecutionContext::none(),
+                $context ?? ToolExecutionContext::none(),
                 null,
                 augmentation: $augmentation,
             );
@@ -1833,18 +1833,43 @@ final class ToolLoopServiceTest extends TestCase
         $mgr = self::createStub(LlmServiceManagerInterface::class);
         $mgr->method('chatWithToolsForConfiguration')
             ->willReturn($this->response('', [new ToolCall('call_1', 'preview_thing', [])]));
-        $registry = new ToolRegistry([new PreviewingApprovalTool('preview_thing', throw: true)]);
-        $service  = new ToolLoopService(
-            $mgr,
-            $registry,
-            $this->realPolicy($registry, new FakeToolAvailability($registry->names())),
-            previewTranslator: $this->germanTranslator(),
-        );
+        $service = $this->service($mgr, new ToolRegistry([new PreviewingApprovalTool('preview_thing', throw: true)]));
 
         self::assertSame([
             'Die Vorschau für diesen Schritt ist fehlgeschlagen. Was der Schritt tun würde, wird nicht angezeigt.',
             'Technische Details: Ausnahme ' . RuntimeException::class,
-        ], $this->suspend($service)->callPreviews[0]['lines']);
+        ], $this->suspend($service, context: ToolExecutionContext::fromBackendUser($this->userIn('de')))->callPreviews[0]['lines']);
+    }
+
+    /**
+     * The overflow marker takes part in the comparison at resume (ADR-184),
+     * so both sides are worded for the run's acting user: the same German
+     * approver sees a German marker at suspend and an equal one at resume,
+     * and the call executes.
+     */
+    #[Test]
+    public function aCutPreviewIsWordedForTheActingUserOnBothSidesOfTheComparison(): void
+    {
+        $tool = new ShiftingPreviewTool('attach_file', array_fill(0, 25, 'a line'));
+        $mgr  = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback([
+            $this->response('', [new ToolCall('call_1', 'attach_file', ['uid' => 7])]),
+            $this->response('done'),
+        ]));
+        $service = $this->service($mgr, new ToolRegistry([$tool]));
+        $german  = ToolExecutionContext::fromBackendUser($this->userIn('de'));
+
+        $state = $this->suspend($service, context: $german);
+        self::assertSame('Nicht angezeigte Zeilen: 5', $state->callPreviews[0]['lines'][20]);
+        $english = self::createStub(LlmServiceManagerInterface::class);
+        $english->method('chatWithToolsForConfiguration')->willReturn($this->response('', [new ToolCall('call_1', 'attach_file', ['uid' => 7])]));
+        self::assertSame(
+            'Lines not shown: 5',
+            $this->suspend($this->service($english, new ToolRegistry([$tool])), context: ToolExecutionContext::fromBackendUser($this->userIn('en')))->callPreviews[0]['lines'][20],
+        );
+
+        $service->resume($state, true, $this->localConfiguration(), $german);
+        self::assertSame(1, $tool->executions, 'An unchanged preview must compare equal for the same user.');
     }
 
     #[Test]
