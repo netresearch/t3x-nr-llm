@@ -10,8 +10,8 @@ ADR-038: Tool runtime (function-calling agent loop)
 ==================================================================
 
 :Status: Accepted (item 5: the allow-list is to be resolved once per run over
-    every attached skill and can only narrow on resume — decided by
-    :ref:`ADR-214 <adr-214>`, not yet implemented)
+    every effective attached skill plus the pinned snapshots, and can never gain
+    tools on resume — decided by :ref:`ADR-214 <adr-214>`, not yet implemented)
 :Date: 2026-06-29
 :Amended: 2026-10-08 by :ref:`ADR-214 <adr-214>` (item 5)
 :Authors: Netresearch DTT GmbH
