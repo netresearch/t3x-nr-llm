@@ -37,6 +37,8 @@ enum ApprovalPreviewLabel: string
     case ObjectPage          = 'approvalPreview.object.page';
     case ObjectContent       = 'approvalPreview.object.content';
     case ObjectFile          = 'approvalPreview.object.file';
+    case ObjectRecord        = 'approvalPreview.object.record';
+    case FieldName           = 'approvalPreview.field.name';
     case LocationOnPage      = 'approvalPreview.location.onPage';
     case ContentType         = 'approvalPreview.contentType';
     case LanguageDefault     = 'approvalPreview.language.default';
@@ -64,6 +66,10 @@ enum ApprovalPreviewLabel: string
     case TechnicalContentType     = 'approvalPreview.technical.contentType';
     case TechnicalFile            = 'approvalPreview.technical.file';
     case TechnicalFileReferences  = 'approvalPreview.technical.fileReferences';
+    case TechnicalFileReference   = 'approvalPreview.technical.fileReference';
+    case TechnicalCurrentFile     = 'approvalPreview.technical.currentFile';
+    case TechnicalTranslatedReferences = 'approvalPreview.technical.translatedReferences';
+    case TechnicalTranslatedElements   = 'approvalPreview.technical.translatedElements';
 
     // --- The texts of a file: its metadata and a reference's own ---
     case FileFieldTitle       = 'approvalPreview.fileField.title';
@@ -82,6 +88,25 @@ enum ApprovalPreviewLabel: string
     case SocialImageCurrent          = 'approvalPreview.socialImage.current';
     case SocialImageProposed         = 'approvalPreview.socialImage.proposed';
     case SocialImageReplaces         = 'approvalPreview.socialImage.replaces';
+
+    // --- attach_file_to_content_element, attach_file_to_record ---
+    case AttachFileHeadingContent = 'approvalPreview.attachFile.headingContent';
+    case AttachFileHeadingRecord  = 'approvalPreview.attachFile.headingRecord';
+    case AttachFileCount          = 'approvalPreview.attachFile.count';
+    case AttachFileFile           = 'approvalPreview.attachFile.file';
+
+    // --- replace_file_reference ---
+    case ReplaceFileHeadingRemove         = 'approvalPreview.replaceFile.headingRemove';
+    case ReplaceFileHeadingReplace        = 'approvalPreview.replaceFile.headingReplace';
+    case ReplaceFilePosition              = 'approvalPreview.replaceFile.position';
+    case ReplaceFileAfterwards            = 'approvalPreview.replaceFile.afterwards';
+    case ReplaceFileFileStays             = 'approvalPreview.replaceFile.fileStays';
+    case ReplaceFileCurrent               = 'approvalPreview.replaceFile.current';
+    case ReplaceFileProposed              = 'approvalPreview.replaceFile.proposed';
+    case ReplaceFileTextOwn               = 'approvalPreview.replaceFile.textOwn';
+    case ReplaceFileTranslationsRemoved   = 'approvalPreview.replaceFile.translationsRemoved';
+    case ReplaceFileTranslationsReplaced  = 'approvalPreview.replaceFile.translationsReplaced';
+    case ReplaceFileOrphans               = 'approvalPreview.replaceFile.orphans';
 
     // --- update_page_metadata ---
     case UpdatePageHeading            = 'approvalPreview.updatePage.heading';

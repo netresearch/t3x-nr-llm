@@ -3517,6 +3517,69 @@
             <trans-unit id="approvalPreview.socialImage.replaces">
                 <source>Important: the current image is removed from the page (recoverable from the recycler), and the new file takes its place.</source>
             </trans-unit>
+            <trans-unit id="approvalPreview.object.record">
+                <source>Record: %s %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.field.name">
+                <source>Field: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.fileReference">
+                <source>file reference UID %d</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.currentFile">
+                <source>current file UID %d</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.translatedReferences">
+                <source>translated file references UID %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.translatedElements">
+                <source>translated content elements UID %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.attachFile.headingContent">
+                <source>Add file to content element</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.attachFile.headingRecord">
+                <source>Add file to record</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.attachFile.count">
+                <source>Files in this field: currently %d, afterwards %d; the new file comes last</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.attachFile.file">
+                <source>New file: %s, stored at %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.replaceFile.headingRemove">
+                <source>Remove file from content element</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.replaceFile.headingReplace">
+                <source>Replace file in content element</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.replaceFile.position">
+                <source>Position: file %d of %d</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.replaceFile.afterwards">
+                <source>Files in this field afterwards: %d</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.replaceFile.fileStays">
+                <source>The file itself stays in the file list.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.replaceFile.current">
+                <source>Currently: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.replaceFile.proposed">
+                <source>Proposed: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.replaceFile.textOwn">
+                <source>%s: the file's own, not taken over from the current reference</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.replaceFile.translationsRemoved">
+                <source>Important: references in translations, removed with it: %d</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.replaceFile.translationsReplaced">
+                <source>Important: references in translations, removed with the current one: %d. The translations get no reference to the new file.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.replaceFile.orphans">
+                <source>Of these, on a translated content element that no longer exists: %d</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

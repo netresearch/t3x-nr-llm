@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReplaceFileReferenceTool;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -34,6 +35,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 #[CoversClass(ReplaceFileReferenceTool::class)]
 final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
 {
+    use AssertsGermanPreviewTrait;
+
     private const STORAGE_CONFIGURATION = '<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <T3FlexForms><data><sheet index="sDEF"><language index="lDEF">
 <field index="basePath"><value index="vDEF">fileadmin/</value></field>
@@ -176,7 +179,7 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
 
         $gate = $this->get(FalStorageGate::class);
         self::assertInstanceOf(FalStorageGate::class, $gate);
-        $this->tool = new ReplaceFileReferenceTool($this->connectionPool, $gate);
+        $this->tool = new ReplaceFileReferenceTool($this->connectionPool, $gate, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
     }
 
     protected function tearDown(): void
@@ -237,16 +240,36 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function thePreviewNamesTheTranslatedReferenceThatGoesAlong(): void
     {
-        $lines = $this->tool->previewCall(
-            ['reference' => self::SECOND, 'action' => 'remove'],
-            ToolExecutionContext::fromBackendUser($this->actor(1)),
-        );
+        $arguments = ['reference' => self::SECOND, 'action' => 'remove'];
 
-        self::assertContains(
-            'with 1 translated reference(s) [111] on translated element(s) [12], which core deletes with it; each '
-            . "translated element's reference count is then updated",
-            $lines,
-        );
+        self::assertSame([
+            'Remove file from content element',
+            'Content element: “Gallery”',
+            'Location: on page “Host page”',
+            'Language: default language',
+            'Field: ' . $this->tcaLabelIn('en', 'tt_content', 'columns', 'assets', 'label'),
+            'Position: file 2 of 2',
+            'File: “two.jpg”',
+            'Files in this field afterwards: 1',
+            'The file itself stays in the file list.',
+            'Important: references in translations, removed with it: 1',
+            'Technical details: table tt_content, UID 10, page UID 1, language UID 0, fields assets, file reference UID 102, current file UID 2, translated file references UID 111, translated content elements UID 12',
+        ], $this->previewIn('en', $arguments));
+        $german = $this->previewIn('de', $arguments);
+        self::assertSame([
+            'Datei aus dem Inhaltselement entfernen',
+            'Inhaltselement: „Gallery“',
+            'Ort: auf der Seite „Host page“',
+            'Sprache: Standardsprache',
+            'Feld: ' . $this->tcaLabelIn('de', 'tt_content', 'columns', 'assets', 'label'),
+            'Position: Datei 2 von 2',
+            'Datei: „two.jpg“',
+            'Dateien in diesem Feld danach: 1',
+            'Die Datei selbst bleibt in der Dateiliste erhalten.',
+            'Wichtig: Verweise in Übersetzungen, die mit entfernt werden: 1',
+            'Technische Details: Tabelle tt_content, UID 10, Seite UID 1, Sprach-UID 0, Felder assets, Dateiverweis UID 102, bisherige Datei UID 2, übersetzte Dateiverweise UID 111, übersetzte Inhaltselemente UID 12',
+        ], $german);
+        self::assertGermanEditorLines($german);
     }
 
     #[Test]
@@ -254,14 +277,10 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
     {
         $this->orphanTheOverlayOfSecond();
 
-        $lines = $this->tool->previewCall(
-            ['reference' => self::SECOND, 'action' => 'remove'],
-            ToolExecutionContext::fromBackendUser($this->actor(1)),
-        );
-        self::assertContains(
-            'with 1 translated reference(s) [111] (1 of them on an element that is gone), which core deletes with it',
-            $lines,
-        );
+        $german = $this->previewIn('de', ['reference' => self::SECOND, 'action' => 'remove']);
+        self::assertContains('Wichtig: Verweise in Übersetzungen, die mit entfernt werden: 1', $german);
+        self::assertContains('Davon auf einem übersetzten Inhaltselement, das nicht mehr existiert: 1', $german);
+        self::assertStringEndsWith('übersetzte Dateiverweise UID 111', $german[array_key_last($german)]);
 
         $result = $this->change(['reference' => self::SECOND, 'action' => 'remove']);
 
@@ -368,21 +387,40 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function thePreviewNamesBothFilesAndWhatIsNotCarriedOverAndWritesNothing(): void
     {
-        $lines = $this->tool->previewCall(
-            ['reference' => self::FIRST, 'action' => 'replace', 'file' => self::FILE_THREE, 'title' => 'New caption'],
-            ToolExecutionContext::fromBackendUser($this->actor(1)),
-        );
+        $arguments = ['reference' => self::FIRST, 'action' => 'replace', 'file' => self::FILE_THREE, 'title' => 'New caption'];
 
         self::assertSame([
-            'tt_content [10] "Gallery" on page [1], field assets, reference [101] (1 of 2):',
-            'file: [1] "one.jpg" → [5] "three.jpg"',
-            'title: "New caption"',
-            "alternative: the file's own (not carried over from the old reference)",
-            "description: the file's own (not carried over from the old reference)",
-            'with 1 translated reference(s) [112] on translated element(s) [12], which core deletes with the old '
-            . "reference; the translations get no reference to the new file; each translated element's reference count "
-            . 'is then updated',
-        ], $lines);
+            'Replace file in content element',
+            'Content element: “Gallery”',
+            'Location: on page “Host page”',
+            'Language: default language',
+            'Field: ' . $this->tcaLabelIn('en', 'tt_content', 'columns', 'assets', 'label'),
+            'Position: file 1 of 2',
+            'Currently: “one.jpg”',
+            'Proposed: “three.jpg”',
+            'Title: “New caption”',
+            "Alternative text: the file's own, not taken over from the current reference",
+            "Description: the file's own, not taken over from the current reference",
+            'Important: references in translations, removed with the current one: 1. The translations get no reference to the new file.',
+            'Technical details: table tt_content, UID 10, page UID 1, language UID 0, fields assets, file reference UID 101, current file UID 1, file UID 5, translated file references UID 112, translated content elements UID 12',
+        ], $this->previewIn('en', $arguments));
+        $german = $this->previewIn('de', $arguments);
+        self::assertSame([
+            'Datei im Inhaltselement ersetzen',
+            'Inhaltselement: „Gallery“',
+            'Ort: auf der Seite „Host page“',
+            'Sprache: Standardsprache',
+            'Feld: ' . $this->tcaLabelIn('de', 'tt_content', 'columns', 'assets', 'label'),
+            'Position: Datei 1 von 2',
+            'Aktuell: „one.jpg“',
+            'Vorschlag: „three.jpg“',
+            'Titel: „New caption“',
+            'Alternativtext: der Wert der Datei selbst, nicht vom bisherigen Verweis übernommen',
+            'Beschreibung: der Wert der Datei selbst, nicht vom bisherigen Verweis übernommen',
+            'Wichtig: Verweise in Übersetzungen, die mit dem bisherigen Verweis entfernt werden: 1. Die Übersetzungen erhalten keinen Verweis auf die neue Datei.',
+            'Technische Details: Tabelle tt_content, UID 10, Seite UID 1, Sprach-UID 0, Felder assets, Dateiverweis UID 101, bisherige Datei UID 1, Datei UID 5, übersetzte Dateiverweise UID 112, übersetzte Inhaltselemente UID 12',
+        ], $german);
+        self::assertGermanEditorLines($german);
         self::assertSame([self::FIRST, self::SECOND], $this->liveReferences(self::ELEMENT));
     }
 
@@ -403,6 +441,22 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
     {
         $this->connectionPool->getConnectionForTable('sys_file_reference')
             ->update('sys_file_reference', ['uid_foreign' => 999], ['uid' => self::OVERLAY_OF_SECOND]);
+    }
+
+    /**
+     * The preview as the run's acting user reads it, in that user's language
+     * (ADR-213).
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return list<string>
+     */
+    private function previewIn(string $language, array $arguments): array
+    {
+        $admin               = $this->actor(1);
+        $admin->user['lang'] = $language;
+
+        return $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($admin));
     }
 
     private function actor(int $uid): BackendUserAuthentication

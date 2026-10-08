@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\AttachFileToRecordTool;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
@@ -37,6 +38,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 #[CoversClass(AttachFileToRecordTool::class)]
 final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
 {
+    use AssertsGermanPreviewTrait;
+
     private const STORAGE_CONFIGURATION = '<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <T3FlexForms><data><sheet index="sDEF"><language index="lDEF">
 <field index="basePath"><value index="vDEF">fileadmin/</value></field>
@@ -157,7 +160,7 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
 
         $gate = $this->get(FalStorageGate::class);
         self::assertInstanceOf(FalStorageGate::class, $gate);
-        $this->tool = new AttachFileToRecordTool($this->connectionPool, $gate, new TableReadAccessService());
+        $this->tool = new AttachFileToRecordTool($this->connectionPool, $gate, new TableReadAccessService(), new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
     }
 
     protected function tearDown(): void
@@ -177,6 +180,22 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
         $tca = $GLOBALS['TCA'];
         self::assertIsArray($tca);
         $GLOBALS['TCA'] = array_replace_recursive($tca, $patch);
+    }
+
+    /**
+     * The preview as the run's acting user reads it, in that user's language
+     * (ADR-213).
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return list<string>
+     */
+    private function previewIn(string $language, array $arguments): array
+    {
+        $admin               = $this->actor(1);
+        $admin->user['lang'] = $language;
+
+        return $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($admin));
     }
 
     private function actor(int $uid): BackendUserAuthentication
@@ -575,15 +594,32 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function thePreviewNamesTheRecordTheFieldAndTheFile(): void
     {
-        $lines = $this->tool->previewCall(
-            ['table' => self::GALLERY, 'record' => $this->draftUid, 'file' => 1, 'field' => 'media', 'alternative' => 'A description'],
-            ToolExecutionContext::fromBackendUser($this->actor(1)),
-        );
+        $arguments = ['table' => self::GALLERY, 'record' => $this->draftUid, 'file' => 1, 'field' => 'media', 'alternative' => 'A description'];
 
-        self::assertStringContainsString(self::GALLERY . ' [' . $this->draftUid . '] on page [1]', $lines[0]);
-        self::assertStringContainsString('media: 0 reference(s) → 1', $lines[1]);
-        self::assertStringContainsString('one.jpg', $lines[2]);
-        self::assertStringContainsString('alternative: "A description"', implode("\n", $lines));
+        self::assertSame([
+            'Add file to record',
+            sprintf('Record: %s “Draft”', $this->tcaLabelIn('en', self::GALLERY, 'ctrl', 'title')),
+            'Location: on page “Folder”',
+            'Language: default language',
+            'Field: ' . $this->tcaLabelIn('en', self::GALLERY, 'columns', 'media', 'label'),
+            'Files in this field: currently 0, afterwards 1; the new file comes last',
+            'New file: “one.jpg”, stored at “/docs/one.jpg”',
+            'Alternative text: “A description”',
+            sprintf('Technical details: table %s, UID %d, page UID 1, fields media, file UID 1', self::GALLERY, $this->draftUid),
+        ], $this->previewIn('en', $arguments));
+        $german = $this->previewIn('de', $arguments);
+        self::assertSame([
+            'Datei zum Datensatz hinzufügen',
+            sprintf('Datensatz: %s „Draft“', $this->tcaLabelIn('de', self::GALLERY, 'ctrl', 'title')),
+            'Ort: auf der Seite „Folder“',
+            'Sprache: Standardsprache',
+            'Feld: ' . $this->tcaLabelIn('de', self::GALLERY, 'columns', 'media', 'label'),
+            'Dateien in diesem Feld: aktuell 0, danach 1; die neue Datei steht an letzter Stelle',
+            'Neue Datei: „one.jpg“, gespeichert unter „/docs/one.jpg“',
+            'Alternativtext: „A description“',
+            sprintf('Technische Details: Tabelle %s, UID %d, Seite UID 1, Felder media, Datei UID 1', self::GALLERY, $this->draftUid),
+        ], $german);
+        self::assertGermanEditorLines($german);
         self::assertSame([], $this->references(self::GALLERY, $this->draftUid, 'media'), 'A preview must not write.');
     }
 
