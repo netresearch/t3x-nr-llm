@@ -86,6 +86,20 @@ carries the length and a short hash of both whole values, which binds the
 approval to the whole value. ``fetch_external_url`` names no record and has no
 technical line; its lines show the address, host and query string verbatim.
 
+**The first line of a successful preview is a heading**, the action the call
+takes ("Seite löschen", "Move content element"). A heading takes no
+placeholder, so it is recognisable by equality, and the set is published:
+:php:`ApprovalPreviewHeadings` (``@api``) returns the ``LLL:`` references of
+every heading through ``labelReferences()`` and checks one line against them
+with ``isHeading($line, $languageService)``. A consumer such as an approval card
+may reuse a line as its title or button text only when it passes that check,
+resolved in the language the lines are in, the acting user's. The first line of
+a refused call is the English refusal and is never a heading; neither is any
+other line. A unit test fails when a heading label is not in the set, when a
+heading text takes a placeholder or equals another line's text, and when a
+previewing tool has no functional test that checks its first line through this
+class.
+
 **Field names are editor words** (rule 18). Where a tool writes a fixed set of
 fields, each has its own catalogue entry in the guidelines' terms ("Meta
 Description"). Where the set is open — the columns of a content element or of a

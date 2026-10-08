@@ -264,9 +264,47 @@ enum ApprovalPreviewLabel: string
 
     /**
      * The key as TYPO3 resolves it.
+     *
+     * @return non-empty-string
      */
     public function reference(): string
     {
         return 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:' . $this->value;
+    }
+
+    /**
+     * Whether this text is a card heading: the action a tool's successful
+     * preview names in its first line (rule 16). Published to consumers through
+     * {@see ApprovalPreviewHeadings}; a heading takes no placeholder, so a line
+     * is one exactly when it equals the text.
+     */
+    public function isHeading(): bool
+    {
+        return match ($this) {
+            self::SetAlternativeTextHeading,
+            self::UpdateFileMetadataHeading,
+            self::SocialImageHeadingOpenGraph,
+            self::SocialImageHeadingTwitter,
+            self::AttachFileHeadingContent,
+            self::AttachFileHeadingRecord,
+            self::ReplaceFileHeadingRemove,
+            self::ReplaceFileHeadingReplace,
+            self::MoveContentHeading,
+            self::CopyPageHeading,
+            self::CopyContentHeading,
+            self::PublishHeadingPage,
+            self::PublishHeadingContent,
+            self::CreateContentHeading,
+            self::CreateRecordHeading,
+            self::TranslateHeading,
+            self::FetchUrlHeading,
+            self::UpdatePageHeading,
+            self::UpdateContentHeading,
+            self::CreatePageHeading,
+            self::MovePageHeading,
+            self::DeletePageHeading,
+            self::DeleteContentHeading => true,
+            default                    => false,
+        };
     }
 }

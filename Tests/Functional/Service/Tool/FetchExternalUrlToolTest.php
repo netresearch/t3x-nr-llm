@@ -68,6 +68,8 @@ final class FetchExternalUrlToolTest extends AbstractFunctionalTestCase
             'Mit der Adresse gesendete Daten: q=internal-secret&x=1',
         ], $german);
         self::assertGermanLines($german, ['https://Example.org/search?q=internal-secret&x=1', 'example.org', 'q=internal-secret&x=1']);
+        self::assertStartsWithHeading($german, 'de');
+        self::assertStartsWithHeading($this->tool->previewCall($arguments, ToolExecutionContext::none()), 'en');
         self::assertSame([
             'Fetch a page from the internet',
             'Address: https://Example.org/search?q=internal-secret&x=1',

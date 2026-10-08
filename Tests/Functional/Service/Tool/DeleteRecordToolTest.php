@@ -31,6 +31,8 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 #[CoversClass(DeleteRecordTool::class)]
 final class DeleteRecordToolTest extends AbstractFunctionalTestCase
 {
+    use AssertsPreviewHeadingTrait;
+
     /** @var non-empty-string[] */
     protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'frontend'];
 
@@ -511,6 +513,8 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
             'Wiederherstellbar: ja, über den Papierkorb',
             'Technische Details: Tabelle tt_content, UID 20, Seite UID 2, Sprach-UID 0, Übersetzungen UID 21',
         ], $this->previewIn('de', $arguments));
+        self::assertStartsWithHeading($this->previewIn('en', $arguments), 'en');
+        self::assertStartsWithHeading($this->previewIn('de', $arguments), 'de');
         self::assertSame(0, $this->deletedOf('tt_content', self::ELEMENT));
     }
 

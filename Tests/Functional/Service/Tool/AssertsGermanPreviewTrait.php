@@ -28,6 +28,8 @@ use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
  */
 trait AssertsGermanPreviewTrait
 {
+    use AssertsPreviewHeadingTrait;
+
     /**
      * @param list<string> $lines
      * @param list<string> $foreign texts the line carries that come from
@@ -41,6 +43,7 @@ trait AssertsGermanPreviewTrait
         self::assertIsString($technical);
         self::assertStringStartsWith('Technische Details: ', $technical);
 
+        self::assertStartsWithHeading($lines, 'de');
         self::assertGermanLines($lines, $foreign);
     }
 
