@@ -80,19 +80,86 @@ where, the current state, the new state, the consequences. The last line is
 **"Technical details"**: UIDs and table names, for support (rules 10 and 26).
 It is not an optional extra: it keeps the approval bound to the exact records
 the call names, because the lines above it name pages by title and two pages
-can share one (:ref:`ADR-184 <adr-184>`).
+can share one (:ref:`ADR-184 <adr-184>`). Where a field's value is longer than
+the card shows, the line shows the section that changes and the technical line
+carries the length and a short hash of both whole values, which binds the
+approval to the whole value. ``fetch_external_url`` names no record and has no
+technical line; its lines show the address, host and query string verbatim.
+
+**The first line of a successful preview is a heading**, the action the call
+takes ("Seite löschen", "Move content element"). A heading takes no
+placeholder, so it is recognisable by equality, and the set is published:
+:php:`ApprovalPreviewHeadings` (``@api``) returns the ``LLL:`` references of
+every heading through ``labelReferences()`` and checks one line against them
+with ``isHeading($line, $languageService)``. A consumer such as an approval card
+may reuse a line as its title or button text only when it passes that check,
+resolved in the language the lines are in, the acting user's. The set grows
+with every tool that gains a preview; a consumer asks the class and keeps no
+copy of the list. The first line of
+a refused call is the English refusal and is never a heading; neither is any
+other line. A unit test fails when a heading label is not in the set, when a
+heading text takes a placeholder or equals another line's text, and when a
+previewing tool has no functional test that checks its first line through this
+class.
+
+**Field names are editor words** (rule 18). Where a tool writes a fixed set of
+fields, each has its own catalogue entry in the guidelines' terms ("Meta
+Description"). Where the set is open — the columns of a content element or of a
+record in an extension table, a content type, the items of a select field — the
+line uses the TCA label in the acting user's language, resolved through core's
+``sL()``, which reads ``LLL:`` references and, from TYPO3 14 on, translation
+domain references alike. Such a label is English where the installation has no
+language pack for the user's language. A reference that core cannot resolve
+counts as no label, and the line falls back to the column, table or value name
+rather than showing the reference; a literal with a colon ("16:9") is text, not
+a reference. A content column is named by its static ``colPos`` item, else by
+its number ("Spalte 100"), and not by the name the page's backend layout gives
+it: core resolves the layout through the ambient backend user (its workspace,
+its user TSconfig), which is the approver's or nobody's at resume, so that
+name could differ from the one shown at suspend. Any line that changes between
+suspend and resume bounces the approval once, and the second approval
+executes. The column name sits in the technical line.
+A select field's value reads as its item label; whether it changes is decided
+on the stored values, and where two different values share one label both
+values follow in brackets, so a change never reads as unchanged.
+
+**The card's own lines follow the same rule.** A preview that failed, came
+back empty or was cut to twenty lines gets a line from the loop, not from the
+tool, and that line is in the acting user's language too. A failed preview
+names the exception class only in a technical details line under the
+sentence; the message never reaches the card, and the whole exception goes to
+the log. How these lines meet ADR-184's comparison:
+
+- A failed or empty preview at suspend is marked ``failed`` and carried, never
+  compared, so its wording decides nothing.
+- A preview that fails, is empty or whose tool no longer previews at resume
+  differs from the successful preview it replaces whatever it says, so the
+  call stales as before.
+- The overflow marker of a cut preview is compared, and both sides are worded
+  for the same acting user.
+- The line that withholds a preview from a viewer without permission on the
+  record is rendered for that viewer, in the VIEWER's language, and is never
+  persisted or compared.
+
+**Runs suspended before the upgrade.** Their persisted lines are the English
+ones of the release they were suspended under. On resume the tool's lines are
+recomputed in the acting user's language, differ, and the approval bounces
+once with the current lines shown again — the staleness path of ADR-184, no
+special case. Nothing is written on the first approval of such a run; the
+second approval, against the new lines, executes. A failed preview persisted
+before the upgrade keeps its English line until the run suspends again.
 
 **What stays English.** A refusal line is the string the tool's ``execute()``
 hands the model as well; it is shared on purpose, and a refusal at preview time
 tells the approver the call would fail, not what it would do. The tool results
 that go back to the model stay English too; they are not approval text.
 
-**Scope of this decision.** It is applied to ``create_page_draft``,
-``move_page`` and ``delete_record``. The other tools that implement
-:php:`ToolPreviewInterface` keep their English lines until they are converted
-to the same mechanism; each of them needs its own list of labels and its own
-expected text, and the guidelines' rules 19 to 21 (consequences) need to be
-checked against what each tool actually reads.
+**Scope of this decision.** It applies to every built-in tool that implements
+:php:`ToolPreviewInterface`. It was first applied to ``create_page_draft``,
+``move_page`` and ``delete_record``, then to the fifteen others: the
+field-update, file, move, copy, publish, draft creation and translation tools
+and ``fetch_external_url``. A run without an acting user,
+which only a read tool's preview can meet, gets the English source text.
 
 **No new reads.** The consequence lines show what the tools already read for
 their plan: translations, subpages, the number of records stored on a page,
@@ -123,22 +190,25 @@ the request that suspends and the worker that resumes (:ref:`ADR-083 <adr-083>`)
 Consequences
 ============
 
-● A German editor reads a German approval card for these three tools: the
-heading names the editorial action, the lines carry no field name, and the
-consequences of a delete are listed line by line.
+● A German editor reads a German approval card for every built-in tool that
+implements :php:`ToolPreviewInterface`, and for the card's own lines: the
+heading names the editorial action, the lines carry no field name, and each
+consequence has a line of its own.
 
 ● The English text is the catalogue's source text, so an installation in any
 other language sees the same English lines as before in structure, and a
 translation file for that language works without code.
 
-◐ The lines of these three tools changed in wording and order. A caller that
-matched on the old English strings, rather than showing the lines, has to
-change; none in this repository did except the tools' own tests.
+◐ The lines of every built-in previewing tool, and the card's own lines,
+changed in wording and order. A caller that matched on the old English
+strings, rather than showing the lines, has to change; none in this repository
+did except the tests.
 
 ◐ A viewer whose language differs from the run owner's reads the owner's
 language (see above).
 
-✕ The other tools' previews are still English, so a card for one of them still
-mixes languages until it is converted.
+◐ A label taken from the TCA (a content element's or an extension record's
+column, a content type) is English on an installation without a language pack
+for the acting user's language, as it is in the backend form.
 
 ✕ A refusal shown in a preview is still English.

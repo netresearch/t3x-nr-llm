@@ -102,7 +102,7 @@ return [
                 'type'       => 'select',
                 'renderType' => 'selectSingle',
                 'items'      => [
-                    ['label' => 'Note', 'value' => 'note'],
+                    ['label' => 'LLL:EXT:nrllm_writer_fixture/Resources/Private/Language/locallang_tca.xlf:item.kind.note', 'value' => 'note'],
                     ['label' => 'Story', 'value' => 'story'],
                     ['label' => 'Event', 'value' => 'event'],
                 ],
@@ -118,7 +118,9 @@ return [
             'config' => ['type' => 'datetime', 'default' => 0],
         ],
         'priority' => [
-            'label'  => 'Priority',
+            // Translated in the fixture's own catalogue, so a German card can
+            // be told from an English one (ADR-213).
+            'label'  => 'LLL:EXT:nrllm_writer_fixture/Resources/Private/Language/locallang_tca.xlf:item.priority',
             'config' => ['type' => 'number', 'range' => ['lower' => 1, 'upper' => 5], 'default' => 0],
         ],
         'featured' => [

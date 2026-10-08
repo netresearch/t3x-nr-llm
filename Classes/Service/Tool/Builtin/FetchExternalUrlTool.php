@@ -15,6 +15,8 @@ use GuzzleHttp\Psr7\Uri;
 use GuzzleHttp\Psr7\UriResolver;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\ConfigurableApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -123,6 +125,7 @@ final readonly class FetchExternalUrlTool implements ToolInterface, Configurable
         private ExternalFetchClientFactoryInterface $clientFactory,
         private HtmlTextExtractor $extractor,
         private ExternalFetchSettings $settings,
+        private ApprovalPreviewTranslator $translator,
         ?Closure $clock = null,
     ) {
         $this->clock = $clock ?? static fn(): float => microtime(true);
@@ -141,8 +144,9 @@ final readonly class FetchExternalUrlTool implements ToolInterface, Configurable
     /**
      * What the approver needs to judge: the host the request goes to and the
      * full query string, which is where data would leave. A pure function of
-     * the argument — no DNS, no settings — so the reservation compared on
-     * resume (ADR-184) cannot go stale.
+     * the argument and the acting user's language (ADR-213) — no DNS, no
+     * settings — so the reservation compared on resume (ADR-184) cannot go
+     * stale.
      */
     public function previewCall(array $arguments, ToolExecutionContext $context): array
     {
@@ -152,16 +156,19 @@ final readonly class FetchExternalUrlTool implements ToolInterface, Configurable
             return ['No valid URL was given; the call will be refused.'];
         }
 
-        $lines = [
-            'Fetches from the internet: ' . mb_substr($url, 0, self::MAX_ECHOED_URL_CHARACTERS),
-            'The request goes to the host ' . mb_substr(strtolower($parts['host']), 0, 255) . '.',
+        // In the acting user's language (ADR-213); the values are shown as they
+        // are, not quoted or flattened: they are what leaves the site.
+        $user = $context->actingBackendUser();
+        $t    = fn(ApprovalPreviewLabel $label, string ...$arguments): string => $this->translator->text($user, $label, ...$arguments);
+
+        return [
+            $t(ApprovalPreviewLabel::FetchUrlHeading),
+            $t(ApprovalPreviewLabel::FetchUrlAddress, mb_substr($url, 0, self::MAX_ECHOED_URL_CHARACTERS)),
+            $t(ApprovalPreviewLabel::FetchUrlHost, mb_substr(strtolower($parts['host']), 0, 255)),
+            isset($parts['query']) && $parts['query'] !== ''
+                ? $t(ApprovalPreviewLabel::FetchUrlQuery, mb_substr($parts['query'], 0, self::MAX_ECHOED_URL_CHARACTERS))
+                : $t(ApprovalPreviewLabel::FetchUrlNoQuery),
         ];
-
-        $lines[] = isset($parts['query']) && $parts['query'] !== ''
-            ? 'Query string sent with it: ' . mb_substr($parts['query'], 0, self::MAX_ECHOED_URL_CHARACTERS)
-            : 'No query string.';
-
-        return $lines;
     }
 
     public function mayViewerReadPreview(array $arguments, BackendUserAuthentication $viewer): bool

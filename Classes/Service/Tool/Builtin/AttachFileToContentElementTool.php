@@ -15,6 +15,8 @@ use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
@@ -105,6 +107,7 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
     public function __construct(
         private ConnectionPool $connectionPool,
         private FalStorageGate $storageGate,
+        private ApprovalPreviewTranslator $translator,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -263,38 +266,36 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
             return [$plan];
         }
 
-        [$element, $file, $field, $texts] = $plan;
+        [$element, $file, $field, $texts, $page] = $plan;
 
         $elementUid = self::toInt($element['uid'] ?? 0);
         $existing   = count($this->existingReferenceUids($elementUid, $field));
+        [$t, $q]    = $this->translator->boundTo($user, $this->excerpt(...));
 
+        // ADR-213, in the order of the editorial guidelines: what, where, the
+        // field before and after, the new file and its texts.
         $lines = [
-            sprintf(
-                '%s [%d] "%s" on page [%d]',
-                self::CONTENT_TABLE,
-                $elementUid,
-                $this->excerpt(self::toStr($element['header'] ?? '')),
-                self::toInt($element['pid'] ?? 0),
-            ),
-            sprintf(
-                'field %s: %d reference(s) → %d, appended last',
-                $field,
-                $existing,
-                $existing + 1,
-            ),
-            sprintf(
-                'file [%d] "%s" (%s)',
-                self::toInt($file['uid'] ?? 0),
-                $this->excerpt(self::toStr($file['name'] ?? '')),
-                $this->excerpt(self::toStr($file['identifier'] ?? '')),
-            ),
+            $t(ApprovalPreviewLabel::AttachFileHeadingContent),
+            $t(ApprovalPreviewLabel::ObjectContent, $q(self::toStr($element['header'] ?? ''))),
+            $t(ApprovalPreviewLabel::LocationOnPage, $q(self::toStr($page['title'] ?? ''))),
+            $t(ApprovalPreviewLabel::LanguageDefault),
+            $t(ApprovalPreviewLabel::FieldName, $this->translator->columnLabel($user, self::CONTENT_TABLE, $field, self::toStr($element['CType'] ?? ''))),
+            $t(ApprovalPreviewLabel::AttachFileCount, $existing, $existing + 1),
+            $t(ApprovalPreviewLabel::AttachFileFile, $q(self::toStr($file['name'] ?? '')), $q(self::toStr($file['identifier'] ?? ''))),
         ];
 
-        foreach (['title', 'alternative', 'description'] as $name) {
+        foreach (['title' => ApprovalPreviewLabel::FileFieldTitle, 'alternative' => ApprovalPreviewLabel::FileFieldAlternative, 'description' => ApprovalPreviewLabel::FileFieldDescription] as $name => $label) {
             if (isset($texts[$name])) {
-                $lines[] = sprintf('%s: %s', $name, $this->quoted(self::toStr($texts[$name])));
+                $lines[] = $t($label) . ': ' . $q(self::toStr($texts[$name]));
             }
         }
+
+        $lines[] = $this->translator->technical($user, [
+            $t(ApprovalPreviewLabel::TechnicalRecord, self::CONTENT_TABLE, $elementUid),
+            $t(ApprovalPreviewLabel::TechnicalPage, self::toInt($page['uid'] ?? 0)),
+            $t(ApprovalPreviewLabel::TechnicalFields, $field),
+            $t(ApprovalPreviewLabel::TechnicalFile, self::toInt($file['uid'] ?? 0)),
+        ]);
 
         return $lines;
     }
@@ -369,7 +370,7 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{array<string, mixed>, array<string, mixed>, string, array<string, string>}|string
+     * @return array{array<string, mixed>, array<string, mixed>, string, array<string, string>, array<string, mixed>}|string
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
@@ -396,6 +397,13 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
         $page = $this->fetchRow(self::PAGES_TABLE, self::toInt($element['pid'] ?? 0));
         if ($page === null || !$user->doesUserHaveAccess($page, Permission::CONTENT_EDIT)) {
             return self::NOT_PERMITTED;
+        }
+
+        // The reference is written in the default language (see execute()),
+        // so a translated element would carry a reference of another language
+        // than its own. Refused, as attach_file_to_record refuses it.
+        if (self::toInt($element['sys_language_uid'] ?? 0) !== self::DEFAULT_LANGUAGE) {
+            return 'Refused: this tool attaches to content elements in the default language only.';
         }
 
         $file = $this->fetchFile($fileUid);
@@ -426,7 +434,7 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
             );
         }
 
-        return [$element, $file, $field, $texts];
+        return [$element, $file, $field, $texts, $page];
     }
 
     /**

@@ -9,11 +9,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\MoveContentElementTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Cache\CacheManager;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
@@ -31,6 +33,8 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 #[CoversClass(MoveContentElementTool::class)]
 final class MoveContentElementToolTest extends AbstractFunctionalTestCase
 {
+    use AssertsGermanPreviewTrait;
+
     /** @var non-empty-string[] */
     protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'frontend'];
 
@@ -105,7 +109,9 @@ final class MoveContentElementToolTest extends AbstractFunctionalTestCase
         // tool refuses to write without it.
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('default');
 
-        $this->tool = new MoveContentElementTool($this->connectionPool);
+        // The container's translator, so the backend layout lookup is wired
+        // as in production.
+        $this->tool = new MoveContentElementTool($this->connectionPool, $this->getService(ApprovalPreviewTranslator::class));
     }
 
     protected function tearDown(): void
@@ -287,22 +293,103 @@ final class MoveContentElementToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function thePreviewNamesBothSidesAndWritesNothing(): void
     {
-        $admin = $this->setUpBackendUser(1);
+        $arguments = ['uid' => self::ELEMENT_ON_OPEN, 'target_page' => self::PAGE_OPEN_TWO, 'column' => 4];
 
-        $lines = $this->tool->previewCall(
-            ['uid' => self::ELEMENT_ON_OPEN, 'target_page' => self::PAGE_OPEN_TWO, 'column' => 4],
-            ToolExecutionContext::fromBackendUser($admin),
+        self::assertSame([
+            'Move content element',
+            'Content element: “Movable”',
+            'Content type: ' . $this->tcaItemLabelIn('en', 'tt_content', 'CType', 'text'),
+            'Currently: page “Open”, column ' . $this->tcaItemLabelIn('en', 'tt_content', 'colPos', '0'),
+            'New: page “Open two”, column 4, as the first element',
+            'Technical details: table tt_content, UID 21, content type text, current page UID 2, current column (colPos) 0, target page UID 3, column (colPos) 4',
+        ], $this->previewIn('en', $arguments));
+        $german = $this->previewIn('de', $arguments);
+        self::assertSame([
+            'Inhaltselement verschieben',
+            'Inhaltselement: „Movable“',
+            'Inhaltstyp: ' . $this->tcaItemLabelIn('de', 'tt_content', 'CType', 'text'),
+            'Aktuell: Seite „Open“, Spalte ' . $this->tcaItemLabelIn('de', 'tt_content', 'colPos', '0'),
+            'Neu: Seite „Open two“, Spalte 4, als erstes Element',
+            'Technische Details: Tabelle tt_content, UID 21, Inhaltstyp text, bisherige Seite UID 2, bisherige Spalte (colPos) 0, Zielseite UID 3, Spalte (colPos) 4',
+        ], $german);
+        self::assertGermanEditorLines($german);
+        self::assertContains(
+            'Neu: Seite „Open two“, Spalte ' . $this->tcaItemLabelIn('de', 'tt_content', 'colPos', '3') . ', direkt nach „Anchor“',
+            $this->previewIn('de', ['uid' => self::ELEMENT_ON_OPEN, 'target_page' => self::PAGE_OPEN_TWO, 'after_content_uid' => self::ANCHOR_ON_OPEN_TWO]),
         );
-
-        self::assertCount(3, $lines);
-        self::assertStringContainsString('Movable', $lines[0]);
-        self::assertStringContainsString('from: page [2] "Open", column 0', $lines[1]);
-        self::assertStringContainsString('to: page [3] "Open two", column 4', $lines[2]);
 
         // A preview is a read. The row must be exactly as it was.
         $row = $this->elementRow(self::ELEMENT_ON_OPEN);
         self::assertSame(self::PAGE_OPEN, (int)($row['pid'] ?? 0));
         self::assertSame(0, (int)($row['colPos'] ?? -1));
+    }
+
+    /**
+     * A column neither the page's backend layout nor the static colPos items
+     * name — a layout column the page does not use, 100 — reads as its number,
+     * worded like every other column.
+     */
+    #[Test]
+    public function aColumnNoLayoutNamesReadsAsItsNumber(): void
+    {
+        $arguments = ['uid' => self::ELEMENT_ON_OPEN, 'target_page' => self::PAGE_OPEN_TWO, 'column' => 100];
+
+        self::assertContains('New: page “Open two”, column 100, as the first element', $this->previewIn('en', $arguments));
+        self::assertContains('Neu: Seite „Open two“, Spalte 100, als erstes Element', $this->previewIn('de', $arguments));
+    }
+
+    /**
+     * A column of the page's own backend layout reads as its number, not as
+     * the name the layout gives it: core resolves that name through the
+     * ambient backend user, which differs between suspend and resume
+     * ({@see self::theColumnNameDoesNotDependOnTheAmbientBackendUser()}).
+     */
+    #[Test]
+    public function aBackendLayoutColumnReadsAsItsNumber(): void
+    {
+        $this->useSidebarLayout();
+        $arguments = ['uid' => self::ELEMENT_ON_OPEN, 'target_page' => self::PAGE_OPEN_TWO, 'column' => 100];
+
+        $german = $this->previewIn('de', $arguments);
+
+        self::assertContains('Neu: Seite „Open two“, Spalte 100, als erstes Element', $german, implode("\n", $german));
+        self::assertGermanEditorLines($german);
+    }
+
+    /**
+     * Suspend and resume are separate requests, and the ambient
+     * `$GLOBALS['BE_USER']` of the resume is the approver's, or nobody's in a
+     * worker. Core's backend layout lookup reads that ambient user (its
+     * workspace for the rootline overlay, its user TSconfig for page TSconfig),
+     * so the card's column name does not come from there: a different name
+     * at resume would bounce every approval of a move once (ADR-184).
+     */
+    #[Test]
+    public function theColumnNameDoesNotDependOnTheAmbientBackendUser(): void
+    {
+        $this->useSidebarLayout();
+        $this->connectionPool->getConnectionForTable('be_users')->update('be_users', [
+            'TSconfig' => 'page.mod.web_layout.BackendLayouts.sidebar.config.backend_layout.rows.1.columns.1.name = Andere Spalte',
+        ], ['uid' => 2]);
+        $arguments = ['uid' => self::ELEMENT_ON_OPEN, 'target_page' => self::PAGE_OPEN_TWO, 'column' => 100];
+        $acting    = $this->setUpBackendUser(1);
+        $acting->user['lang'] = 'de';
+        $context   = ToolExecutionContext::fromBackendUser($acting);
+
+        $atSuspend = $this->tool->previewCall($arguments, $context);
+        self::assertContains('Neu: Seite „Open two“, Spalte 100, als erstes Element', $atSuspend, implode("\n", $atSuspend));
+
+        // The resume request of an approver whose user TSconfig renames the column.
+        $this->flushRuntimeCache();
+        $ambient = $this->setUpBackendUser(2);
+        self::assertSame($atSuspend, $this->tool->previewCall($arguments, $context));
+        self::assertSame($ambient, $GLOBALS['BE_USER'], 'the preview must not replace the ambient user');
+
+        // A process without any ambient backend user.
+        $this->flushRuntimeCache();
+        unset($GLOBALS['BE_USER']);
+        self::assertSame($atSuspend, $this->tool->previewCall($arguments, $context));
+        self::assertArrayNotHasKey('BE_USER', $GLOBALS, 'the preview must not leave an ambient user behind');
     }
 
     #[Test]
@@ -372,5 +459,53 @@ final class MoveContentElementToolTest extends AbstractFunctionalTestCase
             ->fetchAllAssociative();
 
         return array_map(static fn(array $row): int => (int)($row['userid'] ?? 0), $rows);
+    }
+
+    /**
+     * Page "Open two" uses a backend layout from page TSconfig whose only
+     * column, 100, is named "Seitenleiste".
+     */
+    private function useSidebarLayout(): void
+    {
+        $this->connectionPool->getConnectionForTable('pages')->update('pages', [
+            'backend_layout' => 'pagets__sidebar',
+            'TSconfig'       => implode("\n", [
+                'mod.web_layout.BackendLayouts.sidebar {',
+                '  title = Sidebar',
+                '  config.backend_layout {',
+                '    colCount = 1',
+                '    rowCount = 1',
+                '    rows.1.columns.1 {',
+                '      name = Seitenleiste',
+                '      colPos = 100',
+                '    }',
+                '  }',
+                '}',
+            ]),
+        ], ['uid' => self::PAGE_OPEN_TWO]);
+    }
+
+    /**
+     * What a new request starts with: no runtime cache from an earlier one.
+     */
+    private function flushRuntimeCache(): void
+    {
+        $this->getService(CacheManager::class)->getCache('runtime')->flush();
+    }
+
+    /**
+     * The preview as the run's acting user reads it, in that user's language
+     * (ADR-213).
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return list<string>
+     */
+    private function previewIn(string $language, array $arguments): array
+    {
+        $admin               = $this->setUpBackendUser(1);
+        $admin->user['lang'] = $language;
+
+        return $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($admin));
     }
 }

@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Error;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\CopyRecordTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\FailsLikeAFlashMessageHook;
@@ -36,6 +37,7 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 #[CoversClass(CopyRecordTool::class)]
 final class CopyRecordToolTest extends AbstractFunctionalTestCase
 {
+    use AssertsGermanPreviewTrait;
     use RegistersTheFailingHookTrait;
     use RegistersTheInterferingHookTrait;
 
@@ -121,7 +123,7 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
 
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('default');
 
-        $this->tool = new CopyRecordTool($this->connectionPool);
+        $this->tool = new CopyRecordTool($this->connectionPool, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
     }
 
     protected function tearDown(): void
@@ -409,27 +411,37 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
     {
         $before = $this->rowCount('tt_content', []);
 
-        $lines = $this->tool->previewCall(
-            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'target_page' => self::TARGET_PAGE, 'after_uid' => self::ANCHOR],
-            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
-        );
+        $arguments = ['table' => 'tt_content', 'uid' => self::ELEMENT, 'target_page' => self::TARGET_PAGE, 'after_uid' => self::ANCHOR];
 
         // Core's handling of translations changed in 13.4.25; the card
         // states the rule of the core it runs on.
         $version = new Typo3Version();
-        $rule    = $version->getMajorVersion() === 13 && version_compare($version->getVersion(), '13.4.25', '<')
-            ? 'this TYPO3 release (before 13.4.25) asks no site, copies a translation onto a target page translated into '
-                . 'its language and drops the others without an error'
-            : 'a translation is copied only into a site that has its language and onto a target page translated into it '
-                . '— where core refuses one, the copy is taken back — and none outside a site';
+        $oldCore = $version->getMajorVersion() === 13 && version_compare($version->getVersion(), '13.4.25', '<');
 
         self::assertSame([
-            'Copy tt_content [20] "Original", language 0',
-            'to: page [3] "Target", column 2, directly after element [22] "Anchor"',
-            'with its 1 translation(s), as far as core copies them to the target: ' . $rule
-            . '; the answer says how many were copied',
-            'visibility: the copy and every copied translation are hidden — a human must unhide them before anyone sees them',
-        ], $lines);
+            'Copy content element',
+            'Content element: “Original”',
+            'Language: default language',
+            'Copy to: page “Target”, column ' . $this->tcaItemLabelIn('en', 'tt_content', 'colPos', '2') . ', directly after “Anchor”',
+            $oldCore
+                ? 'Translations: 1. This TYPO3 version copies a translation only onto a target page translated into its language and leaves out the others without a message. The result says how many were copied.'
+                : 'Translations: 1. Each is copied only into a website that has its language and onto a target page translated into it; where one cannot be placed, the whole copy is taken back. Outside a website none is copied. The result says how many were copied.',
+            'Visibility: hidden at first. The copy and every copied translation have to be made visible by a person.',
+            'Technical details: table tt_content, UID 20, language UID 0, target page UID 3, column (colPos) 2, preceding content element UID 22',
+        ], $this->previewIn('en', $arguments));
+        $german = $this->previewIn('de', $arguments);
+        self::assertSame([
+            'Inhaltselement kopieren',
+            'Inhaltselement: „Original“',
+            'Sprache: Standardsprache',
+            'Kopieren nach: Seite „Target“, Spalte ' . $this->tcaItemLabelIn('de', 'tt_content', 'colPos', '2') . ', direkt nach „Anchor“',
+            $oldCore
+                ? 'Übersetzungen: 1. Diese TYPO3-Version kopiert eine Übersetzung nur auf eine Zielseite, die in ihre Sprache übersetzt ist, und lässt die übrigen ohne Meldung weg. Das Ergebnis nennt, wie viele kopiert wurden.'
+                : 'Übersetzungen: 1. Jede wird nur in eine Website kopiert, die ihre Sprache hat, und nur auf eine Zielseite, die in diese Sprache übersetzt ist; lässt sich eine nicht einordnen, wird die ganze Kopie zurückgenommen. Außerhalb einer Website wird keine kopiert. Das Ergebnis nennt, wie viele kopiert wurden.',
+            'Sichtbarkeit: zunächst verborgen. Die Kopie und jede kopierte Übersetzung muss von einer Person sichtbar gemacht werden.',
+            'Technische Details: Tabelle tt_content, UID 20, Sprach-UID 0, Zielseite UID 3, Spalte (colPos) 2, vorangehendes Inhaltselement UID 22',
+        ], $german);
+        self::assertGermanEditorLines($german);
         self::assertSame($before, $this->rowCount('tt_content', []));
     }
 
@@ -442,12 +454,27 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
             't3ver_wsid' => 1, 't3ver_oid' => 0, 't3ver_state' => 1,
         ]);
 
-        $lines = $this->tool->previewCall(
-            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'target_page' => self::TARGET_PAGE],
-            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        self::assertStringStartsWith(
+            'Translations: 1.',
+            $this->previewIn('en', ['table' => 'tt_content', 'uid' => self::ELEMENT, 'target_page' => self::TARGET_PAGE])[4] ?? '',
         );
+    }
 
-        self::assertStringStartsWith('with its 1 translation(s),', $lines[2]);
+    #[Test]
+    public function thePreviewOfAPageCopyNamesWhatComesAlongAndWhatDoesNot(): void
+    {
+        $german = $this->previewIn('de', ['table' => 'pages', 'uid' => self::PAGE_TO_COPY, 'target_page' => self::TARGET_PAGE]);
+
+        self::assertSame([
+            'Seite kopieren',
+            'Seite: „Template page“',
+            'Sprache: Standardsprache',
+            'Kopieren nach: unter „Target“ als erste Unterseite',
+            'Wird mitkopiert: Inhaltselemente: 1 sowie die übrigen auf der Seite gespeicherten Datensätze. Unterseiten werden nicht kopiert.',
+            'Sichtbarkeit: zunächst verborgen. Die Kopie und jede kopierte Übersetzung muss von einer Person sichtbar gemacht werden.',
+            'Technische Details: Tabelle pages, UID 5, Sprach-UID 0, Zielseite UID 3',
+        ], $german);
+        self::assertGermanEditorLines($german);
     }
 
     #[Test]
@@ -541,5 +568,21 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
         }
 
         return (int)$queryBuilder->count('uid')->from($table)->where(...$constraints)->executeQuery()->fetchOne();
+    }
+
+    /**
+     * The preview as the run's acting user reads it, in that user's language
+     * (ADR-213).
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return list<string>
+     */
+    private function previewIn(string $language, array $arguments): array
+    {
+        $admin               = $this->setUpBackendUser(1);
+        $admin->user['lang'] = $language;
+
+        return $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($admin));
     }
 }

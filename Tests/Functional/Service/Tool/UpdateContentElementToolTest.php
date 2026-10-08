@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdateContentElementTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\InterferesWithAnUpdateHook;
@@ -33,6 +34,7 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 #[CoversClass(UpdateContentElementTool::class)]
 final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
 {
+    use AssertsGermanPreviewTrait;
     use RegistersTheInterferingHookTrait;
 
     /** @var non-empty-string[] */
@@ -102,7 +104,7 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
 
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('default');
 
-        $this->tool = new UpdateContentElementTool($this->connectionPool);
+        $this->tool = new UpdateContentElementTool($this->connectionPool, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
     }
 
     protected function tearDown(): void
@@ -178,38 +180,38 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * @return iterable<string, array{string, non-empty-string}>
+     * @return iterable<string, array{string, array{int, string, string}}>
      */
     public static function changesAReaderCannotSee(): iterable
     {
         // Shown as "Old header" → "Old header", each of these would hide the
         // change it is.
-        yield 'a no-break space for a space' => ["Old\u{00A0}header", 'header: changed from character 4: " " → "\\u{00A0}"'];
-        yield 'a zero-width space, no whitespace to the excerpt' => ["Old header\u{200B}", 'header: changed from character 11: (nothing) → "\\u{200B}"'];
-        yield 'a bidi isolate' => ["Old header\u{2066}", 'header: changed from character 11: (nothing) → "\\u{2066}"'];
-        yield 'a tag character' => ["Old header\u{E0041}", 'header: changed from character 11: (nothing) → "\\u{E0041}"'];
-        yield 'a soft hyphen' => ["Old head\u{00AD}er", 'header: changed from character 9: (nothing) → "\\u{00AD}"'];
-        yield 'a backspace' => ["Old header\x08", 'header: changed from character 11: (nothing) → "\\u{0008}"'];
+        yield 'a no-break space for a space' => ["Old\u{00A0}header", [4, '“ ”', '“\\u{00A0}”']];
+        yield 'a zero-width space, no whitespace to the excerpt' => ["Old header\u{200B}", [11, '(nothing)', '“\\u{200B}”']];
+        yield 'a bidi isolate' => ["Old header\u{2066}", [11, '(nothing)', '“\\u{2066}”']];
+        yield 'a tag character' => ["Old header\u{E0041}", [11, '(nothing)', '“\\u{E0041}”']];
+        yield 'a soft hyphen' => ["Old head\u{00AD}er", [9, '(nothing)', '“\\u{00AD}”']];
+        yield 'a backspace' => ["Old header\x08", [11, '(nothing)', '“\\u{0008}”']];
         // And a value that spells an escape out is not taken for one.
         yield 'a spelled-out escape beside a real one' => [
             "Old header\\u{00A0}\u{00A0}",
-            'header: changed from character 11: (nothing) → "\\\\u{00A0}\\u{00A0}"',
+            [11, '(nothing)', '“\\\\u{00A0}\\u{00A0}”'],
         ];
     }
 
     /**
-     * @param non-empty-string $expected
+     * @param array{int, string, string} $expected the character the change starts at, the old and the new section
      */
     #[Test]
     #[DataProvider('changesAReaderCannotSee')]
-    public function thePreviewNamesACharacterAReaderCannotSee(string $header, string $expected): void
+    public function thePreviewNamesACharacterAReaderCannotSee(string $header, array $expected): void
     {
-        $lines = $this->tool->previewCall(
-            ['uid' => self::TEXT, 'fields' => ['header' => $header]],
-            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
-        );
+        [$from, $old, $new] = $expected;
 
-        self::assertStringStartsWith($expected, $lines[1]);
+        self::assertSame(
+            sprintf('%s: changed from character %d on, currently %s, proposed %s', $this->headerLabelIn('en'), $from, $old, $new),
+            $this->previewIn('en', ['uid' => self::TEXT, 'fields' => ['header' => $header]])[5] ?? null,
+        );
     }
 
     #[Test]
@@ -345,17 +347,64 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function thePreviewShowsEveryColumnBeforeAndAfterAndWritesNothing(): void
     {
-        $lines = $this->tool->previewCall(
-            ['uid' => self::TEXT, 'fields' => ['header' => 'New header', 'bodytext' => 'Old body']],
-            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
-        );
+        $arguments = ['uid' => self::TEXT, 'fields' => ['header' => 'New header', 'bodytext' => 'Old body']];
 
         self::assertSame([
-            'Content element [20] "Old header" (text) on page [1] "Open", language 0 — 2 field(s):',
-            'header: "Old header" → "New header"',
-            'bodytext: unchanged ("Old body")',
-        ], $lines);
+            'Change content element',
+            'Content element: “Old header”',
+            'Content type: ' . $this->typeLabelIn('en'),
+            'Location: on page “Open”',
+            'Language: default language',
+            $this->headerLabelIn('en') . ': currently “Old header”, proposed “New header”',
+            $this->bodytextLabelIn('en') . ': unchanged, “Old body”',
+            'Technical details: table tt_content, UID 20, page UID 1, language UID 0, content type text, fields header, bodytext',
+        ], $this->previewIn('en', $arguments));
+        $german = $this->previewIn('de', $arguments);
+        self::assertSame([
+            'Inhaltselement ändern',
+            'Inhaltselement: „Old header“',
+            'Inhaltstyp: ' . $this->typeLabelIn('de'),
+            'Ort: auf der Seite „Open“',
+            'Sprache: Standardsprache',
+            $this->headerLabelIn('de') . ': aktuell „Old header“, Vorschlag „New header“',
+            $this->bodytextLabelIn('de') . ': unverändert, „Old body“',
+            'Technische Details: Tabelle tt_content, UID 20, Seite UID 1, Sprach-UID 0, Inhaltstyp text, Felder header, bodytext',
+        ], $german);
+        self::assertGermanEditorLines($german);
         self::assertSame('Old header', $this->elementRow(self::TEXT)['header'] ?? null);
+    }
+
+    /**
+     * The record type's `columnsOverrides` label wins over the column's own,
+     * pinned with a literal so the expectation is not computed the way the
+     * code computes it; a label reference that resolves to nothing falls back
+     * to the column name instead of printing the key (ADR-213).
+     */
+    #[Test]
+    public function thePreviewNamesAFieldByTheLabelOfTheElementsType(): void
+    {
+        $tca = $GLOBALS['TCA'];
+        self::setTcaAt('Pinned headline label', 'tt_content', 'types', 'text', 'columnsOverrides', 'header', 'label');
+        self::setTcaAt('nrllm_missing.domain:nothing', 'tt_content', 'types', 'text', 'columnsOverrides', 'bodytext', 'label');
+        self::setTcaAt('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:nrllm.missing', 'tt_content', 'columns', 'bodytext', 'label');
+
+        try {
+            $lines = $this->previewIn('en', ['uid' => self::TEXT, 'fields' => ['header' => 'New header', 'bodytext' => 'New body']]);
+        } finally {
+            $GLOBALS['TCA'] = $tca;
+        }
+
+        self::assertSame('Pinned headline label: currently “Old header”, proposed “New header”', $lines[5] ?? null);
+        self::assertSame('bodytext: currently “Old body”, proposed “New body”', $lines[6] ?? null);
+    }
+
+    #[Test]
+    public function thePreviewOfATranslationSaysSo(): void
+    {
+        $german = $this->previewIn('de', ['uid' => self::TRANSLATION, 'fields' => ['header' => 'Neue Überschrift']]);
+
+        self::assertSame('Sprache: Übersetzung, nicht die Standardsprache', $german[4] ?? null);
+        self::assertStringContainsString('Sprach-UID 1', $german[6] ?? '');
     }
 
     #[Test]
@@ -366,13 +415,23 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
             ->update('tt_content', ['bodytext' => $body], ['uid' => self::TEXT]);
         $changed = substr_replace($body, '[X](https://evil.example)', 180, 0);
 
-        $lines = $this->tool->previewCall(
-            ['uid' => self::TEXT, 'fields' => ['bodytext' => $changed]],
-            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
-        );
+        $german = $this->previewIn('de', ['uid' => self::TEXT, 'fields' => ['bodytext' => $changed]]);
 
-        self::assertStringStartsWith('bodytext: changed from character 181: (nothing) → "[X](https://evil.example)"', $lines[1]);
-        self::assertStringContainsString('sha256:' . substr(hash('sha256', $changed), 0, 12), $lines[1]);
+        self::assertSame(
+            $this->bodytextLabelIn('de') . ': geändert ab Zeichen 181, aktuell (nichts), Vorschlag „[X](https://evil.example)“',
+            $german[5] ?? null,
+        );
+        self::assertStringEndsWith(
+            sprintf(
+                'Felder bodytext, bodytext vorher: %d Zeichen, sha256:%s; nachher: %d Zeichen, sha256:%s',
+                mb_strlen($body),
+                substr(hash('sha256', $body), 0, 12),
+                mb_strlen($changed),
+                substr(hash('sha256', $changed), 0, 12),
+            ),
+            $german[6] ?? '',
+        );
+        self::assertGermanEditorLines($german);
     }
 
     #[Test]
@@ -412,5 +471,36 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
         self::assertIsArray($row);
 
         return $row;
+    }
+
+    /**
+     * The preview as the run's acting user reads it, in that user's language
+     * (ADR-213).
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return list<string>
+     */
+    private function previewIn(string $language, array $arguments): array
+    {
+        $admin               = $this->setUpBackendUser(1);
+        $admin->user['lang'] = $language;
+
+        return $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($admin));
+    }
+
+    private function headerLabelIn(string $language): string
+    {
+        return $this->tcaColumnLabelIn($language, 'tt_content', 'header', 'text');
+    }
+
+    private function bodytextLabelIn(string $language): string
+    {
+        return $this->tcaColumnLabelIn($language, 'tt_content', 'bodytext', 'text');
+    }
+
+    private function typeLabelIn(string $language): string
+    {
+        return $this->tcaItemLabelIn($language, 'tt_content', 'CType', 'text');
     }
 }

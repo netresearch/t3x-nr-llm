@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetPageSocialImageTool;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -45,6 +46,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 #[CoversClass(SetPageSocialImageTool::class)]
 final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
 {
+    use AssertsGermanPreviewTrait;
+
     protected array $coreExtensionsToLoad = [
         'extbase',
         'fluid',
@@ -172,7 +175,7 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
 
         $gate = $this->get(FalStorageGate::class);
         self::assertInstanceOf(FalStorageGate::class, $gate);
-        $this->tool = new SetPageSocialImageTool($this->connectionPool, $gate);
+        $this->tool = new SetPageSocialImageTool($this->connectionPool, $gate, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
     }
 
     protected function tearDown(): void
@@ -362,6 +365,22 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
             static fn(array $row): int => $row['uid_local'],
             array_filter($this->references($field, $pageUid), static fn(array $row): bool => $row['deleted'] === 0),
         ));
+    }
+
+    /**
+     * The preview as the run's acting user reads it, in that user's language
+     * (ADR-213).
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return list<string>
+     */
+    private function previewIn(string $language, array $arguments): array
+    {
+        $admin               = $this->actor(1);
+        $admin->user['lang'] = $language;
+
+        return $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($admin));
     }
 
     private function actor(int $uid): BackendUserAuthentication
@@ -682,16 +701,28 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
     {
         self::assertFalse($this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE])->isError);
 
-        $lines = $this->tool->previewCall(
-            ['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_TWO, 'replace' => true],
-            ToolExecutionContext::fromBackendUser($this->actor(1)),
-        );
+        $arguments = ['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_TWO, 'replace' => true];
 
-        self::assertStringContainsString('Open page', $lines[0]);
-        self::assertStringContainsString('og_image', $lines[0]);
-        self::assertStringContainsString('one.jpg', $lines[1], 'the file referenced now');
-        self::assertStringContainsString('two.jpg', $lines[2], 'the file that would be referenced');
-        self::assertStringContainsString('REPLACES', implode("\n", $lines));
+        self::assertSame([
+            'Change the image for social media (Open Graph)',
+            'Page: “Open page”',
+            'Language: default language',
+            'Currently: “one.jpg”',
+            'Proposed: “two.jpg”, stored at “/docs/two.jpg”',
+            'Important: the current image is removed from the page (recoverable from the recycler), and the new file takes its place.',
+            'Technical details: page UID 1, fields og_image, file UID 2, file references UID 1',
+        ], $this->previewIn('en', $arguments));
+        $german = $this->previewIn('de', $arguments);
+        self::assertSame([
+            'Bild für soziale Medien (Open Graph) ändern',
+            'Seite: „Open page“',
+            'Sprache: Standardsprache',
+            'Aktuell: „one.jpg“',
+            'Vorschlag: „two.jpg“, gespeichert unter „/docs/two.jpg“',
+            'Wichtig: Das bisherige Bild wird von der Seite entfernt (wiederherstellbar über den Papierkorb), die neue Datei tritt an seine Stelle.',
+            'Technische Details: Seite UID 1, Felder og_image, Datei UID 2, Dateiverweise UID 1',
+        ], $german);
+        self::assertGermanEditorLines($german);
 
         // A pure function of the arguments and the current state: nothing was
         // written by asking.
@@ -701,14 +732,17 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function thePreviewOfAnEmptyFieldSaysSo(): void
     {
-        $lines = $this->tool->previewCall(
-            ['page' => self::PAGE_OPEN, 'field' => 'twitter_image', 'file' => self::FILE_TWO],
-            ToolExecutionContext::fromBackendUser($this->actor(1)),
-        );
+        $german = $this->previewIn('de', ['page' => self::PAGE_OPEN, 'field' => 'twitter_image', 'file' => self::FILE_TWO]);
 
-        self::assertStringContainsString('(none)', $lines[1]);
-        self::assertStringContainsString('two.jpg', $lines[2]);
-        self::assertStringNotContainsString('REPLACES', implode("\n", $lines));
+        self::assertSame([
+            'Bild für X (Twitter) ändern',
+            'Seite: „Open page“',
+            'Sprache: Standardsprache',
+            'Aktuell: kein Bild',
+            'Vorschlag: „two.jpg“, gespeichert unter „/docs/two.jpg“',
+            'Technische Details: Seite UID 1, Felder twitter_image, Datei UID 2',
+        ], $german);
+        self::assertGermanEditorLines($german);
     }
 
     #[Test]

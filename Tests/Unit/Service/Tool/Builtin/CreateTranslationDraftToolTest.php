@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Service\Feature\TranslationServiceInterface;
 use Netresearch\NrLlm\Service\Glossary\GlossaryResolverInterface;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateTranslationDraftTool;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -23,6 +24,7 @@ use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageService;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Site\SiteFinder;
 
 /**
@@ -80,6 +82,7 @@ final class CreateTranslationDraftToolTest extends AbstractUnitTestCase
             self::createStub(TranslationServiceInterface::class),
             self::createStub(SiteFinder::class),
             self::createStub(GlossaryResolverInterface::class),
+            new ApprovalPreviewTranslator(self::createStub(LanguageServiceFactory::class)),
         );
     }
 

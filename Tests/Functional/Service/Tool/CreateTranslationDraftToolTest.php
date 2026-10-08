@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Service\Feature\TranslationService;
 use Netresearch\NrLlm\Service\Glossary\GlossaryResolver;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateTranslationDraftTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
@@ -62,6 +63,7 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 #[CoversClass(CreateTranslationDraftTool::class)]
 final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
 {
+    use AssertsGermanPreviewTrait;
     use RegistersTheFailingHookTrait;
 
     /** @var non-empty-string[] */
@@ -566,15 +568,18 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         self::assertFalse($first->isError, $first->content);
         $oldUid = (int)$this->translationOf('pages', self::CHILD_PAGE, 'l10n_parent')['uid'];
 
-        $lines = $this->tool->previewCall(
-            ['table' => 'pages', 'uid' => self::CHILD_PAGE, 'language' => self::GERMAN, 'overwrite' => true],
-            ToolExecutionContext::fromBackendUser($admin),
-        );
+        $german   = $this->previewIn('de', ['table' => 'pages', 'uid' => self::CHILD_PAGE, 'language' => self::GERMAN, 'overwrite' => true]);
+        $oldTitle = $this->row('pages', $oldUid)['title'] ?? null;
+        self::assertIsString($oldTitle);
 
-        self::assertCount(5, $lines);
-        self::assertStringContainsString('Translate pages [2] "Child" into language 1', $lines[0]);
-        self::assertStringContainsString('DISCARDS the existing translation [' . $oldUid . ']', $lines[1]);
-        self::assertStringContainsString('hidden', $lines[4]);
+        self::assertSame('Übersetzung als Entwurf anlegen', $german[0] ?? null);
+        self::assertSame('Seite: „Child“', $german[1] ?? null);
+        self::assertSame('Zielsprache: „German“', $german[2] ?? null);
+        self::assertContains('Wichtig: Die vorhandene Übersetzung „' . $oldTitle . '“ wird verworfen; ihr Inhalt wird gelöscht und ersetzt.', $german);
+        self::assertContains('Sichtbarkeit: zunächst verborgen', $german);
+        self::assertStringStartsWith('Technische Details: Tabelle pages, UID 2, Sprach-UID 1, ', $german[array_key_last($german)]);
+        self::assertStringEndsWith('vorhandene Übersetzung UID ' . $oldUid, $german[array_key_last($german)]);
+        self::assertGermanEditorLines($german, [$this->tcaLabelIn('de', 'pages', 'columns', 'title', 'label')]);
 
         // A preview is a read: the translation it says it would discard is
         // still there afterwards.
@@ -584,16 +589,11 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function thePreviewWithoutADiscardHasNoDiscardLine(): void
     {
-        $admin = $this->setUpBackendUser(1);
+        $lines = $this->previewIn('en', ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN]);
 
-        $lines = $this->tool->previewCall(
-            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN],
-            ToolExecutionContext::fromBackendUser($admin),
-        );
-
-        self::assertCount(4, $lines);
+        self::assertCount(9, $lines);
         foreach ($lines as $line) {
-            self::assertStringNotContainsString('DISCARDS', $line);
+            self::assertStringNotContainsString('discarded', $line);
         }
     }
 
@@ -605,18 +605,36 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function thePreviewNamesTheMachineTranslationAndTheTranslator(): void
     {
-        $admin = $this->setUpBackendUser(1);
-
-        $lines = $this->tool->previewCall(
-            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN, 'translator' => 'deepl'],
-            ToolExecutionContext::fromBackendUser($admin),
-        );
+        $arguments = ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN, 'translator' => 'deepl'];
+        $english   = $this->previewIn('en', $arguments);
+        $german    = $this->previewIn('de', $arguments);
 
         self::assertSame(
-            'text: MACHINE-TRANSLATED by DeepL (deepl) from "en" to "de" — header, bodytext; the site keeps no '
-            . 'glossary for the pair',
-            $lines[2] ?? null,
+            sprintf(
+                'Machine translation by DeepL from “English” into “German”: %s, %s',
+                $this->tcaLabelIn('en', 'tt_content', 'columns', 'header', 'label'),
+                $this->tcaLabelIn('en', 'tt_content', 'columns', 'bodytext', 'label'),
+            ),
+            $english[4] ?? null,
         );
+        self::assertSame('Glossary: the website keeps none for this language pair', $english[5] ?? null);
+        self::assertSame([
+            'Übersetzung als Entwurf anlegen',
+            'Inhaltselement: „Original“',
+            'Zielsprache: „German“',
+            'Neu: eine Kopie des Originals, als dessen Übersetzung verknüpft',
+            sprintf(
+                'Maschinelle Übersetzung durch DeepL von „English“ nach „German“: %s, %s',
+                $this->tcaLabelIn('de', 'tt_content', 'columns', 'header', 'label'),
+                $this->tcaLabelIn('de', 'tt_content', 'columns', 'bodytext', 'label'),
+            ),
+            'Glossar: Die Website führt keines für dieses Sprachpaar',
+            'Sichtbarkeit: zunächst verborgen',
+            'Die Übersetzung ist nach dem Anlegen noch nicht öffentlich sichtbar. Sie muss erst von einer Person sichtbar gemacht werden.',
+        ], array_slice($german, 0, 8));
+        self::assertStringStartsWith('Technische Details: Tabelle tt_content, UID ' . self::ELEMENT . ', Sprach-UID 1, Website ', $german[8] ?? '');
+        self::assertStringEndsWith('Übersetzungsdienst deepl, Sprachcodes en nach de, Felder header, bodytext', $german[8] ?? '');
+        self::assertGermanEditorLines($german);
         self::assertSame([], $this->deepl->calls);
     }
 
@@ -628,14 +646,9 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
     public function thePreviewNamesTheSiteGlossaryOnlyWhenThereIsOne(): void
     {
         $this->insertGlossary('Original = Ursprung');
-        $admin = $this->setUpBackendUser(1);
+        $lines = $this->previewIn('en', ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN]);
 
-        $lines = $this->tool->previewCall(
-            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN],
-            ToolExecutionContext::fromBackendUser($admin),
-        );
-
-        self::assertStringEndsWith('the site glossary for the pair applies (1 term(s))', $lines[2] ?? '');
+        self::assertSame("Glossary: the website's glossary for this language pair applies (terms: 1)", $lines[5] ?? null);
     }
 
     /**
@@ -812,7 +825,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         $lines  = $this->tool->previewCall(['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN], $context);
         $result = $this->tool->execute(['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN], $context);
 
-        self::assertContains('not translated, because you may not edit them: subheader', $lines);
+        self::assertContains('Not translated, because you may not edit them: ' . $this->tcaLabelIn('en', 'tt_content', 'columns', 'subheader', 'label'), $lines);
         self::assertFalse($result->isError, $result->content);
         self::assertNotContains('Original subheader', array_column($this->llm->calls, 'text'));
         self::assertContains('Original', array_column($this->llm->calls, 'text'));
@@ -880,7 +893,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
             $GLOBALS['TCA'] = $tca;
         }
 
-        self::assertStringContainsString('— header, bodytext;', $lines[2] ?? '');
+        self::assertStringEndsWith(', fields header, bodytext', $lines[count($lines) - 1] ?? '');
         self::assertStringNotContainsString('subheader', $lines[2] ?? '');
     }
 
@@ -902,7 +915,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
             ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
         );
 
-        self::assertStringContainsString('— header, subheader, bodytext;', $lines[2] ?? '');
+        self::assertStringEndsWith(', fields header, subheader, bodytext', $lines[count($lines) - 1] ?? '');
     }
 
     /**
@@ -994,6 +1007,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
             ),
             $siteFinder,
             new GlossaryResolver($this->connectionPool),
+            new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)),
         );
     }
 
@@ -1056,5 +1070,21 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         self::assertIsArray($row, sprintf('%s [%d] must exist', $table, $uid));
 
         return $row;
+    }
+
+    /**
+     * The preview as the run's acting user reads it, in that user's language
+     * (ADR-213).
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return list<string>
+     */
+    private function previewIn(string $language, array $arguments): array
+    {
+        $admin               = $this->setUpBackendUser(1);
+        $admin->user['lang'] = $language;
+
+        return $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($admin));
     }
 }

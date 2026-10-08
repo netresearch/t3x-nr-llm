@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 use Doctrine\DBAL\Result;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateRecordDraftTool;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
@@ -38,6 +39,7 @@ use TYPO3\CMS\Core\Database\Query\Restriction\QueryRestrictionContainerInterface
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Localization\LanguageService;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Core\TypoScript\AST\Node\RootNode;
 use TYPO3\CMS\Core\TypoScript\PageTsConfig;
@@ -621,6 +623,7 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
         $tool = new CreateRecordDraftTool(
             self::createStub(ConnectionPool::class),
             new TableReadAccessService(),
+            new ApprovalPreviewTranslator(self::createStub(LanguageServiceFactory::class)),
             [],
             $throwing,
         );
@@ -756,9 +759,9 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
         return new CreateRecordDraftTool(
             $this->connectionPoolWithThePage(),
             new TableReadAccessService(),
+            new ApprovalPreviewTranslator(self::createStub(LanguageServiceFactory::class)),
             $writers,
             new ExtensionConfiguration(),
-            null,
             $typo3Version,
         );
     }
@@ -771,6 +774,7 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
         return new CreateRecordDraftTool(
             $this->connectionPoolWithThePage(),
             new TableReadAccessService(),
+            new ApprovalPreviewTranslator(self::createStub(LanguageServiceFactory::class)),
             [],
             $extensionConfiguration,
         );

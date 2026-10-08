@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Closure;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
@@ -254,28 +256,37 @@ trait WritesThroughDataHandlerTrait
     }
 
     /**
-     * How an approval card shows one field's change, bound to the WHOLE value.
+     * How an approval card shows one field's change, bound to the WHOLE value,
+     * in the acting user's language (ADR-213).
      *
-     * Two short values are shown in full, `"old" → "new"`. Where either is
-     * longer than the excerpt, or the two differ only in what the excerpt
-     * flattens (whitespace), showing two excerpts would hide the change: an
-     * appended link past the cut reads as "no change". So the line shows the
-     * section that differs — the common start and end stripped, with the
-     * character it starts at — and the length and a short hash of both whole
+     * Two short values are shown in full: the current one and the proposed
+     * one. Where either is longer than the excerpt, or the two differ only in
+     * what the excerpt flattens (whitespace), showing two excerpts would hide
+     * the change: an appended link past the cut reads as "no change". So the
+     * line shows the section that differs — the common start and end stripped,
+     * with the character it starts at — and a second part, meant for the
+     * technical details line, carries the length and a short hash of both whole
      * values. The hash is what makes the approval bind the whole value: a
-     * change anywhere in it changes the line, and ADR-184 compares the lines
+     * change anywhere in it changes the card, and ADR-184 compares the lines
      * when the run resumes.
+     *
+     * @param Closure(ApprovalPreviewLabel, int|string...): string $t
+     * @param Closure(string): string                              $q
+     * @param string                                               $name   the field as the editor knows it
+     * @param string                                               $column the field's internal name, for the technical part
+     *
+     * @return array{string, string|null} the editor's line, and the technical part or null
      */
-    private function beforeAfter(string $old, string $new): string
+    private function fieldChange(Closure $t, Closure $q, string $name, string $column, string $old, string $new): array
     {
         if ($old === $new) {
-            return sprintf('unchanged (%s)', $this->quoted($new));
+            return [$t(ApprovalPreviewLabel::FieldUnchanged, $name, $q($new)), null];
         }
 
         // Shown in full only where the card shows each value exactly as it is:
         // short, and nothing the excerpt would flatten or a reader could not see.
         if ($this->showsAsItIs($old) && $this->showsAsItIs($new)) {
-            return sprintf('%s → %s', $this->quoted($old), $this->quoted($new));
+            return [$t(ApprovalPreviewLabel::FieldChange, $name, $q($old), $q($new)), null];
         }
 
         // Split once: character-by-character mb_substr() is quadratic on a
@@ -298,16 +309,23 @@ trait WritesThroughDataHandlerTrait
             $suffix++;
         }
 
-        return sprintf(
-            'changed from character %d: %s → %s (before: %d characters, %s; after: %d characters, %s)',
-            $prefix + 1,
-            $this->section(implode('', array_slice($oldCharacters, $prefix, $oldLength - $prefix - $suffix))),
-            $this->section(implode('', array_slice($newCharacters, $prefix, $newLength - $prefix - $suffix))),
-            $oldLength,
-            $this->shortHash($old),
-            $newLength,
-            $this->shortHash($new),
-        );
+        return [
+            $t(
+                ApprovalPreviewLabel::FieldChangedFrom,
+                $name,
+                $prefix + 1,
+                $this->section($t, implode('', array_slice($oldCharacters, $prefix, $oldLength - $prefix - $suffix))),
+                $this->section($t, implode('', array_slice($newCharacters, $prefix, $newLength - $prefix - $suffix))),
+            ),
+            $t(
+                ApprovalPreviewLabel::TechnicalWholeValue,
+                $column,
+                $oldLength,
+                $this->shortHash($old),
+                $newLength,
+                $this->shortHash($new),
+            ),
+        ];
     }
 
     /**
@@ -327,11 +345,13 @@ trait WritesThroughDataHandlerTrait
      * The differing section of a value as the card shows it. Its whitespace
      * is made visible rather than collapsed: a change that IS whitespace must
      * not read as nothing.
+     *
+     * @param Closure(ApprovalPreviewLabel, int|string...): string $t
      */
-    private function section(string $part): string
+    private function section(Closure $t, string $part): string
     {
         if ($part === '') {
-            return '(nothing)';
+            return $t(ApprovalPreviewLabel::ValueNothing);
         }
 
         // A backslash is doubled first, so a value that spells out `\n` or
@@ -343,9 +363,9 @@ trait WritesThroughDataHandlerTrait
             $visible,
         ) ?? $visible;
 
-        return '"' . (mb_strlen($visible) > self::PREVIEW_EXCERPT_LENGTH
+        return $t(ApprovalPreviewLabel::ValueQuoted, mb_strlen($visible) > self::PREVIEW_EXCERPT_LENGTH
             ? mb_substr($visible, 0, self::PREVIEW_EXCERPT_LENGTH) . '…'
-            : $visible) . '"';
+            : $visible);
     }
 
     /**

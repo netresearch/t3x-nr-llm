@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\FetchExternalUrlTool;
 use Netresearch\NrLlm\Service\Tool\ToolApprovalRule;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
+use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\Web\ExternalFetchClientFactory;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -31,7 +32,9 @@ use ReflectionClass;
 #[CoversClass(FetchExternalUrlTool::class)]
 final class FetchExternalUrlToolTest extends AbstractFunctionalTestCase
 {
-    private ToolInterface $tool;
+    use AssertsGermanPreviewTrait;
+
+    private ToolInterface&ToolPreviewInterface $tool;
 
     protected function setUp(): void
     {
@@ -42,6 +45,37 @@ final class FetchExternalUrlToolTest extends AbstractFunctionalTestCase
         $tool = $registry->get('fetch_external_url');
         self::assertInstanceOf(FetchExternalUrlTool::class, $tool);
         $this->tool = $tool;
+    }
+
+    /**
+     * The card is in the acting user's language (ADR-213); a run without an
+     * acting user reads the English source texts.
+     */
+    #[Test]
+    public function thePreviewIsInTheActingUsersLanguage(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $admin               = $this->setUpBackendUser(1);
+        $admin->user['lang'] = 'de';
+        $arguments           = ['url' => 'https://Example.org/search?q=internal-secret&x=1'];
+
+        $german = $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($admin));
+
+        self::assertSame([
+            'Seite aus dem Internet abrufen',
+            'Adresse: https://Example.org/search?q=internal-secret&x=1',
+            'Server: example.org',
+            'Mit der Adresse gesendete Daten: q=internal-secret&x=1',
+        ], $german);
+        self::assertGermanLines($german, ['https://Example.org/search?q=internal-secret&x=1', 'example.org', 'q=internal-secret&x=1']);
+        self::assertStartsWithHeading($german, 'de');
+        self::assertStartsWithHeading($this->tool->previewCall($arguments, ToolExecutionContext::none()), 'en');
+        self::assertSame([
+            'Fetch a page from the internet',
+            'Address: https://Example.org/search?q=internal-secret&x=1',
+            'Host: example.org',
+            'Data sent with the address: q=internal-secret&x=1',
+        ], $this->tool->previewCall($arguments, ToolExecutionContext::none()));
     }
 
     #[Test]

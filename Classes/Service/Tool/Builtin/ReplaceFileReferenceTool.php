@@ -9,11 +9,14 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Closure;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -92,6 +95,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
     public function __construct(
         private ConnectionPool $connectionPool,
         private FalStorageGate $storageGate,
+        private ApprovalPreviewTranslator $translator,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -177,84 +181,86 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             return [$plan];
         }
 
-        $count = count($plan['references']);
+        $count   = count($plan['references']);
+        $remove  = $plan['file'] === null;
+        [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
+
+        // ADR-213, in the order of the editorial guidelines: what, where, the
+        // current file, the new state, the consequences.
         $lines = [
-            sprintf(
-                'tt_content [%d] "%s" on page [%d], field %s, reference [%d] (%d of %d):',
-                $plan['element'],
-                $this->excerpt($plan['header']),
-                $plan['page'],
-                $plan['field'],
-                $plan['reference'],
-                $plan['position'] + 1,
-                $count,
-            ),
+            $t($remove ? ApprovalPreviewLabel::ReplaceFileHeadingRemove : ApprovalPreviewLabel::ReplaceFileHeadingReplace),
+            $t(ApprovalPreviewLabel::ObjectContent, $q($plan['header'])),
+            $t(ApprovalPreviewLabel::LocationOnPage, $q($plan['pageTitle'])),
+            $t($plan['language'] === 0 ? ApprovalPreviewLabel::LanguageDefault : ApprovalPreviewLabel::LanguageTranslation),
+            $t(ApprovalPreviewLabel::FieldName, $this->translator->columnLabel($user, 'tt_content', $plan['field'])),
+            $t(ApprovalPreviewLabel::ReplaceFilePosition, $plan['position'] + 1, $count),
+        ];
+        $details = [
+            $t(ApprovalPreviewLabel::TechnicalRecord, 'tt_content', $plan['element']),
+            $t(ApprovalPreviewLabel::TechnicalPage, $plan['page']),
+            $t(ApprovalPreviewLabel::TechnicalLanguage, $plan['language']),
+            $t(ApprovalPreviewLabel::TechnicalFields, $plan['field']),
+            $t(ApprovalPreviewLabel::TechnicalFileReference, $plan['reference']),
+            $t(ApprovalPreviewLabel::TechnicalCurrentFile, $plan['oldFile']),
         ];
 
         if ($plan['file'] === null) {
-            $lines[] = sprintf('remove: file [%d] "%s" — the file itself stays', $plan['oldFile'], $this->excerpt($plan['oldFileName']));
-            $lines[] = sprintf('references in %s: %d → %d', $plan['field'], $count, $count - 1);
-            if ($plan['translated'] !== []) {
-                $lines[] = $this->translatedLine($plan['translated'], 'which core deletes with it');
+            $lines[] = $t(ApprovalPreviewLabel::ObjectFile, $q($plan['oldFileName']));
+            $lines[] = $t(ApprovalPreviewLabel::ReplaceFileAfterwards, $count - 1);
+            $lines[] = $t(ApprovalPreviewLabel::ReplaceFileFileStays);
+        } else {
+            $lines[] = $t(ApprovalPreviewLabel::ReplaceFileCurrent, $q($plan['oldFileName']));
+            $lines[] = $t(ApprovalPreviewLabel::ReplaceFileProposed, $q($plan['fileName']));
+            $details[] = $t(ApprovalPreviewLabel::TechnicalFile, $plan['file']);
+            // Nothing is carried over from the old reference; the card says
+            // which texts the new one has.
+            foreach (self::TEXT_FIELDS as $name) {
+                $label   = $t(match ($name) {
+                    'title'       => ApprovalPreviewLabel::FileFieldTitle,
+                    'alternative' => ApprovalPreviewLabel::FileFieldAlternative,
+                    default       => ApprovalPreviewLabel::FileFieldDescription,
+                });
+                $lines[] = array_key_exists($name, $plan['texts'])
+                    ? $label . ': ' . $q($plan['texts'][$name])
+                    : $t(ApprovalPreviewLabel::ReplaceFileTextOwn, $label);
             }
-
-            return $lines;
-        }
-
-        $lines[] = sprintf(
-            'file: [%d] "%s" → [%d] "%s"',
-            $plan['oldFile'],
-            $this->excerpt($plan['oldFileName']),
-            $plan['file'],
-            $this->excerpt($plan['fileName']),
-        );
-        foreach (self::TEXT_FIELDS as $name) {
-            $lines[] = array_key_exists($name, $plan['texts'])
-                ? sprintf('%s: %s', $name, $this->quoted($plan['texts'][$name]))
-                : sprintf("%s: the file's own (not carried over from the old reference)", $name);
         }
 
         if ($plan['translated'] !== []) {
-            $lines[] = $this->translatedLine(
-                $plan['translated'],
-                'which core deletes with the old reference; the translations get no reference to the new file',
-            );
+            [$translatedLines, $translatedDetails] = $this->translatedLines($t, $plan['translated'], $remove);
+            $lines   = [...$lines, ...$translatedLines];
+            $details = [...$details, ...$translatedDetails];
         }
+
+        $lines[] = $this->translator->technical($user, $details);
 
         return $lines;
     }
 
     /**
-     * The card line for the translated references core deletes along: where
-     * they sit, and what happens to the translated elements afterwards.
+     * The card lines for the translated references core deletes along — a
+     * consequence on its own line (rule 21) — and their technical details.
      *
+     * @param Closure(ApprovalPreviewLabel, int|string...): string            $t
      * @param non-empty-list<array{reference:int, element:int, language:int}> $translated
+     *
+     * @return array{list<string>, list<string>}
      */
-    private function translatedLine(array $translated, string $whatCoreDoes): string
+    private function translatedLines(Closure $t, array $translated, bool $remove): array
     {
-        $elements = array_values(array_unique(array_filter(
-            array_map(static fn(array $t): int => $t['element'], $translated),
-            static fn(int $element): bool => $element > 0,
-        )));
-        $orphans = count(array_filter($translated, static fn(array $t): bool => $t['element'] === 0));
-
-        $where = [];
-        if ($elements !== []) {
-            $where[] = 'on translated element(s) ' . implode(', ', array_map(static fn(int $element): string => '[' . $element . ']', $elements));
-        }
-
+        $lines   = [$t($remove ? ApprovalPreviewLabel::ReplaceFileTranslationsRemoved : ApprovalPreviewLabel::ReplaceFileTranslationsReplaced, count($translated))];
+        $orphans = count(array_filter($translated, static fn(array $reference): bool => $reference['element'] === 0));
         if ($orphans > 0) {
-            $where[] = sprintf('(%d of them on an element that is gone)', $orphans);
+            $lines[] = $t(ApprovalPreviewLabel::ReplaceFileOrphans, $orphans);
         }
 
-        return sprintf(
-            'with %d translated reference(s) %s %s, %s%s',
-            count($translated),
-            implode(', ', array_map(static fn(array $t): string => '[' . $t['reference'] . ']', $translated)),
-            implode(' ', $where),
-            $whatCoreDoes,
-            $elements === [] ? '' : "; each translated element's reference count is then updated",
-        );
+        $details  = [$t(ApprovalPreviewLabel::TechnicalTranslatedReferences, implode(', ', array_column($translated, 'reference')))];
+        $elements = array_values(array_unique(array_filter(array_column($translated, 'element'), static fn(int $element): bool => $element > 0)));
+        if ($elements !== []) {
+            $details[] = $t(ApprovalPreviewLabel::TechnicalTranslatedElements, implode(', ', $elements));
+        }
+
+        return [$lines, $details];
     }
 
     public function isEnabledByDefault(): bool
@@ -290,7 +296,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{reference:int, element:int, header:string, page:int, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>, translated:list<array{reference:int, element:int, language:int}>}|string
+     * @return array{reference:int, element:int, header:string, page:int, pageTitle:string, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>, translated:list<array{reference:int, element:int, language:int}>}|string
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
@@ -467,6 +473,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             'element'     => $elementUid,
             'header'      => self::toStr($element['header'] ?? ''),
             'page'        => self::toInt($page['uid'] ?? 0),
+            'pageTitle'   => self::toStr($page['title'] ?? ''),
             'field'       => $field,
             'language'    => self::toInt($reference['sys_language_uid'] ?? 0),
             'references'  => $references,
@@ -485,7 +492,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      * one DataHandler run, the datamap first and read back before the
      * cmdmap, as {@see SetPageSocialImageTool} does it.
      *
-     * @param array{reference:int, element:int, header:string, page:int, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>, translated:list<array{reference:int, element:int, language:int}>} $plan
+     * @param array{reference:int, element:int, header:string, page:int, pageTitle:string, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>, translated:list<array{reference:int, element:int, language:int}>} $plan
      */
     private function replace(array $plan, BackendUserAuthentication $user): ToolResult
     {
@@ -568,7 +575,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      * The reference deleted and the element's field set to the references
      * that remain, as the page module removes one.
      *
-     * @param array{reference:int, element:int, header:string, page:int, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>, translated:list<array{reference:int, element:int, language:int}>} $plan
+     * @param array{reference:int, element:int, header:string, page:int, pageTitle:string, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>, translated:list<array{reference:int, element:int, language:int}>} $plan
      */
     private function remove(array $plan, BackendUserAuthentication $user): ToolResult
     {

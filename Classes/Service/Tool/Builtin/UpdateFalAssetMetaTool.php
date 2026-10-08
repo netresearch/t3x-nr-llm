@@ -15,6 +15,8 @@ use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
@@ -173,6 +175,7 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
     public function __construct(
         private ConnectionPool $connectionPool,
         private FalStorageGate $storageGate,
+        private ApprovalPreviewTranslator $translator,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -310,18 +313,41 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
         /** @var array<string, string> $current */
         $current = $plan['current'];
 
-        $lines = [sprintf(
-            'File [%d] "%s" — metadata (default language):',
-            self::toInt($plan['uid']),
-            $this->excerpt(self::toStr($plan['fileName'])),
-        )];
+        [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
+
+        // ADR-213, in the order of the editorial guidelines: what, which file,
+        // its language, then each field's current and proposed value.
+        $lines = [
+            $t(ApprovalPreviewLabel::UpdateFileMetadataHeading),
+            $t(ApprovalPreviewLabel::ObjectFile, $q(self::toStr($plan['fileName']))),
+            $t(ApprovalPreviewLabel::LanguageDefault),
+        ];
+        $details = [
+            $t(ApprovalPreviewLabel::TechnicalFile, self::toInt($plan['uid'])),
+            $t(ApprovalPreviewLabel::TechnicalRecord, self::METADATA_TABLE, self::toInt($plan['metadataUid'])),
+            $t(ApprovalPreviewLabel::TechnicalFields, implode(', ', array_keys($values))),
+        ];
 
         foreach ($values as $field => $new) {
-            $old     = $current[$field] ?? '';
-            $lines[] = $old === $new
-                ? sprintf('%s: unchanged (%s)', $field, $this->quoted($new))
-                : sprintf('%s: %s → %s', $field, $this->quoted($old), $this->quoted($new));
+            [$line, $technical] = $this->fieldChange(
+                $t,
+                $q,
+                $t(match ($field) {
+                    self::TITLE       => ApprovalPreviewLabel::FileFieldTitle,
+                    self::DESCRIPTION => ApprovalPreviewLabel::FileFieldDescription,
+                    default           => ApprovalPreviewLabel::FileFieldCopyright,
+                }),
+                $field,
+                $current[$field] ?? '',
+                $new,
+            );
+            $lines[] = $line;
+            if ($technical !== null) {
+                $details[] = $technical;
+            }
         }
+
+        $lines[] = $this->translator->technical($user, $details);
 
         return $lines;
     }

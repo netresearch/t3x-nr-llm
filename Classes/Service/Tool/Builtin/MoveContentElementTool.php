@@ -15,6 +15,8 @@ use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -87,6 +89,7 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
 
     public function __construct(
         private ConnectionPool $connectionPool,
+        private ApprovalPreviewTranslator $translator,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -208,24 +211,31 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
             return [$plan];
         }
 
+        [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
+
+        // ADR-213, in the order of the editorial guidelines: what, which
+        // element, where it is now, where it goes.
+        $details = [
+            $t(ApprovalPreviewLabel::TechnicalRecord, self::TABLE, $plan['uid']),
+            $t(ApprovalPreviewLabel::TechnicalContentType, $plan['cType']),
+            $t(ApprovalPreviewLabel::TechnicalCurrentPage, $plan['sourcePage']),
+            $t(ApprovalPreviewLabel::TechnicalCurrentColumn, $plan['sourceColumn']),
+            $t(ApprovalPreviewLabel::TechnicalTargetPage, $plan['targetPage']),
+            $t(ApprovalPreviewLabel::TechnicalColumn, $plan['column']),
+        ];
+        if ($plan['afterUid'] > 0) {
+            $details[] = $t(ApprovalPreviewLabel::TechnicalAnchorElement, $plan['afterUid']);
+        }
+
         return [
-            sprintf('Content element [%d] "%s" (%s):', $plan['uid'], $this->excerpt($plan['header']), $plan['cType']),
-            sprintf('from: page [%d] "%s", column %d', $plan['sourcePage'], $this->excerpt($plan['sourceTitle']), $plan['sourceColumn']),
+            $t(ApprovalPreviewLabel::MoveContentHeading),
+            $t(ApprovalPreviewLabel::ObjectContent, $q($plan['header'])),
+            $t(ApprovalPreviewLabel::ContentType, $this->translator->itemLabel($user, self::TABLE, 'CType', $plan['cType'])),
+            $t(ApprovalPreviewLabel::MoveContentCurrent, $q($plan['sourceTitle']), $this->translator->contentColumnLabel($user, $plan['sourceColumn'])),
             $plan['afterUid'] > 0
-                ? sprintf(
-                    'to: page [%d] "%s", column %d, directly after element [%d] "%s"',
-                    $plan['targetPage'],
-                    $this->excerpt($plan['targetTitle']),
-                    $plan['column'],
-                    $plan['afterUid'],
-                    $this->excerpt($plan['afterHeader']),
-                )
-                : sprintf(
-                    'to: page [%d] "%s", column %d, first in the column',
-                    $plan['targetPage'],
-                    $this->excerpt($plan['targetTitle']),
-                    $plan['column'],
-                ),
+                ? $t(ApprovalPreviewLabel::MoveContentNewAfter, $q($plan['targetTitle']), $this->translator->contentColumnLabel($user, $plan['column']), $q($plan['afterHeader']))
+                : $t(ApprovalPreviewLabel::MoveContentNewFirst, $q($plan['targetTitle']), $this->translator->contentColumnLabel($user, $plan['column'])),
+            $this->translator->technical($user, $details),
         ];
     }
 

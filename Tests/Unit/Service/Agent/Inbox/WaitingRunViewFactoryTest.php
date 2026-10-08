@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\Tool\SchemaPropertyClassifier;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Tests\Unit\Language\EnglishPreviewTranslatorTrait;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\PreviewingApprovalTool;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -30,9 +31,11 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 #[CoversClass(WaitingRunViewFactory::class)]
 final class WaitingRunViewFactoryTest extends TestCase
 {
+    use EnglishPreviewTranslatorTrait;
+
     private function factory(ToolInterface ...$tools): WaitingRunViewFactory
     {
-        return new WaitingRunViewFactory(new ToolRegistry($tools), new SchemaPropertyClassifier(), new PendingTurnDigest());
+        return new WaitingRunViewFactory(new ToolRegistry($tools), new SchemaPropertyClassifier(), new PendingTurnDigest(), $this->englishTranslator());
     }
 
     /**

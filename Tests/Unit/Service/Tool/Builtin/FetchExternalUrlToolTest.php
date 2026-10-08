@@ -33,6 +33,7 @@ use Netresearch\NrLlm\Service\Tool\Web\HostResolverInterface;
 use Netresearch\NrLlm\Service\Tool\Web\HtmlTextExtractor;
 use Netresearch\NrLlm\Service\Tool\Web\IpAddressClassifier;
 use Netresearch\NrLlm\Service\Tool\Web\ProxyDetector;
+use Netresearch\NrLlm\Tests\Unit\Language\EnglishPreviewTranslatorTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -53,6 +54,8 @@ use TYPO3\CMS\Core\Site\SiteFinder;
 #[CoversClass(FetchExternalUrlTool::class)]
 final class FetchExternalUrlToolTest extends TestCase
 {
+    use EnglishPreviewTranslatorTrait;
+
     /** @var list<array{request: RequestInterface, options: array<string, mixed>}> */
     private array $sent = [];
 
@@ -155,7 +158,7 @@ final class FetchExternalUrlToolTest extends TestCase
             }
         };
 
-        return new FetchExternalUrlTool($guard, $clientFactory, new HtmlTextExtractor(), $fetchSettings, $clock);
+        return new FetchExternalUrlTool($guard, $clientFactory, new HtmlTextExtractor(), $fetchSettings, $this->englishTranslator(), $clock);
     }
 
     /**
@@ -501,10 +504,12 @@ final class FetchExternalUrlToolTest extends TestCase
         $lines = $this->tool([])->previewCall(['url' => 'https://Example.org/search?q=internal-secret&x=1'], ToolExecutionContext::none());
 
         self::assertSame([
-            'Fetches from the internet: https://Example.org/search?q=internal-secret&x=1',
-            'The request goes to the host example.org.',
-            'Query string sent with it: q=internal-secret&x=1',
+            'Fetch a page from the internet',
+            'Address: https://Example.org/search?q=internal-secret&x=1',
+            'Host: example.org',
+            'Data sent with the address: q=internal-secret&x=1',
         ], $lines);
+        self::assertSame('No data is sent with the address.', $this->tool([])->previewCall(['url' => 'https://example.org/'], ToolExecutionContext::none())[3] ?? null);
         self::assertSame(['No valid URL was given; the call will be refused.'], $this->tool([])->previewCall(['url' => ''], ToolExecutionContext::none()));
     }
 

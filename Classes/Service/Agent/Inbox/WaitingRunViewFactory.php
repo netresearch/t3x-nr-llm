@@ -16,6 +16,8 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\SchemaPropertyClassifier;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
@@ -39,20 +41,14 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  */
 final readonly class WaitingRunViewFactory
 {
-    /**
-     * A preview is withheld rather than shown when the viewer holds no
-     * permission on the record it describes. It replaces the preview lines, so
-     * the card states the gap instead of quietly rendering an empty section —
-     * the same reason a FAILED preview is a line and not a blank (ADR-136).
-     */
-    private const PREVIEW_WITHHELD = 'The preview is not shown: you hold no permission on the record it describes.';
-
     public function __construct(
         private ToolRegistry $registry,
         private SchemaPropertyClassifier $classifier,
         // The ONE digest definition (ADR-132), shared with ResumeCoordinator so
         // the value rendered here and the value verified there cannot drift.
         private PendingTurnDigest $digest,
+        // Words the withheld-preview line for the viewer (ADR-213).
+        private ApprovalPreviewTranslator $translator,
     ) {}
 
     /**
@@ -186,7 +182,14 @@ final readonly class WaitingRunViewFactory
                     // Flagged like a failed preview: both mean the approver is
                     // deciding without seeing what the write replaces, and the
                     // line itself says which of the two it is.
-                    $previewLines  = [self::PREVIEW_WITHHELD];
+                    // Withheld rather than shown when the viewer holds no
+                    // permission on the record it describes. It replaces the
+                    // preview lines, so the card states the gap instead of
+                    // quietly rendering an empty section — the same reason a
+                    // FAILED preview is a line and not a blank (ADR-136). It is
+                    // rendered here, for this viewer, and never persisted or
+                    // compared, so it is in the VIEWER's language (ADR-213).
+                    $previewLines  = [$this->translator->text($viewer, ApprovalPreviewLabel::CardWithheld)];
                     $previewFailed = true;
                 }
             }

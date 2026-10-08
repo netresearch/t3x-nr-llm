@@ -15,6 +15,8 @@ use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
@@ -107,6 +109,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
 
     public function __construct(
         private ConnectionPool $connectionPool,
+        private ApprovalPreviewTranslator $translator,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -331,30 +334,52 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             return [$plan];
         }
 
+        [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
+        $label   = fn(string $column): string => $this->translator->columnLabel($user, self::TABLE, $column, $plan['type']);
+
+        // ADR-213, in the order of the editorial guidelines: what, where, the
+        // whole of what comes into being — there is no "before" — and the
+        // consequences.
         $lines = [
-            ...$this->duplicateWarning($plan['page'], $plan['type'], $plan['header'], $plan['language']),
-            sprintf('New %s element on page [%d] "%s":', $plan['type'], $plan['page'], $this->excerpt($plan['pageTitle'])),
-            sprintf('header: %s', $this->quoted($plan['header'])),
-            $plan['bodytext'] === null
-                ? 'bodytext: (none)'
-                : sprintf('bodytext: %s', $this->quoted($plan['bodytext'])),
+            $t(ApprovalPreviewLabel::CreateContentHeading),
+            $t(ApprovalPreviewLabel::LocationOnPage, $q($plan['pageTitle'])),
+            $t(ApprovalPreviewLabel::ContentType, $this->translator->itemLabel($user, self::TABLE, 'CType', $plan['type'])),
+            $label('header') . ': ' . $q($plan['header']),
+            $label('bodytext') . ': ' . ($plan['bodytext'] === null ? $t(ApprovalPreviewLabel::ValueEmpty) : $q($plan['bodytext'])),
         ];
         // One line per further column, so the card shows the whole of what
         // would come into being — the point made above.
         $columns = $this->columnsOfType($plan['type']);
         foreach ($plan['fields'] as $column => $value) {
-            $lines[] = sprintf('%s: %s', $column, $this->quoted($this->shownValue($value, $columns[$column] ?? [])));
+            $lines[] = $label($column) . ': ' . $q($this->shownValue($value, $columns[$column] ?? []));
         }
 
-        $lines[] = sprintf(
-            'position: column %d, language %d, %s',
-            $plan['column'],
-            $plan['language'],
-            $plan['afterUid'] > 0
-                ? sprintf('directly after element [%d] "%s"', $plan['afterUid'], $this->excerpt($plan['afterHeader']))
-                : 'first in the column',
-        );
-        $lines[] = 'visibility: hidden — a human must unhide it before anyone sees it';
+        $lines[] = $plan['afterUid'] > 0
+            ? $t(ApprovalPreviewLabel::CreateContentPositionAfter, $this->translator->contentColumnLabel($user, $plan['column']), $q($plan['afterHeader']))
+            : $t(ApprovalPreviewLabel::CreateContentPositionFirst, $this->translator->contentColumnLabel($user, $plan['column']));
+        $lines[] = $t($plan['language'] === 0 ? ApprovalPreviewLabel::LanguageDefault : ApprovalPreviewLabel::LanguageTranslation);
+        $lines[] = $t(ApprovalPreviewLabel::VisibilityHiddenAtFirst);
+        $lines[] = $t(ApprovalPreviewLabel::CreateContentImpact);
+
+        $details = [
+            $t(ApprovalPreviewLabel::TechnicalPage, $plan['page']),
+            $t(ApprovalPreviewLabel::TechnicalContentType, $plan['type']),
+            $t(ApprovalPreviewLabel::TechnicalColumn, $plan['column']),
+            $t(ApprovalPreviewLabel::TechnicalLanguage, $plan['language']),
+        ];
+        if ($plan['afterUid'] > 0) {
+            $details[] = $t(ApprovalPreviewLabel::TechnicalAnchorElement, $plan['afterUid']);
+        }
+
+        $details[] = $t(ApprovalPreviewLabel::TechnicalFields, implode(', ', ['header', 'bodytext', ...array_keys($plan['fields'])]));
+
+        $twin = $this->twinOf($plan['page'], $plan['type'], $plan['header'], $plan['language']);
+        if ($twin !== null) {
+            $lines[]   = $t($twin['hidden'] ? ApprovalPreviewLabel::CreateContentDuplicateHidden : ApprovalPreviewLabel::CreateContentDuplicate);
+            $details[] = $t(ApprovalPreviewLabel::TechnicalExistingContent, $twin['uid']);
+        }
+
+        $lines[] = $this->translator->technical($user, $details);
 
         return $lines;
     }
@@ -796,9 +821,9 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
     }
 
     /**
-     * A warning line when the page already holds an element of the same type
-     * with the same header in the same language, hidden ones included;
-     * otherwise nothing.
+     * The element, if any, the page already holds with the same type and
+     * header in the same language, hidden ones included: the preview warns
+     * about it.
      *
      * The guard {@see CreatePageDraftTool} puts in front of a second page with
      * one title, for the record that follows it: in the demo a follow-up
@@ -818,9 +843,9 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      *
      * "Same" is the database's comparison, as for the page guard.
      *
-     * @return list<string>
+     * @return array{uid:int, hidden:bool}|null
      */
-    private function duplicateWarning(int $page, string $type, string $header, int $language): array
+    private function twinOf(int $page, string $type, string $header, int $language): ?array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
@@ -841,15 +866,10 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             ->fetchAssociative();
 
         if (!is_array($twin)) {
-            return [];
+            return null;
         }
 
-        return [sprintf(
-            'Warning: %s element [%d] with the same header already exists on this page%s. Approving creates a second element with that header.',
-            $type,
-            self::toInt($twin['uid'] ?? 0),
-            self::toInt($twin[$this->hiddenField()] ?? 0) === 1 ? ' (hidden)' : '',
-        )];
+        return ['uid' => self::toInt($twin['uid'] ?? 0), 'hidden' => self::toInt($twin[$this->hiddenField()] ?? 0) === 1];
     }
 
     /**

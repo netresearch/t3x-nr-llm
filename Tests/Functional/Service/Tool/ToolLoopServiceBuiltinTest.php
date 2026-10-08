@@ -30,6 +30,7 @@ use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateContentElementDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateTranslationDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchLogsTool;
@@ -63,6 +64,7 @@ use Netresearch\NrVault\Http\SecureHttpClientFactory;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionProperty;
 use RuntimeException;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -128,6 +130,23 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
         unset($GLOBALS['LANG']);
         $GLOBALS['BE_USER'] = $this->beUserBackup;
         parent::tearDown();
+    }
+
+    /**
+     * The card's own lines (a failed, empty or cut preview) are worded by the
+     * translator the container wires in; a loop without it would show their
+     * catalogue keys (ADR-213).
+     */
+    #[Test]
+    public function theContainerBuiltLoopWordsTheCardsOwnLines(): void
+    {
+        $loop = $this->get(ToolLoopService::class);
+        self::assertInstanceOf(ToolLoopService::class, $loop);
+
+        self::assertInstanceOf(
+            ApprovalPreviewTranslator::class,
+            (new ReflectionProperty(ToolLoopService::class, 'previewTranslator'))->getValue($loop),
+        );
     }
 
     #[Test]
@@ -228,7 +247,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
     #[Test]
     public function theWritingBuiltinSuspendsBeforeItExecutes(): void
     {
-        $tool = new UpdatePageMetadataTool($this->connectionPool);
+        $tool = new UpdatePageMetadataTool($this->connectionPool, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
         // It ships disabled, so the REAL availability service would not offer it.
         (new ToolStateRepository($this->connectionPool))->setEnabled('update_page_metadata', true);
 
@@ -255,7 +274,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
     #[Test]
     public function theSecondWritingBuiltinAlsoSuspendsBeforeItExecutes(): void
     {
-        $tool = new SetFileAlternativeTextTool($this->connectionPool, $this->getService(FalStorageGate::class));
+        $tool = new SetFileAlternativeTextTool($this->connectionPool, $this->getService(FalStorageGate::class), new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
         // It ships disabled, so the REAL availability service would not offer it.
         (new ToolStateRepository($this->connectionPool))->setEnabled('set_file_alternative_text', true);
 
@@ -285,7 +304,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
     #[Test]
     public function theMovingBuiltinSuspendsBeforeItExecutes(): void
     {
-        $tool = new MoveContentElementTool($this->connectionPool);
+        $tool = new MoveContentElementTool($this->connectionPool, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
         // It ships disabled, so the REAL availability service would not offer it.
         (new ToolStateRepository($this->connectionPool))->setEnabled('move_content_element', true);
 
@@ -310,7 +329,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
     #[Test]
     public function theContentCreatingBuiltinSuspendsBeforeItExecutes(): void
     {
-        $tool = new CreateContentElementDraftTool($this->connectionPool);
+        $tool = new CreateContentElementDraftTool($this->connectionPool, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
         // It ships disabled, so the REAL availability service would not offer it.
         (new ToolStateRepository($this->connectionPool))->setEnabled('create_content_element_draft', true);
 
@@ -335,7 +354,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
     {
         $siteFinder = $this->get(SiteFinder::class);
         self::assertInstanceOf(SiteFinder::class, $siteFinder);
-        $tool = new CreateTranslationDraftTool($this->connectionPool, self::createStub(TranslationServiceInterface::class), $siteFinder, self::createStub(GlossaryResolverInterface::class));
+        $tool = new CreateTranslationDraftTool($this->connectionPool, self::createStub(TranslationServiceInterface::class), $siteFinder, self::createStub(GlossaryResolverInterface::class), new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
         // It ships disabled, so the REAL availability service would not offer it.
         (new ToolStateRepository($this->connectionPool))->setEnabled('create_translation_draft', true);
 

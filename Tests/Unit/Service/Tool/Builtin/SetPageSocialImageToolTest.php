@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetPageSocialImageTool;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
@@ -23,6 +24,7 @@ use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageService;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 
 /**
  * Declarations and argument validation of the ninth writing tool (ADR-195).
@@ -63,7 +65,7 @@ final class SetPageSocialImageToolTest extends AbstractUnitTestCase
 
         // The gate is final and never reached here: every case refuses before
         // a file is resolved, so a gate without a storage repository suffices.
-        $this->tool = new SetPageSocialImageTool(self::createStub(ConnectionPool::class), new FalStorageGate());
+        $this->tool = new SetPageSocialImageTool(self::createStub(ConnectionPool::class), new FalStorageGate(), new ApprovalPreviewTranslator(self::createStub(LanguageServiceFactory::class)));
     }
 
     protected function tearDown(): void

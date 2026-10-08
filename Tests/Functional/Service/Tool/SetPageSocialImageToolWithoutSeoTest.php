@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetPageSocialImageTool;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -50,7 +51,7 @@ final class SetPageSocialImageToolWithoutSeoTest extends AbstractFunctionalTestC
 
         $gate = $this->get(FalStorageGate::class);
         self::assertInstanceOf(FalStorageGate::class, $gate);
-        $this->tool = new SetPageSocialImageTool($connectionPool, $gate);
+        $this->tool = new SetPageSocialImageTool($connectionPool, $gate, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
     }
 
     protected function tearDown(): void

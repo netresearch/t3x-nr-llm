@@ -14,6 +14,8 @@ use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
@@ -119,6 +121,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
         private ConnectionPool $connectionPool,
         private FalStorageGate $storageGate,
         private TableReadAccessService $tableAccess,
+        private ApprovalPreviewTranslator $translator,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -286,22 +289,32 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
         $recordUid = self::toInt($plan['record']['uid'] ?? 0);
         $existing  = count($this->existingReferenceUids($table, $recordUid, $plan['field']));
 
+        [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
+
+        // ADR-213, in the order of the editorial guidelines: what, where, the
+        // field before and after, the new file and its texts.
         $lines = [
-            sprintf('%s [%d] on page [%d]', $table, $recordUid, self::toInt($plan['record']['pid'] ?? 0)),
-            sprintf('field %s: %d reference(s) → %d, appended last', $plan['field'], $existing, $existing + 1),
-            sprintf(
-                'file [%d] "%s" (%s)',
-                self::toInt($plan['file']['uid'] ?? 0),
-                $this->excerpt(self::toStr($plan['file']['name'] ?? '')),
-                $this->excerpt(self::toStr($plan['file']['identifier'] ?? '')),
-            ),
+            $t(ApprovalPreviewLabel::AttachFileHeadingRecord),
+            $t(ApprovalPreviewLabel::ObjectRecord, $this->translator->tableLabel($user, $table), $q($this->titleOf($table, $plan['record']))),
+            $t(ApprovalPreviewLabel::LocationOnPage, $q(self::toStr($plan['page']['title'] ?? ''))),
+            $t(ApprovalPreviewLabel::LanguageDefault),
+            $t(ApprovalPreviewLabel::FieldName, $this->translator->columnLabel($user, $table, $plan['field'])),
+            $t(ApprovalPreviewLabel::AttachFileCount, $existing, $existing + 1),
+            $t(ApprovalPreviewLabel::AttachFileFile, $q(self::toStr($plan['file']['name'] ?? '')), $q(self::toStr($plan['file']['identifier'] ?? ''))),
         ];
 
-        foreach (['title', 'alternative', 'description'] as $name) {
+        foreach (['title' => ApprovalPreviewLabel::FileFieldTitle, 'alternative' => ApprovalPreviewLabel::FileFieldAlternative, 'description' => ApprovalPreviewLabel::FileFieldDescription] as $name => $label) {
             if (isset($plan['texts'][$name])) {
-                $lines[] = sprintf('%s: %s', $name, $this->quoted($plan['texts'][$name]));
+                $lines[] = $t($label) . ': ' . $q(self::toStr($plan['texts'][$name]));
             }
         }
+
+        $lines[] = $this->translator->technical($user, [
+            $t(ApprovalPreviewLabel::TechnicalRecord, $table, $recordUid),
+            $t(ApprovalPreviewLabel::TechnicalPage, self::toInt($plan['page']['uid'] ?? 0)),
+            $t(ApprovalPreviewLabel::TechnicalFields, $plan['field']),
+            $t(ApprovalPreviewLabel::TechnicalFile, self::toInt($plan['file']['uid'] ?? 0)),
+        ]);
 
         return $lines;
     }
@@ -347,7 +360,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{table:non-empty-string, record:array<string, mixed>, file:array<string, mixed>, field:string, texts:array<string, string>}|string
+     * @return array{table:non-empty-string, record:array<string, mixed>, page:array<string, mixed>, file:array<string, mixed>, field:string, texts:array<string, string>}|string
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
@@ -444,7 +457,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
             return sprintf('Refused: field "%s" does not accept a .%s file.', $field, $extension);
         }
 
-        return ['table' => $table, 'record' => $record, 'file' => $file, 'field' => $field, 'texts' => $texts];
+        return ['table' => $table, 'record' => $record, 'page' => $page, 'file' => $file, 'field' => $field, 'texts' => $texts];
     }
 
     /**
@@ -523,6 +536,20 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
         }
 
         return $offered;
+    }
+
+    /**
+     * The record's title as its TCA `label` column holds it, or ''.
+     *
+     * @param array<string, mixed> $record
+     */
+    private function titleOf(string $table, array $record): string
+    {
+        $tca   = $GLOBALS['TCA'] ?? null;
+        $ctrl  = is_array($tca) && is_array($tca[$table] ?? null) ? ($tca[$table]['ctrl'] ?? null) : null;
+        $field = is_array($ctrl) ? ($ctrl['label'] ?? null) : null;
+
+        return is_string($field) && $field !== '' ? self::toStr($record[$field] ?? '') : '';
     }
 
     private function languageFieldOf(string $table): ?string

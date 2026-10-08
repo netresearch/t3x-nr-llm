@@ -1884,6 +1884,10 @@ Netresearch\NrLlm\Service\Retrieval\SourceReference (class)
   property readonly backend: string
   property readonly parts: array
 
+Netresearch\NrLlm\Service\Tool\ApprovalPreviewHeadings (class)
+  method static isHeading(string $line, TYPO3\CMS\Core\Localization\LanguageService $languageService): bool
+  method static labelReferences(): array
+
 Netresearch\NrLlm\Service\Tool\RecordCreatorInterface (interface)
   method getCreatedTables(): array
 

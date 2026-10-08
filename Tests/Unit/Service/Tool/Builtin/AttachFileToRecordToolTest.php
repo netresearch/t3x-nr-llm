@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\AttachFileToRecordTool;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
@@ -22,6 +23,7 @@ use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageService;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 
 /**
  * Declarations and argument validation of the generic file attacher
@@ -72,6 +74,7 @@ final class AttachFileToRecordToolTest extends AbstractUnitTestCase
             self::createStub(ConnectionPool::class),
             new FalStorageGate(),
             new TableReadAccessService(),
+            new ApprovalPreviewTranslator(self::createStub(LanguageServiceFactory::class)),
         );
     }
 

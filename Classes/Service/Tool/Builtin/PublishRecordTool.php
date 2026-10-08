@@ -14,6 +14,8 @@ use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -73,6 +75,7 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
 
     public function __construct(
         private ConnectionPool $connectionPool,
+        private ApprovalPreviewTranslator $translator,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -151,7 +154,7 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
             $plan['uid'],
             $this->excerpt($plan['label']),
             $plan['page'],
-            $plan['restrictions'] === [] ? '' : ' What may still restrict it: ' . implode('; ', $plan['restrictions']) . '.',
+            $plan['restrictions'] === [] ? '' : ' What may still restrict it: ' . implode('; ', array_map($this->restrictionInEnglish(...), $plan['restrictions'])) . '.',
             $complaints,
         ))->withWriteTarget(new RecordReference($plan['table'], $plan['uid']), WriteKind::UPDATED);
     }
@@ -181,24 +184,45 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
             return [$plan];
         }
 
-        $lines = [
-            sprintf(
-                '%s [%d] "%s" on page [%d] "%s", language %d:',
-                $plan['table'],
-                $plan['uid'],
-                $this->excerpt($plan['label']),
-                $plan['page'],
-                $this->excerpt($plan['pageTitle']),
-                $plan['language'],
-            ),
-            $plan['hidden']
-                ? sprintf('%s: 1 → 0 (hidden → published)', $plan['hiddenColumn'])
-                : sprintf('%s: already 0 — nothing to write', $plan['hiddenColumn']),
-        ];
+        [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
+        $isPage  = $plan['table'] === 'pages';
 
-        foreach ($plan['restrictions'] as $restriction) {
-            $lines[] = 'may still restrict it: ' . $restriction;
+        // ADR-213, in the order of the editorial guidelines: what, which
+        // record, where, the change, and what keeps it from visitors even so
+        // (rule 21: each its own line).
+        $lines = [
+            $t($isPage ? ApprovalPreviewLabel::PublishHeadingPage : ApprovalPreviewLabel::PublishHeadingContent),
+            $t($isPage ? ApprovalPreviewLabel::ObjectPage : ApprovalPreviewLabel::ObjectContent, $q($plan['label'])),
+        ];
+        if (!$isPage) {
+            $lines[] = $t(ApprovalPreviewLabel::LocationOnPage, $q($plan['pageTitle']));
         }
+
+        $lines[] = $t($plan['language'] === 0 ? ApprovalPreviewLabel::LanguageDefault : ApprovalPreviewLabel::LanguageTranslation);
+        $lines[] = $t($plan['hidden'] ? ApprovalPreviewLabel::PublishChange : ApprovalPreviewLabel::PublishAlready);
+
+        $details = [$t(ApprovalPreviewLabel::TechnicalRecord, $plan['table'], $plan['uid'])];
+        if (!$isPage) {
+            $details[] = $t(ApprovalPreviewLabel::TechnicalPage, $plan['page']);
+        }
+
+        $details[] = $t(ApprovalPreviewLabel::TechnicalLanguage, $plan['language']);
+        $details[] = $t(ApprovalPreviewLabel::TechnicalHiddenField, $plan['hiddenColumn']);
+        foreach ($plan['restrictions'] as [$kind, $value]) {
+            $lines[] = match ($kind) {
+                'starttime' => $t(ApprovalPreviewLabel::PublishStartTime, $value),
+                'endtime'   => $t(ApprovalPreviewLabel::PublishStopTime, $value),
+                'fe_group'  => $t(ApprovalPreviewLabel::PublishUserGroups),
+                default     => $t(ApprovalPreviewLabel::PublishParentHidden),
+            };
+            if ($kind === 'fe_group') {
+                $details[] = $t(ApprovalPreviewLabel::TechnicalUserGroups, $value);
+            } elseif ($kind === 'parent') {
+                $details[] = $t(ApprovalPreviewLabel::TechnicalDefaultLanguageRecord, (int)$value);
+            }
+        }
+
+        $lines[] = $this->translator->technical($user, $details);
 
         return $lines;
     }
@@ -235,7 +259,7 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{table:'pages'|'tt_content', uid:int, label:string, page:int, pageTitle:string, language:int, hiddenColumn:non-empty-string, hidden:bool, restrictions:list<string>}|string
+     * @return array{table:'pages'|'tt_content', uid:int, label:string, page:int, pageTitle:string, language:int, hiddenColumn:non-empty-string, hidden:bool, restrictions:list<array{'starttime'|'endtime'|'fe_group'|'parent', string}>}|string
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
@@ -294,15 +318,17 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
      * What may keep the record from visitors even with the hidden flag
      * cleared: a start time or a stop time that is set, an access group, and
      * for a translation a default-language record that is hidden itself. Each
-     * as one English line — the card is compared byte for byte on resume
-     * (ADR-184), so a date is written in UTC, and whether a time lies ahead
-     * or behind is left to the reader: that answer changes with the clock and
-     * would change the card between the pause and the resume.
+     * as its kind and its value, which the card words in the acting user's
+     * language (ADR-213) and the tool's answer in English. The card is
+     * compared byte for byte on resume (ADR-184), so a date is written in
+     * UTC, and whether a time lies ahead or behind is left to the reader:
+     * that answer changes with the clock and would change the card between
+     * the pause and the resume.
      *
      * @param non-empty-string     $table
      * @param array<string, mixed> $row
      *
-     * @return list<string>
+     * @return list<array{'starttime'|'endtime'|'fe_group'|'parent', string}>
      */
     private function restrictionsOf(string $table, array $row): array
     {
@@ -310,17 +336,17 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
         $enable = is_array($enable) ? $enable : [];
 
         $restrictions = [];
-        foreach (['starttime' => 'start time', 'endtime' => 'stop time'] as $key => $label) {
+        foreach (['starttime', 'endtime'] as $key) {
             $column = $enable[$key] ?? null;
             $moment = is_string($column) ? self::toInt($row[$column] ?? 0) : 0;
             if ($moment > 0) {
-                $restrictions[] = sprintf('%s %s', $label, gmdate('Y-m-d\TH:i:s\Z', $moment));
+                $restrictions[] = [$key, gmdate('Y-m-d\TH:i:s\Z', $moment)];
             }
         }
 
         $group = $enable['fe_group'] ?? null;
         if (is_string($group) && !in_array(self::toStr($row[$group] ?? ''), ['', '0'], true)) {
-            $restrictions[] = sprintf('frontend user groups %s', self::toStr($row[$group]));
+            $restrictions[] = ['fe_group', self::toStr($row[$group])];
         }
 
         $parentUid = $this->translationParentOf($table, $row);
@@ -328,10 +354,27 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
         if ($parentUid > 0 && $hidden !== null) {
             $parent = $this->fetchRowByUid($table, $parentUid, 'uid', $hidden);
             if ($parent !== null && (bool)($parent[$hidden] ?? false)) {
-                $restrictions[] = sprintf('its default-language record [%d] is hidden', $parentUid);
+                $restrictions[] = ['parent', (string)$parentUid];
             }
         }
 
         return $restrictions;
+    }
+
+    /**
+     * One restriction as the tool's answer to the model names it.
+     *
+     * @param array{'starttime'|'endtime'|'fe_group'|'parent', string} $restriction
+     */
+    private function restrictionInEnglish(array $restriction): string
+    {
+        [$kind, $value] = $restriction;
+
+        return match ($kind) {
+            'starttime' => 'start time ' . $value,
+            'endtime'   => 'stop time ' . $value,
+            'fe_group'  => 'frontend user groups ' . $value,
+            'parent'    => sprintf('its default-language record [%s] is hidden', $value),
+        };
     }
 }

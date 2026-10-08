@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateContentElementDraftTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -34,6 +35,8 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 #[CoversClass(CreateContentElementDraftTool::class)]
 final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
 {
+    use AssertsGermanPreviewTrait;
+
     /** @var non-empty-string[] */
     protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'frontend'];
 
@@ -92,7 +95,7 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
 
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('default');
 
-        $this->tool = new CreateContentElementDraftTool($this->connectionPool);
+        $this->tool = new CreateContentElementDraftTool($this->connectionPool, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
     }
 
     protected function tearDown(): void
@@ -358,19 +361,34 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function thePreviewShowsTheWholeDraftAndWritesNothing(): void
     {
-        $admin = $this->setUpBackendUser(1);
+        $arguments = ['page' => self::PAGE_OPEN, 'type' => 'text', 'header' => 'Proposed', 'bodytext' => 'Some body text.'];
 
-        $lines = $this->tool->previewCall(
-            ['page' => self::PAGE_OPEN, 'type' => 'text', 'header' => 'Proposed', 'bodytext' => 'Some body text.'],
-            ToolExecutionContext::fromBackendUser($admin),
-        );
-
-        self::assertCount(5, $lines);
-        self::assertStringContainsString('New text element on page [2] "Open"', $lines[0]);
-        self::assertStringContainsString('"Proposed"', $lines[1]);
-        self::assertStringContainsString('Some body text.', $lines[2]);
-        self::assertStringContainsString('first in the column', $lines[3]);
-        self::assertStringContainsString('hidden', $lines[4]);
+        self::assertSame([
+            'Create new content element as draft',
+            'Location: on page “Open”',
+            'Content type: ' . $this->tcaItemLabelIn('en', 'tt_content', 'CType', 'text'),
+            $this->tcaColumnLabelIn('en', 'tt_content', 'header', 'text') . ': “Proposed”',
+            $this->tcaColumnLabelIn('en', 'tt_content', 'bodytext', 'text') . ': “Some body text.”',
+            'Position: column ' . $this->tcaItemLabelIn('en', 'tt_content', 'colPos', '0') . ', as the first element',
+            'Language: default language',
+            'Visibility: hidden at first',
+            'After it is created the content element is not publicly visible yet. It has to be made visible by a person.',
+            'Technical details: page UID 2, content type text, column (colPos) 0, language UID 0, fields header, bodytext',
+        ], $this->previewIn('en', $arguments));
+        $german = $this->previewIn('de', $arguments);
+        self::assertSame([
+            'Neues Inhaltselement als Entwurf anlegen',
+            'Ort: auf der Seite „Open“',
+            'Inhaltstyp: ' . $this->tcaItemLabelIn('de', 'tt_content', 'CType', 'text'),
+            $this->tcaColumnLabelIn('de', 'tt_content', 'header', 'text') . ': „Proposed“',
+            $this->tcaColumnLabelIn('de', 'tt_content', 'bodytext', 'text') . ': „Some body text.“',
+            'Position: Spalte ' . $this->tcaItemLabelIn('de', 'tt_content', 'colPos', '0') . ', als erstes Element',
+            'Sprache: Standardsprache',
+            'Sichtbarkeit: zunächst verborgen',
+            'Das Inhaltselement ist nach dem Anlegen noch nicht öffentlich sichtbar. Es muss erst von einer Person sichtbar gemacht werden.',
+            'Technische Details: Seite UID 2, Inhaltstyp text, Spalte (colPos) 0, Sprach-UID 0, Felder header, bodytext',
+        ], $german);
+        self::assertGermanEditorLines($german);
 
         self::assertSame(1, $this->elementCount(), 'a preview must not create anything');
     }
@@ -403,20 +421,22 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function thePreviewWarnsWhenThePageAlreadyHoldsThisElement(): void
     {
-        $admin = $this->setUpBackendUser(1);
         $this->insertElement(30, 0, 0, ['header' => 'Team', 'hidden' => 1]);
 
-        $lines = $this->tool->previewCall(
-            ['page' => self::PAGE_OPEN, 'type' => 'text', 'header' => 'Team', 'bodytext' => 'Some body text.'],
-            ToolExecutionContext::fromBackendUser($admin),
-        );
+        $german = $this->previewIn('de', ['page' => self::PAGE_OPEN, 'type' => 'text', 'header' => 'Team', 'bodytext' => 'Some body text.']);
 
-        self::assertCount(6, $lines);
+        self::assertCount(11, $german);
+        // A consequence, after what the card describes (rule 16), on a line of its own (rule 21).
         self::assertSame(
-            'Warning: text element [30] with the same header already exists on this page (hidden). Approving creates a second element with that header.',
-            $lines[0],
+            'Warnung: Auf dieser Seite gibt es bereits ein verborgenes Inhaltselement dieses Typs mit derselben Überschrift. Mit der Freigabe entsteht ein zweites.',
+            $german[9],
         );
-        self::assertStringContainsString('New text element on page [2] "Open"', $lines[1]);
+        self::assertStringEndsWith('vorhandenes Inhaltselement mit gleicher Überschrift UID 30', $german[10]);
+        self::assertGermanEditorLines($german);
+        self::assertContains(
+            'Warning: a hidden content element of this type with the same header already exists on this page. Approving creates a second one.',
+            $this->previewIn('en', ['page' => self::PAGE_OPEN, 'type' => 'text', 'header' => 'Team']),
+        );
         self::assertSame(2, $this->elementCount(), 'a preview must not create anything');
     }
 
@@ -436,8 +456,9 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
             ToolExecutionContext::fromBackendUser($admin),
         );
 
-        self::assertCount(5, $lines);
-        self::assertStringStartsWith('New text element on page [2]', $lines[0]);
+        self::assertCount(10, $lines);
+        self::assertSame('Create new content element as draft', $lines[0]);
+        self::assertStringNotContainsString('Warning', implode("\n", $lines));
     }
 
     #[Test]
@@ -838,5 +859,21 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
             ->fetchAllAssociative();
 
         return array_map(static fn(array $row): int => (int)($row['userid'] ?? 0), $rows);
+    }
+
+    /**
+     * The preview as the run's acting user reads it, in that user's language
+     * (ADR-213).
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return list<string>
+     */
+    private function previewIn(string $language, array $arguments): array
+    {
+        $admin               = $this->setUpBackendUser(1);
+        $admin->user['lang'] = $language;
+
+        return $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($admin));
     }
 }

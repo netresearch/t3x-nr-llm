@@ -36,6 +36,8 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 #[CoversClass(CreatePageDraftTool::class)]
 final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
 {
+    use AssertsPreviewHeadingTrait;
+
     /** @var non-empty-string[] */
     protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'frontend'];
 
@@ -315,6 +317,8 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
             'Die Seite ist nach dem Anlegen noch nicht öffentlich sichtbar und enthält noch keine Inhalte. Sie muss erst von einer Person sichtbar gemacht werden.',
             'Technische Details: übergeordnete Seite UID 2, vorangehende Seite UID 20',
         ], $this->previewIn('de', $arguments));
+        self::assertStartsWithHeading($this->previewIn('en', $arguments), 'en');
+        self::assertStartsWithHeading($this->previewIn('de', $arguments), 'de');
 
         self::assertSame(3, $this->pageCount(), 'a preview must not create anything');
     }

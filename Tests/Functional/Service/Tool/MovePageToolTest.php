@@ -30,6 +30,8 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 #[CoversClass(MovePageTool::class)]
 final class MovePageToolTest extends AbstractFunctionalTestCase
 {
+    use AssertsPreviewHeadingTrait;
+
     /** @var non-empty-string[] */
     protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'frontend'];
 
@@ -202,6 +204,8 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
         $english = $this->previewIn('en', ['uid' => self::MOVED, 'parent' => 11]);
         $german  = $this->previewIn('de', ['uid' => self::MOVED, 'parent' => 11]);
 
+        self::assertStartsWithHeading($english, 'en');
+        self::assertStartsWithHeading($german, 'de');
         self::assertContains(
             'Important: the page moves into another website. From then on its address follows the other website.',
             $english,

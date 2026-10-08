@@ -14,6 +14,8 @@ use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -89,6 +91,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
 
     public function __construct(
         private ConnectionPool $connectionPool,
+        private ApprovalPreviewTranslator $translator,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -288,34 +291,39 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             return [$plan];
         }
 
-        $lines = [sprintf(
-            'Copy %s [%d] "%s", language %d',
-            $plan['table'],
-            $plan['uid'],
-            $this->excerpt($plan['label']),
-            $plan['language'],
-        )];
+        [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
+        $isPage  = $plan['table'] === self::PAGES_TABLE;
 
-        if ($plan['table'] === self::PAGES_TABLE) {
-            $lines[] = sprintf(
-                'to: under page [%d] "%s", %s',
-                $plan['targetPage'],
-                $this->excerpt($plan['targetTitle']),
-                $plan['afterUid'] > 0 ? sprintf('directly after page [%d] "%s"', $plan['afterUid'], $this->excerpt($plan['afterLabel'])) : 'first',
-            );
-            $lines[] = sprintf(
-                'with the %d content element(s) on it and the records of the other tables core copies with a page; '
-                . 'without its subpages',
-                $plan['contentCount'],
-            );
+        // ADR-213, in the order of the editorial guidelines: what, which
+        // record, where the copy goes, what comes with it, and that the copy
+        // starts hidden.
+        $lines = [
+            $t($isPage ? ApprovalPreviewLabel::CopyPageHeading : ApprovalPreviewLabel::CopyContentHeading),
+            $t($isPage ? ApprovalPreviewLabel::ObjectPage : ApprovalPreviewLabel::ObjectContent, $q($plan['label'])),
+            $t($plan['language'] === 0 ? ApprovalPreviewLabel::LanguageDefault : ApprovalPreviewLabel::LanguageTranslation),
+        ];
+        $details = [
+            $t(ApprovalPreviewLabel::TechnicalRecord, $plan['table'], $plan['uid']),
+            $t(ApprovalPreviewLabel::TechnicalLanguage, $plan['language']),
+            $t(ApprovalPreviewLabel::TechnicalTargetPage, $plan['targetPage']),
+        ];
+
+        if ($isPage) {
+            $lines[] = $plan['afterUid'] > 0
+                ? $t(ApprovalPreviewLabel::CopyTargetPageAfter, $q($plan['targetTitle']), $q($plan['afterLabel']))
+                : $t(ApprovalPreviewLabel::CopyTargetPageFirst, $q($plan['targetTitle']));
+            $lines[] = $t(ApprovalPreviewLabel::CopyPageAlong, $plan['contentCount']);
+            if ($plan['afterUid'] > 0) {
+                $details[] = $t(ApprovalPreviewLabel::TechnicalAnchorPage, $plan['afterUid']);
+            }
         } else {
-            $lines[] = sprintf(
-                'to: page [%d] "%s", column %d, %s',
-                $plan['targetPage'],
-                $this->excerpt($plan['targetTitle']),
-                $plan['column'],
-                $plan['afterUid'] > 0 ? sprintf('directly after element [%d] "%s"', $plan['afterUid'], $this->excerpt($plan['afterLabel'])) : 'first in the column',
-            );
+            $lines[] = $plan['afterUid'] > 0
+                ? $t(ApprovalPreviewLabel::CopyTargetContentAfter, $q($plan['targetTitle']), $this->translator->contentColumnLabel($user, $plan['column']), $q($plan['afterLabel']))
+                : $t(ApprovalPreviewLabel::CopyTargetContentFirst, $q($plan['targetTitle']), $this->translator->contentColumnLabel($user, $plan['column']));
+            $details[] = $t(ApprovalPreviewLabel::TechnicalColumn, $plan['column']);
+            if ($plan['afterUid'] > 0) {
+                $details[] = $t(ApprovalPreviewLabel::TechnicalAnchorElement, $plan['afterUid']);
+            }
         }
 
         if ($plan['translations'] > 0) {
@@ -327,38 +335,30 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             // asked no site: page translations were copied whatever the site,
             // and an element translation the target page is not translated
             // into was dropped in silence. The card says what THIS core does.
-            $lines[] = sprintf(
-                'with its %d translation(s), as far as core copies them to the target: %s; the answer says how many '
-                . 'were copied',
-                $plan['translations'],
-                $this->translationRule($plan['table']),
-            );
+            $lines[] = $t($this->translationRule($isPage), $plan['translations']);
         }
 
-        $lines[] = 'visibility: the copy and every copied translation are hidden — a human must unhide them before anyone sees them';
+        $lines[] = $t(ApprovalPreviewLabel::CopyVisibility);
+        $lines[] = $this->translator->technical($user, $details);
 
         return $lines;
     }
 
     /**
-     * What the running core does with the translations of a copied record.
+     * The card's wording of what the running core does with the translations
+     * of a copied record.
      */
-    private function translationRule(string $table): string
+    private function translationRule(bool $isPage): ApprovalPreviewLabel
     {
         $version = new Typo3Version();
-        if ($version->getMajorVersion() === 13 && version_compare($version->getVersion(), '13.4.25', '<')) {
-            return $table === self::PAGES_TABLE
-                ? 'this TYPO3 release (before 13.4.25) asks no site and copies every translation, into a site without '
-                    . 'its language and outside a site too'
-                : 'this TYPO3 release (before 13.4.25) asks no site, copies a translation onto a target page translated '
-                    . 'into its language and drops the others without an error';
-        }
+        $before  = $version->getMajorVersion() === 13 && version_compare($version->getVersion(), '13.4.25', '<');
 
-        return $table === self::PAGES_TABLE
-            ? 'a translation is copied only into a site that has its language — where the site does not, core refuses '
-                . 'it and the copy is taken back — and none outside a site'
-            : 'a translation is copied only into a site that has its language and onto a target page translated into '
-                . 'it — where core refuses one, the copy is taken back — and none outside a site';
+        return match (true) {
+            $before && $isPage => ApprovalPreviewLabel::CopyTranslationsPageBefore13425,
+            $before            => ApprovalPreviewLabel::CopyTranslationsContentBefore13425,
+            $isPage            => ApprovalPreviewLabel::CopyTranslationsPage,
+            default            => ApprovalPreviewLabel::CopyTranslationsContent,
+        };
     }
 
     public function isEnabledByDefault(): bool

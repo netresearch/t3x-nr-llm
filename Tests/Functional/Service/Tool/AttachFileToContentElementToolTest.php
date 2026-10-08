@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\AttachFileToContentElementTool;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -36,6 +37,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 #[CoversClass(AttachFileToContentElementTool::class)]
 final class AttachFileToContentElementToolTest extends AbstractFunctionalTestCase
 {
+    use AssertsGermanPreviewTrait;
+
     private const STORAGE_CONFIGURATION = '<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <T3FlexForms><data><sheet index="sDEF"><language index="lDEF">
 <field index="basePath"><value index="vDEF">fileadmin/</value></field>
@@ -119,13 +122,29 @@ final class AttachFileToContentElementToolTest extends AbstractFunctionalTestCas
 
         $gate = $this->get(FalStorageGate::class);
         self::assertInstanceOf(FalStorageGate::class, $gate);
-        $this->tool = new AttachFileToContentElementTool($this->connectionPool, $gate);
+        $this->tool = new AttachFileToContentElementTool($this->connectionPool, $gate, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
     }
 
     protected function tearDown(): void
     {
         unset($GLOBALS['TYPO3_REQUEST'], $GLOBALS['LANG']);
         parent::tearDown();
+    }
+
+    /**
+     * The preview as the run's acting user reads it, in that user's language
+     * (ADR-213).
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return list<string>
+     */
+    private function previewIn(string $language, array $arguments): array
+    {
+        $admin               = $this->actor(1);
+        $admin->user['lang'] = $language;
+
+        return $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($admin));
     }
 
     private function actor(int $uid): BackendUserAuthentication
@@ -359,19 +378,66 @@ final class AttachFileToContentElementToolTest extends AbstractFunctionalTestCas
         self::assertSame('Content element or file not found, or not permitted.', $result->content);
     }
 
+    /**
+     * The reference is written in the default language, so a translated
+     * element is refused rather than given a reference of another language
+     * than its own — on the card as in the write.
+     */
+    #[Test]
+    public function aTranslatedElementIsRefused(): void
+    {
+        $content = $this->connectionPool->getConnectionForTable('tt_content');
+        $content->insert('tt_content', [
+            'pid' => $this->pageUid, 'header' => 'Ein Element', 'CType' => 'textmedia', 'assets' => 0,
+            'sys_language_uid' => 1, 'l18n_parent' => $this->elementUid,
+        ]);
+        $translated = (int)$content->lastInsertId();
+        $arguments  = ['content_element' => $translated, 'file' => 1, 'field' => 'assets'];
+
+        $result = $this->attach($arguments, userUid: 1);
+
+        self::assertTrue($result->isError);
+        self::assertSame('Refused: this tool attaches to content elements in the default language only.', $result->content);
+        self::assertSame([$result->content], $this->previewIn('de', $arguments));
+    }
+
     #[Test]
     public function thePreviewNamesTheElementTheFieldAndTheFile(): void
     {
-        $lines = $this->tool->previewCall(
-            ['content_element' => $this->elementUid, 'file' => 1, 'field' => 'assets', 'title' => 'A caption'],
-            ToolExecutionContext::fromBackendUser($this->actor(1)),
-        );
+        $arguments = ['content_element' => $this->elementUid, 'file' => 1, 'field' => 'assets', 'title' => 'A caption'];
 
-        self::assertStringContainsString('An element', $lines[0]);
-        self::assertStringContainsString('assets', $lines[1]);
-        self::assertStringContainsString('0 reference(s) → 1', $lines[1]);
-        self::assertStringContainsString('one.jpg', $lines[2]);
-        self::assertStringContainsString('A caption', implode("\n", $lines));
+        self::assertSame([
+            'Add file to content element',
+            'Content element: “An element”',
+            'Location: on page “Host page”',
+            'Language: default language',
+            'Field: ' . $this->assetsLabelIn('en'),
+            'Files in this field: currently 0, afterwards 1; the new file comes last',
+            'New file: “one.jpg”, stored at “/docs/one.jpg”',
+            'Title: “A caption”',
+            sprintf('Technical details: table tt_content, UID %d, page UID %d, fields assets, file UID 1', $this->elementUid, $this->pageUid),
+        ], $this->previewIn('en', $arguments));
+        $german = $this->previewIn('de', $arguments);
+        self::assertSame([
+            'Datei zum Inhaltselement hinzufügen',
+            'Inhaltselement: „An element“',
+            'Ort: auf der Seite „Host page“',
+            'Sprache: Standardsprache',
+            'Feld: ' . $this->assetsLabelIn('de'),
+            'Dateien in diesem Feld: aktuell 0, danach 1; die neue Datei steht an letzter Stelle',
+            'Neue Datei: „one.jpg“, gespeichert unter „/docs/one.jpg“',
+            'Titel: „A caption“',
+            sprintf('Technische Details: Tabelle tt_content, UID %d, Seite UID %d, Felder assets, Datei UID 1', $this->elementUid, $this->pageUid),
+        ], $german);
+        self::assertGermanEditorLines($german);
+    }
+
+    /**
+     * The field's label for a textmedia element, as the form shows it.
+     */
+    private function assetsLabelIn(string $language): string
+    {
+        return $this->tcaColumnLabelIn($language, 'tt_content', 'assets', 'textmedia');
     }
 
     #[Test]

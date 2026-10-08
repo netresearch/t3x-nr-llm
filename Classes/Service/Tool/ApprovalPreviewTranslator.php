@@ -35,6 +35,14 @@ use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
  */
 final readonly class ApprovalPreviewTranslator
 {
+    /**
+     * A label reference rather than a literal: `LLL:` and no spaces, or a
+     * translation domain reference — dotted domain, colon, key
+     * (`frontend.db.tt_content:header`). A literal with a colon and no dot
+     * before it ("16:9") is text, not a reference.
+     */
+    private const REFERENCE = '/^(?:LLL:\S+|[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)+:[A-Za-z0-9_.-]+)$/';
+
     public function __construct(
         private LanguageServiceFactory $languageServiceFactory,
     ) {}
@@ -42,7 +50,7 @@ final readonly class ApprovalPreviewTranslator
     /**
      * @param int|string ...$arguments values for the label's `%s` / `%d` placeholders
      */
-    public function text(BackendUserAuthentication $user, ApprovalPreviewLabel $label, int|string ...$arguments): string
+    public function text(?BackendUserAuthentication $user, ApprovalPreviewLabel $label, int|string ...$arguments): string
     {
         $text = trim($this->languageServiceFactory->createFromUserPreferences($user)->sL($label->reference()));
         if ($text === '') {
@@ -55,13 +63,15 @@ final readonly class ApprovalPreviewTranslator
     /**
      * {@see self::text()} and {@see self::quoted()} bound to one acting user,
      * as the two short callables every preview is written with. `$excerpt`
-     * flattens and truncates a value before it is quoted.
+     * flattens and truncates a value before it is quoted. Without an acting
+     * user — a read tool's preview can be asked for a run that has none — the
+     * texts are the English source, as core gives a user without a language.
      *
      * @param Closure(string): string $excerpt
      *
      * @return array{Closure(ApprovalPreviewLabel, int|string...): string, Closure(string): string}
      */
-    public function boundTo(BackendUserAuthentication $user, Closure $excerpt): array
+    public function boundTo(?BackendUserAuthentication $user, Closure $excerpt): array
     {
         return [
             fn(ApprovalPreviewLabel $label, int|string ...$arguments): string => $this->text($user, $label, ...$arguments),
@@ -74,7 +84,7 @@ final readonly class ApprovalPreviewTranslator
      * a word for "empty" — an empty pair of quotes reads like a rendering bug.
      * The caller passes the value already flattened and truncated.
      */
-    public function quoted(BackendUserAuthentication $user, string $value): string
+    public function quoted(?BackendUserAuthentication $user, string $value): string
     {
         return $value === ''
             ? $this->text($user, ApprovalPreviewLabel::ValueEmpty)
@@ -101,20 +111,104 @@ final readonly class ApprovalPreviewTranslator
      */
     public function tableLabel(BackendUserAuthentication $user, string $table): string
     {
-        $tca        = $GLOBALS['TCA'] ?? null;
-        $definition = is_array($tca) && is_array($tca[$table] ?? null) ? $tca[$table] : [];
-        $ctrl       = is_array($definition['ctrl'] ?? null) ? $definition['ctrl'] : [];
-        $title      = is_string($ctrl['title'] ?? null) ? trim($ctrl['title']) : '';
-        if ($title === '') {
-            return $table;
-        }
-
-        if (!str_starts_with($title, 'LLL:')) {
-            return $title;
-        }
-
-        $resolved = trim($this->languageServiceFactory->createFromUserPreferences($user)->sL($title));
+        $title    = $this->tca($table, 'ctrl', 'title');
+        $resolved = $this->label($user, is_string($title) ? $title : '');
 
         return $resolved !== '' ? $resolved : $table;
+    }
+
+    /**
+     * A column's name as an editor knows it, from its TCA label in the acting
+     * user's language ("Überschrift", not `header`): the record type's
+     * `columnsOverrides` label first, the column's own next. The column name
+     * itself where neither resolves, so the line never reads empty.
+     */
+    public function columnLabel(BackendUserAuthentication $user, string $table, string $column, ?string $recordType = null): string
+    {
+        $override = $recordType === null ? null : $this->tca($table, 'types', $recordType, 'columnsOverrides', $column, 'label');
+        $own      = $this->tca($table, 'columns', $column, 'label');
+
+        foreach ([$override, $own] as $label) {
+            $resolved = is_string($label) ? rtrim($this->label($user, $label), ':') : '';
+            if ($resolved !== '') {
+                return $resolved;
+            }
+        }
+
+        return $column;
+    }
+
+    /**
+     * The label of the static select item a column holds as `$value`, in the
+     * acting user's language ("Zusammenfassung", not `summary`). The value
+     * itself where the column declares no such item or its label does not
+     * resolve.
+     */
+    public function itemLabel(BackendUserAuthentication $user, string $table, string $column, string $value): string
+    {
+        $items = $this->tca($table, 'columns', $column, 'config', 'items');
+        foreach (is_array($items) ? $items : [] as $item) {
+            if (!is_array($item) || !array_key_exists('value', $item) || !is_scalar($item['value']) || (string)$item['value'] !== $value) {
+                continue;
+            }
+
+            $resolved = $this->label($user, is_string($item['label'] ?? null) ? $item['label'] : '');
+
+            return $resolved !== '' ? $resolved : $value;
+        }
+
+        return $value;
+    }
+
+    /**
+     * The name of content column `$colPos` in the acting user's language: the
+     * static `tt_content.colPos` item, else the number ("Spalte 100").
+     *
+     * Not the page's backend layout, although the page module names columns
+     * from there: core resolves the layout through the AMBIENT backend user
+     * (its workspace for the rootline, its user TSconfig for page TSconfig).
+     * The resume runs under the approver's request or under none, so the line
+     * would differ from the one shown at suspend and every such approval would
+     * bounce once (ADR-184).
+     */
+    public function contentColumnLabel(BackendUserAuthentication $user, int $colPos): string
+    {
+        return $this->itemLabel($user, 'tt_content', 'colPos', (string)$colPos);
+    }
+
+    /**
+     * A TCA label in the acting user's language: an `LLL:` reference or, from
+     * TYPO3 14 on, a translation domain reference (`frontend.db.tt_content:header`)
+     * resolved for that user, a literal as written; '' where an `LLL:`
+     * reference resolves to nothing. Core's own `sL()` tells the forms apart.
+     */
+    public function label(BackendUserAuthentication $user, string $label): string
+    {
+        $label    = trim($label);
+        $resolved = trim($this->languageServiceFactory->createFromUserPreferences($user)->sL($label));
+
+        // TYPO3 14 hands an unresolvable domain reference back unchanged
+        // (`LanguageService::sL()` without the `LLL:` prefix); a key on the card
+        // reads as a rendering bug, so it counts as no label at all and the
+        // caller falls back to the column, table or value name.
+        return $resolved === $label && preg_match(self::REFERENCE, $label) === 1 ? '' : $resolved;
+    }
+
+    /**
+     * The value at a path below `$GLOBALS['TCA']`, or null where the path ends
+     * early.
+     */
+    private function tca(string ...$path): mixed
+    {
+        $value = $GLOBALS['TCA'] ?? null;
+        foreach ($path as $key) {
+            if (!is_array($value) || !array_key_exists($key, $value)) {
+                return null;
+            }
+
+            $value = $value[$key];
+        }
+
+        return $value;
     }
 }

@@ -43,6 +43,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 #[CoversClass(SetFileAlternativeTextTool::class)]
 final class SetFileAlternativeTextToolFileMountTest extends AbstractFunctionalTestCase
 {
+    use AssertsGermanPreviewTrait;
+
     private const STORAGE_CONFIGURATION = '<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <T3FlexForms>
     <data>
@@ -202,7 +204,7 @@ final class SetFileAlternativeTextToolFileMountTest extends AbstractFunctionalTe
 
         // The approval card describes the row the write will target, not the draft.
         $lines = $this->tool->previewCall(['uid' => self::FILE_IN_MOUNT, 'alternative' => 'A photo of the manual'], $context);
-        self::assertSame('alternative: "Old alt" → "A photo of the manual"', $lines[1]);
+        self::assertSame('Alternative text: currently “Old alt”, proposed “A photo of the manual”', $lines[3] ?? null);
 
         $result = $this->tool->execute(['uid' => self::FILE_IN_MOUNT, 'alternative' => 'A photo of the manual'], $context);
 
@@ -339,15 +341,24 @@ final class SetFileAlternativeTextToolFileMountTest extends AbstractFunctionalTe
     #[Test]
     public function thePreviewShowsTheStoredValueNextToTheProposedOne(): void
     {
-        $editor = $this->loginEditorInBackendRequest();
+        $arguments = ['uid' => self::FILE_IN_MOUNT, 'alternative' => 'A photo of the manual'];
 
-        $lines = $this->tool->previewCall(
-            ['uid' => self::FILE_IN_MOUNT, 'alternative' => 'A photo of the manual'],
-            ToolExecutionContext::fromBackendUser($editor),
-        );
-
-        self::assertSame('File [10] "manual.txt" — alternative text (default language):', $lines[0]);
-        self::assertSame('alternative: "Old alt" → "A photo of the manual"', $lines[1]);
+        self::assertSame([
+            'Change alternative text',
+            'File: “manual.txt”',
+            'Language: default language',
+            'Alternative text: currently “Old alt”, proposed “A photo of the manual”',
+            sprintf('Technical details: file UID 10, table sys_file_metadata, UID %d, fields alternative', self::METADATA_IN_MOUNT),
+        ], $this->previewIn('en', $arguments));
+        $german = $this->previewIn('de', $arguments);
+        self::assertSame([
+            'Alternativtext ändern',
+            'Datei: „manual.txt“',
+            'Sprache: Standardsprache',
+            'Alternativtext: aktuell „Old alt“, Vorschlag „A photo of the manual“',
+            sprintf('Technische Details: Datei UID 10, Tabelle sys_file_metadata, UID %d, Felder alternative', self::METADATA_IN_MOUNT),
+        ], $german);
+        self::assertGermanEditorLines($german);
 
         // A preview reads; it must not write.
         self::assertSame('Old alt', $this->storedAlternative(self::METADATA_IN_MOUNT));
@@ -357,15 +368,9 @@ final class SetFileAlternativeTextToolFileMountTest extends AbstractFunctionalTe
     #[Test]
     public function thePreviewNamesAnUnchangedValueAsSuch(): void
     {
-        $editor = $this->loginEditorInBackendRequest();
-
-        $lines = $this->tool->previewCall(
-            ['uid' => self::FILE_IN_MOUNT, 'alternative' => 'Old alt'],
-            ToolExecutionContext::fromBackendUser($editor),
-        );
-
         // An approver should not have to diff two identical strings by eye.
-        self::assertSame('alternative: unchanged ("Old alt")', $lines[1]);
+        self::assertSame('Alternative text: unchanged, “Old alt”', $this->previewIn('en', ['uid' => self::FILE_IN_MOUNT, 'alternative' => 'Old alt'])[3] ?? null);
+        self::assertSame('Alternativtext: unverändert, „Old alt“', $this->previewIn('de', ['uid' => self::FILE_IN_MOUNT, 'alternative' => 'Old alt'])[3] ?? null);
     }
 
     /**
@@ -465,6 +470,22 @@ final class SetFileAlternativeTextToolFileMountTest extends AbstractFunctionalTe
      * DENY — it never grants — so `tables_modify` still decides first, exactly
      * as it does for the File list module's metadata form.
      */
+    /**
+     * The preview as the run's acting user reads it, in that user's language
+     * (ADR-213).
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return list<string>
+     */
+    private function previewIn(string $language, array $arguments): array
+    {
+        $editor               = $this->loginEditorInBackendRequest();
+        $editor->user['lang'] = $language;
+
+        return $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($editor));
+    }
+
     private function loginEditorInBackendRequest(): BackendUserAuthentication
     {
         $user = $this->setUpBackendUser(2);

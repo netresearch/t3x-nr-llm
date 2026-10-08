@@ -3391,6 +3391,411 @@
             <trans-unit id="approvalPreview.deleteRecord.recoverable">
                 <source>Recoverable: yes, from the recycler</source>
             </trans-unit>
+            <trans-unit id="approvalPreview.value.nothing">
+                <source>(nothing)</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.object.page">
+                <source>Page: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.object.content">
+                <source>Content element: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.location.onPage">
+                <source>Location: on page %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.contentType">
+                <source>Content type: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.language.default">
+                <source>Language: default language</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.language.translation">
+                <source>Language: translation, not the default language</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.field.unchanged">
+                <source>%s: unchanged, %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.field.change">
+                <source>%s: currently %s, proposed %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.field.changedFrom">
+                <source>%s: changed from character %d on, currently %s, proposed %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.fields">
+                <source>fields %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.wholeValue">
+                <source>%s before: %d characters, %s; after: %d characters, %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.contentType">
+                <source>content type %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.updatePage.heading">
+                <source>Change page metadata</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.title">
+                <source>Page title</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.subtitle">
+                <source>Subtitle</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.navTitle">
+                <source>Navigation title</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.abstract">
+                <source>Abstract</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.description">
+                <source>Meta description</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.keywords">
+                <source>Keywords</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.seoTitle">
+                <source>Title for search engines</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.ogTitle">
+                <source>Title for social media (Open Graph)</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.ogDescription">
+                <source>Description for social media (Open Graph)</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.twitterTitle">
+                <source>Title for X (Twitter)</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.twitterDescription">
+                <source>Description for X (Twitter)</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.twitterCard">
+                <source>Card type for X (Twitter)</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.updateContent.heading">
+                <source>Change content element</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.object.file">
+                <source>File: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.fileField.title">
+                <source>Title</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.fileField.alternative">
+                <source>Alternative text</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.fileField.description">
+                <source>Description</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.fileField.copyright">
+                <source>Copyright notice</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.file">
+                <source>file UID %d</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.setAlternativeText.heading">
+                <source>Change alternative text</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.updateFileMetadata.heading">
+                <source>Change file metadata</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.fileReferences">
+                <source>file references UID %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.socialImage.headingOpenGraph">
+                <source>Change the image for social media (Open Graph)</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.socialImage.headingTwitter">
+                <source>Change the image for X (Twitter)</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.socialImage.currentNone">
+                <source>Currently: no image</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.socialImage.current">
+                <source>Currently: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.socialImage.proposed">
+                <source>Proposed: %s, stored at %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.socialImage.replaces">
+                <source>Important: the current image is removed from the page (recoverable from the recycler), and the new file takes its place.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.object.record">
+                <source>Record: %s %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.field.name">
+                <source>Field: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.fileReference">
+                <source>file reference UID %d</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.currentFile">
+                <source>current file UID %d</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.translatedReferences">
+                <source>translated file references UID %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.translatedElements">
+                <source>translated content elements UID %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.attachFile.headingContent">
+                <source>Add file to content element</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.attachFile.headingRecord">
+                <source>Add file to record</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.attachFile.count">
+                <source>Files in this field: currently %d, afterwards %d; the new file comes last</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.attachFile.file">
+                <source>New file: %s, stored at %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.replaceFile.headingRemove">
+                <source>Remove file from content element</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.replaceFile.headingReplace">
+                <source>Replace file in content element</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.replaceFile.position">
+                <source>Position: file %d of %d</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.replaceFile.afterwards">
+                <source>Files in this field afterwards: %d</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.replaceFile.fileStays">
+                <source>The file itself stays in the file list.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.replaceFile.current">
+                <source>Currently: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.replaceFile.proposed">
+                <source>Proposed: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.replaceFile.textOwn">
+                <source>%s: the file's own, not taken over from the current reference</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.replaceFile.translationsRemoved">
+                <source>Important: references in translations, removed with it: %d</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.replaceFile.translationsReplaced">
+                <source>Important: references in translations, removed with the current one: %d. The translations get no reference to the new file.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.replaceFile.orphans">
+                <source>Of these, on a translated content element that no longer exists: %d</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.targetPage">
+                <source>target page UID %d</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.currentPage">
+                <source>current page UID %d</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.column">
+                <source>column (colPos) %d</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.currentColumn">
+                <source>current column (colPos) %d</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.anchorElement">
+                <source>preceding content element UID %d</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.moveContent.heading">
+                <source>Move content element</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.moveContent.current">
+                <source>Currently: page %s, column %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.moveContent.newFirst">
+                <source>New: page %s, column %s, as the first element</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.moveContent.newAfter">
+                <source>New: page %s, column %s, directly after %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.copyRecord.headingPage">
+                <source>Copy page</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.copyRecord.headingContent">
+                <source>Copy content element</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.copyRecord.targetPageFirst">
+                <source>Copy to: under %s, as the first subpage</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.copyRecord.targetPageAfter">
+                <source>Copy to: under %s, directly after %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.copyRecord.targetContentFirst">
+                <source>Copy to: page %s, column %s, as the first element</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.copyRecord.targetContentAfter">
+                <source>Copy to: page %s, column %s, directly after %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.copyRecord.pageAlong">
+                <source>Copied with it: content elements: %d, and the other records stored on the page. Subpages are not copied.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.copyRecord.translationsPage">
+                <source>Translations: %d. Each is copied only into a website that has its language; where one cannot be placed, the whole copy is taken back. Outside a website none is copied. The result says how many were copied.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.copyRecord.translationsContent">
+                <source>Translations: %d. Each is copied only into a website that has its language and onto a target page translated into it; where one cannot be placed, the whole copy is taken back. Outside a website none is copied. The result says how many were copied.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.copyRecord.translationsPageBefore13425">
+                <source>Translations: %d. This TYPO3 version copies every translation, also into a website without its language and outside a website. The result says how many were copied.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.copyRecord.translationsContentBefore13425">
+                <source>Translations: %d. This TYPO3 version copies a translation only onto a target page translated into its language and leaves out the others without a message. The result says how many were copied.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.copyRecord.visibility">
+                <source>Visibility: hidden at first. The copy and every copied translation have to be made visible by a person.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.hiddenField">
+                <source>visibility field %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.defaultLanguageRecord">
+                <source>default-language record UID %d</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.userGroups">
+                <source>frontend user groups UID %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.publish.headingPage">
+                <source>Make page visible</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.publish.headingContent">
+                <source>Make content element visible</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.publish.change">
+                <source>Currently: hidden. New: visible</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.publish.already">
+                <source>Already visible; nothing is changed.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.publish.startTime">
+                <source>Important: visible only from its start time, %s (UTC).</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.publish.stopTime">
+                <source>Important: visible only until its stop time, %s (UTC).</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.publish.userGroups">
+                <source>Important: still shown only to logged-in members of certain frontend user groups.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.publish.parentHidden">
+                <source>Important: the version in the default language is still hidden.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.existingContent">
+                <source>existing content element with the same header UID %d</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.recordType">
+                <source>table %s, record type %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.visibility.hiddenAtFirst">
+                <source>Visibility: hidden at first</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createContent.heading">
+                <source>Create new content element as draft</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createContent.positionFirst">
+                <source>Position: column %s, as the first element</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createContent.positionAfter">
+                <source>Position: column %s, directly after %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createContent.impact">
+                <source>After it is created the content element is not publicly visible yet. It has to be made visible by a person.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createContent.duplicate">
+                <source>Warning: a content element of this type with the same header already exists on this page. Approving creates a second one.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createContent.duplicateHidden">
+                <source>Warning: a hidden content element of this type with the same header already exists on this page. Approving creates a second one.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createRecord.heading">
+                <source>Create new record as draft</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createRecord.recordType">
+                <source>Record type: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createRecord.impact">
+                <source>After it is created the record is not publicly visible yet. It has to be made visible by a person.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.existingTranslation">
+                <source>existing translation UID %d</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.translationService">
+                <source>translation service %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.site">
+                <source>website %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.withheldFields">
+                <source>fields not translated %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.heading">
+                <source>Create translation as draft</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.targetLanguage">
+                <source>Target language: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.new">
+                <source>New: a copy of the original, linked to it as its translation</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.machine">
+                <source>Machine translation by %s from %s into %s: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.noTextInSource">
+                <source>Machine translation: none; the original holds no text</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.noTextAllowed">
+                <source>Machine translation: none; you may not edit any field that holds text</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.glossary">
+                <source>Glossary: the website's glossary for this language pair applies (terms: %d)</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.noGlossary">
+                <source>Glossary: the website keeps none for this language pair</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.withheld">
+                <source>Not translated, because you may not edit them: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.discards">
+                <source>Important: the existing translation %s is discarded; its content is deleted and replaced.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.impact">
+                <source>After it is created the translation is not publicly visible yet. It has to be made visible by a person.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.fetchUrl.heading">
+                <source>Fetch a page from the internet</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.fetchUrl.address">
+                <source>Address: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.fetchUrl.host">
+                <source>Host: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.fetchUrl.query">
+                <source>Data sent with the address: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.fetchUrl.noQuery">
+                <source>No data is sent with the address.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.exception">
+                <source>exception %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.card.failed">
+                <source>The preview for this step failed. What the step would do is not shown.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.card.failedAtResume">
+                <source>The preview for this step failed. What the step would do now cannot be compared with what you were shown.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.card.empty">
+                <source>There is no preview for this step.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.card.unavailable">
+                <source>This action is no longer available. What it would do now cannot be compared with what you were shown.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.card.overflow">
+                <source>Lines not shown: %d</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.card.withheld">
+                <source>The preview is not shown: you hold no permission on the record it describes.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.languagePair">
+                <source>language codes %s to %s</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

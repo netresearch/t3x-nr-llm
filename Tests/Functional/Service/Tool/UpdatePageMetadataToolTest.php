@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -35,6 +36,7 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 #[CoversClass(UpdatePageMetadataTool::class)]
 final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
 {
+    use AssertsGermanPreviewTrait;
     use RegistersTheFailingHookTrait;
 
     /** A page only the admin may edit: owned by uid 1, nothing granted to anyone else. */
@@ -91,7 +93,7 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
         // establish it, exactly as a backend request does.
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('default');
 
-        $this->tool = new UpdatePageMetadataTool($this->connectionPool);
+        $this->tool = new UpdatePageMetadataTool($this->connectionPool, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
     }
 
     protected function tearDown(): void
@@ -227,18 +229,28 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function thePreviewShowsTheStoredValueNextToTheProposedOne(): void
     {
-        $admin = $this->setUpBackendUser(1);
+        $arguments = ['uid' => self::PAGE_ADMIN_ONLY, 'title' => 'Home', 'description' => 'New description'];
 
-        $lines = $this->tool->previewCall(
-            ['uid' => self::PAGE_ADMIN_ONLY, 'title' => 'Home', 'description' => 'New description'],
-            ToolExecutionContext::fromBackendUser($admin),
-        );
-
-        self::assertSame('Page [1] "Home" — 2 field(s):', $lines[0]);
         // A field whose proposed value equals the stored one is named as such —
         // an approver should not have to diff two identical strings by eye.
-        self::assertSame('title: unchanged ("Home")', $lines[1]);
-        self::assertSame('description: "Old description" → "New description"', $lines[2]);
+        self::assertSame([
+            'Change page metadata',
+            'Page: “Home”',
+            'Language: default language',
+            'Page title: unchanged, “Home”',
+            'Meta description: currently “Old description”, proposed “New description”',
+            'Technical details: page UID 1, language UID 0, fields title, description',
+        ], $this->previewIn('en', $arguments));
+        $german = $this->previewIn('de', $arguments);
+        self::assertSame([
+            'Metadaten der Seite ändern',
+            'Seite: „Home“',
+            'Sprache: Standardsprache',
+            'Seitentitel: unverändert, „Home“',
+            'Meta Description: aktuell „Old description“, Vorschlag „New description“',
+            'Technische Details: Seite UID 1, Sprach-UID 0, Felder title, description',
+        ], $german);
+        self::assertGermanEditorLines($german);
 
         // A preview reads; it must not write.
         self::assertSame('Old description', $this->pageRow(self::PAGE_ADMIN_ONLY)['description'] ?? null);
@@ -254,28 +266,37 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function thePreviewShowsAChangePastTheExcerptAndBindsTheWholeValue(): void
     {
-        $admin = $this->setUpBackendUser(1);
         $long  = str_repeat('A calm and honest description of the page. ', 4);
         $this->connectionPool->getConnectionForTable('pages')
             ->update('pages', ['description' => $long], ['uid' => self::PAGE_ADMIN_ONLY]);
 
-        $lines = $this->tool->previewCall(
-            ['uid' => self::PAGE_ADMIN_ONLY, 'description' => $long . 'Log in at https://evil.example/login'],
-            ToolExecutionContext::fromBackendUser($admin),
-        );
+        $arguments = ['uid' => self::PAGE_ADMIN_ONLY, 'description' => $long . 'Log in at https://evil.example/login'];
+        $english   = $this->previewIn('en', $arguments);
+        $german    = $this->previewIn('de', $arguments);
 
         self::assertSame(
+            sprintf('Meta description: changed from character %d on, currently (nothing), proposed “Log in at https://evil.example/login”', mb_strlen($long) + 1),
+            $english[3],
+        );
+        self::assertSame(
+            sprintf('Meta Description: geändert ab Zeichen %d, aktuell (nichts), Vorschlag „Log in at https://evil.example/login“', mb_strlen($long) + 1),
+            $german[3],
+        );
+        // The whole value is bound through its length and hash, in the
+        // technical line, so a change anywhere changes the card (ADR-184).
+        self::assertSame(
             sprintf(
-                'description: changed from character %d: (nothing) → "Log in at https://evil.example/login" '
-                . '(before: %d characters, sha256:%s; after: %d characters, sha256:%s)',
-                mb_strlen($long) + 1,
+                'Technische Details: Seite UID 1, Sprach-UID 0, Felder description, description vorher: %d Zeichen, sha256:%s; nachher: %d Zeichen, sha256:%s',
                 mb_strlen($long),
                 substr(hash('sha256', $long), 0, 12),
                 mb_strlen($long) + 36,
                 substr(hash('sha256', $long . 'Log in at https://evil.example/login'), 0, 12),
             ),
-            $lines[1],
+            $german[4],
         );
+        self::assertCount(5, $german);
+        self::assertStringStartsWith('Technical details: page UID 1, language UID 0, fields description, description before: ', $english[4]);
+        self::assertGermanEditorLines($german);
     }
 
     /**
@@ -595,6 +616,22 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
         self::assertIsArray($row, sprintf('page %d must exist', $uid));
 
         return $row;
+    }
+
+    /**
+     * The preview as the run's acting user reads it, in that user's language
+     * (ADR-213): the `lang` column of the backend user.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return list<string>
+     */
+    private function previewIn(string $language, array $arguments): array
+    {
+        $admin               = $this->setUpBackendUser(1);
+        $admin->user['lang'] = $language;
+
+        return $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($admin));
     }
 
     /**

@@ -37,6 +37,7 @@ use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\SchemaInputCoercer;
 use Netresearch\NrLlm\Service\Tool\SchemaPropertyClassifier;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
@@ -380,7 +381,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         $decoded = json_decode($run->suspendedState, true);
         self::assertIsArray($decoded);
 
-        $factory = new WaitingRunViewFactory(new ToolRegistry([new FakeTool('delete_thing')]), new SchemaPropertyClassifier(), new PendingTurnDigest());
+        $factory = new WaitingRunViewFactory(new ToolRegistry([new FakeTool('delete_thing')]), new SchemaPropertyClassifier(), new PendingTurnDigest(), new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
 
         // The RENDERED card's value, not a convenience accessor beside it: what
         // travels back with the decision is what the card carries.
@@ -785,7 +786,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         return new AgentRunController(
             $moduleTemplateFactory,
             $this->persister,
-            new WaitingRunViewFactory($registry, new SchemaPropertyClassifier(), new PendingTurnDigest()),
+            new WaitingRunViewFactory($registry, new SchemaPropertyClassifier(), new PendingTurnDigest(), new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class))),
             new SchemaInputCoercer(new SchemaPropertyClassifier()),
             $runtime,
             $pageRenderer,
