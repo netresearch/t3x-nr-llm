@@ -34,9 +34,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * and a permission rule in `plan()` is judged against the approver's
  * TSconfig.
  *
- * This reads the same way core does — the same rootline fields, the same
- * {@see PageTsConfigFactory}, the same site lookup — with each of the three
- * inputs taken from the user passed in. The two context aspects are set for
+ * This reads the same way core does — the same rootline walk and fields, the
+ * same {@see PageTsConfigFactory}, the same site lookup — with each of the
+ * three inputs taken from the user passed in. The two context aspects are set for
  * the duration of the build and restored afterwards; nothing else in the
  * request sees them. No cache: the factory caches the parsed include tree, and
  * what remains is cheap next to the DataHandler work around every caller.
@@ -56,7 +56,10 @@ final readonly class PageTsConfigReader implements PageTsConfigReaderInterface
         $rootLine  = $this->rootLine($pageUid, $workspace);
 
         try {
-            $site = GeneralUtility::makeInstance(SiteFinder::class)->getSiteByPageId($pageUid);
+            // Given the rootline built above. Without it the finder resolves its
+            // own through the request's Context, i.e. in the ambient workspace,
+            // and misses a page that exists only in the acting user's.
+            $site = GeneralUtility::makeInstance(SiteFinder::class)->getSiteByPageId($pageUid, array_reverse($rootLine));
         } catch (SiteNotFoundException) {
             $site = new NullSite();
         }
@@ -78,30 +81,68 @@ final readonly class PageTsConfigReader implements PageTsConfigReaderInterface
     }
 
     /**
+     * The fields core's rootline carries ({@see BackendUtility::BEgetRootLine()}),
+     * the same in TYPO3 13.4 and 14.3.
+     */
+    private const ROOTLINE_FIELDS = [
+        'uid', 'pid', 'title', 'doktype', 'slug', 'tsconfig_includes', 'TSconfig', 'is_siteroot',
+        't3ver_oid', 't3ver_wsid', 't3ver_state', 't3ver_stage', 'backend_layout', 'backend_layout_next_level',
+        'hidden', 'starttime', 'endtime', 'fe_group', 'nav_hide', 'content_from_pid', 'module', 'extendToSubpages',
+    ];
+
+    /**
      * The rootline from the root down, in the shape core's factory reads.
      *
-     * Read without core's workspace overlay — that one uses the ambient
-     * user's workspace — and overlaid here with the given workspace instead.
+     * Walked the way {@see BackendUtility::BEgetRootLine()} walks it with the
+     * overlay switched on — each page overlaid BEFORE its `pid` picks the next
+     * one, so a page moved in the workspace climbs its new parents — but with
+     * the given workspace, where core takes the ambient user's. Core's runtime
+     * cache keys that walk by page and the overlay flag only, not by
+     * workspace, so it cannot be asked instead. Like core, the synthetic root
+     * entry (uid 0) is not overlaid.
      *
-     * @return array<array-key, array<array-key, mixed>>
+     * @return array<int, array<string, mixed>>
      */
     private function rootLine(int $pageUid, int $workspace): array
     {
-        $rootLine = [];
-        foreach (BackendUtility::BEgetRootLine($pageUid, '', false) as $index => $row) {
-            if (!is_array($row)) {
-                continue;
+        $walked = [];
+        $uid    = $pageUid;
+        $guard  = 100;
+        while ($uid !== 0 && $guard-- > 0) {
+            $row = BackendUtility::getRecord('pages', $uid, self::ROOTLINE_FIELDS);
+            if ($row === null) {
+                break;
             }
 
             if ($workspace > 0) {
-                $overlaid = $row;
-                BackendUtility::workspaceOL('pages', $overlaid, $workspace);
-                // An overlay that removes the row (a delete placeholder) keeps
-                // the live row rather than leaving a hole in the rootline.
-                $row = is_array($overlaid) ? $overlaid : $row;
+                BackendUtility::workspaceOL('pages', $row, $workspace);
+                if (!is_array($row)) {
+                    break;
+                }
             }
 
-            $rootLine[$index] = $row;
+            $pid      = $row['pid'] ?? 0;
+            $uid      = is_numeric($pid) ? (int)$pid : 0;
+            $walked[] = $row;
+        }
+
+        $root = array_fill_keys(self::ROOTLINE_FIELDS, null);
+        if ($uid === 0) {
+            $root['uid'] = 0;
+            $walked[]    = $root;
+        }
+
+        // Numbered as core numbers it: the root entry 0, the page highest.
+        $rootLine = [];
+        $index    = count($walked);
+        foreach ($walked as $row) {
+            --$index;
+            $entry = array_intersect_key($row, $root);
+            if (isset($row['_ORIG_pid'])) {
+                $entry['_ORIG_pid'] = $row['_ORIG_pid'];
+            }
+
+            $rootLine[$index] = $entry;
         }
 
         ksort($rootLine);
