@@ -33,7 +33,8 @@ ADR-214: Approved skill versions instruct, load on demand and run processes
     the preview); :ref:`ADR-130 <adr-130>` (the approve grant does not open a
     run holding a process pin); :ref:`ADR-172 <adr-172>` (on such a run the
     four-eyes pin rule is checked before the self-approval refusal and stops
-    the run)
+    the run); :ref:`ADR-182 <adr-182>` (the write step also carries
+    whether the write was complete)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-214-context:
@@ -962,18 +963,54 @@ renders them and owns the open points.
   ids could not serve anyway, since some restart per response (the Ollama
   adapter synthesises ``call_<index>``).
 
-  A point is shown as applied only when all three hold: the result has a
-  first tool step, its ``toolIsError`` (:php:`RunStep`) is false, and it is
-  followed by the write step (``RunStep::KIND_WRITE``, :ref:`ADR-182 <adr-182>`)
-  of that call without the partial flag. The partial flag is the smallest
-  mechanism the code supports: a tool that stores only part of what it
-  planned already returns a non-error text with its write target — for
-  example ``Classes/Service/Tool/Builtin/UpdateContentElementTool.php#in part: %s took.``
-  — so :php:`ToolResult::withWriteTarget()` gains an optional partial flag that
-  such a branch sets, and :php:`RunTrace::recordToolResult()` copies it onto
-  the write step it already records. A write tool without a write step, such
-  as a remote tool, is shown as approved, not as applied. A partial or failed
-  approved write is not applied and closes no open point. Nothing is
+  The chat shows one of three states for the approved call, read from that
+  result alone:
+
+  - **Applied.** The result has a first tool step, its ``toolIsError``
+    (:php:`RunStep`) is false, and it is followed by the write step
+    (``RunStep::KIND_WRITE``, :ref:`ADR-182 <adr-182>`) of that call without
+    the partial flag.
+  - **Approved, result unknown — check the record.** The first tool step is
+    OK, no write step follows it, and the run's outcome is ``CANCELLED``,
+    ``LEASE_LOST`` or ``FAILED``. :php:`RunTrace::recordToolResult()` appends
+    the tool step and lets its listener run before it appends the write step,
+    and the listener :php:`AgentRunExecutor` installs can throw in between —
+    the cancellation probe, the lease renewal, the audit persist. The write
+    may then have happened without a write step to show it. This state closes
+    no open point and records nothing. The ADR relies on this display state
+    and does not require reordering :php:`RunTrace::recordToolResult()`;
+    appending both steps before any listener runs would narrow the window,
+    and the display state stays correct either way.
+  - **Not applied.** Every other case: an error on the first tool step, a
+    partial write step, or a tool that leaves no write step on a run that did
+    not abort, such as a remote tool, which is shown as approved but not
+    applied.
+
+  Only the applied state closes an open point.
+
+  **The partial flag.** It is the smallest mechanism the code supports: a
+  tool that stores only part of what it planned already returns a non-error
+  text with its write target. :php:`ToolResult::withWriteTarget()` gains an
+  optional partial flag, and :php:`RunTrace::recordToolResult()` copies it
+  onto the write step it already records. Every builtin non-error branch that
+  reports an incomplete write sets it; today there are three:
+
+  - ``Classes/Service/Tool/Builtin/UpdateContentElementTool.php#in part: %s took.``
+    (some planned fields did not take);
+  - ``Classes/Service/Tool/Builtin/DeleteRecordTool.php#but not completely:``
+    (records that should have gone with it are still there);
+  - ``Classes/Service/Tool/Builtin/MovePageTool.php#Not completely:``
+    (translations stayed behind).
+
+  A coverage test on the pattern of :php:`ToolEffectCoverageTest` pins the
+  list of tools with a partial branch, so a new incomplete-write branch forces
+  a conscious edit. The flag must also survive
+  :php:`ToolResult::withBoundedChannels()`, the transformation every tool
+  result passes through in :php:`ToolLoopService`: it rebuilds the result by
+  constructor position (``Classes/Domain/ValueObject/ToolResult.php#return new self($content, false, $artifacts, $this->outcome, $this->writeTarget, $this->writeKind);``),
+  so its docblock's claim that a property added later is carried by default
+  does not hold, and the new flag would be dropped there unless that line
+  passes it on. Nothing is
   inferred from persisted events, and no other path marks a point applied. A
   proposal that leaves the card any other way — withdrawn by a new message,
   cancelled by an operator, stopped by the four-eyes guard, failed after the
