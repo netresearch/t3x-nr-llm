@@ -179,6 +179,13 @@ enum ApprovalPreviewLabel: string
     case TranslateDiscards       = 'approvalPreview.translate.discards';
     case TranslateImpact         = 'approvalPreview.translate.impact';
 
+    // --- fetch_external_url ---
+    case FetchUrlHeading = 'approvalPreview.fetchUrl.heading';
+    case FetchUrlAddress = 'approvalPreview.fetchUrl.address';
+    case FetchUrlHost    = 'approvalPreview.fetchUrl.host';
+    case FetchUrlQuery   = 'approvalPreview.fetchUrl.query';
+    case FetchUrlNoQuery = 'approvalPreview.fetchUrl.noQuery';
+
     // --- update_page_metadata ---
     case UpdatePageHeading            = 'approvalPreview.updatePage.heading';
     case PageFieldTitle               = 'approvalPreview.pageField.title';

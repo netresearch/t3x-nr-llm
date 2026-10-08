@@ -3757,6 +3757,21 @@
             <trans-unit id="approvalPreview.translate.impact">
                 <source>After it is created the translation is not publicly visible yet. It has to be made visible by a person.</source>
             </trans-unit>
+            <trans-unit id="approvalPreview.fetchUrl.heading">
+                <source>Fetch a page from the internet</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.fetchUrl.address">
+                <source>Address: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.fetchUrl.host">
+                <source>Host: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.fetchUrl.query">
+                <source>Data sent with the address: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.fetchUrl.noQuery">
+                <source>No data is sent with the address.</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

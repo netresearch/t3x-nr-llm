@@ -41,6 +41,19 @@ trait AssertsGermanPreviewTrait
         self::assertIsString($technical);
         self::assertStringStartsWith('Technische Details: ', $technical);
 
+        self::assertGermanLines($lines, $foreign);
+    }
+
+    /**
+     * {@see self::assertGermanEditorLines()} for a card without a technical
+     * details line: every line is checked.
+     *
+     * @param list<string> $lines
+     * @param list<string> $foreign
+     */
+    private static function assertGermanLines(array $lines, array $foreign = []): void
+    {
+        self::assertNotSame([], $lines);
         foreach ($lines as $line) {
             $prose = str_replace($foreign, '', (string)preg_replace('/„[^“]*“/u', '', $line));
             self::assertDoesNotMatchRegularExpression('/\b[a-z]+(?:_[a-z]+)+\b/', $prose, 'An internal name in: ' . $line);

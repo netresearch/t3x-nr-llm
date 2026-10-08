@@ -42,7 +42,7 @@ final readonly class ApprovalPreviewTranslator
     /**
      * @param int|string ...$arguments values for the label's `%s` / `%d` placeholders
      */
-    public function text(BackendUserAuthentication $user, ApprovalPreviewLabel $label, int|string ...$arguments): string
+    public function text(?BackendUserAuthentication $user, ApprovalPreviewLabel $label, int|string ...$arguments): string
     {
         $text = trim($this->languageServiceFactory->createFromUserPreferences($user)->sL($label->reference()));
         if ($text === '') {
@@ -55,13 +55,15 @@ final readonly class ApprovalPreviewTranslator
     /**
      * {@see self::text()} and {@see self::quoted()} bound to one acting user,
      * as the two short callables every preview is written with. `$excerpt`
-     * flattens and truncates a value before it is quoted.
+     * flattens and truncates a value before it is quoted. Without an acting
+     * user — a read tool's preview can be asked for a run that has none — the
+     * texts are the English source, as core gives a user without a language.
      *
      * @param Closure(string): string $excerpt
      *
      * @return array{Closure(ApprovalPreviewLabel, int|string...): string, Closure(string): string}
      */
-    public function boundTo(BackendUserAuthentication $user, Closure $excerpt): array
+    public function boundTo(?BackendUserAuthentication $user, Closure $excerpt): array
     {
         return [
             fn(ApprovalPreviewLabel $label, int|string ...$arguments): string => $this->text($user, $label, ...$arguments),
@@ -74,7 +76,7 @@ final readonly class ApprovalPreviewTranslator
      * a word for "empty" — an empty pair of quotes reads like a rendering bug.
      * The caller passes the value already flattened and truncated.
      */
-    public function quoted(BackendUserAuthentication $user, string $value): string
+    public function quoted(?BackendUserAuthentication $user, string $value): string
     {
         return $value === ''
             ? $this->text($user, ApprovalPreviewLabel::ValueEmpty)

@@ -20,6 +20,7 @@ use GuzzleHttp\Promise\PromiseInterface;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchExternalUrlTool;
 use Netresearch\NrLlm\Service\Tool\EgressPolicyService;
 use Netresearch\NrLlm\Service\Tool\ToolApprovalRule;
@@ -33,6 +34,7 @@ use Netresearch\NrLlm\Service\Tool\Web\HostResolverInterface;
 use Netresearch\NrLlm\Service\Tool\Web\HtmlTextExtractor;
 use Netresearch\NrLlm\Service\Tool\Web\IpAddressClassifier;
 use Netresearch\NrLlm\Service\Tool\Web\ProxyDetector;
+use Netresearch\NrLlm\Tests\Unit\Language\LabelCatalogue;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -41,6 +43,8 @@ use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
+use TYPO3\CMS\Core\Localization\LanguageService;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Site\SiteFinder;
 
 /**
@@ -155,7 +159,7 @@ final class FetchExternalUrlToolTest extends TestCase
             }
         };
 
-        return new FetchExternalUrlTool($guard, $clientFactory, new HtmlTextExtractor(), $fetchSettings, $clock);
+        return new FetchExternalUrlTool($guard, $clientFactory, new HtmlTextExtractor(), $fetchSettings, $this->englishTranslator(), $clock);
     }
 
     /**
@@ -501,10 +505,12 @@ final class FetchExternalUrlToolTest extends TestCase
         $lines = $this->tool([])->previewCall(['url' => 'https://Example.org/search?q=internal-secret&x=1'], ToolExecutionContext::none());
 
         self::assertSame([
-            'Fetches from the internet: https://Example.org/search?q=internal-secret&x=1',
-            'The request goes to the host example.org.',
-            'Query string sent with it: q=internal-secret&x=1',
+            'Fetch a page from the internet',
+            'Address: https://Example.org/search?q=internal-secret&x=1',
+            'Host: example.org',
+            'Data sent with the address: q=internal-secret&x=1',
         ], $lines);
+        self::assertSame('No data is sent with the address.', $this->tool([])->previewCall(['url' => 'https://example.org/'], ToolExecutionContext::none())[3] ?? null);
         self::assertSame(['No valid URL was given; the call will be refused.'], $this->tool([])->previewCall(['url' => ''], ToolExecutionContext::none()));
     }
 
@@ -608,5 +614,19 @@ final class FetchExternalUrlToolTest extends TestCase
         } finally {
             $this->onSend = null;
         }
+    }
+
+    /**
+     * A translator that answers with the catalogue's English source texts,
+     * so the lines read as an acting user without a language reads them.
+     */
+    private function englishTranslator(): ApprovalPreviewTranslator
+    {
+        $language = self::createStub(LanguageService::class);
+        $language->method('sL')->willReturnCallback(static fn(string $key): string => LabelCatalogue::source($key) ?? '');
+        $factory = self::createStub(LanguageServiceFactory::class);
+        $factory->method('createFromUserPreferences')->willReturn($language);
+
+        return new ApprovalPreviewTranslator($factory);
     }
 }

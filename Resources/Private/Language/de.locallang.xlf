@@ -4997,6 +4997,26 @@
                 <source>After it is created the translation is not publicly visible yet. It has to be made visible by a person.</source>
                 <target>Die Übersetzung ist nach dem Anlegen noch nicht öffentlich sichtbar. Sie muss erst von einer Person sichtbar gemacht werden.</target>
             </trans-unit>
+            <trans-unit id="approvalPreview.fetchUrl.heading">
+                <source>Fetch a page from the internet</source>
+                <target>Seite aus dem Internet abrufen</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.fetchUrl.address">
+                <source>Address: %s</source>
+                <target>Adresse: %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.fetchUrl.host">
+                <source>Host: %s</source>
+                <target>Server: %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.fetchUrl.query">
+                <source>Data sent with the address: %s</source>
+                <target>Mit der Adresse gesendete Daten: %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.fetchUrl.noQuery">
+                <source>No data is sent with the address.</source>
+                <target>Mit der Adresse werden keine Daten gesendet.</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>
