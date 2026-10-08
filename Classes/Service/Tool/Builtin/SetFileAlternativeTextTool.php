@@ -15,6 +15,8 @@ use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
@@ -148,6 +150,7 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
     public function __construct(
         private ConnectionPool $connectionPool,
         private FalStorageGate $storageGate,
+        private ApprovalPreviewTranslator $translator,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -283,14 +286,33 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
         }
 
         [$file, $metadata] = $target;
-        $new               = $value[0];
-        $old               = self::toStr($metadata[self::FIELD] ?? '');
+        [$t, $q]           = $this->translator->boundTo($user, $this->excerpt(...));
+
+        // ADR-213, in the order of the editorial guidelines: what, which file,
+        // its language, the current and the proposed text.
+        [$line, $technical] = $this->fieldChange(
+            $t,
+            $q,
+            $t(ApprovalPreviewLabel::FileFieldAlternative),
+            self::FIELD,
+            self::toStr($metadata[self::FIELD] ?? ''),
+            $value[0],
+        );
+        $details = [
+            $t(ApprovalPreviewLabel::TechnicalFile, $uid),
+            $t(ApprovalPreviewLabel::TechnicalRecord, self::METADATA_TABLE, self::toInt($metadata['uid'] ?? 0)),
+            $t(ApprovalPreviewLabel::TechnicalFields, self::FIELD),
+        ];
+        if ($technical !== null) {
+            $details[] = $technical;
+        }
 
         return [
-            sprintf('File [%d] "%s" — alternative text (default language):', $uid, $this->excerpt(self::toStr($file['name'] ?? ''))),
-            $old === $new
-                ? sprintf('%s: unchanged (%s)', self::FIELD, $this->quoted($new))
-                : sprintf('%s: %s → %s', self::FIELD, $this->quoted($old), $this->quoted($new)),
+            $t(ApprovalPreviewLabel::SetAlternativeTextHeading),
+            $t(ApprovalPreviewLabel::ObjectFile, $q(self::toStr($file['name'] ?? ''))),
+            $t(ApprovalPreviewLabel::LanguageDefault),
+            $line,
+            $this->translator->technical($user, $details),
         ];
     }
 

@@ -48,7 +48,9 @@ trait AssertsGermanPreviewTrait
 
     /**
      * The English source texts of the approval preview catalogue, cut at their
-     * placeholders, without the pieces the German text shares ("UTC").
+     * placeholders, without the pieces a German text of the catalogue uses
+     * too ("UTC", and "Description" inside the guidelines' "Meta
+     * Description").
      *
      * @return list<string>
      */
@@ -58,17 +60,20 @@ trait AssertsGermanPreviewTrait
         $contents  = file_get_contents($catalogue);
         self::assertIsString($contents);
 
-        $fragments = [];
+        $sources = [];
+        $targets = '';
         foreach ((new SimpleXMLElement($contents))->xpath('//*[local-name()="trans-unit"]') ?? [] as $unit) {
-            if (!str_starts_with((string)($unit['id'] ?? ''), 'approvalPreview.')) {
-                continue;
+            if (str_starts_with((string)($unit['id'] ?? ''), 'approvalPreview.')) {
+                $sources[] = (string)($unit->source ?? '');
+                $targets .= "\n" . ($unit->target ?? '');
             }
+        }
 
-            $source = (string)($unit->source ?? '');
-            $target = (string)($unit->target ?? '');
+        $fragments = [];
+        foreach ($sources as $source) {
             foreach (preg_split('/%(?:\d+\$)?[sd]/', $source) ?: [] as $piece) {
                 $piece = trim($piece, " \t\n,.;:()");
-                if (mb_strlen($piece) >= 4 && preg_match('/\p{L}/u', $piece) === 1 && !str_contains($target, $piece)) {
+                if (mb_strlen($piece) >= 4 && preg_match('/\p{L}/u', $piece) === 1 && !str_contains($targets, $piece)) {
                     $fragments[] = $piece;
                 }
             }

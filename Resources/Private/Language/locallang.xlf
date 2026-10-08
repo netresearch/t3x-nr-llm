@@ -3472,6 +3472,30 @@
             <trans-unit id="approvalPreview.updateContent.heading">
                 <source>Change content element</source>
             </trans-unit>
+            <trans-unit id="approvalPreview.object.file">
+                <source>File: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.fileField.title">
+                <source>Title</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.fileField.alternative">
+                <source>Alternative text</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.fileField.description">
+                <source>Description</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.fileField.copyright">
+                <source>Copyright notice</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.file">
+                <source>file UID %d</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.setAlternativeText.heading">
+                <source>Change alternative text</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.updateFileMetadata.heading">
+                <source>Change file metadata</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

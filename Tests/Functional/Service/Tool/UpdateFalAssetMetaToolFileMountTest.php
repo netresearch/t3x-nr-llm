@@ -44,6 +44,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 #[CoversClass(UpdateFalAssetMetaTool::class)]
 final class UpdateFalAssetMetaToolFileMountTest extends AbstractFunctionalTestCase
 {
+    use AssertsGermanPreviewTrait;
+
     private const STORAGE_CONFIGURATION = '<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <T3FlexForms>
     <data>
@@ -314,6 +316,28 @@ final class UpdateFalAssetMetaToolFileMountTest extends AbstractFunctionalTestCa
         self::assertStringContainsString(self::STORED_TITLE, $card, 'the approver reads the value being replaced');
         self::assertStringContainsString('A better title', $card);
         self::assertStringNotContainsString('description', $card);
+    }
+
+    #[Test]
+    public function theApprovalCardIsInTheActingUsersLanguage(): void
+    {
+        $editor               = $this->loginEditorInBackendRequest();
+        $editor->user['lang'] = 'de';
+
+        $german = $this->tool->previewCall(
+            ['uid' => self::FILE_IN_MOUNT, 'title' => 'A better title', 'description' => 'A longer caption'],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertSame([
+            'Metadaten der Datei ändern',
+            'Datei: „manual.txt“',
+            'Sprache: Standardsprache',
+            sprintf('Titel: aktuell „%s“, Vorschlag „A better title“', self::STORED_TITLE),
+            sprintf('Beschreibung: aktuell „%s“, Vorschlag „A longer caption“', self::STORED_DESCRIPTION),
+            sprintf('Technische Details: Datei UID %d, Tabelle sys_file_metadata, UID %d, Felder title, description', self::FILE_IN_MOUNT, self::METADATA_IN_MOUNT),
+        ], $german);
+        self::assertGermanEditorLines($german);
     }
 
     private function loginEditorInBackendRequest(): BackendUserAuthentication

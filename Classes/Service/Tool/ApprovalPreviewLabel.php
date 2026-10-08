@@ -36,6 +36,7 @@ enum ApprovalPreviewLabel: string
     // --- Shared: the object, its place and language, one field's change ---
     case ObjectPage          = 'approvalPreview.object.page';
     case ObjectContent       = 'approvalPreview.object.content';
+    case ObjectFile          = 'approvalPreview.object.file';
     case LocationOnPage      = 'approvalPreview.location.onPage';
     case ContentType         = 'approvalPreview.contentType';
     case LanguageDefault     = 'approvalPreview.language.default';
@@ -61,6 +62,17 @@ enum ApprovalPreviewLabel: string
     case TechnicalFields          = 'approvalPreview.technical.fields';
     case TechnicalWholeValue      = 'approvalPreview.technical.wholeValue';
     case TechnicalContentType     = 'approvalPreview.technical.contentType';
+    case TechnicalFile            = 'approvalPreview.technical.file';
+
+    // --- The texts of a file: its metadata and a reference's own ---
+    case FileFieldTitle       = 'approvalPreview.fileField.title';
+    case FileFieldAlternative = 'approvalPreview.fileField.alternative';
+    case FileFieldDescription = 'approvalPreview.fileField.description';
+    case FileFieldCopyright   = 'approvalPreview.fileField.copyright';
+
+    // --- set_file_alternative_text, update_fal_asset_meta ---
+    case SetAlternativeTextHeading = 'approvalPreview.setAlternativeText.heading';
+    case UpdateFileMetadataHeading = 'approvalPreview.updateFileMetadata.heading';
 
     // --- update_page_metadata ---
     case UpdatePageHeading            = 'approvalPreview.updatePage.heading';

@@ -256,7 +256,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
     #[Test]
     public function theSecondWritingBuiltinAlsoSuspendsBeforeItExecutes(): void
     {
-        $tool = new SetFileAlternativeTextTool($this->connectionPool, $this->getService(FalStorageGate::class));
+        $tool = new SetFileAlternativeTextTool($this->connectionPool, $this->getService(FalStorageGate::class), new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
         // It ships disabled, so the REAL availability service would not offer it.
         (new ToolStateRepository($this->connectionPool))->setEnabled('set_file_alternative_text', true);
 

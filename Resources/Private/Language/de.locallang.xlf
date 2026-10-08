@@ -4617,6 +4617,38 @@
                 <source>Change content element</source>
                 <target>Inhaltselement ändern</target>
             </trans-unit>
+            <trans-unit id="approvalPreview.object.file">
+                <source>File: %s</source>
+                <target>Datei: %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.fileField.title">
+                <source>Title</source>
+                <target>Titel</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.fileField.alternative">
+                <source>Alternative text</source>
+                <target>Alternativtext</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.fileField.description">
+                <source>Description</source>
+                <target>Beschreibung</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.fileField.copyright">
+                <source>Copyright notice</source>
+                <target>Urheberrechtshinweis</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.file">
+                <source>file UID %d</source>
+                <target>Datei UID %d</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.setAlternativeText.heading">
+                <source>Change alternative text</source>
+                <target>Alternativtext ändern</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.updateFileMetadata.heading">
+                <source>Change file metadata</source>
+                <target>Metadaten der Datei ändern</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>
