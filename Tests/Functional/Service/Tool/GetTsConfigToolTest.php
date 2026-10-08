@@ -77,6 +77,28 @@ final class GetTsConfigToolTest extends AbstractFunctionalTestCase
         self::assertStringNotContainsString('top-secret-value', $output);
     }
 
+    /**
+     * #1017: the TSconfig shown is the acting user's view of the page — their
+     * `page.` overrides merged in — never the ambient user's.
+     */
+    #[Test]
+    public function theTsConfigIsTheActingUsersViewNotTheAmbientUsers(): void
+    {
+        $connectionPool = $this->get(ConnectionPool::class);
+        self::assertInstanceOf(ConnectionPool::class, $connectionPool);
+        $users = $connectionPool->getConnectionForTable('be_users');
+        $users->update('be_users', ['TSconfig' => 'page.demo.nested.label = Acting'], ['uid' => 1]);
+        $users->update('be_users', ['TSconfig' => 'page.demo.nested.label = Ambient'], ['uid' => 2]);
+
+        $acting = ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1));
+        $this->setUpBackendUser(2);
+
+        $output = $this->tool->execute(['pageUid' => 1, 'path' => 'demo'], $acting)->content;
+
+        self::assertStringContainsString('label = Acting', $output);
+        self::assertStringNotContainsString('Ambient', $output);
+    }
+
     #[Test]
     public function missingPageReturnsNeutralString(): void
     {

@@ -332,6 +332,34 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('TCEFORM.tt_content.subheader.disabled', $result->content);
     }
 
+    /**
+     * #1017: page TSconfig is read for the run's ACTING user. The ambient
+     * backend user is the approver at resume, or nobody in a worker; neither
+     * may change what plan() refuses.
+     */
+    #[Test]
+    public function thePageTsConfigIsReadForTheActingUserNotTheAmbientOne(): void
+    {
+        $rule      = 'TCEFORM.tt_content.subheader.disabled';
+        $arguments = ['uid' => self::TEXT, 'fields' => ['subheader' => 'Shown in the form']];
+        $users     = $this->connectionPool->getConnectionForTable('be_users');
+
+        // The approver's user TSconfig hides the column; the acting admin's does not.
+        $users->update('be_users', ['TSconfig' => 'page.' . $rule . ' = 1'], ['uid' => 2]);
+
+        $acting  = ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1));
+        $ambient = $this->setUpBackendUser(2);
+        self::assertStringNotContainsString($rule, implode("\n", $this->tool->previewCall($arguments, $acting)));
+        self::assertSame($ambient, $GLOBALS['BE_USER'], 'the preview must not replace the ambient user');
+
+        // The acting admin's own override applies, with no ambient user at all.
+        $users->update('be_users', ['TSconfig' => 'page.' . $rule . ' = 1'], ['uid' => 1]);
+        $acting = ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1));
+        unset($GLOBALS['BE_USER']);
+        self::assertStringContainsString($rule, implode("\n", $this->tool->previewCall($arguments, $acting)));
+        self::assertArrayNotHasKey('BE_USER', $GLOBALS, 'the preview must not leave an ambient user behind');
+    }
+
     #[Test]
     public function aMissingElementIsRefusedInTheSameWordsAsAForbiddenOne(): void
     {
