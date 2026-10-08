@@ -9,8 +9,10 @@
 ADR-200: A denied approval tells the model who declined it
 ============================================================
 
-:Status: Accepted
+:Status: Accepted (a denial is to carry an enumerated reason token as well —
+    decided by :ref:`ADR-214 <adr-214>`, not yet implemented)
 :Date: 2026-09-23
+:Amended: 2026-10-08 by :ref:`ADR-214 <adr-214>` (denial reason)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-200-context:

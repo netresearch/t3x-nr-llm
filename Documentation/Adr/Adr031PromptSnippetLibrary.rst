@@ -9,8 +9,9 @@
 ADR-031: Tagged Prompt Snippet Library
 ==================================================================
 
-:Status: Accepted (a caller's system message is to keep the snippet block —
-    decided by :ref:`ADR-214 <adr-214>`, not yet implemented)
+:Status: Accepted (a caller's system message is to keep the snippets an
+    administrator marked, on configurations that opt in — decided by
+    :ref:`ADR-214 <adr-214>`, not yet implemented)
 :Date: 2026-06-10
 :Amended: 2026-10-08 by :ref:`ADR-214 <adr-214>`
 :Authors: Netresearch DTT GmbH

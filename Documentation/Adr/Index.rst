@@ -357,9 +357,9 @@ Skills
 
    .. card:: ADR-214: Approved skill versions instruct
 
-      An approved checksum makes a skill an instruction;
-      backend-authored skills, on-demand loading and
-      pinned process skills.
+      An approved digest makes a skill version an
+      instruction; backend-authored skills, loading by
+      slash command or by the model, pinned processes.
 
       .. card-footer:: :ref:`Read <adr-214>`
          :button-style: btn btn-secondary stretched-link

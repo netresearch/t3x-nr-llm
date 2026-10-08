@@ -9,8 +9,11 @@
 ADR-035: Skill ingest (GitHub-hosted SKILL.md sources)
 ==================================================================
 
-:Status: Accepted
+:Status: Accepted (items 4 and 5: the checksum is to cover the frontmatter
+    fields, so a frontmatter-only change disables an enabled skill — decided by
+    :ref:`ADR-214 <adr-214>`, not yet implemented)
 :Date: 2026-06-27
+:Amended: 2026-10-08 by :ref:`ADR-214 <adr-214>` (items 4 and 5)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-035-context:
