@@ -355,6 +355,15 @@ Skills
       .. card-footer:: :ref:`Read <adr-036>`
          :button-style: btn btn-secondary stretched-link
 
+   .. card:: ADR-214: Approved skill versions instruct
+
+      An approved checksum makes a skill an instruction;
+      backend-authored skills, on-demand loading and
+      pinned process skills.
+
+      .. card-footer:: :ref:`Read <adr-214>`
+         :button-style: btn btn-secondary stretched-link
+
 .. _adr-tools:
 
 Tools
@@ -599,3 +608,4 @@ Tools
    Adr211TypedDecisionsFromAnExchangeableBackend
    Adr212AGenericFileAttacherWhereNoNarrowWriterExists
    Adr213ApprovalPreviewLinesAreInTheActingUsersLanguage
+   Adr214ApprovedSkillVersionsInstruct

@@ -9,8 +9,11 @@
 ADR-036: Skill injection (attach + compose into prompts)
 ==================================================================
 
-:Status: Accepted
+:Status: Accepted (item 3 and the tail drop of item 5 are to stop applying to
+    skill versions approved as instructions — decided by :ref:`ADR-214 <adr-214>`,
+    not yet implemented)
 :Date: 2026-06-28
+:Amended: 2026-10-08 by :ref:`ADR-214 <adr-214>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-036-context:
