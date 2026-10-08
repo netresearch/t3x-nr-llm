@@ -70,6 +70,11 @@ enum ApprovalPreviewLabel: string
     case TechnicalCurrentFile     = 'approvalPreview.technical.currentFile';
     case TechnicalTranslatedReferences = 'approvalPreview.technical.translatedReferences';
     case TechnicalTranslatedElements   = 'approvalPreview.technical.translatedElements';
+    case TechnicalTargetPage      = 'approvalPreview.technical.targetPage';
+    case TechnicalCurrentPage     = 'approvalPreview.technical.currentPage';
+    case TechnicalColumn          = 'approvalPreview.technical.column';
+    case TechnicalCurrentColumn   = 'approvalPreview.technical.currentColumn';
+    case TechnicalAnchorElement   = 'approvalPreview.technical.anchorElement';
 
     // --- The texts of a file: its metadata and a reference's own ---
     case FileFieldTitle       = 'approvalPreview.fileField.title';
@@ -107,6 +112,26 @@ enum ApprovalPreviewLabel: string
     case ReplaceFileTranslationsRemoved   = 'approvalPreview.replaceFile.translationsRemoved';
     case ReplaceFileTranslationsReplaced  = 'approvalPreview.replaceFile.translationsReplaced';
     case ReplaceFileOrphans               = 'approvalPreview.replaceFile.orphans';
+
+    // --- move_content_element ---
+    case MoveContentHeading  = 'approvalPreview.moveContent.heading';
+    case MoveContentCurrent  = 'approvalPreview.moveContent.current';
+    case MoveContentNewFirst = 'approvalPreview.moveContent.newFirst';
+    case MoveContentNewAfter = 'approvalPreview.moveContent.newAfter';
+
+    // --- copy_record ---
+    case CopyPageHeading                    = 'approvalPreview.copyRecord.headingPage';
+    case CopyContentHeading                 = 'approvalPreview.copyRecord.headingContent';
+    case CopyTargetPageFirst                = 'approvalPreview.copyRecord.targetPageFirst';
+    case CopyTargetPageAfter                = 'approvalPreview.copyRecord.targetPageAfter';
+    case CopyTargetContentFirst             = 'approvalPreview.copyRecord.targetContentFirst';
+    case CopyTargetContentAfter             = 'approvalPreview.copyRecord.targetContentAfter';
+    case CopyPageAlong                      = 'approvalPreview.copyRecord.pageAlong';
+    case CopyTranslationsPage               = 'approvalPreview.copyRecord.translationsPage';
+    case CopyTranslationsContent            = 'approvalPreview.copyRecord.translationsContent';
+    case CopyTranslationsPageBefore13425    = 'approvalPreview.copyRecord.translationsPageBefore13425';
+    case CopyTranslationsContentBefore13425 = 'approvalPreview.copyRecord.translationsContentBefore13425';
+    case CopyVisibility                     = 'approvalPreview.copyRecord.visibility';
 
     // --- update_page_metadata ---
     case UpdatePageHeading            = 'approvalPreview.updatePage.heading';

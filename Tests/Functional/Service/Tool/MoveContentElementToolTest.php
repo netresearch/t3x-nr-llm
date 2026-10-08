@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\MoveContentElementTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -31,6 +32,8 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 #[CoversClass(MoveContentElementTool::class)]
 final class MoveContentElementToolTest extends AbstractFunctionalTestCase
 {
+    use AssertsGermanPreviewTrait;
+
     /** @var non-empty-string[] */
     protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'frontend'];
 
@@ -105,7 +108,7 @@ final class MoveContentElementToolTest extends AbstractFunctionalTestCase
         // tool refuses to write without it.
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('default');
 
-        $this->tool = new MoveContentElementTool($this->connectionPool);
+        $this->tool = new MoveContentElementTool($this->connectionPool, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
     }
 
     protected function tearDown(): void
@@ -287,17 +290,30 @@ final class MoveContentElementToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function thePreviewNamesBothSidesAndWritesNothing(): void
     {
-        $admin = $this->setUpBackendUser(1);
+        $arguments = ['uid' => self::ELEMENT_ON_OPEN, 'target_page' => self::PAGE_OPEN_TWO, 'column' => 4];
 
-        $lines = $this->tool->previewCall(
-            ['uid' => self::ELEMENT_ON_OPEN, 'target_page' => self::PAGE_OPEN_TWO, 'column' => 4],
-            ToolExecutionContext::fromBackendUser($admin),
+        self::assertSame([
+            'Move content element',
+            'Content element: “Movable”',
+            'Content type: ' . $this->tcaItemLabelIn('en', 'tt_content', 'CType', 'text'),
+            'Currently: page “Open”, column 0',
+            'New: page “Open two”, column 4, as the first element',
+            'Technical details: table tt_content, UID 21, content type text, current page UID 2, current column (colPos) 0, target page UID 3, column (colPos) 4',
+        ], $this->previewIn('en', $arguments));
+        $german = $this->previewIn('de', $arguments);
+        self::assertSame([
+            'Inhaltselement verschieben',
+            'Inhaltselement: „Movable“',
+            'Inhaltstyp: ' . $this->tcaItemLabelIn('de', 'tt_content', 'CType', 'text'),
+            'Aktuell: Seite „Open“, Spalte 0',
+            'Neu: Seite „Open two“, Spalte 4, als erstes Element',
+            'Technische Details: Tabelle tt_content, UID 21, Inhaltstyp text, bisherige Seite UID 2, bisherige Spalte (colPos) 0, Zielseite UID 3, Spalte (colPos) 4',
+        ], $german);
+        self::assertGermanEditorLines($german);
+        self::assertContains(
+            'Neu: Seite „Open two“, Spalte 3, direkt nach „Anchor“',
+            $this->previewIn('de', ['uid' => self::ELEMENT_ON_OPEN, 'target_page' => self::PAGE_OPEN_TWO, 'after_content_uid' => self::ANCHOR_ON_OPEN_TWO]),
         );
-
-        self::assertCount(3, $lines);
-        self::assertStringContainsString('Movable', $lines[0]);
-        self::assertStringContainsString('from: page [2] "Open", column 0', $lines[1]);
-        self::assertStringContainsString('to: page [3] "Open two", column 4', $lines[2]);
 
         // A preview is a read. The row must be exactly as it was.
         $row = $this->elementRow(self::ELEMENT_ON_OPEN);
@@ -372,5 +388,21 @@ final class MoveContentElementToolTest extends AbstractFunctionalTestCase
             ->fetchAllAssociative();
 
         return array_map(static fn(array $row): int => (int)($row['userid'] ?? 0), $rows);
+    }
+
+    /**
+     * The preview as the run's acting user reads it, in that user's language
+     * (ADR-213).
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return list<string>
+     */
+    private function previewIn(string $language, array $arguments): array
+    {
+        $admin               = $this->setUpBackendUser(1);
+        $admin->user['lang'] = $language;
+
+        return $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($admin));
     }
 }

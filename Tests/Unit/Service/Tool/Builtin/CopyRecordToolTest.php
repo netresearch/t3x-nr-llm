@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\CopyRecordTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
@@ -20,6 +21,7 @@ use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageService;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 
 /**
  * Argument validation of `copy_record` (ADR-198).
@@ -51,7 +53,7 @@ final class CopyRecordToolTest extends AbstractUnitTestCase
         $GLOBALS['LANG']    = self::createStub(LanguageService::class);
         $GLOBALS['BE_USER'] = $this->liveUser();
 
-        $this->tool = new CopyRecordTool(self::createStub(ConnectionPool::class));
+        $this->tool = new CopyRecordTool(self::createStub(ConnectionPool::class), new ApprovalPreviewTranslator(self::createStub(LanguageServiceFactory::class)));
     }
 
     protected function tearDown(): void

@@ -286,7 +286,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
     #[Test]
     public function theMovingBuiltinSuspendsBeforeItExecutes(): void
     {
-        $tool = new MoveContentElementTool($this->connectionPool);
+        $tool = new MoveContentElementTool($this->connectionPool, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
         // It ships disabled, so the REAL availability service would not offer it.
         (new ToolStateRepository($this->connectionPool))->setEnabled('move_content_element', true);
 

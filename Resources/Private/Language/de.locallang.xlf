@@ -4761,6 +4761,90 @@
                 <source>Of these, on a translated content element that no longer exists: %d</source>
                 <target>Davon auf einem übersetzten Inhaltselement, das nicht mehr existiert: %d</target>
             </trans-unit>
+            <trans-unit id="approvalPreview.technical.targetPage">
+                <source>target page UID %d</source>
+                <target>Zielseite UID %d</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.currentPage">
+                <source>current page UID %d</source>
+                <target>bisherige Seite UID %d</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.column">
+                <source>column (colPos) %d</source>
+                <target>Spalte (colPos) %d</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.currentColumn">
+                <source>current column (colPos) %d</source>
+                <target>bisherige Spalte (colPos) %d</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.anchorElement">
+                <source>preceding content element UID %d</source>
+                <target>vorangehendes Inhaltselement UID %d</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.moveContent.heading">
+                <source>Move content element</source>
+                <target>Inhaltselement verschieben</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.moveContent.current">
+                <source>Currently: page %s, column %d</source>
+                <target>Aktuell: Seite %s, Spalte %d</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.moveContent.newFirst">
+                <source>New: page %s, column %d, as the first element</source>
+                <target>Neu: Seite %s, Spalte %d, als erstes Element</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.moveContent.newAfter">
+                <source>New: page %s, column %d, directly after %s</source>
+                <target>Neu: Seite %s, Spalte %d, direkt nach %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.copyRecord.headingPage">
+                <source>Copy page</source>
+                <target>Seite kopieren</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.copyRecord.headingContent">
+                <source>Copy content element</source>
+                <target>Inhaltselement kopieren</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.copyRecord.targetPageFirst">
+                <source>Copy to: under %s, as the first subpage</source>
+                <target>Kopieren nach: unter %s als erste Unterseite</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.copyRecord.targetPageAfter">
+                <source>Copy to: under %s, directly after %s</source>
+                <target>Kopieren nach: unter %s, direkt nach %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.copyRecord.targetContentFirst">
+                <source>Copy to: page %s, column %d, as the first element</source>
+                <target>Kopieren nach: Seite %s, Spalte %d, als erstes Element</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.copyRecord.targetContentAfter">
+                <source>Copy to: page %s, column %d, directly after %s</source>
+                <target>Kopieren nach: Seite %s, Spalte %d, direkt nach %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.copyRecord.pageAlong">
+                <source>Copied with it: content elements: %d, and the other records stored on the page. Subpages are not copied.</source>
+                <target>Wird mitkopiert: Inhaltselemente: %d sowie die übrigen auf der Seite gespeicherten Datensätze. Unterseiten werden nicht kopiert.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.copyRecord.translationsPage">
+                <source>Translations: %d. Each is copied only into a website that has its language; where one cannot be placed, the whole copy is taken back. Outside a website none is copied. The result says how many were copied.</source>
+                <target>Übersetzungen: %d. Jede wird nur in eine Website kopiert, die ihre Sprache hat; lässt sich eine nicht einordnen, wird die ganze Kopie zurückgenommen. Außerhalb einer Website wird keine kopiert. Das Ergebnis nennt, wie viele kopiert wurden.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.copyRecord.translationsContent">
+                <source>Translations: %d. Each is copied only into a website that has its language and onto a target page translated into it; where one cannot be placed, the whole copy is taken back. Outside a website none is copied. The result says how many were copied.</source>
+                <target>Übersetzungen: %d. Jede wird nur in eine Website kopiert, die ihre Sprache hat, und nur auf eine Zielseite, die in diese Sprache übersetzt ist; lässt sich eine nicht einordnen, wird die ganze Kopie zurückgenommen. Außerhalb einer Website wird keine kopiert. Das Ergebnis nennt, wie viele kopiert wurden.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.copyRecord.translationsPageBefore13425">
+                <source>Translations: %d. This TYPO3 version copies every translation, also into a website without its language and outside a website. The result says how many were copied.</source>
+                <target>Übersetzungen: %d. Diese TYPO3-Version kopiert jede Übersetzung, auch in eine Website ohne ihre Sprache und außerhalb einer Website. Das Ergebnis nennt, wie viele kopiert wurden.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.copyRecord.translationsContentBefore13425">
+                <source>Translations: %d. This TYPO3 version copies a translation only onto a target page translated into its language and leaves out the others without a message. The result says how many were copied.</source>
+                <target>Übersetzungen: %d. Diese TYPO3-Version kopiert eine Übersetzung nur auf eine Zielseite, die in ihre Sprache übersetzt ist, und lässt die übrigen ohne Meldung weg. Das Ergebnis nennt, wie viele kopiert wurden.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.copyRecord.visibility">
+                <source>Visibility: hidden at first. The copy and every copied translation have to be made visible by a person.</source>
+                <target>Sichtbarkeit: zunächst verborgen. Die Kopie und jede kopierte Übersetzung muss von einer Person sichtbar gemacht werden.</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>
