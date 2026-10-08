@@ -381,11 +381,13 @@ threshold read it there (:ref:`item 2 <adr-214-d2>`).
   For a synced skill that value is held by the integrity check and by the
   disable-on-change of the sync. A backend skill has neither: an author could
   widen the run's tools with an edit that needs no approval. A backend skill
-  therefore contributes the ``allowed_tools`` of the approved snapshot that
-  matches its current digest. While its current version is unapproved, it
+  therefore contributes the ``allowed_tools`` of its most recent unrevoked
+  approved snapshot, not the live field. An edit to an approved backend skill
+  thus keeps the approved tools until the new version is approved. A backend
+  skill that was never approved, or whose approvals are all revoked,
   contributes a declared empty list: it grants nothing, and it still counts as
-  a declaration, so attaching an unapproved backend skill can never leave a
-  run unrestricted.
+  a declaration, so it can never leave a run unrestricted. A skill the run
+  holds a pin for follows the pin rule of :ref:`item 5 <adr-214-d5>` instead.
 - **Eight fields are excluded** with ``exclude => true``. On
   ``tx_nrllm_skill``: ``trust_level``, ``body_checksum``, ``version_digest``,
   ``enabled``, ``allowed_tools`` and ``source``. On ``tx_nrllm_skill_source``:
@@ -508,6 +510,16 @@ add one through the skill allow-list. The other gates are re-read at resume
 as today: a tool switched on globally while the run waited is offered if the
 skill list admits it (:ref:`ADR-039 <adr-039>`).
 
+**A pinned skill contributes from its pinned snapshot.** A skill the run or
+its continuation holds a pin for (:ref:`item 6 <adr-214-d6>`) contributes the
+``allowed_tools`` of the pinned snapshot, whether or not it is still enabled
+and whatever its current digest is — in the start-time union of every chat
+turn and in the live list a resume intersects with. Every chat turn is a new
+run, so without this rule a sync that disables a pinned skill, or an edit
+that leaves a pinned backend skill unapproved, would take away the tools the
+instruction still in the system message relies on. Unpinned skills follow
+the rules above and, for backend skills, :ref:`item 3 <adr-214-d3>`.
+
 **The load tool sits outside the skill allow-list.** It is exempt from the
 skill-derived list and from the configuration's ``allowed_tool_groups``
 gate (:php:`AllowedToolsResolver::applyGroupGate()`), so a skill declaring
@@ -539,7 +551,9 @@ persists the final answer, not the tool messages
 loaded in turn 3 would otherwise be gone from turn 4's system message. The
 run result therefore reports every pin the run holds, and a continuation
 request carries all of them (:ref:`item 10 <adr-214-d10>`). The runtime
-re-composes each carried pin into the new run's system message.
+re-composes each carried pin into the new run's system message, and the
+pinned snapshot also supplies the skill's tool declarations
+(:ref:`item 5 <adr-214-d5>`).
 
 **The pin rules, at start, at worker pickup, at every resume and at every
 continuation.** A pin holds while an unrevoked approval for its digest and
@@ -608,7 +622,9 @@ dropping old turns.
 
 ``fit()`` itself is unchanged: it keeps dropping the oldest turns when the
 transcript grows, and the system message, which carries the sections, is part
-of the head it never drops.
+of the head it never drops. This is why ADR-107 is not amended: its drop
+rule stays as it is, and only the admission of a new section, which ADR-107
+does not govern, is decided here.
 
 .. _adr-214-d8:
 
@@ -668,13 +684,15 @@ renders them and owns the open points.
   and status.
 - **Highlight.** A read-only builtin names the record the current point is
   about. It accepts only targets the run registered from the invocation's
-  subject record, for example the content elements of the selected page; the
+  subject record, which every continuation carries with the invocation
+  (:ref:`item 10 <adr-214-d10>`), for example the content elements of the selected page; the
   UI maps a target to its element. The model never supplies a CSS selector or
   any other markup.
 - **One write per turn in a process run.** An approval decides the whole turn
   (:ref:`ADR-132 <adr-132>`; :php:`ToolLoopService::resume()` applies one
-  decision to every pending call). In a run started with a process skill, a
-  turn that requests more than one write-declaring call gets an error result
+  decision to every pending call). In a run that holds a process pin — the
+  first run of a tour and every continuation, which carries the pin — a turn
+  that requests more than one write-declaring call gets an error result
   for every write call after the first, before the run suspends, so the card
   shows exactly one proposal and one answer covers exactly one write. Read
   calls in the same turn are unaffected.
@@ -937,6 +955,10 @@ not:
   shipped surface changes.
 - A process run that requests two writes in one turn gets an error for the
   second; outside process runs nothing changes.
+- A backend skill that was never approved contributes a declared empty tool
+  list. Attached to a configuration whose other skills declare nothing, it
+  turns off every tool except the load tool until a version is approved. That
+  is the price of never letting unreviewed text grant or lift a restriction.
 
 ✕ **An approved skill is an instruction with the acting user's reach.** It can
 steer which tools the model calls and with what arguments, within the run's
