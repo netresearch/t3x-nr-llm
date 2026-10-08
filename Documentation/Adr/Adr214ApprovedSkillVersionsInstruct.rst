@@ -917,8 +917,9 @@ renders them and owns the open points.
   #. it claims the conversation row first, with its compare-and-set
      ``updateIf()``, and answers 409 when the claim fails. A decision the
      chat has made is never in this window: deciding a card records the
-     decision and moves the conversation to ``Processing`` in the same write
-     (``Conversation::recordApprovalDecision()``), and a message to a
+     decision and moves the conversation to ``Processing`` in one
+     compare-and-set from ``AwaitingApproval`` (``ChatService::recordDecision()``,
+     which writes through ``updateIf()``), and a message to a
      conversation in ``Processing``, or one that still records a decision
      (``hasPendingApprovalDecision()``), is answered 409 before any cancel.
      The outcome of the chat's own decision always arrives through the
@@ -947,22 +948,36 @@ renders them and owns the open points.
   be one the chat itself released, so the guarded cancel never withdraws a
   proposal somebody else approved. Runs without a process pin are not
   cancelled; ``queueTurn()`` keeps leaving them waiting, as today.
-- **Applied means the chat's own approved call succeeded.** The chat decides
-  every card of a process run itself, one write call per turn, and gets the
-  result back through the normal result path: the run result that its
-  ``approve()`` returns, or that its worker hands to ``applyResult()``. In a
-  tour that result usually ends in the next suspension, not in completion;
-  its ``steps`` carry the segment's trace on every outcome
-  (:php:`AgentRunResult`), and a tool step carries ``toolIsError``
-  (:php:`RunStep`), the flag ADR-200 keeps, not the ``Error:`` prefix of the
-  text. A tool step has no call id today, so the step gains one (a new
-  contract, like ``pendingTarget()``), and the chat finds the approved call
-  by it. A point is shown as applied only when that result holds the tool
-  step of the approved call and its ``toolIsError`` is false. Nothing is inferred from the
-  run's events, and no other path marks a point applied. A proposal that
-  leaves the card any other way — withdrawn by a new message, cancelled by
-  an operator, stopped by the four-eyes guard, failed after the claim, or
-  purged — is shown only as discarded ("Vorschlag verworfen").
+- **Applied means the chat's own approved call wrote everything it
+  planned.** The chat decides every card of a process run itself, one write
+  call per turn, and gets the result back through the normal result path:
+  the run result that its ``approve()`` returns, or that its worker hands to
+  ``applyResult()``. Its ``steps`` carry the segment's trace on every outcome
+  (:php:`AgentRunResult`), also when it ends in the next suspension. The
+  approved call's step is the first tool step of that result, with no call id
+  needed: every resume segment starts a fresh trace
+  (:php:`AgentRunExecutor::executeResume()`), and
+  :php:`ToolLoopService::resume()` records the pending calls — under the
+  one-approval rule exactly one — before it re-enters the loop. Provider call
+  ids could not serve anyway, since some restart per response (the Ollama
+  adapter synthesises ``call_<index>``).
+
+  A point is shown as applied only when all three hold: the result has a
+  first tool step, its ``toolIsError`` (:php:`RunStep`) is false, and it is
+  followed by the write step (``RunStep::KIND_WRITE``, :ref:`ADR-182 <adr-182>`)
+  of that call without the partial flag. The partial flag is the smallest
+  mechanism the code supports: a tool that stores only part of what it
+  planned already returns a non-error text with its write target — for
+  example ``Classes/Service/Tool/Builtin/UpdateContentElementTool.php#in part: %s took.``
+  — so :php:`ToolResult::withWriteTarget()` gains an optional partial flag that
+  such a branch sets, and :php:`RunTrace::recordToolResult()` copies it onto
+  the write step it already records. A write tool without a write step, such
+  as a remote tool, is shown as approved, not as applied. A partial or failed
+  approved write is not applied and closes no open point. Nothing is
+  inferred from persisted events, and no other path marks a point applied. A
+  proposal that leaves the card any other way — withdrawn by a new message,
+  cancelled by an operator, stopped by the four-eyes guard, failed after the
+  claim, or purged — is shown only as discarded ("Vorschlag verworfen").
 - **Pure choices use a choice builtin.** A choice without a write — which page,
   which finding first, whether to continue — is a ``WAITING_FOR_INPUT``
   suspension of a generic builtin that implements
@@ -1313,8 +1328,9 @@ signature.
 ✕ The work spans nr_llm (digest column and migration, compose path, approval,
 load tool, run-start allow-list, pins and continuation, budget charge,
 snippet path, denial reason, one-approval rule, guarded cancel, the
-process-run decider and four-eyes guards, progress, highlight and choice
-builtins, catalogue API, actor-scoped access check) and nr_mcp_agent (slash
+process-run decider and four-eyes guards, ``pendingTarget()`` and the
+partial-write flag on write tools, progress, highlight and choice builtins,
+catalogue API, actor-scoped access check) and nr_mcp_agent (slash
 commands, the approval card's three answers, the input pause, naming the
 predecessor run, the withdraw order in ``queueTurn()``, progress, highlight,
 open-point table and listing tool). The process use case works only when
@@ -1338,9 +1354,8 @@ Open questions
   there is part of that revisit.
 - **Names.** ``skills.instructionTrustLevel``, ``version_digest``, the
   ``process`` frontmatter key, the load modes, the snippet mark, the
-  configuration opt-in, :php:`ApprovalDenialReason`, ``cancelIfWaiting()`` and
-  ``pendingTarget()`` are
-  working names.
+  configuration opt-in, :php:`ApprovalDenialReason`, ``cancelIfWaiting()``,
+  ``pendingTarget()`` and the partial-write flag are working names.
 - **Catalogue size.** Whether the catalogue needs its own byte cap, or the
   admission rule of :ref:`item 7 <adr-214-d7>` covers it.
 - **Headroom.** Whether 10 % of the budget is the right reserve, measured on
