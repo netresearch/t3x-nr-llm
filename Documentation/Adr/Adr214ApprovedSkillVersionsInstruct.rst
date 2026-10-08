@@ -915,15 +915,24 @@ renders them and owns the open points.
   nr_mcp_agent's ``queueTurn()`` acts in this order:
 
   #. it claims the conversation row first, with its compare-and-set
-     ``updateIf()``, and answers 409 when the claim fails;
+     ``updateIf()``, and answers 409 when the claim fails. A decision the
+     chat has made is never in this window: deciding a card records the
+     decision and moves the conversation to ``Processing`` in the same write
+     (``Conversation::recordApprovalDecision()``), and a message to a
+     conversation in ``Processing``, or one that still records a decision
+     (``hasPendingApprovalDecision()``), is answered 409 before any cancel.
+     The outcome of the chat's own decision always arrives through the
+     result path;
   #. it then cancels the run through the guarded cancel of
      :ref:`item 10 <adr-214-d10>`, which succeeds only from
      ``WAITING_FOR_APPROVAL`` or ``WAITING_FOR_INPUT`` and reports the run's
      status after the attempt;
-  #. if the cancel won, or the run was already terminal, the turn is
-     dispatched with the run as its predecessor. The chat records nothing for
-     the withdrawn proposal and shows only that it was discarded
-     ("Vorschlag verworfen"). A run that no longer exists records nothing
+  #. if the cancel won, or the run was already terminal although the chat
+     made no decision on it — which under the first guard of item 6 means an
+     operator cancelled it — the turn is dispatched with the run as its
+     predecessor. The chat records nothing for the withdrawn proposal and
+     shows only that it was discarded ("Vorschlag verworfen"). A run that no
+     longer exists records nothing
      either, and the turn follows the missing-predecessor rule of
      :ref:`item 6 <adr-214-d6>`;
   #. if the run is ``QUEUED`` or ``RUNNING`` — the chat's own decision is
@@ -941,9 +950,15 @@ renders them and owns the open points.
 - **Applied means the chat's own approved call succeeded.** The chat decides
   every card of a process run itself, one write call per turn, and gets the
   result back through the normal result path: the run result that its
-  ``approve()`` returns, or that its worker hands to ``applyResult()``. A
-  point is shown as applied only when that result holds the tool result of
-  the approved call and it is not an error. Nothing is inferred from the
+  ``approve()`` returns, or that its worker hands to ``applyResult()``. In a
+  tour that result usually ends in the next suspension, not in completion;
+  its ``steps`` carry the segment's trace on every outcome
+  (:php:`AgentRunResult`), and a tool step carries ``toolIsError``
+  (:php:`RunStep`), the flag ADR-200 keeps, not the ``Error:`` prefix of the
+  text. A tool step has no call id today, so the step gains one (a new
+  contract, like ``pendingTarget()``), and the chat finds the approved call
+  by it. A point is shown as applied only when that result holds the tool
+  step of the approved call and its ``toolIsError`` is false. Nothing is inferred from the
   run's events, and no other path marks a point applied. A proposal that
   leaves the card any other way — withdrawn by a new message, cancelled by
   an operator, stopped by the four-eyes guard, failed after the claim, or
