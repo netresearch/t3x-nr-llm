@@ -552,13 +552,20 @@ be a process. A process skill is started by explicit invocation only; it is
 never in the model's catalogue, so page content cannot start a process. A
 process skill whose current version is not an instruction cannot be started.
 
-**A process skill is composed only through an invocation.** Attaching a
-process skill with the ``always`` load mode and forcing it through
-:php:`RunAugmentation` are refused when they are saved. A skill can turn into
-a process skill after it was attached or forced, because the marker is part
-of the synced frontmatter; at compose time such a skill is therefore skipped
-on the ``always`` and forced paths, with a notice naming it, and reaches a run
-only through an invocation. So every process pin passes the start checks of
+**A process skill is composed only through an invocation.** The guarantee is
+the compose-time skip: a process skill that reaches the ``always`` path or the
+forced path (:php:`RunAugmentation`) is skipped, with a notice naming it, and
+reaches a run only through an invocation. The skip also covers a skill that
+turns into a process skill after it was attached, because the marker is part
+of the synced frontmatter. Two earlier refusals are conveniences on top of
+it, not the guarantee: FormEngine refuses the ``always`` load mode on the
+attachment of a process skill, which is a check the Extbase write paths skip
+(:ref:`ADR-169 <adr-169>`, section 3), and a run request that forces a
+process skill is refused when it is made, since forcing is per run and never
+saved. A process skill is attached ``on_demand``; an invocation reaches
+either load mode. A consumer that wants a process for a whole conversation
+passes it as an invocation, never as a forced skill. So every process pin
+passes the start checks of
 :ref:`item 10 <adr-214-d10>` — no service account, no four-eyes
 configuration, no second process pin.
 
@@ -597,7 +604,9 @@ nr_llm, not left to the consumer:
   rule to a run holding a process pin before its ADR-172 gate: the
   self-approval refusal would otherwise leave the run waiting, and under the
   first guard nobody else could decide it, so the run would never reach the
-  pin check. The run is stopped with the four-eyes message instead. Four-eyes
+  pin check. The run is stopped with the four-eyes message instead, through a
+  terminal transition guarded on ``WAITING_FOR_APPROVAL`` like the guarded
+  cancel of item 10, since this happens before any claim. Four-eyes
   tours are an open question for a later decision.
 
 **Every instruction section is pinned, not only the process.** A pin is a
@@ -911,9 +920,12 @@ renders them and owns the open points.
      run waited for approval records the point as open (below), keyed by the
      pending target the cancel returns, because finishing a run clears its
      suspended state and the target can no longer be read afterwards. A run
-     that reached a terminal state by another path also returns its
-     pending target (item 10), so the point is recorded as open the same
-     way. A run that no longer exists records nothing; the chat states that
+     that left the waiting state by another terminal path also returns its
+     persisted pending target (item 10). The applied rule comes first: if the
+     run holds a ``tool_write`` event after its last approval, the point is
+     applied, never open — the chat's own approval may have run and finished
+     before ``applyResult()`` set the conversation idle. Otherwise the point is
+     recorded as open. A run that no longer exists records nothing; the chat states that
      the proposal is no longer available, and the turn follows the
      missing-predecessor rule of :ref:`item 6 <adr-214-d6>`;
   #. if the run is ``QUEUED`` or ``RUNNING`` — the chat's own decision is
@@ -1013,10 +1025,11 @@ Working names; the shapes are the decision.
   drop stops the run, and a detached skill or a changed configuration drops
   the pin with a notice. A request that names a new invocation
   and a predecessor is a new start for that invocation and a continuation for
-  the rest. An invocation, or a forced skill, whose skill uid a derived pin
-  already names is not a new start: it is the idempotent case of item 4, so
-  a chat that passes the conversation's skill on every turn does not trip the
-  "no process pin is held" check. Inside one run, ``approve()`` and ``submitInput()`` continue as
+  the rest. An invocation whose skill uid a derived pin already names is not
+  a new start: it is the idempotent case of item 4, so a chat that passes the
+  conversation's process skill as an invocation on every turn does not trip
+  the "no process pin is held" check. Passed as a forced skill instead, a
+  process skill is skipped (:ref:`item 6 <adr-214-d6>`). Inside one run, ``approve()`` and ``submitInput()`` continue as
   today.
 - **Catalogue for slash commands.** An ``@api`` service returns the skills an
   actor may invoke on a configuration — uid, identifier, name, description,
@@ -1035,15 +1048,19 @@ Working names; the shapes are the decision.
   queued or running run and stays the operator's tool. A run's status exposes
   whether it holds a process pin and, while it waits for approval, the
   pending write's structured target from the write tool's
-  ``pendingTarget()`` (:ref:`item 9 <adr-214-d9>`). When a process run that
-  waits for approval reaches a terminal state by any path — the guarded
-  cancel, :php:`AgentRuntime::cancel()`, the ``nrllm:agent:cancel`` command,
-  a failure — nr_llm writes its pending target into a field of the
-  run record that survives the clearing of ``suspended_state``, and
-  ``cancelIfWaiting()`` returns it for a run that was already terminal. A run
-  removed by :php:`AgentRunRepository::purgeUnfinishedOlderThan()` leaves
-  nothing to read; the chat then records nothing and says the proposal is no
-  longer available.
+  ``pendingTarget()`` (:ref:`item 9 <adr-214-d9>`). When a process run moves
+  directly out of ``WAITING_FOR_APPROVAL`` into a terminal state — the guarded
+  cancel, :php:`AgentRuntime::cancel()` or the ``nrllm:agent:cancel`` command
+  on a waiting run, or the four-eyes stop of item 6 — nr_llm writes its
+  pending target into a field of the run record that survives the clearing
+  of ``suspended_state``. No other path ends a waiting run: dead-lettering
+  applies to running runs whose lease expired, and a run that failed after
+  the chat's approval had been claimed is covered by the applied rule of
+  :ref:`item 9 <adr-214-d9>`. ``cancelIfWaiting()`` returns the persisted
+  target for a run that was already terminal. A run that the approval-window
+  purge removed (:php:`AgentRunRepository::purgeUnfinishedOlderThan()`)
+  leaves nothing to read; the chat then records nothing and says the proposal
+  is no longer available.
 - **Process runs refuse other deciders.** :php:`ResumeCoordinator::approve()`
   and ``submitInput()`` refuse an actor who is not the initiator of a run
   holding a process pin, and check the four-eyes pin rule before the ADR-172
