@@ -142,6 +142,33 @@ trait AssertsGermanPreviewTrait
         return rtrim(trim($this->getService(LanguageServiceFactory::class)->create($language)->sL($label)), ':');
     }
 
+    /**
+     * Set a value at a path below `$GLOBALS['TCA']`, creating the levels on
+     * the way.
+     */
+    private static function setTcaAt(mixed $value, string ...$path): void
+    {
+        $GLOBALS['TCA'] = self::withValueAt(is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [], array_values($path), $value);
+    }
+
+    /**
+     * @param array<array-key, mixed> $array
+     * @param list<string>            $path
+     *
+     * @return array<array-key, mixed>
+     */
+    private static function withValueAt(array $array, array $path, mixed $value): array
+    {
+        $key = array_shift($path);
+        if ($key === null) {
+            return $array;
+        }
+
+        $array[$key] = $path === [] ? $value : self::withValueAt(is_array($array[$key] ?? null) ? $array[$key] : [], $path, $value);
+
+        return $array;
+    }
+
     private static function tcaAt(string ...$path): mixed
     {
         $value = $GLOBALS['TCA'] ?? null;

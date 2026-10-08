@@ -94,6 +94,7 @@ enum ApprovalPreviewLabel: string
     case TechnicalSite                = 'approvalPreview.technical.site';
     case TechnicalWithheldFields      = 'approvalPreview.technical.withheldFields';
     case TechnicalException           = 'approvalPreview.technical.exception';
+    case TechnicalLanguagePair        = 'approvalPreview.technical.languagePair';
 
     // --- The texts of a file: its metadata and a reference's own ---
     case FileFieldTitle       = 'approvalPreview.fileField.title';

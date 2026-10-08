@@ -381,7 +381,9 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         foreach ($plan['display'] as $column => $value) {
             $label   = rtrim($this->translator->label($user, $plan['labels'][$column] ?? ''), ':');
             $note    = $this->translator->label($user, $plan['notes'][$column] ?? '');
-            $lines[] = ($label !== '' ? $label : $column) . ': ' . $q($value) . ($note !== '' ? ' (' . $note . ')' : '');
+            // A select or radio value reads as its item's label, as on the
+            // other cards (rule 18).
+            $lines[] = ($label !== '' ? $label : $column) . ': ' . $q($note !== '' ? $note : $value);
         }
 
         if ($plan['languageField'] !== null) {

@@ -355,10 +355,19 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
         ];
         foreach ($values as $field => $new) {
             $old = self::toStr($page[$field] ?? '');
-            // A select value reads as its item ("Summary card"), not as `summary`.
+            // A select value reads as its item ("Summary card"), not as
+            // `summary`. Whether it changes is the stored values' question: two
+            // items may share a label, and then the values are named too, so
+            // the card never says "unchanged" for a change.
             if ($this->allowedValuesFor($field) !== null) {
-                $old = $this->translator->itemLabel($user, self::TABLE, $field, $old);
-                $new = $this->translator->itemLabel($user, self::TABLE, $field, $new);
+                $oldLabel = $this->translator->itemLabel($user, self::TABLE, $field, $old);
+                $newLabel = $this->translator->itemLabel($user, self::TABLE, $field, $new);
+                if ($old !== $new && $oldLabel === $newLabel) {
+                    $oldLabel .= ' (' . $old . ')';
+                    $newLabel .= ' (' . $new . ')';
+                }
+
+                [$old, $new] = [$oldLabel, $newLabel];
             }
 
             $label = self::FIELD_LABELS[$field] ?? null;

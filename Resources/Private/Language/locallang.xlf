@@ -3599,13 +3599,13 @@
                 <source>Move content element</source>
             </trans-unit>
             <trans-unit id="approvalPreview.moveContent.current">
-                <source>Currently: page %s, column %d</source>
+                <source>Currently: page %s, column %s</source>
             </trans-unit>
             <trans-unit id="approvalPreview.moveContent.newFirst">
-                <source>New: page %s, column %d, as the first element</source>
+                <source>New: page %s, column %s, as the first element</source>
             </trans-unit>
             <trans-unit id="approvalPreview.moveContent.newAfter">
-                <source>New: page %s, column %d, directly after %s</source>
+                <source>New: page %s, column %s, directly after %s</source>
             </trans-unit>
             <trans-unit id="approvalPreview.copyRecord.headingPage">
                 <source>Copy page</source>
@@ -3620,10 +3620,10 @@
                 <source>Copy to: under %s, directly after %s</source>
             </trans-unit>
             <trans-unit id="approvalPreview.copyRecord.targetContentFirst">
-                <source>Copy to: page %s, column %d, as the first element</source>
+                <source>Copy to: page %s, column %s, as the first element</source>
             </trans-unit>
             <trans-unit id="approvalPreview.copyRecord.targetContentAfter">
-                <source>Copy to: page %s, column %d, directly after %s</source>
+                <source>Copy to: page %s, column %s, directly after %s</source>
             </trans-unit>
             <trans-unit id="approvalPreview.copyRecord.pageAlong">
                 <source>Copied with it: content elements: %d, and the other records stored on the page. Subpages are not copied.</source>
@@ -3689,10 +3689,10 @@
                 <source>Create new content element as draft</source>
             </trans-unit>
             <trans-unit id="approvalPreview.createContent.positionFirst">
-                <source>Position: column %d, as the first element</source>
+                <source>Position: column %s, as the first element</source>
             </trans-unit>
             <trans-unit id="approvalPreview.createContent.positionAfter">
-                <source>Position: column %d, directly after %s</source>
+                <source>Position: column %s, directly after %s</source>
             </trans-unit>
             <trans-unit id="approvalPreview.createContent.impact">
                 <source>After it is created the content element is not publicly visible yet. It has to be made visible by a person.</source>
@@ -3792,6 +3792,9 @@
             </trans-unit>
             <trans-unit id="approvalPreview.card.withheld">
                 <source>The preview is not shown: you hold no permission on the record it describes.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.languagePair">
+                <source>language codes %s to %s</source>
             </trans-unit>
         </body>
     </file>

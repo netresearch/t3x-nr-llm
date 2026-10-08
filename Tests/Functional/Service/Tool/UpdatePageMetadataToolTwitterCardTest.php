@@ -234,6 +234,32 @@ final class UpdatePageMetadataToolTwitterCardTest extends AbstractFunctionalTest
         self::assertSame(self::STORED_CARD, $this->pageRow()['twitter_card'] ?? null);
     }
 
+    /**
+     * Whether the value changes is the stored values' question: two items
+     * that share a label must not read as "unchanged", so the values are named
+     * beside the labels.
+     */
+    #[Test]
+    public function twoItemsWithOneLabelAreNotReadAsUnchanged(): void
+    {
+        $items = self::tcaAt('pages', 'columns', 'twitter_card', 'config', 'items');
+        self::assertIsArray($items);
+        $tca = $GLOBALS['TCA'];
+        foreach ($items as $position => $item) {
+            if (is_array($item) && in_array($item['value'] ?? null, ['summary', 'summary_large_image'], true)) {
+                self::setTcaAt('Card', 'pages', 'columns', 'twitter_card', 'config', 'items', (string)$position, 'label');
+            }
+        }
+
+        try {
+            $lines = $this->previewIn('en', ['uid' => self::PAGE, 'twitter_card' => 'summary_large_image']);
+        } finally {
+            $GLOBALS['TCA'] = $tca;
+        }
+
+        self::assertSame('Card type for X (Twitter): currently “Card (summary)”, proposed “Card (summary_large_image)”', $lines[3] ?? null);
+    }
+
     #[Test]
     public function thePreviewOfAnUndeclaredValueIsTheRefusal(): void
     {

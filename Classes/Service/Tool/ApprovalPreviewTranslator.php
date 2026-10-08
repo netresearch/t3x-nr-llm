@@ -35,6 +35,9 @@ use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
  */
 final readonly class ApprovalPreviewTranslator
 {
+    /** A label reference rather than a literal: `[LLL:]file-or-domain:key`, no spaces. */
+    private const REFERENCE = '/^(?:LLL:)?[A-Za-z0-9_.\/-]+:[A-Za-z0-9_.-]+$/';
+
     public function __construct(
         private LanguageServiceFactory $languageServiceFactory,
     ) {}
@@ -160,7 +163,14 @@ final readonly class ApprovalPreviewTranslator
      */
     public function label(BackendUserAuthentication $user, string $label): string
     {
-        return trim($this->languageServiceFactory->createFromUserPreferences($user)->sL(trim($label)));
+        $label    = trim($label);
+        $resolved = trim($this->languageServiceFactory->createFromUserPreferences($user)->sL($label));
+
+        // TYPO3 14 hands an unresolvable domain reference back unchanged
+        // (`LanguageService::sL()` without the `LLL:` prefix); a key on the card
+        // reads as a rendering bug, so it counts as no label at all and the
+        // caller falls back to the column, table or value name.
+        return $resolved === $label && preg_match(self::REFERENCE, $label) === 1 ? '' : $resolved;
     }
 
     /**

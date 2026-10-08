@@ -374,6 +374,30 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
         self::assertSame('Old header', $this->elementRow(self::TEXT)['header'] ?? null);
     }
 
+    /**
+     * The record type's `columnsOverrides` label wins over the column's own,
+     * pinned with a literal so the expectation is not computed the way the
+     * code computes it; a label reference that resolves to nothing falls back
+     * to the column name instead of printing the key (ADR-213).
+     */
+    #[Test]
+    public function thePreviewNamesAFieldByTheLabelOfTheElementsType(): void
+    {
+        $tca = $GLOBALS['TCA'];
+        self::setTcaAt('Pinned headline label', 'tt_content', 'types', 'text', 'columnsOverrides', 'header', 'label');
+        self::setTcaAt('nrllm_missing.domain:nothing', 'tt_content', 'types', 'text', 'columnsOverrides', 'bodytext', 'label');
+        self::setTcaAt('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:nrllm.missing', 'tt_content', 'columns', 'bodytext', 'label');
+
+        try {
+            $lines = $this->previewIn('en', ['uid' => self::TEXT, 'fields' => ['header' => 'New header', 'bodytext' => 'New body']]);
+        } finally {
+            $GLOBALS['TCA'] = $tca;
+        }
+
+        self::assertSame('Pinned headline label: currently “Old header”, proposed “New header”', $lines[5] ?? null);
+        self::assertSame('bodytext: currently “Old body”, proposed “New body”', $lines[6] ?? null);
+    }
+
     #[Test]
     public function thePreviewOfATranslationSaysSo(): void
     {

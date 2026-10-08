@@ -296,7 +296,7 @@ final class MoveContentElementToolTest extends AbstractFunctionalTestCase
             'Move content element',
             'Content element: “Movable”',
             'Content type: ' . $this->tcaItemLabelIn('en', 'tt_content', 'CType', 'text'),
-            'Currently: page “Open”, column 0',
+            'Currently: page “Open”, column ' . $this->tcaItemLabelIn('en', 'tt_content', 'colPos', '0'),
             'New: page “Open two”, column 4, as the first element',
             'Technical details: table tt_content, UID 21, content type text, current page UID 2, current column (colPos) 0, target page UID 3, column (colPos) 4',
         ], $this->previewIn('en', $arguments));
@@ -305,13 +305,13 @@ final class MoveContentElementToolTest extends AbstractFunctionalTestCase
             'Inhaltselement verschieben',
             'Inhaltselement: „Movable“',
             'Inhaltstyp: ' . $this->tcaItemLabelIn('de', 'tt_content', 'CType', 'text'),
-            'Aktuell: Seite „Open“, Spalte 0',
+            'Aktuell: Seite „Open“, Spalte ' . $this->tcaItemLabelIn('de', 'tt_content', 'colPos', '0'),
             'Neu: Seite „Open two“, Spalte 4, als erstes Element',
             'Technische Details: Tabelle tt_content, UID 21, Inhaltstyp text, bisherige Seite UID 2, bisherige Spalte (colPos) 0, Zielseite UID 3, Spalte (colPos) 4',
         ], $german);
         self::assertGermanEditorLines($german);
         self::assertContains(
-            'Neu: Seite „Open two“, Spalte 3, direkt nach „Anchor“',
+            'Neu: Seite „Open two“, Spalte ' . $this->tcaItemLabelIn('de', 'tt_content', 'colPos', '3') . ', direkt nach „Anchor“',
             $this->previewIn('de', ['uid' => self::ELEMENT_ON_OPEN, 'target_page' => self::PAGE_OPEN_TWO, 'after_content_uid' => self::ANCHOR_ON_OPEN_TWO]),
         );
 

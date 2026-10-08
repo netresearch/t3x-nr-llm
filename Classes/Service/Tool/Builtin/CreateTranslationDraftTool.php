@@ -89,7 +89,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * {@see Permission::PAGE_SHOW}, which is far too weak for a write.
  *
  * @phpstan-type TextField array{text:string, html:bool, max:int, trim:bool, exact:bool}
- * @phpstan-type Plan array{table:non-empty-string, uid:int, label:string, language:int, existingUid:int, existingLabel:string, translator:string, translatorName:string, site:string, source:string, target:string, glossaryTerms:int, texts:array<string, TextField>, withheld:list<string>}
+ * @phpstan-type Plan array{table:non-empty-string, uid:int, label:string, language:int, existingUid:int, existingLabel:string, translator:string, translatorName:string, translatorTitle:string, site:string, source:string, sourceTitle:string, target:string, targetTitle:string, glossaryTerms:int, texts:array<string, TextField>, withheld:list<string>}
  */
 final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, EditorActionInterface, RecordCreatorInterface
 {
@@ -470,7 +470,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
      * locale without a two-letter code — is refused rather than created
      * (ADR-209).
      *
-     * @return array{site:string, source:string, target:string}|string
+     * @return array{site:string, source:string, sourceTitle:string, target:string, targetTitle:string}|string
      */
     private function languageCodes(int $pageUid, int $language): array|string
     {
@@ -485,8 +485,10 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         }
 
         try {
-            $source = $site->getLanguageById(self::DEFAULT_LANGUAGE)->getLocale()->getLanguageCode();
-            $target = $site->getLanguageById($language)->getLocale()->getLanguageCode();
+            $sourceLanguage = $site->getLanguageById(self::DEFAULT_LANGUAGE);
+            $targetLanguage = $site->getLanguageById($language);
+            $source         = $sourceLanguage->getLocale()->getLanguageCode();
+            $target         = $targetLanguage->getLocale()->getLanguageCode();
         } catch (Throwable) {
             return sprintf(
                 'Refused: language %d is not defined for the site "%s" of page [%d], so the text cannot be '
@@ -508,7 +510,14 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             );
         }
 
-        return ['site' => $site->getIdentifier(), 'source' => $source, 'target' => $target];
+        // The site's own names of the two languages, for the approval card.
+        return [
+            'site'        => $site->getIdentifier(),
+            'source'      => $source,
+            'sourceTitle' => $sourceLanguage->getTitle(),
+            'target'      => $target,
+            'targetTitle' => $targetLanguage->getTitle(),
+        ];
     }
 
     /**
@@ -554,13 +563,13 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         $lines = [
             $t(ApprovalPreviewLabel::TranslateHeading),
             $t($isPage ? ApprovalPreviewLabel::ObjectPage : ApprovalPreviewLabel::ObjectContent, $q($plan['label'])),
-            $t(ApprovalPreviewLabel::TranslateTargetLanguage, $q($plan['target'])),
+            $t(ApprovalPreviewLabel::TranslateTargetLanguage, $q($plan['targetTitle'])),
             $t(ApprovalPreviewLabel::TranslateNew),
         ];
         if ($plan['texts'] === []) {
             $lines[] = $t($plan['withheld'] === [] ? ApprovalPreviewLabel::TranslateNoTextInSource : ApprovalPreviewLabel::TranslateNoTextAllowed);
         } else {
-            $lines[] = $t(ApprovalPreviewLabel::TranslateMachine, $plan['translatorName'], $q($plan['source']), $q($plan['target']), $names(array_keys($plan['texts'])));
+            $lines[] = $t(ApprovalPreviewLabel::TranslateMachine, $plan['translatorTitle'], $q($plan['sourceTitle']), $q($plan['targetTitle']), $names(array_keys($plan['texts'])));
             $lines[] = $plan['glossaryTerms'] > 0
                 ? $t(ApprovalPreviewLabel::TranslateGlossary, $plan['glossaryTerms'])
                 : $t(ApprovalPreviewLabel::TranslateNoGlossary);
@@ -582,6 +591,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             $t(ApprovalPreviewLabel::TechnicalLanguage, $plan['language']),
             $t(ApprovalPreviewLabel::TechnicalSite, $plan['site']),
             $t(ApprovalPreviewLabel::TechnicalTranslationService, $plan['translator']),
+            $t(ApprovalPreviewLabel::TechnicalLanguagePair, $plan['source'], $plan['target']),
         ];
         if ($plan['texts'] !== []) {
             $details[] = $t(ApprovalPreviewLabel::TechnicalFields, implode(', ', array_keys($plan['texts'])));
@@ -758,8 +768,8 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             );
         }
 
-        $translatorName = $this->availableTranslatorName($translator);
-        if ($translatorName === null) {
+        $translatorTitle = $this->availableTranslatorName($translator);
+        if ($translatorTitle === null) {
             return sprintf(
                 'Refused: the translator "%s" is not configured on this installation. Use "%s", or configure it first.',
                 $translator,
@@ -783,10 +793,13 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             'existingUid'    => $existingUid,
             'existingLabel'  => $existingLabel,
             'translator'     => $translator,
-            'translatorName' => $translatorName,
+            'translatorName' => sprintf('%s (%s)', $translatorTitle, $translator),
+            'translatorTitle' => $translatorTitle,
             'site'           => $languages['site'],
             'source'         => $languages['source'],
+            'sourceTitle'    => $languages['sourceTitle'],
             'target'         => $languages['target'],
+            'targetTitle'    => $languages['targetTitle'],
             'glossaryTerms'  => $glossary instanceof ResolvedGlossary ? $glossary->terms->count() : 0,
             'texts'          => $texts,
             'withheld'       => $withheld,
@@ -795,8 +808,8 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
 
     /**
      * The display name of a translator this installation can use, or null.
-     * Named on the approval card and in the result, so the approver reads
-     * which service the text is sent to.
+     * Named on the approval card, and with its identifier in the result, so
+     * the approver reads which service the text is sent to.
      */
     private function availableTranslatorName(string $identifier): ?string
     {
@@ -806,7 +819,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             return null;
         }
 
-        return $translator->isAvailable() ? sprintf('%s (%s)', $translator->getName(), $identifier) : null;
+        return $translator->isAvailable() ? $translator->getName() : null;
     }
 
     /**

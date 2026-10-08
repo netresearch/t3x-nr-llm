@@ -422,7 +422,7 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
             'Copy content element',
             'Content element: “Original”',
             'Language: default language',
-            'Copy to: page “Target”, column 2, directly after “Anchor”',
+            'Copy to: page “Target”, column ' . $this->tcaItemLabelIn('en', 'tt_content', 'colPos', '2') . ', directly after “Anchor”',
             $oldCore
                 ? 'Translations: 1. This TYPO3 version copies a translation only onto a target page translated into its language and leaves out the others without a message. The result says how many were copied.'
                 : 'Translations: 1. Each is copied only into a website that has its language and onto a target page translated into it; where one cannot be placed, the whole copy is taken back. Outside a website none is copied. The result says how many were copied.',
@@ -434,7 +434,7 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
             'Inhaltselement kopieren',
             'Inhaltselement: „Original“',
             'Sprache: Standardsprache',
-            'Kopieren nach: Seite „Target“, Spalte 2, direkt nach „Anchor“',
+            'Kopieren nach: Seite „Target“, Spalte ' . $this->tcaItemLabelIn('de', 'tt_content', 'colPos', '2') . ', direkt nach „Anchor“',
             $oldCore
                 ? 'Übersetzungen: 1. Diese TYPO3-Version kopiert eine Übersetzung nur auf eine Zielseite, die in ihre Sprache übersetzt ist, und lässt die übrigen ohne Meldung weg. Das Ergebnis nennt, wie viele kopiert wurden.'
                 : 'Übersetzungen: 1. Jede wird nur in eine Website kopiert, die ihre Sprache hat, und nur auf eine Zielseite, die in diese Sprache übersetzt ist; lässt sich eine nicht einordnen, wird die ganze Kopie zurückgenommen. Außerhalb einer Website wird keine kopiert. Das Ergebnis nennt, wie viele kopiert wurden.',

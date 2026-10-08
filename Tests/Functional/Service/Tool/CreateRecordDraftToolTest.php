@@ -957,7 +957,7 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
             // `title` carries a `LLL:` label; it is resolved, not printed raw.
             $this->tcaLabelIn('en', self::TABLE, 'columns', 'title', 'label') . ': “Proposed”',
             // A select shows its value and the item's label.
-            'Kind: “note” (Note)',
+            'Kind: “Note”',
             'Priority: “4”',
             // A timestamp as an ISO 8601 date-time in UTC.
             'Published at: “2026-09-10T10:00:00+00:00”',
@@ -966,7 +966,8 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
             'After it is created the record is not publicly visible yet. It has to be made visible by a person.',
             'Technical details: table ' . self::TABLE . ', record type note, page UID 2, fields title, kind, priority, published_at',
         ], $this->previewIn('en', $arguments));
-        // The fixture's own labels have no German text; core's do, where a
+        // The fixture's catalogue translates `priority` and the item `note`;
+        // its other labels are literals. Core's labels are German where a
         // language pack is installed.
         $german = $this->previewIn('de', $arguments);
         self::assertSame([
@@ -974,8 +975,8 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
             'Datensatztyp: ' . $this->tcaLabelIn('de', self::TABLE, 'ctrl', 'title'),
             'Ort: auf der Seite „Open“',
             $this->tcaLabelIn('de', self::TABLE, 'columns', 'title', 'label') . ': „Proposed“',
-            'Kind: „note“ (Note)',
-            'Priority: „4“',
+            'Kind: „Notiz“',
+            'Priorität: „4“',
             'Published at: „2026-09-10T10:00:00+00:00“',
             'Sprache: Standardsprache',
             'Sichtbarkeit: zunächst verborgen',
@@ -998,7 +999,7 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
 
         self::assertSame([
             'Event title: “Proposed”',
-            'Kind: “event” (Event)',
+            'Kind: “Event”',
             'Event teaser: “An event teaser”',
         ], array_slice($lines, 3, 3));
     }

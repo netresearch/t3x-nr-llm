@@ -574,7 +574,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
 
         self::assertSame('Übersetzung als Entwurf anlegen', $german[0] ?? null);
         self::assertSame('Seite: „Child“', $german[1] ?? null);
-        self::assertSame('Zielsprache: „de“', $german[2] ?? null);
+        self::assertSame('Zielsprache: „German“', $german[2] ?? null);
         self::assertContains('Wichtig: Die vorhandene Übersetzung „' . $oldTitle . '“ wird verworfen; ihr Inhalt wird gelöscht und ersetzt.', $german);
         self::assertContains('Sichtbarkeit: zunächst verborgen', $german);
         self::assertStringStartsWith('Technische Details: Tabelle pages, UID 2, Sprach-UID 1, ', $german[array_key_last($german)]);
@@ -611,7 +611,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
 
         self::assertSame(
             sprintf(
-                'Machine translation by DeepL (deepl) from “en” into “de”: %s, %s',
+                'Machine translation by DeepL from “English” into “German”: %s, %s',
                 $this->tcaLabelIn('en', 'tt_content', 'columns', 'header', 'label'),
                 $this->tcaLabelIn('en', 'tt_content', 'columns', 'bodytext', 'label'),
             ),
@@ -621,10 +621,10 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         self::assertSame([
             'Übersetzung als Entwurf anlegen',
             'Inhaltselement: „Original“',
-            'Zielsprache: „de“',
+            'Zielsprache: „German“',
             'Neu: eine Kopie des Originals, als dessen Übersetzung verknüpft',
             sprintf(
-                'Maschinelle Übersetzung durch DeepL (deepl) von „en“ nach „de“: %s, %s',
+                'Maschinelle Übersetzung durch DeepL von „English“ nach „German“: %s, %s',
                 $this->tcaLabelIn('de', 'tt_content', 'columns', 'header', 'label'),
                 $this->tcaLabelIn('de', 'tt_content', 'columns', 'bodytext', 'label'),
             ),
@@ -633,7 +633,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
             'Die Übersetzung ist nach dem Anlegen noch nicht öffentlich sichtbar. Sie muss erst von einer Person sichtbar gemacht werden.',
         ], array_slice($german, 0, 8));
         self::assertStringStartsWith('Technische Details: Tabelle tt_content, UID ' . self::ELEMENT . ', Sprach-UID 1, Website ', $german[8] ?? '');
-        self::assertStringEndsWith('Übersetzungsdienst deepl, Felder header, bodytext', $german[8] ?? '');
+        self::assertStringEndsWith('Übersetzungsdienst deepl, Sprachcodes en nach de, Felder header, bodytext', $german[8] ?? '');
         self::assertGermanEditorLines($german);
         self::assertSame([], $this->deepl->calls);
     }

@@ -1000,7 +1000,7 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         self::assertSame($this->tcaColumnLabelIn('en', 'tt_content', 'bullets_type', self::SCALAR_TYPE) . ': “2”', $lines[5]);
         self::assertSame($this->tcaColumnLabelIn('en', 'tt_content', 'table_caption', self::SCALAR_TYPE) . ': “Caption”', $lines[6]);
         self::assertSame($this->tcaColumnLabelIn('en', 'tt_content', 'sectionIndex', self::SCALAR_TYPE) . ': “0”', $lines[7]);
-        self::assertSame('Position: column 0, as the first element', $lines[8]);
+        self::assertSame('Position: column ' . $this->tcaItemLabelIn('en', 'tt_content', 'colPos', '0') . ', as the first element', $lines[8]);
         self::assertSame('Visibility: hidden at first', $lines[10]);
         self::assertStringEndsWith('fields header, bodytext, bullets_type, table_caption, sectionIndex', $lines[12]);
 

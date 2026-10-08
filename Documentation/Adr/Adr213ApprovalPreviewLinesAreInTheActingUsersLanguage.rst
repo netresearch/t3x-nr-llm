@@ -93,8 +93,12 @@ record in an extension table, a content type, the items of a select field — th
 line uses the TCA label in the acting user's language, resolved through core's
 ``sL()``, which reads ``LLL:`` references and, from TYPO3 14 on, translation
 domain references alike. Such a label is English where the installation has no
-language pack for the user's language. The column name sits in the technical
-line.
+language pack for the user's language. A reference that core cannot resolve
+counts as no label, and the line falls back to the column, table or value name
+rather than showing the reference. The column name sits in the technical line.
+A select field's value reads as its item label; whether it changes is decided
+on the stored values, and where two different values share one label both
+values follow in brackets, so a change never reads as unchanged.
 
 **The card's own lines follow the same rule.** A preview that failed, came
 back empty or was cut to twenty lines gets a line from the loop, not from the

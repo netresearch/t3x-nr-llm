@@ -60,7 +60,7 @@ return [
         ],
         'media' => [
             'exclude' => true,
-            'label'   => 'Media',
+            'label'   => 'LLL:EXT:nrllm_writer_fixture/Resources/Private/Language/locallang_tca.xlf:gallery.media',
             'config'  => ['type' => 'file', 'allowed' => 'jpg,png', 'maxitems' => 10],
         ],
         'attachments' => [
