@@ -64,6 +64,7 @@ use Netresearch\NrVault\Http\SecureHttpClientFactory;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionProperty;
 use RuntimeException;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -129,6 +130,23 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
         unset($GLOBALS['LANG']);
         $GLOBALS['BE_USER'] = $this->beUserBackup;
         parent::tearDown();
+    }
+
+    /**
+     * The card's own lines (a failed, empty or cut preview) are worded by the
+     * translator the container wires in; a loop without it would show their
+     * catalogue keys (ADR-213).
+     */
+    #[Test]
+    public function theContainerBuiltLoopWordsTheCardsOwnLines(): void
+    {
+        $loop = $this->get(ToolLoopService::class);
+        self::assertInstanceOf(ToolLoopService::class, $loop);
+
+        self::assertInstanceOf(
+            ApprovalPreviewTranslator::class,
+            (new ReflectionProperty(ToolLoopService::class, 'previewTranslator'))->getValue($loop),
+        );
     }
 
     #[Test]

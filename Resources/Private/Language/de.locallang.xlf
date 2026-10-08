@@ -5017,6 +5017,34 @@
                 <source>No data is sent with the address.</source>
                 <target>Mit der Adresse werden keine Daten gesendet.</target>
             </trans-unit>
+            <trans-unit id="approvalPreview.technical.exception">
+                <source>exception %s</source>
+                <target>Ausnahme %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.card.failed">
+                <source>The preview for this step failed. What the step would do is not shown.</source>
+                <target>Die Vorschau für diesen Schritt ist fehlgeschlagen. Was der Schritt tun würde, wird nicht angezeigt.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.card.failedAtResume">
+                <source>The preview for this step failed. What the step would do now cannot be compared with what you were shown.</source>
+                <target>Die Vorschau für diesen Schritt ist fehlgeschlagen. Was der Schritt jetzt tun würde, lässt sich nicht mit dem vergleichen, was Ihnen angezeigt wurde.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.card.empty">
+                <source>There is no preview for this step.</source>
+                <target>Für diesen Schritt gibt es keine Vorschau.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.card.unavailable">
+                <source>This action is no longer available. What it would do now cannot be compared with what you were shown.</source>
+                <target>Diese Aktion ist nicht mehr verfügbar. Was sie jetzt tun würde, lässt sich nicht mit dem vergleichen, was Ihnen angezeigt wurde.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.card.overflow">
+                <source>Lines not shown: %d</source>
+                <target>Nicht angezeigte Zeilen: %d</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.card.withheld">
+                <source>The preview is not shown: you hold no permission on the record it describes.</source>
+                <target>Die Vorschau wird nicht angezeigt: Sie haben keine Berechtigung für den Datensatz, den sie beschreibt.</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

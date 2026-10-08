@@ -33,6 +33,14 @@ enum ApprovalPreviewLabel: string
     case ValueQuoted = 'approvalPreview.value.quoted';
     case ValueNothing = 'approvalPreview.value.nothing';
 
+    // --- The card around a preview: a preview that failed, is empty, cut or withheld ---
+    case CardFailed         = 'approvalPreview.card.failed';
+    case CardFailedAtResume = 'approvalPreview.card.failedAtResume';
+    case CardEmpty          = 'approvalPreview.card.empty';
+    case CardUnavailable    = 'approvalPreview.card.unavailable';
+    case CardOverflow       = 'approvalPreview.card.overflow';
+    case CardWithheld       = 'approvalPreview.card.withheld';
+
     // --- Shared: the object, its place and language, one field's change ---
     case ObjectPage          = 'approvalPreview.object.page';
     case ObjectContent       = 'approvalPreview.object.content';
@@ -85,6 +93,7 @@ enum ApprovalPreviewLabel: string
     case TechnicalTranslationService  = 'approvalPreview.technical.translationService';
     case TechnicalSite                = 'approvalPreview.technical.site';
     case TechnicalWithheldFields      = 'approvalPreview.technical.withheldFields';
+    case TechnicalException           = 'approvalPreview.technical.exception';
 
     // --- The texts of a file: its metadata and a reference's own ---
     case FileFieldTitle       = 'approvalPreview.fileField.title';

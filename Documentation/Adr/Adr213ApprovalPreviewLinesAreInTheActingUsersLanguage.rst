@@ -96,6 +96,32 @@ domain references alike. Such a label is English where the installation has no
 language pack for the user's language. The column name sits in the technical
 line.
 
+**The card's own lines follow the same rule.** A preview that failed, came
+back empty or was cut to twenty lines gets a line from the loop, not from the
+tool, and that line is in the acting user's language too. A failed preview
+names the exception class only in a technical details line under the
+sentence; the message never reaches the card, and the whole exception goes to
+the log. How these lines meet ADR-184's comparison:
+
+- A failed or empty preview at suspend is marked ``failed`` and carried, never
+  compared, so its wording decides nothing.
+- A preview that fails, is empty or whose tool no longer previews at resume
+  differs from the successful preview it replaces whatever it says, so the
+  call stales as before.
+- The overflow marker of a cut preview is compared, and both sides are worded
+  for the same acting user.
+- The line that withholds a preview from a viewer without permission on the
+  record is rendered for that viewer, in the VIEWER's language, and is never
+  persisted or compared.
+
+**Runs suspended before the upgrade.** Their persisted lines are the English
+ones of the release they were suspended under. On resume the tool's lines are
+recomputed in the acting user's language, differ, and the approval bounces
+once with the current lines shown again — the staleness path of ADR-184, no
+special case. Nothing is written on the first approval of such a run; the
+second approval, against the new lines, executes. A failed preview persisted
+before the upgrade keeps its English line until the run suspends again.
+
 **What stays English.** A refusal line is the string the tool's ``execute()``
 hands the model as well; it is shared on purpose, and a refusal at preview time
 tells the approver the call would fail, not what it would do. The tool results

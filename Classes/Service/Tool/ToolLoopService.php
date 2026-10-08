@@ -133,6 +133,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // write still happens, is still traced and is still joinable — it is
         // just not broadcast, which is exactly the lean-test wiring's situation.
         private ?EventDispatcherInterface $eventDispatcher = null,
+        // Words the card's own lines — a preview that failed or came back
+        // empty, a cut preview — in the acting user's language (ADR-213).
+        // Optional like the collaborators above; absent it, which only the lean
+        // test wiring does, those lines read as their catalogue keys.
+        private ?ApprovalPreviewTranslator $previewTranslator = null,
     ) {}
 
     /**
@@ -1079,8 +1084,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * rather than an exception: the pause exists so a human can decide, and a
      * card that silently loses its preview would let them decide blind without
      * knowing it. The exception TEXT is deliberately not shown — as in
-     * {@see self::invoke()}, an exception body may carry DBAL credentials — but
-     * the class name is, and the full exception goes to the log.
+     * {@see self::invoke()}, an exception body may carry DBAL credentials — the
+     * class name only in the card's technical details line, and the full
+     * exception goes to the log.
      *
      * @param list<ToolCall> $calls
      * @param list<string>   $allowedNames
@@ -1105,12 +1111,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $lines = array_values(array_filter($tool->previewCall($call->arguments, $context), is_string(...)));
             } catch (Throwable $e) {
                 $this->logger?->warning('Tool preview failed; the approval card will say so.', ['tool' => $call->name, 'exception' => $e]);
-                $lines  = [sprintf('The preview for this call failed (%s), so it shows nothing about what the call would do.', $e::class)];
+                $lines  = $this->previewComparator()->failureLines($context->actingBackendUser(), ApprovalPreviewLabel::CardFailed, $e);
                 $failed = true;
             }
 
             if ($lines === []) {
-                $lines  = ['The tool produced no preview for this call.'];
+                $lines  = $this->previewComparator()->emptyLines($context->actingBackendUser());
                 $failed = true;
             }
 
@@ -1120,7 +1126,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 // Bounded before it is persisted: the state is encrypted, stored
                 // and re-read on every resume, and a preview is model-triggered
                 // output like any other.
-                'lines'  => $this->previewComparator()->bound($lines),
+                'lines'  => $this->previewComparator()->bound($lines, $context->actingBackendUser()),
                 'failed' => $failed,
             ];
         }
@@ -1364,7 +1370,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      */
     private function previewComparator(): ApprovalPreviewComparator
     {
-        return new ApprovalPreviewComparator($this->registry, $this->logger);
+        return new ApprovalPreviewComparator($this->registry, $this->logger, $this->previewTranslator);
     }
 
     /**

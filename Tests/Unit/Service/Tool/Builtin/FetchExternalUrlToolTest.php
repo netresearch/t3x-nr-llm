@@ -20,7 +20,6 @@ use GuzzleHttp\Promise\PromiseInterface;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
-use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchExternalUrlTool;
 use Netresearch\NrLlm\Service\Tool\EgressPolicyService;
 use Netresearch\NrLlm\Service\Tool\ToolApprovalRule;
@@ -34,7 +33,7 @@ use Netresearch\NrLlm\Service\Tool\Web\HostResolverInterface;
 use Netresearch\NrLlm\Service\Tool\Web\HtmlTextExtractor;
 use Netresearch\NrLlm\Service\Tool\Web\IpAddressClassifier;
 use Netresearch\NrLlm\Service\Tool\Web\ProxyDetector;
-use Netresearch\NrLlm\Tests\Unit\Language\LabelCatalogue;
+use Netresearch\NrLlm\Tests\Unit\Language\EnglishPreviewTranslatorTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -43,8 +42,6 @@ use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
-use TYPO3\CMS\Core\Localization\LanguageService;
-use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Site\SiteFinder;
 
 /**
@@ -57,6 +54,8 @@ use TYPO3\CMS\Core\Site\SiteFinder;
 #[CoversClass(FetchExternalUrlTool::class)]
 final class FetchExternalUrlToolTest extends TestCase
 {
+    use EnglishPreviewTranslatorTrait;
+
     /** @var list<array{request: RequestInterface, options: array<string, mixed>}> */
     private array $sent = [];
 
@@ -614,19 +613,5 @@ final class FetchExternalUrlToolTest extends TestCase
         } finally {
             $this->onSend = null;
         }
-    }
-
-    /**
-     * A translator that answers with the catalogue's English source texts,
-     * so the lines read as an acting user without a language reads them.
-     */
-    private function englishTranslator(): ApprovalPreviewTranslator
-    {
-        $language = self::createStub(LanguageService::class);
-        $language->method('sL')->willReturnCallback(static fn(string $key): string => LabelCatalogue::source($key) ?? '');
-        $factory = self::createStub(LanguageServiceFactory::class);
-        $factory->method('createFromUserPreferences')->willReturn($language);
-
-        return new ApprovalPreviewTranslator($factory);
     }
 }

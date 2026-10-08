@@ -68,9 +68,11 @@ use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolResultBounder;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryGovernanceEventRepository;
+use Netresearch\NrLlm\Tests\Unit\Language\EnglishPreviewTranslatorTrait;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeInputTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\PreviewFailedException;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\PreviewingApprovalTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\ShiftingPreviewTool;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -89,6 +91,8 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 #[AllowMockObjectsWithoutExpectations]
 final class ToolLoopServiceTest extends TestCase
 {
+    use EnglishPreviewTranslatorTrait;
+
     #[Test]
     public function returnsContentWhenNoToolCalls(): void
     {
@@ -1808,11 +1812,39 @@ final class ToolLoopServiceTest extends TestCase
 
         self::assertCount(1, $state->callPreviews);
         self::assertTrue($state->callPreviews[0]['failed']);
-        self::assertCount(1, $state->callPreviews[0]['lines']);
-        // The exception CLASS names the culprit; its message is withheld, like
-        // every other exception body in this loop (it may carry credentials).
-        self::assertStringContainsString(RuntimeException::class, $state->callPreviews[0]['lines'][0]);
-        self::assertStringNotContainsString('boom with secret', $state->callPreviews[0]['lines'][0]);
+        // The exception CLASS names the culprit, in the technical details line
+        // and not in the sentence the editor reads; its message is withheld,
+        // like every other exception body in this loop (it may carry
+        // credentials).
+        self::assertSame([
+            'The preview for this step failed. What the step would do is not shown.',
+            'Technical details: exception ' . RuntimeException::class,
+        ], $state->callPreviews[0]['lines']);
+        self::assertStringNotContainsString('boom with secret', implode("\n", $state->callPreviews[0]['lines']));
+    }
+
+    /**
+     * The card's own lines are in the acting user's language like the preview
+     * itself (ADR-213), and the exception class stays out of the sentence.
+     */
+    #[Test]
+    public function theCardsOwnLinesAreInTheActingUsersLanguage(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_1', 'preview_thing', [])]));
+        $registry = new ToolRegistry([new PreviewingApprovalTool('preview_thing', throw: true)]);
+        $service  = new ToolLoopService(
+            $mgr,
+            $registry,
+            $this->realPolicy($registry, new FakeToolAvailability($registry->names())),
+            previewTranslator: $this->germanTranslator(),
+        );
+
+        self::assertSame([
+            'Die Vorschau für diesen Schritt ist fehlgeschlagen. Was der Schritt tun würde, wird nicht angezeigt.',
+            'Technische Details: Ausnahme ' . RuntimeException::class,
+        ], $this->suspend($service)->callPreviews[0]['lines']);
     }
 
     #[Test]
@@ -1826,7 +1858,7 @@ final class ToolLoopServiceTest extends TestCase
         $state = $this->suspend($service);
 
         self::assertTrue($state->callPreviews[0]['failed']);
-        self::assertNotSame([], $state->callPreviews[0]['lines']);
+        self::assertSame(['There is no preview for this step.'], $state->callPreviews[0]['lines']);
     }
 
     /**
@@ -1853,7 +1885,7 @@ final class ToolLoopServiceTest extends TestCase
         // preview.
         self::assertCount(21, $lines);
         self::assertSame(500, mb_strlen($lines[0]));
-        self::assertSame('… and 5 more line(s), not shown.', $lines[20]);
+        self::assertSame('Lines not shown: 5', $lines[20]);
     }
 
     /**
@@ -2561,6 +2593,7 @@ final class ToolLoopServiceTest extends TestCase
             $logger,
             promptSnippetRepository: $promptSnippetRepository,
             skillRepository: $skillRepository,
+            previewTranslator: $this->englishTranslator(),
         );
     }
 
@@ -3204,6 +3237,38 @@ final class ToolLoopServiceTest extends TestCase
             // The exception BODY never reaches the persisted state — it may carry
             // credentials, exactly as in invoke() and previewsForTurn().
             self::assertStringNotContainsString('the record vanished', implode(' ', $again->state->callPreviews[0]['lines']));
+            // The sentence for the approver, and the class for support in the
+            // technical details line (ADR-213).
+            self::assertSame([
+                'The preview for this step failed. What the step would do now cannot be compared with what you were shown.',
+                'Technical details: exception ' . PreviewFailedException::class,
+            ], $again->state->callPreviews[0]['lines']);
+        }
+    }
+
+    /**
+     * A tool that produced the preview at suspend and offers none at resume
+     * cannot be compared: the card says so in the acting user's language
+     * (ADR-213), and nothing is written.
+     */
+    #[Test]
+    public function aToolThatNoLongerPreviewsAtResumeRefusesWithALineSayingSo(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturn(
+            $this->response('', [new ToolCall('call_1', 'attach_file', ['uid' => 7])]),
+        );
+        $state = $this->suspend($this->service($mgr, new ToolRegistry([new ShiftingPreviewTool('attach_file')])));
+
+        try {
+            $this->service($mgr, new ToolRegistry([new FakeTool('attach_file')]))
+                ->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none());
+            self::fail('A call whose preview could not be recomputed was executed anyway.');
+        } catch (ToolApprovalRequiredException $again) {
+            self::assertSame(
+                ['This action is no longer available. What it would do now cannot be compared with what you were shown.'],
+                $again->state->callPreviews[0]['lines'],
+            );
         }
     }
 

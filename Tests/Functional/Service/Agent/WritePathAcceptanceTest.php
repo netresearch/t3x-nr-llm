@@ -246,6 +246,14 @@ final class WritePathAcceptanceTest extends AbstractFunctionalTestCase
         self::assertTrue($blind->pendingCalls[0]->previewFailed);
         self::assertCount(1, $blind->pendingCalls[0]->previewLines);
         self::assertStringContainsString('no permission', $blind->pendingCalls[0]->previewLines[0]);
+        // The withheld line is the VIEWER's: rendered for them, never
+        // persisted, never compared (ADR-213).
+        $germanApprover               = $this->viewer(self::APPROVER);
+        $germanApprover->user['lang'] = 'de';
+        self::assertSame(
+            ['Die Vorschau wird nicht angezeigt: Sie haben keine Berechtigung für den Datensatz, den sie beschreibt.'],
+            $this->cardFor($suspended, $germanApprover)->pendingCalls[0]->previewLines,
+        );
         // The digest is the run's, not the viewer's: both operators name the
         // same turn when they decide.
         self::assertSame($card->turnDigest, $blind->turnDigest);
@@ -581,7 +589,7 @@ final class WritePathAcceptanceTest extends AbstractFunctionalTestCase
      */
     private function cardFor(AgentRun $run, ?BackendUserAuthentication $viewer = null): WaitingRunView
     {
-        $views = (new WaitingRunViewFactory($this->registry, new SchemaPropertyClassifier(), new PendingTurnDigest()))
+        $views = (new WaitingRunViewFactory($this->registry, new SchemaPropertyClassifier(), new PendingTurnDigest(), new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class))))
             ->buildWaiting([$run], $viewer);
         self::assertCount(1, $views);
 

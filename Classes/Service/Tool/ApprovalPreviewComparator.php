@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Psr\Log\LoggerInterface;
 use Throwable;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
  * Whether an approved turn still writes against the state its approver was
@@ -38,14 +39,15 @@ final readonly class ApprovalPreviewComparator
     private const MAX_LINE_LENGTH = 500;
 
     /**
-     * Shown when the tool that produced a persisted preview can no longer be
-     * asked what it would do.
+     * The card's own lines — a preview that failed, came back empty, was cut or
+     * could not be recomputed — are in the acting user's language like the
+     * preview lines themselves (ADR-213). Without a translator, which only the
+     * lean test wiring constructs, they read as their catalogue keys.
      */
-    private const UNAVAILABLE = 'This tool is no longer available, so what the call would do now cannot be compared with what you were shown.';
-
     public function __construct(
         private ToolRegistry $registry,
         private ?LoggerInterface $logger = null,
+        private ?ApprovalPreviewTranslator $translator = null,
     ) {}
 
     /**
@@ -53,13 +55,14 @@ final readonly class ApprovalPreviewComparator
      * most 500 characters, whitespace collapsed.
      *
      * Both sides of the comparison go through here, so a preview that overflowed
-     * its cap does not stale on its own overflow marker.
+     * its cap does not stale on its own overflow marker. The marker is in the
+     * acting user's language, as both sides are produced for the same user.
      *
      * @param list<string> $lines
      *
      * @return list<string>
      */
-    public function bound(array $lines): array
+    public function bound(array $lines, ?BackendUserAuthentication $user = null): array
     {
         $bounded = [];
         foreach (array_slice($lines, 0, self::MAX_LINES) as $line) {
@@ -67,7 +70,7 @@ final readonly class ApprovalPreviewComparator
         }
 
         if (count($lines) > self::MAX_LINES) {
-            $bounded[] = sprintf('… and %d more line(s), not shown.', count($lines) - self::MAX_LINES);
+            $bounded[] = $this->text($user, ApprovalPreviewLabel::CardOverflow, count($lines) - self::MAX_LINES);
         }
 
         return $bounded;
@@ -150,20 +153,21 @@ final readonly class ApprovalPreviewComparator
      */
     private function recompute(ToolCall $call, ToolExecutionContext $context, array $before): array
     {
+        $user = $context->actingBackendUser();
         $tool = $this->registry->get($call->name);
         if (!$tool instanceof ToolPreviewInterface) {
-            return ['index' => $before['index'], 'tool' => $call->name, 'lines' => [self::UNAVAILABLE], 'failed' => true];
+            return ['index' => $before['index'], 'tool' => $call->name, 'lines' => [$this->text($user, ApprovalPreviewLabel::CardUnavailable)], 'failed' => true];
         }
 
         try {
-            $lines = $this->bound(array_values(array_filter($tool->previewCall($call->arguments, $context), is_string(...))));
+            $lines = $this->bound(array_values(array_filter($tool->previewCall($call->arguments, $context), is_string(...))), $user);
         } catch (Throwable $e) {
             $this->logger?->warning('Re-preview failed at resume; the approval is refused rather than executed blind.', ['tool' => $call->name, 'exception' => $e]);
 
             return [
                 'index'  => $before['index'],
                 'tool'   => $call->name,
-                'lines'  => [sprintf('The preview for this call failed (%s), so what it would do now cannot be compared with what you were shown.', $e::class)],
+                'lines'  => $this->failureLines($user, ApprovalPreviewLabel::CardFailedAtResume, $e),
                 'failed' => true,
             ];
         }
@@ -171,9 +175,40 @@ final readonly class ApprovalPreviewComparator
         return [
             'index'  => $before['index'],
             'tool'   => $call->name,
-            'lines'  => $lines === [] ? ['The tool produced no preview for this call.'] : $lines,
+            'lines'  => $lines === [] ? $this->emptyLines($user) : $lines,
             'failed' => false,
         ];
+    }
+
+    /**
+     * The card lines for a preview that threw: the sentence, and the
+     * exception's class in a technical details line (rule 26). Its message
+     * never, as in {@see ToolLoopService::invoke()}: an exception body may
+     * carry DBAL credentials. The whole exception goes to the log.
+     *
+     * @return list<string>
+     */
+    public function failureLines(?BackendUserAuthentication $user, ApprovalPreviewLabel $label, Throwable $e): array
+    {
+        return [
+            $this->text($user, $label),
+            $this->text($user, ApprovalPreviewLabel::TechnicalDetails, $this->text($user, ApprovalPreviewLabel::TechnicalException, $e::class)),
+        ];
+    }
+
+    /**
+     * The card line for a preview that came back empty.
+     *
+     * @return list<string>
+     */
+    public function emptyLines(?BackendUserAuthentication $user): array
+    {
+        return [$this->text($user, ApprovalPreviewLabel::CardEmpty)];
+    }
+
+    private function text(?BackendUserAuthentication $user, ApprovalPreviewLabel $label, int|string ...$arguments): string
+    {
+        return $this->translator?->text($user, $label, ...$arguments) ?? $label->value;
     }
 
     /**
