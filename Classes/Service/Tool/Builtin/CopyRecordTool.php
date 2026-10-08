@@ -318,8 +318,8 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             }
         } else {
             $lines[] = $plan['afterUid'] > 0
-                ? $t(ApprovalPreviewLabel::CopyTargetContentAfter, $q($plan['targetTitle']), $this->translator->contentColumnLabel($user, $plan['targetPage'], $plan['column']), $q($plan['afterLabel']))
-                : $t(ApprovalPreviewLabel::CopyTargetContentFirst, $q($plan['targetTitle']), $this->translator->contentColumnLabel($user, $plan['targetPage'], $plan['column']));
+                ? $t(ApprovalPreviewLabel::CopyTargetContentAfter, $q($plan['targetTitle']), $this->translator->contentColumnLabel($user, $plan['column']), $q($plan['afterLabel']))
+                : $t(ApprovalPreviewLabel::CopyTargetContentFirst, $q($plan['targetTitle']), $this->translator->contentColumnLabel($user, $plan['column']));
             $details[] = $t(ApprovalPreviewLabel::TechnicalColumn, $plan['column']);
             if ($plan['afterUid'] > 0) {
                 $details[] = $t(ApprovalPreviewLabel::TechnicalAnchorElement, $plan['afterUid']);

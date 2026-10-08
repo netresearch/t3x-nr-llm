@@ -10,8 +10,6 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool;
 
 use Closure;
-use Throwable;
-use TYPO3\CMS\Backend\View\BackendLayoutView;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 
@@ -47,7 +45,6 @@ final readonly class ApprovalPreviewTranslator
 
     public function __construct(
         private LanguageServiceFactory $languageServiceFactory,
-        private ?BackendLayoutView $backendLayoutView = null,
     ) {}
 
     /**
@@ -164,43 +161,19 @@ final readonly class ApprovalPreviewTranslator
     }
 
     /**
-     * The name of content column `$colPos` on page `$pageId`, in the acting
-     * user's language: the column's name in the page's backend layout, as the
-     * page module shows it, else the static `tt_content.colPos` item, else the
-     * number ("Spalte 100").
+     * The name of content column `$colPos` in the acting user's language: the
+     * static `tt_content.colPos` item, else the number ("Spalte 100").
+     *
+     * Not the page's backend layout, although the page module names columns
+     * from there: core resolves the layout through the AMBIENT backend user
+     * (its workspace for the rootline, its user TSconfig for page TSconfig).
+     * The resume runs under the approver's request or under none, so the line
+     * would differ from the one shown at suspend and every such approval would
+     * bounce once (ADR-184).
      */
-    public function contentColumnLabel(BackendUserAuthentication $user, int $pageId, int $colPos): string
+    public function contentColumnLabel(BackendUserAuthentication $user, int $colPos): string
     {
-        $name = $this->backendLayoutColumnName($pageId, $colPos);
-        if ($name !== '') {
-            $resolved = $this->label($user, $name);
-            if ($resolved !== '') {
-                return $resolved;
-            }
-        }
-
         return $this->itemLabel($user, 'tt_content', 'colPos', (string)$colPos);
-    }
-
-    /**
-     * The `name` the page's backend layout gives column `$colPos`, or ''.
-     * A layout that cannot be resolved costs the name, never the preview.
-     */
-    private function backendLayoutColumnName(int $pageId, int $colPos): string
-    {
-        if (!$this->backendLayoutView instanceof BackendLayoutView || $pageId <= 0) {
-            return '';
-        }
-
-        try {
-            // Nullable on TYPO3 13.4, never null on 14.
-            $layout = $this->backendLayoutView->getBackendLayoutForPage($pageId);
-            $name   = $layout?->getUsedColumns()[$colPos] ?? null;
-        } catch (Throwable) {
-            return '';
-        }
-
-        return is_string($name) ? trim($name) : '';
     }
 
     /**

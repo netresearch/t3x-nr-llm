@@ -49,14 +49,14 @@ final class ApprovalPreviewTranslatorTest extends TestCase
     }
 
     #[Test]
-    public function aColumnWithoutALayoutOrItemReadsAsItsNumber(): void
+    public function aColumnWithoutAStaticItemReadsAsItsNumber(): void
     {
         $GLOBALS['TCA']['tt_content']['columns']['colPos']['config']['items'] = [['label' => 'Normal', 'value' => 0]];
 
         try {
             $translator = $this->translatorEchoingLabels();
-            self::assertSame('Normal', $translator->contentColumnLabel($this->user(), 1, 0));
-            self::assertSame('100', $translator->contentColumnLabel($this->user(), 1, 100));
+            self::assertSame('Normal', $translator->contentColumnLabel($this->user(), 0));
+            self::assertSame('100', $translator->contentColumnLabel($this->user(), 100));
         } finally {
             unset($GLOBALS['TCA']);
         }

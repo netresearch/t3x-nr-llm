@@ -231,10 +231,10 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
             $t(ApprovalPreviewLabel::MoveContentHeading),
             $t(ApprovalPreviewLabel::ObjectContent, $q($plan['header'])),
             $t(ApprovalPreviewLabel::ContentType, $this->translator->itemLabel($user, self::TABLE, 'CType', $plan['cType'])),
-            $t(ApprovalPreviewLabel::MoveContentCurrent, $q($plan['sourceTitle']), $this->translator->contentColumnLabel($user, $plan['sourcePage'], $plan['sourceColumn'])),
+            $t(ApprovalPreviewLabel::MoveContentCurrent, $q($plan['sourceTitle']), $this->translator->contentColumnLabel($user, $plan['sourceColumn'])),
             $plan['afterUid'] > 0
-                ? $t(ApprovalPreviewLabel::MoveContentNewAfter, $q($plan['targetTitle']), $this->translator->contentColumnLabel($user, $plan['targetPage'], $plan['column']), $q($plan['afterHeader']))
-                : $t(ApprovalPreviewLabel::MoveContentNewFirst, $q($plan['targetTitle']), $this->translator->contentColumnLabel($user, $plan['targetPage'], $plan['column'])),
+                ? $t(ApprovalPreviewLabel::MoveContentNewAfter, $q($plan['targetTitle']), $this->translator->contentColumnLabel($user, $plan['column']), $q($plan['afterHeader']))
+                : $t(ApprovalPreviewLabel::MoveContentNewFirst, $q($plan['targetTitle']), $this->translator->contentColumnLabel($user, $plan['column'])),
             $this->translator->technical($user, $details),
         ];
     }

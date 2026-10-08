@@ -112,9 +112,13 @@ domain references alike. Such a label is English where the installation has no
 language pack for the user's language. A reference that core cannot resolve
 counts as no label, and the line falls back to the column, table or value name
 rather than showing the reference; a literal with a colon ("16:9") is text, not
-a reference. A content column is named as the page module names it: the
-column's name in the page's backend layout, else the static ``colPos`` item,
-else its number ("Spalte 100"). The column name sits in the technical line.
+a reference. A content column is named by its static ``colPos`` item, else by
+its number ("Spalte 100"), and not by the name the page's backend layout gives
+it: core resolves the layout through the ambient backend user (its workspace,
+its user TSconfig), which is the approver's or nobody's at resume, so that
+name could differ from the one shown at suspend. Any line that changes between
+suspend and resume bounces the approval once, and the second approval
+executes. The column name sits in the technical line.
 A select field's value reads as its item label; whether it changes is decided
 on the stored values, and where two different values share one label both
 values follow in brackets, so a change never reads as unchanged.
