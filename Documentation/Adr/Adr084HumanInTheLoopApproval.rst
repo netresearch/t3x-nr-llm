@@ -11,8 +11,9 @@ ADR-084: Human-in-the-loop tool approval with suspend and resume
 
 :Status: Accepted (the trigger is widened by :ref:`ADR-134 <adr-134>`; the
     suspended state carries a further field — see :ref:`ADR-165 <adr-165>`; in a
-    run holding a process pin, the turn's declared reads that need no approval
-    are to execute before the turn suspends and every other call is refused —
+    run holding a process pin, the turn's non-remote reads that need no
+    approval are to execute before the turn suspends and every other call is
+    refused —
     decided by :ref:`ADR-214 <adr-214>`, not yet implemented)
 :Date: 2026-07-18
 :Amended: 2026-08-09 by :ref:`ADR-134 <adr-134>`, and 2026-08-13 by

@@ -26,7 +26,7 @@ ADR-214: Approved skill versions instruct, load on demand and run processes
     invoked skill and intersects the stored allow-list);
     :ref:`ADR-169 <adr-169>` (section 4: the exclude list grows by the skill
     and skill-source fields of item 3); :ref:`ADR-084 <adr-084>` (in a run
-    holding a process pin, the turn's declared reads that need no approval
+    holding a process pin, the turn's non-remote reads that need no approval
     execute before the turn suspends, and every other call is refused)
 :Authors: Netresearch DTT GmbH
 
@@ -564,13 +564,16 @@ No caller can hand in a pin: a pin exists only because an earlier run of the
 same lineage admitted the section. Four rules bound the derivation:
 
 - **Only the predecessor's initiator, or an administrator, may continue it.**
-  :php:`AiActorContext::mayActOnRun()` is not the check: with the
-  ``agent:approve`` scope it admits holders of the approve grant on other
-  users' runs, and it admits a service account on the scope alone. A
-  continuation derives another run's subject record and instructions, which
-  is more than deciding its approval, so the runtime requires that the
-  request's backend user is the predecessor's ``beUser`` or that the actor is
-  an administrator. A service account cannot continue a run.
+  :php:`AiActorContext::mayActOnRun()` with a scope is not used for this,
+  because what it admits depends on the scope: for a human who is not an
+  administrator it allows only their own run, except under
+  ``agent:approve``, where the approve grant opens other users' runs; a
+  service account passes on any scope it holds. A continuation derives
+  another run's subject record and instructions, which is more than reading
+  or deciding it, so the runtime requires that the request's backend user is
+  the predecessor's ``beUser`` or that the actor is an administrator, and a
+  service account cannot continue a run. No such helper exists today (there
+  is no ``isInitiatorOf()``); it is a new, explicit condition.
 - **The predecessor must be terminal.** A predecessor still
   ``WAITING_FOR_APPROVAL`` or ``WAITING_FOR_INPUT`` is cancelled first, under
   the same initiator rule, and then its pins are derived. Otherwise a release
@@ -777,13 +780,15 @@ renders them and owns the open points.
     the pending set does not contain it;
   - an input-requiring call in the same turn gets the error result it would
     get at resume today, appended the same way;
-  - a call that needs no approval, that declares a read through
-    :php:`ToolEffectInterface` and that is not a remote tool executes, in
-    turn order, and its result is appended. A remote tool never runs early,
-    even if it declares no effect and therefore resolves as a read by
-    default. Progress and highlight are declared reads, so they are visible
-    while the editor decides, and a denial reaches only the one pending
-    call;
+  - a call that needs no approval, that
+    :php:`ToolEffectResolver::effectFor()` resolves as a read and that is not
+    a :php:`RemoteToolInterface` executes, in turn order, and its result is
+    appended. Builtin reads declare no effect and resolve as reads by default
+    — none of the 17 builtins that implement :php:`ToolEffectInterface`
+    declares a read — so they keep working next to a proposal. A remote tool
+    never runs early, even one that declares no effect. Progress and
+    highlight are builtin reads, so they are visible while the editor
+    decides, and a denial reaches only the one pending call;
   - every remaining call — one that needs no approval but is not a read, for
     example a tool of an MCP server whose operator switched approval off
     (ADR-134), which resolves as ``NON_IDEMPOTENT_WRITE`` — gets an error
@@ -836,7 +841,11 @@ renders them and owns the open points.
   person must release the change in the Agent Runs inbox, the run stays
   ``WAITING_FOR_APPROVAL``, and the process shows the point as waiting for
   release. The chat reads the switch from the configuration to label the card
-  before the editor presses it, and the server-side refusal stays.
+  before the editor presses it, and the server-side refusal stays. A new
+  message from the editor while the colleague's release is still pending
+  cancels the waiting run (item 6) and records the point as open: the
+  proposal is withdrawn, not released later. The card says so before the
+  editor sends.
 - **An out-of-band release is handed back to the conversation, without
   answer text.** Today ``ChatService::reconcile()``, which the chat's message
   poll calls, returns at once unless the conversation is ``Processing``; a
@@ -882,8 +891,12 @@ renders them and owns the open points.
   (ADR-111). So no tool records them. nr_mcp_agent records the open point
   itself when it decides a card with the reason ``skip``, and when a waiting
   run is cancelled by a new message (item 6). The key is the process skill
-  uid, the subject record and the target of the last highlight event of the
-  run. A later approved write on the same target closes it. The reason
+  uid, the subject record and the last highlight target of the lineage: each
+  run stores its last highlight target with its pins, and a continuation
+  derives it from its predecessor like the pins. A lineage that never
+  highlighted has no key, and then nothing is recorded. A denial decided in
+  the Agent Runs inbox carries no reason and records nothing. A later
+  approved write on the same target closes the open point. The reason
   ``variant`` records nothing, because a new proposal follows. Open points
   are kept in a table nr_mcp_agent owns; listing them for the model stays a
   read tool nr_mcp_agent registers, and they are offered again when the
@@ -1123,6 +1136,9 @@ not:
   error for the second; its reads execute before the card appears, and any
   other call gets an error and does not run. Outside process runs nothing
   changes.
+- On a four-eyes configuration, a new chat message while a colleague's
+  release is pending withdraws the proposal: the waiting run is cancelled
+  and the point recorded as open.
 - An approved run released from the Agent Runs inbox no longer leaves the
   chat saying it continued elsewhere: the chat marks the point applied and
   continues; the released run's answer text is not shown.
