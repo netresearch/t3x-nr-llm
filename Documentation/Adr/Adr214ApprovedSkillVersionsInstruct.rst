@@ -17,7 +17,8 @@ ADR-214: Approved skill versions instruct, load on demand and run processes
     :ref:`ADR-035 <adr-035>` (items 4 and 5: change detection compares that
     version digest, so a frontmatter-only change is a change);
     :ref:`ADR-061 <adr-061>` (items 1 and 4: the trust level also decides the
-    framing, and backend-authored skills are admitted by their source's level); :ref:`ADR-038 <adr-038>` (item 5: the allow-list is resolved once
+    framing, and backend-authored skills are admitted by their source's
+    level); :ref:`ADR-038 <adr-038>` (item 5: the allow-list is resolved once
     per run over every effective attached skill); :ref:`ADR-031 <adr-031>` (a
     caller's system message keeps snippet text an administrator marked, on
     configurations that opt in); :ref:`ADR-200 <adr-200>` (a denial carries an
@@ -25,8 +26,8 @@ ADR-214: Approved skill versions instruct, load on demand and run processes
     invoked skill and intersects the stored allow-list);
     :ref:`ADR-169 <adr-169>` (section 4: the exclude list grows by the skill
     and skill-source fields of item 3); :ref:`ADR-084 <adr-084>` (in a run
-    holding a process pin, the turn's read calls execute before the turn
-    suspends)
+    holding a process pin, the turn's declared reads that need no approval
+    execute before the turn suspends, and every other call is refused)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-214-context:
@@ -557,11 +558,34 @@ messages (``ChatService::runAgentTurn()``, ``ChatService::applyResult()``). A
 section loaded in turn 3 would otherwise be gone from turn 4's system message.
 Each run therefore stores its pins, its invocation and its subject record with
 the run record (uids and digests, no content). A continuation request names
-only its predecessor run, by run uuid (:ref:`item 10 <adr-214-d10>`); the
-runtime loads that run, refuses unless the request's actor may act on it
-(:php:`AiActorContext::mayActOnRun()`), and derives the pins, the invocation
-and the subject record from it. No caller can hand in a pin: a pin exists
-only because an earlier run of the same lineage admitted the section. The
+only its predecessor run, by run uuid (:ref:`item 10 <adr-214-d10>`), and the
+runtime derives the pins, the invocation and the subject record from that run.
+No caller can hand in a pin: a pin exists only because an earlier run of the
+same lineage admitted the section. Four rules bound the derivation:
+
+- **Only the predecessor's initiator, or an administrator, may continue it.**
+  :php:`AiActorContext::mayActOnRun()` is not the check: with the
+  ``agent:approve`` scope it admits holders of the approve grant on other
+  users' runs, and it admits a service account on the scope alone. A
+  continuation derives another run's subject record and instructions, which
+  is more than deciding its approval, so the runtime requires that the
+  request's backend user is the predecessor's ``beUser`` or that the actor is
+  an administrator. A service account cannot continue a run.
+- **The predecessor must be terminal.** A predecessor still
+  ``WAITING_FOR_APPROVAL`` or ``WAITING_FOR_INPUT`` is cancelled first, under
+  the same initiator rule, and then its pins are derived. Otherwise a release
+  of the old run in the inbox would resume a second branch of the same tour
+  that the chat never sees.
+- **A missing or unreadable predecessor refuses.** Finished runs are purged by
+  age (:php:`AgentRunRepositoryInterface::purgeOlderThan()`, governed by the
+  agent-run retention setting) and conversations by inactivity, on separate
+  clocks, so a conversation can outlive its last run. The request is then
+  refused with a message telling the editor to start a new conversation; it
+  is not silently turned into a start without pins.
+- **A stopped run stores what still holds.** When a pin fails, the run stops
+  with the pin's message (below) and stores its pins minus the failed one. The
+  next turn therefore continues without that section instead of failing on it
+  for ever; one revoked skill never blocks the conversation. The
 runtime re-composes each derived pin into the new run's system message, and
 the pinned snapshot also supplies the skill's tool declarations
 (:ref:`item 5 <adr-214-d5>`).
@@ -569,16 +593,21 @@ the pinned snapshot also supplies the skill's tool declarations
 **The pin rules, at start, at worker pickup, at every resume and at every
 continuation.** A pin holds while an unrevoked approval for its digest and
 source exists, its snapshot still hashes to the digest, the skill record
-exists and is not orphaned, the source's provenance is at or above the
-threshold, and the skill is still attached to the request's configuration in
-either load mode, or was forced on a run of the same lineage. Detaching a
-skill therefore ends its pin at the next turn. A continuation whose
-configuration differs from its predecessor's drops all pins, process pin
-included: the new configuration starts with its own attachments. When one fails, the run stops with a message that names the skill
-and the reason. It does not continue without the section, and it does not
-fall back to the fenced frame. On a resume after an approval, the check runs
-before the approved write executes, next to the ADR-184 preview check, so a
-write is never carried out under a revoked instruction.
+exists and is not orphaned, and the source's provenance is at or above the
+threshold. When one of these fails, the run stops with a message that names
+the skill and the reason. It does not continue without the section, and it
+does not fall back to the fenced frame. On a resume after an approval, the
+check runs before the approved write executes, next to the ADR-184 preview
+check, so a write is never carried out under a revoked instruction.
+
+**Attachment ends a pin without stopping the run.** A pin also requires that
+the skill is still attached to the request's configuration, in either load
+mode, or was forced on a run of the same lineage. Detaching a skill drops its
+pin at the next turn, and a continuation whose configuration differs from its
+predecessor's drops all pins, process pin included, because the new
+configuration starts with its own attachments. Neither is silent: the run
+records a notice naming the dropped skills and the reason, which the chat
+shows before the answer, and the turn continues without them.
 
 This is chosen over limiting revocation to new runs. A revocation is the
 brake for text that is already acting as an instruction, and a run suspended
@@ -602,8 +631,12 @@ who wants it gone everywhere revokes it.
 
 **A process pin ends with the process.** The progress builtin of
 :ref:`item 9 <adr-214-d9>` has a completion report. When the model reports
-completion, the run releases the process pin: the next turn composes no
-process section and the one-write rule no longer applies. The other pins of
+completion in a turn without a pending approval, the run releases the process
+pin. In a turn that also holds a pending call, the completion report gets an
+error result ("report completion after the decision") and releases nothing,
+so a last "Andere Variante" still runs under the process. On release, the
+next turn composes no process section and the one-approval rule of item 9 no
+longer applies. The other pins of
 the conversation stay. While a process pin is held, a second process
 invocation is refused with a message naming the running process; there is
 never more than one process pin.
@@ -683,7 +716,8 @@ A mark on the record alone was rejected: the ``snippet`` and ``name`` fields
 are not excluded, so a non-administrator could keep a marked record and
 replace its text or its label. A fixed label on the caller-system path was
 considered and rejected: the name is how a snippet is told apart in the
-system message, and digesting it costs nothing. Admin-only TCA for the whole snippet table was rejected as well: it
+system message, and digesting it costs nothing. Admin-only TCA for the whole
+snippet table was rejected as well: it
 would reverse ADR-169's recommendation that non-administrators manage
 snippets, for the sake of one path. With the text-bound mark, a
 non-administrator can still write snippets that reach the configuration's own
@@ -720,8 +754,10 @@ renders them and owns the open points.
   about. It accepts only targets the run registered from the invocation's
   subject record, which every continuation derives from its predecessor run
   (:ref:`item 6 <adr-214-d6>`), for example the content elements of the
-  selected page; the UI maps a target to its element. The model never supplies a CSS selector or
-  any other markup.
+  selected page; the UI maps a target to its element. The model never supplies
+  a CSS selector or any other markup. It records the target as an event of
+  its own kind holding the table name and uid, record identity in the sense
+  of :ref:`ADR-185 <adr-185>` and no field values.
 - **One approval-bound call per turn in a process run.** An approval decides
   the whole pending turn (:ref:`ADR-132 <adr-132>`;
   :php:`ToolLoopService::resume()` applies one decision to every pending
@@ -731,17 +767,23 @@ renders them and owns the open points.
   true — declared writes, approval-bound reads (ADR-202) and remote tools that
   require approval — not the write-declaring ones. Before it suspends:
 
-  - the first approval-bound call stays pending, and it alone is the pending
-    set and the preview of the card;
+  - the pending call is the first approval-bound call that declares a write
+    (:php:`ToolEffectResolver::effectFor()`). Only when the turn holds no
+    such call is it the first approval-bound call of any kind, for example
+    an external fetch whose approval is on (ADR-202) or a remote tool;
+    it alone is the pending set and the preview of the card;
   - every further approval-bound call gets an error result ("one approval per
     turn in a process") appended to the transcript, so the model sees it and
     the pending set does not contain it;
   - an input-requiring call in the same turn gets the error result it would
     get at resume today, appended the same way;
-  - a call that :php:`ToolEffectResolver::effectFor()` resolves as a read
-    executes, in turn order, and its result is appended. Progress and
-    highlight are reads, so they are visible while the editor decides, and a
-    denial reaches only the one pending call;
+  - a call that needs no approval, that declares a read through
+    :php:`ToolEffectInterface` and that is not a remote tool executes, in
+    turn order, and its result is appended. A remote tool never runs early,
+    even if it declares no effect and therefore resolves as a read by
+    default. Progress and highlight are declared reads, so they are visible
+    while the editor decides, and a denial reaches only the one pending
+    call;
   - every remaining call — one that needs no approval but is not a read, for
     example a tool of an MCP server whose operator switched approval off
     (ADR-134), which resolves as ``NON_IDEMPOTENT_WRITE`` — gets an error
@@ -761,8 +803,10 @@ renders them and owns the open points.
   suspends before any call, as today.
 - **One approval card per proposal; approve means apply.** A proposal is the
   pending write call itself. Its approval card shows the preview lines of
-  ADR-136 (current and proposed text), bound by ADR-184. The three answers
-  map onto the one pause:
+  ADR-136 (current and proposed text), bound by ADR-184. A pending call that
+  is not a write is not a proposal: its card shows a plain approve and deny,
+  without the three answers and without a denial reason. For a write, the
+  three answers map onto the one pause:
 
   - **"Übernehmen"** approves the call, which writes.
   - **"Andere Variante"** denies it with the reason ``variant``.
@@ -777,7 +821,8 @@ renders them and owns the open points.
   and the denial result renders it through a ``match`` over the enum cases,
   as ``decided_by`` is rendered today, as a fixed token beside ``decided_by``
   (ADR-200). The model either proposes a new variant — a new write call and a
-  new card — or records the point as open and moves on. A denial without a
+  new card — or moves on to the next point; the open point is recorded by the
+  chat, not by the model (below). A denial without a
   reason keeps today's text. No pause combines input and approval: the
   ADR-134 ban stays, and nothing about the answer is collected through the
   input path.
@@ -799,7 +844,15 @@ renders them and owns the open points.
   ``AwaitingApproval``, so the chat never notices, and a settled run is
   reported as having continued "somewhere this conversation cannot see". The
   trigger is named: nr_mcp_agent widens ``reconcile()`` to a conversation in
-  ``AwaitingApproval`` whose run has settled. It reads the run's status and
+  ``AwaitingApproval`` whose run has settled, and runs it in two places: on
+  the message poll as today, and in ``sendMessage()`` and ``queueTurn()``
+  before a new turn is claimed. Today ``queueTurn()`` clears the approval run
+  uuid without reconciling, and the poll has already stopped once the
+  conversation waits for approval, so a new message after an inbox release
+  would start a turn without hand-back and without predecessor. The hand-back
+  therefore happens on the next load or the next send, not live. If the run
+  is still waiting when a new message arrives, the continuation cancels it
+  (item 6). It reads the run's status and
   two kinds of event that are metadata by definition. The first is the
   ``tool_write`` event, which names the record a write produced by table and
   uid and no field values (:ref:`ADR-182 <adr-182>`, :ref:`ADR-185 <adr-185>`).
@@ -822,11 +875,19 @@ renders them and owns the open points.
   :php:`RequiresInputInterface` with an enumerated schema built from its
   arguments (ADR-105). It declares no write effect, so the ADR-134 ban does
   not apply to it, and it never stands in for the approval of a write.
-- **Open points persist in nr_mcp_agent.** A skipped or unfinished point is
-  stored outside the conversation, keyed by process skill uid, subject record
-  and finding, in a table nr_mcp_agent owns, through tools nr_mcp_agent
-  registers. They are offered again when the process is started on that
-  record. nr_llm stores no open points.
+- **Open points persist in nr_mcp_agent, recorded server-side.** A tool that
+  records an open point would need an effect class that works: declared as a
+  write it needs its own card, which the one-approval rule refuses next to the
+  proposal; declared as nothing it would write while classified as a read
+  (ADR-111). So no tool records them. nr_mcp_agent records the open point
+  itself when it decides a card with the reason ``skip``, and when a waiting
+  run is cancelled by a new message (item 6). The key is the process skill
+  uid, the subject record and the target of the last highlight event of the
+  run. A later approved write on the same target closes it. The reason
+  ``variant`` records nothing, because a new proposal follows. Open points
+  are kept in a table nr_mcp_agent owns; listing them for the model stays a
+  read tool nr_mcp_agent registers, and they are offered again when the
+  process is started on that record. nr_llm stores no open points.
 
 .. _adr-214-d10:
 
@@ -852,13 +913,18 @@ Working names; the shapes are the decision.
   (:php:`ExecutionIdentity`), at start and again at worker pickup.
 - **Continue from a predecessor run.** :php:`AgentRunRequest` gains an
   optional predecessor run uuid instead of any pin data. The runtime loads
-  that run, refuses unless :php:`AiActorContext::mayActOnRun()` allows the
-  request's actor to act on it, and derives the pins, the invocation and the
-  subject record from it (:ref:`item 6 <adr-214-d6>`). A continuation is not
-  a new start: the start rules above, ``enabled`` included, do not apply to
-  the derived invocation, and the pin rules of item 6 do — revocation, a
-  failing snapshot, an orphaned record, a provenance drop, a detached skill or
-  a changed configuration ends a pin. A request that names a new invocation
+  that run under the four rules of :ref:`item 6 <adr-214-d6>` (initiator or
+  administrator, terminal or cancelled first, refusal when it is missing,
+  stored pins minus a failed one) and derives the pins, the invocation and the
+  subject record from it. A continuation waives exactly the conditions that
+  gate new use: ``enabled``, and for a loaded skill the catalogue conditions
+  (``on_demand`` attachment, not a process). It re-checks the rest on every
+  continuation: the actor's access to the configuration
+  (:php:`ConfigurationResolver::actorMayUse()`), the subject record's
+  readability for the backend user the run executes as, and the pin rules of
+  item 6: revocation, a failing snapshot, an orphaned record or a provenance
+  drop stops the run, and a detached skill or a changed configuration drops
+  the pin with a notice. A request that names a new invocation
   and a predecessor is a new start for that invocation and a continuation for
   the rest. Inside one run, ``approve()`` and ``submitInput()`` continue as
   today.
@@ -875,7 +941,8 @@ Working names; the shapes are the decision.
   tokens sit on the ``@api`` :php:`ToolLoopServiceInterface` with the existing
   ``decided_by`` constants, so the API-surface snapshot guards them.
 - **Builtins.** nr_llm ships the load tool, the progress and highlight
-  builtins and the choice builtin; nr_mcp_agent ships the open-point tools.
+  builtins and the choice builtin; nr_mcp_agent ships the read tool that
+  lists open points.
 
 .. _adr-214-d11:
 
@@ -1009,7 +1076,9 @@ skill allow-list.
 
 ● Instruction sections are no longer cut from the tail and are admitted
 against the smallest send ``fit()`` can reach, so a section that does not fit
-is refused visibly and a long tour does not strand.
+is refused visibly and a long tour does not strand on the budget. A tour
+whose last run was purged by retention cannot be continued; the editor is
+told to start a new conversation.
 
 ● Marked snippets, such as an editorial profile, reach the chat on
 configurations that opt in, and only in the text an administrator marked.
@@ -1083,7 +1152,7 @@ signature.
 
 ✕ The work spans nr_llm (digest column and migration, compose path, approval,
 load tool, run-start allow-list, pins and continuation, budget charge,
-snippet path, denial reason, one-write rule, progress, highlight and choice
+snippet path, denial reason, one-approval rule, progress, highlight and choice
 builtins, catalogue API, actor-scoped access check) and nr_mcp_agent (slash
 commands, the approval card's three answers, carrying pins, the reconcile
 hand-back, progress, highlight, open-point table and tools). The process use
@@ -1107,7 +1176,7 @@ Open questions
   there is part of that revisit.
 - **Names.** ``skills.instructionTrustLevel``, ``version_digest``, the
   ``process`` frontmatter key, the load modes, the snippet mark, the
-  configuration opt-in, :php:`ApprovalDenialReason` and ``hasAccessFor`` are
+  configuration opt-in and :php:`ApprovalDenialReason` are
   working names.
 - **Catalogue size.** Whether the catalogue needs its own byte cap, or the
   admission rule of :ref:`item 7 <adr-214-d7>` covers it.
