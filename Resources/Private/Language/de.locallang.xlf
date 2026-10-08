@@ -4649,6 +4649,34 @@
                 <source>Change file metadata</source>
                 <target>Metadaten der Datei ändern</target>
             </trans-unit>
+            <trans-unit id="approvalPreview.technical.fileReferences">
+                <source>file references UID %s</source>
+                <target>Dateiverweise UID %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.socialImage.headingOpenGraph">
+                <source>Change the image for social media (Open Graph)</source>
+                <target>Bild für soziale Medien (Open Graph) ändern</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.socialImage.headingTwitter">
+                <source>Change the image for X (Twitter)</source>
+                <target>Bild für X (Twitter) ändern</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.socialImage.currentNone">
+                <source>Currently: no image</source>
+                <target>Aktuell: kein Bild</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.socialImage.current">
+                <source>Currently: %s</source>
+                <target>Aktuell: %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.socialImage.proposed">
+                <source>Proposed: %s, stored at %s</source>
+                <target>Vorschlag: %s, gespeichert unter %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.socialImage.replaces">
+                <source>Important: the current image is removed from the page (recoverable from the recycler), and the new file takes its place.</source>
+                <target>Wichtig: Das bisherige Bild wird von der Seite entfernt (wiederherstellbar über den Papierkorb), die neue Datei tritt an seine Stelle.</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

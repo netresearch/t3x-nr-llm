@@ -3496,6 +3496,27 @@
             <trans-unit id="approvalPreview.updateFileMetadata.heading">
                 <source>Change file metadata</source>
             </trans-unit>
+            <trans-unit id="approvalPreview.technical.fileReferences">
+                <source>file references UID %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.socialImage.headingOpenGraph">
+                <source>Change the image for social media (Open Graph)</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.socialImage.headingTwitter">
+                <source>Change the image for X (Twitter)</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.socialImage.currentNone">
+                <source>Currently: no image</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.socialImage.current">
+                <source>Currently: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.socialImage.proposed">
+                <source>Proposed: %s, stored at %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.socialImage.replaces">
+                <source>Important: the current image is removed from the page (recoverable from the recycler), and the new file takes its place.</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

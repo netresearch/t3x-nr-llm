@@ -15,6 +15,8 @@ use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
@@ -133,6 +135,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
     public function __construct(
         private ConnectionPool $connectionPool,
         private FalStorageGate $storageGate,
+        private ApprovalPreviewTranslator $translator,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -322,20 +325,35 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             return [$plan];
         }
 
+        [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
+
+        // ADR-213, in the order of the editorial guidelines: what, where, the
+        // current image, the proposed one, and the replacement as a
+        // consequence of its own (rule 21).
         $lines = [
-            sprintf('Page [%d] "%s" — %s:', $plan['page'], $this->excerpt($plan['pageTitle']), $plan['field']),
-            sprintf('now: %s', $this->describe($plan['existing'])),
-            sprintf(
-                'new: file [%d] "%s" (%s)',
-                $plan['file'],
-                $this->excerpt($plan['fileName']),
-                $this->excerpt($plan['fileIdentifier']),
-            ),
+            $t($plan['field'] === 'twitter_image' ? ApprovalPreviewLabel::SocialImageHeadingTwitter : ApprovalPreviewLabel::SocialImageHeadingOpenGraph),
+            $t(ApprovalPreviewLabel::ObjectPage, $q($plan['pageTitle'])),
+            $t(ApprovalPreviewLabel::LanguageDefault),
+            $plan['existing'] === []
+                ? $t(ApprovalPreviewLabel::SocialImageCurrentNone)
+                : $t(ApprovalPreviewLabel::SocialImageCurrent, implode(', ', array_map(
+                    static fn(array $reference): string => $q($reference['name']),
+                    $plan['existing'],
+                ))),
+            $t(ApprovalPreviewLabel::SocialImageProposed, $q($plan['fileName']), $q($plan['fileIdentifier'])),
+        ];
+        $details = [
+            $t(ApprovalPreviewLabel::TechnicalPage, $plan['page']),
+            $t(ApprovalPreviewLabel::TechnicalFields, $plan['field']),
+            $t(ApprovalPreviewLabel::TechnicalFile, $plan['file']),
         ];
 
         if ($plan['existing'] !== []) {
-            $lines[] = 'REPLACES the reference(s) above — they are deleted (recoverably) and the new file takes their place.';
+            $lines[]   = $t(ApprovalPreviewLabel::SocialImageReplaces);
+            $details[] = $t(ApprovalPreviewLabel::TechnicalFileReferences, implode(', ', array_column($plan['existing'], 'uid')));
         }
+
+        $lines[] = $this->translator->technical($user, $details);
 
         return $lines;
     }

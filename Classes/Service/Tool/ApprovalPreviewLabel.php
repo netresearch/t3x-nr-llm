@@ -63,6 +63,7 @@ enum ApprovalPreviewLabel: string
     case TechnicalWholeValue      = 'approvalPreview.technical.wholeValue';
     case TechnicalContentType     = 'approvalPreview.technical.contentType';
     case TechnicalFile            = 'approvalPreview.technical.file';
+    case TechnicalFileReferences  = 'approvalPreview.technical.fileReferences';
 
     // --- The texts of a file: its metadata and a reference's own ---
     case FileFieldTitle       = 'approvalPreview.fileField.title';
@@ -73,6 +74,14 @@ enum ApprovalPreviewLabel: string
     // --- set_file_alternative_text, update_fal_asset_meta ---
     case SetAlternativeTextHeading = 'approvalPreview.setAlternativeText.heading';
     case UpdateFileMetadataHeading = 'approvalPreview.updateFileMetadata.heading';
+
+    // --- set_page_social_image ---
+    case SocialImageHeadingOpenGraph = 'approvalPreview.socialImage.headingOpenGraph';
+    case SocialImageHeadingTwitter   = 'approvalPreview.socialImage.headingTwitter';
+    case SocialImageCurrentNone      = 'approvalPreview.socialImage.currentNone';
+    case SocialImageCurrent          = 'approvalPreview.socialImage.current';
+    case SocialImageProposed         = 'approvalPreview.socialImage.proposed';
+    case SocialImageReplaces         = 'approvalPreview.socialImage.replaces';
 
     // --- update_page_metadata ---
     case UpdatePageHeading            = 'approvalPreview.updatePage.heading';
