@@ -16,6 +16,8 @@ use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
@@ -31,7 +33,6 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Information\Typo3Version;
-use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -176,10 +177,10 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
     public function __construct(
         private ConnectionPool $connectionPool,
         private TableReadAccessService $tableReadAccess,
+        private ApprovalPreviewTranslator $translator,
         #[AutowireIterator(ToolInterface::TAG_NAME)]
         private iterable $tools = [],
         private ?ExtensionConfiguration $extensionConfiguration = null,
-        private ?LanguageServiceFactory $languageServiceFactory = null,
         private ?Typo3Version $typo3Version = null,
     ) {}
 
@@ -338,13 +339,15 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
     /**
      * What this call would create, as the approver reads it (ADR-136).
      *
-     * One line per field: the column name with its TCA label in English, the
+     * One line per field: the column's TCA label for the record type, the
      * value as the record will carry it — a timestamp as an ISO 8601 date-time
-     * in UTC, a select or radio value with its item's English label. English,
-     * never the viewer's language: ADR-184 compares these lines byte for byte
-     * on resume, which can run in another request, worker or language.
-     * Authorised exactly like {@see self::execute()} and against the same
-     * EXPLICIT acting user, down to the neutral refusal string.
+     * in UTC, a select or radio value with its item's label. The labels are in
+     * the language of the run's ACTING user (ADR-213), never the viewer's or
+     * the ambient one: ADR-184 compares these lines byte for byte on resume,
+     * which can run in another request, worker or language, and the acting
+     * user is the same at both ends. The column names sit in the technical
+     * line. Authorised exactly like {@see self::execute()} and against the
+     * same EXPLICIT acting user, down to the neutral refusal string.
      *
      * NOT checked here, deliberately: the live-workspace and backend-environment
      * refusals, which describe the process performing the write.
@@ -365,30 +368,35 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             return [$plan];
         }
 
-        $lines = [sprintf(
-            'New "%s" record (%s) on page [%d] "%s":',
-            $this->excerpt($plan['tableLabel']),
-            $plan['table'],
-            $plan['pid'],
-            $this->excerpt($plan['pageTitle']),
-        )];
+        [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
+
+        // ADR-213, in the order of the editorial guidelines: what, which kind
+        // of record, where, the whole of what comes into being — there is no
+        // "before" — and the consequences.
+        $lines = [
+            $t(ApprovalPreviewLabel::CreateRecordHeading),
+            $t(ApprovalPreviewLabel::CreateRecordRecordType, $this->translator->tableLabel($user, $plan['table'])),
+            $t(ApprovalPreviewLabel::LocationOnPage, $q($plan['pageTitle'])),
+        ];
         foreach ($plan['display'] as $column => $value) {
-            $label   = $plan['labels'][$column] ?? '';
-            $note    = $plan['notes'][$column] ?? '';
-            $lines[] = sprintf(
-                '%s%s: %s%s',
-                $column,
-                $label !== '' ? ' (' . $label . ')' : '',
-                $this->quoted($value),
-                $note !== '' ? ' (' . $note . ')' : '',
-            );
+            $label   = rtrim($this->translator->label($user, $plan['labels'][$column] ?? ''), ':');
+            $note    = $this->translator->label($user, $plan['notes'][$column] ?? '');
+            $lines[] = ($label !== '' ? $label : $column) . ': ' . $q($value) . ($note !== '' ? ' (' . $note . ')' : '');
         }
 
         if ($plan['languageField'] !== null) {
-            $lines[] = 'language: default';
+            $lines[] = $t(ApprovalPreviewLabel::LanguageDefault);
         }
 
-        $lines[] = 'visibility: hidden — a human must unhide it before anyone sees it';
+        $lines[] = $t(ApprovalPreviewLabel::VisibilityHiddenAtFirst);
+        $lines[] = $t(ApprovalPreviewLabel::CreateRecordImpact);
+
+        $details = [
+            $t(ApprovalPreviewLabel::TechnicalRecordType, $plan['table'], $plan['recordType']),
+            $t(ApprovalPreviewLabel::TechnicalPage, $plan['pid']),
+            $t(ApprovalPreviewLabel::TechnicalFields, implode(', ', array_keys($plan['display']))),
+        ];
+        $lines[] = $this->translator->technical($user, $details);
 
         return $lines;
     }
@@ -437,7 +445,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{table:non-empty-string, tableLabel:string, recordType:string, pid:int, pageTitle:string, values:array<string, int|float|string>, display:array<string, string>, labels:array<string, string>, notes:array<string, string>, hiddenField:string, languageField:string|null, typeField:string|null, typeValue:string|null, typeToVerify:string|null}|string
+     * @return array{table:non-empty-string, recordType:string, pid:int, pageTitle:string, values:array<string, int|float|string>, display:array<string, string>, labels:array<string, string>, notes:array<string, string>, hiddenField:string, languageField:string|null, typeField:string|null, typeValue:string|null, typeToVerify:string|null}|string
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
@@ -548,7 +556,6 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
 
         return [
             'table'         => $table,
-            'tableLabel'    => $this->tableLabelOf($table),
             'recordType'    => $type['name'],
             'pid'           => $pid,
             'pageTitle'     => self::toStr($page['title'] ?? ''),
@@ -1783,13 +1790,14 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
     }
 
     /**
-     * The column's label for the record type in English, or '' where none is
-     * declared: the showitem's `field;Label` first, the label of the column
-     * with the type's `columnsOverrides` merged over it next — the record
-     * type's TCA label, as core builds it (TcaSchemaBuilder). A page TSconfig
-     * label override (`TCEFORM.<table>.<column>.label`), which the backend
-     * form shows, is not applied: the preview must not depend on the page or
-     * on the viewer's language.
+     * The column's label for the record type as the TCA declares it — a
+     * literal or a reference the preview resolves for the acting user — or ''
+     * where none is declared: the showitem's `field;Label` first, the label of
+     * the column with the type's `columnsOverrides` merged over it next — the
+     * record type's TCA label, as core builds it (TcaSchemaBuilder). A page
+     * TSconfig label override (`TCEFORM.<table>.<column>.label`), which the
+     * backend form shows, is not applied: the preview must not depend on the
+     * page or on the viewer's language.
      *
      * @param array{name:string, value:string|null, implied:string|null, shown:list<string>, labels:array<string, string>} $type
      */
@@ -1801,19 +1809,12 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             $label      = self::toStr($definition['label'] ?? '');
         }
 
-        return rtrim($this->englishLabel($label), ':');
-    }
-
-    private function tableLabelOf(string $table): string
-    {
-        $ctrl  = $this->tcaCtrlFor($table) ?? [];
-        $label = $this->englishLabel(self::toStr($ctrl['title'] ?? ''));
-
-        return $label !== '' ? $label : $table;
+        return trim($label);
     }
 
     /**
-     * The English label of the static item whose value is `$value`, or ''.
+     * The label of the static item whose value is `$value`, as the TCA
+     * declares it, or ''.
      *
      * @param array<array-key, mixed> $config
      */
@@ -1821,32 +1822,11 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
     {
         foreach (is_array($config['items'] ?? null) ? $config['items'] : [] as $item) {
             if (is_array($item) && array_key_exists('value', $item) && self::toStr($item['value']) === $value) {
-                return $this->englishLabel(self::toStr($item['label'] ?? ''));
+                return trim(self::toStr($item['label'] ?? ''));
             }
         }
 
         return '';
-    }
-
-    /**
-     * A TCA label in English: a literal as written, an `LLL:` reference
-     * resolved through an English language service — never the ambient one
-     * (`$GLOBALS['LANG']`), which belongs to whoever happens to run the call.
-     * '' where an `LLL:` reference cannot be resolved, so a raw key never
-     * reaches the approver.
-     */
-    private function englishLabel(string $label): string
-    {
-        $label = trim($label);
-        if (!str_starts_with($label, 'LLL:')) {
-            return $label;
-        }
-
-        if (!$this->languageServiceFactory instanceof LanguageServiceFactory) {
-            return '';
-        }
-
-        return trim($this->languageServiceFactory->create('default')->sL($label));
     }
 
     /**

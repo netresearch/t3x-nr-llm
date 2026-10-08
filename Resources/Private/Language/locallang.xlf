@@ -3676,6 +3676,42 @@
             <trans-unit id="approvalPreview.publish.parentHidden">
                 <source>Important: the version in the default language is still hidden.</source>
             </trans-unit>
+            <trans-unit id="approvalPreview.technical.existingContent">
+                <source>existing content element with the same header UID %d</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.recordType">
+                <source>table %s, record type %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.visibility.hiddenAtFirst">
+                <source>Visibility: hidden at first</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createContent.heading">
+                <source>Create new content element as draft</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createContent.positionFirst">
+                <source>Position: column %d, as the first element</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createContent.positionAfter">
+                <source>Position: column %d, directly after %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createContent.impact">
+                <source>After it is created the content element is not publicly visible yet. It has to be made visible by a person.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createContent.duplicate">
+                <source>Warning: a content element of this type with the same header already exists on this page. Approving creates a second one.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createContent.duplicateHidden">
+                <source>Warning: a hidden content element of this type with the same header already exists on this page. Approving creates a second one.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createRecord.heading">
+                <source>Create new record as draft</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createRecord.recordType">
+                <source>Record type: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createRecord.impact">
+                <source>After it is created the record is not publicly visible yet. It has to be made visible by a person.</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

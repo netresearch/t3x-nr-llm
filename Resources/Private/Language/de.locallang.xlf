@@ -4889,6 +4889,54 @@
                 <source>Important: the version in the default language is still hidden.</source>
                 <target>Wichtig: Die Version in der Standardsprache ist weiterhin verborgen.</target>
             </trans-unit>
+            <trans-unit id="approvalPreview.technical.existingContent">
+                <source>existing content element with the same header UID %d</source>
+                <target>vorhandenes Inhaltselement mit gleicher Überschrift UID %d</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.recordType">
+                <source>table %s, record type %s</source>
+                <target>Tabelle %s, Datensatztyp %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.visibility.hiddenAtFirst">
+                <source>Visibility: hidden at first</source>
+                <target>Sichtbarkeit: zunächst verborgen</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createContent.heading">
+                <source>Create new content element as draft</source>
+                <target>Neues Inhaltselement als Entwurf anlegen</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createContent.positionFirst">
+                <source>Position: column %d, as the first element</source>
+                <target>Position: Spalte %d, als erstes Element</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createContent.positionAfter">
+                <source>Position: column %d, directly after %s</source>
+                <target>Position: Spalte %d, direkt nach %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createContent.impact">
+                <source>After it is created the content element is not publicly visible yet. It has to be made visible by a person.</source>
+                <target>Das Inhaltselement ist nach dem Anlegen noch nicht öffentlich sichtbar. Es muss erst von einer Person sichtbar gemacht werden.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createContent.duplicate">
+                <source>Warning: a content element of this type with the same header already exists on this page. Approving creates a second one.</source>
+                <target>Warnung: Auf dieser Seite gibt es bereits ein Inhaltselement dieses Typs mit derselben Überschrift. Mit der Freigabe entsteht ein zweites.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createContent.duplicateHidden">
+                <source>Warning: a hidden content element of this type with the same header already exists on this page. Approving creates a second one.</source>
+                <target>Warnung: Auf dieser Seite gibt es bereits ein verborgenes Inhaltselement dieses Typs mit derselben Überschrift. Mit der Freigabe entsteht ein zweites.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createRecord.heading">
+                <source>Create new record as draft</source>
+                <target>Neuen Datensatz als Entwurf anlegen</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createRecord.recordType">
+                <source>Record type: %s</source>
+                <target>Datensatztyp: %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.createRecord.impact">
+                <source>After it is created the record is not publicly visible yet. It has to be made visible by a person.</source>
+                <target>Der Datensatz ist nach dem Anlegen noch nicht öffentlich sichtbar. Er muss erst von einer Person sichtbar gemacht werden.</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

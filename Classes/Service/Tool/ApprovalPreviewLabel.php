@@ -39,6 +39,7 @@ enum ApprovalPreviewLabel: string
     case ObjectFile          = 'approvalPreview.object.file';
     case ObjectRecord        = 'approvalPreview.object.record';
     case FieldName           = 'approvalPreview.field.name';
+    case VisibilityHiddenAtFirst = 'approvalPreview.visibility.hiddenAtFirst';
     case LocationOnPage      = 'approvalPreview.location.onPage';
     case ContentType         = 'approvalPreview.contentType';
     case LanguageDefault     = 'approvalPreview.language.default';
@@ -78,6 +79,8 @@ enum ApprovalPreviewLabel: string
     case TechnicalHiddenField     = 'approvalPreview.technical.hiddenField';
     case TechnicalDefaultLanguageRecord = 'approvalPreview.technical.defaultLanguageRecord';
     case TechnicalUserGroups      = 'approvalPreview.technical.userGroups';
+    case TechnicalExistingContent = 'approvalPreview.technical.existingContent';
+    case TechnicalRecordType      = 'approvalPreview.technical.recordType';
 
     // --- The texts of a file: its metadata and a reference's own ---
     case FileFieldTitle       = 'approvalPreview.fileField.title';
@@ -145,6 +148,19 @@ enum ApprovalPreviewLabel: string
     case PublishStopTime       = 'approvalPreview.publish.stopTime';
     case PublishUserGroups     = 'approvalPreview.publish.userGroups';
     case PublishParentHidden   = 'approvalPreview.publish.parentHidden';
+
+    // --- create_content_element_draft ---
+    case CreateContentHeading         = 'approvalPreview.createContent.heading';
+    case CreateContentPositionFirst   = 'approvalPreview.createContent.positionFirst';
+    case CreateContentPositionAfter   = 'approvalPreview.createContent.positionAfter';
+    case CreateContentImpact          = 'approvalPreview.createContent.impact';
+    case CreateContentDuplicate       = 'approvalPreview.createContent.duplicate';
+    case CreateContentDuplicateHidden = 'approvalPreview.createContent.duplicateHidden';
+
+    // --- create_record_draft ---
+    case CreateRecordHeading    = 'approvalPreview.createRecord.heading';
+    case CreateRecordRecordType = 'approvalPreview.createRecord.recordType';
+    case CreateRecordImpact     = 'approvalPreview.createRecord.impact';
 
     // --- update_page_metadata ---
     case UpdatePageHeading            = 'approvalPreview.updatePage.heading';

@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateContentElementDraftTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -40,6 +41,8 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 #[CoversClass(CreateContentElementDraftTool::class)]
 final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctionalTestCase
 {
+    use AssertsGermanPreviewTrait;
+
     /** @var non-empty-string[] */
     protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'frontend', 'indexed_search'];
 
@@ -107,7 +110,7 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
 
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('default');
 
-        $this->tool = new CreateContentElementDraftTool($this->connectionPool);
+        $this->tool = new CreateContentElementDraftTool($this->connectionPool, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
     }
 
     protected function tearDown(): void
@@ -235,7 +238,7 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
     public function aColumnEveryContentTypeCarriesExcludesNoType(): void
     {
         $this->addColumnsToEveryContentType();
-        $this->tool = new CreateContentElementDraftTool($this->connectionPool);
+        $this->tool = new CreateContentElementDraftTool($this->connectionPool, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
 
         $description = $this->tool->getSpec()->description;
         foreach (['header', 'text', 'textmedia', 'bullets', 'table', self::SCALAR_TYPE] as $offered) {
@@ -549,7 +552,11 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         }
 
         $midnight = (new DateTimeImmutable('2026-09-21', new DateTimeZone('Europe/Berlin')))->getTimestamp();
-        self::assertContains('date: "2026-09-21 00:00:00"', $lines, 'the card shows the day, not the timestamp');
+        self::assertContains(
+            $this->tcaColumnLabelIn('en', 'tt_content', 'date', self::SCALAR_TYPE) . ': “2026-09-21 00:00:00”',
+            $lines,
+            'the card shows the day, not the timestamp',
+        );
         self::assertFalse($result->isError, $result->content);
         self::assertSame($midnight, (int)($this->createdElement()['date'] ?? 0), 'the day must not shift');
     }
@@ -576,7 +583,11 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
             date_default_timezone_set($zone);
         }
 
-        self::assertContains('date: "14:30:00"', $lines, 'the card shows the time of day, not the seconds');
+        self::assertContains(
+            $this->tcaColumnLabelIn('en', 'tt_content', 'date', self::REWRITTEN_TYPE) . ': “14:30:00”',
+            $lines,
+            'the card shows the time of day, not the seconds',
+        );
         self::assertFalse($result->isError, $result->content);
         self::assertSame(14 * 3600 + 30 * 60, (int)($this->createdElement()['date'] ?? 0), 'the time must not shift');
     }
@@ -984,13 +995,14 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
             ToolExecutionContext::fromBackendUser($admin),
         );
 
-        self::assertCount(8, $lines);
-        self::assertStringContainsString('New ' . self::SCALAR_TYPE . ' element on page [2]', $lines[0]);
-        self::assertSame('bullets_type: "2"', $lines[3]);
-        self::assertSame('table_caption: "Caption"', $lines[4]);
-        self::assertSame('sectionIndex: "0"', $lines[5]);
-        self::assertStringContainsString('first in the column', $lines[6]);
-        self::assertStringContainsString('hidden', $lines[7]);
+        self::assertCount(13, $lines);
+        self::assertSame('Create new content element as draft', $lines[0]);
+        self::assertSame($this->tcaColumnLabelIn('en', 'tt_content', 'bullets_type', self::SCALAR_TYPE) . ': “2”', $lines[5]);
+        self::assertSame($this->tcaColumnLabelIn('en', 'tt_content', 'table_caption', self::SCALAR_TYPE) . ': “Caption”', $lines[6]);
+        self::assertSame($this->tcaColumnLabelIn('en', 'tt_content', 'sectionIndex', self::SCALAR_TYPE) . ': “0”', $lines[7]);
+        self::assertSame('Position: column 0, as the first element', $lines[8]);
+        self::assertSame('Visibility: hidden at first', $lines[10]);
+        self::assertStringEndsWith('fields header, bodytext, bullets_type, table_caption, sectionIndex', $lines[12]);
 
         self::assertSame(0, $this->elementCount(), 'a preview must not create anything');
     }

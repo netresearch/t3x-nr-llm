@@ -311,7 +311,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
     #[Test]
     public function theContentCreatingBuiltinSuspendsBeforeItExecutes(): void
     {
-        $tool = new CreateContentElementDraftTool($this->connectionPool);
+        $tool = new CreateContentElementDraftTool($this->connectionPool, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
         // It ships disabled, so the REAL availability service would not offer it.
         (new ToolStateRepository($this->connectionPool))->setEnabled('create_content_element_draft', true);
 

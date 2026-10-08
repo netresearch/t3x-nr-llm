@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateRecordDraftTool;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
@@ -47,6 +48,8 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 #[CoversClass(CreateRecordDraftTool::class)]
 final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
 {
+    use AssertsGermanPreviewTrait;
+
     /** @var non-empty-string[] */
     protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'frontend'];
 
@@ -943,27 +946,43 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function thePreviewNamesTheColumnsWithTheirEnglishLabelsAndWritesNothing(): void
+    public function thePreviewNamesTheColumnsWithTheirLabelsInTheActingUsersLanguageAndWritesNothing(): void
     {
-        $admin = $this->setUpBackendUser(1);
-
-        $lines = $this->tool->previewCall(
-            $this->call(['title' => 'Proposed', 'kind' => 'note', 'priority' => 4, 'published_at' => self::PUBLISHED_AT]),
-            ToolExecutionContext::fromBackendUser($admin),
-        );
+        $arguments = $this->call(['title' => 'Proposed', 'kind' => 'note', 'priority' => 4, 'published_at' => self::PUBLISHED_AT]);
 
         self::assertSame([
-            'New "Fixture item" record (' . self::TABLE . ') on page [2] "Open":',
-            // `title` carries a `LLL:` label; it is resolved in English, not printed raw.
-            'title (Title): "Proposed"',
+            'Create new record as draft',
+            'Record type: ' . $this->tcaLabelIn('en', self::TABLE, 'ctrl', 'title'),
+            'Location: on page “Open”',
+            // `title` carries a `LLL:` label; it is resolved, not printed raw.
+            $this->tcaLabelIn('en', self::TABLE, 'columns', 'title', 'label') . ': “Proposed”',
             // A select shows its value and the item's label.
-            'kind (Kind): "note" (Note)',
-            'priority (Priority): "4"',
+            'Kind: “note” (Note)',
+            'Priority: “4”',
             // A timestamp as an ISO 8601 date-time in UTC.
-            'published_at (Published at): "2026-09-10T10:00:00+00:00"',
-            'language: default',
-            'visibility: hidden — a human must unhide it before anyone sees it',
-        ], $lines);
+            'Published at: “2026-09-10T10:00:00+00:00”',
+            'Language: default language',
+            'Visibility: hidden at first',
+            'After it is created the record is not publicly visible yet. It has to be made visible by a person.',
+            'Technical details: table ' . self::TABLE . ', record type note, page UID 2, fields title, kind, priority, published_at',
+        ], $this->previewIn('en', $arguments));
+        // The fixture's own labels have no German text; core's do, where a
+        // language pack is installed.
+        $german = $this->previewIn('de', $arguments);
+        self::assertSame([
+            'Neuen Datensatz als Entwurf anlegen',
+            'Datensatztyp: ' . $this->tcaLabelIn('de', self::TABLE, 'ctrl', 'title'),
+            'Ort: auf der Seite „Open“',
+            $this->tcaLabelIn('de', self::TABLE, 'columns', 'title', 'label') . ': „Proposed“',
+            'Kind: „note“ (Note)',
+            'Priority: „4“',
+            'Published at: „2026-09-10T10:00:00+00:00“',
+            'Sprache: Standardsprache',
+            'Sichtbarkeit: zunächst verborgen',
+            'Der Datensatz ist nach dem Anlegen noch nicht öffentlich sichtbar. Er muss erst von einer Person sichtbar gemacht werden.',
+            'Technische Details: Tabelle ' . self::TABLE . ', Datensatztyp note, Seite UID 2, Felder title, kind, priority, published_at',
+        ], $german);
+        self::assertGermanEditorLines($german, [$this->tcaLabelIn('de', self::TABLE, 'columns', 'title', 'label')]);
 
         self::assertSame(0, $this->recordCount(), 'a preview must not create anything');
     }
@@ -975,21 +994,13 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function thePreviewNamesTheColumnsWithTheLabelsOfTheRecordType(): void
     {
-        $admin = $this->setUpBackendUser(1);
-
-        $lines = $this->tool->previewCall(
-            $this->call(['title' => 'Proposed', 'kind' => 'event', 'teaser' => 'An event teaser']),
-            ToolExecutionContext::fromBackendUser($admin),
-        );
+        $lines = $this->previewIn('en', $this->call(['title' => 'Proposed', 'kind' => 'event', 'teaser' => 'An event teaser']));
 
         self::assertSame([
-            'New "Fixture item" record (' . self::TABLE . ') on page [2] "Open":',
-            'title (Event title): "Proposed"',
-            'kind (Kind): "event" (Event)',
-            'teaser (Event teaser): "An event teaser"',
-            'language: default',
-            'visibility: hidden — a human must unhide it before anyone sees it',
-        ], $lines);
+            'Event title: “Proposed”',
+            'Kind: “event” (Event)',
+            'Event teaser: “An event teaser”',
+        ], array_slice($lines, 3, 3));
     }
 
     /**
@@ -1013,22 +1024,20 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * The English labels come from the language service factory the
-     * constructor takes as an optional argument; a tool the container wired
-     * without it would print column names only, in silence. The container's
-     * own tool cannot preview the fixture table (the fixture extension's
-     * creator claims it), so the wiring is read directly.
+     * The labels come from the translator the container wires in. The
+     * container's own tool cannot preview the fixture table (the fixture
+     * extension's creator claims it), so the wiring is read directly.
      */
     #[Test]
-    public function theContainerBuiltToolResolvesLabelsInEnglish(): void
+    public function theContainerBuiltToolResolvesLabelsThroughTheTranslator(): void
     {
         $registry = $this->get(ToolRegistry::class);
         self::assertInstanceOf(ToolRegistry::class, $registry);
         $tool = $registry->get('create_record_draft');
         self::assertInstanceOf(CreateRecordDraftTool::class, $tool);
 
-        $factory = (new ReflectionProperty(CreateRecordDraftTool::class, 'languageServiceFactory'))->getValue($tool);
-        self::assertInstanceOf(LanguageServiceFactory::class, $factory);
+        $translator = (new ReflectionProperty(CreateRecordDraftTool::class, 'translator'))->getValue($tool);
+        self::assertInstanceOf(ApprovalPreviewTranslator::class, $translator);
     }
 
     #[Test]
@@ -1055,6 +1064,22 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * The preview as the run's acting user reads it, in that user's language
+     * (ADR-213).
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return list<string>
+     */
+    private function previewIn(string $language, array $arguments): array
+    {
+        $admin               = $this->setUpBackendUser(1);
+        $admin->user['lang'] = $language;
+
+        return $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($admin));
+    }
+
+    /**
      * @param array<string, mixed> $fields
      *
      * @return array<string, mixed>
@@ -1071,15 +1096,12 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     {
         $this->setDeniedTables($deniedTables);
 
-        $languageServiceFactory = $this->get(LanguageServiceFactory::class);
-        self::assertInstanceOf(LanguageServiceFactory::class, $languageServiceFactory);
-
         return new CreateRecordDraftTool(
             $this->connectionPool,
             new TableReadAccessService(),
+            new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)),
             $writers,
             new ExtensionConfiguration(),
-            $languageServiceFactory,
         );
     }
 

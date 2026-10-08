@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateContentElementDraftTool;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -21,6 +22,7 @@ use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageService;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 
 /**
  * Argument validation of the fourth writing tool — the first that creates a
@@ -175,7 +177,7 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         $connectionPool->expects(self::never())->method('getQueryBuilderForTable');
         $connectionPool->expects(self::never())->method('getConnectionForTable');
 
-        $this->tool = new CreateContentElementDraftTool($connectionPool);
+        $this->tool = new CreateContentElementDraftTool($connectionPool, new ApprovalPreviewTranslator(self::createStub(LanguageServiceFactory::class)));
     }
 
     protected function tearDown(): void

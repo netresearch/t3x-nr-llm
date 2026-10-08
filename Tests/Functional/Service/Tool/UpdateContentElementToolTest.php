@@ -465,22 +465,14 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
         return $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($admin));
     }
 
-    /**
-     * The header's label for a text element; core gives the type no override
-     * of its own in some versions, so the column's label stands in.
-     */
     private function headerLabelIn(string $language): string
     {
-        return self::tcaAt('tt_content', 'types', 'text', 'columnsOverrides', 'header', 'label') !== null
-            ? $this->tcaLabelIn($language, 'tt_content', 'types', 'text', 'columnsOverrides', 'header', 'label')
-            : $this->tcaLabelIn($language, 'tt_content', 'columns', 'header', 'label');
+        return $this->tcaColumnLabelIn($language, 'tt_content', 'header', 'text');
     }
 
     private function bodytextLabelIn(string $language): string
     {
-        return self::tcaAt('tt_content', 'types', 'text', 'columnsOverrides', 'bodytext', 'label') !== null
-            ? $this->tcaLabelIn($language, 'tt_content', 'types', 'text', 'columnsOverrides', 'bodytext', 'label')
-            : $this->tcaLabelIn($language, 'tt_content', 'columns', 'bodytext', 'label');
+        return $this->tcaColumnLabelIn($language, 'tt_content', 'bodytext', 'text');
     }
 
     private function typeLabelIn(string $language): string

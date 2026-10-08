@@ -30,15 +30,19 @@ trait AssertsGermanPreviewTrait
 {
     /**
      * @param list<string> $lines
+     * @param list<string> $foreign texts the line carries that come from
+     *                              outside the catalogue — a fixture's or core's TCA labels, which
+     *                              are English where no language pack is installed — and are taken
+     *                              out before the check
      */
-    private static function assertGermanEditorLines(array $lines): void
+    private static function assertGermanEditorLines(array $lines, array $foreign = []): void
     {
         $technical = array_pop($lines);
         self::assertIsString($technical);
         self::assertStringStartsWith('Technische Details: ', $technical);
 
         foreach ($lines as $line) {
-            $prose = (string)preg_replace('/„[^“]*“/u', '', $line);
+            $prose = str_replace($foreign, '', (string)preg_replace('/„[^“]*“/u', '', $line));
             self::assertDoesNotMatchRegularExpression('/\b[a-z]+(?:_[a-z]+)+\b/', $prose, 'An internal name in: ' . $line);
             foreach (self::englishPreviewFragments() as $fragment) {
                 self::assertStringNotContainsString($fragment, $prose, 'English in: ' . $line);
@@ -88,6 +92,18 @@ trait AssertsGermanPreviewTrait
     private function tcaLabelIn(string $language, string ...$path): string
     {
         return $this->labelIn($language, self::tcaAt(...$path));
+    }
+
+    /**
+     * A column's label for a record type, in a language: the type's
+     * `columnsOverrides` label where it declares one, the column's own
+     * otherwise — the label the backend form shows.
+     */
+    private function tcaColumnLabelIn(string $language, string $table, string $column, string $recordType): string
+    {
+        return self::tcaAt($table, 'types', $recordType, 'columnsOverrides', $column, 'label') !== null
+            ? $this->tcaLabelIn($language, $table, 'types', $recordType, 'columnsOverrides', $column, 'label')
+            : $this->tcaLabelIn($language, $table, 'columns', $column, 'label');
     }
 
     /**

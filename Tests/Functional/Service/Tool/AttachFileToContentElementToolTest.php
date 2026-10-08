@@ -414,9 +414,7 @@ final class AttachFileToContentElementToolTest extends AbstractFunctionalTestCas
      */
     private function assetsLabelIn(string $language): string
     {
-        return self::tcaAt('tt_content', 'types', 'textmedia', 'columnsOverrides', 'assets', 'label') !== null
-            ? $this->tcaLabelIn($language, 'tt_content', 'types', 'textmedia', 'columnsOverrides', 'assets', 'label')
-            : $this->tcaLabelIn($language, 'tt_content', 'columns', 'assets', 'label');
+        return $this->tcaColumnLabelIn($language, 'tt_content', 'assets', 'textmedia');
     }
 
     #[Test]
