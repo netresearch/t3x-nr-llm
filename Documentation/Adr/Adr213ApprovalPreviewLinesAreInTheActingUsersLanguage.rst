@@ -190,17 +190,19 @@ the request that suspends and the worker that resumes (:ref:`ADR-083 <adr-083>`)
 Consequences
 ============
 
-● A German editor reads a German approval card for these three tools: the
-heading names the editorial action, the lines carry no field name, and the
-consequences of a delete are listed line by line.
+● A German editor reads a German approval card for every built-in tool that
+implements :php:`ToolPreviewInterface`, and for the card's own lines: the
+heading names the editorial action, the lines carry no field name, and each
+consequence has a line of its own.
 
 ● The English text is the catalogue's source text, so an installation in any
 other language sees the same English lines as before in structure, and a
 translation file for that language works without code.
 
-◐ The lines of these three tools changed in wording and order. A caller that
-matched on the old English strings, rather than showing the lines, has to
-change; none in this repository did except the tools' own tests.
+◐ The lines of every built-in previewing tool, and the card's own lines,
+changed in wording and order. A caller that matched on the old English
+strings, rather than showing the lines, has to change; none in this repository
+did except the tests.
 
 ◐ A viewer whose language differs from the run owner's reads the owner's
 language (see above).

@@ -51,6 +51,7 @@ final class ApprovalPreviewTranslatorTest extends TestCase
     #[Test]
     public function aColumnWithoutAStaticItemReadsAsItsNumber(): void
     {
+        $previous = $GLOBALS['TCA'] ?? null;
         $GLOBALS['TCA']['tt_content']['columns']['colPos']['config']['items'] = [['label' => 'Normal', 'value' => 0]];
 
         try {
@@ -58,7 +59,12 @@ final class ApprovalPreviewTranslatorTest extends TestCase
             self::assertSame('Normal', $translator->contentColumnLabel($this->user(), 0));
             self::assertSame('100', $translator->contentColumnLabel($this->user(), 100));
         } finally {
-            unset($GLOBALS['TCA']);
+            // Leave the TCA as this test found it, for the tests after it.
+            if ($previous === null) {
+                unset($GLOBALS['TCA']);
+            } else {
+                $GLOBALS['TCA'] = $previous;
+            }
         }
     }
 
