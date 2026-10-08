@@ -859,14 +859,16 @@ renders them and owns the open points.
   run itself through a transition guarded on ``WAITING_FOR_APPROVAL`` and
   ``WAITING_FOR_INPUT`` (working name
   :php:`AgentRuntimeInterface::cancelIfWaiting()`), next to its own
-  compare-and-set on the conversation. Today's
+  compare-and-set on the conversation (``queueTurn()`` already claims the row
+  through the repository's ``updateIf()`` and answers 409 when that fails). Today's
   :php:`AgentRunPersister::cancel()` is not usable for this: it also cancels
   a queued or running run, so a release that had just started its write
   would be cancelled after the write. The outcome decides what follows:
 
   - the guarded cancel won: the proposal is withdrawn, the point is recorded
     as open, and the turn is dispatched with the cancelled run as its
-    predecessor;
+    predecessor. A run that was waiting for input (the choice builtin) has no
+    pending write, so nothing is recorded for it;
   - the run is ``QUEUED`` or ``RUNNING``, because someone released it a
     moment earlier: the message is refused as busy, with the 409
     ``queueTurn()`` already answers, and the hand-back below follows once the
@@ -900,9 +902,13 @@ renders them and owns the open points.
   does not rely on them; it records its report as that event. Neither adds a
   content class, which is why ADR-064 and ADR-101 stay unamended
   (:ref:`ADR-064 <adr-064>`, :ref:`ADR-101 <adr-101>`). The reconcile step
-  marks the point as applied only when a ``tool_write`` event of that run
-  names the pending write's target record; a release that was denied, failed
-  or cancelled marks nothing, like a denial in the inbox. It then sets the
+  marks the point as applied only when the run holds a ``tool_write`` event
+  after its approval event, the write the approved call produced. Matching
+  that event, not the target record known before the write, also covers a
+  write that creates its record, such as a new content element or a copy,
+  whose uid does not exist until the write. A release that was denied, failed
+  or cancelled holds no such event and marks nothing, like a denial in the
+  inbox. It then sets the
   conversation idle and records the run uuid as the predecessor of the next
   turn. The final answer of the released run is not stored and not handed
   back: nr_llm keeps no response text under the default privacy level, and
@@ -923,12 +929,18 @@ renders them and owns the open points.
   itself when it decides a card with the reason ``skip``, and when its
   guarded cancel of a waiting process run won (above). The key is the
   pending write itself: the process skill uid, the subject record, and the
-  target record and field names of the pending call, which nr_llm exposes as
-  structured values next to the ADR-136 preview the card shows — the same
-  values the preview's technical line names, so the chat parses no prose.
-  Two findings on the same record therefore stay apart when they touch
-  different fields, and a proposal is always keyed to what the card showed,
-  not to an earlier highlight. Only an approved write to the same record and
+  target record and field names of the pending call. These are a new
+  obligation, not something the preview provides: :php:`ToolPreviewInterface`
+  returns prose lines only. An approval-bound write tool gains a method that
+  returns, for a pending call, the target table, uid and field list as
+  structured values (working name ``pendingTarget()``), and nr_llm exposes
+  them next to the ADR-136 preview the card shows, so the chat parses no
+  prose. Two findings on the same record therefore stay apart when they
+  touch different fields, and a proposal is always keyed to what the card
+  showed, not to an earlier highlight. A pending call without a structured
+  target — a remote tool, or a tool that has not implemented the method —
+  records nothing. A write that names a record but no field, such as a move,
+  a publish or a delete, is keyed by the record with an empty field list. Only an approved write to the same record and
   field closes an open point: a card for that record and field decided with
   approve, and a ``tool_write`` event for that record in its run. A denial
   decided in the Agent Runs inbox carries no reason and records nothing. The reason
@@ -989,8 +1001,8 @@ Working names; the shapes are the decision.
   ``WAITING_FOR_INPUT`` and reports whether it won (working name
   ``cancelIfWaiting()``), under the initiator-or-administrator rule of item
   6. A run's status exposes whether it holds a process pin and, while it
-  waits for approval, the pending write's target record and field names as
-  structured values (:ref:`item 9 <adr-214-d9>`).
+  waits for approval, the pending write's structured target from the write
+  tool's ``pendingTarget()`` (:ref:`item 9 <adr-214-d9>`).
 - **Approval decision.** :php:`ApprovalDecision` gains the optional
   :php:`ApprovalDenialReason` of :ref:`item 9 <adr-214-d9>`; the rendered
   tokens sit on the ``@api`` :php:`ToolLoopServiceInterface` with the existing
@@ -1237,7 +1249,8 @@ Open questions
   there is part of that revisit.
 - **Names.** ``skills.instructionTrustLevel``, ``version_digest``, the
   ``process`` frontmatter key, the load modes, the snippet mark, the
-  configuration opt-in and :php:`ApprovalDenialReason` are
+  configuration opt-in, :php:`ApprovalDenialReason`, ``cancelIfWaiting()`` and
+  ``pendingTarget()`` are
   working names.
 - **Catalogue size.** Whether the catalogue needs its own byte cap, or the
   admission rule of :ref:`item 7 <adr-214-d7>` covers it.
