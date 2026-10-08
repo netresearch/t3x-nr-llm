@@ -25,8 +25,8 @@ ADR-214: Approved skill versions instruct, load on demand and run processes
     invoked skill and intersects the stored allow-list);
     :ref:`ADR-169 <adr-169>` (section 4: the exclude list grows by the skill
     and skill-source fields of item 3); :ref:`ADR-084 <adr-084>` (in a run
-    holding a process pin, calls that need no approval execute before the
-    turn suspends)
+    holding a process pin, the turn's read calls execute before the turn
+    suspends)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-214-context:
@@ -545,7 +545,7 @@ never in the model's catalogue, so page content cannot start a process. A
 process skill whose current version is not an instruction cannot be started.
 
 **Every instruction section is pinned, not only the process.** A pin is a
-skill uid and a digest, recorded for each section — from an ``always``
+skill uid, a source uid and a digest, recorded for each section — from an ``always``
 attachment, an invocation, a load or a forced skill — on the run request and
 in :php:`SuspendedRunState`. A pinned section is always composed from the
 approval snapshot of its digest, not from the body the record holds by then.
@@ -712,8 +712,9 @@ renders them and owns the open points.
 
 - **Progress.** A read-only builtin reports the process's position (for
   example "point 3 of 7") or its completion, as integers and a flag, not as
-  prose; the run exposes the last report
-  through its events and status. A completion report releases the process pin
+  prose; it records the report as an event of its own kind, so the last report
+  survives the ``metadata`` privacy level and is readable through the run's
+  events and status. A completion report releases the process pin
   (:ref:`item 6 <adr-214-d6>`).
 - **Highlight.** A read-only builtin names the record the current point is
   about. It accepts only targets the run registered from the invocation's
@@ -737,18 +738,26 @@ renders them and owns the open points.
     the pending set does not contain it;
   - an input-requiring call in the same turn gets the error result it would
     get at resume today, appended the same way;
-  - every other call of the turn executes, in turn order, and its result is
-    appended. Progress and highlight are therefore visible while the editor
-    decides, and a denial reaches only the one pending call.
+  - a call that :php:`ToolEffectResolver::effectFor()` resolves as a read
+    executes, in turn order, and its result is appended. Progress and
+    highlight are reads, so they are visible while the editor decides, and a
+    denial reaches only the one pending call;
+  - every remaining call — one that needs no approval but is not a read, for
+    example a tool of an MCP server whose operator switched approval off
+    (ADR-134), which resolves as ``NON_IDEMPOTENT_WRITE`` — gets an error
+    result ("not executed while a proposal waits for approval") appended, and
+    does not run. An unknown tool name resolves as a write too
+    (:php:`ToolEffectResolver::effectFor()`), so it never runs early.
 
   This keeps ADR-132's invariants: the turn digest is computed over the
   pending calls (:php:`PendingTurnDigest::forState()`), which are now exactly
   the one approval-bound call, and one decision still covers the whole pending
   set. It amends ADR-084's "check the whole turn before executing any of its
-  calls" for process runs. The calls of one turn are parallel tool calls with
-  no order between them on the provider side, and the only call whose effect
-  waits for a human is the pending one, so executing the others first does
-  not reorder anything the model could rely on. Outside process runs the turn
+  calls" for process runs, and only for reads: nothing that writes runs before
+  the editor's answer, so "nothing is saved without an explicit confirmation"
+  holds. The calls of one turn are parallel tool calls with no order between
+  them on the provider side, and only reads run early, so executing them first
+  changes no state the pending write could depend on. Outside process runs the turn
   suspends before any call, as today.
 - **One approval card per proposal; approve means apply.** A proposal is the
   pending write call itself. Its approval card shows the preview lines of
@@ -791,10 +800,16 @@ renders them and owns the open points.
   reported as having continued "somewhere this conversation cannot see". The
   trigger is named: nr_mcp_agent widens ``reconcile()`` to a conversation in
   ``AwaitingApproval`` whose run has settled. It reads the run's status and
-  its events — the executed write's tool name and outcome, and the last
-  progress report, whose position, total and completion flag are integers
-  rather than prose, so the metadata privacy level keeps them
-  (:ref:`ADR-064 <adr-064>`, :ref:`ADR-101 <adr-101>`) — marks the point as applied, sets the
+  two kinds of event that are metadata by definition. The first is the
+  ``tool_write`` event, which names the record a write produced by table and
+  uid and no field values (:ref:`ADR-182 <adr-182>`, :ref:`ADR-185 <adr-185>`).
+  The second is a new progress event kind whose payload is two integers and a
+  flag. Tool arguments themselves are content and are dropped at the
+  ``metadata`` level (:php:`RunStepPrivacyFilter`), so the progress builtin
+  does not rely on them; it records its report as that event. Neither adds a
+  content class, which is why ADR-064 and ADR-101 stay unamended
+  (:ref:`ADR-064 <adr-064>`, :ref:`ADR-101 <adr-101>`). The reconcile step
+  marks the point as applied, sets the
   conversation idle, and records the run uuid as the predecessor of the next
   turn. The final answer of the released run is not stored and not handed
   back: nr_llm keeps no response text under the default privacy level, and
@@ -1036,8 +1051,9 @@ not:
   extension ships those tables in an admin-only module (ADR-035 item 7), so no
   shipped surface changes.
 - A process run that requests two approval-bound calls in one turn gets an
-  error for the second, and its other calls execute before the card appears;
-  outside process runs nothing changes.
+  error for the second; its reads execute before the card appears, and any
+  other call gets an error and does not run. Outside process runs nothing
+  changes.
 - An approved run released from the Agent Runs inbox no longer leaves the
   chat saying it continued elsewhere: the chat marks the point applied and
   continues; the released run's answer text is not shown.
