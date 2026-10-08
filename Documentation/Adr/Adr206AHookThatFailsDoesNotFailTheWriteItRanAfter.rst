@@ -101,7 +101,9 @@ Consequences
   flushed and the run's registries do not leak into the next run.
 - What the failed hook was meant to do after the writes — here the
   translation and its flash message — does not happen, and the note is the
-  only trace of it in the chat. The note names at most three failures; the
+  only trace of it in the chat; in a guided process run the approval card
+  also shows the write as "approved, check the record"
+  (:ref:`ADR-214 <adr-214>`). The note names at most three failures; the
   log has all of them.
 - The code a failure is named by is the hook method the DataHandler called,
   whatever failed inside it. Where the DataHandler called TYPO3's own code, a

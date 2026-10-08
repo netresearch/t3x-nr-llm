@@ -972,27 +972,29 @@ renders them and owns the open points.
   stale preview is none of these: the resume re-suspends with a fresh card
   (:ref:`ADR-184 <adr-184>`), and the editor decides again.
 
+  Exactly one of the three applies:
+
   - **Applied.** The first tool step's ``toolIsError`` (:php:`RunStep`) is
     false, and it is followed by the write step (``RunStep::KIND_WRITE``,
     :ref:`ADR-182 <adr-182>`) of that call with the completeness
-    ``COMPLETE``.
-  - **Approved, check the record.** The first tool step is OK and either no
-    write step follows it while the run's outcome is ``CANCELLED``,
-    ``LEASE_LOST`` or ``FAILED``, or the write step's completeness is not
-    stated, or the write step reports that a hook of the installation failed
-    after the write (below). :php:`RunTrace::recordToolResult()` appends the tool step and
-    lets its listener run before it appends the write step, and the listener
-    :php:`AgentRunExecutor` installs can throw in between — the cancellation
-    probe, the lease renewal, the audit persist — so the write may have
-    happened without a write step to show it. The ADR relies on this display
-    state and does not require reordering
+    ``COMPLETE`` and without the hook-failure flag (below).
+  - **Approved, check the record.** The first tool step is OK and one of
+    these holds: the write step carries the hook-failure flag, whatever its
+    completeness; the write step's completeness is not stated; or no write
+    step follows it while the run's outcome is ``CANCELLED``, ``LEASE_LOST``
+    or ``FAILED``. :php:`RunTrace::recordToolResult()` appends the tool step
+    and lets its listener run before it appends the write step, and the
+    listener :php:`AgentRunExecutor` installs can throw in between — the
+    cancellation probe, the lease renewal, the audit persist — so the write
+    may have happened without a write step to show it. The ADR relies on this
+    display state and does not require reordering
     :php:`RunTrace::recordToolResult()`; appending both steps before any
     listener runs would narrow the window, and the display state stays
     correct either way.
   - **Not applied.** Every other case: an error on the first tool step, a
-    write step with the completeness ``PARTIAL``, or a tool that leaves no
-    write step on a run that did not abort, such as a remote tool, which is
-    shown as approved but not applied.
+    write step with the completeness ``PARTIAL`` and without the hook-failure
+    flag, or a tool that leaves no write step on a run that did not abort,
+    such as a remote tool, which is shown as approved but not applied.
 
   Only the applied state closes an open point; the other two record nothing.
 
@@ -1021,7 +1023,10 @@ renders them and owns the open points.
   as it.** :php:`ToolLoopService` prefixes a result with ``hookFailureNote()``
   when a DataHandler hook of the installation failed after the last write of
   the call; a failure during the writes is rethrown and ends the call as
-  failed, and the outcome stays the tool's to state
+  failed, unless the tool catches it and reads back, as
+  ``create_translation_draft`` does for its text write
+  (:php:`CreateTranslationDraftTool`, the catch around its text write in
+  ``translateTexts()``); the outcome stays the tool's to state
   (:ref:`ADR-206 <adr-206>`). This decision keeps that: the completeness the
   tool stated is not changed. Today the signal exists only as text in the
   result, which the chat does not parse, so the write step gains a boolean
@@ -1040,16 +1045,15 @@ renders them and owns the open points.
   "approved, check the record" and which closes no open point. Every builtin
   passes an explicit value: a coverage test on the pattern of
   :php:`ToolEffectCoverageTest` asserts that every ``withWriteTarget(`` call
-  under ``Classes/`` passes a completeness argument. The hook-failure flag is
-  set only by the loop, through a new transformation on :php:`ToolResult`
-  that leaves every other member as it is; both additions are additive on
-  the frozen surface. It skips the method's own
-  declaration and docblock in ``ToolResult.php``, and it accepts any
-  expression of the enum type, not only a literal case, because some tools
-  decide in a helper — :php:`ReplaceFileReferenceTool` decides inside its
-  ``settleTranslations()`` step. What it refuses is an omitted argument or an
-  explicit ``null``. The API-surface
-  snapshot records the added optional parameter.
+  under ``Classes/`` passes a completeness argument. The test skips the
+  method's own declaration and docblock in ``ToolResult.php``, and it accepts
+  any expression of the enum type, not only a literal case, because some
+  tools decide in a helper — :php:`ReplaceFileReferenceTool` decides inside
+  its ``settleTranslations()`` step. What it refuses is an omitted argument or
+  an explicit ``null``. The hook-failure flag is set only by the loop, through
+  a new transformation on :php:`ToolResult` that leaves every other member as
+  it is. Both additions are additive on the frozen surface, and the
+  API-surface snapshot records them.
 
   **The completeness must survive** :php:`ToolResult::withBoundedChannels()`,
   the transformation every tool result passes through in
