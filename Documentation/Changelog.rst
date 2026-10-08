@@ -14,6 +14,23 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-40-0:
+
+Version 0.40.0 (2026-10-08)
+===========================
+
+Every built-in approval preview is in the acting user's language. No breaking
+change to the PHP API; details in the repository ``CHANGELOG.md``.
+
+*  The approval cards of the remaining fifteen previewing tools and the lines
+   the tool loop puts on a card use the acting user's language (ADR-213,
+   #1016). Runs suspended before the upgrade bounce once at resume.
+*  New public class ``ApprovalPreviewHeadings`` names the first line of every
+   built-in preview for approval cards in other extensions.
+*  TCA labels on approval cards resolve TYPO3 14 translation domain
+   references.
+*  ``attach_file_to_content_element`` refuses a translated content element.
+
 .. _version-0-39-0:
 
 Version 0.39.0 (2026-10-07)
