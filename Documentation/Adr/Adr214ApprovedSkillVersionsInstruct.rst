@@ -26,8 +26,9 @@ ADR-214: Approved skill versions instruct, load on demand and run processes
     invoked skill and intersects the stored allow-list);
     :ref:`ADR-169 <adr-169>` (section 4: the exclude list grows by the skill
     and skill-source fields of item 3); :ref:`ADR-084 <adr-084>` (in a run
-    holding a process pin, the turn's non-remote reads that need no approval
-    execute before the turn suspends, and every other call is refused)
+    holding a process pin, in a turn that suspends for approval, the turn's
+    non-remote reads that need no approval execute before the suspend and
+    every other call is refused)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-214-context:
@@ -574,11 +575,16 @@ same lineage admitted the section. Four rules bound the derivation:
   the predecessor's ``beUser`` or that the actor is an administrator, and a
   service account cannot continue a run. No such helper exists today (there
   is no ``isInitiatorOf()``); it is a new, explicit condition.
-- **The predecessor must be terminal.** A predecessor still
-  ``WAITING_FOR_APPROVAL`` or ``WAITING_FOR_INPUT`` is cancelled first, under
-  the same initiator rule, and then its pins are derived. Otherwise a release
-  of the old run in the inbox would resume a second branch of the same tour
-  that the chat never sees.
+- **A predecessor that holds a process pin must be terminal.** nr_llm only
+  checks this and refuses otherwise; it cancels nothing. Otherwise a release
+  of the old run in the inbox would resume a second branch of the tour that
+  the chat never sees. Getting the predecessor to a terminal state is the
+  chat's job (:ref:`item 9 <adr-214-d9>`): nr_mcp_agent cancels a waiting
+  process run itself, synchronously, through a transition guarded on the
+  waiting states, and answers busy when the run is queued or running. A
+  predecessor without a process pin keeps today's behaviour: it may still be
+  waiting, its pins are derived all the same, and it stays releasable in the
+  inbox, as an abandoned approval in an ordinary chat is today.
 - **A missing or unreadable predecessor refuses.** Finished runs are purged by
   age (:php:`AgentRunRepositoryInterface::purgeOlderThan()`, governed by the
   agent-run retention setting) and conversations by inactivity, on separate
@@ -588,9 +594,10 @@ same lineage admitted the section. Four rules bound the derivation:
 - **A stopped run stores what still holds.** When a pin fails, the run stops
   with the pin's message (below) and stores its pins minus the failed one. The
   next turn therefore continues without that section instead of failing on it
-  for ever; one revoked skill never blocks the conversation. The
-runtime re-composes each derived pin into the new run's system message, and
-the pinned snapshot also supplies the skill's tool declarations
+  for ever; one revoked skill never blocks the conversation.
+
+The runtime re-composes each derived pin into the new run's system message,
+and the pinned snapshot also supplies the skill's tool declarations
 (:ref:`item 5 <adr-214-d5>`).
 
 **The pin rules, at start, at worker pickup, at every resume and at every
@@ -843,9 +850,32 @@ renders them and owns the open points.
   release. The chat reads the switch from the configuration to label the card
   before the editor presses it, and the server-side refusal stays. A new
   message from the editor while the colleague's release is still pending
-  cancels the waiting run (item 6) and records the point as open: the
-  proposal is withdrawn, not released later. The card says so before the
+  withdraws the proposal, as described next. The card says so before the
   editor sends.
+- **A new message withdraws a waiting process proposal, and only if nobody
+  released it first.** When a message arrives while the conversation waits
+  for approval and its run holds a process pin, nr_mcp_agent, in
+  ``queueTurn()`` and before it dispatches the turn to a worker, cancels that
+  run itself through a transition guarded on ``WAITING_FOR_APPROVAL`` and
+  ``WAITING_FOR_INPUT`` (working name
+  :php:`AgentRuntimeInterface::cancelIfWaiting()`), next to its own
+  compare-and-set on the conversation. Today's
+  :php:`AgentRunPersister::cancel()` is not usable for this: it also cancels
+  a queued or running run, so a release that had just started its write
+  would be cancelled after the write. The outcome decides what follows:
+
+  - the guarded cancel won: the proposal is withdrawn, the point is recorded
+    as open, and the turn is dispatched with the cancelled run as its
+    predecessor;
+  - the run is ``QUEUED`` or ``RUNNING``, because someone released it a
+    moment earlier: the message is refused as busy, with the 409
+    ``queueTurn()`` already answers, and the hand-back below follows once the
+    run settles;
+  - the run is already terminal: the hand-back below runs first, then the
+    turn is dispatched.
+
+  Runs without a process pin are not cancelled; ``queueTurn()`` keeps leaving
+  them waiting, as today.
 - **An out-of-band release is handed back to the conversation, without
   answer text.** Today ``ChatService::reconcile()``, which the chat's message
   poll calls, returns at once unless the conversation is ``Processing``; a
@@ -859,9 +889,8 @@ renders them and owns the open points.
   uuid without reconciling, and the poll has already stopped once the
   conversation waits for approval, so a new message after an inbox release
   would start a turn without hand-back and without predecessor. The hand-back
-  therefore happens on the next load or the next send, not live. If the run
-  is still waiting when a new message arrives, the continuation cancels it
-  (item 6). It reads the run's status and
+  therefore happens on the next load or the next send, not live. It reads the
+  run's status and
   two kinds of event that are metadata by definition. The first is the
   ``tool_write`` event, which names the record a write produced by table and
   uid and no field values (:ref:`ADR-182 <adr-182>`, :ref:`ADR-185 <adr-185>`).
@@ -871,8 +900,10 @@ renders them and owns the open points.
   does not rely on them; it records its report as that event. Neither adds a
   content class, which is why ADR-064 and ADR-101 stay unamended
   (:ref:`ADR-064 <adr-064>`, :ref:`ADR-101 <adr-101>`). The reconcile step
-  marks the point as applied, sets the
-  conversation idle, and records the run uuid as the predecessor of the next
+  marks the point as applied only when a ``tool_write`` event of that run
+  names the pending write's target record; a release that was denied, failed
+  or cancelled marks nothing, like a denial in the inbox. It then sets the
+  conversation idle and records the run uuid as the predecessor of the next
   turn. The final answer of the released run is not stored and not handed
   back: nr_llm keeps no response text under the default privacy level, and
   this decision does not change that, so ADR-064 and ADR-101 stay as they
@@ -889,14 +920,18 @@ renders them and owns the open points.
   write it needs its own card, which the one-approval rule refuses next to the
   proposal; declared as nothing it would write while classified as a read
   (ADR-111). So no tool records them. nr_mcp_agent records the open point
-  itself when it decides a card with the reason ``skip``, and when a waiting
-  run is cancelled by a new message (item 6). The key is the process skill
-  uid, the subject record and the last highlight target of the lineage: each
-  run stores its last highlight target with its pins, and a continuation
-  derives it from its predecessor like the pins. A lineage that never
-  highlighted has no key, and then nothing is recorded. A denial decided in
-  the Agent Runs inbox carries no reason and records nothing. A later
-  approved write on the same target closes the open point. The reason
+  itself when it decides a card with the reason ``skip``, and when its
+  guarded cancel of a waiting process run won (above). The key is the
+  pending write itself: the process skill uid, the subject record, and the
+  target record and field names of the pending call, which nr_llm exposes as
+  structured values next to the ADR-136 preview the card shows — the same
+  values the preview's technical line names, so the chat parses no prose.
+  Two findings on the same record therefore stay apart when they touch
+  different fields, and a proposal is always keyed to what the card showed,
+  not to an earlier highlight. Only an approved write to the same record and
+  field closes an open point: a card for that record and field decided with
+  approve, and a ``tool_write`` event for that record in its run. A denial
+  decided in the Agent Runs inbox carries no reason and records nothing. The reason
   ``variant`` records nothing, because a new proposal follows. Open points
   are kept in a table nr_mcp_agent owns; listing them for the model stays a
   read tool nr_mcp_agent registers, and they are offered again when the
@@ -927,8 +962,8 @@ Working names; the shapes are the decision.
 - **Continue from a predecessor run.** :php:`AgentRunRequest` gains an
   optional predecessor run uuid instead of any pin data. The runtime loads
   that run under the four rules of :ref:`item 6 <adr-214-d6>` (initiator or
-  administrator, terminal or cancelled first, refusal when it is missing,
-  stored pins minus a failed one) and derives the pins, the invocation and the
+  administrator, terminal when it holds a process pin, refusal when it is
+  missing, stored pins minus a failed one) and derives the pins, the invocation and the
   subject record from it. A continuation waives exactly the conditions that
   gate new use: ``enabled``, and for a loaded skill the catalogue conditions
   (``on_demand`` attachment, not a process). It re-checks the rest on every
@@ -949,6 +984,13 @@ Working names; the shapes are the decision.
   skills only. A backend AJAX route serves the same list as JSON for the
   slash-command menu. Descriptions of non-instruction skills are flagged as
   untrusted text for the consumer to escape.
+- **Guarded cancel and pending-write facts.** :php:`AgentRuntimeInterface`
+  gains a cancel that succeeds only from ``WAITING_FOR_APPROVAL`` or
+  ``WAITING_FOR_INPUT`` and reports whether it won (working name
+  ``cancelIfWaiting()``), under the initiator-or-administrator rule of item
+  6. A run's status exposes whether it holds a process pin and, while it
+  waits for approval, the pending write's target record and field names as
+  structured values (:ref:`item 9 <adr-214-d9>`).
 - **Approval decision.** :php:`ApprovalDecision` gains the optional
   :php:`ApprovalDenialReason` of :ref:`item 9 <adr-214-d9>`; the rendered
   tokens sit on the ``@api`` :php:`ToolLoopServiceInterface` with the existing
@@ -1136,12 +1178,15 @@ not:
   error for the second; its reads execute before the card appears, and any
   other call gets an error and does not run. Outside process runs nothing
   changes.
-- On a four-eyes configuration, a new chat message while a colleague's
-  release is pending withdraws the proposal: the waiting run is cancelled
-  and the point recorded as open.
+- In a process tour, a new chat message while a proposal waits withdraws
+  it: the waiting run is cancelled and the point recorded as open. If the
+  run was released a moment earlier, the message is refused as busy. Runs of
+  ordinary chats, without a process pin, are not cancelled and stay
+  releasable in the inbox, as today.
 - An approved run released from the Agent Runs inbox no longer leaves the
-  chat saying it continued elsewhere: the chat marks the point applied and
-  continues; the released run's answer text is not shown.
+  chat saying it continued elsewhere: the chat marks the point applied when
+  the write happened, and continues; the released run's answer text is not
+  shown.
 - A backend skill that was never approved contributes a declared empty tool
   list. Attached to a configuration whose other skills declare nothing, it
   turns off every tool except the load tool until a version is approved. That
