@@ -555,14 +555,15 @@ process skill whose current version is not an instruction cannot be started.
 **A process skill is composed only through an invocation.** The guarantee is
 the compose-time skip: a process skill that reaches the ``always`` path or the
 forced path (:php:`RunAugmentation`) is skipped, with a notice naming it, and
-reaches a run only through an invocation. The skip also covers a skill that
-turns into a process skill after it was attached, because the marker is part
-of the synced frontmatter. Two earlier refusals are conveniences on top of
-it, not the guarantee: FormEngine refuses the ``always`` load mode on the
-attachment of a process skill, which is a check the Extbase write paths skip
-(:ref:`ADR-169 <adr-169>`, section 3), and a run request that forces a
-process skill is refused when it is made, since forcing is per run and never
-saved. A process skill is attached ``on_demand``; an invocation reaches
+reaches a run only through an invocation. A forced process skill is skipped
+the same way, not refused. The skip also covers a skill that turns into a
+process skill after it was attached, because the marker is part of the
+synced frontmatter. No notice is shown when a held pin already names the
+skill: the process is then composed from its pin, and the attachment or the
+forcing adds nothing. FormEngine additionally refuses the ``always`` load
+mode on the attachment of a process skill; that is a convenience on top of
+the skip, not the guarantee, because the Extbase write paths skip it
+(:ref:`ADR-169 <adr-169>`, section 3). A process skill is attached ``on_demand``; an invocation reaches
 either load mode. A consumer that wants a process for a whole conversation
 passes it as an invocation, never as a forced skill. So every process pin
 passes the start checks of
@@ -580,9 +581,9 @@ nr_llm, not left to the consumer:
   included, with a typed refusal naming the chat. The two backend surfaces
   that can reach a run refuse it server-side as well, for the initiator too:
   :php:`AgentRunController` (its ``approveAction`` and ``submitInputAction``,
-  also in the non-admin editor module) and
-  :php:`ToolPlaygroundController::resumeAction()`, which accepts any run uuid
-  for an administrator. The Agent Runs inbox lists such a run read-only, with
+  also in the non-admin editor module) and :php:`ToolPlaygroundController`
+  (its ``resumeAction()`` and ``submitInputAction()``, which accept any run
+  uuid for an administrator). The Agent Runs inbox lists such a run read-only, with
   a note that it is decided in the chat. That leaves the chat card as the one
   shipped surface; an ``@api`` caller acting as the initiator acts for the
   same person. Each
@@ -601,12 +602,16 @@ nr_llm, not left to the consumer:
   start, pickup, every resume and every continuation includes it: a run whose
   configuration has switched the setting on since stops with the same
   message. On an approval, :php:`ResumeCoordinator::approve()` applies this
-  rule to a run holding a process pin before its ADR-172 gate: the
-  self-approval refusal would otherwise leave the run waiting, and under the
-  first guard nobody else could decide it, so the run would never reach the
-  pin check. The run is stopped with the four-eyes message instead, through a
-  terminal transition guarded on ``WAITING_FOR_APPROVAL`` like the guarded
-  cancel of item 10, since this happens before any claim. Four-eyes
+  rule to a run holding a process pin in a fixed order: first the initiator
+  check of the first guard, then the existing refusal of an unreadable
+  suspended state before the claim, then the four-eyes stop, and only then
+  its ADR-172 gate, which a process run therefore never reaches. Without the
+  stop, the self-approval refusal would leave the run waiting, and under the
+  first guard nobody else could decide it. The run is stopped with the
+  four-eyes message through a terminal transition guarded on
+  ``WAITING_FOR_APPROVAL`` like the guarded cancel of item 10, since this
+  happens before any claim; a corrupt run keeps its state for the operator,
+  as today. Four-eyes
   tours are an open question for a later decision.
 
 **Every instruction section is pinned, not only the process.** A pin is a
@@ -916,18 +921,11 @@ renders them and owns the open points.
      ``WAITING_FOR_APPROVAL`` or ``WAITING_FOR_INPUT`` and reports the run's
      status after the attempt;
   #. if the cancel won, or the run was already terminal, the turn is
-     dispatched with the run as its predecessor; a cancel that won while the
-     run waited for approval records the point as open (below), keyed by the
-     pending target the cancel returns, because finishing a run clears its
-     suspended state and the target can no longer be read afterwards. A run
-     that left the waiting state by another terminal path also returns its
-     persisted pending target (item 10). The applied rule comes first: if the
-     run holds a ``tool_write`` event after its last approval, the point is
-     applied, never open — the chat's own approval may have run and finished
-     before ``applyResult()`` set the conversation idle. Otherwise the point is
-     recorded as open. A run that no longer exists records nothing; the chat states that
-     the proposal is no longer available, and the turn follows the
-     missing-predecessor rule of :ref:`item 6 <adr-214-d6>`;
+     dispatched with the run as its predecessor. The chat records nothing for
+     the withdrawn proposal and shows only that it was discarded
+     ("Vorschlag verworfen"). A run that no longer exists records nothing
+     either, and the turn follows the missing-predecessor rule of
+     :ref:`item 6 <adr-214-d6>`;
   #. if the run is ``QUEUED`` or ``RUNNING`` — the chat's own decision is
      being carried out — it puts the row back as it was, status and run
      uuid, through ``updateIf()`` from the status it claimed, and answers 409.
@@ -940,14 +938,16 @@ renders them and owns the open points.
   be one the chat itself released, so the guarded cancel never withdraws a
   proposal somebody else approved. Runs without a process pin are not
   cancelled; ``queueTurn()`` keeps leaving them waiting, as today.
-- **Applied means the approved call wrote.** The chat decides every card of a
-  process run itself, one write call per turn, and handles each result as it
-  returns. A point is marked applied when the run holds a ``tool_write`` event
-  (:ref:`ADR-182 <adr-182>`, :ref:`ADR-185 <adr-185>`) after the approval the
-  chat has just given; that is the write of the approved call, also when the
-  write created its record and its uid did not exist before. A remote tool
-  records no ``tool_write`` event, so an approved remote write is shown as
-  approved, not as applied, and no open point is recorded or closed for it.
+- **Applied means the chat's own approved call succeeded.** The chat decides
+  every card of a process run itself, one write call per turn, and gets the
+  result back through the normal result path: the run result that its
+  ``approve()`` returns, or that its worker hands to ``applyResult()``. A
+  point is shown as applied only when that result holds the tool result of
+  the approved call and it is not an error. Nothing is inferred from the
+  run's events, and no other path marks a point applied. A proposal that
+  leaves the card any other way — withdrawn by a new message, cancelled by
+  an operator, stopped by the four-eyes guard, failed after the claim, or
+  purged — is shown only as discarded ("Vorschlag verworfen").
 - **Pure choices use a choice builtin.** A choice without a write — which page,
   which finding first, whether to continue — is a ``WAITING_FOR_INPUT``
   suspension of a generic builtin that implements
@@ -957,11 +957,16 @@ renders them and owns the open points.
 - **Open points persist in nr_mcp_agent, recorded server-side.** Recording
   must follow the card decision, and a model call cannot guarantee that: the
   model may skip it or make it for a point the editor applied. So no tool
-  records them. nr_mcp_agent records the open point
-  itself when it decides a card with the reason ``skip``, and when its
-  guarded cancel of a process run waiting for approval won (above); a run
-  that waited for input has no pending write and records nothing. The key is the
-  pending write itself: the process skill uid, the subject record, and the
+  records them. nr_mcp_agent records an open point in exactly one case: the
+  editor presses "Überspringen" on the card. The chat decides that card
+  synchronously and knows the target from the card it rendered. Nothing else
+  records an open point — not a proposal withdrawn by a new message, not a
+  guarded or operator cancel, not the four-eyes stop, not a resume that
+  fails after the claim, not a purge; in each of those cases the chat says
+  only that the proposal was discarded. That is a limitation of this
+  decision: a finding lost that way is found again the next time the process
+  runs on the record. The key is the pending write itself: the process skill
+  uid, the subject record, and the
   target record and field names of the pending call. These are a new
   obligation, not something the preview provides: :php:`ToolPreviewInterface`
   returns prose lines only. An approval-bound write tool gains a method that
@@ -976,11 +981,11 @@ renders them and owns the open points.
   records nothing. A write that names a record but no field, such as a move,
   a publish or a delete, is keyed by the record with an empty field list. A
   write that creates its record has no uid before it runs, so
-  ``pendingTarget()`` returns no target for it, and neither a skipped nor a
-  withdrawn create records an open point; this is a limitation of this
-  decision, not an oversight. Only an approved write to the same record and
-  field closes an open point: a card for that record and field decided with approve, and a
-  ``tool_write`` event for that record after that approval. The reason
+  ``pendingTarget()`` returns no target for it, and a skipped create records
+  no open point; this is a limitation of this decision, not an oversight.
+  Only an applied write to the same record and field closes an open point:
+  a card for that record and field that the chat approved and whose call
+  came back as applied (above). The reason
   ``variant`` records nothing, because a new proposal follows. Open points
   are kept in a table nr_mcp_agent owns; listing them for the model stays a
   read tool nr_mcp_agent registers, and they are offered again when the
@@ -1029,8 +1034,9 @@ Working names; the shapes are the decision.
   a new start: it is the idempotent case of item 4, so a chat that passes the
   conversation's process skill as an invocation on every turn does not trip
   the "no process pin is held" check. Passed as a forced skill instead, a
-  process skill is skipped (:ref:`item 6 <adr-214-d6>`). Inside one run, ``approve()`` and ``submitInput()`` continue as
-  today.
+  process skill is skipped with a notice, not refused, unless a held pin
+  already names it (:ref:`item 6 <adr-214-d6>`). Inside one run,
+  ``approve()`` and ``submitInput()`` continue as today.
 - **Catalogue for slash commands.** An ``@api`` service returns the skills an
   actor may invoke on a configuration — uid, identifier, name, description,
   load mode, whether it is a process and whether its current version is an
@@ -1041,32 +1047,24 @@ Working names; the shapes are the decision.
   untrusted text for the consumer to escape.
 - **Guarded cancel and pending-write facts.** :php:`AgentRuntimeInterface`
   gains a cancel that succeeds only from ``WAITING_FOR_APPROVAL`` or
-  ``WAITING_FOR_INPUT`` and returns the run's status after the attempt and,
-  when it cancelled an approval wait, the pending target it cancelled
-  (working name ``cancelIfWaiting()``), under the initiator-or-administrator
-  rule of item 6. Today's :php:`AgentRunPersister::cancel()` also ends a
-  queued or running run and stays the operator's tool. A run's status exposes
-  whether it holds a process pin and, while it waits for approval, the
-  pending write's structured target from the write tool's
-  ``pendingTarget()`` (:ref:`item 9 <adr-214-d9>`). When a process run moves
-  directly out of ``WAITING_FOR_APPROVAL`` into a terminal state — the guarded
-  cancel, :php:`AgentRuntime::cancel()` or the ``nrllm:agent:cancel`` command
-  on a waiting run, or the four-eyes stop of item 6 — nr_llm writes its
-  pending target into a field of the run record that survives the clearing
-  of ``suspended_state``. No other path ends a waiting run: dead-lettering
-  applies to running runs whose lease expired, and a run that failed after
-  the chat's approval had been claimed is covered by the applied rule of
-  :ref:`item 9 <adr-214-d9>`. ``cancelIfWaiting()`` returns the persisted
-  target for a run that was already terminal. A run that the approval-window
-  purge removed (:php:`AgentRunRepository::purgeUnfinishedOlderThan()`)
-  leaves nothing to read; the chat then records nothing and says the proposal
-  is no longer available.
+  ``WAITING_FOR_INPUT`` and returns whether it won, together with the run's
+  status after the attempt (working name ``cancelIfWaiting()``), under the
+  initiator-or-administrator rule of item 6. It returns nothing about the
+  proposal it withdrew, and nr_llm keeps no pending target after a run
+  leaves the waiting state. Today's :php:`AgentRunPersister::cancel()` also
+  ends a queued or running run and stays the operator's tool. A run's status
+  exposes whether it holds a process pin and, while it waits for approval,
+  the pending write's structured target from the write tool's
+  ``pendingTarget()`` (:ref:`item 9 <adr-214-d9>`), which is what the chat
+  renders on the card.
 - **Process runs refuse other deciders.** :php:`ResumeCoordinator::approve()`
   and ``submitInput()`` refuse an actor who is not the initiator of a run
-  holding a process pin, and check the four-eyes pin rule before the ADR-172
-  gate. :php:`AgentRunController` and
-  :php:`ToolPlaygroundController::resumeAction()` refuse such a run
-  server-side, and the inbox shows it read-only (:ref:`item 6 <adr-214-d6>`).
+  holding a process pin; ``approve()`` then checks an unreadable state and
+  then the four-eyes pin rule, before its ADR-172 gate.
+  :php:`AgentRunController` (``approveAction``, ``submitInputAction``) and
+  :php:`ToolPlaygroundController` (``resumeAction()``,
+  ``submitInputAction()``) refuse such a run server-side, and the inbox shows
+  it read-only (:ref:`item 6 <adr-214-d6>`).
 - **Approval decision.** :php:`ApprovalDecision` gains the optional
   :php:`ApprovalDenialReason` of :ref:`item 9 <adr-214-d9>`; the rendered
   tokens sit on the ``@api`` :php:`ToolLoopServiceInterface` with the existing
@@ -1265,8 +1263,9 @@ not:
   other call gets an error and does not run. Outside process runs nothing
   changes.
 - In a process tour, a new chat message while a card or an input pause
-  waits withdraws it: the waiting run is cancelled and, for a card, the point
-  recorded as open. Runs of ordinary chats, without a process pin, are not
+  waits withdraws it: the waiting run is cancelled and the proposal shown as
+  discarded, with no open point. Only "Überspringen" on the card records an
+  open point. Runs of ordinary chats, without a process pin, are not
   cancelled and stay releasable in the inbox, as today.
 - Process runs appear in the Agent Runs inbox read-only and cannot be decided
   there, by administrators neither.
