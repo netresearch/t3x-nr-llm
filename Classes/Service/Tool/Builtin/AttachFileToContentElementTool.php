@@ -399,6 +399,13 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
             return self::NOT_PERMITTED;
         }
 
+        // The reference is written in the default language (see execute()),
+        // so a translated element would carry a reference of another language
+        // than its own. Refused, as attach_file_to_record refuses it.
+        if (self::toInt($element['sys_language_uid'] ?? 0) !== self::DEFAULT_LANGUAGE) {
+            return 'Refused: this tool attaches to content elements in the default language only.';
+        }
+
         $file = $this->fetchFile($fileUid);
         if ($file === null) {
             return self::NOT_PERMITTED;

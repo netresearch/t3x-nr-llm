@@ -378,6 +378,29 @@ final class AttachFileToContentElementToolTest extends AbstractFunctionalTestCas
         self::assertSame('Content element or file not found, or not permitted.', $result->content);
     }
 
+    /**
+     * The reference is written in the default language, so a translated
+     * element is refused rather than given a reference of another language
+     * than its own — on the card as in the write.
+     */
+    #[Test]
+    public function aTranslatedElementIsRefused(): void
+    {
+        $content = $this->connectionPool->getConnectionForTable('tt_content');
+        $content->insert('tt_content', [
+            'pid' => $this->pageUid, 'header' => 'Ein Element', 'CType' => 'textmedia', 'assets' => 0,
+            'sys_language_uid' => 1, 'l18n_parent' => $this->elementUid,
+        ]);
+        $translated = (int)$content->lastInsertId();
+        $arguments  = ['content_element' => $translated, 'file' => 1, 'field' => 'assets'];
+
+        $result = $this->attach($arguments, userUid: 1);
+
+        self::assertTrue($result->isError);
+        self::assertSame('Refused: this tool attaches to content elements in the default language only.', $result->content);
+        self::assertSame([$result->content], $this->previewIn('de', $arguments));
+    }
+
     #[Test]
     public function thePreviewNamesTheElementTheFieldAndTheFile(): void
     {

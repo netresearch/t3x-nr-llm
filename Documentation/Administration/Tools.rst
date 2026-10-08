@@ -484,8 +484,11 @@ What holds for all of them:
    user's own file mounts. Either failure is refused in the same words as an
    element that does not exist.
 
-   Three things worth knowing before enabling it:
+   Four things worth knowing before enabling it:
 
+   - **Only elements in the default language.** The reference is written in
+     the default language, so a translated element is refused rather than
+     given a reference in a language other than its own.
    - **The field must accept the file.** Each file field declares which
      extensions it takes, and they differ — ``image`` accepts fourteen,
      ``assets`` twenty-seven, ``media`` anything. A ``.docx`` on ``image`` is
