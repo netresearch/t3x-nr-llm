@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Closure;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
@@ -226,26 +227,40 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         }
 
         if ($plan['translated'] !== []) {
-            // Core deletes the translated references along (rule 21: its own line).
-            $lines[] = $t(
-                $remove ? ApprovalPreviewLabel::ReplaceFileTranslationsRemoved : ApprovalPreviewLabel::ReplaceFileTranslationsReplaced,
-                count($plan['translated']),
-            );
-            $orphans = count(array_filter($plan['translated'], static fn(array $translated): bool => $translated['element'] === 0));
-            if ($orphans > 0) {
-                $lines[] = $t(ApprovalPreviewLabel::ReplaceFileOrphans, $orphans);
-            }
-
-            $details[] = $t(ApprovalPreviewLabel::TechnicalTranslatedReferences, implode(', ', array_column($plan['translated'], 'reference')));
-            $elements  = array_values(array_unique(array_filter(array_column($plan['translated'], 'element'), static fn(int $element): bool => $element > 0)));
-            if ($elements !== []) {
-                $details[] = $t(ApprovalPreviewLabel::TechnicalTranslatedElements, implode(', ', $elements));
-            }
+            [$translatedLines, $translatedDetails] = $this->translatedLines($t, $plan['translated'], $remove);
+            $lines   = [...$lines, ...$translatedLines];
+            $details = [...$details, ...$translatedDetails];
         }
 
         $lines[] = $this->translator->technical($user, $details);
 
         return $lines;
+    }
+
+    /**
+     * The card lines for the translated references core deletes along — a
+     * consequence on its own line (rule 21) — and their technical details.
+     *
+     * @param Closure(ApprovalPreviewLabel, int|string...): string            $t
+     * @param non-empty-list<array{reference:int, element:int, language:int}> $translated
+     *
+     * @return array{list<string>, list<string>}
+     */
+    private function translatedLines(Closure $t, array $translated, bool $remove): array
+    {
+        $lines   = [$t($remove ? ApprovalPreviewLabel::ReplaceFileTranslationsRemoved : ApprovalPreviewLabel::ReplaceFileTranslationsReplaced, count($translated))];
+        $orphans = count(array_filter($translated, static fn(array $reference): bool => $reference['element'] === 0));
+        if ($orphans > 0) {
+            $lines[] = $t(ApprovalPreviewLabel::ReplaceFileOrphans, $orphans);
+        }
+
+        $details  = [$t(ApprovalPreviewLabel::TechnicalTranslatedReferences, implode(', ', array_column($translated, 'reference')))];
+        $elements = array_values(array_unique(array_filter(array_column($translated, 'element'), static fn(int $element): bool => $element > 0)));
+        if ($elements !== []) {
+            $details[] = $t(ApprovalPreviewLabel::TechnicalTranslatedElements, implode(', ', $elements));
+        }
+
+        return [$lines, $details];
     }
 
     public function isEnabledByDefault(): bool

@@ -335,20 +335,30 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             // asked no site: page translations were copied whatever the site,
             // and an element translation the target page is not translated
             // into was dropped in silence. The card says what THIS core does.
-            $version = new Typo3Version();
-            $before  = $version->getMajorVersion() === 13 && version_compare($version->getVersion(), '13.4.25', '<');
-            $lines[] = $t(match (true) {
-                $before && $isPage => ApprovalPreviewLabel::CopyTranslationsPageBefore13425,
-                $before            => ApprovalPreviewLabel::CopyTranslationsContentBefore13425,
-                $isPage            => ApprovalPreviewLabel::CopyTranslationsPage,
-                default            => ApprovalPreviewLabel::CopyTranslationsContent,
-            }, $plan['translations']);
+            $lines[] = $t($this->translationRule($isPage), $plan['translations']);
         }
 
         $lines[] = $t(ApprovalPreviewLabel::CopyVisibility);
         $lines[] = $this->translator->technical($user, $details);
 
         return $lines;
+    }
+
+    /**
+     * The card's wording of what the running core does with the translations
+     * of a copied record.
+     */
+    private function translationRule(bool $isPage): ApprovalPreviewLabel
+    {
+        $version = new Typo3Version();
+        $before  = $version->getMajorVersion() === 13 && version_compare($version->getVersion(), '13.4.25', '<');
+
+        return match (true) {
+            $before && $isPage => ApprovalPreviewLabel::CopyTranslationsPageBefore13425,
+            $before            => ApprovalPreviewLabel::CopyTranslationsContentBefore13425,
+            $isPage            => ApprovalPreviewLabel::CopyTranslationsPage,
+            default            => ApprovalPreviewLabel::CopyTranslationsContent,
+        };
     }
 
     public function isEnabledByDefault(): bool
