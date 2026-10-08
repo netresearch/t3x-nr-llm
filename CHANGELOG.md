@@ -8,6 +8,26 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-10-08
+
+### Upgrading from 0.39
+
+- **Composer constraints** of `^0.39` do not admit 0.40.0: a consumer needs `^0.40` added to its `netresearch/nr-llm` requirement. The PHP API has no breaking change.
+- **Agent runs suspended for approval before the upgrade** bounce once at resume, because their stored preview was worded in English and the new one is in the acting user's language; the second approval executes them (ADR-213).
+
+### Added
+
+- **`ApprovalPreviewHeadings` for approval cards in other extensions (#1016).** `Netresearch\NrLlm\Service\Tool\ApprovalPreviewHeadings` (`@api`, static) offers `labelReferences()`, the `LLL:` references of the heading texts, and `isHeading(string $line, LanguageService $languageService)`. The first line of every successful built-in preview is one of these headings; a refusal or any other line is not. The set grows with every tool that gains a preview, so a consumer asks the class and keeps no copy. The API surface snapshot gains the class.
+
+### Changed
+
+- **Every built-in approval preview is in the acting user's language (ADR-213, #1016).** After `create_page_draft`, `move_page` and `delete_record` in 0.39.0, the approval cards of the remaining fifteen previewing tools — `update_page_metadata`, `update_content_element`, `set_file_alternative_text`, `update_fal_asset_meta`, `set_page_social_image`, `attach_file_to_content_element`, `attach_file_to_record`, `replace_file_reference`, `move_content_element`, `copy_record`, `publish_record`, `create_content_element_draft`, `create_record_draft`, `create_translation_draft` and `fetch_external_url` — show their lines in English or German, in editor wording ordered what / where / current / new / consequences, with UIDs, table and column names in a last "Technical details" line. Fields are named by catalogue texts or by their TCA label in the user's language; languages by the site's language titles; columns by their `colPos` item. The lines the tool loop itself puts on a card (a failed, empty, cut or withheld preview) are catalogue entries too; a failed preview names the exception class only in the technical line. Refusal lines stay English, because they are also what the model receives.
+- **TCA labels on approval cards resolve TYPO3 14 translation domain references (#1016).** `ApprovalPreviewTranslator::label()` resolves every label through core's `sL()`; before, only `LLL:` references were resolved, so a domain reference such as `frontend.db.tt_content:header` showed as its key on TYPO3 14. A reference core cannot resolve falls back to the column, table or value name.
+
+### Fixed
+
+- **`attach_file_to_content_element` refuses a translated content element (#1016).** The file reference is written in the default language, so on a translated element it landed in a language other than the element's.
+
 ## [0.39.0] - 2026-10-07
 
 ### Upgrading from 0.38
@@ -4242,7 +4262,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.39.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.40.0...HEAD
+[0.40.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.39.0...v0.40.0
 [0.39.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.38.2...v0.39.0
 [0.38.2]: https://github.com/netresearch/t3x-nr-llm/compare/v0.38.1...v0.38.2
 [0.38.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.38.0...v0.38.1
