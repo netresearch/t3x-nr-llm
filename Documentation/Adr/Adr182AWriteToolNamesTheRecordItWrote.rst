@@ -9,11 +9,12 @@
 ADR-182: A write tool names the record it wrote
 ============================================================================
 
-:Status: Accepted (the write step is also to carry whether the write was
-    complete — decided by :ref:`ADR-214 <adr-214>`, not yet implemented)
+:Status: Accepted (``withWriteTarget()`` is to take a completeness, carried
+    on the write step — decided by :ref:`ADR-214 <adr-214>`, not yet
+    implemented)
 :Date: 2026-08-21
 :Amends: :ref:`ADR-122 <adr-122>` (the deferral whose premise expired)
-:Amended: 2026-10-09 by :ref:`ADR-214 <adr-214>` (partial-write flag)
+:Amended: 2026-10-08 by :ref:`ADR-214 <adr-214>` (write completeness)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-182-context:
