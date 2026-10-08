@@ -30,6 +30,7 @@ use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateContentElementDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateTranslationDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchLogsTool;
@@ -228,7 +229,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
     #[Test]
     public function theWritingBuiltinSuspendsBeforeItExecutes(): void
     {
-        $tool = new UpdatePageMetadataTool($this->connectionPool);
+        $tool = new UpdatePageMetadataTool($this->connectionPool, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
         // It ships disabled, so the REAL availability service would not offer it.
         (new ToolStateRepository($this->connectionPool))->setEnabled('update_page_metadata', true);
 

@@ -45,6 +45,7 @@ use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
 use Netresearch\NrLlm\Service\Tool\SchemaPropertyClassifier;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
@@ -177,7 +178,7 @@ final class WritePathAcceptanceTest extends AbstractFunctionalTestCase
         // write does is authorised against the run's own actor (ADR-083).
         $this->setUpBackendUser(self::APPROVER);
 
-        $this->registry = new ToolRegistry([new UpdatePageMetadataTool($this->connectionPool)]);
+        $this->registry = new ToolRegistry([new UpdatePageMetadataTool($this->connectionPool, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)))]);
         // A writing tool ships disabled (ADR-135); an admin turns it on in the
         // Tools module. Without this step the run never reaches the tool at all,
         // which is the gate doing its job rather than the test being clever.
@@ -230,7 +231,7 @@ final class WritePathAcceptanceTest extends AbstractFunctionalTestCase
         self::assertSame('update_page_metadata', $card->pendingCalls[0]->name);
         self::assertFalse($card->pendingCalls[0]->previewFailed);
         self::assertContains(
-            sprintf('description: "%s" → "%s"', self::OLD_DESCRIPTION, self::NEW_DESCRIPTION),
+            sprintf('Meta description: currently “%s”, proposed “%s”', self::OLD_DESCRIPTION, self::NEW_DESCRIPTION),
             $card->pendingCalls[0]->previewLines,
         );
         self::assertIsString($card->turnDigest);

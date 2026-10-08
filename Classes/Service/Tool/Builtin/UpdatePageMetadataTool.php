@@ -15,6 +15,8 @@ use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -146,8 +148,28 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
     /** The one table this tool writes. */
     private const TABLE = 'pages';
 
+    /**
+     * Each editable field as the editor knows it (ADR-213): the guidelines'
+     * words where they name one ("Meta Description"), never the column name.
+     */
+    private const FIELD_LABELS = [
+        'title'               => ApprovalPreviewLabel::PageFieldTitle,
+        'subtitle'            => ApprovalPreviewLabel::PageFieldSubtitle,
+        'nav_title'           => ApprovalPreviewLabel::PageFieldNavTitle,
+        'abstract'            => ApprovalPreviewLabel::PageFieldAbstract,
+        'description'         => ApprovalPreviewLabel::PageFieldDescription,
+        'keywords'            => ApprovalPreviewLabel::PageFieldKeywords,
+        'seo_title'           => ApprovalPreviewLabel::PageFieldSeoTitle,
+        'og_title'            => ApprovalPreviewLabel::PageFieldOgTitle,
+        'og_description'      => ApprovalPreviewLabel::PageFieldOgDescription,
+        'twitter_title'       => ApprovalPreviewLabel::PageFieldTwitterTitle,
+        'twitter_description' => ApprovalPreviewLabel::PageFieldTwitterDescription,
+        'twitter_card'        => ApprovalPreviewLabel::PageFieldTwitterCard,
+    ];
+
     public function __construct(
         private ConnectionPool $connectionPool,
+        private ApprovalPreviewTranslator $translator,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -315,10 +337,46 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
             return [self::NOT_PERMITTED];
         }
 
-        $lines = [sprintf('Page [%d] "%s" — %d field(s):', $uid, $this->excerpt(self::toStr($page['title'] ?? '')), count($values))];
+        [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
+        $language = self::toInt($page['sys_language_uid'] ?? 0);
+
+        // ADR-213, in the order of the editorial guidelines: what, where, then
+        // each field's current and proposed value. The column names and the
+        // values' lengths and hashes sit in the technical line.
+        $lines = [
+            $t(ApprovalPreviewLabel::UpdatePageHeading),
+            $t(ApprovalPreviewLabel::ObjectPage, $q(self::toStr($page['title'] ?? ''))),
+            $t($language === 0 ? ApprovalPreviewLabel::LanguageDefault : ApprovalPreviewLabel::LanguageTranslation),
+        ];
+        $details = [
+            $t(ApprovalPreviewLabel::TechnicalPage, $uid),
+            $t(ApprovalPreviewLabel::TechnicalLanguage, $language),
+            $t(ApprovalPreviewLabel::TechnicalFields, implode(', ', array_keys($values))),
+        ];
         foreach ($values as $field => $new) {
-            $lines[] = sprintf('%s: %s', $field, $this->beforeAfter(self::toStr($page[$field] ?? ''), $new));
+            $old = self::toStr($page[$field] ?? '');
+            // A select value reads as its item ("Summary card"), not as `summary`.
+            if ($this->allowedValuesFor($field) !== null) {
+                $old = $this->translator->itemLabel($user, self::TABLE, $field, $old);
+                $new = $this->translator->itemLabel($user, self::TABLE, $field, $new);
+            }
+
+            $label = self::FIELD_LABELS[$field] ?? null;
+            [$line, $technical] = $this->fieldChange(
+                $t,
+                $q,
+                $label === null ? $this->translator->columnLabel($user, self::TABLE, $field) : $t($label),
+                $field,
+                $old,
+                $new,
+            );
+            $lines[] = $line;
+            if ($technical !== null) {
+                $details[] = $technical;
+            }
         }
+
+        $lines[] = $this->translator->technical($user, $details);
 
         return $lines;
     }

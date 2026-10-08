@@ -3391,6 +3391,87 @@
             <trans-unit id="approvalPreview.deleteRecord.recoverable">
                 <source>Recoverable: yes, from the recycler</source>
             </trans-unit>
+            <trans-unit id="approvalPreview.value.nothing">
+                <source>(nothing)</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.object.page">
+                <source>Page: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.object.content">
+                <source>Content element: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.location.onPage">
+                <source>Location: on page %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.contentType">
+                <source>Content type: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.language.default">
+                <source>Language: default language</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.language.translation">
+                <source>Language: translation, not the default language</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.field.unchanged">
+                <source>%s: unchanged, %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.field.change">
+                <source>%s: currently %s, proposed %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.field.changedFrom">
+                <source>%s: changed from character %d on, currently %s, proposed %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.fields">
+                <source>fields %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.wholeValue">
+                <source>%s before: %d characters, %s; after: %d characters, %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.contentType">
+                <source>content type %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.updatePage.heading">
+                <source>Change page metadata</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.title">
+                <source>Page title</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.subtitle">
+                <source>Subtitle</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.navTitle">
+                <source>Navigation title</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.abstract">
+                <source>Abstract</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.description">
+                <source>Meta description</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.keywords">
+                <source>Keywords</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.seoTitle">
+                <source>Title for search engines</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.ogTitle">
+                <source>Title for social media (Open Graph)</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.ogDescription">
+                <source>Description for social media (Open Graph)</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.twitterTitle">
+                <source>Title for X (Twitter)</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.twitterDescription">
+                <source>Description for X (Twitter)</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.twitterCard">
+                <source>Card type for X (Twitter)</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.updateContent.heading">
+                <source>Change content element</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

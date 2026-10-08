@@ -14,6 +14,8 @@ use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -87,6 +89,7 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
 
     public function __construct(
         private ConnectionPool $connectionPool,
+        private ApprovalPreviewTranslator $translator,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -219,25 +222,46 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
             return [$plan];
         }
 
-        $lines = [sprintf(
-            'Content element [%d] "%s" (%s) on page [%d] "%s", language %d — %d field(s):',
-            $plan['uid'],
-            $this->excerpt($plan['header']),
-            $plan['type'],
-            $plan['page'],
-            $this->excerpt($plan['pageTitle']),
-            $plan['language'],
-            count($plan['fields']),
-        )];
+        [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
+
+        // ADR-213, in the order of the editorial guidelines: what, where, then
+        // each field's current and proposed value under its form label. The
+        // column names and the values' lengths and hashes sit in the
+        // technical line.
+        $lines = [
+            $t(ApprovalPreviewLabel::UpdateContentHeading),
+            $t(ApprovalPreviewLabel::ObjectContent, $q($plan['header'])),
+            $t(ApprovalPreviewLabel::ContentType, $this->translator->itemLabel($user, self::TABLE, 'CType', $plan['type'])),
+            $t(ApprovalPreviewLabel::LocationOnPage, $q($plan['pageTitle'])),
+            $t($plan['language'] === 0 ? ApprovalPreviewLabel::LanguageDefault : ApprovalPreviewLabel::LanguageTranslation),
+        ];
+        $details = [
+            $t(ApprovalPreviewLabel::TechnicalRecord, self::TABLE, $plan['uid']),
+            $t(ApprovalPreviewLabel::TechnicalPage, $plan['page']),
+            $t(ApprovalPreviewLabel::TechnicalLanguage, $plan['language']),
+            $t(ApprovalPreviewLabel::TechnicalContentType, $plan['type']),
+            $t(ApprovalPreviewLabel::TechnicalFields, implode(', ', array_keys($plan['fields']))),
+        ];
 
         $columns = $this->columnsOfType($plan['type']);
         foreach ($plan['fields'] as $column => $new) {
             $config = $columns[$column] ?? [];
             $old    = $plan['before'][$column] ?? '';
-            $before  = $this->shownValue(is_int($old) ? $old : self::toStr($old), $config);
-            $after   = $this->shownValue($new, $config);
-            $lines[] = sprintf('%s: %s', $column, $this->beforeAfter($before, $after));
+            [$line, $technical] = $this->fieldChange(
+                $t,
+                $q,
+                $this->translator->columnLabel($user, self::TABLE, $column, $plan['type']),
+                $column,
+                $this->shownValue(is_int($old) ? $old : self::toStr($old), $config),
+                $this->shownValue($new, $config),
+            );
+            $lines[] = $line;
+            if ($technical !== null) {
+                $details[] = $technical;
+            }
         }
+
+        $lines[] = $this->translator->technical($user, $details);
 
         return $lines;
     }

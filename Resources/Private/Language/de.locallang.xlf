@@ -4509,6 +4509,114 @@
                 <source>Recoverable: yes, from the recycler</source>
                 <target>Wiederherstellbar: ja, über den Papierkorb</target>
             </trans-unit>
+            <trans-unit id="approvalPreview.value.nothing">
+                <source>(nothing)</source>
+                <target>(nichts)</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.object.page">
+                <source>Page: %s</source>
+                <target>Seite: %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.object.content">
+                <source>Content element: %s</source>
+                <target>Inhaltselement: %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.location.onPage">
+                <source>Location: on page %s</source>
+                <target>Ort: auf der Seite %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.contentType">
+                <source>Content type: %s</source>
+                <target>Inhaltstyp: %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.language.default">
+                <source>Language: default language</source>
+                <target>Sprache: Standardsprache</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.language.translation">
+                <source>Language: translation, not the default language</source>
+                <target>Sprache: Übersetzung, nicht die Standardsprache</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.field.unchanged">
+                <source>%s: unchanged, %s</source>
+                <target>%s: unverändert, %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.field.change">
+                <source>%s: currently %s, proposed %s</source>
+                <target>%s: aktuell %s, Vorschlag %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.field.changedFrom">
+                <source>%s: changed from character %d on, currently %s, proposed %s</source>
+                <target>%s: geändert ab Zeichen %d, aktuell %s, Vorschlag %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.fields">
+                <source>fields %s</source>
+                <target>Felder %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.wholeValue">
+                <source>%s before: %d characters, %s; after: %d characters, %s</source>
+                <target>%s vorher: %d Zeichen, %s; nachher: %d Zeichen, %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.contentType">
+                <source>content type %s</source>
+                <target>Inhaltstyp %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.updatePage.heading">
+                <source>Change page metadata</source>
+                <target>Metadaten der Seite ändern</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.title">
+                <source>Page title</source>
+                <target>Seitentitel</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.subtitle">
+                <source>Subtitle</source>
+                <target>Untertitel</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.navTitle">
+                <source>Navigation title</source>
+                <target>Navigationstitel</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.abstract">
+                <source>Abstract</source>
+                <target>Kurzfassung</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.description">
+                <source>Meta description</source>
+                <target>Meta Description</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.keywords">
+                <source>Keywords</source>
+                <target>Schlüsselwörter</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.seoTitle">
+                <source>Title for search engines</source>
+                <target>Titel für Suchmaschinen</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.ogTitle">
+                <source>Title for social media (Open Graph)</source>
+                <target>Titel für soziale Medien (Open Graph)</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.ogDescription">
+                <source>Description for social media (Open Graph)</source>
+                <target>Beschreibung für soziale Medien (Open Graph)</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.twitterTitle">
+                <source>Title for X (Twitter)</source>
+                <target>Titel für X (Twitter)</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.twitterDescription">
+                <source>Description for X (Twitter)</source>
+                <target>Beschreibung für X (Twitter)</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.pageField.twitterCard">
+                <source>Card type for X (Twitter)</source>
+                <target>Kartentyp für X (Twitter)</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.updateContent.heading">
+                <source>Change content element</source>
+                <target>Inhaltselement ändern</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

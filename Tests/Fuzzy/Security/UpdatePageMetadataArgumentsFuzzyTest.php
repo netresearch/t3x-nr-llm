@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Fuzzy\Security;
 
 use Eris\Generator;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Fuzzy\AbstractFuzzyTestCase;
@@ -18,6 +19,7 @@ use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageService;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 
 /**
  * Property-based coverage of the writing tool's argument gate (ADR-135).
@@ -65,7 +67,7 @@ final class UpdatePageMetadataArgumentsFuzzyTest extends AbstractFuzzyTestCase
         $GLOBALS['LANG']    = self::createStub(LanguageService::class);
         $GLOBALS['BE_USER'] = $user;
 
-        $this->tool    = new UpdatePageMetadataTool(self::createStub(ConnectionPool::class));
+        $this->tool    = new UpdatePageMetadataTool(self::createStub(ConnectionPool::class), new ApprovalPreviewTranslator(self::createStub(LanguageServiceFactory::class)));
         $this->context = ToolExecutionContext::fromBackendUser($user);
     }
 

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -32,6 +33,8 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 #[CoversClass(UpdatePageMetadataTool::class)]
 final class UpdatePageMetadataToolTwitterCardTest extends AbstractFunctionalTestCase
 {
+    use AssertsGermanPreviewTrait;
+
     protected array $coreExtensionsToLoad = [
         'extbase',
         'fluid',
@@ -78,7 +81,7 @@ final class UpdatePageMetadataToolTwitterCardTest extends AbstractFunctionalTest
         // tool refuses to write without it (ADR-135).
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('default');
 
-        $this->tool = new UpdatePageMetadataTool($this->connectionPool);
+        $this->tool = new UpdatePageMetadataTool($this->connectionPool, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
     }
 
     protected function tearDown(): void
@@ -210,15 +213,23 @@ final class UpdatePageMetadataToolTwitterCardTest extends AbstractFunctionalTest
     #[Test]
     public function thePreviewNamesTheFieldWithItsStoredAndItsProposedValue(): void
     {
-        $admin = $this->setUpBackendUser(1);
+        $arguments = ['uid' => self::PAGE, 'twitter_card' => 'summary_large_image'];
+        $english   = $this->previewIn('en', $arguments);
+        $german    = $this->previewIn('de', $arguments);
 
-        $lines = $this->tool->previewCall(
-            ['uid' => self::PAGE, 'twitter_card' => 'summary_large_image'],
-            ToolExecutionContext::fromBackendUser($admin),
+        // The values read as the items the form offers, not as the stored
+        // keys (editorial guidelines rule 18).
+        self::assertSame(
+            sprintf('Card type for X (Twitter): currently “%s”, proposed “%s”', $this->tcaItemLabelIn('en', 'pages', 'twitter_card', 'summary'), $this->tcaItemLabelIn('en', 'pages', 'twitter_card', 'summary_large_image')),
+            $english[3] ?? null,
         );
-
-        self::assertSame('Page [2] "Open" — 1 field(s):', $lines[0] ?? null);
-        self::assertSame('twitter_card: "summary" → "summary_large_image"', $lines[1] ?? null);
+        self::assertSame(
+            sprintf('Kartentyp für X (Twitter): aktuell „%s“, Vorschlag „%s“', $this->tcaItemLabelIn('de', 'pages', 'twitter_card', 'summary'), $this->tcaItemLabelIn('de', 'pages', 'twitter_card', 'summary_large_image')),
+            $german[3] ?? null,
+        );
+        self::assertSame('Technical details: page UID 2, language UID 0, fields twitter_card', $english[4] ?? null);
+        self::assertSame('Technische Details: Seite UID 2, Sprach-UID 0, Felder twitter_card', $german[4] ?? null);
+        self::assertGermanEditorLines($german);
         // A preview reads; it must not write.
         self::assertSame(self::STORED_CARD, $this->pageRow()['twitter_card'] ?? null);
     }
@@ -319,5 +330,21 @@ final class UpdatePageMetadataToolTwitterCardTest extends AbstractFunctionalTest
             ->fetchAllAssociative();
 
         return array_map(static fn(array $row): int => (int)($row['userid'] ?? 0), $rows);
+    }
+
+    /**
+     * The preview as the run's acting user reads it, in that user's language
+     * (ADR-213).
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return list<string>
+     */
+    private function previewIn(string $language, array $arguments): array
+    {
+        $admin               = $this->setUpBackendUser(1);
+        $admin->user['lang'] = $language;
+
+        return $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($admin));
     }
 }

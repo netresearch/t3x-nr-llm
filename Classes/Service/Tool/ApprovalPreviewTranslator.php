@@ -101,20 +101,81 @@ final readonly class ApprovalPreviewTranslator
      */
     public function tableLabel(BackendUserAuthentication $user, string $table): string
     {
-        $tca        = $GLOBALS['TCA'] ?? null;
-        $definition = is_array($tca) && is_array($tca[$table] ?? null) ? $tca[$table] : [];
-        $ctrl       = is_array($definition['ctrl'] ?? null) ? $definition['ctrl'] : [];
-        $title      = is_string($ctrl['title'] ?? null) ? trim($ctrl['title']) : '';
-        if ($title === '') {
-            return $table;
-        }
-
-        if (!str_starts_with($title, 'LLL:')) {
-            return $title;
-        }
-
-        $resolved = trim($this->languageServiceFactory->createFromUserPreferences($user)->sL($title));
+        $title    = $this->tca($table, 'ctrl', 'title');
+        $resolved = $this->label($user, is_string($title) ? $title : '');
 
         return $resolved !== '' ? $resolved : $table;
+    }
+
+    /**
+     * A column's name as an editor knows it, from its TCA label in the acting
+     * user's language ("Überschrift", not `header`): the record type's
+     * `columnsOverrides` label first, the column's own next. The column name
+     * itself where neither resolves, so the line never reads empty.
+     */
+    public function columnLabel(BackendUserAuthentication $user, string $table, string $column, ?string $recordType = null): string
+    {
+        $override = $recordType === null ? null : $this->tca($table, 'types', $recordType, 'columnsOverrides', $column, 'label');
+        $own      = $this->tca($table, 'columns', $column, 'label');
+
+        foreach ([$override, $own] as $label) {
+            $resolved = is_string($label) ? rtrim($this->label($user, $label), ':') : '';
+            if ($resolved !== '') {
+                return $resolved;
+            }
+        }
+
+        return $column;
+    }
+
+    /**
+     * The label of the static select item a column holds as `$value`, in the
+     * acting user's language ("Zusammenfassung", not `summary`). The value
+     * itself where the column declares no such item or its label does not
+     * resolve.
+     */
+    public function itemLabel(BackendUserAuthentication $user, string $table, string $column, string $value): string
+    {
+        $items = $this->tca($table, 'columns', $column, 'config', 'items');
+        foreach (is_array($items) ? $items : [] as $item) {
+            if (!is_array($item) || !array_key_exists('value', $item) || !is_scalar($item['value']) || (string)$item['value'] !== $value) {
+                continue;
+            }
+
+            $resolved = $this->label($user, is_string($item['label'] ?? null) ? $item['label'] : '');
+
+            return $resolved !== '' ? $resolved : $value;
+        }
+
+        return $value;
+    }
+
+    /**
+     * A TCA label in the acting user's language: an `LLL:` reference or, from
+     * TYPO3 14 on, a translation domain reference (`frontend.db.tt_content:header`)
+     * resolved for that user, a literal as written; '' where an `LLL:`
+     * reference resolves to nothing. Core's own `sL()` tells the forms apart.
+     */
+    public function label(BackendUserAuthentication $user, string $label): string
+    {
+        return trim($this->languageServiceFactory->createFromUserPreferences($user)->sL(trim($label)));
+    }
+
+    /**
+     * The value at a path below `$GLOBALS['TCA']`, or null where the path ends
+     * early.
+     */
+    private function tca(string ...$path): mixed
+    {
+        $value = $GLOBALS['TCA'] ?? null;
+        foreach ($path as $key) {
+            if (!is_array($value) || !array_key_exists($key, $value)) {
+                return null;
+            }
+
+            $value = $value[$key];
+        }
+
+        return $value;
     }
 }

@@ -31,6 +31,18 @@ enum ApprovalPreviewLabel: string
     case ValueEmpty  = 'approvalPreview.value.empty';
     case ValueNone   = 'approvalPreview.value.none';
     case ValueQuoted = 'approvalPreview.value.quoted';
+    case ValueNothing = 'approvalPreview.value.nothing';
+
+    // --- Shared: the object, its place and language, one field's change ---
+    case ObjectPage          = 'approvalPreview.object.page';
+    case ObjectContent       = 'approvalPreview.object.content';
+    case LocationOnPage      = 'approvalPreview.location.onPage';
+    case ContentType         = 'approvalPreview.contentType';
+    case LanguageDefault     = 'approvalPreview.language.default';
+    case LanguageTranslation = 'approvalPreview.language.translation';
+    case FieldUnchanged      = 'approvalPreview.field.unchanged';
+    case FieldChange         = 'approvalPreview.field.change';
+    case FieldChangedFrom    = 'approvalPreview.field.changedFrom';
 
     // --- Technical details: UIDs, table names, the things the main lines leave out ---
     case TechnicalDetails         = 'approvalPreview.technical.details';
@@ -46,6 +58,27 @@ enum ApprovalPreviewLabel: string
     case TechnicalTranslations    = 'approvalPreview.technical.translations';
     case TechnicalSubpages        = 'approvalPreview.technical.subpages';
     case TechnicalLanguage        = 'approvalPreview.technical.language';
+    case TechnicalFields          = 'approvalPreview.technical.fields';
+    case TechnicalWholeValue      = 'approvalPreview.technical.wholeValue';
+    case TechnicalContentType     = 'approvalPreview.technical.contentType';
+
+    // --- update_page_metadata ---
+    case UpdatePageHeading            = 'approvalPreview.updatePage.heading';
+    case PageFieldTitle               = 'approvalPreview.pageField.title';
+    case PageFieldSubtitle            = 'approvalPreview.pageField.subtitle';
+    case PageFieldNavTitle            = 'approvalPreview.pageField.navTitle';
+    case PageFieldAbstract            = 'approvalPreview.pageField.abstract';
+    case PageFieldDescription         = 'approvalPreview.pageField.description';
+    case PageFieldKeywords            = 'approvalPreview.pageField.keywords';
+    case PageFieldSeoTitle            = 'approvalPreview.pageField.seoTitle';
+    case PageFieldOgTitle             = 'approvalPreview.pageField.ogTitle';
+    case PageFieldOgDescription       = 'approvalPreview.pageField.ogDescription';
+    case PageFieldTwitterTitle        = 'approvalPreview.pageField.twitterTitle';
+    case PageFieldTwitterDescription  = 'approvalPreview.pageField.twitterDescription';
+    case PageFieldTwitterCard         = 'approvalPreview.pageField.twitterCard';
+
+    // --- update_content_element ---
+    case UpdateContentHeading = 'approvalPreview.updateContent.heading';
 
     // --- create_page_draft ---
     case CreatePageHeading        = 'approvalPreview.createPage.heading';
