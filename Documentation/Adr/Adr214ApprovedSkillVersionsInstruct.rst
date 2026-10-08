@@ -5,9 +5,9 @@
 
 .. _adr-214:
 
-==========================================================================
+===========================================================================
 ADR-214: Approved skill versions instruct, load on demand and run processes
-==========================================================================
+===========================================================================
 
 :Status: Accepted
 :Date: 2026-10-08
@@ -364,7 +364,7 @@ attachments default to ``on_demand``.
   instruction skill as a system section, any other skill in the fenced block.
 - **Explicit invocation.** The caller passes a skill identifier when it
   starts or continues a run, from a slash command or a button
-  (:ref:`item 9 <adr-214-d9>`). Any enabled skill attached to the
+  (:ref:`item 10 <adr-214-d10>`). Any enabled skill attached to the
   configuration can be invoked, in either load mode. An instruction skill
   becomes a system section, any other skill goes into the fenced block.
 - **Loading by the model,** through a dedicated read-only tool that takes an
@@ -404,12 +404,15 @@ keeps bounding the fenced block.
 **The run's skill allow-list is resolved once, at run start, over every skill
 attached to the run:** the configuration's attachments in both load modes,
 the forced skills of :php:`RunAugmentation`, and the invoked skill. The load
-mode does not matter, so a skill that is only listed already restricts the run,
-and loading it later adds nothing. A loaded skill can therefore not widen the
-list, and content that talks the model into loading skill B cannot grant
-tools that skill A's run did not already have. The union semantics of
-ADR-038 item 5 stay; what changes is the set the union is taken over, and
-that it is taken once.
+mode does not matter: under the union semantics of ADR-038 item 5, which stay,
+an ``on_demand`` skill's declaration grants its tools from run start, before
+its body is loaded, and loading it later changes nothing. This is the
+trade-off taken: **attachment grants tools, a load grants nothing.**
+Attaching or forcing a skill is an administrator's act; a load is something
+content can ask for. Content that talks the model into loading skill B
+therefore cannot grant tools the run did not already have. What changes
+against ADR-038 is the set the union is taken over, and that it is taken
+once.
 
 **The resolved list is stored with the run** — on the run request a queued
 run persists and in :php:`SuspendedRunState` — and :php:`ToolCallPolicy`
@@ -418,12 +421,15 @@ receives it instead of resolving the configuration again. ``decide()`` and
 tool explanation in the backend) keeps today's configuration-only resolution
 and says so.
 
-**A resume intersects, it never re-derives.** The ADR-165 re-gating at resume
-computes the live list as today and intersects it with the stored one, where
-``null`` imposes nothing: a stored list stays the upper bound, and a live
-``null`` caused by a disabled declaring skill no longer widens a resumed run
-to every tool. A skill disabled or deleted while the run waits can only take
-tools away.
+**A resume intersects, it never re-derives from the configuration alone.**
+The ADR-165 re-gating at resume resolves the live list over the run's own
+skill set — the configuration's attachments plus the forced and invoked
+skills, re-read by the uids the suspended state stores, the way ADR-165
+already re-reads forced uids — and intersects it with the stored list, where
+``null`` imposes nothing. A forced skill's tools therefore survive every
+resume, the stored list stays the upper bound, and a live ``null`` caused by
+a disabled declaring skill no longer widens a resumed run to every tool. A
+skill disabled or deleted while the run waits can only take tools away.
 
 **The load tool sits outside the skill allow-list.** It is exempt from the
 skill-derived list and from the configuration's ``allowed_tool_groups``
@@ -748,9 +754,12 @@ not:
 - After the rewrite, an upstream change to a skill's frontmatter alone
   disables an enabled skill, which today it does not. Expect more re-reviews
   for sources that change their frontmatter.
-- Forced skills' ``allowed-tools`` now restrict the run they are forced onto;
-  today they restrict nothing. A playground run that forces a declaring skill
-  can be offered fewer tools than before.
+- Forced skills' ``allowed-tools`` now count for the run they are forced onto;
+  today they count for nothing. The change goes both ways: when the
+  configuration's skills declare nothing, a declaring forced skill narrows the
+  run from every tool to its list; when they declare a list, the forced
+  skill's tools are added to it. Forcing is an administrator's act in the
+  playground, so the widening follows the rule that attachment grants tools.
 - A backend edit of a synced skill's ``name`` or ``description`` now fails the
   integrity check, like a body edit; FormEngine shows those fields read-only
   for synced sources.
