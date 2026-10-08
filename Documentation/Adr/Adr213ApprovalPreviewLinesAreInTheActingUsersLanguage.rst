@@ -80,19 +80,33 @@ where, the current state, the new state, the consequences. The last line is
 **"Technical details"**: UIDs and table names, for support (rules 10 and 26).
 It is not an optional extra: it keeps the approval bound to the exact records
 the call names, because the lines above it name pages by title and two pages
-can share one (:ref:`ADR-184 <adr-184>`).
+can share one (:ref:`ADR-184 <adr-184>`). Where a field's value is longer than
+the card shows, the line shows the section that changes and the technical line
+carries the length and a short hash of both whole values, which binds the
+approval to the whole value. ``fetch_external_url`` names no record and has no
+technical line; its lines show the address, host and query string verbatim.
+
+**Field names are editor words** (rule 18). Where a tool writes a fixed set of
+fields, each has its own catalogue entry in the guidelines' terms ("Meta
+Description"). Where the set is open — the columns of a content element or of a
+record in an extension table, a content type, the items of a select field — the
+line uses the TCA label in the acting user's language, resolved through core's
+``sL()``, which reads ``LLL:`` references and, from TYPO3 14 on, translation
+domain references alike. Such a label is English where the installation has no
+language pack for the user's language. The column name sits in the technical
+line.
 
 **What stays English.** A refusal line is the string the tool's ``execute()``
 hands the model as well; it is shared on purpose, and a refusal at preview time
 tells the approver the call would fail, not what it would do. The tool results
 that go back to the model stay English too; they are not approval text.
 
-**Scope of this decision.** It is applied to ``create_page_draft``,
-``move_page`` and ``delete_record``. The other tools that implement
-:php:`ToolPreviewInterface` keep their English lines until they are converted
-to the same mechanism; each of them needs its own list of labels and its own
-expected text, and the guidelines' rules 19 to 21 (consequences) need to be
-checked against what each tool actually reads.
+**Scope of this decision.** It applies to every built-in tool that implements
+:php:`ToolPreviewInterface`. It was first applied to ``create_page_draft``,
+``move_page`` and ``delete_record``, then to the fifteen others: the
+field-update, file, move, copy, publish, draft creation and translation tools
+and ``fetch_external_url``. A run without an acting user,
+which only a read tool's preview can meet, gets the English source text.
 
 **No new reads.** The consequence lines show what the tools already read for
 their plan: translations, subpages, the number of records stored on a page,
@@ -138,7 +152,8 @@ change; none in this repository did except the tools' own tests.
 ◐ A viewer whose language differs from the run owner's reads the owner's
 language (see above).
 
-✕ The other tools' previews are still English, so a card for one of them still
-mixes languages until it is converted.
+◐ A label taken from the TCA (a content element's or an extension record's
+column, a content type) is English on an installation without a language pack
+for the acting user's language, as it is in the backend form.
 
 ✕ A refusal shown in a preview is still English.

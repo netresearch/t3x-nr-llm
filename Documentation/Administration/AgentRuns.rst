@@ -133,8 +133,11 @@ declined and by whom — the user who started the run, or another backend
 user — and answers from that (:ref:`ADR-200 <adr-200>`).
 
 When the parent page already holds a page with the proposed title, the
-preview of ``create_page_draft`` starts with a warning line, so a second copy
-of a page is not approved by accident.
+preview of ``create_page_draft`` carries a warning line, and so does the
+preview of ``create_content_element_draft`` when the page already holds an
+element of that type with the proposed header, so a second copy is not
+approved by accident. The preview lines are in the language of the backend
+user the run acts as (:ref:`ADR-213 <adr-213>`).
 
 .. warning::
 
