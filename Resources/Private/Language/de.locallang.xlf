@@ -4937,6 +4937,66 @@
                 <source>After it is created the record is not publicly visible yet. It has to be made visible by a person.</source>
                 <target>Der Datensatz ist nach dem Anlegen noch nicht öffentlich sichtbar. Er muss erst von einer Person sichtbar gemacht werden.</target>
             </trans-unit>
+            <trans-unit id="approvalPreview.technical.existingTranslation">
+                <source>existing translation UID %d</source>
+                <target>vorhandene Übersetzung UID %d</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.translationService">
+                <source>translation service %s</source>
+                <target>Übersetzungsdienst %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.site">
+                <source>website %s</source>
+                <target>Website %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.withheldFields">
+                <source>fields not translated %s</source>
+                <target>nicht übersetzte Felder %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.heading">
+                <source>Create translation as draft</source>
+                <target>Übersetzung als Entwurf anlegen</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.targetLanguage">
+                <source>Target language: %s</source>
+                <target>Zielsprache: %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.new">
+                <source>New: a copy of the original, linked to it as its translation</source>
+                <target>Neu: eine Kopie des Originals, als dessen Übersetzung verknüpft</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.machine">
+                <source>Machine translation by %s from %s into %s: %s</source>
+                <target>Maschinelle Übersetzung durch %s von %s nach %s: %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.noTextInSource">
+                <source>Machine translation: none; the original holds no text</source>
+                <target>Maschinelle Übersetzung: keine; das Original enthält keinen Text</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.noTextAllowed">
+                <source>Machine translation: none; you may not edit any field that holds text</source>
+                <target>Maschinelle Übersetzung: keine; Sie dürfen keines der Felder mit Text bearbeiten</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.glossary">
+                <source>Glossary: the website's glossary for this language pair applies (terms: %d)</source>
+                <target>Glossar: Das Glossar der Website für dieses Sprachpaar wird angewendet (Begriffe: %d)</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.noGlossary">
+                <source>Glossary: the website keeps none for this language pair</source>
+                <target>Glossar: Die Website führt keines für dieses Sprachpaar</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.withheld">
+                <source>Not translated, because you may not edit them: %s</source>
+                <target>Nicht übersetzt, weil Sie diese Felder nicht bearbeiten dürfen: %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.discards">
+                <source>Important: the existing translation %s is discarded; its content is deleted and replaced.</source>
+                <target>Wichtig: Die vorhandene Übersetzung %s wird verworfen; ihr Inhalt wird gelöscht und ersetzt.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.impact">
+                <source>After it is created the translation is not publicly visible yet. It has to be made visible by a person.</source>
+                <target>Die Übersetzung ist nach dem Anlegen noch nicht öffentlich sichtbar. Sie muss erst von einer Person sichtbar gemacht werden.</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

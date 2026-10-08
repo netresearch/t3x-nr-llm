@@ -81,6 +81,10 @@ enum ApprovalPreviewLabel: string
     case TechnicalUserGroups      = 'approvalPreview.technical.userGroups';
     case TechnicalExistingContent = 'approvalPreview.technical.existingContent';
     case TechnicalRecordType      = 'approvalPreview.technical.recordType';
+    case TechnicalExistingTranslation = 'approvalPreview.technical.existingTranslation';
+    case TechnicalTranslationService  = 'approvalPreview.technical.translationService';
+    case TechnicalSite                = 'approvalPreview.technical.site';
+    case TechnicalWithheldFields      = 'approvalPreview.technical.withheldFields';
 
     // --- The texts of a file: its metadata and a reference's own ---
     case FileFieldTitle       = 'approvalPreview.fileField.title';
@@ -161,6 +165,19 @@ enum ApprovalPreviewLabel: string
     case CreateRecordHeading    = 'approvalPreview.createRecord.heading';
     case CreateRecordRecordType = 'approvalPreview.createRecord.recordType';
     case CreateRecordImpact     = 'approvalPreview.createRecord.impact';
+
+    // --- create_translation_draft ---
+    case TranslateHeading        = 'approvalPreview.translate.heading';
+    case TranslateTargetLanguage = 'approvalPreview.translate.targetLanguage';
+    case TranslateNew            = 'approvalPreview.translate.new';
+    case TranslateMachine        = 'approvalPreview.translate.machine';
+    case TranslateNoTextInSource = 'approvalPreview.translate.noTextInSource';
+    case TranslateNoTextAllowed  = 'approvalPreview.translate.noTextAllowed';
+    case TranslateGlossary       = 'approvalPreview.translate.glossary';
+    case TranslateNoGlossary     = 'approvalPreview.translate.noGlossary';
+    case TranslateWithheld       = 'approvalPreview.translate.withheld';
+    case TranslateDiscards       = 'approvalPreview.translate.discards';
+    case TranslateImpact         = 'approvalPreview.translate.impact';
 
     // --- update_page_metadata ---
     case UpdatePageHeading            = 'approvalPreview.updatePage.heading';

@@ -336,7 +336,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
     {
         $siteFinder = $this->get(SiteFinder::class);
         self::assertInstanceOf(SiteFinder::class, $siteFinder);
-        $tool = new CreateTranslationDraftTool($this->connectionPool, self::createStub(TranslationServiceInterface::class), $siteFinder, self::createStub(GlossaryResolverInterface::class));
+        $tool = new CreateTranslationDraftTool($this->connectionPool, self::createStub(TranslationServiceInterface::class), $siteFinder, self::createStub(GlossaryResolverInterface::class), new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
         // It ships disabled, so the REAL availability service would not offer it.
         (new ToolStateRepository($this->connectionPool))->setEnabled('create_translation_draft', true);
 

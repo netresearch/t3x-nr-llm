@@ -3712,6 +3712,51 @@
             <trans-unit id="approvalPreview.createRecord.impact">
                 <source>After it is created the record is not publicly visible yet. It has to be made visible by a person.</source>
             </trans-unit>
+            <trans-unit id="approvalPreview.technical.existingTranslation">
+                <source>existing translation UID %d</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.translationService">
+                <source>translation service %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.site">
+                <source>website %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.withheldFields">
+                <source>fields not translated %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.heading">
+                <source>Create translation as draft</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.targetLanguage">
+                <source>Target language: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.new">
+                <source>New: a copy of the original, linked to it as its translation</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.machine">
+                <source>Machine translation by %s from %s into %s: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.noTextInSource">
+                <source>Machine translation: none; the original holds no text</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.noTextAllowed">
+                <source>Machine translation: none; you may not edit any field that holds text</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.glossary">
+                <source>Glossary: the website's glossary for this language pair applies (terms: %d)</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.noGlossary">
+                <source>Glossary: the website keeps none for this language pair</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.withheld">
+                <source>Not translated, because you may not edit them: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.discards">
+                <source>Important: the existing translation %s is discarded; its content is deleted and replaced.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.translate.impact">
+                <source>After it is created the translation is not publicly visible yet. It has to be made visible by a person.</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

@@ -19,6 +19,8 @@ use Netresearch\NrLlm\Service\Feature\TranslationServiceInterface;
 use Netresearch\NrLlm\Service\Glossary\GlossaryResolverInterface;
 use Netresearch\NrLlm\Service\Glossary\ResolvedGlossary;
 use Netresearch\NrLlm\Service\Option\TranslationOptions;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
@@ -149,6 +151,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         private TranslationServiceInterface $translationService,
         private SiteFinder $siteFinder,
         private GlossaryResolverInterface $glossaryResolver,
+        private ApprovalPreviewTranslator $translator,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -537,36 +540,62 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             return [$plan];
         }
 
+        [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
+        $isPage  = $plan['table'] === self::PAGES_TABLE;
+        $names   = fn(array $columns): string => implode(', ', array_map(
+            fn(mixed $column): string => $this->translator->columnLabel($user, $plan['table'], self::toStr($column)),
+            $columns,
+        ));
+
+        // ADR-213, in the order of the editorial guidelines: what, which
+        // record, into which language, what comes into being, and the
+        // consequences — a translation that is discarded on a line of its own
+        // (rule 21), so an approver who skims cannot miss it.
         $lines = [
-            sprintf('Translate %s [%d] "%s" into language %d:', $plan['table'], $plan['uid'], $this->excerpt($plan['label']), $plan['language']),
+            $t(ApprovalPreviewLabel::TranslateHeading),
+            $t($isPage ? ApprovalPreviewLabel::ObjectPage : ApprovalPreviewLabel::ObjectContent, $q($plan['label'])),
+            $t(ApprovalPreviewLabel::TranslateTargetLanguage, $q($plan['target'])),
+            $t(ApprovalPreviewLabel::TranslateNew),
         ];
+        if ($plan['texts'] === []) {
+            $lines[] = $t($plan['withheld'] === [] ? ApprovalPreviewLabel::TranslateNoTextInSource : ApprovalPreviewLabel::TranslateNoTextAllowed);
+        } else {
+            $lines[] = $t(ApprovalPreviewLabel::TranslateMachine, $plan['translatorName'], $q($plan['source']), $q($plan['target']), $names(array_keys($plan['texts'])));
+            $lines[] = $plan['glossaryTerms'] > 0
+                ? $t(ApprovalPreviewLabel::TranslateGlossary, $plan['glossaryTerms'])
+                : $t(ApprovalPreviewLabel::TranslateNoGlossary);
+        }
+
+        if ($plan['withheld'] !== []) {
+            $lines[] = $t(ApprovalPreviewLabel::TranslateWithheld, $names($plan['withheld']));
+        }
 
         if ($plan['existingUid'] > 0) {
-            $lines[] = sprintf(
-                'DISCARDS the existing translation [%d] "%s" — its content is deleted and replaced.',
-                $plan['existingUid'],
-                $this->excerpt($plan['existingLabel']),
-            );
+            $lines[] = $t(ApprovalPreviewLabel::TranslateDiscards, $q($plan['existingLabel']));
         }
 
-        $lines[] = 'creates: a copy of the source record, connected to it as its translation';
-        $lines[] = $plan['texts'] === []
-            ? 'text: no field is machine-translated — ' . ($plan['withheld'] === [] ? 'the source holds no text' : 'you may not edit any field that holds text')
-            : sprintf(
-                'text: MACHINE-TRANSLATED by %s from "%s" to "%s" — %s; %s',
-                $plan['translatorName'],
-                $plan['source'],
-                $plan['target'],
-                implode(', ', array_keys($plan['texts'])),
-                $plan['glossaryTerms'] > 0
-                    ? sprintf('the site glossary for the pair applies (%d term(s))', $plan['glossaryTerms'])
-                    : 'the site keeps no glossary for the pair',
-            );
+        $lines[] = $t(ApprovalPreviewLabel::VisibilityHiddenAtFirst);
+        $lines[] = $t(ApprovalPreviewLabel::TranslateImpact);
+
+        $details = [
+            $t(ApprovalPreviewLabel::TechnicalRecord, $plan['table'], $plan['uid']),
+            $t(ApprovalPreviewLabel::TechnicalLanguage, $plan['language']),
+            $t(ApprovalPreviewLabel::TechnicalSite, $plan['site']),
+            $t(ApprovalPreviewLabel::TechnicalTranslationService, $plan['translator']),
+        ];
+        if ($plan['texts'] !== []) {
+            $details[] = $t(ApprovalPreviewLabel::TechnicalFields, implode(', ', array_keys($plan['texts'])));
+        }
+
         if ($plan['withheld'] !== []) {
-            $lines[] = sprintf('not translated, because you may not edit them: %s', implode(', ', $plan['withheld']));
+            $details[] = $t(ApprovalPreviewLabel::TechnicalWithheldFields, implode(', ', $plan['withheld']));
         }
 
-        $lines[] = 'visibility: hidden — a human must unhide it before anyone sees it';
+        if ($plan['existingUid'] > 0) {
+            $details[] = $t(ApprovalPreviewLabel::TechnicalExistingTranslation, $plan['existingUid']);
+        }
+
+        $lines[] = $this->translator->technical($user, $details);
 
         return $lines;
     }
