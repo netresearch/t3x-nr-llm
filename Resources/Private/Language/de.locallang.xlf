@@ -4845,6 +4845,50 @@
                 <source>Visibility: hidden at first. The copy and every copied translation have to be made visible by a person.</source>
                 <target>Sichtbarkeit: zunächst verborgen. Die Kopie und jede kopierte Übersetzung muss von einer Person sichtbar gemacht werden.</target>
             </trans-unit>
+            <trans-unit id="approvalPreview.technical.hiddenField">
+                <source>visibility field %s</source>
+                <target>Sichtbarkeitsfeld %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.defaultLanguageRecord">
+                <source>default-language record UID %d</source>
+                <target>Datensatz in der Standardsprache UID %d</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.userGroups">
+                <source>frontend user groups UID %s</source>
+                <target>Frontend-Benutzergruppen UID %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.publish.headingPage">
+                <source>Make page visible</source>
+                <target>Seite sichtbar machen</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.publish.headingContent">
+                <source>Make content element visible</source>
+                <target>Inhaltselement sichtbar machen</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.publish.change">
+                <source>Currently: hidden. New: visible</source>
+                <target>Aktuell: verborgen. Neu: sichtbar</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.publish.already">
+                <source>Already visible; nothing is changed.</source>
+                <target>Bereits sichtbar; es wird nichts geändert.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.publish.startTime">
+                <source>Important: visible only from its start time, %s (UTC).</source>
+                <target>Wichtig: Sichtbar erst ab dem Startzeitpunkt %s (UTC).</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.publish.stopTime">
+                <source>Important: visible only until its stop time, %s (UTC).</source>
+                <target>Wichtig: Sichtbar nur bis zum Endzeitpunkt %s (UTC).</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.publish.userGroups">
+                <source>Important: still shown only to logged-in members of certain frontend user groups.</source>
+                <target>Wichtig: Weiterhin nur für angemeldete Mitglieder bestimmter Frontend-Benutzergruppen sichtbar.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.publish.parentHidden">
+                <source>Important: the version in the default language is still hidden.</source>
+                <target>Wichtig: Die Version in der Standardsprache ist weiterhin verborgen.</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

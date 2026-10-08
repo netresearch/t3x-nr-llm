@@ -75,6 +75,9 @@ enum ApprovalPreviewLabel: string
     case TechnicalColumn          = 'approvalPreview.technical.column';
     case TechnicalCurrentColumn   = 'approvalPreview.technical.currentColumn';
     case TechnicalAnchorElement   = 'approvalPreview.technical.anchorElement';
+    case TechnicalHiddenField     = 'approvalPreview.technical.hiddenField';
+    case TechnicalDefaultLanguageRecord = 'approvalPreview.technical.defaultLanguageRecord';
+    case TechnicalUserGroups      = 'approvalPreview.technical.userGroups';
 
     // --- The texts of a file: its metadata and a reference's own ---
     case FileFieldTitle       = 'approvalPreview.fileField.title';
@@ -132,6 +135,16 @@ enum ApprovalPreviewLabel: string
     case CopyTranslationsPageBefore13425    = 'approvalPreview.copyRecord.translationsPageBefore13425';
     case CopyTranslationsContentBefore13425 = 'approvalPreview.copyRecord.translationsContentBefore13425';
     case CopyVisibility                     = 'approvalPreview.copyRecord.visibility';
+
+    // --- publish_record ---
+    case PublishHeadingPage    = 'approvalPreview.publish.headingPage';
+    case PublishHeadingContent = 'approvalPreview.publish.headingContent';
+    case PublishChange         = 'approvalPreview.publish.change';
+    case PublishAlready        = 'approvalPreview.publish.already';
+    case PublishStartTime      = 'approvalPreview.publish.startTime';
+    case PublishStopTime       = 'approvalPreview.publish.stopTime';
+    case PublishUserGroups     = 'approvalPreview.publish.userGroups';
+    case PublishParentHidden   = 'approvalPreview.publish.parentHidden';
 
     // --- update_page_metadata ---
     case UpdatePageHeading            = 'approvalPreview.updatePage.heading';

@@ -3643,6 +3643,39 @@
             <trans-unit id="approvalPreview.copyRecord.visibility">
                 <source>Visibility: hidden at first. The copy and every copied translation have to be made visible by a person.</source>
             </trans-unit>
+            <trans-unit id="approvalPreview.technical.hiddenField">
+                <source>visibility field %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.defaultLanguageRecord">
+                <source>default-language record UID %d</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.userGroups">
+                <source>frontend user groups UID %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.publish.headingPage">
+                <source>Make page visible</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.publish.headingContent">
+                <source>Make content element visible</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.publish.change">
+                <source>Currently: hidden. New: visible</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.publish.already">
+                <source>Already visible; nothing is changed.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.publish.startTime">
+                <source>Important: visible only from its start time, %s (UTC).</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.publish.stopTime">
+                <source>Important: visible only until its stop time, %s (UTC).</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.publish.userGroups">
+                <source>Important: still shown only to logged-in members of certain frontend user groups.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.publish.parentHidden">
+                <source>Important: the version in the default language is still hidden.</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

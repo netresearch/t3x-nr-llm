@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\PublishRecordTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -36,6 +37,7 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 #[CoversClass(PublishRecordTool::class)]
 final class PublishRecordToolTest extends AbstractFunctionalTestCase
 {
+    use AssertsGermanPreviewTrait;
     use RegistersTheFailingHookTrait;
     use RegistersTheInterferingHookTrait;
 
@@ -112,7 +114,7 @@ final class PublishRecordToolTest extends AbstractFunctionalTestCase
 
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('default');
 
-        $this->tool = new PublishRecordTool($this->connectionPool);
+        $this->tool = new PublishRecordTool($this->connectionPool, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
     }
 
     protected function tearDown(): void
@@ -319,15 +321,42 @@ final class PublishRecordToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function thePreviewNamesWhatStillRestrictsTheRecordAndWritesNothing(): void
     {
-        $lines = $this->tool->previewCall(
-            ['table' => 'tt_content', 'uid' => self::TIMED_ELEMENT],
-            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
-        );
+        $arguments = ['table' => 'tt_content', 'uid' => self::TIMED_ELEMENT];
 
-        self::assertStringContainsString('tt_content [24] "Timed draft" on page [2] "Open", language 0:', $lines[0]);
-        self::assertSame('hidden: 1 → 0 (hidden → published)', $lines[1]);
-        self::assertSame('may still restrict it: start time 2030-01-01T00:00:00Z', $lines[2]);
+        self::assertSame([
+            'Make content element visible',
+            'Content element: “Timed draft”',
+            'Location: on page “Open”',
+            'Language: default language',
+            'Currently: hidden. New: visible',
+            'Important: visible only from its start time, 2030-01-01T00:00:00Z (UTC).',
+            'Technical details: table tt_content, UID 24, page UID 2, language UID 0, visibility field hidden',
+        ], $this->previewIn('en', $arguments));
+        $german = $this->previewIn('de', $arguments);
+        self::assertSame([
+            'Inhaltselement sichtbar machen',
+            'Inhaltselement: „Timed draft“',
+            'Ort: auf der Seite „Open“',
+            'Sprache: Standardsprache',
+            'Aktuell: verborgen. Neu: sichtbar',
+            'Wichtig: Sichtbar erst ab dem Startzeitpunkt 2030-01-01T00:00:00Z (UTC).',
+            'Technische Details: Tabelle tt_content, UID 24, Seite UID 2, Sprach-UID 0, Sichtbarkeitsfeld hidden',
+        ], $german);
+        self::assertGermanEditorLines($german);
         self::assertSame(1, $this->hiddenOf('tt_content', self::TIMED_ELEMENT));
+    }
+
+    #[Test]
+    public function thePreviewOfAPageNamesThePageAndNoLocation(): void
+    {
+        $german = $this->previewIn('de', ['table' => 'pages', 'uid' => self::HIDDEN_PAGE]);
+
+        self::assertSame('Seite sichtbar machen', $german[0] ?? null);
+        self::assertStringStartsWith('Seite: „', $german[1] ?? '');
+        self::assertSame('Sprache: Standardsprache', $german[2] ?? null);
+        self::assertSame('Aktuell: verborgen. Neu: sichtbar', $german[3] ?? null);
+        self::assertSame('Technische Details: Tabelle pages, UID 3, Sprach-UID 0, Sichtbarkeitsfeld hidden', $german[array_key_last($german)]);
+        self::assertGermanEditorLines($german);
     }
 
     #[Test]
@@ -336,12 +365,12 @@ final class PublishRecordToolTest extends AbstractFunctionalTestCase
         $this->connectionPool->getConnectionForTable('tt_content')
             ->update('tt_content', ['hidden' => 1], ['uid' => self::VISIBLE_ELEMENT]);
 
-        $lines = $this->tool->previewCall(
-            ['table' => 'tt_content', 'uid' => self::TRANSLATED_ELEMENT],
-            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
-        );
+        $german = $this->previewIn('de', ['table' => 'tt_content', 'uid' => self::TRANSLATED_ELEMENT]);
 
-        self::assertContains('may still restrict it: its default-language record [22] is hidden', $lines);
+        self::assertContains('Sprache: Übersetzung, nicht die Standardsprache', $german);
+        self::assertContains('Wichtig: Die Version in der Standardsprache ist weiterhin verborgen.', $german);
+        self::assertStringEndsWith('Datensatz in der Standardsprache UID 22', $german[array_key_last($german)]);
+        self::assertGermanEditorLines($german);
     }
 
     #[Test]
@@ -378,5 +407,21 @@ final class PublishRecordToolTest extends AbstractFunctionalTestCase
             ->fetchOne();
 
         return (int)$hidden;
+    }
+
+    /**
+     * The preview as the run's acting user reads it, in that user's language
+     * (ADR-213).
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return list<string>
+     */
+    private function previewIn(string $language, array $arguments): array
+    {
+        $admin               = $this->setUpBackendUser(1);
+        $admin->user['lang'] = $language;
+
+        return $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($admin));
     }
 }
