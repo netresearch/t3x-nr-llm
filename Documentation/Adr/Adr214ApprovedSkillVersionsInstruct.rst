@@ -34,7 +34,7 @@ ADR-214: Approved skill versions instruct, load on demand and run processes
     run holding a process pin); :ref:`ADR-172 <adr-172>` (on such a run the
     four-eyes pin rule is checked before the self-approval refusal and stops
     the run); :ref:`ADR-182 <adr-182>` (``withWriteTarget()`` takes a
-    completeness, and the write step carries it)
+    completeness, and the write step carries it and a hook-failure flag)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-214-context:
@@ -965,11 +965,12 @@ renders them and owns the open points.
 
   **Which reading applies.** When the result holds the approved call's first
   tool step, the chat reads one of the three states below from that result
-  alone; that includes a run stopped by the four-eyes guard or failed after
-  the claim, as long as the call itself ran. "Vorschlag verworfen" applies
-  only to the endings without such a step: a waiting run withdrawn by a new
-  message or cancelled by an operator, a resume refused before the call ran
-  (the four-eyes stop, a failing pin, a stale preview), and a purged run.
+  alone; that includes a run that failed after the call ran. "Vorschlag
+  verworfen" applies only to the endings without such a step: a waiting run
+  withdrawn by a new message or cancelled by an operator, a resume refused
+  before the call ran (the four-eyes stop, a failing pin), and a purged run. A
+  stale preview is none of these: the resume re-suspends with a fresh card
+  (:ref:`ADR-184 <adr-184>`), and the editor decides again.
 
   - **Applied.** The first tool step's ``toolIsError`` (:php:`RunStep`) is
     false, and it is followed by the write step (``RunStep::KIND_WRITE``,
@@ -978,7 +979,8 @@ renders them and owns the open points.
   - **Approved, check the record.** The first tool step is OK and either no
     write step follows it while the run's outcome is ``CANCELLED``,
     ``LEASE_LOST`` or ``FAILED``, or the write step's completeness is not
-    stated. :php:`RunTrace::recordToolResult()` appends the tool step and
+    stated, or the write step reports that a hook of the installation failed
+    after the write (below). :php:`RunTrace::recordToolResult()` appends the tool step and
     lets its listener run before it appends the write step, and the listener
     :php:`AgentRunExecutor` installs can throw in between — the cancellation
     probe, the lease renewal, the audit persist — so the write may have
@@ -1013,13 +1015,23 @@ renders them and owns the open points.
   - ``Classes/Service/Tool/Builtin/ReplaceFileReferenceTool.php#The translations are not settled:``
     (appended to both of its success returns);
   - ``Classes/Service/Tool/Builtin/CreateTranslationDraftTool.php#The text was only PARTLY machine-translated:``
-    (partly or not translated, or a hook failed after the store).
+    (only partly translated).
 
-  **The loop downgrades too.** :php:`ToolLoopService` prefixes a successful
-  write with ``hookFailureNote()`` when a DataHandler hook of the
-  installation failed after the write (:ref:`ADR-206 <adr-206>`); the result
-  is then downgraded to ``PARTIAL`` at the same place, whatever the tool
-  stated, because the tool cannot know what the hook was meant to do.
+  **A hook failure after the write is reported beside the completeness, not
+  as it.** :php:`ToolLoopService` prefixes a result with ``hookFailureNote()``
+  when a DataHandler hook of the installation failed after the last write of
+  the call; a failure during the writes is rethrown and ends the call as
+  failed, and the outcome stays the tool's to state
+  (:ref:`ADR-206 <adr-206>`). This decision keeps that: the completeness the
+  tool stated is not changed. Today the signal exists only as text in the
+  result, which the chat does not parse, so the write step gains a boolean
+  next to the completeness (working name ``hookFailedAfterWrite``). The loop
+  sets it on the result at the place where it adds the note, from the same
+  ``ToolDataHandler::takeFailures()`` call, and
+  :php:`RunTrace::recordToolResult()` copies it onto the write step. A write
+  step with the flag set is shown as "approved, check the record" and closes
+  no open point, whatever its completeness. ADR-206's rule is not changed, so
+  this decision does not amend it.
 
   **Public API.** :php:`ToolResult` is on the frozen ``@api`` surface
   (:ref:`ADR-182 <adr-182>`), and a required argument would break every
@@ -1028,7 +1040,15 @@ renders them and owns the open points.
   "approved, check the record" and which closes no open point. Every builtin
   passes an explicit value: a coverage test on the pattern of
   :php:`ToolEffectCoverageTest` asserts that every ``withWriteTarget(`` call
-  under ``Classes/`` passes a :php:`WriteCompleteness` case. The API-surface
+  under ``Classes/`` passes a completeness argument. The hook-failure flag is
+  set only by the loop, through a new transformation on :php:`ToolResult`
+  that leaves every other member as it is; both additions are additive on
+  the frozen surface. It skips the method's own
+  declaration and docblock in ``ToolResult.php``, and it accepts any
+  expression of the enum type, not only a literal case, because some tools
+  decide in a helper — :php:`ReplaceFileReferenceTool` decides inside its
+  ``settleTranslations()`` step. What it refuses is an omitted argument or an
+  explicit ``null``. The API-surface
   snapshot records the added optional parameter.
 
   **The completeness must survive** :php:`ToolResult::withBoundedChannels()`,
@@ -1036,8 +1056,8 @@ renders them and owns the open points.
   :php:`ToolLoopService`: it rebuilds the result by constructor position
   (``Classes/Domain/ValueObject/ToolResult.php#return new self($content, false, $artifacts, $this->outcome, $this->writeTarget, $this->writeKind);``),
   so its docblock's claim that a property added later is carried by default
-  does not hold, and the completeness would be dropped there unless that line
-  passes it on.
+  does not hold, and the completeness and the hook flag would be dropped
+  there unless that line passes them on.
 
   Nothing is inferred from persisted events, and no other path marks a point
   applied.
@@ -1056,7 +1076,7 @@ renders them and owns the open points.
   records an open point — not a proposal withdrawn by a new message, not a
   guarded or operator cancel, not the four-eyes stop, not a resume that
   fails after the claim, not a purge. The chat shows each of those by the
-  precedence rule of the applied state (below): one of the three states
+  precedence rule of the applied state (above): one of the three states
   where the approved call ran, "Vorschlag verworfen" where it did not. That
   is a limitation of this
   decision: a finding lost that way is found again the next time the process
@@ -1393,8 +1413,9 @@ signature.
 ✕ The work spans nr_llm (digest column and migration, compose path, approval,
 load tool, run-start allow-list, pins and continuation, budget charge,
 snippet path, denial reason, one-approval rule, guarded cancel, the
-process-run decider and four-eyes guards, ``pendingTarget()`` and the
-write completeness on every write tool, progress, highlight and choice builtins,
+process-run decider and four-eyes guards, ``pendingTarget()``, the write
+completeness on every write tool and the loop-level hook-failure flag on the
+write step, progress, highlight and choice builtins,
 catalogue API, actor-scoped access check) and nr_mcp_agent (slash
 commands, the approval card's three answers, the input pause, naming the
 predecessor run, the withdraw order in ``queueTurn()``, progress, highlight,
@@ -1420,7 +1441,8 @@ Open questions
 - **Names.** ``skills.instructionTrustLevel``, ``version_digest``, the
   ``process`` frontmatter key, the load modes, the snippet mark, the
   configuration opt-in, :php:`ApprovalDenialReason`, ``cancelIfWaiting()``,
-  ``pendingTarget()`` and :php:`WriteCompleteness` are working names.
+  ``pendingTarget()``, :php:`WriteCompleteness` and ``hookFailedAfterWrite`` are
+  working names.
 - **Catalogue size.** Whether the catalogue needs its own byte cap, or the
   admission rule of :ref:`item 7 <adr-214-d7>` covers it.
 - **Headroom.** Whether 10 % of the budget is the right reserve, measured on
