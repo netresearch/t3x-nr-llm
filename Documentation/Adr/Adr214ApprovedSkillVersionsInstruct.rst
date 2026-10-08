@@ -556,18 +556,27 @@ nr_llm, not left to the consumer:
   (:php:`AiActorContext::isInitiatorOf()`). :php:`ResumeCoordinator::approve()`
   and :php:`ResumeCoordinator::submitInput()` refuse any other actor,
   administrators and holders of the approve grant included, with a typed
-  refusal naming the chat. The chat's reader is always the initiator, so the
-  chat card is the one surface that can decide. The Agent Runs inbox
+  refusal naming the chat. The enforced rule is initiator-only; among the
+  shipped surfaces that leaves the chat card, whose reader is always the
+  initiator. An ``@api`` caller acting as the initiator could decide too; it
+  acts for the same person. The Agent Runs inbox
   (:php:`AgentRunController`) lists such a run read-only, with a note that it
   is decided in the chat, and offers no decide or input action for it. Each
   turn of a process run therefore has one write call, decided on the card by
   the person the chat belongs to, and nothing is ever released out of band.
+  Because nobody but the initiator can decide, a process run must have one
+  who can: a service account, for which ``isInitiatorOf()`` is always false,
+  cannot start a process skill, and nr_mcp_agent offers and starts process
+  skills only for users who may approve in the chat (its permission to
+  approve one's own changes, nr_mcp_agent pull request #200). A tour started
+  without that permission would be deny-only, so it is not offered.
 - **No process on a four-eyes configuration.** Starting a process skill on a
   configuration with ``require_second_approver`` set is refused with a
   message that names the setting: under ADR-172 the editor could never apply
-  a proposal, and the first guard leaves nobody else to. A continuation whose
+  a proposal, and the first guard leaves nobody else to. The pin check at
+  start, pickup, every resume and every continuation includes it: a run whose
   configuration has switched the setting on since stops with the same
-  message. Four-eyes tours are an open question for a later decision.
+  message, instead of meeting the self-approval refusal on every card. Four-eyes tours are an open question for a later decision.
 
 **Every instruction section is pinned, not only the process.** A pin is a
 skill uid, a source uid and a digest, recorded for each section — from an ``always``
@@ -877,11 +886,15 @@ renders them and owns the open points.
      status after the attempt;
   #. if the cancel won, or the run was already terminal, the turn is
      dispatched with the run as its predecessor; a cancel that won while the
-     run waited for approval records the point as open (below);
+     run waited for approval records the point as open (below), keyed by the
+     pending target the cancel returns, because finishing a run clears its
+     suspended state and the target can no longer be read afterwards;
   #. if the run is ``QUEUED`` or ``RUNNING`` — the chat's own decision is
      being carried out — it puts the row back as it was, status and run
-     uuid, and answers 409; the run's result reaches the conversation
-     through the usual result path.
+     uuid, through ``updateIf()`` from the status it claimed, and answers 409.
+     A failed put-back means the worker's result already landed in the row,
+     so it writes nothing; the result path (``applyResult()`` writes the
+     whole row) wins either way.
 
   Because the first guard of :ref:`item 6 <adr-214-d6>` leaves the chat card
   as the only way to decide a process run, a run that is not waiting can only
@@ -902,11 +915,10 @@ renders them and owns the open points.
   :php:`RequiresInputInterface` with an enumerated schema built from its
   arguments (ADR-105). It declares no write effect, so the ADR-134 ban does
   not apply to it, and it never stands in for the approval of a write.
-- **Open points persist in nr_mcp_agent, recorded server-side.** A tool that
-  records an open point would need an effect class that works: declared as a
-  write it needs its own card, which the one-approval rule refuses next to the
-  proposal; declared as nothing it would write while classified as a read
-  (ADR-111). So no tool records them. nr_mcp_agent records the open point
+- **Open points persist in nr_mcp_agent, recorded server-side.** Recording
+  must follow the card decision, and a model call cannot guarantee that: the
+  model may skip it or make it for a point the editor applied. So no tool
+  records them. nr_mcp_agent records the open point
   itself when it decides a card with the reason ``skip``, and when its
   guarded cancel of a process run waiting for approval won (above); a run
   that waited for input has no pending write and records nothing. The key is the
@@ -946,8 +958,9 @@ Working names; the shapes are the decision.
   At start the runtime checks that the skill is attached to the configuration
   and enabled, that the request's actor may use the configuration, that the
   subject record is readable by that actor, for a process that the version is
-  an instruction, that no process pin is held, and that the configuration does
-  not set ``require_second_approver``.
+  an instruction, that no process pin is held, that the configuration does
+  not set ``require_second_approver``, and that the actor is not a service
+  account.
 - **The checks are actor-scoped.** :php:`LlmConfigurationService::hasAccess()`
   reads the global backend user, which is wrong for a run the worker executes
   after ``enqueue()`` and for an ``@api`` caller acting for someone else. The
@@ -971,7 +984,10 @@ Working names; the shapes are the decision.
   drop stops the run, and a detached skill or a changed configuration drops
   the pin with a notice. A request that names a new invocation
   and a predecessor is a new start for that invocation and a continuation for
-  the rest. Inside one run, ``approve()`` and ``submitInput()`` continue as
+  the rest. An invocation, or a forced skill, whose skill uid a derived pin
+  already names is not a new start: it is the idempotent case of item 4, so
+  a chat that passes the conversation's skill on every turn does not trip the
+  "no process pin is held" check. Inside one run, ``approve()`` and ``submitInput()`` continue as
   today.
 - **Catalogue for slash commands.** An ``@api`` service returns the skills an
   actor may invoke on a configuration — uid, identifier, name, description,
@@ -983,7 +999,8 @@ Working names; the shapes are the decision.
   untrusted text for the consumer to escape.
 - **Guarded cancel and pending-write facts.** :php:`AgentRuntimeInterface`
   gains a cancel that succeeds only from ``WAITING_FOR_APPROVAL`` or
-  ``WAITING_FOR_INPUT`` and returns the run's status after the attempt
+  ``WAITING_FOR_INPUT`` and returns the run's status after the attempt and,
+  when it cancelled an approval wait, the pending target it cancelled
   (working name ``cancelIfWaiting()``), under the initiator-or-administrator
   rule of item 6. Today's :php:`AgentRunPersister::cancel()` also ends a
   queued or running run and stays the operator's tool. A run's status exposes
@@ -1002,7 +1019,11 @@ Working names; the shapes are the decision.
   builtins and the choice builtin; nr_mcp_agent ships the read tool that
   lists open points. Until nr_llm ships progress and highlight, nr_mcp_agent
   pull request #201 provides them as its own tools declaring ``READ_ONLY``;
-  the one-approval rule of item 9 treats them like any read.
+  the one-approval rule of item 9 treats them like any read. Their only write
+  is the chat's own run-state bookkeeping, no TYPO3 record. That highlight
+  accepts any content element of the conversation's page the user may see,
+  which is wider than the registered targets of item 9; the narrower rule
+  applies once nr_llm ships the builtin.
 
 .. _adr-214-d11:
 
