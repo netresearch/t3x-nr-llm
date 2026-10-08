@@ -108,7 +108,9 @@ final class MoveContentElementToolTest extends AbstractFunctionalTestCase
         // tool refuses to write without it.
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('default');
 
-        $this->tool = new MoveContentElementTool($this->connectionPool, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
+        // The container's translator, so the backend layout lookup is wired
+        // as in production.
+        $this->tool = new MoveContentElementTool($this->connectionPool, $this->getService(ApprovalPreviewTranslator::class));
     }
 
     protected function tearDown(): void
@@ -319,6 +321,51 @@ final class MoveContentElementToolTest extends AbstractFunctionalTestCase
         $row = $this->elementRow(self::ELEMENT_ON_OPEN);
         self::assertSame(self::PAGE_OPEN, (int)($row['pid'] ?? 0));
         self::assertSame(0, (int)($row['colPos'] ?? -1));
+    }
+
+    /**
+     * A column neither the page's backend layout nor the static colPos items
+     * name — a layout column the page does not use, 100 — reads as its number,
+     * worded like every other column.
+     */
+    #[Test]
+    public function aColumnNoLayoutNamesReadsAsItsNumber(): void
+    {
+        $arguments = ['uid' => self::ELEMENT_ON_OPEN, 'target_page' => self::PAGE_OPEN_TWO, 'column' => 100];
+
+        self::assertContains('New: page “Open two”, column 100, as the first element', $this->previewIn('en', $arguments));
+        self::assertContains('Neu: Seite „Open two“, Spalte 100, als erstes Element', $this->previewIn('de', $arguments));
+    }
+
+    /**
+     * A column of the page's own backend layout reads as the name the layout
+     * gives it, as in the page module.
+     */
+    #[Test]
+    public function aColumnIsNamedByThePagesBackendLayout(): void
+    {
+        $this->connectionPool->getConnectionForTable('pages')->update('pages', [
+            'backend_layout' => 'pagets__sidebar',
+            'TSconfig'       => implode("\n", [
+                'mod.web_layout.BackendLayouts.sidebar {',
+                '  title = Sidebar',
+                '  config.backend_layout {',
+                '    colCount = 1',
+                '    rowCount = 1',
+                '    rows.1.columns.1 {',
+                '      name = Seitenleiste',
+                '      colPos = 100',
+                '    }',
+                '  }',
+                '}',
+            ]),
+        ], ['uid' => self::PAGE_OPEN_TWO]);
+        $arguments = ['uid' => self::ELEMENT_ON_OPEN, 'target_page' => self::PAGE_OPEN_TWO, 'column' => 100];
+
+        $german = $this->previewIn('de', $arguments);
+
+        self::assertContains('Neu: Seite „Open two“, Spalte Seitenleiste, als erstes Element', $german, implode("\n", $german));
+        self::assertGermanEditorLines($german, ['Seitenleiste']);
     }
 
     #[Test]

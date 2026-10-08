@@ -11,19 +11,56 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewHeadings;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
+use Netresearch\NrLlm\Service\Tool\Builtin\AttachFileToContentElementTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\AttachFileToRecordTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\CopyRecordTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\CreateContentElementDraftTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\CreatePageDraftTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\CreateRecordDraftTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\CreateTranslationDraftTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\DeleteRecordTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\FetchExternalUrlTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\MoveContentElementTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\MovePageTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\PublishRecordTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\ReplaceFileReferenceTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\SetFileAlternativeTextTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\SetPageSocialImageTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\UpdateContentElementTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\UpdateFalAssetMetaTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
+use Netresearch\NrLlm\Tests\Functional\Service\Tool\AttachFileToContentElementToolTest;
+use Netresearch\NrLlm\Tests\Functional\Service\Tool\AttachFileToRecordToolTest;
+use Netresearch\NrLlm\Tests\Functional\Service\Tool\CopyRecordToolTest;
+use Netresearch\NrLlm\Tests\Functional\Service\Tool\CreateContentElementDraftToolTest;
+use Netresearch\NrLlm\Tests\Functional\Service\Tool\CreatePageDraftToolTest;
+use Netresearch\NrLlm\Tests\Functional\Service\Tool\CreateRecordDraftToolTest;
+use Netresearch\NrLlm\Tests\Functional\Service\Tool\CreateTranslationDraftToolTest;
+use Netresearch\NrLlm\Tests\Functional\Service\Tool\DeleteRecordToolTest;
+use Netresearch\NrLlm\Tests\Functional\Service\Tool\FetchExternalUrlToolTest;
+use Netresearch\NrLlm\Tests\Functional\Service\Tool\MoveContentElementToolTest;
+use Netresearch\NrLlm\Tests\Functional\Service\Tool\MovePageToolTest;
+use Netresearch\NrLlm\Tests\Functional\Service\Tool\PublishRecordToolTest;
+use Netresearch\NrLlm\Tests\Functional\Service\Tool\ReplaceFileReferenceToolTest;
+use Netresearch\NrLlm\Tests\Functional\Service\Tool\SetFileAlternativeTextToolFileMountTest;
+use Netresearch\NrLlm\Tests\Functional\Service\Tool\SetPageSocialImageToolTest;
+use Netresearch\NrLlm\Tests\Functional\Service\Tool\UpdateContentElementToolTest;
+use Netresearch\NrLlm\Tests\Functional\Service\Tool\UpdateFalAssetMetaToolFileMountTest;
+use Netresearch\NrLlm\Tests\Functional\Service\Tool\UpdatePageMetadataToolTest;
 use Netresearch\NrLlm\Tests\Unit\Language\LabelCatalogue;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
+use ReflectionMethod;
 use TYPO3\CMS\Core\Localization\LanguageService;
 
 /**
  * The published heading texts (ADR-213): a consumer reuses a preview's first
- * line as card title or button text only when it is one of them, so the set
- * must hold every heading and nothing else, and each must be recognisable by
- * plain equality in both languages.
+ * line as card title or button text only when it is one of them, so each must
+ * be recognisable by plain equality in both languages, and every previewing
+ * tool's first line must be checked against them.
  */
 #[CoversClass(ApprovalPreviewHeadings::class)]
 #[CoversClass(ApprovalPreviewLabel::class)]
@@ -31,21 +68,45 @@ final class ApprovalPreviewHeadingsTest extends TestCase
 {
     private const ROOT = __DIR__ . '/../../../../';
 
+    /**
+     * Each previewing tool and the functional test that checks its successful
+     * preview opens with a heading, through the public class
+     * ({@see \Netresearch\NrLlm\Tests\Functional\Service\Tool\AssertsPreviewHeadingTrait}). A new previewing tool
+     * fails this test until it is listed here with such a test.
+     */
+    private const HEADING_TESTS = [
+        AttachFileToContentElementTool::class => [AttachFileToContentElementToolTest::class, 'thePreviewNamesTheElementTheFieldAndTheFile'],
+        AttachFileToRecordTool::class         => [AttachFileToRecordToolTest::class, 'thePreviewNamesTheRecordTheFieldAndTheFile'],
+        CopyRecordTool::class                 => [CopyRecordToolTest::class, 'thePreviewNamesTheTargetAndTheHiddenCopyAndCopiesNothing'],
+        CreateContentElementDraftTool::class  => [CreateContentElementDraftToolTest::class, 'thePreviewShowsTheWholeDraftAndWritesNothing'],
+        CreatePageDraftTool::class            => [CreatePageDraftToolTest::class, 'thePreviewShowsTheWholeDraftAndWritesNothing'],
+        CreateRecordDraftTool::class          => [CreateRecordDraftToolTest::class, 'thePreviewNamesTheColumnsWithTheirLabelsInTheActingUsersLanguageAndWritesNothing'],
+        CreateTranslationDraftTool::class     => [CreateTranslationDraftToolTest::class, 'thePreviewNamesTheMachineTranslationAndTheTranslator'],
+        DeleteRecordTool::class               => [DeleteRecordToolTest::class, 'thePreviewCountsWhatGoesAlongAndWhatStillPointsAtItAndDeletesNothing'],
+        FetchExternalUrlTool::class           => [FetchExternalUrlToolTest::class, 'thePreviewIsInTheActingUsersLanguage'],
+        MoveContentElementTool::class         => [MoveContentElementToolTest::class, 'thePreviewNamesBothSidesAndWritesNothing'],
+        MovePageTool::class                   => [MovePageToolTest::class, 'thePreviewWarnsWhenThePageMovesIntoAnotherSite'],
+        PublishRecordTool::class              => [PublishRecordToolTest::class, 'thePreviewNamesWhatStillRestrictsTheRecordAndWritesNothing'],
+        ReplaceFileReferenceTool::class       => [ReplaceFileReferenceToolTest::class, 'thePreviewNamesBothFilesAndWhatIsNotCarriedOverAndWritesNothing'],
+        SetFileAlternativeTextTool::class     => [SetFileAlternativeTextToolFileMountTest::class, 'thePreviewShowsTheStoredValueNextToTheProposedOne'],
+        SetPageSocialImageTool::class         => [SetPageSocialImageToolTest::class, 'thePreviewShowsTheCurrentAndTheFutureFile'],
+        UpdateContentElementTool::class       => [UpdateContentElementToolTest::class, 'thePreviewShowsEveryColumnBeforeAndAfterAndWritesNothing'],
+        UpdateFalAssetMetaTool::class         => [UpdateFalAssetMetaToolFileMountTest::class, 'theApprovalCardIsInTheActingUsersLanguage'],
+        UpdatePageMetadataTool::class         => [UpdatePageMetadataToolTest::class, 'thePreviewShowsTheStoredValueNextToTheProposedOne'],
+    ];
+
     #[Test]
-    public function theReferencesAreExactlyTheHeadingLabels(): void
+    public function theReferencesAreTheLabelsMarkedAsHeadings(): void
     {
-        // A new heading case named like the others but not marked would never
-        // reach the consumer; a marked case that is not a heading would put a
-        // summary on a button.
-        $named = [];
+        $marked = [];
         foreach (ApprovalPreviewLabel::cases() as $label) {
-            if (preg_match('/\.heading/i', $label->value) === 1) {
-                $named[] = $label->reference();
+            if ($label->isHeading()) {
+                $marked[] = $label->reference();
             }
         }
 
-        self::assertSame($named, ApprovalPreviewHeadings::labelReferences());
-        self::assertCount(23, $named);
+        self::assertNotSame([], $marked);
+        self::assertSame($marked, ApprovalPreviewHeadings::labelReferences());
     }
 
     #[Test]
@@ -72,8 +133,7 @@ final class ApprovalPreviewHeadingsTest extends TestCase
     #[Test]
     public function aLineIsAHeadingOnlyWhenItEqualsAHeadingText(): void
     {
-        $german = self::createStub(LanguageService::class);
-        $german->method('sL')->willReturnCallback(static fn(string $key): string => LabelCatalogue::target($key) ?? '');
+        $german = $this->languageService('de', static fn(string $key): string => LabelCatalogue::target($key) ?? '');
 
         $heading = (string)LabelCatalogue::target(ApprovalPreviewLabel::DeletePageHeading->reference());
         self::assertTrue(ApprovalPreviewHeadings::isHeading($heading, $german));
@@ -88,31 +148,85 @@ final class ApprovalPreviewHeadingsTest extends TestCase
     }
 
     #[Test]
-    public function everyPreviewingToolHasAFunctionalTestOfItsHeading(): void
+    public function theHeadingsAreResolvedOncePerLanguageServiceAndLanguage(): void
     {
-        // The functional tests check the first line of each tool's successful
-        // preview against the published headings (AssertsPreviewHeadingTrait);
-        // a previewing tool without such a test is a tool whose first line
-        // nobody has checked.
+        $calls   = 0;
+        $count   = count(ApprovalPreviewHeadings::labelReferences());
+        $heading = (string)LabelCatalogue::target(ApprovalPreviewLabel::MovePageHeading->reference());
+        $german  = $this->languageService('de', static function (string $key) use (&$calls): string {
+            ++$calls;
+
+            return LabelCatalogue::target($key) ?? '';
+        });
+
+        self::assertTrue(ApprovalPreviewHeadings::isHeading($heading, $german));
+        self::assertFalse(ApprovalPreviewHeadings::isHeading('Seite „Start“', $german));
+        self::assertTrue(ApprovalPreviewHeadings::isHeading($heading, $german));
+        self::assertSame($count, $calls, 'repeated checks resolve the headings again');
+
+        // The same service switched to another language resolves again.
+        $german->lang = 'en';
+        ApprovalPreviewHeadings::isHeading($heading, $german);
+        self::assertSame(2 * $count, $calls, 'a memo from another language answered');
+
+        // Another service resolves for itself.
+        $other = $this->languageService('de', static function (string $key) use (&$calls): string {
+            ++$calls;
+
+            return LabelCatalogue::target($key) ?? '';
+        });
+        self::assertTrue(ApprovalPreviewHeadings::isHeading($heading, $other));
+        self::assertSame(3 * $count, $calls);
+    }
+
+    #[Test]
+    public function everyPreviewingToolIsListedWithAFunctionalTestOfItsHeading(): void
+    {
         $tools = [];
         foreach (glob(self::ROOT . 'Classes/Service/Tool/Builtin/*.php') ?: [] as $file) {
             $class = 'Netresearch\\NrLlm\\Service\\Tool\\Builtin\\' . basename($file, '.php');
-            if (!class_exists($class) || !(new ReflectionClass($class))->implementsInterface(ToolPreviewInterface::class)) {
-                continue;
+            if (class_exists($class) && (new ReflectionClass($class))->implementsInterface(ToolPreviewInterface::class)) {
+                $tools[] = $class;
             }
-
-            $tools[] = basename($file, '.php');
         }
 
-        self::assertCount(18, $tools);
-        foreach ($tools as $tool) {
-            $checked = false;
-            foreach (glob(self::ROOT . 'Tests/Functional/Service/Tool/' . $tool . '*Test.php') ?: [] as $test) {
-                $source  = (string)file_get_contents($test);
-                $checked = $checked || preg_match('/(?:assertStartsWithHeading|assertGermanEditorLines)\(/', $source) === 1;
-            }
+        $listed = array_keys(self::HEADING_TESTS);
+        sort($tools);
+        sort($listed);
+        self::assertSame($tools, $listed, 'Every previewing tool, and only those, is listed with its heading test');
 
-            self::assertTrue($checked, $tool . ' has no functional test that checks its preview heading');
+        foreach (self::HEADING_TESTS as $tool => [$testClass, $testMethod]) {
+            self::assertTrue(method_exists($testClass, $testMethod), $tool . ': ' . $testClass . '::' . $testMethod . ' does not exist');
+            $method = new ReflectionMethod($testClass, $testMethod);
+            self::assertNotSame([], $method->getAttributes(Test::class), $testClass . '::' . $testMethod . ' is not a test');
+
+            self::assertMatchesRegularExpression(
+                '/\bself::assert(?:StartsWithHeading|GermanEditorLines)\(/',
+                $this->bodyOf($method),
+                $testClass . '::' . $testMethod . ' does not check the heading of ' . $tool,
+            );
         }
+    }
+
+    private function bodyOf(ReflectionMethod $method): string
+    {
+        $file = $method->getFileName();
+        self::assertIsString($file);
+        $lines = file($file);
+        self::assertIsArray($lines);
+
+        return implode('', array_slice($lines, (int)$method->getStartLine() - 1, (int)$method->getEndLine() - (int)$method->getStartLine() + 1));
+    }
+
+    /**
+     * @param callable(string): string $sL
+     */
+    private function languageService(string $language, callable $sL): LanguageService
+    {
+        $service = self::createStub(LanguageService::class);
+        $service->method('sL')->willReturnCallback($sL);
+        $service->lang = $language;
+
+        return $service;
     }
 }

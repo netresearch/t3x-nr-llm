@@ -355,8 +355,8 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         }
 
         $lines[] = $plan['afterUid'] > 0
-            ? $t(ApprovalPreviewLabel::CreateContentPositionAfter, $this->translator->itemLabel($user, 'tt_content', 'colPos', (string)$plan['column']), $q($plan['afterHeader']))
-            : $t(ApprovalPreviewLabel::CreateContentPositionFirst, $this->translator->itemLabel($user, 'tt_content', 'colPos', (string)$plan['column']));
+            ? $t(ApprovalPreviewLabel::CreateContentPositionAfter, $this->translator->contentColumnLabel($user, $plan['page'], $plan['column']), $q($plan['afterHeader']))
+            : $t(ApprovalPreviewLabel::CreateContentPositionFirst, $this->translator->contentColumnLabel($user, $plan['page'], $plan['column']));
         $lines[] = $t($plan['language'] === 0 ? ApprovalPreviewLabel::LanguageDefault : ApprovalPreviewLabel::LanguageTranslation);
         $lines[] = $t(ApprovalPreviewLabel::VisibilityHiddenAtFirst);
         $lines[] = $t(ApprovalPreviewLabel::CreateContentImpact);

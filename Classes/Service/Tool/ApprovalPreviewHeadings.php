@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool;
 
 use TYPO3\CMS\Core\Localization\LanguageService;
+use WeakMap;
 
 /**
  * Tells a consumer whether a preview line is a card heading (ADR-213).
@@ -24,10 +25,22 @@ use TYPO3\CMS\Core\Localization\LanguageService;
  * A heading takes no placeholder, so a line is a heading exactly when it equals
  * one of the resolved texts.
  *
+ * The set grows with every tool that gains a preview, and its size is not part
+ * of the contract: ask this class, never keep a copy of the list.
+ *
  * @api
  */
 final class ApprovalPreviewHeadings
 {
+    /**
+     * The resolved texts per language service and language, so a card that
+     * checks many lines resolves the headings once. Weak, so a language
+     * service that goes away takes its entry with it.
+     *
+     * @var WeakMap<LanguageService, array<string, array<string, true>>>|null
+     */
+    private static ?WeakMap $resolved = null;
+
     private function __construct() {}
 
     /**
@@ -59,12 +72,31 @@ final class ApprovalPreviewHeadings
             return false;
         }
 
-        foreach (self::labelReferences() as $reference) {
-            if (trim($languageService->sL($reference)) === $line) {
-                return true;
+        return isset(self::texts($languageService)[$line]);
+    }
+
+    /**
+     * @return array<string, true> the heading texts in the language service's
+     *                             current language, as keys
+     */
+    private static function texts(LanguageService $languageService): array
+    {
+        self::$resolved ??= new WeakMap();
+        $language = $languageService->lang;
+        $byLanguage = self::$resolved[$languageService] ?? [];
+        if (!isset($byLanguage[$language])) {
+            $texts = [];
+            foreach (self::labelReferences() as $reference) {
+                $text = trim($languageService->sL($reference));
+                if ($text !== '') {
+                    $texts[$text] = true;
+                }
             }
+
+            $byLanguage[$language]              = $texts;
+            self::$resolved[$languageService] = $byLanguage;
         }
 
-        return false;
+        return $byLanguage[$language];
     }
 }

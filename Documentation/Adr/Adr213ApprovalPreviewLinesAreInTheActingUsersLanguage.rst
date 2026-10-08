@@ -93,7 +93,9 @@ placeholder, so it is recognisable by equality, and the set is published:
 every heading through ``labelReferences()`` and checks one line against them
 with ``isHeading($line, $languageService)``. A consumer such as an approval card
 may reuse a line as its title or button text only when it passes that check,
-resolved in the language the lines are in, the acting user's. The first line of
+resolved in the language the lines are in, the acting user's. The set grows
+with every tool that gains a preview; a consumer asks the class and keeps no
+copy of the list. The first line of
 a refused call is the English refusal and is never a heading; neither is any
 other line. A unit test fails when a heading label is not in the set, when a
 heading text takes a placeholder or equals another line's text, and when a
@@ -109,7 +111,10 @@ line uses the TCA label in the acting user's language, resolved through core's
 domain references alike. Such a label is English where the installation has no
 language pack for the user's language. A reference that core cannot resolve
 counts as no label, and the line falls back to the column, table or value name
-rather than showing the reference. The column name sits in the technical line.
+rather than showing the reference; a literal with a colon ("16:9") is text, not
+a reference. A content column is named as the page module names it: the
+column's name in the page's backend layout, else the static ``colPos`` item,
+else its number ("Spalte 100"). The column name sits in the technical line.
 A select field's value reads as its item label; whether it changes is decided
 on the stored values, and where two different values share one label both
 values follow in brackets, so a change never reads as unchanged.

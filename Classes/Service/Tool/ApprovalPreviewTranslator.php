@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool;
 
 use Closure;
+use Throwable;
+use TYPO3\CMS\Backend\View\BackendLayoutView;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 
@@ -35,11 +37,17 @@ use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
  */
 final readonly class ApprovalPreviewTranslator
 {
-    /** A label reference rather than a literal: `[LLL:]file-or-domain:key`, no spaces. */
-    private const REFERENCE = '/^(?:LLL:)?[A-Za-z0-9_.\/-]+:[A-Za-z0-9_.-]+$/';
+    /**
+     * A label reference rather than a literal: `LLL:` and no spaces, or a
+     * translation domain reference — dotted domain, colon, key
+     * (`frontend.db.tt_content:header`). A literal with a colon and no dot
+     * before it ("16:9") is text, not a reference.
+     */
+    private const REFERENCE = '/^(?:LLL:\S+|[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)+:[A-Za-z0-9_.-]+)$/';
 
     public function __construct(
         private LanguageServiceFactory $languageServiceFactory,
+        private ?BackendLayoutView $backendLayoutView = null,
     ) {}
 
     /**
@@ -153,6 +161,46 @@ final readonly class ApprovalPreviewTranslator
         }
 
         return $value;
+    }
+
+    /**
+     * The name of content column `$colPos` on page `$pageId`, in the acting
+     * user's language: the column's name in the page's backend layout, as the
+     * page module shows it, else the static `tt_content.colPos` item, else the
+     * number ("Spalte 100").
+     */
+    public function contentColumnLabel(BackendUserAuthentication $user, int $pageId, int $colPos): string
+    {
+        $name = $this->backendLayoutColumnName($pageId, $colPos);
+        if ($name !== '') {
+            $resolved = $this->label($user, $name);
+            if ($resolved !== '') {
+                return $resolved;
+            }
+        }
+
+        return $this->itemLabel($user, 'tt_content', 'colPos', (string)$colPos);
+    }
+
+    /**
+     * The `name` the page's backend layout gives column `$colPos`, or ''.
+     * A layout that cannot be resolved costs the name, never the preview.
+     */
+    private function backendLayoutColumnName(int $pageId, int $colPos): string
+    {
+        if (!$this->backendLayoutView instanceof BackendLayoutView || $pageId <= 0) {
+            return '';
+        }
+
+        try {
+            // Nullable on TYPO3 13.4, never null on 14.
+            $layout = $this->backendLayoutView->getBackendLayoutForPage($pageId);
+            $name   = $layout?->getUsedColumns()[$colPos] ?? null;
+        } catch (Throwable) {
+            return '';
+        }
+
+        return is_string($name) ? trim($name) : '';
     }
 
     /**
