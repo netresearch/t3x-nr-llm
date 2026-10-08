@@ -16,11 +16,14 @@ ADR-214: Approved skill versions instruct, load on demand and run processes
     digest); :ref:`ADR-035 <adr-035>` (items 4 and 5: the checksum covers the
     frontmatter fields, so a frontmatter-only change is a change);
     :ref:`ADR-061 <adr-061>` (items 1 and 4: the trust level also decides the
-    framing); :ref:`ADR-038 <adr-038>` (item 5: the allow-list is resolved once
-    per run over every attached skill); :ref:`ADR-031 <adr-031>` (a caller's
-    system message keeps the snippets an administrator marked, on
+    framing, and backend-authored skills are admitted by their source's level); :ref:`ADR-038 <adr-038>` (item 5: the allow-list is resolved once
+    per run over every effective attached skill); :ref:`ADR-031 <adr-031>` (a
+    caller's system message keeps snippet text an administrator marked, on
     configurations that opt in); :ref:`ADR-200 <adr-200>` (a denial carries an
-    enumerated reason)
+    enumerated reason); :ref:`ADR-165 <adr-165>` (resume also re-reads the
+    invoked skill and intersects the stored allow-list);
+    :ref:`ADR-169 <adr-169>` (section 4: the exclude list grows by the skill
+    and skill-source fields of item 3)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-214-context:
@@ -202,12 +205,13 @@ Decision
 
 **A skill version that an authorised person approved is composed as an
 instruction. The approval binds to a digest over everything the model reads
-of that version. Skills can be written in the backend, are listed in context
-and loaded when needed, and a skill marked as a process runs pinned to the
-versions it started with. Process state and every write go through tools and
-the run, not through the prompt.** No new process engine is built; a process
-is a skill. None of this is implemented at the time of writing; the records it
-amends keep describing the current code until the implementing changes land.
+of that version and to the source that vouches for it. Skills can be written
+in the backend, are listed in context and loaded when needed, and a
+conversation keeps the versions it started with until they are revoked.
+Process state and every write go through tools and the run, not through the
+prompt.** No new process engine is built; a process is a skill. None of this
+is implemented at the time of writing; the records it amends keep describing
+the current code until the implementing changes land.
 
 .. _adr-214-d1:
 
@@ -226,24 +230,50 @@ hashed as such, because its JSON depends on key order; a frontmatter key that
 nothing reads does not change the version. A field that a later change starts
 to read joins the digest under a new format version.
 
-**The same digest is used everywhere a version is compared:**
+**The digest lives in a new column** (working name ``version_digest``,
+holding the format version and the hex value). ``body_checksum`` is a
+``varchar(64)`` (``ext_tables.sql``) and keeps its body-only meaning, because
+two readers still need exactly that: the signed manifest and the legacy check
+below.
+
+**The same digest is used wherever this extension compares versions:**
 
 - the sync's change test, so a frontmatter-only change is a change: an enabled
   skill is disabled and audited as ``ingest_disabled_on_change``
   (ADR-035 item 5), and no approval matches the new digest;
 - the compose-time integrity check of a synced skill, which recomputes the
-  digest from the stored fields and compares it with the stored value
+  digest from the stored fields and compares it with ``version_digest``
   (ADR-036 item 6, now covering the frontmatter fields as well);
 - approvals, revocations and pins (items 2, 6).
 
-**Stored values migrate without a mass re-review.** The stored value carries
-its format version. A value without one is a legacy body-only checksum: compose
-keeps verifying it as body-only, and the sync's change test compares body-only
-for it, so the first sync after the upgrade does not disable every enabled
-skill. Such a row can never be an instruction, because no approval names a
-legacy value. The sync writes the new form, and an upgrade wizard rewrites the
-remaining rows after verifying each against its legacy checksum; a row that
-fails the legacy check keeps failing it.
+**The signed manifest is the exception.** :php:`SkillSyncService` builds the
+per-source manifest from body hashes
+(``Classes/Service/Skill/SkillSyncService.php#$manifest[$sourcePrefix . $parsedSkill->path] = hash('sha256', $parsedSkill->body)``),
+and :php:`SkillManifestVerifier` checks what upstream signed (ADR-061). That
+format belongs to the upstream publisher and is not changed here, so a signed
+manifest vouches for the body only; the frontmatter is covered by the digest
+and the approval, not by the signature.
+
+**Stored rows migrate without a mass re-review and without a blind window.**
+A row with an empty ``version_digest`` is a legacy row. Compose keeps
+verifying it against ``body_checksum`` as today, and it can never be an
+instruction, because no approval names it.
+
+- **The first sync after the upgrade compares like with like.** For a legacy
+  row it first computes the new-form digest from the stored fields, then
+  compares that with the digest of the incoming version. A frontmatter change
+  upstream — a widened ``allowed-tools`` included — is therefore a change on
+  the very first sync and disables an enabled skill; an unchanged skill is
+  not disabled merely because its row was legacy.
+- **The upgrade wizard does not bless earlier edits.** ``name`` and
+  ``description`` are editable in FormEngine today
+  (``Configuration/TCA/tx_nrllm_skill.php#'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.name'``),
+  so the stored fields of a synced row may differ from what the sync wrote.
+  Before it writes ``version_digest``, the wizard verifies the body against
+  ``body_checksum`` and re-derives ``name``, ``description`` and
+  ``allowed_tools`` from the stored ``raw_frontmatter``, which the sync wrote
+  and FormEngine shows read-only. A row that fails either check is disabled,
+  audited and left without a digest until the next sync rewrites it.
 
 The synced ``name`` and ``description`` become read-only in FormEngine for
 synced sources, as the body's checksum already is: an edit to any of them now
@@ -251,22 +281,30 @@ fails the integrity check, as a body edit does today.
 
 .. _adr-214-d2:
 
-2. The trust level decides the framing, and trust binds to one digest
----------------------------------------------------------------------
+2. The trust level decides the framing, and trust binds to one digest and one source
+------------------------------------------------------------------------------------
 
 **Two conditions make a skill an instruction:** its provenance level
 (:php:`SkillTrustLevel`) is at or above a new threshold, and an approval
-exists for its current digest and is not revoked. The threshold is a new
-extension setting (working name ``skills.instructionTrustLevel``), default
-``verified``. A value below ``skills.minTrustLevel`` is read as
-``skills.minTrustLevel``, since a skill that is not admitted cannot instruct.
+exists for its current digest and its current source and is not revoked. The
+threshold is a new extension setting (working name
+``skills.instructionTrustLevel``), default ``verified``. A value below
+``skills.minTrustLevel`` is read as ``skills.minTrustLevel``, since a skill
+that is not admitted cannot instruct.
 
 - **The provenance level for this check is read from the source record**
   (``tx_nrllm_skill_source.trust_level``), for every source type, not from the
-  column the sync denormalises onto the skill. A backend-authored skill has no
-  sync to denormalise it, and a re-classified source takes effect at once
-  instead of at its next sync. Admission keeps reading the denormalised
-  column (ADR-061 item 1).
+  column the sync denormalises onto the skill. A re-classified source takes
+  effect at once instead of at its next sync.
+- **Admission reads the source record too, for backend-authored skills.**
+  :php:`SkillComposer::effectiveSkills()` admits by the denormalised
+  ``tx_nrllm_skill.trust_level``, whose only writer is the sync
+  (``Classes/Service/Skill/SkillSyncService.php#$skill->setTrustLevel($source->getTrustLevel())``)
+  and whose TCA default is ``untrusted``. A backend-authored skill has no sync,
+  so under every governance profile above ``development`` it would never be
+  admitted. For the backend source, admission therefore reads the source
+  record's level; the synced sources keep reading the denormalised column
+  (ADR-061 item 1).
 - **The threshold is checked whenever an instruction is composed** and at
   every check of a pin (:ref:`item 6 <adr-214-d6>`), not only when the version
   is approved. It is one enum comparison per source.
@@ -279,15 +317,18 @@ extension setting (working name ``skills.instructionTrustLevel``), default
   the body neutralised.
 - **Provenance and approval stay separate fields.** The provenance level is
   what a source is (ADR-061, set on the source). The approval is a statement
-  about one digest. "Reset to untrusted" means "no unrevoked approval matches
-  the current digest"; the provenance level is never rewritten for it.
+  about one digest from one source. "Reset to untrusted" means "no unrevoked
+  approval matches"; the provenance level is never rewritten for it.
 
 **An approval row is the snapshot of the version it approves.** It holds the
-skill, the digest, the body and the normalised fields that went into the
-digest, the provenance level at the time, the approver and the time. No
-separate revision table is kept: the snapshot is what a pinned queued run
-composes (:ref:`item 6 <adr-214-d6>`), and it is what the approval form diffs
-the current version against.
+skill uid, the source uid, the digest, the body and the normalised fields that
+went into the digest, the provenance level at the time, the approver and the
+time. Binding the source means that moving an approved skill to another
+source — a ``first_party`` one, or the backend source, which has no
+stored-value integrity check — leaves it without a matching approval. No
+separate revision table is kept: the snapshot is what a pinned run composes
+(:ref:`item 6 <adr-214-d6>`), and it is what the approval form diffs the
+current version against.
 
 **The approval request carries the digest the approver saw.** The approval
 form shows the current version and its diff against the most recent approved
@@ -318,7 +359,8 @@ carrying the digest, with the same append-only guarantee.
 **A further source type holds skills authored in the backend,** next to the
 GitHub source types, which stay as they are. A backend-authored skill has the
 same fields and the same compose path. Its provenance level is set on its
-source record like any other source's.
+source record like any other source's, and both admission and the instruction
+threshold read it there (:ref:`item 2 <adr-214-d2>`).
 
 - **The digest of a backend-authored skill is computed, not stored and
   trusted.** Compose and the approval form compute it from the record's
@@ -334,13 +376,28 @@ source record like any other source's.
   rollback) and the ``exclude`` boundary. Any nr_llm controller action that
   writes the content of a backend skill uses the DataHandler, not an Extbase
   repository.
-- **Three fields are excluded:** ``trust_level``, ``body_checksum`` and
-  ``enabled`` get ``exclude => true`` on ``tx_nrllm_skill``, for every source
-  type. ``readOnly`` keeps the fields
-  out of FormEngine; ``exclude`` keeps them out of a DataHandler write by a
-  group that holds ``tables_modify`` but was not granted the field. The
-  approval rows and their audit are written only by the approval action, which
-  is administrator-only until the permission is decided.
+- **A backend skill's tools come from its approved snapshot.**
+  :php:`AllowedToolsResolver` reads the live ``allowed_tools`` declaration.
+  For a synced skill that value is held by the integrity check and by the
+  disable-on-change of the sync. A backend skill has neither: an author could
+  widen the run's tools with an edit that needs no approval. A backend skill
+  therefore contributes the ``allowed_tools`` of the approved snapshot that
+  matches its current digest. While its current version is unapproved, it
+  contributes a declared empty list: it grants nothing, and it still counts as
+  a declaration, so attaching an unapproved backend skill can never leave a
+  run unrestricted.
+- **Eight fields are excluded** with ``exclude => true``. On
+  ``tx_nrllm_skill``: ``trust_level``, ``body_checksum``, ``version_digest``,
+  ``enabled``, ``allowed_tools`` and ``source``. On ``tx_nrllm_skill_source``:
+  ``trust_level`` and ``type``.
+  ``readOnly`` keeps a field out of FormEngine; ``exclude`` keeps it out of a
+  DataHandler write by a group that holds ``tables_modify`` but was not granted
+  the field. ``source`` and the source ``type`` are excluded because moving a
+  synced skill onto the backend source, or turning its source into a backend
+  source, would switch off the stored-value integrity check; the approval's
+  source binding of item 2 covers the case where an administrator does it.
+  The approval rows and their audit are written only by the approval action,
+  which is administrator-only until the permission is decided.
 
 The approval rule of :ref:`item 2 <adr-214-d2>` applies unchanged: an author
 who may edit a skill cannot thereby make it an instruction.
@@ -358,28 +415,40 @@ attachment decides which configuration offers it.
 attachments migrate to ``always``, which is today's full composition; new
 attachments default to ``on_demand``.
 
+**A skill is named by its uid, not by its identifier.** Identifiers are unique
+only per source; :php:`SkillComposer` already keys skills by source and
+identifier because cross-source twins exist. Invocation, the load tool and the
+catalogue use the skill uid; the identifier is display text.
+
 **A body reaches a run in one of three ways:**
 
 - **Always.** An ``always`` attachment is composed at run start, as today: an
   instruction skill as a system section, any other skill in the fenced block.
-- **Explicit invocation.** The caller passes a skill identifier when it
-  starts or continues a run, from a slash command or a button
+- **Explicit invocation.** The caller passes a skill uid when it starts or
+  continues a run, from a slash command or a button
   (:ref:`item 10 <adr-214-d10>`). Any enabled skill attached to the
   configuration can be invoked, in either load mode. An instruction skill
   becomes a system section, any other skill goes into the fenced block.
-- **Loading by the model,** through a dedicated read-only tool that takes an
-  identifier from the run's catalogue. The catalogue lists the ``on_demand``
+- **Loading by the model,** through a dedicated read-only tool that takes a
+  skill uid from the run's catalogue. The catalogue lists the ``on_demand``
   attachments whose current version is an instruction and which are not
-  process skills: identifier, name and description, from the approved
-  version, so every catalogue text is covered by the digest someone approved.
-  Page content, search results and tool output are untrusted and can ask the
-  model to load something; restricting the catalogue to approved versions
-  means the worst such a request achieves is adding text the installation
-  already approved. A skill that is not an instruction never appears in the
-  model's catalogue, so no third-party description sits outside the fence.
-  The tool result confirms the load and does not carry the body: the loop
-  writes the section into the run's system message before the next model
-  call, so an instruction never travels in the tool role.
+  process skills: uid, name and description, from the approved version, so
+  every catalogue text is covered by the digest someone approved. Page
+  content, search results and tool output are untrusted and can ask the model
+  to load something; restricting the catalogue to approved versions means the
+  worst such a request achieves is adding text the installation already
+  approved. A skill that is not an instruction never appears in the model's
+  catalogue, so no third-party description sits outside the fence. The tool
+  result confirms the load and does not carry the body: the loop writes the
+  section into the run's system message before the next model call, so an
+  instruction never travels in the tool role.
+
+**The load tool re-checks at load time.** It refuses a uid that is not in this
+run's catalogue, and it re-checks every condition of the catalogue at the
+moment of the load: still attached ``on_demand``, ``enabled``, not orphaned,
+not a process, and an instruction (an unrevoked approval for its current
+digest and source, provenance at or above the threshold). A catalogue built
+at run start is a list of candidates, not a grant.
 
 **The catalogue and the load tool are offered only when the run's catalogue
 is not empty,** which needs at least one ``on_demand`` attachment. A
@@ -387,32 +456,37 @@ configuration whose attachments are all ``always`` — every configuration
 after the upgrade — gets neither, so existing runs send what they sent before.
 
 **Loading is idempotent per skill and digest.** A load or an invocation of a
-skill whose section the run already holds, whether by an ``always``
+skill whose section the conversation already holds, whether by an ``always``
 attachment, an invocation or an earlier load, appends nothing and returns
-"already loaded". A skill whose current digest differs from the one the run
-holds is refused: the run keeps the version it has (:ref:`item 6 <adr-214-d6>`).
+"already loaded". A skill whose current digest differs from the one the
+conversation holds is refused: it keeps the version it has
+(:ref:`item 6 <adr-214-d6>`).
 
-**A loaded or invoked skill is never dropped from the tail;** the budget rule
-of :ref:`item 7 <adr-214-d7>` admits it or refuses it. ``skills.maxBytes``
-keeps bounding the fenced block.
+**One rule for the tail drop.** An instruction section is never dropped from
+the tail, whether it came from an ``always`` attachment, an invocation or a
+load; the budget rule of :ref:`item 7 <adr-214-d7>` admits it or refuses it.
+Every fenced skill, however it reached the run, stays in the fenced block,
+which ``skills.maxBytes`` keeps bounding by dropping from the tail as
+:php:`SkillComposer::composeBlock()` does today (ADR-036 item 5).
 
 .. _adr-214-d5:
 
-5. The tool allow-list is fixed at run start and can only narrow
-----------------------------------------------------------------
+5. The skill allow-list is fixed at run start and can never gain tools
+----------------------------------------------------------------------
 
-**The run's skill allow-list is resolved once, at run start, over every skill
-attached to the run:** the configuration's attachments in both load modes,
-the forced skills of :php:`RunAugmentation`, and the invoked skill. The load
-mode does not matter: under the union semantics of ADR-038 item 5, which stay,
-an ``on_demand`` skill's declaration grants its tools from run start, before
-its body is loaded, and loading it later changes nothing. This is the
-trade-off taken: **attachment grants tools, a load grants nothing.**
-Attaching or forcing a skill is an administrator's act; a load is something
-content can ask for. Content that talks the model into loading skill B
-therefore cannot grant tools the run did not already have. What changes
-against ADR-038 is the set the union is taken over, and that it is taken
-once.
+**The run's skill allow-list is resolved once, at run start, over every
+effective skill attached to the run** — enabled, not orphaned and admitted, as
+:php:`SkillComposer::effectiveSkills()` selects them: the configuration's
+attachments in both load modes, the forced skills of :php:`RunAugmentation`,
+and the invoked skill. The load mode does not matter: under the union
+semantics of ADR-038 item 5, which stay, an ``on_demand`` skill's declaration
+grants its tools from run start, before its body is loaded, and loading it
+later changes nothing. This is the trade-off taken: **attachment grants
+tools, a load grants nothing.** Attaching or forcing a skill is an
+administrator's act; a load is something content can ask for. Content that
+talks the model into loading skill B therefore cannot grant tools the run did
+not already have. What changes against ADR-038 is the set the union is taken
+over, and that it is taken once.
 
 **The resolved list is stored with the run** — on the run request a queued
 run persists and in :php:`SuspendedRunState` — and :php:`ToolCallPolicy`
@@ -429,53 +503,73 @@ already re-reads forced uids — and intersects it with the stored list, where
 ``null`` imposes nothing. A forced skill's tools therefore survive every
 resume, the stored list stays the upper bound, and a live ``null`` caused by
 a disabled declaring skill no longer widens a resumed run to every tool. A
-skill disabled or deleted while the run waits can only take tools away.
+change while the run waits can take tools away or leave them, but can never
+add one through the skill allow-list. The other gates are re-read at resume
+as today: a tool switched on globally while the run waited is offered if the
+skill list admits it (:ref:`ADR-039 <adr-039>`).
 
 **The load tool sits outside the skill allow-list.** It is exempt from the
 skill-derived list and from the configuration's ``allowed_tool_groups``
 gate (:php:`AllowedToolsResolver::applyGroupGate()`), so a skill declaring
 ``allowed-tools: []`` blocks every other tool but not the load tool. It still
-passes the global tool state (:ref:`ADR-039 <adr-039>`) — an administrator
-who disables it switches model loading off — and the trust-zone gate. It
-reads only approved skill text and has no effect outside the run's system
-message.
+passes the global tool state (ADR-039) — an administrator who disables it
+switches model loading off — and the trust-zone gate. It reads only approved
+skill text and has no effect outside the run's system message.
 
 .. _adr-214-d6:
 
-6. Every instruction a run holds is pinned, and a process binds the run
------------------------------------------------------------------------
+6. A conversation holds pinned instructions, and a process binds it
+-------------------------------------------------------------------
 
 **A frontmatter marker** (working name ``process: true``) declares a skill to
 be a process. A process skill is started by explicit invocation only; it is
 never in the model's catalogue, so page content cannot start a process. A
 process skill whose current version is not an instruction cannot be started.
 
-**Every instruction section a run holds is pinned, not only the process.** The
-run records skill and digest for each section — from an ``always``
+**Every instruction section is pinned, not only the process.** A pin is a
+skill uid and a digest, recorded for each section — from an ``always``
 attachment, an invocation, a load or a forced skill — on the run request and
-in :php:`SuspendedRunState`. A queued run composes each pinned section from
-the approval snapshot of its digest when the worker picks it up, not from the
-body the record holds by then.
+in :php:`SuspendedRunState`. A pinned section is always composed from the
+approval snapshot of its digest, not from the body the record holds by then.
 
-**The pins are checked at start, at worker pickup and at every resume**
-(approve, submit input). A pin holds while an unrevoked approval for its
-digest exists, its snapshot still hashes to the digest, the skill record
+**Pins outlive the run that created them.** A chat turn is a new run: the
+chat rebuilds the system message and sends the history on every turn, and it
+persists the final answer, not the tool messages
+(``ChatService::runAgentTurn()``, ``ChatService::applyResult()``). A section
+loaded in turn 3 would otherwise be gone from turn 4's system message. The
+run result therefore reports every pin the run holds, and a continuation
+request carries all of them (:ref:`item 10 <adr-214-d10>`). The runtime
+re-composes each carried pin into the new run's system message.
+
+**The pin rules, at start, at worker pickup, at every resume and at every
+continuation.** A pin holds while an unrevoked approval for its digest and
+source exists, its snapshot still hashes to the digest, the skill record
 exists and is not orphaned, and the source's provenance is at or above the
 threshold. When one fails, the run stops with a message that names the skill
 and the reason. It does not continue without the section, and it does not
-fall back to the fenced frame.
+fall back to the fenced frame. On a resume after an approval, the check runs
+before the approved write executes, next to the ADR-184 preview check, so a
+write is never carried out under a revoked instruction.
 
 This is chosen over limiting revocation to new runs. A revocation is the
 brake for text that is already acting as an instruction, and a run suspended
 for an approval can wait for days; the transcript it replays already contains
 the composed text, so without the check a revoked instruction would keep
-steering it. The check is one lookup per resume.
+steering it. The check is one lookup per pin.
 
 **The enabled flag gates new use; revocation stops running use.** A sync that
 changes an enabled skill disables it (ADR-035 item 5) so the new version is
-reviewed; runs pinned to the approved digest continue, because that text is
-still approved. A disabled skill cannot be invoked, loaded or started as a
-process. An administrator who wants running runs stopped revokes the digest.
+reviewed. Pins carried by a run or a continuation keep working, because that
+text is still approved: a sync during a tour does not end the tour at the
+next message. A disabled skill cannot be invoked, loaded or started as a
+process without a pin. An administrator who wants running tours stopped
+revokes the digest.
+
+**A newer approval does not replace a pin.** A conversation keeps the
+version it started with until it ends or the pin fails; a new conversation
+gets the current version. An older unrevoked version therefore stays usable
+by the conversations that already hold it, and only by them. An administrator
+who wants it gone everywhere revokes it.
 
 Fenced, non-instruction skills keep today's behaviour: composed from the
 current record, checked by the integrity check, and re-gated by ADR-165 when
@@ -483,8 +577,8 @@ forced.
 
 .. _adr-214-d7:
 
-7. Appended system text is charged, and a section that does not fit is refused
-------------------------------------------------------------------------------
+7. Appended system text is charged, and admission does not strand a conversation
+--------------------------------------------------------------------------------
 
 **Every text appended to a system message is charged by**
 :php:`ContextWindowManager::fit()`, whatever the first message holds: the
@@ -495,14 +589,26 @@ where the shaping stage appends them after ``fit()``, they are passed to
 ``fit()`` as charged text, the way the fenced block already is. Nothing is
 appended after ``fit()`` uncharged.
 
-**A section is admitted only with headroom.** Before an instruction section is
-added — at start for ``always`` attachments and invocations, or by a load —
-the runtime estimates the send including it with every current turn kept.
-It is admitted only when that estimate stays at or below the budget minus a
-headroom of 10 % of the budget (working value). Otherwise nothing is
-appended: a load returns an error result naming the skill, and a start fails
-before the first provider call with a message naming the skill. ``fit()``
-never evicts earlier turns to make room for an instruction.
+**Admission is checked against the smallest send the fit can reach.** A new
+section — an ``always`` attachment at the start of a conversation, an
+invocation, a load — is admitted only when the head (system message with
+every section already held, plus the new one, and the first user message)
+together with the newest turn stays at or below the budget minus a headroom
+of 10 % of the budget (working value). That is the floor ``fit()`` reaches by
+dropping older turns (:ref:`ADR-107 <adr-107>`), so a section that passes can
+always be sent. Otherwise nothing is appended: a load returns an error result
+naming the skill, and a start fails before the first provider call with a
+message naming the skill.
+
+**A section the conversation already holds at the same digest is not
+re-admitted.** A pin carried by a continuation is composed without a new
+admission check. Without that rule a long tour would fail permanently once
+its history grew past the headroom, although ``fit()`` could still send it by
+dropping old turns.
+
+``fit()`` itself is unchanged: it keeps dropping the oldest turns when the
+transcript grows, and the system message, which carries the sections, is part
+of the head it never drops.
 
 .. _adr-214-d8:
 
@@ -517,20 +623,25 @@ prompt stays suppressed (per-call precedence, as ADR-031 and ADR-139's
 characterisation tests pin), and a snippet is appended to the caller's first
 system message only when both hold:
 
-- **the snippet is marked by an administrator** (working name
-  ``in_caller_system_message`` on ``tx_nrllm_promptsnippet``,
-  ``exclude => true``, default off), and
+- **the snippet's current text is marked by an administrator.** The mark
+  (working name ``caller_system_digest`` on ``tx_nrllm_promptsnippet``,
+  ``exclude => true``) stores a sha256 of the ``snippet`` text at the moment
+  an administrator sets it. The snippet is appended only while the digest of
+  its current text matches. An edit by anyone who may edit the ``snippet``
+  field — under ADR-169 a non-administrator — therefore takes it out of the
+  chat's system message until an administrator marks the new text; and
 - **the configuration opts in** (working name
   ``snippets_in_caller_system_message`` on ``tx_nrllm_configuration``,
   ``exclude => true``, default off).
 
-Admin-only TCA for the whole snippet table was rejected: it would reverse
-ADR-169's recommendation that non-administrators manage snippets, for the
-sake of one path. With the marker, a non-administrator can still write
-snippets that reach the configuration's own system prompt, as today, but
-cannot route text into the chat's system message. Both fields are excluded,
-so a group with ``tables_modify`` on either table gets them only when an
-administrator grants the field.
+A mark on the record alone was rejected: the ``snippet`` field is not
+excluded, so a non-administrator could keep a marked record and replace its
+text. Admin-only TCA for the whole snippet table was rejected as well: it
+would reverse ADR-169's recommendation that non-administrators manage
+snippets, for the sake of one path. With the text-bound mark, a
+non-administrator can still write snippets that reach the configuration's own
+system prompt, as today, but cannot route text into the chat's system
+message.
 
 The configuration's ``system_prompt`` keeps its reach: it is still suppressed
 by a caller's system message, so this decision routes no new text through it.
@@ -540,7 +651,7 @@ ADR-169 gets that privilege. This decision does not change that grant.
 
 This item can ship first. Item 2 appends instruction sections to the caller's
 system message through the same mechanism, but that path is governed by
-the approval, not by the snippet marker.
+the approval, not by the snippet mark.
 
 .. _adr-214-d9:
 
@@ -560,6 +671,13 @@ renders them and owns the open points.
   subject record, for example the content elements of the selected page; the
   UI maps a target to its element. The model never supplies a CSS selector or
   any other markup.
+- **One write per turn in a process run.** An approval decides the whole turn
+  (:ref:`ADR-132 <adr-132>`; :php:`ToolLoopService::resume()` applies one
+  decision to every pending call). In a run started with a process skill, a
+  turn that requests more than one write-declaring call gets an error result
+  for every write call after the first, before the run suspends, so the card
+  shows exactly one proposal and one answer covers exactly one write. Read
+  calls in the same turn are unaffected.
 - **One approval card per proposal; approve means apply.** A proposal is the
   pending write call itself. Its approval card shows the preview lines of
   ADR-136 (current and proposed text), bound by ADR-184. The three answers
@@ -569,26 +687,40 @@ renders them and owns the open points.
   - **"Andere Variante"** denies it with the reason ``variant``.
   - **"Überspringen"** denies it with the reason ``skip``.
 
-  The approval decision carries an optional denial reason, an enumerated value
-  (``variant`` | ``skip``) valid only with a denial. It travels through
+  The reason is a closed type: a string-backed enum (working name
+  :php:`ApprovalDenialReason`, cases ``variant`` and ``skip``) on
+  :php:`ApprovalDecision`, which is an ``@api`` value object with a public
+  constructor. The constructor rejects a reason together with
+  ``approved = true``. The reason travels through
   :php:`ResumeCoordinator::approve()` into :php:`ToolLoopService::resume()`,
-  and the denial result leads with it as a fixed token beside
-  ``decided_by`` (ADR-200), so the model either proposes a new variant — a new
-  write call and a new card — or records the point as open and moves on. A
-  denial without a reason keeps today's text. No pause combines input and
-  approval: the ADR-134 ban stays, and nothing about the answer is collected
-  through the input path.
+  and the denial result renders it through a ``match`` over the enum cases,
+  as ``decided_by`` is rendered today, as a fixed token beside ``decided_by``
+  (ADR-200). The model either proposes a new variant — a new write call and a
+  new card — or records the point as open and moves on. A denial without a
+  reason keeps today's text. No pause combines input and approval: the
+  ADR-134 ban stays, and nothing about the answer is collected through the
+  input path.
 - **Writes need an approval, always.** No process skill, trusted or not, can
   switch that off (ADR-134).
-- **Four-eyes configurations.** Where ``require_second_approver`` is set
-  (ADR-172), the run owner cannot approve their own write; a denial stays
-  theirs. In the chat, "Andere Variante" and "Überspringen" therefore work as
-  everywhere, and "Übernehmen" cannot complete: the card states that a second
+- **The release stays on the chat surface.** For process runs the editor
+  decides the card in the chat, as today. Where ``require_second_approver`` is
+  set (ADR-172), the run owner cannot approve their own write; a denial stays
+  theirs. "Andere Variante" and "Überspringen" therefore work as everywhere,
+  and "Übernehmen" cannot complete in the chat: the card states that a second
   person must release the change in the Agent Runs inbox, the run stays
   ``WAITING_FOR_APPROVAL``, and the process shows the point as waiting for
-  release. It does not advance until someone else approves or anyone
-  denies. The chat reads the switch from the configuration to label the card
+  release. The chat reads the switch from the configuration to label the card
   before the editor presses it, and the server-side refusal stays.
+- **An out-of-band release is handed back to the conversation.** Today a
+  continuation that ran outside the chat leaves the conversation saying it
+  "happened somewhere this conversation cannot see"
+  (``ChatService::reconcile()``). For a process run that would leave the point
+  shown as waiting for ever. The run therefore keeps its final answer, its
+  last progress report and its pins readable by run uuid for the run's owner
+  (:php:`AgentRuntimeInterface::status()` and ``events()``), and
+  nr_mcp_agent's reconcile step, finding the run settled, appends that answer
+  to the conversation and stores the pins, so the tour shows the point as
+  applied and continues from there.
 - **Pure choices use a choice builtin.** A choice without a write — which page,
   which finding first, whether to continue — is a ``WAITING_FOR_INPUT``
   suspension of a generic builtin that implements
@@ -596,8 +728,8 @@ renders them and owns the open points.
   arguments (ADR-105). It declares no write effect, so the ADR-134 ban does
   not apply to it, and it never stands in for the approval of a write.
 - **Open points persist in nr_mcp_agent.** A skipped or unfinished point is
-  stored outside the conversation, keyed by process skill, subject record and
-  finding, in a table nr_mcp_agent owns, through tools nr_mcp_agent
+  stored outside the conversation, keyed by process skill uid, subject record
+  and finding, in a table nr_mcp_agent owns, through tools nr_mcp_agent
   registers. They are offered again when the process is started on that
   record. nr_llm stores no open points.
 
@@ -608,32 +740,40 @@ renders them and owns the open points.
 
 Working names; the shapes are the decision.
 
-- **Start and continue with a skill.** :php:`AgentRunRequest` gains an
-  optional skill invocation: the skill identifier, an optional subject record
-  (table and uid), and an optional expected digest.
+- **Start with a skill.** :php:`AgentRunRequest` gains an optional skill
+  invocation: the skill uid and an optional subject record (table and uid).
   :php:`AgentRuntimeInterface::run()` and ``enqueue()`` (``@api``) accept it.
   At start the runtime checks that the skill is attached to the configuration
-  and enabled, that the acting user may use the configuration
-  (:php:`LlmConfigurationService::hasAccess()`), that the subject record is
-  readable under the acting user's TYPO3 permissions, and, for a process, that
-  the version is an instruction. A chat continues a conversation with a new
-  request that carries the transcript and the same invocation, including the
-  digest the previous run reported in its result; a digest that no longer
-  holds by the rules of :ref:`item 6 <adr-214-d6>` stops the start with the
-  same message. Inside one run, ``approve()`` and ``submitInput()`` continue
-  as today.
+  and enabled, that the request's actor may use the configuration, that the
+  subject record is readable by that actor, and, for a process, that the
+  version is an instruction.
+- **The checks are actor-scoped.** :php:`LlmConfigurationService::hasAccess()`
+  reads the global backend user, which is wrong for a run the worker executes
+  after ``enqueue()`` and for an ``@api`` caller acting for someone else. The
+  access check takes the request's :php:`AiActorContext` (working name
+  ``hasAccessFor(AiActorContext, LlmConfiguration)``), and the subject-record
+  check runs against the backend user the run executes as
+  (:php:`ExecutionIdentity`), at start and again at worker pickup.
+- **Continue with the pins.** The run result reports the pins the run holds
+  (skill uid, source uid, digest). A chat continues a conversation with a new
+  request that carries the transcript, the invocation and every pin it holds.
+  Carried pins follow the pin rules of :ref:`item 6 <adr-214-d6>`, not the
+  start rules: ``enabled`` is not required for them, revocation, a failing
+  snapshot, an orphaned record or a provenance drop stops the run with the
+  pin's message. Inside one run, ``approve()`` and ``submitInput()``
+  continue as today.
 - **Catalogue for slash commands.** An ``@api`` service returns the skills an
-  actor may invoke on a configuration — identifier, name, description, load
-  mode, whether it is a process and whether its current version is an
+  actor may invoke on a configuration — uid, identifier, name, description,
+  load mode, whether it is a process and whether its current version is an
   instruction — filtered by attachment, ``enabled``, the actor's access to the
-  configuration, and optionally to process skills only. A backend AJAX route
-  serves the same list as JSON for the slash-command menu. Descriptions of
-  non-instruction skills are flagged as untrusted text for the consumer to
-  escape.
-- **Approval decision.** :php:`ApprovalDecision` gains the optional denial
-  reason of :ref:`item 9 <adr-214-d9>`; its constants sit on the ``@api``
-  :php:`ToolLoopServiceInterface` with the existing ``decided_by`` tokens, so
-  the API-surface snapshot guards them.
+  configuration (the actor-scoped check above), and optionally to process
+  skills only. A backend AJAX route serves the same list as JSON for the
+  slash-command menu. Descriptions of non-instruction skills are flagged as
+  untrusted text for the consumer to escape.
+- **Approval decision.** :php:`ApprovalDecision` gains the optional
+  :php:`ApprovalDenialReason` of :ref:`item 9 <adr-214-d9>`; the rendered
+  tokens sit on the ``@api`` :php:`ToolLoopServiceInterface` with the existing
+  ``decided_by`` constants, so the API-surface snapshot guards them.
 - **Builtins.** nr_llm ships the load tool, the progress and highlight
   builtins and the choice builtin; nr_mcp_agent ships the open-point tools.
 
@@ -666,6 +806,10 @@ privilege than being enabled.
 carries the tool allow-list, the section heading and the catalogue text, and
 an upstream change to it would keep a skill approved and enabled.
 
+**A versioned value in the existing checksum column.** Rejected: the column is
+``varchar(64)``, and the signed manifest and the legacy check still need the
+body-only hash. A separate column keeps both meanings.
+
 **A revision table with every version.** Rejected in favour of the approval
 snapshot: only approved versions are ever composed as instructions or pinned,
 and the snapshot holds exactly those. Backend edits are in ``sys_history``.
@@ -677,6 +821,21 @@ check at compose and resume is one comparison per source.
 
 **Limiting revocation to new runs.** Rejected; see
 :ref:`item 6 <adr-214-d6>`.
+
+**Loads that last one turn.** Defining a load as valid for the run that made
+it, so the model loads again on every chat turn. Rejected: the model would
+re-load at whatever digest is current, so a tour could change version
+mid-conversation, and every turn would pay the load again.
+
+**Admitting a section only with every current turn kept.** The first version
+of this record. Rejected: every chat turn is a new run carrying the whole
+history, so a long tour would fail permanently once its history passed the
+headroom, although ``fit()`` could still send it.
+
+**A denial reason per call.** Letting one card carry a reason for each of
+several write calls. Rejected for process runs: an approval decides the whole
+turn (ADR-132), and one proposal per card is also what the editor reads.
+One write per turn keeps the existing turn semantics.
 
 **Let the model load any skill, trusted or not.** Simpler, and the usual shape
 of skill systems. Rejected: the model reads page content, and a page could ask
@@ -693,7 +852,8 @@ two pauses for one decision, and the variant that collects the answer in the
 approval pause is what ADR-134 bans. Approve-means-apply with an enumerated
 denial reason is one pause.
 
-**Admin-only TCA for snippets.** Rejected; see :ref:`item 8 <adr-214-d8>`.
+**Admin-only TCA for snippets, or a mark on the record.** Rejected; see
+:ref:`item 8 <adr-214-d8>`.
 
 **A workflow engine.** Steps, transitions and state as data, with the model
 filling in the text. Rejected: it is a new runtime next to the agent loop,
@@ -718,22 +878,26 @@ its history in ``sys_history`` and the diff against the last approved
 version, and an approved version guides the chat without a release.
 
 ● The instruction privilege is bound to a digest over everything the model
-reads of a version. A changed body or frontmatter, from a sync or an edit,
-loses it until someone with the approval permission approves the new digest,
-and every approval and revocation is in the append-only audit.
+reads of a version and to the source that vouches for it. A changed body or
+frontmatter, from a sync or an edit, or a move to another source, loses it
+until someone with the approval permission approves again, and every
+approval and revocation is in the append-only audit.
 
-● A run cannot silently continue with an instruction that was revoked or with
-a different version of it: every instruction section is pinned and checked at
-pickup and resume.
+● A conversation cannot silently continue with an instruction that was
+revoked or with a different version of it: every instruction section is
+pinned, carried from turn to turn, and checked at start, pickup, resume and
+continuation.
 
-● A loaded skill cannot widen the tool allow-list, and a resumed run cannot
-end up with more tools than it started with.
+● A loaded skill cannot widen the tool allow-list, a backend author cannot
+widen it without an approval, and a resumed run cannot gain tools through the
+skill allow-list.
 
-● Loaded and invoked skills are no longer cut from the tail and no longer
-push earlier turns out; a section that does not fit is refused visibly.
+● Instruction sections are no longer cut from the tail and are admitted
+against the smallest send ``fit()`` can reach, so a section that does not fit
+is refused visibly and a long tour does not strand.
 
 ● Marked snippets, such as an editorial profile, reach the chat on
-configurations that opt in.
+configurations that opt in, and only in the text an administrator marked.
 
 ◐ The governance profiles gain an expectation for the new threshold. Proposed:
 ``verified`` for ``local_only``, ``controlled_cloud`` and ``development``,
@@ -748,10 +912,13 @@ not:
   tool appear on existing configurations.
 - The snippet path changes nothing until an administrator marks a snippet and
   opts a configuration in.
-- Stored checksums keep working in their legacy form until the sync or the
-  upgrade wizard rewrites them; the first sync does not disable skills for
-  that reason.
-- After the rewrite, an upstream change to a skill's frontmatter alone
+- Legacy rows keep verifying against ``body_checksum`` until the sync or the
+  upgrade wizard writes ``version_digest``. The first sync compares the
+  new-form digest of the stored fields with the incoming one, so an unchanged
+  skill is not disabled and a frontmatter change is caught. The wizard
+  disables and audits a synced row whose stored ``name``, ``description`` or
+  ``allowed_tools`` no longer match its ``raw_frontmatter``.
+- After the migration, an upstream change to a skill's frontmatter alone
   disables an enabled skill, which today it does not. Expect more re-reviews
   for sources that change their frontmatter.
 - Forced skills' ``allowed-tools`` now count for the run they are forced onto;
@@ -763,6 +930,13 @@ not:
 - A backend edit of a synced skill's ``name`` or ``description`` now fails the
   integrity check, like a body edit; FormEngine shows those fields read-only
   for synced sources.
+- Eight fields gain ``exclude => true`` (:ref:`item 3 <adr-214-d3>`). A
+  non-admin group that was granted ``tables_modify`` on the skill tables loses
+  write access to them until an administrator grants the fields; the
+  extension ships those tables in an admin-only module (ADR-035 item 7), so no
+  shipped surface changes.
+- A process run that requests two writes in one turn gets an error for the
+  second; outside process runs nothing changes.
 
 ✕ **An approved skill is an instruction with the acting user's reach.** It can
 steer which tools the model calls and with what arguments, within the run's
@@ -773,17 +947,23 @@ Approving a version is therefore a privileged act and gets its own
 permission.
 
 ✕ **Content can still ask the model to load a skill.** The catalogue lists
-only approved instruction skills that are not processes, so the worst outcome
-is approved text in the wrong place, not foreign text as instructions, and no
-change to the tool allow-list. Message role remains defence in depth, not a
-trust boundary (ADR-036): an untrusted, fenced skill can still influence
-output, as today.
+only approved instruction skills that are not processes, and the load tool
+re-checks each at load time, so the worst outcome is approved text in the
+wrong place, not foreign text as instructions, and no change to the tool
+allow-list. Message role remains defence in depth, not a trust boundary
+(ADR-036): an untrusted, fenced skill can still influence output, as today.
 
-✕ The work spans nr_llm (digest, compose path, approval, load tool, run-start
-allow-list, pinning, budget charge, snippet path, denial reason, progress,
-highlight and choice builtins, catalogue API) and nr_mcp_agent (slash
-commands, the approval card's three answers, progress, highlight, open-point
-table and tools). The process use case works only when both ship.
+✕ **A signed manifest vouches for the body only.** The frontmatter of a
+signed source is covered by the digest and the approval, not by upstream's
+signature.
+
+✕ The work spans nr_llm (digest column and migration, compose path, approval,
+load tool, run-start allow-list, pins and continuation, budget charge,
+snippet path, denial reason, one-write rule, progress, highlight and choice
+builtins, catalogue API, actor-scoped access check) and nr_mcp_agent (slash
+commands, the approval card's three answers, carrying pins, the reconcile
+hand-back, progress, highlight, open-point table and tools). The process use
+case works only when both ship.
 
 .. _adr-214-open:
 
@@ -797,14 +977,16 @@ Open questions
 - **Who may author backend skills.** ADR-035 item 7 keeps skills in an
   admin-only module, and ADR-169 keeps ``tx_nrllm_skill`` out of non-admin
   management because the sync writes it. Backend-authored skills are written
-  by people, so that has to be revisited for the new source; the fields that
-  must not travel with ``tables_modify`` are already excluded by
-  :ref:`item 3 <adr-214-d3>`.
-- **Names.** ``skills.instructionTrustLevel``, the ``process`` frontmatter
-  key, the load modes, the snippet marker and the configuration opt-in are
+  by people, so that has to be revisited for the new source. The fields that
+  must not travel with ``tables_modify`` — on the skill and on its source —
+  are the eight that :ref:`item 3 <adr-214-d3>` excludes; whether more belong
+  there is part of that revisit.
+- **Names.** ``skills.instructionTrustLevel``, ``version_digest``, the
+  ``process`` frontmatter key, the load modes, the snippet mark, the
+  configuration opt-in, :php:`ApprovalDenialReason` and ``hasAccessFor`` are
   working names.
 - **Catalogue size.** Whether the catalogue needs its own byte cap, or the
-  headroom rule of :ref:`item 7 <adr-214-d7>` covers it.
+  admission rule of :ref:`item 7 <adr-214-d7>` covers it.
 - **Headroom.** Whether 10 % of the budget is the right reserve, measured on
   the first processes that run.
 - **Flipping existing attachments to on_demand.** Whether and when existing
