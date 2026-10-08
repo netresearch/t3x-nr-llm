@@ -57,6 +57,40 @@ final class AllowedToolsResolverTest extends TestCase
     }
 
     #[Test]
+    public function theRunsListIsTheUnionOverTheConfigurationAndTheForcedSkills(): void
+    {
+        $config = new LlmConfiguration();
+        $config->addSkill($this->skill('attached', '["fetch_logs"]'));
+
+        $list = $this->resolver()->resolveForRun($config, [$this->skill('forced', '["read_page"]')]);
+
+        self::assertSame(['fetch_logs', 'read_page'], $list->toolNames);
+    }
+
+    #[Test]
+    public function aDisabledForcedSkillContributesNothingToTheRunsList(): void
+    {
+        $list = $this->resolver()->resolveForRun(new LlmConfiguration(), [$this->skill('forced', '["read_page"]', enabled: false)]);
+
+        self::assertNull($list->toolNames);
+    }
+
+    #[Test]
+    public function theRunsListLeavesTheGroupGateToTheDecision(): void
+    {
+        // Stored with the run, so the group gate — re-read live like every
+        // other gate — is not baked into it.
+        $config = new LlmConfiguration();
+        $config->setAllowedToolGroups('content');
+
+        $resolver = $this->resolver($this->groupedRegistry());
+        $list     = $resolver->resolveForRun($config, []);
+
+        self::assertNull($list->toolNames);
+        self::assertSame(['content_a', 'content_b'], $resolver->applyGroupGateTo($list, $config));
+    }
+
+    #[Test]
     public function returnsNullWhenNoEffectiveSkillDeclares(): void
     {
         $config = new LlmConfiguration();

@@ -13,15 +13,18 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
+use Netresearch\NrLlm\Domain\Enum\ToolDenialReason;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
+use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
@@ -158,6 +161,41 @@ final class ResumeCoordinatorApproverGateTest extends AbstractFunctionalTestCase
         $this->assertSettledCompleted($uuid);
     }
 
+    #[Test]
+    public function aWriteOnlyTheRunsForcedSkillGrantsIsReleased(): void
+    {
+        // The configuration's attached skill names `list_pages` alone; the run
+        // also forced a skill naming `touch_thing`, so its stored list holds both
+        // (ADR-038 item 5). Asked with the configuration alone, the gate refused
+        // the write as outside the configuration's tools — stricter than the
+        // execution it mirrors.
+        $stored = new SkillToolAllowList(['list_pages', 'touch_thing']);
+        $uuid   = $this->suspendOn('touch_thing', $stored);
+
+        $this->coordinator($this->skillNaming('list_pages'))
+            ->approve($this->grantedEditor(), $uuid, $this->decision(true, 2, 'touch_thing', $stored));
+
+        self::assertTrue($this->resumed, 'the write the run may make was released');
+        $this->assertSettledCompleted($uuid);
+    }
+
+    #[Test]
+    public function aWriteOutsideTheRunsStoredListIsNotReleased(): void
+    {
+        // The other direction: the configuration restricts nothing, but the run
+        // started under a list without `touch_thing`. The stored list decides.
+        $stored = new SkillToolAllowList(['list_pages']);
+        $uuid   = $this->suspendOn('touch_thing', $stored);
+
+        try {
+            $this->coordinator()->approve($this->grantedEditor(), $uuid, $this->decision(true, 2, 'touch_thing', $stored));
+            self::fail('Expected ApproverNotPermittedException');
+        } catch (ApproverNotPermittedException $exception) {
+            self::assertStringContainsString('"touch_thing" (' . ToolDenialReason::CONFIGURATION_GROUP->value . ')', $exception->getMessage());
+            $this->assertStillWaiting($uuid);
+        }
+    }
+
     // --- assertions --------------------------------------------------------
 
     /**
@@ -198,9 +236,9 @@ final class ResumeCoordinatorApproverGateTest extends AbstractFunctionalTestCase
         return AiActorContext::serviceAccount('nightly-approver', [ServiceAccountScope::AGENT_APPROVE]);
     }
 
-    private function decision(bool $approved, int $decidedBy, string $tool): ApprovalDecision
+    private function decision(bool $approved, int $decidedBy, string $tool, ?SkillToolAllowList $skillAllowList = null): ApprovalDecision
     {
-        return new ApprovalDecision($approved, $decidedBy, (new PendingTurnDigest())->forState($this->state($tool)));
+        return new ApprovalDecision($approved, $decidedBy, (new PendingTurnDigest())->forState($this->state($tool, $skillAllowList)));
     }
 
     /**
@@ -208,18 +246,29 @@ final class ResumeCoordinatorApproverGateTest extends AbstractFunctionalTestCase
      *
      * @return string the run uuid
      */
-    private function suspendOn(string $tool): string
+    private function suspendOn(string $tool, ?SkillToolAllowList $skillAllowList = null): string
     {
         $handle = $this->persister->begin(null, 1);
         self::assertNotNull($handle);
-        self::assertTrue($this->persister->suspend($handle, $this->state($tool)));
+        self::assertTrue($this->persister->suspend($handle, $this->state($tool, $skillAllowList)));
 
         return $handle->uuid;
     }
 
-    private function state(string $tool): SuspendedRunState
+    private function state(string $tool, ?SkillToolAllowList $skillAllowList = null): SuspendedRunState
     {
-        return new SuspendedRunState([], [ToolCall::function('c1', $tool, ['uid' => 42])->toArray()], 1, 0, 0);
+        return new SuspendedRunState([], [ToolCall::function('c1', $tool, ['uid' => 42])->toArray()], 1, 0, 0, skillAllowList: $skillAllowList);
+    }
+
+    private function skillNaming(string ...$tools): Skill
+    {
+        $skill = new Skill();
+        $skill->setSource(1);
+        $skill->setIdentifier('attached');
+        $skill->setAllowedTools((string)json_encode($tools));
+        $skill->setEnabled(true);
+
+        return $skill;
     }
 
     /**
@@ -227,7 +276,7 @@ final class ResumeCoordinatorApproverGateTest extends AbstractFunctionalTestCase
      * the tool loop and the configuration lookup are doubled (this test is about
      * who may release a call, not about what the call does).
      */
-    private function coordinator(): ResumeCoordinator
+    private function coordinator(?Skill $attached = null): ResumeCoordinator
     {
         $registry = new ToolRegistry([
             new FakeTool('delete_thing', requiresAdmin: true, effect: ToolEffect::NON_IDEMPOTENT_WRITE),
@@ -245,7 +294,7 @@ final class ResumeCoordinatorApproverGateTest extends AbstractFunctionalTestCase
         );
 
         $configurationRepository = self::createStub(LlmConfigurationRepository::class);
-        $configurationRepository->method('findByUid')->willReturn($this->localConfiguration());
+        $configurationRepository->method('findByUid')->willReturn($this->localConfiguration($attached));
 
         $loop = $this->toolLoop();
 
@@ -288,7 +337,7 @@ final class ResumeCoordinatorApproverGateTest extends AbstractFunctionalTestCase
      * are about the admin axis (see ToolLoopServiceBuiltinTest for the same
      * reasoning).
      */
-    private function localConfiguration(): LlmConfiguration
+    private function localConfiguration(?Skill $attached = null): LlmConfiguration
     {
         $provider = new Provider();
         $provider->setTrustZoneEnum(TrustZone::LOCAL);
@@ -299,6 +348,9 @@ final class ResumeCoordinatorApproverGateTest extends AbstractFunctionalTestCase
         $configuration = new LlmConfiguration();
         $configuration->setIdentifier('cfg-approver-gate');
         $configuration->setLlmModel($model);
+        if ($attached instanceof Skill) {
+            $configuration->addSkill($attached);
+        }
 
         return $configuration;
     }

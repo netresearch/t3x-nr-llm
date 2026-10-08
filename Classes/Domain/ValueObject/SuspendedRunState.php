@@ -36,6 +36,12 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  * that produced them — without them a reasoning model resumes without its
  * reasoning (ADR-203).
  *
+ * It also carries the run's skill allow-list as resolved at run start
+ * (ADR-038 item 5), so a resume holds the run to it instead of re-deriving it
+ * from the configuration alone (ADR-165 re-gates a resumed run). A state
+ * persisted before the field existed rehydrates without it, and the resume then
+ * takes the live list as before.
+ *
  * @api
  */
 final readonly class SuspendedRunState
@@ -51,6 +57,7 @@ final readonly class SuspendedRunState
      * @param list<int>                                                                $forcedSnippetUids the run's per-run forced snippets, so resume re-applies the ADR-164 ceiling to them (ADR-165); `[]` for a run that forced none
      * @param list<int>                                                                $forcedSkillUids   the run's per-run forced skills, same reason
      * @param list<int>                                                                $staleCallIndexes  indexes into `$pendingCalls` whose preview no longer matches the record (ADR-184); `[]` on a first suspension, non-empty only on one re-suspended because an approved call's subject moved
+     * @param SkillToolAllowList|null                                                  $skillAllowList    the run's skill allow-list as resolved at run start (ADR-038 item 5), the upper bound a resume intersects the live list with; null only on a state persisted before the field existed
      */
     public function __construct(
         public array $messages,
@@ -66,10 +73,11 @@ final readonly class SuspendedRunState
         public array $forcedSnippetUids = [],
         public array $forcedSkillUids = [],
         public array $staleCallIndexes = [],
+        public ?SkillToolAllowList $skillAllowList = null,
     ) {}
 
     /**
-     * @return array{messages: list<array<string, mixed>>, pendingCalls: list<array<string, mixed>>, iterations: int, promptTokens: int, completionTokens: int, allowedToolNames: list<string>|null, options: array<string, mixed>, inputToolName: string|null, inputSchema: array<string, mixed>, callPreviews: list<array{index: int, tool: string, lines: list<string>, failed: bool}>, forcedSnippetUids: list<int>, forcedSkillUids: list<int>, staleCallIndexes: list<int>}
+     * @return array{messages: list<array<string, mixed>>, pendingCalls: list<array<string, mixed>>, iterations: int, promptTokens: int, completionTokens: int, allowedToolNames: list<string>|null, options: array<string, mixed>, inputToolName: string|null, inputSchema: array<string, mixed>, callPreviews: list<array{index: int, tool: string, lines: list<string>, failed: bool}>, forcedSnippetUids: list<int>, forcedSkillUids: list<int>, staleCallIndexes: list<int>, skillAllowList: array{toolNames: list<string>|null}|null}
      */
     public function toArray(): array
     {
@@ -87,6 +95,11 @@ final readonly class SuspendedRunState
             'forcedSnippetUids' => $this->forcedSnippetUids,
             'forcedSkillUids'   => $this->forcedSkillUids,
             'staleCallIndexes'  => $this->staleCallIndexes,
+            // Wrapped, so "the run resolved no restriction" (toolNames null)
+            // stays distinguishable from "no list was recorded" (the key null).
+            'skillAllowList' => $this->skillAllowList instanceof SkillToolAllowList
+                ? ['toolNames' => $this->skillAllowList->toolNames]
+                : null,
         ];
     }
 
@@ -142,7 +155,37 @@ final readonly class SuspendedRunState
             // index that moved would mark the wrong call as stale. An index
             // whose call did not survive is dropped rather than clamped.
             self::staleFrom($data['staleCallIndexes'] ?? null, self::survivingIndexMap($rawPendingCalls)),
+            self::skillAllowListFrom($data['skillAllowList'] ?? null),
         );
+    }
+
+    /**
+     * The persisted skill allow-list (ADR-038 item 5).
+     *
+     * A missing or non-array value is a state persisted before the field
+     * existed: null, and the resume takes the live list as it did then. A
+     * recorded list keeps the difference between `[]` (no tools) and null (no
+     * restriction) — collapsing `[]` to null here would widen a run that may
+     * call nothing to every tool. A recorded value that is neither degrades to
+     * `[]`, the narrow side: the field is written only by the loop, so a
+     * malformed one has been tampered with or truncated, and must not grant.
+     */
+    private static function skillAllowListFrom(mixed $raw): ?SkillToolAllowList
+    {
+        if (!is_array($raw)) {
+            return null;
+        }
+
+        $names = $raw['toolNames'] ?? null;
+        if ($names === null && array_key_exists('toolNames', $raw)) {
+            return new SkillToolAllowList(null);
+        }
+
+        if (!is_array($names)) {
+            return new SkillToolAllowList([]);
+        }
+
+        return new SkillToolAllowList(array_values(array_filter($names, is_string(...))));
     }
 
     /**

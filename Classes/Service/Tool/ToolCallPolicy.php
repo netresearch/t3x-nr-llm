@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Enum\ToolDenialReason;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
@@ -49,15 +50,37 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
         private DataClassEnforcementResolver $enforcement,
     ) {}
 
-    public function decide(string $toolName, LlmConfiguration $configuration, ?BackendUserAuthentication $user): ToolPolicyDecision
+    public function decide(string $toolName, LlmConfiguration $configuration, ?BackendUserAuthentication $user, ?SkillToolAllowList $runAllowList = null): ToolPolicyDecision
     {
         return $this->decideAgainst(
             $toolName,
             $configuration,
             $user,
             $this->availability->enabledNames(),
-            $this->allowedTools->resolve($configuration),
+            $this->configurationAllowed($configuration, $runAllowList),
         );
+    }
+
+    public function skillAllowListForRun(LlmConfiguration $configuration, array $forcedSkills = []): SkillToolAllowList
+    {
+        return $this->allowedTools->resolveForRun($configuration, $forcedSkills);
+    }
+
+    /**
+     * Gate 4's list: the run's stored skill list with the live group gate on
+     * top, or — for a caller with no run — the configuration-only resolution.
+     *
+     * The run's list is not re-derived from the configuration here. Doing so
+     * left out the run's forced skills, so their declarations restricted
+     * nothing at run time (ADR-038 item 5).
+     *
+     * @return list<string>|null
+     */
+    private function configurationAllowed(LlmConfiguration $configuration, ?SkillToolAllowList $runAllowList): ?array
+    {
+        return $runAllowList instanceof SkillToolAllowList
+            ? $this->allowedTools->applyGroupGateTo($runAllowList, $configuration)
+            : $this->allowedTools->resolve($configuration);
     }
 
     /**
@@ -124,10 +147,10 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
         return new ToolPolicyDecision($toolName, true, $dataClass, $zone, $ceiling);
     }
 
-    public function filterOfferable(?array $requested, LlmConfiguration $configuration, ?BackendUserAuthentication $user): array
+    public function filterOfferable(?array $requested, LlmConfiguration $configuration, ?BackendUserAuthentication $user, ?SkillToolAllowList $runAllowList = null): array
     {
         $offerable = [];
-        foreach ($this->explain($requested, $configuration, $user) as $decision) {
+        foreach ($this->explain($requested, $configuration, $user, $runAllowList) as $decision) {
             if ($decision->allowed) {
                 $offerable[] = $decision->toolName;
             }
@@ -136,10 +159,10 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
         return $offerable;
     }
 
-    public function explain(?array $requested, LlmConfiguration $configuration, ?BackendUserAuthentication $user): array
+    public function explain(?array $requested, LlmConfiguration $configuration, ?BackendUserAuthentication $user, ?SkillToolAllowList $runAllowList = null): array
     {
         $enabled              = $this->availability->enabledNames();
-        $configurationAllowed = $this->allowedTools->resolve($configuration);
+        $configurationAllowed = $this->configurationAllowed($configuration, $runAllowList);
 
         return array_values(array_map(
             fn(string $name): ToolPolicyDecision => $this->decideAgainst($name, $configuration, $user, $enabled, $configurationAllowed),

@@ -227,7 +227,8 @@ final readonly class EditorActionCatalogue implements EditorActionCatalogueInter
         $offers = [];
         foreach ($declarations as $toolName => $action) {
             // The tool gate, asked per tool. Never re-derived here: a hand-rolled
-            // "is it enabled" would be the fourth copy of a five-part rule.
+            // "is it enabled" would be the fourth copy of a five-part rule. No
+            // run exists yet, so the skill allow-list is the configuration's.
             if (!$this->policy->decide($toolName, $configuration, $user)->allowed) {
                 continue;
             }

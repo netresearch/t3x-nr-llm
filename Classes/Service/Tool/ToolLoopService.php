@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
+use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocation;
@@ -217,6 +218,29 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     }
 
     /**
+     * The skill allow-list a resumed run is held to: the list stored at run
+     * start intersected with the live one (ADR-038 item 5, re-gated as ADR-165
+     * re-gates the forced set).
+     *
+     * The live list is taken over the run's own skill set — the
+     * configuration's attachments plus the forced skills re-read by their
+     * stored uids — so a forced skill's tools survive the resume. The stored
+     * list stays the upper bound: a change while the run waited can take tools
+     * away, never add one. In particular a live list that resolves to null
+     * because the only declaring skill was disabled meanwhile keeps the stored
+     * list instead of widening the run to every tool.
+     *
+     * A state persisted before the list was stored carries none; the live list
+     * then applies on its own, as before.
+     */
+    private function resumedSkillAllowList(SuspendedRunState $state, LlmConfiguration $configuration, ?RunAugmentation $augmentation): SkillToolAllowList
+    {
+        $live = $this->toolPolicy->skillAllowListForRun($configuration, $augmentation->forcedSkills ?? []);
+
+        return $state->skillAllowList instanceof SkillToolAllowList ? $state->skillAllowList->intersect($live) : $live;
+    }
+
+    /**
      * Run the bounded agent loop and return its outcome.
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
@@ -244,6 +268,54 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         int $seedIterations = 0,
         int $seedPromptTokens = 0,
         int $seedCompletionTokens = 0,
+    ): ToolLoopResult {
+        return $this->loop(
+            $messages,
+            $configuration,
+            $context,
+            $allowedToolNames,
+            $options,
+            $maxIterations,
+            $runTrace,
+            $augmentation,
+            $skipAssembly,
+            $seedIterations,
+            $seedPromptTokens,
+            $seedCompletionTokens,
+            // The run starts here, so its skill allow-list is resolved here,
+            // once, over the configuration's skills AND the forced ones
+            // (ADR-038 item 5). Before, the gate re-derived it from the
+            // configuration alone on every decision, and a forced skill's
+            // declaration restricted nothing.
+            $this->toolPolicy->skillAllowListForRun($configuration, $augmentation->forcedSkills ?? []),
+        );
+    }
+
+    /**
+     * The loop itself, held to the run's skill allow-list.
+     *
+     * {@see self::runLoop()} resolves that list at run start; the two resume
+     * paths pass the stored list intersected with the live one instead, so a
+     * resumed run, and any suspension inside its continuation, keeps the
+     * start-time list as its upper bound.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<string>|null                      $allowedToolNames
+     */
+    private function loop(
+        array $messages,
+        LlmConfiguration $configuration,
+        ToolExecutionContext $context,
+        ?array $allowedToolNames,
+        ?ToolOptions $options,
+        ?int $maxIterations,
+        ?RunTrace $runTrace,
+        ?RunAugmentation $augmentation,
+        bool $skipAssembly,
+        int $seedIterations,
+        int $seedPromptTokens,
+        int $seedCompletionTokens,
+        SkillToolAllowList $skillAllowList,
     ): ToolLoopResult {
         // Every transcript enters here — a fresh run, a queued one read back
         // from the database, and both resume paths — so this is the one place
@@ -291,7 +363,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             return new ToolLoopResult('', [], 0, false, UsageStatistics::fromTokens(0, 0));
         }
 
-        $effective = $this->resolveOfferedNames($allowedToolNames, $configuration, $context);
+        $effective = $this->resolveOfferedNames($allowedToolNames, $configuration, $context, $skillAllowList);
         $specs     = $this->registry->specs($effective);
 
         // No tools offered (an empty allow-list, or nothing registered): a tools
@@ -428,6 +500,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                             // re-applies the ADR-164 ceiling to it (ADR-165).
                             forcedSnippetUids: $this->uidsOf($augmentation->forcedSnippets ?? []),
                             forcedSkillUids: $this->uidsOf($augmentation->forcedSkills ?? []),
+                            // The list this segment ran under — on a resumed run
+                            // already intersected — so the next resume keeps it
+                            // as its upper bound (ADR-038 item 5).
+                            skillAllowList: $skillAllowList,
                         ));
                     }
                 }
@@ -464,6 +540,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                             inputSchema: $schema,
                             forcedSnippetUids: $this->uidsOf($augmentation->forcedSnippets ?? []),
                             forcedSkillUids: $this->uidsOf($augmentation->forcedSkills ?? []),
+                            // The list this segment ran under — on a resumed run
+                            // already intersected — so the next resume keeps it
+                            // as its upper bound (ADR-038 item 5).
+                            skillAllowList: $skillAllowList,
                         ));
                     }
                 }
@@ -658,10 +738,14 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // resumed continuation is budget-checked — the uid is intentionally not
         // part of the persisted options (ADR-084).
         $options = $this->restoreCallerSource(ToolOptions::fromArray($state->options, $beUserUid), $state->options);
+        // Rebuilt from the persisted uids, not carried in memory: a resume runs
+        // in a different process from the suspend (ADR-165).
+        $augmentation   = $this->augmentationFrom($state);
+        $skillAllowList = $this->resumedSkillAllowList($state, $configuration, $augmentation);
         // Re-apply the gate NOW (a tool may have been disabled or restricted while
         // the run was suspended) rather than trusting the names captured at
         // suspend time.
-        $offered     = $this->resolveOfferedNames($state->allowedToolNames, $configuration, $context);
+        $offered     = $this->resolveOfferedNames($state->allowedToolNames, $configuration, $context, $skillAllowList);
         $remoteCalls = new RemoteCallBudget();
 
         // ADR-184: an approval is a decision about the state the preview showed.
@@ -707,7 +791,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // Seed the loop with the pre-suspend counters so the returned totals span
         // the whole run — and a further suspend inside the continuation persists
         // the running total, not just its own segment (ADR-084).
-        return $this->runLoop(
+        return $this->loop(
             $messages,
             $configuration,
             $context,
@@ -715,13 +799,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $options,
             $maxIterations,
             $runTrace,
-            // Rebuilt from the persisted uids, not carried in memory: a resume
-            // runs in a different process from the suspend (ADR-165).
-            $this->augmentationFrom($state),
+            $augmentation,
             true,
             $state->iterations,
             $state->promptTokens,
             $state->completionTokens,
+            $skillAllowList,
         );
     }
 
@@ -807,8 +890,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         $messages     = $state->messages;
         $pendingCalls = $state->toolCalls();
         $options      = $this->restoreCallerSource(ToolOptions::fromArray($state->options, $beUserUid), $state->options);
-        $offered      = $this->resolveOfferedNames($state->allowedToolNames, $configuration, $context);
-        $remoteCalls  = new RemoteCallBudget();
+        $augmentation   = $this->augmentationFrom($state);
+        $skillAllowList = $this->resumedSkillAllowList($state, $configuration, $augmentation);
+        $offered        = $this->resolveOfferedNames($state->allowedToolNames, $configuration, $context, $skillAllowList);
+        $remoteCalls    = new RemoteCallBudget();
 
         foreach ($pendingCalls as $call) {
             if (!in_array($call->name, $offered, true)) {
@@ -876,7 +961,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $messages[] = ChatMessage::toolResult($call->id, $result);
         }
 
-        return $this->runLoop(
+        return $this->loop(
             $messages,
             $configuration,
             $context,
@@ -884,13 +969,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $options,
             $maxIterations,
             $runTrace,
-            // Rebuilt from the persisted uids, not carried in memory: a resume
-            // runs in a different process from the suspend (ADR-165).
-            $this->augmentationFrom($state),
+            $augmentation,
             true,
             $state->iterations,
             $state->promptTokens,
             $state->completionTokens,
+            $skillAllowList,
         );
     }
 
@@ -1161,11 +1245,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      *
      * @return list<string>
      */
-    private function resolveOfferedNames(?array $allowedToolNames, LlmConfiguration $configuration, ToolExecutionContext $context): array
+    private function resolveOfferedNames(?array $allowedToolNames, LlmConfiguration $configuration, ToolExecutionContext $context, SkillToolAllowList $skillAllowList): array
     {
         $user = $context->actingBackendUser();
 
-        foreach ($this->toolPolicy->explain($allowedToolNames, $configuration, $user) as $decision) {
+        foreach ($this->toolPolicy->explain($allowedToolNames, $configuration, $user, $skillAllowList) as $decision) {
             if (!$decision->allowed || $decision->observedOnly) {
                 $this->logger?->info('Tool gate: ' . $decision->message(), [
                     'tool'   => $decision->toolName,
@@ -1202,7 +1286,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             }
         }
 
-        return $this->toolPolicy->filterOfferable($allowedToolNames, $configuration, $user);
+        return $this->toolPolicy->filterOfferable($allowedToolNames, $configuration, $user, $skillAllowList);
     }
 
     /**

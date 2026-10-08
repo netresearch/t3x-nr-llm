@@ -8,6 +8,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **A run's skill allow-list as a value (ADR-038 item 5).** `Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList` (`@api`) holds the union of the `allowed-tools` declarations a run resolved at its start; `null` names no restriction. `ToolCallPolicyInterface::decide()`, `explain()` and `filterOfferable()` take it as an optional last argument, and `skillAllowListForRun()` resolves it over the configuration's skills and the run's forced skills. Without the argument the policy keeps the configuration-only resolution. `SuspendedRunState` gains the optional `skillAllowList`. The API surface snapshot gains these lines.
+
+### Fixed
+
+- **A forced skill's `allowed-tools` restricts the run (ADR-038 item 5).** The tool gate resolved the skill allow-list from the configuration's skills alone, so a skill forced on a run in the playground or through a queued run's augmentation offered and permitted every tool its declaration left out. The list is now resolved once at run start over the configuration's and the forced skills and enforced when tools are offered and when a call executes.
+- **A resumed run never gains tools through the skill allow-list (ADR-165).** A resume re-derived the list from the live configuration, so a run whose only declaring skill was disabled while it waited resumed with every tool. The suspended state now stores the run's list; a resume intersects it with the live list, so a change while the run waits can take tools away but not add any. The approver and submitter gate asks with the stored list. A run suspended before this release has no stored list and resumes with the live one, as before.
+
 ## [0.40.0] - 2026-10-08
 
 ### Upgrading from 0.39

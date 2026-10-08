@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Skill;
+use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
@@ -22,11 +24,18 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * 1. the tool is registered;
  * 2. it and its group are globally enabled;
  * 3. the acting user may use it (admin-only tools need an admin);
- * 4. its group is within the configuration's allowed tool groups;
+ * 4. it is within the run's skill allow-list (ADR-038 item 5) and its group
+ *    within the configuration's allowed tool groups;
  * 5. its data class is within the ceiling of the trust zone the run can reach.
  *
  * Consumers ask this rather than re-deriving the rules, so a new entry point
  * cannot accidentally ship with four of the five.
+ *
+ * Gate 4 takes the run's skill allow-list when the caller has a run: resolved
+ * once at run start by {@see self::skillAllowListForRun()}, stored with the
+ * run, and passed back on every decision. A caller with no run passes none and
+ * gets the configuration-only list — the configuration's attached skills, no
+ * forced ones.
  *
  * @api
  */
@@ -36,7 +45,7 @@ interface ToolCallPolicyInterface
      * Evaluate every gate for one tool and report the outcome, including why it
      * was denied.
      */
-    public function decide(string $toolName, LlmConfiguration $configuration, ?BackendUserAuthentication $user): ToolPolicyDecision;
+    public function decide(string $toolName, LlmConfiguration $configuration, ?BackendUserAuthentication $user, ?SkillToolAllowList $runAllowList = null): ToolPolicyDecision;
 
     /**
      * The tools that may be offered to a run.
@@ -45,7 +54,7 @@ interface ToolCallPolicyInterface
      *
      * @return list<string>
      */
-    public function filterOfferable(?array $requested, LlmConfiguration $configuration, ?BackendUserAuthentication $user): array;
+    public function filterOfferable(?array $requested, LlmConfiguration $configuration, ?BackendUserAuthentication $user, ?SkillToolAllowList $runAllowList = null): array;
 
     /**
      * The decisions for every tool the caller asked for, allowed or not — the
@@ -55,5 +64,15 @@ interface ToolCallPolicyInterface
      *
      * @return list<ToolPolicyDecision>
      */
-    public function explain(?array $requested, LlmConfiguration $configuration, ?BackendUserAuthentication $user): array;
+    public function explain(?array $requested, LlmConfiguration $configuration, ?BackendUserAuthentication $user, ?SkillToolAllowList $runAllowList = null): array;
+
+    /**
+     * The skill allow-list of a run that starts now: the union of the
+     * `allowed-tools` declarations over the configuration's attached skills
+     * and the run's forced skills (ADR-038 item 5). The caller stores it with
+     * the run and passes it to every decision for that run.
+     *
+     * @param list<Skill> $forcedSkills
+     */
+    public function skillAllowListForRun(LlmConfiguration $configuration, array $forcedSkills = []): SkillToolAllowList;
 }

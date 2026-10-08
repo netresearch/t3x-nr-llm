@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Domain\ValueObject;
 
+use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -153,6 +154,54 @@ final class SuspendedRunStateTest extends TestCase
 
         self::assertSame([], $restored->forcedSnippetUids);
         self::assertSame([], $restored->forcedSkillUids);
+    }
+
+    /**
+     * @return iterable<string, array{list<string>|null}>
+     */
+    public static function storedSkillAllowLists(): iterable
+    {
+        yield 'a declared list' => [['read_a', 'approve']];
+        yield 'an empty list: no tools at all' => [[]];
+        yield 'no restriction' => [null];
+    }
+
+    /**
+     * @param list<string>|null $toolNames
+     */
+    #[Test]
+    #[DataProvider('storedSkillAllowLists')]
+    public function theSkillAllowListSurvivesTheRoundTrip(?array $toolNames): void
+    {
+        // ADR-038 item 5. `[]` must come back as `[]`: read back as null it
+        // would mean "no restriction" and widen a run that may call nothing to
+        // every tool.
+        $state = new SuspendedRunState([], [], 1, 0, 0, skillAllowList: new SkillToolAllowList($toolNames));
+
+        $decoded = json_decode(json_encode($state->toArray(), JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($decoded);
+
+        /** @var array<string, mixed> $decoded */
+        $restored = SuspendedRunState::fromArray($decoded);
+
+        self::assertInstanceOf(SkillToolAllowList::class, $restored->skillAllowList);
+        self::assertSame($toolNames, $restored->skillAllowList->toolNames);
+    }
+
+    #[Test]
+    public function aRowWrittenBeforeTheSkillAllowListWasStoredRehydratesWithoutIt(): void
+    {
+        self::assertNull(SuspendedRunState::fromArray(['messages' => [], 'pendingCalls' => []])->skillAllowList);
+        self::assertNull((new SuspendedRunState([], [], 1, 0, 0))->toArray()['skillAllowList']);
+    }
+
+    #[Test]
+    public function aMalformedStoredSkillAllowListGrantsNothing(): void
+    {
+        $restored = SuspendedRunState::fromArray(['skillAllowList' => ['toolNames' => 'read_a']]);
+
+        self::assertInstanceOf(SkillToolAllowList::class, $restored->skillAllowList);
+        self::assertSame([], $restored->skillAllowList->toolNames);
     }
 
     #[Test]

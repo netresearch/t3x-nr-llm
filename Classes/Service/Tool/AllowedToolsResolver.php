@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\Task;
+use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 
 /**
@@ -33,6 +34,13 @@ use Netresearch\NrLlm\Service\Skill\SkillComposer;
  * budget here is deliberately NOT done — dropping the last declaring skill would
  * make this return null ("no restriction", i.e. every registered tool), so a
  * tighter budget would widen the gate instead of narrowing it.
+ *
+ * Two entry points. {@see self::resolveForRun()} is the run's list: taken over
+ * the configuration's attachments AND the run's forced skills, the same set
+ * {@see ToolLoopService} injects, and without the group gate, because the run
+ * stores it and the group gate is re-read live on every decision.
+ * {@see self::resolve()} is the configuration-only answer for a caller that has
+ * no run — the tool explanation in the backend, the governance simulation.
  */
 final readonly class AllowedToolsResolver
 {
@@ -42,16 +50,59 @@ final readonly class AllowedToolsResolver
     ) {}
 
     /**
+     * The configuration-only allow-list, group gate applied — for a caller with
+     * no run. A run resolves its own list once with {@see self::resolveForRun()}.
+     *
      * @return list<string>|null null = no declaring skill (all tools); a list = the declared union
      */
     public function resolve(LlmConfiguration $config, ?Task $task = null): ?array
     {
-        $configSkills = $this->toList($config->getSkills());
-        $taskSkills   = $task instanceof Task ? $this->toList($task->getSkills()) : [];
+        $taskSkills = $task instanceof Task ? $this->toList($task->getSkills()) : [];
 
+        return $this->applyGroupGate($this->declaredUnion($config, $taskSkills), $config->getAllowedToolGroupsList());
+    }
+
+    /**
+     * The run's skill allow-list (ADR-038 item 5): the union over every
+     * effective skill the run carries, resolved once at run start.
+     *
+     * `$runSkills` are the run's forced skills. They take the same slot the
+     * injection path gives them ({@see SkillComposer::effectiveSkills()}'s second
+     * argument), so the prose that reaches the prompt and the tools it may call
+     * stay one selection. The group gate is NOT applied here: the list is stored
+     * with the run, and the group gate is re-read live through
+     * {@see self::applyGroupGateTo()}.
+     *
+     * @param list<Skill> $runSkills
+     */
+    public function resolveForRun(LlmConfiguration $config, array $runSkills, ?Task $task = null): SkillToolAllowList
+    {
+        $taskSkills = $task instanceof Task ? $this->toList($task->getSkills()) : [];
+
+        return new SkillToolAllowList($this->declaredUnion($config, [...$taskSkills, ...$runSkills]));
+    }
+
+    /**
+     * A run's stored skill list with the configuration's live group gate on
+     * top — the allow-list {@see ToolCallPolicy} enforces for that run.
+     *
+     * @return list<string>|null
+     */
+    public function applyGroupGateTo(SkillToolAllowList $list, LlmConfiguration $config): ?array
+    {
+        return $this->applyGroupGate($list->toolNames, $config->getAllowedToolGroupsList());
+    }
+
+    /**
+     * @param list<Skill> $additionalSkills
+     *
+     * @return list<string>|null
+     */
+    private function declaredUnion(LlmConfiguration $config, array $additionalSkills): ?array
+    {
         $declared = [];
         $any      = false;
-        foreach ($this->composer->effectiveSkills($configSkills, $taskSkills) as $skill) {
+        foreach ($this->composer->effectiveSkills($this->toList($config->getSkills()), $additionalSkills) as $skill) {
             $list = $skill->getAllowedToolsList();
             if ($list === null) {
                 continue;
@@ -63,9 +114,7 @@ final readonly class AllowedToolsResolver
             }
         }
 
-        $names = $any ? array_keys($declared) : null;
-
-        return $this->applyGroupGate($names, $config->getAllowedToolGroupsList());
+        return $any ? array_keys($declared) : null;
     }
 
     /**
