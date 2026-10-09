@@ -10,6 +10,7 @@ namespace Netresearch\NrLlm\Service\Evaluation;
 
 use InvalidArgumentException;
 use JsonException;
+use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
@@ -199,13 +200,16 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
 
     private function encodeDetails(SetEvaluationResult $result): string
     {
-        $details = $result->retrieval instanceof RetrievalSetEvaluationResult ? array_map(
-            static fn(QuestionEvaluation $evaluation): array => $evaluation->toArray(),
-            $result->retrieval->evaluations,
-        ) : array_map(
-            static fn(PromptEvaluation $evaluation): array => $evaluation->toArray(),
-            $result->evaluations,
-        );
+        if ($result->retrieval instanceof RetrievalSetEvaluationResult) {
+            $mapper = $this->privacyPolicy->level() === PrivacyLevel::FULL ? $this->losslessRetrievalDetails(...) : static fn(QuestionEvaluation $evaluation): array => $evaluation->toArray();
+            $details = array_map($mapper, $result->retrieval->evaluations);
+        } else {
+            $details = array_map(
+                static fn(PromptEvaluation $evaluation): array => $evaluation->toArray(),
+                $result->evaluations,
+            );
+        }
+
         return json_encode($details, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
     }
 
@@ -268,5 +272,46 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
             $decoded['pipelineIdentity'],
             $execution,
         );
+    }
+
+    /**
+     * Ordinary UTF-8 fields retain their existing JSON shape; legacy bytes are tagged only at FULL privacy.
+     *
+     * @return array<string, mixed>
+     */
+    private function losslessRetrievalDetails(QuestionEvaluation $evaluation): array
+    {
+        return array_replace(
+            $evaluation->toArray(),
+            [
+                'questionId' => $this->losslessRetrievalString($evaluation->questionId),
+                'hardClass' => $evaluation->hardClass === null ? null : $this->losslessRetrievalString($evaluation->hardClass),
+                'retrievedDocumentIds' => array_map($this->losslessRetrievalString(...), $evaluation->retrievedDocumentIds),
+            ],
+        );
+    }
+
+    /**
+     * Filter original invalid UTF-8 bytes before encoding; custom FULL policies can scrub or drop them.
+     * The complete JSON payload separately passes the existing filter in save().
+     *
+     * @return string|array{encoding: string, version: string, value: string}|null
+     */
+    private function losslessRetrievalString(string $value): string|array|null
+    {
+        if (preg_match('//u', $value) === 1) {
+            return $value;
+        }
+
+        $permitted = $this->privacyPolicy->filterContent($value);
+        if ($permitted === null || preg_match('//u', $permitted) === 1) {
+            return $permitted;
+        }
+
+        return [
+            'encoding' => 'base64',
+            'version' => 'retrieval-bytes-v1',
+            'value' => base64_encode($permitted),
+        ];
     }
 }

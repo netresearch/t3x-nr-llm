@@ -92,3 +92,31 @@ without asking the consumer to provide them.
 
 See :ref:`developer-quality-evaluation-retrieval` for command behavior,
 privacy, retention and the transition from legacy baselines.
+
+Legacy bytes in persisted details
+=================================
+
+The permitted ``details`` snapshot remains a JSON list of question records.
+Ordinary UTF-8 question ids, hard classes and document ids remain strings;
+prompt evaluation details keep their existing format. At ``FULL`` privacy,
+a permitted string containing invalid UTF-8 uses this tagged representation:
+
+.. code-block:: json
+   :caption: A document id whose original bytes end in 0xff
+
+    {"encoding": "base64", "version": "retrieval-bytes-v1", "value": "ZG9j/w=="}
+
+The tag can occur in ``questionId``, ``hardClass`` or an element of
+``retrievedDocumentIds``. Decode only the recognized version and encoding
+using strict Base64 decoding. It preserves the measured byte sequence and
+distinct ranking, without inferring a character encoding. No new details
+read API is introduced; the repository still returns aggregate summaries.
+
+Before encoding an invalid UTF-8 value, the original bytes pass through
+``PrivacyPolicyInterface::filterContent()``. A custom policy can replace
+them with an ordinary string or drop the field to ``null``. The complete
+JSON payload then passes through the existing outer privacy filter.
+``REDACTED`` never uses this tag; it keeps the existing scrubbed JSON
+representation, including UTF-8 substitution. ``NONE`` and ``METADATA``
+drop the entire detail payload. Encoding never hides original values from
+a policy that must scrub or drop them.

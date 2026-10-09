@@ -8,6 +8,7 @@ declare (strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Evaluation;
 
+use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Enum\QuestionForm;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepository;
 use Netresearch\NrLlm\Service\Evaluation\GoldenQuestion;
@@ -23,6 +24,7 @@ use Netresearch\NrLlm\Service\Evaluation\RetrievalSetEvaluationResult;
 use Netresearch\NrLlm\Service\Evaluation\SetEvaluationResult;
 use Netresearch\NrLlm\Service\Privacy\ContentRedactor;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicy;
+use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -434,5 +436,192 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
             self::assertNotNull($summary);
             self::assertNull($summary->retrievalProvenance, $metadata);
         }
+    }
+
+    private function byteRetrievalResult(string $firstId = "doc\xff"): SetEvaluationResult
+    {
+        return (new RetrievalSetEvaluationResult(
+            self::BYTE_SET,
+            'test.retriever',
+            [
+                new QuestionEvaluation(
+                    "question\xff",
+                    QuestionForm::MATCH,
+                    "class\xfe",
+                    true,
+                    true,
+                    [$firstId, "doc\xfe", 'doc-c'],
+                    7,
+                ),
+            ],
+            1700000000,
+        ))->toSetEvaluationResult();
+    }
+
+    private function storedByteDetails(): string
+    {
+        $row = $this
+            ->get(ConnectionPool::class)
+            ->getConnectionForTable(self::TABLE)
+            ->select(['details'], self::TABLE, ['set_identifier' => self::BYTE_SET])
+            ->fetchAssociative();
+        self::assertIsArray($row);
+        self::assertIsString($row['details']);
+        return $row['details'];
+    }
+
+    /**
+     * The lossless versioned persisted representation of an invalid UTF-8 field.
+     *
+     * @return array{encoding: string, version: string, value: string}
+     */
+    private function encodedBytes(string $value): array
+    {
+        return [
+            'encoding' => 'base64',
+            'version' => 'retrieval-bytes-v1',
+            'value' => base64_encode($value),
+        ];
+    }
+
+    #[Test]
+    public function fullRetrievalDetailsPreserveLegacyByteFieldsAndDistinctTopThree(): void
+    {
+        $result = $this->byteRetrievalResult();
+        $this->repository->save($result);
+        $details = json_decode($this->storedByteDetails(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(
+            [
+                [
+                    'questionId' => $this->encodedBytes("question\xff"),
+                    'form' => 'match',
+                    'hardClass' => $this->encodedBytes("class\xfe"),
+                    'top1Hit' => true,
+                    'top3Hit' => true,
+                    'retrievedDocumentIds' => [$this->encodedBytes("doc\xff"), $this->encodedBytes("doc\xfe"), 'doc-c'],
+                    'latencyMs' => 7,
+                ],
+            ],
+            $details,
+        );
+    }
+
+    #[Test]
+    public function restrictedPrivacyNeverPersistsEncodedLegacyByteSecrets(): void
+    {
+        $secret = self::BYTE_EMAIL . "\xff";
+        foreach (['redacted', 'none', 'metadata'] as $level) {
+            $connection = $this->get(ConnectionPool::class)->getConnectionForTable(self::TABLE);
+            $connection->delete(self::TABLE, ['set_identifier' => self::BYTE_SET]);
+            $repository = new EvaluationResultRepository($this->get(ConnectionPool::class), $this->policy($level));
+            $repository->save($this->byteRetrievalResult($secret));
+            $details = $this->storedByteDetails();
+            self::assertStringNotContainsString(self::BYTE_EMAIL, $details, $level);
+            self::assertStringNotContainsString(base64_encode($secret), $details, $level);
+            self::assertStringNotContainsString('retrieval-bytes-v1', $details, $level);
+            if ($level === 'redacted') {
+                self::assertStringContainsString('***', $details);
+            } else {
+                self::assertSame('', $details);
+            }
+        }
+    }
+
+    #[Test]
+    public function customFullPolicyScrubsOriginalBytesBeforeTheirEncoding(): void
+    {
+        $secret = self::BYTE_EMAIL . "\xff";
+        $seen = [];
+        $policy = self::createStub(PrivacyPolicyInterface::class);
+        $policy->method('level')->willReturn(PrivacyLevel::FULL);
+        $policy
+            ->method('filterContent')
+            ->willReturnCallback(
+                static function (?string $value) use (&$seen): ?string {
+                    $seen[] = $value;
+                    return $value === null ? null : str_replace(self::BYTE_EMAIL, '***', $value);
+                },
+            );
+        $repository = new EvaluationResultRepository($this->get(ConnectionPool::class), $policy);
+        $repository->save($this->byteRetrievalResult($secret));
+
+        $details = $this->storedByteDetails();
+        self::assertContains($secret, $seen);
+        self::assertStringNotContainsString(base64_encode($secret), $details);
+        $stored = json_decode($details, true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($stored);
+        $row = $stored[0] ?? null;
+        self::assertIsArray($row);
+        $ids = $row['retrievedDocumentIds'] ?? null;
+        self::assertIsArray($ids);
+        self::assertSame($this->encodedBytes("***\xff"), $ids[0]);
+    }
+
+    #[Test]
+    public function customFullPolicyCanDropAnOriginalInvalidByteField(): void
+    {
+        $secret = self::BYTE_EMAIL . "\xff";
+        $policy = self::createStub(PrivacyPolicyInterface::class);
+        $policy->method('level')->willReturn(PrivacyLevel::FULL);
+        $policy
+            ->method('filterContent')
+            ->willReturnCallback(static fn(?string $value): ?string => $value === $secret ? null : $value);
+        $repository = new EvaluationResultRepository($this->get(ConnectionPool::class), $policy);
+        $repository->save($this->byteRetrievalResult($secret));
+
+        $details = $this->storedByteDetails();
+        self::assertStringNotContainsString(base64_encode($secret), $details);
+        $stored = json_decode($details, true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($stored);
+        $row = $stored[0] ?? null;
+        self::assertIsArray($row);
+        $ids = $row['retrievedDocumentIds'] ?? null;
+        self::assertIsArray($ids);
+        self::assertNull($ids[0]);
+    }
+
+    #[Test]
+    public function customFullPolicyCanStillDropTheOuterRetrievalPayload(): void
+    {
+        $policy = self::createStub(PrivacyPolicyInterface::class);
+        $policy->method('level')->willReturn(PrivacyLevel::FULL);
+        $policy
+            ->method('filterContent')
+            ->willReturnCallback(
+                static fn(
+                    ?string $value,
+                ): ?string => $value !== null && str_starts_with($value, '[') ? null : $value,
+            );
+        $repository = new EvaluationResultRepository($this->get(ConnectionPool::class), $policy);
+        $repository->save($this->byteRetrievalResult());
+        self::assertSame('', $this->storedByteDetails());
+        self::assertNotNull(
+            $repository->findLatest(
+                self::BYTE_SET,
+                'test.retriever',
+                RetrievalSetEvaluationResult::GRADER_IDENTIFIER,
+            ),
+        );
+    }
+
+    private const BYTE_SET = 'test.byte_details';
+
+    private const BYTE_EMAIL = 'person@example.test';
+
+    #[Test]
+    public function customFullPolicyCanReplaceLegacyBytesWithOrdinaryUtf8(): void
+    {
+        $original = self::BYTE_EMAIL . "\xff";
+        $policy = self::createStub(PrivacyPolicyInterface::class);
+        $policy->method('level')->willReturn(PrivacyLevel::FULL);
+        $policy
+            ->method('filterContent')
+            ->willReturnCallback(static fn(?string $value): ?string => $value === $original ? 'filtered-id' : $value);
+        $repository = new EvaluationResultRepository($this->get(ConnectionPool::class), $policy);
+        $repository->save($this->byteRetrievalResult($original));
+
+        $details = $this->storedByteDetails();
+        self::assertStringNotContainsString(base64_encode($original), $details);
+        self::assertStringContainsString('"retrievedDocumentIds":["filtered-id",', $details);
     }
 }

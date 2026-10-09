@@ -324,3 +324,9 @@ top-three document ids, question form, hard class, hit verdicts and latency;
 they do not preserve the full raw candidate ranking. The existing privacy
 policy filters details: metadata-only drops them while retaining safe
 revision labels and fingerprints. Existing retention removes the whole row.
+
+At full privacy, legacy byte strings in the detail fields use the versioned
+representation documented in :ref:`api-retrieval-provenance`. Ordinary
+UTF-8 records keep their JSON format. The original byte value is filtered
+before encoding, and the complete payload still passes the existing
+privacy filter. Redacted mode does not encode values around its scrubber.
