@@ -146,7 +146,7 @@ final readonly class SkillComposer
                 'key'     => $this->skillKey($skill),
                 'id'      => $skill->getIdentifier(),
                 'name'    => $skill->getName(),
-                'section' => $this->renderSection($skill),
+                'section' => $this->neutralizeInstructionFrame($this->renderSection($skill)),
             ];
         }
 
@@ -284,6 +284,21 @@ final readonly class SkillComposer
             [self::BEGIN_MARKER, self::END_MARKER],
             ['[begin untrusted skill data]', '[end untrusted skill data]'],
             $body,
+        );
+    }
+
+    /**
+     * Defuse the approved-skills heading and preamble in a fenced section, so
+     * untrusted text cannot imitate the frame approved instructions carry
+     * (ADR-214 item 2). Defence in depth: the fenced block stays in the user
+     * turn, behind its markers, whatever it contains.
+     */
+    private function neutralizeInstructionFrame(string $section): string
+    {
+        return str_replace(
+            [self::INSTRUCTION_HEADING, self::INSTRUCTION_PREAMBLE],
+            ['[approved skills heading]', '[approved skills preamble]'],
+            $section,
         );
     }
 

@@ -64,6 +64,12 @@ interface ToolLoopServiceInterface
      *                                                                 {@see self::resume()}, which
      *                                                                 applies the stored list itself;
      *                                                                 `skipAssembly` alone does not.
+     *
+     * `skipAssembly` replays the transcript as given: no skill sections are
+     * composed and no pins are carried, so approved instructions an earlier
+     * run baked into the transcript are not re-checked against revocation
+     * (ADR-214 item 6). A suspended run continues through {@see self::resume()}
+     * or {@see self::resumeWithInput()}, which check the pins it stored.
      */
     public function runLoop(
         array $messages,
