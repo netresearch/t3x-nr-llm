@@ -36,7 +36,7 @@
             <f:if condition="{waiting}">
                 <f:then>
                     <f:for each="{waiting}" as="run">
-                        <f:render partial="Backend/AgentRun/WaitingCard" arguments="{run: run, errorRunUuid: errorRunUuid, rawInput: rawInput, errorSummary: errorSummary}" />
+                        <f:render partial="Backend/AgentRun/WaitingCard" arguments="{run: run, errorRunUuid: errorRunUuid, rawInput: rawInput, errorSummary: errorSummary, decidedInChat: decidedInChat}" />
                     </f:for>
                 </f:then>
                 <f:else>

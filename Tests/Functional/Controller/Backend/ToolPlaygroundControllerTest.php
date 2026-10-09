@@ -27,6 +27,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
+use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
@@ -35,6 +36,9 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
+use Netresearch\NrLlm\Service\Agent\Process\ApprovedProcessPinProbe;
+use Netresearch\NrLlm\Service\Agent\Process\NoProcessPinProbe;
+use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\Context\InputContextClassifier;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
@@ -59,16 +63,19 @@ use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Fixture\GuardrailIdentityDoubleTrait;
+use Netresearch\NrLlm\Tests\Fixtures\Process\ProcessPinProbeStub;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\ApprovalEventFailingRunRepository;
 use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\ScriptedToolAdapter;
 use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
+use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\InMemorySkillApprovalRepository;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeInputTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\PreviewingApprovalTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\RecordingAgentRunRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Log\NullLogger;
 use ReflectionClass;
 use ReflectionMethod;
@@ -1020,6 +1027,222 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $this->assertRunIsDecidableAgain($persister, $uuid);
     }
 
+    /**
+     * ADR-214: both actions accept any run uuid for an administrator, so a
+     * guided process started in the chat would otherwise be decidable here.
+     * Refused with 409 before the runtime is asked — with the right digest, and
+     * on the input path too, which would otherwise answer "not awaiting input"
+     * — and the run stays waiting for its chat card.
+     */
+    #[Test]
+    public function neitherActionDecidesAProcessRun(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        [$controller, $persister, $uuid, $digest] = $this->suspendedApprovalController(processPins: new ProcessPinProbeStub(everyRun: true));
+
+        foreach ([
+            'resume'      => static fn(): ResponseInterface => $controller->resumeAction((new GuzzleServerRequest('POST', '/ajax/nrllm/tool/resume'))->withParsedBody(['runUuid' => $uuid, 'approve' => '1', 'turnDigest' => $digest])),
+            'submitInput' => static fn(): ResponseInterface => $controller->submitInputAction((new GuzzleServerRequest('POST', '/ajax/nrllm/tool/input'))->withParsedBody(['runUuid' => $uuid, 'input' => ['a' => 'b'], 'turnDigest' => $digest])),
+        ] as $action => $call) {
+            $response = $call();
+
+            self::assertSame(409, $response->getStatusCode(), $action);
+            $payload = json_decode((string)$response->getBody(), true);
+            self::assertIsArray($payload);
+            self::assertFalse($payload['success']);
+            self::assertArrayNotHasKey('status', $payload, $action . ' re-signals no pause the playground could decide');
+            self::assertIsString($payload['error']);
+            self::assertStringStartsWith('This run is a guided process.', $payload['error']);
+        }
+
+        $this->assertRunIsDecidableAgain($persister, $uuid);
+    }
+
+    /**
+     * The other direction: the same run without a process pin reaches the
+     * runtime. A stale digest makes the runtime answer — 409 with the pause
+     * re-signalled — without calling a provider, so the answer is the
+     * runtime's and not the probe's.
+     */
+    #[Test]
+    public function aRunWithoutAProcessPinStillReachesTheRuntime(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        [$controller, $persister, $uuid] = $this->suspendedApprovalController(processPins: new ProcessPinProbeStub(['some-other-run']));
+
+        $response = $controller->resumeAction(
+            (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/resume'))->withParsedBody(['runUuid' => $uuid, 'approve' => '1', 'turnDigest' => 'a-digest-of-some-other-turn']),
+        );
+
+        self::assertSame(409, $response->getStatusCode());
+        $payload = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($payload);
+        self::assertSame('awaiting_approval', $payload['status'] ?? null);
+        self::assertIsString($payload['error']);
+        self::assertStringNotContainsString('guided process', $payload['error']);
+        $this->assertRunIsDecidableAgain($persister, $uuid);
+    }
+
+    /**
+     * The real probe, which reads the pins from the stored row: the copy the
+     * runtime's status() hands out carries no suspended state, so a probe
+     * asked about it would always answer no. Both directions, decided by
+     * the approval snapshot alone.
+     */
+    #[Test]
+    public function theRealProbeReadsThePinsOfTheStoredRun(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        foreach ([true, false] as $process) {
+            $approvals = new InMemorySkillApprovalRepository();
+            $approvals->add(4, 2, 'sha256:tour', [
+                'name'           => 'Tour',
+                'description'    => '',
+                'body'           => 'Walk through the page.',
+                'support_status' => 'full',
+                'allowed_tools'  => null,
+                'process'        => $process,
+            ], 'verified', 1);
+
+            [$controller, $persister, $uuid, $digest] = $this->suspendedApprovalController(
+                processPins: new ApprovedProcessPinProbe($approvals),
+                skillPins: [new SkillPin(4, 2, 'sha256:tour')],
+            );
+
+            $response = $controller->resumeAction(
+                (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/resume'))->withParsedBody(['runUuid' => $uuid, 'approve' => '1', 'turnDigest' => $process ? $digest : 'a-digest-of-some-other-turn']),
+            );
+
+            self::assertSame(409, $response->getStatusCode());
+            $payload = json_decode((string)$response->getBody(), true);
+            self::assertIsArray($payload);
+            self::assertIsString($payload['error']);
+            if ($process) {
+                self::assertStringStartsWith('This run is a guided process.', $payload['error']);
+            } else {
+                self::assertSame('awaiting_approval', $payload['status'] ?? null, 'the runtime answered, not the probe');
+                self::assertStringNotContainsString('guided process', $payload['error']);
+            }
+
+            $this->assertRunIsDecidableAgain($persister, $uuid);
+        }
+    }
+
+    /**
+     * A run the playground cannot load is answered here, before the runtime
+     * reads it again: a second read that succeeded would get past the
+     * process check.
+     */
+    #[Test]
+    public function aRunThatCannotBeLoadedIsNotHandedToTheRuntime(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        [$controller] = $this->suspendedApprovalController(processPins: new ProcessPinProbeStub(everyRun: true));
+
+        foreach ([
+            'resume'      => static fn(): ResponseInterface => $controller->resumeAction((new GuzzleServerRequest('POST', '/ajax/nrllm/tool/resume'))->withParsedBody(['runUuid' => 'no-such-run', 'approve' => '1', 'turnDigest' => 'd'])),
+            'submitInput' => static fn(): ResponseInterface => $controller->submitInputAction((new GuzzleServerRequest('POST', '/ajax/nrllm/tool/input'))->withParsedBody(['runUuid' => 'no-such-run', 'input' => ['a' => 'b'], 'turnDigest' => 'd'])),
+        ] as $action => $call) {
+            $response = $call();
+
+            self::assertSame(400, $response->getStatusCode(), $action);
+            $payload = json_decode((string)$response->getBody(), true);
+            self::assertIsArray($payload);
+            self::assertFalse($payload['success']);
+            self::assertSame("This run's state could not be read; no action is available.", $payload['error'], $action);
+        }
+    }
+
+    /**
+     * The runtime decides on its own read of the row, so its refusals of a
+     * process run reach the playground even when the playground's own check
+     * said no: the probe here answers no to the controller and yes to the
+     * runtime. A run started by someone else is refused as decided in the
+     * chat; the initiator's run on a four-eyes configuration is stopped.
+     * Both are answers, not an unhandled error.
+     */
+    #[Test]
+    public function theRuntimesProcessRefusalsAreAnswered(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        foreach ([
+            'decided in the chat' => [2, false, 'This run is a guided process.'],
+            'stopped'             => [1, true, 'This run was stopped: it is a guided process'],
+        ] as $case => [$beUser, $fourEyes, $message]) {
+            [$controller, , $uuid, $digest] = $this->suspendedApprovalController(processPins: $this->probeThatSaysNoOnce(), beUser: $beUser, fourEyes: $fourEyes);
+
+            $response = $controller->resumeAction(
+                (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/resume'))->withParsedBody(['runUuid' => $uuid, 'approve' => '1', 'turnDigest' => $digest]),
+            );
+
+            self::assertSame(409, $response->getStatusCode(), $case);
+            $payload = json_decode((string)$response->getBody(), true);
+            self::assertIsArray($payload);
+            self::assertFalse($payload['success']);
+            self::assertIsString($payload['error']);
+            self::assertStringStartsWith($message, $payload['error'], $case);
+        }
+
+        // The input action maps the same refusals.
+        foreach ([
+            'decided in the chat' => [2, false, 'This run is a guided process.'],
+            'stopped'             => [1, true, 'This run was stopped: it is a guided process'],
+        ] as $case => [$beUser, $fourEyes, $message]) {
+            [$controller, , $uuid] = $this->suspendedApprovalController(processPins: $this->probeThatSaysNoOnce(), beUser: $beUser, fourEyes: $fourEyes, forInput: true);
+            $response              = $controller->submitInputAction(
+                (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/input'))->withParsedBody(['runUuid' => $uuid, 'input' => ['a' => 'b'], 'turnDigest' => 'd']),
+            );
+            self::assertSame(409, $response->getStatusCode(), $case . ' ' . $response->getBody());
+            self::assertStringContainsString($message, (string)$response->getBody(), $case);
+        }
+    }
+
+    /**
+     * Whether the run is a guided process cannot be checked: the
+     * playground's own check refuses as retryable (503) without asking the
+     * runtime, and when only the runtime's check fails, its refusal gets the
+     * same answer.
+     */
+    #[Test]
+    public function aRunWhoseProcessPinCannotBeCheckedIsRefusedAsRetryable(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        foreach ([
+            // Not on four-eyes: the runtime would go on, and reach a provider
+            // that must never be called, so the answer is the playground's.
+            'the playground cannot check' => [static fn(): ProcessPinProbe => new ProcessPinProbeStub(everyRun: true, unknown: true), false],
+            'the runtime cannot check'    => [fn(): ProcessPinProbe => $this->probeThatSaysNoOnce(null), true],
+        ] as $case => [$probe, $fourEyes]) {
+            foreach (['resume', 'submitInput'] as $action) {
+                [$controller, $persister, $uuid, $digest] = $this->suspendedApprovalController(processPins: $probe(), fourEyes: $fourEyes, forInput: $action === 'submitInput');
+                $request                                  = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/x'))->withParsedBody(['runUuid' => $uuid, 'approve' => '1', 'input' => ['a' => 'b'], 'turnDigest' => $digest]);
+                $response                                 = $action === 'resume' ? $controller->resumeAction($request) : $controller->submitInputAction($request);
+
+                self::assertSame(503, $response->getStatusCode(), $case . ', ' . $action . ': ' . $response->getBody());
+                $payload = json_decode((string)$response->getBody(), true);
+                self::assertIsArray($payload);
+                self::assertIsString($payload['error']);
+                self::assertStringStartsWith('Whether this run is a guided process could not be checked', $payload['error'], $case);
+                self::assertArrayNotHasKey('status', $payload, $case);
+                $run = $persister->findRun($uuid);
+                self::assertInstanceOf(AgentRun::class, $run);
+                self::assertSame($action === 'resume' ? AgentRunStatus::WAITING_FOR_APPROVAL : AgentRunStatus::WAITING_FOR_INPUT, $run->statusEnum(), $case . ', ' . $action . ': the run keeps waiting');
+            }
+        }
+    }
+
     #[Test]
     public function resumeActionRefusesAnApprovalThatCarriesNoTurnDigest(): void
     {
@@ -1257,9 +1480,11 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
      * A run suspended for approval on ONE write-declaring call, in the real
      * database, behind a controller whose provider must never be reached.
      *
+     * @param list<SkillPin> $skillPins
+     *
      * @return array{0: ToolPlaygroundController, 1: AgentRunPersister, 2: string, 3: string}
      */
-    private function suspendedApprovalController(?string $failEventKind = null): array
+    private function suspendedApprovalController(?string $failEventKind = null, ?ProcessPinProbe $processPins = null, array $skillPins = [], int $beUser = 1, bool $fourEyes = false, bool $forInput = false): array
     {
         $repository = new AgentRunRepository($this->toolConnectionPool(), $this->get(AgentStateCodec::class));
         $persister  = new AgentRunPersister(
@@ -1268,7 +1493,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             new NullLogger(),
         );
 
-        $handle = $persister->begin(null, 1);
+        $handle = $persister->begin(null, $beUser);
         self::assertNotNull($handle);
 
         $state = new SuspendedRunState(
@@ -1278,10 +1503,24 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             5,
             2,
         );
-        self::assertTrue($persister->suspend($handle, $state));
+        if ($forInput) {
+            $state = new SuspendedRunState(
+                [['role' => 'user', 'content' => 'ask me']],
+                [ToolCall::function('call_1', 'ask_thing', [])->toArray()],
+                1,
+                5,
+                2,
+                inputToolName: 'ask_thing',
+                inputSchema: ['type' => 'object', 'properties' => ['a' => ['type' => 'string']], 'required' => ['a']],
+            );
+        }
+
+        $state = $state->withSkillPins($skillPins);
+        self::assertTrue($forInput ? $persister->suspendForInput($handle, $state) : $persister->suspend($handle, $state));
 
         $config = new LlmConfiguration();
         $config->setIdentifier('cfg');
+        $config->setRequireSecondApprover($fourEyes);
 
         $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
         $configurationRepository->method('findByUid')->willReturn($config);
@@ -1294,7 +1533,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $registry = new ToolRegistry([new FakeTool('delete_thing', effect: ToolEffect::NON_IDEMPOTENT_WRITE)]);
 
         return [
-            $this->makeController($configurationRepository, $registry, $this->loopFor($manager, $registry, new NullLogger()), $persister),
+            $this->makeController($configurationRepository, $registry, $this->loopFor($manager, $registry, new NullLogger()), $persister, $processPins),
             $persister,
             $handle->uuid,
             (new PendingTurnDigest())->forState($state),
@@ -1440,11 +1679,40 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         return [$this->makeController($configurationRepository, $toolRegistry, $toolLoopService), $config];
     }
 
+    /**
+     * A probe that answers no to its first question and `$later` to every
+     * later one: the controller asks first, the runtime after it.
+     */
+    private function probeThatSaysNoOnce(?bool $later = true): ProcessPinProbe
+    {
+        return new class ($later) implements ProcessPinProbe {
+            private int $asked = 0;
+
+            public function __construct(private readonly ?bool $later) {}
+
+            public function holdsProcessPin(AgentRun $run): bool
+            {
+                return $this->processPinOf($run) ?? true;
+            }
+
+            public function processPinOf(AgentRun $run): ?bool
+            {
+                return $this->asked++ === 0 ? false : $this->later;
+            }
+
+            public function anyProcessPin(array $pins): bool
+            {
+                return true;
+            }
+        };
+    }
+
     private function makeController(
         LlmConfigurationRepository $configurationRepository,
         ToolRegistry $toolRegistry,
         ToolLoopService $toolLoopService,
         ?AgentRunPersister $agentRunPersister = null,
+        ?ProcessPinProbe $processPins = null,
     ): ToolPlaygroundController {
         $moduleTemplateFactory = $this->get(ModuleTemplateFactory::class);
         self::assertInstanceOf(ModuleTemplateFactory::class, $moduleTemplateFactory);
@@ -1460,11 +1728,16 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         // runtime is wired here from the same real collaborators the container
         // would inject (real DB-backed persister unless a test supplies one),
         // so every behavioural assertion still exercises the full path.
+        $agentRunPersister ??= new AgentRunPersister(new AgentRunRepository($this->toolConnectionPool(), $this->get(AgentStateCodec::class)), FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
+        $processPins ??= new NoProcessPinProbe();
+        // The runtime asks the same probe, as the container wires it: the
+        // playground's own check and the runtime's must agree on a run.
         $agentRuntime = new AgentRuntime(
             $toolLoopService,
-            $agentRunPersister ?? new AgentRunPersister(new AgentRunRepository($this->toolConnectionPool(), $this->get(AgentStateCodec::class)), FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger()),
+            $agentRunPersister,
             $configurationRepository,
             new NullLogger(),
+            processPinProbe: $processPins,
         );
 
         return new ToolPlaygroundController(
@@ -1482,6 +1755,8 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             new InputContextClassifier(
                 new ConfigurationSnippetResolver($promptSnippetRepository, new PromptSnippetComposer()),
             ),
+            $processPins,
+            $agentRunPersister,
         );
     }
 

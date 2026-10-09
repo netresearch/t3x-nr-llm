@@ -81,6 +81,8 @@ interface AgentRunRepositoryInterface
      * run that a resume already claimed, or that settled, does not move.
      *
      * Totals are left as the run recorded them; nothing ran in between.
+     * $errorClass names what stopped a run settled as FAILED, like the
+     * exception class {@see self::finishRun()} records; '' for a cancel.
      *
      * @param list<AgentRunStatus> $from the waiting states to move from; empty moves nothing
      *
@@ -88,7 +90,7 @@ interface AgentRunRepositoryInterface
      *
      * @return bool true when this call moved the run, false when it was no longer in $from (or gone)
      */
-    public function settleIfWaiting(int $runUid, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason): bool;
+    public function settleIfWaiting(int $runUid, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason, string $errorClass = ''): bool;
 
     /**
      * Suspend a run for typed user input (ADR-105): the input sibling of

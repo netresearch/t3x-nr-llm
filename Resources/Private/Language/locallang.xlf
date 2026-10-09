@@ -2897,6 +2897,15 @@
             <trans-unit id="error.tool.unknownGroup">
                 <source>Unknown tool group</source>
             </trans-unit>
+            <trans-unit id="error.tool.decidedInChat">
+                <source>This run is a guided process. It is decided in the chat by the person who started it, not in the playground.</source>
+            </trans-unit>
+            <trans-unit id="error.tool.processStopped">
+                <source>This run was stopped: it is a guided process, and its configuration requires a second approver, under which nobody could apply its proposals.</source>
+            </trans-unit>
+            <trans-unit id="error.tool.processVerdictUnavailable">
+                <source>Whether this run is a guided process could not be checked, so nothing was decided. Please try again.</source>
+            </trans-unit>
             <trans-unit id="error.tool.selfApproval">
                 <source>You started this run and its configuration requires a second approver. Someone else has to release it.</source>
             </trans-unit>
@@ -3210,6 +3219,9 @@
             <trans-unit id="runs.field.unsupported">
                 <source>This field type is not supported in this form.</source>
             </trans-unit>
+            <trans-unit id="runs.field.choose">
+                <source>Choose one</source>
+            </trans-unit>
             <trans-unit id="runs.error.summaryHeading">
                 <source>Your input could not be submitted</source>
             </trans-unit>
@@ -3224,6 +3236,18 @@
             </trans-unit>
             <trans-unit id="runs.error.approverNotPermitted">
                 <source>This action runs a tool you are not permitted to use yourself, so you may not approve it. The run is still waiting for someone who is.</source>
+            </trans-unit>
+            <trans-unit id="runs.error.decidedInChat">
+                <source>This run is a guided process. Its proposals and questions are decided in the chat, by the person who started it, and not here.</source>
+            </trans-unit>
+            <trans-unit id="runs.error.processStopped">
+                <source>This run was stopped: it is a guided process, and its configuration requires a second approver, under which nobody could apply its proposals.</source>
+            </trans-unit>
+            <trans-unit id="runs.error.processVerdictUnavailable">
+                <source>Whether this run is a guided process could not be checked, so nothing was decided. Please try again.</source>
+            </trans-unit>
+            <trans-unit id="runs.decidedInChat">
+                <source>A guided process: decided in the chat by the person who started it. It is listed here read-only.</source>
             </trans-unit>
             <trans-unit id="runs.error.selfApproval">
                 <source>You started this run, and its configuration requires a second approver. Someone else has to release it. You can still deny it.</source>

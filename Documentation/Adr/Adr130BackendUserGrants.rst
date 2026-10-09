@@ -10,7 +10,7 @@ ADR-130: Capability grants for backend users
 :Status: Accepted (constraint 3 enumerated the approval surfaces and the
    enumeration was not exhaustive — see :ref:`ADR-131 <adr-131>`; the approve
    grant is not to open a run holding a process pin — decided by
-   :ref:`ADR-214 <adr-214>`, not yet implemented)
+   :ref:`ADR-214 <adr-214>`; implemented; whether a run holds a process pin is read from the approval snapshot of its pins (``ApprovedProcessPinProbe``), and a process skill reaches a run only through an invocation, which is not implemented yet)
 :Date: 2026-08-06
 :Amended: 2026-08-06 by :ref:`ADR-131 <adr-131>`; 2026-08-18 by
    :ref:`ADR-169 <adr-169>` (named constraint 4's reserved ``tasks_manage`` is
