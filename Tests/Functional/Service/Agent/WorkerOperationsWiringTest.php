@@ -30,6 +30,8 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 #[CoversClass(WorkerHeartbeatListener::class)]
 final class WorkerOperationsWiringTest extends AbstractFunctionalTestCase
 {
+    private const HEARTBEAT_TIME = '@100000';
+
     #[Test]
     public function realWorkerIdleLifecycleReachesContainerListenersAndStops(): void
     {
@@ -104,7 +106,7 @@ final class WorkerOperationsWiringTest extends AbstractFunctionalTestCase
             ->expects(self::exactly(3))
             ->method('now')
             ->willReturn(
-                new DateTimeImmutable('@100000'),
+                new DateTimeImmutable(self::HEARTBEAT_TIME),
                 new DateTimeImmutable('@100010'),
                 new DateTimeImmutable('@100030'),
             );
@@ -181,7 +183,7 @@ final class WorkerOperationsWiringTest extends AbstractFunctionalTestCase
                 },
             );
         $clock = self::createStub(ClockInterface::class);
-        $clock->method('now')->willReturn(new DateTimeImmutable('@100000'));
+        $clock->method('now')->willReturn(new DateTimeImmutable(self::HEARTBEAT_TIME));
         $listener = new WorkerHeartbeatListener(
             new WorkerOperationsRepository($pool),
             $clock,
@@ -310,10 +312,13 @@ final class WorkerOperationsWiringTest extends AbstractFunctionalTestCase
             ],
             self::createStub(MessageBusInterface::class),
         );
-        // Continue examining identity and retry behavior even when the old listener throws.
+        // Verify containment before examining identity and retry behavior.
         try {
             $listener->onStarted(new WorkerStartedEvent($worker));
         } catch (RuntimeException) {
+            self::fail(
+                'A heartbeat storage failure must not escape the listener',
+            );
         }
 
         $attemptsAfterFailure = $attempts;
@@ -379,7 +384,7 @@ final class WorkerOperationsWiringTest extends AbstractFunctionalTestCase
                 ),
             );
         $clock = self::createStub(ClockInterface::class);
-        $clock->method('now')->willReturn(new DateTimeImmutable('@100000'));
+        $clock->method('now')->willReturn(new DateTimeImmutable(self::HEARTBEAT_TIME));
         $records = [];
         $logger = $this->createMock(LoggerInterface::class);
         $logger
