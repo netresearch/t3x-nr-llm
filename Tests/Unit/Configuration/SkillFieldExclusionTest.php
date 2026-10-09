@@ -100,7 +100,8 @@ final class SkillFieldExclusionTest extends TestCase
             self::assertFalse($backend[$field]['config']['readOnly'] ?? true, $field . ' is editable for a backend skill');
         }
 
-        foreach (['single_file', 'repo', 'marketplace', '0'] as $type) {
+        self::assertArrayNotHasKey('columnsOverrides', $tca['types']['0'] ?? [], 'a record without a source yet can pick one');
+        foreach (['single_file', 'repo', 'marketplace'] as $type) {
             $overrides = $tca['types'][$type]['columnsOverrides'] ?? [];
             self::assertIsArray($overrides);
             self::assertSame(['source'], array_keys($overrides), $type . ' overrides only the source');

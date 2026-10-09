@@ -79,35 +79,24 @@ final readonly class SkillInstructionPolicy
     }
 
     /**
-     * The tool declaration of an approved version of the skill from its
-     * current source (ADR-214 item 3): the version with the given digest
-     * when that one is approved — the version that instructs — and otherwise
-     * the most recent unrevoked approved version. Null when that version
-     * declared none; the declared empty list when no version is approved, so
-     * an unapproved backend skill grants nothing and still counts as a
-     * declaration, and when the approved version is a process skill and the
-     * run does not invoke it.
-     *
-     * @return list<string>|null
+     * The approved version of the skill from its current source that vouches
+     * for its tool declaration and process marker (ADR-214 item 3): the
+     * version with the given digest when that one is approved — the version
+     * that instructs — and otherwise the most recent unrevoked approved
+     * version. Null when no version from this source is approved.
      */
-    public function approvedToolsOf(Skill $skill, ?string $currentDigest = null, bool $invoked = false): ?array
+    public function approvalOf(Skill $skill, ?string $currentDigest = null): ?SkillApproval
     {
         $uid = $skill->getUid();
         if ($uid === null || $uid <= 0) {
-            return [];
+            return null;
         }
 
         $approval = $currentDigest !== null && $currentDigest !== ''
             ? $this->approvals->findUnrevoked($uid, $skill->getSource(), $currentDigest)
             : null;
-        $approval ??= $this->approvals->findLatestUnrevokedFromSource($uid, $skill->getSource());
 
-        // A process version grants tools only to a run that invokes it.
-        if (!$approval instanceof SkillApproval || ($approval->process && !$invoked)) {
-            return [];
-        }
-
-        return $approval->allowedTools;
+        return $approval ?? $this->approvals->findLatestUnrevokedFromSource($uid, $skill->getSource());
     }
 
     /**

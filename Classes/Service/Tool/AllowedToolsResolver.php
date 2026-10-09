@@ -110,9 +110,13 @@ final readonly class AllowedToolsResolver
             $invoked[spl_object_id($skill)] = true;
         }
 
-        $declared = [];
-        $any      = false;
-        foreach ($this->composer->effectiveSkills([...$invokedSkills, ...$this->toList($config->getSkills())], $additionalSkills) as $skill) {
+        $declared  = [];
+        $effective = $this->composer->effectiveSkills([...$invokedSkills, ...$this->toList($config->getSkills())], $additionalSkills);
+        // An invoked skill that is not effective (disabled, below the trust
+        // floor, its source gone) grants nothing, and the run is not left
+        // unrestricted because of that: fail closed.
+        $any = array_diff_key($invoked, array_flip(array_map(spl_object_id(...), $effective))) !== [];
+        foreach ($effective as $skill) {
             // What the skill may declare, not its live field: an unapproved
             // backend skill or one whose source no longer vouches grants
             // nothing, and a process skill the run does not invoke has no
