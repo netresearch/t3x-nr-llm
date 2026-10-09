@@ -8,7 +8,7 @@ declare (strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Evaluation;
 
-use InvalidArgumentException;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 
 /**
  * Bounded, credential-free revision declarations for a retrieval experiment.

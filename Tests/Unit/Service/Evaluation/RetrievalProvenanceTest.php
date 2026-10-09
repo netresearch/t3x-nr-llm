@@ -10,11 +10,13 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Evaluation;
 
 use InvalidArgumentException;
 use Netresearch\NrLlm\Domain\Enum\QuestionForm;
+use Netresearch\NrLlm\Exception\NrLlmExceptionInterface;
 use Netresearch\NrLlm\Service\Evaluation\GoldenQuestion;
 use Netresearch\NrLlm\Service\Evaluation\GoldenQuestionSet;
 use Netresearch\NrLlm\Service\Evaluation\RetrievalProvenance;
 use Netresearch\NrLlm\Service\Evaluation\RetrievalRunIdentity;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -220,5 +222,58 @@ final class RetrievalProvenanceTest extends TestCase
             self::assertNotSame($first->benchmarkFingerprint, $second->benchmarkFingerprint);
             self::assertSame($first->variantFingerprint, $second->variantFingerprint);
         }
+    }
+
+    /**
+     * @param list<string> $values
+     */
+    #[Test]
+    #[DataProvider('invalidPublicProvenance')]
+    public function consumerMarkerCatchHandlesInvalidProvenance(
+        array $values,
+        int $expectedCode,
+        string $expectedMessage,
+    ): void {
+        try {
+            new RetrievalProvenance(...$values);
+        } catch (NrLlmExceptionInterface $exception) {
+            self::assertInstanceOf(InvalidArgumentException::class, $exception);
+            self::assertSame($expectedCode, $exception->getCode());
+            self::assertSame($expectedMessage, $exception->getMessage());
+            return;
+        } catch (InvalidArgumentException $exception) {
+            self::fail(
+                'Public provenance validation bypassed the consumer marker catch; native exception code: ' . $exception->getCode(),
+            );
+        }
+
+        self::fail('Invalid public provenance must be rejected.');
+    }
+
+    /**
+     * @return iterable<string, array{list<string>, int, string}>
+     */
+    public static function invalidPublicProvenance(): iterable
+    {
+        yield 'unsafe revision' => [
+            [
+                'corpus-v1',
+                'https://example.test/model',
+                'chunk-v1',
+                'pipeline-v1',
+            ],
+            1794000215,
+            'Retrieval provenance requires bounded opaque ASCII revision labels without URL schemes.',
+        ];
+        yield 'non-applicable corpus' => [
+            [
+                RetrievalProvenance::NOT_APPLICABLE,
+                'model-v1',
+                'chunk-v1',
+                'pipeline-v1',
+            ],
+            1794000216,
+            'The retrieval corpus and pipeline must declare an applicable revision.',
+        ];
     }
 }
