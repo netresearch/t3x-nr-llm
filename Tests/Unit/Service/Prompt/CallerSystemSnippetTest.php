@@ -91,6 +91,22 @@ final class CallerSystemSnippetTest extends TestCase
         self::assertSame($messages, $this->resolver($this->marked())->appendToCallerSystemMessage($messages, $this->configuration(optIn: true)));
     }
 
+    /**
+     * The head is everything before the first user turn, as for the skill
+     * sections: a system message behind an assistant turn there is extended.
+     */
+    #[Test]
+    public function aSystemMessageBeforeTheFirstUserTurnIsTheHead(): void
+    {
+        $out = $this->resolver($this->marked())->appendToCallerSystemMessage(
+            [ChatMessage::assistant('Welcome.'), ChatMessage::system('Chat identity.'), ChatMessage::user('hi')],
+            $this->configuration(optIn: true),
+        );
+
+        self::assertInstanceOf(ChatMessage::class, $out[1]);
+        self::assertSame("Chat identity.\n\n" . self::BLOCK, $out[1]->content);
+    }
+
     #[Test]
     public function withoutACallerSystemMessageNothingIsAppended(): void
     {

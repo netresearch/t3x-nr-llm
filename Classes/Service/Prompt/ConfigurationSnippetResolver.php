@@ -61,11 +61,15 @@ final readonly class ConfigurationSnippetResolver
 
         foreach ($messages as $index => $message) {
             $role = $message instanceof ChatMessage ? $message->role : ($message['role'] ?? null);
-            if ($role !== 'system') {
-                // Only the head carries the block: a system message after a
-                // turn sits where the context fit may drop it, and the skill
-                // sections never go there either.
+            // Only the head carries the block — the messages before the first
+            // user turn, which the context fit keeps and where the skill
+            // sections go too; a system message after it may be dropped.
+            if ($role === 'user') {
                 return $messages;
+            }
+
+            if ($role !== 'system') {
+                continue;
             }
 
             $content = $message instanceof ChatMessage ? $message->content : ($message['content'] ?? null);

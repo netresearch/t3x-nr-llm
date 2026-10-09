@@ -81,6 +81,25 @@ final class CallerSystemFieldRightsTest extends AbstractFunctionalTestCase
         self::assertSame('0', $this->column('tx_nrllm_configuration', 6, 'snippets_in_caller_system_message'));
     }
 
+    /**
+     * A copy goes through the same field rights: an editor's copy of a
+     * marked snippet is not marked; an administrator's copy keeps the mark.
+     */
+    #[Test]
+    public function anEditorsCopyOfAMarkedSnippetIsNotMarked(): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_promptsnippet')
+            ->update('tx_nrllm_promptsnippet', ['caller_system_digest' => self::MARK], ['uid' => 5]);
+
+        $this->actAs(self::EDITOR_UID);
+        $editorCopy = $this->copySnippet();
+        self::assertGreaterThan(0, $editorCopy, 'the editor may copy the snippet');
+        self::assertSame('', $this->column('tx_nrllm_promptsnippet', $editorCopy, 'caller_system_digest'));
+
+        $this->actAs(1);
+        self::assertSame(self::MARK, $this->column('tx_nrllm_promptsnippet', $this->copySnippet(), 'caller_system_digest'));
+    }
+
     #[Test]
     public function anAdministratorCanWriteBoth(): void
     {
@@ -109,6 +128,18 @@ final class CallerSystemFieldRightsTest extends AbstractFunctionalTestCase
         $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
         $dataHandler->start($data, []);
         $dataHandler->process_datamap();
+    }
+
+    private function copySnippet(): int
+    {
+        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler->start([], ['tx_nrllm_promptsnippet' => [5 => ['copy' => 10]]]);
+        $dataHandler->process_cmdmap();
+
+        $copies = $dataHandler->copyMappingArray_merged['tx_nrllm_promptsnippet'] ?? [];
+        $copy   = is_array($copies) ? ($copies[5] ?? 0) : 0;
+
+        return is_numeric($copy) ? (int)$copy : 0;
     }
 
     private function column(string $table, int $uid, string $column): string
