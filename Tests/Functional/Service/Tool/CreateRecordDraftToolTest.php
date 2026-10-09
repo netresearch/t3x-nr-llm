@@ -648,6 +648,54 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * #1017: page TSconfig is read for the run's ACTING user. The ambient
+     * backend user is the approver at resume, or nobody in a worker; neither
+     * may change what plan() refuses.
+     */
+    #[Test]
+    public function theColumnRulesAreReadForTheActingUserNotTheAmbientOne(): void
+    {
+        $rule      = 'TCEFORM.tx_writerfixture_item.tone.removeItems';
+        $arguments = ['table' => self::TABLE, 'pid' => self::FOLDER_OPEN, 'fields' => ['title' => 'x', 'tone' => 'loud']];
+        $users     = $this->connectionPool->getConnectionForTable('be_users');
+
+        $users->update('be_users', ['TSconfig' => 'page.' . $rule . ' = loud'], ['uid' => 2]);
+
+        $acting  = ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1));
+        $ambient = $this->setUpBackendUser(2);
+        self::assertStringNotContainsString($rule, implode("\n", $this->tool->previewCall($arguments, $acting)));
+        self::assertSame($ambient, $GLOBALS['BE_USER'], 'the preview must not replace the ambient user');
+
+        $users->update('be_users', ['TSconfig' => 'page.' . $rule . ' = loud'], ['uid' => 1]);
+        $acting = ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1));
+        unset($GLOBALS['BE_USER']);
+        self::assertStringContainsString($rule, implode("\n", $this->tool->previewCall($arguments, $acting)));
+    }
+
+    #[Test]
+    public function theRecordTypeDefaultIsReadForTheActingUserNotTheAmbientOne(): void
+    {
+        // A default naming no record type is refused and its source named,
+        // which makes the TCAdefaults read visible on the preview.
+        $default   = 'page.TCAdefaults.tx_writerfixture_item.kind = nosuchtype';
+        $refusal   = 'page TSconfig of page [' . self::FOLDER_OPEN . '] sets TCAdefaults';
+        $arguments = ['table' => self::TABLE, 'pid' => self::FOLDER_OPEN, 'fields' => ['title' => 'x']];
+        $users     = $this->connectionPool->getConnectionForTable('be_users');
+
+        $users->update('be_users', ['TSconfig' => $default], ['uid' => 2]);
+
+        $acting  = ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1));
+        $ambient = $this->setUpBackendUser(2);
+        self::assertStringNotContainsString($refusal, implode("\n", $this->tool->previewCall($arguments, $acting)));
+        self::assertSame($ambient, $GLOBALS['BE_USER'], 'the preview must not replace the ambient user');
+
+        $users->update('be_users', ['TSconfig' => $default], ['uid' => 1]);
+        $acting = ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1));
+        unset($GLOBALS['BE_USER']);
+        self::assertStringContainsString($refusal, implode("\n", $this->tool->previewCall($arguments, $acting)));
+    }
+
+    /**
      * The other direction: what the rules leave on the page is written.
      *
      * @return iterable<string, array{int, array<string, mixed>}>

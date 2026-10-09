@@ -10,9 +10,13 @@ ADR-061: Skill trust levels, signed manifests, injection scanning
 and per-group egress policies
 ==================================================================
 
-:Status: Accepted (item 6: a filtered external egress scope now exists — see :ref:`ADR-202 <adr-202>`)
+:Status: Accepted (item 6: a filtered external egress scope now exists — see :ref:`ADR-202 <adr-202>`;
+    items 1 and 4: the trust level is also to decide whether an approved version
+    is fenced or an instruction, and a backend-authored skill is admitted by its
+    source's level — decided by :ref:`ADR-214 <adr-214>`, not yet implemented)
 :Date: 2026-07-14
-:Amended: 2026-09-23 by :ref:`ADR-202 <adr-202>` (item 6: a filtered external scope now exists)
+:Amended: 2026-09-23 by :ref:`ADR-202 <adr-202>` (item 6: a filtered external scope now exists);
+    2026-10-08 by :ref:`ADR-214 <adr-214>` (items 1 and 4)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-061-context:

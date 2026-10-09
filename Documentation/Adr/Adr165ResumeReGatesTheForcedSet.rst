@@ -8,11 +8,14 @@ ADR-165: A resumed run re-gates its forced sources
 ============================================================
 
 :Status: Accepted (the re-load no longer skips a deactivated source — see
-    :ref:`ADR-166 <adr-166>`)
+    :ref:`ADR-166 <adr-166>`; the re-load is also to cover the invoked skill and
+    to intersect the stored tool allow-list — decided by :ref:`ADR-214 <adr-214>`,
+    not yet implemented)
 :Date: 2026-08-13
 :Amends: :ref:`ADR-164 <adr-164>` (its "does not cover a resumed run" gap) and
     :ref:`ADR-084 <adr-084>` (a further field on the suspended state)
-:Amended: 2026-08-13 by :ref:`ADR-166 <adr-166>`
+:Amended: 2026-08-13 by :ref:`ADR-166 <adr-166>`; 2026-10-08 by
+    :ref:`ADR-214 <adr-214>` (invoked skill, allow-list intersection)
 :Authors: Netresearch DTT GmbH
 
 Context

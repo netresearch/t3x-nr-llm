@@ -9,8 +9,12 @@
 ADR-035: Skill ingest (GitHub-hosted SKILL.md sources)
 ==================================================================
 
-:Status: Accepted
+:Status: Accepted (items 4 and 5: change detection is to compare a version
+    digest over body and frontmatter fields, kept next to the body-only
+    ``body_checksum``, so a frontmatter-only change disables an enabled skill —
+    decided by :ref:`ADR-214 <adr-214>`, not yet implemented)
 :Date: 2026-06-27
+:Amended: 2026-10-08 by :ref:`ADR-214 <adr-214>` (items 4 and 5)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-035-context:

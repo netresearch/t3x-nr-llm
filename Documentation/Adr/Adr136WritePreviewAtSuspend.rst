@@ -10,10 +10,13 @@ ADR-136: The write preview is produced when the run suspends
 ============================================================================
 
 :Status: Accepted (its staleness section is overturned — see
-    :ref:`ADR-184 <adr-184>`)
+    :ref:`ADR-184 <adr-184>`; an approval-bound write tool is also to return its
+    pending target as structured values — decided by :ref:`ADR-214 <adr-214>`,
+    not yet implemented)
 :Date: 2026-08-09
 :Amends: :ref:`ADR-122 <adr-122>` (the deferred preview)
-:Amended: 2026-08-31 by :ref:`ADR-184 <adr-184>`
+:Amended: 2026-08-31 by :ref:`ADR-184 <adr-184>`; 2026-10-08 by
+    :ref:`ADR-214 <adr-214>` (structured pending target)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-136-context:

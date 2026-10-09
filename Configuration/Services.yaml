@@ -88,6 +88,10 @@ services:
   Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface:
     alias: Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver
 
+  # Page TSconfig as the acting user sees it, never the ambient user (#1017).
+  Netresearch\NrLlm\Service\Tool\PageTsConfigReaderInterface:
+    alias: Netresearch\NrLlm\Service\Tool\PageTsConfigReader
+
   # The agent-run application service (ADR-101): run / approve / cancel /
   # events / status through one fail-closed lifecycle. The preferred consumer
   # surface — scheduler tasks, queue workers and downstream extensions use
