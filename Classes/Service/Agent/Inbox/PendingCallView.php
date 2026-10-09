@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\Inbox;
 
+use Netresearch\NrLlm\Domain\ValueObject\FieldProposal;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 
 /**
@@ -42,11 +43,21 @@ use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
  * offers a plain approve and deny. A tool that is no longer registered counts
  * as a write, as it does for the run's effect fence, and so does a view built
  * without the argument: "not a write" is the answer that has to be stated.
+ *
+ * `$structuredPreview` is each field the call would change, as structured
+ * values (ADR-214, item 9): label, the value stored now, the proposed value
+ * and its length against a configured range — what a consumer renders as
+ * "current" and "proposed" instead of parsing `$previewLines`, which stay as
+ * they are. Read for the viewer when the card is rendered, so it is empty
+ * wherever the preview lines are withheld, for a tool that does not implement
+ * {@see \Netresearch\NrLlm\Service\Tool\StructuredPreviewInterface}, and for
+ * a call the tool would refuse. The values are raw: the consumer escapes them.
  */
 final readonly class PendingCallView
 {
     /**
-     * @param list<string> $previewLines
+     * @param list<string>        $previewLines
+     * @param list<FieldProposal> $structuredPreview
      */
     public function __construct(
         public string $name,
@@ -57,5 +68,17 @@ final readonly class PendingCallView
         public bool $previewStale = false,
         public ?PendingWriteTarget $pendingTarget = null,
         public bool $declaresWrite = true,
+        public array $structuredPreview = [],
     ) {}
+
+    /**
+     * The structured entries as plain arrays, for a consumer that serialises
+     * the card (ADR-214, item 9).
+     *
+     * @return list<array{field: string, label: string, current: string|null, proposed: string, measure: array{count: int, min: int|null, max: int|null}|null}>
+     */
+    public function structuredPreviewArray(): array
+    {
+        return array_map(static fn(FieldProposal $entry): array => $entry->toArray(), $this->structuredPreview);
+    }
 }

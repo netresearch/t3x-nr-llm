@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
+use Netresearch\NrLlm\Domain\ValueObject\FieldProposal;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
@@ -22,6 +23,7 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
+use Netresearch\NrLlm\Service\Tool\StructuredPreviewInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -101,7 +103,7 @@ use TYPO3\CMS\Core\Utility\StringUtility;
  * the effect is a write (ADR-134), and the ADR-112 write fence covers it through
  * the per-segment lease (ADR-141).
  */
-final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface
+final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, StructuredPreviewInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -359,6 +361,39 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         $lines[] = $this->translator->technical($user, $details);
 
         return $lines;
+    }
+
+    /**
+     * The image field the call sets, with the file it references now and the
+     * file it would reference (ADR-214, item 9).
+     *
+     * Authorised through the same {@see self::plan()} as the write, against
+     * `$reader`, the user the card is rendered for: a page they may not edit,
+     * a field they hold no grant for, a file outside their file mounts and
+     * every other refusal give no entry at all.
+     *
+     * A file reference is not text, so the values are file names: `current`
+     * lists the names of the files referenced now, comma-separated, and is
+     * null where the field references none; `proposed` is the name of the
+     * file the call names. No measure: a length means nothing here.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return list<FieldProposal>
+     */
+    public function structuredPreview(array $arguments, BackendUserAuthentication $reader): array
+    {
+        $plan = $this->plan($arguments, $reader);
+        if (is_string($plan)) {
+            return [];
+        }
+
+        return [new FieldProposal(
+            $plan['field'],
+            $this->translator->columnLabel($reader, self::PAGES_TABLE, $plan['field']),
+            $plan['existing'] === [] ? null : implode(', ', array_column($plan['existing'], 'name')),
+            $plan['fileName'],
+        )];
     }
 
     public function isEnabledByDefault(): bool

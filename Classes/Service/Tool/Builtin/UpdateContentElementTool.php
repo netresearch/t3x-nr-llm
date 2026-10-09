@@ -12,15 +12,18 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
+use Netresearch\NrLlm\Domain\ValueObject\FieldProposal;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
+use Netresearch\NrLlm\Service\Tool\FieldMeasurer;
 use Netresearch\NrLlm\Service\Tool\PageTsConfigReader;
 use Netresearch\NrLlm\Service\Tool\PageTsConfigReaderInterface;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
+use Netresearch\NrLlm\Service\Tool\StructuredPreviewInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -68,7 +71,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * back column by column, and what did not take is named; values that took
  * stay written, as {@see UpdatePageMetadataTool} leaves them.
  */
-final readonly class UpdateContentElementTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface
+final readonly class UpdateContentElementTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, StructuredPreviewInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -97,6 +100,8 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
         // Page TSconfig as the ACTING user sees it, never the ambient one
         // (#1017). Defaulted: the reader is stateless.
         private PageTsConfigReaderInterface $pageTsConfig = new PageTsConfigReader(),
+        // The configured ranges of a structured preview (ADR-214, item 9).
+        private FieldMeasurer $measurer = new FieldMeasurer(),
     ) {}
 
     public function getSpec(): ToolSpec
@@ -271,6 +276,55 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
         $lines[] = $this->translator->technical($user, $details);
 
         return $lines;
+    }
+
+    /**
+     * Each column the call sets, with the value the element holds now and the
+     * one the call would write (ADR-214, item 9).
+     *
+     * Authorised through the same {@see self::plan()} as the write, against
+     * `$reader`, the user the card is rendered for: an element the reader may
+     * not edit, a column they hold no field-level grant for, and every other
+     * refusal give no entry at all. The values are the raw strings: a
+     * rich-text `bodytext` is its stored HTML, a stored NULL reads as ''.
+     *
+     * A single-line (`input`) column carries its length; a multi-line or
+     * rich-text column carries one only where a range is configured for it,
+     * and then counts the plain text.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return list<FieldProposal>
+     */
+    public function structuredPreview(array $arguments, BackendUserAuthentication $reader): array
+    {
+        $plan = $this->plan($arguments, $reader);
+        if (is_string($plan)) {
+            return [];
+        }
+
+        $columns = $this->columnsOfType($plan['type']);
+        $entries = [];
+        foreach ($plan['fields'] as $column => $new) {
+            $config    = $columns[$column] ?? [];
+            $kind      = self::toStr($config['type'] ?? '');
+            $proposed  = (string)$new;
+            $entries[] = new FieldProposal(
+                $column,
+                $this->translator->columnLabel($reader, self::TABLE, $column, $plan['type']),
+                self::toStr($plan['before'][$column] ?? ''),
+                $proposed,
+                $this->measurer->measure(
+                    self::TABLE,
+                    $column,
+                    $proposed,
+                    $kind === 'input',
+                    $kind === 'text' && (bool)($config['enableRichtext'] ?? false),
+                ),
+            );
+        }
+
+        return $entries;
     }
 
     public function isEnabledByDefault(): bool

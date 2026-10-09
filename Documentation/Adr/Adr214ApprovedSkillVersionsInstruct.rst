@@ -911,6 +911,40 @@ renders them and owns the open points.
   reason keeps today's text. No pause combines input and approval: the
   ADR-134 ban stays, and nothing about the answer is collected through the
   input path.
+- **The proposal is also given as structured values.** The chat shows each
+  field of a proposal as "Aktuell" and "Vorschlag", with the length of a text
+  against its recommended range, and never parses the preview lines for them.
+  A write tool may implement :php:`StructuredPreviewInterface`; it returns
+  one :php:`FieldProposal` per field it would change: the column, its TCA
+  label in the reader's language, the value stored now, the value the call
+  would write, and an optional :php:`FieldMeasure`. :php:`PendingCallView`
+  carries the list next to the preview lines, which stay as they are, so the
+  addition is additive: a tool without the interface gives an empty list.
+  ``update_page_metadata``, ``update_content_element`` and
+  ``set_page_social_image`` implement it.
+
+  - **The values come from the tool, never from the model.** The current
+    value is read from the database, the proposed one is the argument after
+    the tool's own checks, and the label is the TCA's.
+  - **Read for the viewer, when the card is rendered.** Capturing the values
+    at the pause would change :php:`ToolLoopService` and the persisted state;
+    instead :php:`WaitingRunViewFactory` asks the tool with the backend user
+    the card is rendered for, which in the chat is the user who started the
+    run. A record or field that user may not edit, a call the tool would
+    refuse, a card without a viewer, and a card whose preview lines are
+    withheld give no entries. "Aktuell" can therefore be newer than the
+    preview lines captured at the pause; the approval still binds to the
+    lines (:ref:`ADR-184 <adr-184>`), and the write re-checks everything.
+  - **Ranges are configuration.** The extension configuration
+    ``tools.structuredPreview.ranges`` holds ``table.field:min-max`` entries;
+    the shipped default is ``pages.description:140-160``, the meta
+    description length of the product specification "Guided Tour: SEO
+    Optimierung", section 5, and no other field has one. The length is the
+    plain text counted in characters. Without a range a single-line or meta
+    field carries its length alone, and a body text carries none.
+  - **The values are raw.** A rich-text body is its stored HTML, and the
+    proposal is model-chosen text; nr_llm passes both through as data and
+    renders neither, and the consumer escapes or sanitises them.
 - **Writes need an approval, always.** No process skill, trusted or not, can
   switch that off (ADR-134).
 - **A new message withdraws a waiting process run.** The conversation
