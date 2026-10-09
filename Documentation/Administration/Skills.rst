@@ -260,6 +260,12 @@ Every unrevoked approval keeps vouching: an author who restores the fields of
 an older approved version gets that version back, its tools included. Revoke
 an older version when a newer one is meant to replace it.
 
+A skill attached to a configuration or a task keeps restricting the tools of
+its runs even when it stops instructing: an orphaned skill — one whose
+identifier the sync no longer finds — grants no tools and still restricts, as
+does a skill whose source is gone. A skill that is still attached cannot be
+deleted; detach it on the configuration or the task first.
+
 A backend user who is not an administrator writes skills only with the
 fields an administrator granted: the source, the enable flag, the allowed
 tools and the data class are excluded fields (:guilabel:`Allowed

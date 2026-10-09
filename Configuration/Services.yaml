@@ -512,6 +512,12 @@ services:
   Netresearch\NrLlm\Specialized\Document\PdfRasterizerInterface:
     alias: Netresearch\NrLlm\Specialized\Document\PopplerPdfRenderer
 
+  # A DataHandler hook (ADR-214 item 3): public, so the DataHandler's
+  # makeInstance() returns the container-built instance with its
+  # constructor dependencies.
+  Netresearch\NrLlm\Hook\SkillDeletionGuardHook:
+    public: true
+
   # ========================================
   # Setup Wizard Services
   # ========================================

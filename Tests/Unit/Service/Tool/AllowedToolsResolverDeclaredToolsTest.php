@@ -223,22 +223,23 @@ final class AllowedToolsResolverDeclaredToolsTest extends TestCase
     }
 
     /**
-     * The sync orphans a record whose identifier it no longer finds, for
-     * example after a rename. An enabled orphan still restricts the run; a
-     * disabled skill is an administrator's decision and drops out.
+     * The sync orphans and disables a record whose identifier it no longer
+     * finds, for example after a rename. Left that way, the orphan still
+     * restricts the run; a skill that is only disabled drops out.
      */
     #[Test]
     public function anOrphanedRestrictingSkillStillRestrictsTheRun(): void
     {
         $skill = $this->syncedSkill('["get_page"]');
+        $skill->setEnabled(false);
+
+        self::assertNull($this->resolver()->resolveForRun($this->configuration($skill), [])->toolNames, 'disabled only: drops out');
+
         $skill->setOrphaned(true);
 
         self::assertSame([], $this->resolver()->resolveForRun($this->configuration($skill), [])->toolNames);
         self::assertSame([], $this->resolver()->resolve($this->configuration($skill)));
-
-        $skill->setEnabled(false);
-
-        self::assertNull($this->resolver()->resolveForRun($this->configuration($skill), [])->toolNames);
+        self::assertSame([], $this->resolver()->resolveForRun($this->configuration(), [$skill])->toolNames, 'a forced orphan too');
     }
 
     private function processSkill(string $tools): Skill
