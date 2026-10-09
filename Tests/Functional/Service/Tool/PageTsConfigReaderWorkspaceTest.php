@@ -16,6 +16,7 @@ use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Cache\CacheManager;
+use TYPO3\CMS\Core\Configuration\SiteWriter;
 use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Context\WorkspaceAspect;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -51,7 +52,7 @@ final class PageTsConfigReaderWorkspaceTest extends AbstractFunctionalTestCase
 
         $pages = $connectionPool->getConnectionForTable('pages');
         foreach ([
-            [1, 0, 'demo.root = 1' . "\n[workspace.workspaceId == 1]\ndemo.inWorkspace = 1\n[END]", 0, 0, 0],
+            [1, 0, 'demo.root = 1' . "\n[workspace.workspaceId == 1]\ndemo.inWorkspace = 1\n[END]\n[site(\"identifier\") == \"reader\"]\ndemo.site = 1\n[END]", 0, 0, 0],
             [5, 1, 'demo.branch = five', 0, 0, 0],
             [6, 1, 'demo.branch = six', 0, 0, 0],
             [7, 5, '', 0, 0, 0],
@@ -65,6 +66,14 @@ final class PageTsConfigReaderWorkspaceTest extends AbstractFunctionalTestCase
                 't3ver_wsid' => $workspace, 't3ver_oid' => $original, 't3ver_state' => $state,
             ]);
         }
+
+        $siteWriter = $this->get(SiteWriter::class);
+        self::assertInstanceOf(SiteWriter::class, $siteWriter);
+        $siteWriter->write('reader', [
+            'rootPageId' => 1,
+            'base'       => 'https://example.com/',
+            'languages'  => [['languageId' => 0, 'title' => 'English', 'base' => '/', 'locale' => 'en_US.UTF-8']],
+        ]);
     }
 
     #[Test]
@@ -76,9 +85,24 @@ final class PageTsConfigReaderWorkspaceTest extends AbstractFunctionalTestCase
         $this->setUpBackendUser(2);
 
         self::assertSame(
-            ['root' => '1', 'inWorkspace' => '1', 'branch' => 'six'],
+            ['root' => '1', 'inWorkspace' => '1', 'site' => '1', 'branch' => 'six'],
             (new PageTsConfigReader())->forPage(7, $acting)['demo.'] ?? null,
         );
+    }
+
+    #[Test]
+    public function aPageThatExistsOnlyInTheWorkspaceFindsItsSite(): void
+    {
+        // Page 30 has no live row. A site lookup that resolved its own rootline
+        // in the ambient (live) context found no page, hence no site, and the
+        // [site(...)] condition lost its answer.
+        $acting = $this->inWorkspace($this->setUpBackendUser(1));
+        $this->setUpBackendUser(2);
+
+        $demo = (new PageTsConfigReader())->forPage(30, $acting)['demo.'] ?? null;
+
+        self::assertIsArray($demo);
+        self::assertSame('1', $demo['site'] ?? null);
     }
 
     #[Test]
