@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Skill;
 
 use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
 use Netresearch\NrLlm\Domain\Model\Skill;
+use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
 use Netresearch\NrLlm\Domain\ValueObject\SkillSourceFacts;
 
 /**
@@ -75,6 +76,23 @@ final readonly class SkillInstructionPolicy
         }
 
         return $this->approvals->hasUnrevokedApproval($uid, $skill->getSource(), $versionDigest);
+    }
+
+    /**
+     * The tool declaration of the skill's most recent unrevoked approved
+     * version from its current source (ADR-214 item 3): null when that
+     * version declared none, the declared empty list when no version is
+     * approved, so an unapproved backend skill grants nothing and still
+     * counts as a declaration.
+     *
+     * @return list<string>|null
+     */
+    public function approvedToolsOf(Skill $skill): ?array
+    {
+        $uid      = $skill->getUid();
+        $approval = $uid !== null && $uid > 0 ? $this->approvals->findLatestUnrevokedFromSource($uid, $skill->getSource()) : null;
+
+        return $approval instanceof SkillApproval ? $approval->allowedTools : [];
     }
 
     /**

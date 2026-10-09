@@ -50,13 +50,31 @@ final readonly class FormEngineUrlBuilder
     }
 
     /**
-     * @param array<int, string> $commands FormEngine edit commands, uid => 'edit' | 'new'
+     * Build a FormEngine URL creating a new record with preset field values
+     * (FormEngine's ``defVals``), e.g. the source a backend-authored skill
+     * belongs to (ADR-214 item 3).
+     *
+     * @param array<string, int|string> $defaults field name => value
      */
-    private function buildRecordUrl(string $tableName, array $commands, string $returnRoute): string
+    public function buildNewUrlWithDefaults(string $tableName, array $defaults, string $returnRoute): string
     {
-        return (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', [
+        return $this->buildRecordUrl($tableName, [0 => 'new'], $returnRoute, $defaults);
+    }
+
+    /**
+     * @param array<int, string>        $commands FormEngine edit commands, uid => 'edit' | 'new'
+     * @param array<string, int|string> $defaults
+     */
+    private function buildRecordUrl(string $tableName, array $commands, string $returnRoute, array $defaults = []): string
+    {
+        $parameters = [
             'edit' => [$tableName => $commands],
             'returnUrl' => (string)$this->backendUriBuilder->buildUriFromRoute($returnRoute),
-        ]);
+        ];
+        if ($defaults !== []) {
+            $parameters['defVals'] = [$tableName => $defaults];
+        }
+
+        return (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', $parameters);
     }
 }

@@ -230,6 +230,39 @@ Composition rules:
 
 See :ref:`ADR-036 <adr-036>` for the injection design.
 
+.. _administration-skills-backend:
+
+Writing skills in the backend
+=============================
+
+A source of the type :guilabel:`Written in the backend` holds skills that are
+authored in TYPO3 instead of fetched from GitHub (:ref:`ADR-214 <adr-214>`).
+
+1. Create a skill source and choose the type :guilabel:`Written in the
+   backend`. Set its trust level: it decides whether its skills are admitted
+   (``skills.minTrustLevel``) and whether an approved version may instruct
+   (``skills.instructionTrustLevel``).
+2. In the :guilabel:`Sources` table, click :guilabel:`New skill` on that
+   source. Write the name, an identifier unique within the source, the
+   description and the body. ``Allowed tools`` takes a JSON list of tool
+   names; leave it empty for no declaration, ``[]`` allows no tool.
+3. Enable the skill and attach it like any other. Approve a version as
+   described below to make it an instruction.
+
+Skills written here are edited through FormEngine and the DataHandler, so
+every change is in the record history with a diff and a rollback. Every edit
+changes the version: an approved version stops instructing at the next run
+until the edited version is approved. Until a version is approved the skill
+grants no tools — it counts as a declared empty list — and afterwards it grants
+the tools of its most recent approved version, not the ones in the field.
+
+The same rule protects every skill's tool declaration: a process skill, a
+skill whose source is missing, hidden or disabled, and a synced skill edited
+after its sync all count as a declared empty list. They restrict a run's tools
+instead of widening them.
+
+A backend source cannot be synced.
+
 .. _administration-skills-approval:
 
 Approving a skill version as an instruction

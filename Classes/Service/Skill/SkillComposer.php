@@ -9,11 +9,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Skill;
 
+use Netresearch\NrLlm\Domain\Enum\SkillSourceType;
 use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
 use Netresearch\NrLlm\Domain\Enum\SupportStatus;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\ValueObject\SkillCompositionResult;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
+use Netresearch\NrLlm\Domain\ValueObject\SkillSourceFacts;
 
 /**
  * Renders attached skills into two channels (ADR-036, ADR-061, ADR-214).
@@ -98,6 +100,12 @@ final readonly class SkillComposer
         private int $maxBytes = self::DEFAULT_MAX_BYTES,
         private SkillTrustLevel $minTrustLevel = SkillTrustLevel::UNTRUSTED,
         private ?SkillInstructionPolicy $instructionPolicy = null,
+        // Reads a skill's source record (ADR-214 item 3): a backend-authored
+        // skill is admitted by its source's trust level and verified by its
+        // computed digest. Absent it, every skill is treated as synced, which
+        // admits a backend skill only by its denormalised (default untrusted)
+        // level — never more than before.
+        private ?SkillSourceLookupInterface $sources = null,
     ) {}
 
     /**
@@ -116,7 +124,7 @@ final readonly class SkillComposer
         /** @var list<array{key: string, id: string, section: string, pin: SkillPin}> $instructions */
         $instructions = [];
         foreach ($candidates as $skill) {
-            $digest = SkillVersionDigest::verified($skill);
+            $digest = SkillVersionDigest::verified($skill, !$this->isBackendAuthored($skill));
             if ($digest === null) {
                 $warnings[] = sprintf(
                     $skill->getVersionDigest() !== '' ? self::WARN_DIGEST : self::WARN_CHECKSUM,
@@ -222,7 +230,7 @@ final readonly class SkillComposer
             // both the injected prose AND the allowed-tools union (this is the
             // single source of truth for "which skills are in effect"). An
             // unknown/legacy trust value reads as the lowest level.
-            if (!$skill->getTrustLevelEnum()->satisfies($this->minTrustLevel)) {
+            if (!$this->admittedLevel($skill)->satisfies($this->minTrustLevel)) {
                 continue;
             }
 
@@ -247,6 +255,80 @@ final readonly class SkillComposer
     private function selectCandidates(array $configSkills, array $taskSkills): array
     {
         return $this->effectiveSkills($configSkills, $taskSkills);
+    }
+
+    /**
+     * The tool declaration a skill contributes to a run's allow-list.
+     *
+     * Fail-closed in every case where the declaration is not vouched for: the
+     * declared empty list grants nothing and, unlike "no declaration", can
+     * never leave a run unrestricted (ADR-214 item 3).
+     *
+     * - No active source record (missing, hidden, disabled, of an unknown
+     *   type): the empty list.
+     * - A backend-authored skill: the declaration of its most recent unrevoked
+     *   approved version from the same source, and the empty list while none
+     *   is approved — an author cannot widen a run's tools with an edit nobody
+     *   approved. Without a policy to read approvals from it grants nothing.
+     * - A process skill (ADR-214 item 6): the empty list; it is composed only
+     *   through invocation, so attaching it grants nothing either.
+     * - A synced skill whose stored fields fail the integrity check: the empty
+     *   list, as compose skips it.
+     * - Any other synced skill: its stored field.
+     *
+     * A composer built without a source lookup (lean wiring) keeps the stored
+     * field, as before ADR-214.
+     *
+     * @return list<string>|null null = no opinion; a list = the declaration
+     */
+    public function declaredTools(Skill $skill): ?array
+    {
+        if (!$this->sources instanceof SkillSourceLookupInterface) {
+            return $skill->getAllowedToolsList();
+        }
+
+        $facts = $this->sources->find($skill->getSource());
+        if (!$facts instanceof SkillSourceFacts || !$facts->type instanceof SkillSourceType) {
+            return [];
+        }
+
+        if (!$facts->type->isSynced()) {
+            return $this->instructionPolicy?->approvedToolsOf($skill) ?? [];
+        }
+
+        if ($skill->isProcess() || SkillVersionDigest::verified($skill) === null) {
+            return [];
+        }
+
+        return $skill->getAllowedToolsList();
+    }
+
+    /**
+     * The trust level admission compares against the floor.
+     *
+     * A synced skill is admitted by the level the sync denormalised onto it
+     * (ADR-061 item 1). A backend-authored skill has no sync, so that column
+     * keeps its default; it is admitted by its source record's level instead
+     * (ADR-214 item 2). Fail-closed either way: an unknown value reads as the
+     * lowest level.
+     */
+    private function admittedLevel(Skill $skill): SkillTrustLevel
+    {
+        $facts = $this->sources?->find($skill->getSource());
+        if ($facts instanceof SkillSourceFacts && $facts->type === SkillSourceType::BACKEND) {
+            return $facts->trustLevel;
+        }
+
+        return $skill->getTrustLevelEnum();
+    }
+
+    /**
+     * Whether the skill belongs to a backend source, whose records are edited
+     * in place and carry no stored digest to compare against.
+     */
+    private function isBackendAuthored(Skill $skill): bool
+    {
+        return $this->sources?->find($skill->getSource())?->type?->isSynced() === false;
     }
 
     /**

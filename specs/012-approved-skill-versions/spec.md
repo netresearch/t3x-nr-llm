@@ -55,6 +55,30 @@ ADR-214 is the decision. This specification states what each implementing change
 | Approve/revoke without or with a foreign route token are refused by the dispatcher; the route's own token passes | functional | `SkillApprovalRouteTokenTest` |
 | No pin check wired: pinned runs refused on both resume paths, unpinned runs resume | unit | `ToolLoopServiceSkillPinTest` |
 
-## (b), (c), (d)
+## (b) The backend as a skill source — item 3
+
+### What it must do
+
+1. **A source of type `backend` holds skills written through FormEngine.** Its skills are edited in place (sys_history, DataHandler field rights); the sync refuses a backend source before taking its lock, so nothing is orphaned.
+2. **Admission by the source's level.** A backend skill is admitted by its source record's trust level, not by the skill's own column, which keeps its default.
+3. **Integrity by the current fields.** A backend skill's digest is computed from its current fields; an edit is a new version, never a tampered record. It instructs only while an unrevoked approval names that computed digest and its source.
+4. **Tools from what vouches for them.** The run allow-list (`AllowedToolsResolver`, both `resolve()` and `resolveForRun()`) reads `SkillComposer::declaredTools()`: a backend skill declares the tools of its most recent unrevoked approved version from the same source, and `[]` while none is approved; a process skill, a skill whose source is missing, hidden, disabled or of an unknown type, and a synced skill that fails its integrity check declare `[]`; an intact synced skill declares its stored field. A composer without a source lookup keeps the stored field.
+5. **Field rights.** For a backend skill, identifier, name, description, body, allowed tools and process are editable in FormEngine; for a synced one they are read-only. Trust-deciding fields stay `exclude` (from (a)).
+
+### What it must NOT do
+
+- Let an unapproved edit widen a run's tools, or turn a declaration into "no restriction".
+- Sync a backend source.
+
+### Which suite proves what
+
+| Requirement | Suite | Test |
+|---|---|---|
+| Admission, integrity, instruction, declared tools of backend and synced skills, both directions | unit | `SkillComposerBackendSourceTest` |
+| The resolver uses the vouched declaration for configuration and run lists | unit | `AllowedToolsResolverDeclaredToolsTest` |
+| Field rights per type | unit | `SkillFieldExclusionTest` |
+| Backend source TCA, sync refusal, FormEngine defaults | functional | `BackendSkillSourceTest` |
+
+## (c), (d)
 
 Specified in the change that implements each, in this file.

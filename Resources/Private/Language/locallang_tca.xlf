@@ -881,6 +881,9 @@
             <trans-unit id="tx_nrllm_skill_source.type.marketplace">
                 <source>Marketplace index</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.type.backend">
+                <source>Written in the backend</source>
+            </trans-unit>
             <trans-unit id="tx_nrllm_skill_source.url">
                 <source>URL</source>
             </trans-unit>
@@ -978,6 +981,9 @@
             </trans-unit>
             <trans-unit id="tx_nrllm_skill.process.description">
                 <source>Set by the frontmatter key "process: true". A process skill reaches a run only through an explicit invocation.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.allowed_tools.backend.description">
+                <source>The tools this skill allows, as a JSON list of tool names, e.g. ["get_page","search_records"]. Leave empty for no declaration; [] allows no tool. A run uses the list of the most recent approved version, not this field, so a change takes effect only after a new approval.</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_skill.source_sha">
                 <source>Source commit SHA</source>

@@ -103,7 +103,11 @@ final readonly class AllowedToolsResolver
         $declared = [];
         $any      = false;
         foreach ($this->composer->effectiveSkills($this->toList($config->getSkills()), $additionalSkills) as $skill) {
-            $list = $skill->getAllowedToolsList();
+            // What the skill may declare, not its live field: an unapproved
+            // backend skill, a process skill, one whose source no longer
+            // vouches or one edited after the sync grants nothing
+            // (ADR-214 item 3, {@see SkillComposer::declaredTools()}).
+            $list = $this->composer->declaredTools($skill);
             if ($list === null) {
                 continue;
             }
