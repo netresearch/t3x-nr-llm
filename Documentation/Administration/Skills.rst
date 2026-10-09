@@ -187,24 +187,35 @@ embeddings, vision or speech — nr-llm composes the attached skills into a
 delimited block and prepends it to the *user* prompt. The configuration
 ``system_prompt`` is never modified.
 
+A configuration has two skill fields:
+
+- :guilabel:`Skills loaded on demand`. An agent run lists the attached skills
+  whose current version is approved as an instruction (and which are not
+  process skills) by uid, name and description in the description of the
+  builtin tool ``load_skill``. When the task matches, the model loads one: its
+  section joins the run's system message before the next call, the tool
+  result confirms the load without the body, and loading the same version
+  again appends nothing. The load re-checks the attachment, the record and
+  the approval at that moment, and refuses a section that would leave less
+  than 10 % of the model's context budget. A skill attached here that is not
+  approved is neither listed nor composed. Tasks, translation and the other
+  one-shot paths never load on demand.
+- :guilabel:`Skills loaded always`. Composed into every run, as described
+  below. Every attachment that existed before the load modes is one of these.
+  Process skills cannot be attached here.
+
+Both fields grant the skills' declared tools (``allowed-tools``) from the
+start of a run; loading a skill grants nothing.
+
 .. note::
 
-   Injection is **eager and complete**, not on demand. The whole skill
+   An attachment loaded always is **eager and complete**. The whole skill
    **body** — the entire ``SKILL.md`` prose after the front-matter, not just
    the ``name``/``description`` — is written into the prompt *before* the model
-   runs. Unlike a :ref:`tool <administration-tools>`, a skill is **not**
-   something the model calls or fetches when it decides it needs it: there is no
-   runtime round-trip that loads a skill's body, and none that loads its
-   ``references/`` / ``scripts/`` / ``assets/`` (those lines are stripped from
-   ``partial`` skills, and the files are never executed). An attached skill
-   therefore always costs its full body in tokens on every run (subject to the
-   budget below).
-
-   *Planned direction (not in this release):* a progressive-disclosure mode
-   that injects only the ``description`` and lets the model pull the full body
-   or a referenced file on demand — the same shape as the tool runtime.
-   Executing a skill's bundled scripts or assets is a separate, harder step and
-   is not on the near-term roadmap.
+   runs. Nothing loads a skill's ``references/`` / ``scripts/`` / ``assets/``
+   (those lines are stripped from ``partial`` skills, and the files are never
+   executed). Such a skill therefore always costs its full body in tokens on
+   every run (subject to the budget below).
 
 Composition rules:
 

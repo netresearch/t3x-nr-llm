@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
+use Netresearch\NrLlm\Domain\ValueObject\SkillCatalogue;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
@@ -29,6 +30,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocation;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory;
+use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationTarget;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
@@ -41,14 +43,18 @@ use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Provider\OpenAi\OpenAiCallMetadata;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
+use Netresearch\NrLlm\Service\Context\SectionAdmissionInterface;
 use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
+use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
+use Netresearch\NrLlm\Service\Skill\SkillLoadService;
 use Netresearch\NrLlm\Service\Skill\SkillPinCheck;
+use Netresearch\NrLlm\Service\Tool\Builtin\LoadSkillTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
@@ -152,6 +158,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // wiring.
         private ?SkillPinCheck $skillPinCheck = null,
         private ?ToolInvocationPolicyInterface $invocationPolicy = null,
+        // The skill catalogue and the load decision (ADR-214 item 4). Optional
+        // like the collaborators above: absent it no catalogue is built, so
+        // the load tool is never offered.
+        private ?SkillLoadService $skillLoad = null,
     ) {}
 
     /**
@@ -416,6 +426,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $skillAllowList,
         );
         $specs = $this->registry->specs($effective);
+        // ADR-214 item 4: this segment's skill catalogue decides whether the
+        // load tool is offered, and with which description.
+        $catalogue = $this->skillLoad?->catalogue($configuration) ?? new SkillCatalogue();
+        $specs     = $this->withSkillCatalogue($specs, $catalogue);
 
         // No tools offered (an empty allow-list, or nothing registered): a tools
         // request with an empty `tools` array makes some providers (OpenAI) 400.
@@ -683,18 +697,27 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
 
                 foreach ($resp->toolCalls ?? [] as $call) {
                     $tt0 = hrtime(true);
-                    $tr = $this->invoke(
-                        $call,
-                        $allowedNames,
-                        $remoteCalls,
-                        new ToolInvocationEnvironment(
-                            $configuration,
-                            $skillAllowList,
-                            $context,
-                            $runTrace,
-                        ),
-                        $invocationHistory,
+                    $environment = new ToolInvocationEnvironment(
+                        $configuration,
+                        $skillAllowList,
+                        $context,
+                        $runTrace,
                     );
+                    if ($call->name === LoadSkillTool::NAME && in_array($call->name, $allowedNames, true)) {
+                        // ADR-214 item 4: the loop handles a load itself, because
+                        // its effect is on this transcript's system message. It
+                        // passes the same gates and invocation rules first.
+                        [$messages, $skillPins, $tr] = $this->dispatchLoad($call, $allowedNames, $environment, $invocationHistory, $catalogue, $skillPins, $messages, $configuration, $options, $specs);
+                    } else {
+                        $tr = $this->invoke(
+                            $call,
+                            $allowedNames,
+                            $remoteCalls,
+                            $environment,
+                            $invocationHistory,
+                        );
+                    }
+
                     // WIRE: content ONLY — artifacts are run-scoped and never egress to the provider.
                     $messages[] = ChatMessage::toolResult($call->id, $tr->content);
                     $trace[] = new ToolInvocation(
@@ -793,6 +816,170 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 AgentRunTerminationReason::BUDGET_EXHAUSTED,
             );
         }
+    }
+
+    // ------------------------------------------------------------------
+    // ADR-214 item 4: the skill load seam. Everything the loop does for a
+    // load lives in the methods below; the loop body calls them at the
+    // offer and at the per-call dispatch only.
+    // ------------------------------------------------------------------
+
+    /**
+     * Run a load after the gates every invocation passes (the offered set,
+     * the tool policy, the installation's invocation rules), and record its
+     * outcome in the invocation history as any call's is.
+     *
+     * @param list<string>                           $allowedNames
+     * @param list<SkillPin>                         $pins
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<ToolSpec>                         $specs
+     *
+     * @return array{0: list<ChatMessage|array<string, mixed>>, 1: list<SkillPin>, 2: ToolResult}
+     */
+    private function dispatchLoad(
+        ToolCall $call,
+        array $allowedNames,
+        ToolInvocationEnvironment $environment,
+        ToolInvocationHistory &$history,
+        SkillCatalogue $catalogue,
+        array $pins,
+        array $messages,
+        LlmConfiguration $configuration,
+        ?ToolOptions $options,
+        array $specs,
+    ): array {
+        $target = null;
+        $denied = $this->admitInvocation($call, $allowedNames, $environment, $history, $target);
+        if ($denied instanceof ToolResult) {
+            return [$messages, $pins, $denied];
+        }
+
+        $environment->trace?->beforeToolExecution($call->name);
+        [$messages, $pins, $result] = $this->loadSkill($call, $catalogue, $pins, $messages, $configuration, $options, $specs);
+        $history = $history->append($call->name, $result->outcome->value, $target);
+
+        return [$messages, $pins, $result];
+    }
+
+    /**
+     * The offered specs with the load tool fitted to this segment's catalogue:
+     * dropped when the catalogue is empty — every configuration without an
+     * 'on_demand' attachment sends what it sent before — and otherwise
+     * described with the catalogue and limited to its uids.
+     *
+     * @param list<ToolSpec> $specs
+     *
+     * @return list<ToolSpec>
+     */
+    private function withSkillCatalogue(array $specs, SkillCatalogue $catalogue): array
+    {
+        $out = [];
+        foreach ($specs as $spec) {
+            if ($spec->name !== LoadSkillTool::NAME) {
+                $out[] = $spec;
+                continue;
+            }
+
+            $tool = $this->registry->get(LoadSkillTool::NAME);
+            if (!$catalogue->isEmpty() && $tool instanceof LoadSkillTool) {
+                $out[] = $tool->specFor($catalogue);
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Load one skill into the transcript's system message (ADR-214 items 4
+     * and 7). The section is appended only when the load service admits it
+     * and it fits the context window with headroom; otherwise the tool result
+     * is a refusal and nothing changes. The result never carries the body.
+     * A load grants no tools: the offered set is fixed for the segment.
+     *
+     * @param list<SkillPin>                         $pins
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<ToolSpec>                         $specs
+     *
+     * @return array{0: list<ChatMessage|array<string, mixed>>, 1: list<SkillPin>, 2: ToolResult}
+     */
+    private function loadSkill(
+        ToolCall $call,
+        SkillCatalogue $catalogue,
+        array $pins,
+        array $messages,
+        LlmConfiguration $configuration,
+        ?ToolOptions $options,
+        array $specs,
+    ): array {
+        $raw = $call->arguments['skill_uid'] ?? null;
+        $uid = is_int($raw) ? $raw : (is_string($raw) && ctype_digit($raw) ? (int)$raw : 0);
+        if ($uid <= 0 || !$this->skillLoad instanceof SkillLoadService) {
+            return [$messages, $pins, ToolResult::error('load_skill needs the uid of a skill in the catalogue.')];
+        }
+
+        $outcome = $this->skillLoad->load($uid, $catalogue, $pins, $configuration);
+        if (!$outcome->appendsSection() || !$outcome->pin instanceof SkillPin) {
+            return [$messages, $pins, $outcome->isError ? ToolResult::error($outcome->message) : ToolResult::text($outcome->message)];
+        }
+
+        $system = $this->effectiveSystemPrompt($configuration, $options);
+        if ($this->contextWindow instanceof SectionAdmissionInterface && !$this->contextWindow->admitsSection(
+            $messages,
+            SkillComposer::appendInstructionSection('', $outcome->section),
+            $configuration,
+            $options,
+            array_map(static fn(ToolSpec $s): array => $s->toArray(), $specs),
+            $system,
+        )) {
+            return [$messages, $pins, ToolResult::error(sprintf(
+                'Skill "%s" was not loaded: it does not fit the context window of this conversation.',
+                $outcome->skillName,
+            ))];
+        }
+
+        $placed = $this->appendToHeadSystemMessage($messages, $outcome->section);
+        // No system message in the head: the shaping stage would prepend
+        // the configuration prompt only while none exists, so the prompt
+        // is baked in front of the section, as assemble() does.
+        $placed ??= array_values(array_merge(
+            [ChatMessage::system(SkillComposer::appendInstructionSection($system, $outcome->section))],
+            $messages,
+        ));
+
+        return [$placed, [...$pins, $outcome->pin], ToolResult::text($outcome->message)];
+    }
+
+    /**
+     * Append a loaded section to the first system message of the head, or
+     * null when the head holds none.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     *
+     * @return list<ChatMessage|array<string, mixed>>|null
+     */
+    private function appendToHeadSystemMessage(array $messages, string $section): ?array
+    {
+        foreach ($messages as $index => $message) {
+            $role = $message instanceof ChatMessage ? $message->role : (is_string($message['role'] ?? null) ? $message['role'] : '');
+            if ($role === 'user') {
+                return null;
+            }
+
+            if ($role !== 'system') {
+                continue;
+            }
+
+            $content = $message instanceof ChatMessage ? $message->content : ($message['content'] ?? null);
+            if (!is_string($content)) {
+                return null;
+            }
+
+            $messages[$index] = ChatMessage::system(SkillComposer::appendInstructionSection($content, $section));
+
+            return $messages;
+        }
+
+        return null;
     }
 
     /**
@@ -1826,15 +2013,20 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     }
 
     /**
+     * The gates every invocation passes before it runs: the offered set, the
+     * tool policy and the installation's invocation rules (#1033). Null when
+     * the call may run; otherwise the refusal, with the denial recorded in the
+     * history.
+     *
      * @param list<string> $allowedNames
      */
-    private function invoke(
+    private function admitInvocation(
         ToolCall $call,
         array $allowedNames,
-        RemoteCallBudget $remoteCalls,
         ToolInvocationEnvironment $environment,
         ToolInvocationHistory &$history,
-    ): ToolResult {
+        ?ToolInvocationTarget &$target,
+    ): ?ToolResult {
         $tool = $this->registry->get($call->name);
         if (!$tool instanceof ToolInterface || !in_array($call->name, $allowedNames, true) || !in_array(
             $call->name,
@@ -1893,6 +2085,26 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     $decision->reason,
                 ),
             );
+        }
+
+        return null;
+    }
+
+    /**
+     * @param list<string> $allowedNames
+     */
+    private function invoke(
+        ToolCall $call,
+        array $allowedNames,
+        RemoteCallBudget $remoteCalls,
+        ToolInvocationEnvironment $environment,
+        ToolInvocationHistory &$history,
+    ): ToolResult {
+        $tool   = $this->registry->get($call->name);
+        $target = null;
+        $denied = $this->admitInvocation($call, $allowedNames, $environment, $history, $target);
+        if ($denied instanceof ToolResult || !$tool instanceof ToolInterface) {
+            return $denied ?? ToolResult::error(sprintf('Error: unknown tool "%s"', $call->name));
         }
 
         $executed = false;

@@ -414,6 +414,11 @@ services:
     alias: Netresearch\NrLlm\Service\Skill\SkillRecordLookup
     public: false
 
+  # The stored facts a skill load re-checks (ADR-214 item 4).
+  Netresearch\NrLlm\Service\Skill\SkillLoadLookupInterface:
+    alias: Netresearch\NrLlm\Service\Skill\SkillLoadLookup
+    public: false
+
   # Built via a factory so the instance-configured minimum skill trust level
   # (skills.minTrustLevel, ADR-061) is applied. Stays private — the composer is
   # an internal collaborator of the injection and allowed-tools paths.

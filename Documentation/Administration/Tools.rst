@@ -41,10 +41,10 @@ non-admin users.
 The built-in tools
 ==================
 
-nr-llm ships forty-two read-only tools and seventeen writing tools. Each is a
+nr-llm ships forty-three read-only tools and seventeen writing tools. Each is a
 reference implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
-redacted or gated behind a separate ``_raw`` variant. Thirty-eight ship
+redacted or gated behind a separate ``_raw`` variant. Thirty-nine ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
 ``get_php_info_raw`` and ``list_be_users_raw``), ``fetch_external_url``
 (see :ref:`administration-tools-external-pages`) and all seventeen writing tools
@@ -1065,7 +1065,8 @@ Group              Tools
                    ``list_deprecations``, ``list_middlewares``
 ``accounts``       ``list_be_users`` (+ raw), ``list_be_groups``
 ``configuration``  ``get_typoscript``, ``get_tsconfig``, ``fluid_resolve``,
-                   ``check_typoscript``, ``get_site_config``
+                   ``check_typoscript``, ``get_site_config``,
+                   ``load_skill``
 ``code``           ``get_last_exception``, ``read_source``, ``search_code``
 ``files``          ``list_fal_storages``, ``browse_fal_folder``,
                    ``search_fal_files``, ``get_fal_references``,
@@ -1084,6 +1085,14 @@ Group              Tools
                    ``replace_file_reference``
                    — the only WRITING group
 =================  ============================================================
+
+``load_skill`` loads an approved skill into an agent run's system message
+(ADR-214). It is offered only to a run whose configuration has skills attached
+as *loaded on demand* and at least one of them is an approved instruction; its
+description lists those skills by uid, name and description. The skill
+allow-list and the configuration's allowed tool groups do not restrict it, so
+a skill declaring ``allowed-tools: []`` does not switch it off; the global tool
+state and the trust zone do. Loading a skill grants no tools.
 
 Groups can be switched on three levels, and the result cascades
 **fail-closed** — a tool is offered only when *every* level permits it:

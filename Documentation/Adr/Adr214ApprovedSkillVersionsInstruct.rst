@@ -431,7 +431,15 @@ attachment decides which configuration offers it.
 
 **An attachment carries a load mode,** ``always`` or ``on_demand``. Existing
 attachments migrate to ``always``, which is today's full composition; new
-attachments default to ``on_demand``.
+attachments default to ``on_demand``. The implementing change stores the mode
+in the attachment table and shows it as two fields of the configuration,
+"Skills loaded on demand" first and "Skills loaded always", because FormEngine
+cannot edit a column of a select relation's MM row; the "default" is
+therefore the field order rather than a value, the column default ``always``
+is the migration, and ``LlmConfiguration::addSkill()`` keeps attaching
+``always`` for existing callers. Task attachments carry no mode: a task stays
+one prompt and one answer (:ref:`item 11 <adr-214-d11>`) and has no loop that
+could load (``specs/012-approved-skill-versions/spec.md``, section (c)).
 
 **A skill is named by its uid, not by its identifier.** Identifiers are unique
 only per source; :php:`SkillComposer` already keys skills by source and

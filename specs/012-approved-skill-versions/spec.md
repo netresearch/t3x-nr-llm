@@ -80,6 +80,38 @@ ADR-214 is the decision. This specification states what each implementing change
 | Field rights per type | unit | `SkillFieldExclusionTest` |
 | Backend source TCA, sync refusal, FormEngine defaults | functional | `BackendSkillSourceTest` |
 
-## (c), (d)
+## (c) Load modes, the catalogue and the load tool — items 4, 5 and the load part of 7
 
-Specified in the change that implements each, in this file.
+### What it must do
+
+1. **Two load modes on the configuration's attachments.** `tx_nrllm_configuration_skill_mm.load_mode` is `always` or `on_demand`; the field `skills` holds the `always` rows and the new field `skills_on_demand` the `on_demand` rows of the same MM table (`MM_match_fields`). A row that existed before the column is `always` by the column default, so existing configurations compose exactly what they composed before. FormEngine refuses a process skill in the `always` field.
+2. **Only `always` attachments are composed at run start.** Every composition site reads `getSkills()`, which holds the `always` rows only.
+3. **Attachment grants tools in both modes (item 5).** The run allow-list and the input-context classification read `getAttachedSkills()`, both modes; a load grants nothing.
+4. **The catalogue.** Per loop segment, the `on_demand` attachments that are effective, pass the integrity check, are not process skills and whose current version is an approved instruction, as uid, name and description (`SkillComposer::catalogue()`).
+5. **The load tool `load_skill`** is offered only when the catalogue is not empty, with the catalogue in its description and the uids as its only values. It is exempt from the skill allow-list and the group gate (keyed on the builtin class), not from the global tool state or the trust zone.
+6. **The load re-checks at load time:** the uid is in the segment's catalogue, the skill is still attached `on_demand` (DBAL), the stored record is enabled, not hidden, deleted, orphaned or a process skill and still carries the catalogue's digest (DBAL), and that version still composes as an instruction. It is idempotent per skill and digest: a held pin at the same digest returns "already loaded" and appends nothing; another digest is refused.
+7. **Admission (item 7, load part).** The section is appended only when head + section + newest turn stays at or below the budget minus 10 % of it (`SectionAdmissionInterface::admitsSection()`); otherwise the result is an error naming the skill and nothing is appended.
+8. **The loop writes the section** into the head system message (behind the approved-skills heading, or baked behind the effective system prompt when the head has no system message) before the next call, records the pin, and answers with a confirmation that never carries the body.
+
+### What it must NOT do
+
+- Compose an `on_demand` attachment at run start, or offer the load tool to a configuration without one.
+- Let a load widen the offered tools, or let any other tool take the load tool's exemption.
+- Put a skill body in a tool result.
+
+### Which suite proves what
+
+| Requirement | Suite | Test |
+|---|---|---|
+| Catalogue contents, every load re-check, idempotency, heading placement | unit | `SkillLoadServiceTest` |
+| Offer only with a catalogue, placement, idempotency in the loop, admission refusal, pins on suspension, no widening, exemption and global state | unit | `ToolLoopServiceSkillLoadTest` |
+| Gate-4 exemption only for the builtin, global state still applies | unit | `ToolCallPolicyTest` |
+| Admission floor, headroom, newest turn counted, older turns not | unit | `ContextWindowSectionAdmissionTest` |
+| Both modes grant tools; an on-demand declaration restricts | unit | `AllowedToolsResolverTest` |
+| On-demand skills are classified | unit | `InputContextClassifierTest` |
+| Column default, per-field reads and writes through Extbase and DataHandler, load lookup | functional | `SkillLoadModeTest` |
+| Production wiring of the load service | functional | `ToolLoopGateWiringTest` |
+
+## (d)
+
+Specified in the change that implements it, in this file.

@@ -115,7 +115,12 @@ final readonly class AllowedToolsResolver
         $declared = [];
         // Every admitted record, not only the one a (source, identifier) twin
         // leaves in effect: a twin cannot drop a restriction.
-        $admitted = $this->composer->admittedSkills([...$invokedSkills, ...$this->toList($config->getSkills())], $additionalSkills);
+        // Both load modes (ADR-214 item 5): attachment grants tools, whether
+        // the body is composed at run start or loaded later; a load grants
+        // nothing on top. Invoked skills come first so their objects win the
+        // dedupe and keep their invocation.
+        $attached = $config->getAttachedSkills();
+        $admitted = $this->composer->admittedSkills([...$invokedSkills, ...$attached], $additionalSkills);
         // An invoked skill that is not admitted (disabled, below the trust
         // floor) grants nothing, and the run is not left unrestricted because
         // of that: fail closed.
@@ -127,7 +132,7 @@ final readonly class AllowedToolsResolver
         // without a declaration, and a process skill. Only an administrator's
         // disable drops a skill out; detaching it does too. An invoked skill
         // that is not admitted already restricts above.
-        foreach ([...$this->toList($config->getSkills()), ...$additionalSkills] as $skill) {
+        foreach ([...$attached, ...$additionalSkills] as $skill) {
             if ($skill->isOrphaned() || $skill->isDisabledBySync()) {
                 $any = true;
             }

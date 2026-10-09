@@ -304,12 +304,20 @@
                 <target>Aktive Prompt-Bausteine mit einem der gewählten Tags werden an den System-Prompt dieser Konfiguration angehängt. Leer = keine Bausteine. Tags werden als ganze Token und ohne Beachtung der Groß-/Kleinschreibung verglichen, „style“ trifft also nicht „lifestyle“.</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.skills">
-                <source>Attached Skills</source>
-                <target>Zugewiesene Skills</target>
+                <source>Skills loaded always</source>
+                <target>Immer geladene Skills</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.skills.description">
-                <source>Skills attached here form the baseline injected into every text generation that uses this configuration</source>
-                <target>Hier zugewiesene Skills bilden die Grundlage, die in jede Textgenerierung mit dieser Konfiguration eingefügt wird</target>
+                <source>Skills attached here are composed into every text generation that uses this configuration. Process skills cannot be attached here.</source>
+                <target>Hier zugewiesene Skills werden in jede Textgenerierung mit dieser Konfiguration eingefügt. Prozess-Skills können hier nicht zugewiesen werden.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.skills_on_demand">
+                <source>Skills loaded on demand</source>
+                <target>Bei Bedarf geladene Skills</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.skills_on_demand.description">
+                <source>An agent run lists the approved skills attached here by name and description, and the model loads one when it needs it. Skills attached here grant their declared tools like the ones loaded always.</source>
+                <target>Ein Agentenlauf listet die hier zugewiesenen freigegebenen Skills mit Name und Beschreibung auf, und das Modell lädt einen, wenn es ihn braucht. Hier zugewiesene Skills gewähren ihre deklarierten Tools wie die immer geladenen.</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.model_selection_mode">
                 <source>Model Selection</source>
