@@ -233,6 +233,7 @@ final class McpDelegatedLifecycleTest extends AbstractUnitTestCase
                     self::assertSame($actors[$index], $actor);
                     self::assertSame('mcp-api', $server->delegationAudience);
                     self::assertFalse($deadline->isExhausted());
+                    self::assertNull($cancellation);
                     return $sessions[$index++];
                 },
             );

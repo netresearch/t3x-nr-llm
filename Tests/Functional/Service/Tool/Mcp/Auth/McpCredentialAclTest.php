@@ -322,8 +322,7 @@ final class McpCredentialAclTest extends AbstractFunctionalTestCase
         $builder = $this->createMock(VaultHttpClientInterface::class);
         $builder->method('withTimeout')->willReturnSelf();
         $builder->method('withReason')->willReturnSelf();
-        $builder
-            ->method('withAuthentication')
+        $builder->expects(self::once())->method('withAuthentication')
             ->with(
                 self::SUBJECT,
                 SecretPlacement::BodyField,

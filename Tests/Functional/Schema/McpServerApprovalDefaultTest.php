@@ -32,6 +32,8 @@ use TYPO3\CMS\Core\Database\Schema\SqlReader;
 #[CoversClass(McpServerRecord::class)]
 final class McpServerApprovalDefaultTest extends AbstractFunctionalTestCase
 {
+    private const DROP_COLUMN_SQL = 'ALTER TABLE ' . self::TABLE . ' DROP COLUMN ';
+
     private const TABLE = 'tx_nrllm_mcp_server';
 
     #[Test]
@@ -45,7 +47,7 @@ final class McpServerApprovalDefaultTest extends AbstractFunctionalTestCase
         // rather than a Doctrine TableDiff, whose constructor is @internal and
         // may only be produced by a Comparator.
         $connection->executeStatement(
-            'ALTER TABLE ' . self::TABLE . ' DROP COLUMN requires_approval',
+            self::DROP_COLUMN_SQL . 'requires_approval',
         );
         self::assertNotContains('requires_approval', $this->columnsOf($connectionPool));
 
@@ -168,7 +170,7 @@ final class McpServerApprovalDefaultTest extends AbstractFunctionalTestCase
             'delegation_scopes',
             'discovery_credential',
         ] as $field) {
-            $connection->executeStatement('ALTER TABLE ' . self::TABLE . ' DROP COLUMN ' . $field);
+            $connection->executeStatement(self::DROP_COLUMN_SQL . $field);
         }
 
         $connection->insert(
@@ -219,7 +221,7 @@ final class McpServerApprovalDefaultTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(ConnectionPool::class, $pool);
         $connection = $pool->getConnectionForTable(self::TABLE);
         $connection->executeStatement(
-            'ALTER TABLE ' . self::TABLE . ' DROP COLUMN discovery_credential',
+            self::DROP_COLUMN_SQL . 'discovery_credential',
         );
         $this->updateDatabaseSchema();
         $columns = $connection->createSchemaManager()->listTableColumns(self::TABLE);

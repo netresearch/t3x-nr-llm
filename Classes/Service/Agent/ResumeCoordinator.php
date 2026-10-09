@@ -280,41 +280,7 @@ final readonly class ResumeCoordinator
         // appended events — writing there would duplicate sequences and
         // interleave segments. The claim is won, so a failure now settles the
         // run rather than stranding it RUNNING (fail-closed either way).
-        $claimed = $this->persister->findRun($runUuid);
-        $handle = $claimed instanceof AgentRun ? $this->persister->resumeHandle($claimed) : null;
-        if (!$claimed instanceof AgentRun || !$handle instanceof AgentRunHandle) {
-            $this->persister->settleFailed(
-                new AgentRunHandle($run->uid, $run->uuid),
-                new RuntimeException(
-                    'The event-stream position could not be determined after the resume claim',
-                ),
-            );
-
-            throw RunStateUnavailableException::forRun($runUuid);
-        }
-
-        // Decode the state the run is ACTUALLY suspended on, from that same
-        // fresh row. The pre-claim decode already refused a row that was corrupt
-        // when we read it, so what is left here is the race: the state CHANGED
-        // between the two reads (a lost race let another approval run the turn
-        // and the run suspended again) and the new one is unreadable. Corrupt at
-        // this point means the run cannot continue and cannot be released either
-        // — an unreadable state cannot be written back — so settle it rather
-        // than leave it RUNNING with a won claim and nowhere to go.
-        $decoded = $claimed->suspendedState !== null ? json_decode($claimed->suspendedState, true) : null;
-        if (!is_array($decoded)) {
-            $this->persister->settleFailed(
-                $handle,
-                new RuntimeException(
-                    'The suspended run state could not be decoded after the resume claim',
-                ),
-            );
-
-            throw CorruptSuspendedStateException::forRun($runUuid);
-        }
-
-        /** @var array<string, mixed> $decoded */
-        $state = SuspendedRunState::fromArray($decoded);
+        [$claimed, $handle, $state] = $this->claimedRunState($run);
         $initiatingActor = $this->claimedActor($state, $claimed, $handle);
 
         // Gate 1 — the decision must name THIS turn. hash_equals rather than
@@ -741,38 +707,7 @@ final readonly class ResumeCoordinator
             throw RunAlreadyResumingException::forRun($runUuid);
         }
 
-        $claimed = $this->persister->findRun($runUuid);
-        $handle = $claimed instanceof AgentRun ? $this->persister->resumeHandle($claimed) : null;
-        if (!$claimed instanceof AgentRun || !$handle instanceof AgentRunHandle) {
-            $this->persister->settleFailed(
-                new AgentRunHandle($run->uid, $run->uuid),
-                new RuntimeException(
-                    'The event-stream position could not be determined after the resume claim',
-                ),
-            );
-
-            throw RunStateUnavailableException::forRun($runUuid);
-        }
-
-        // The state the run is ACTUALLY suspended on, from the same fresh row —
-        // approve()'s rule, and for the same reason (ADR-132/ADR-150). The
-        // pre-claim decode above already refused a row that was unreadable when
-        // we found it, non-destructively; what is left here is the race, and a
-        // state that cannot be decoded now can neither continue nor be released.
-        $claimedState = $claimed->suspendedState !== null ? json_decode($claimed->suspendedState, true) : null;
-        if (!is_array($claimedState)) {
-            $this->persister->settleFailed(
-                $handle,
-                new RuntimeException(
-                    'The suspended run state could not be decoded after the resume claim',
-                ),
-            );
-
-            throw CorruptSuspendedStateException::forRun($runUuid);
-        }
-
-        /** @var array<string, mixed> $claimedState */
-        $state = SuspendedRunState::fromArray($claimedState);
+        [$claimed, $handle, $state] = $this->claimedRunState($run);
         $initiatingActor = $this->claimedActor($state, $claimed, $handle);
 
         // Gate 1 — the submission must name THIS turn (ADR-150). hash_equals for
@@ -875,5 +810,42 @@ final readonly class ResumeCoordinator
         }
 
         return $actor;
+    }
+
+    /**
+     * Read the authoritative row, event position and payload after winning a claim.
+     * Failures settle the claimed run; pre-claim corruption remains repairable.
+     *
+     * @return array{AgentRun, AgentRunHandle, SuspendedRunState}
+     */
+    private function claimedRunState(AgentRun $run): array
+    {
+        $claimed = $this->persister->findRun($run->uuid);
+        $handle = $claimed instanceof AgentRun ? $this->persister->resumeHandle($claimed) : null;
+        if (!$claimed instanceof AgentRun || !$handle instanceof AgentRunHandle) {
+            $this->persister->settleFailed(
+                new AgentRunHandle($run->uid, $run->uuid),
+                new RuntimeException(
+                    'The event-stream position could not be determined after the resume claim',
+                ),
+            );
+            throw RunStateUnavailableException::forRun($run->uuid);
+        }
+
+        // Re-read only after the claim: another continuation may have replaced the
+        // payload since preClaimState(). Unreadable claimed state cannot be released.
+        $decoded = $claimed->suspendedState !== null ? json_decode($claimed->suspendedState, true) : null;
+        if (!is_array($decoded)) {
+            $this->persister->settleFailed(
+                $handle,
+                new RuntimeException(
+                    'The suspended run state could not be decoded after the resume claim',
+                ),
+            );
+            throw CorruptSuspendedStateException::forRun($run->uuid);
+        }
+
+        /** @var array<string, mixed> $decoded */
+        return [$claimed, $handle, SuspendedRunState::fromArray($decoded)];
     }
 }

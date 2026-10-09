@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 use Netresearch\NrVault\TCA\VaultFieldHelper;
 
+$delegatedModeCondition = 'FIELD:auth_mode:=:delegated';
+
 return [
     'ctrl' => [
         'title' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server',
@@ -279,7 +281,7 @@ return [
         'delegation_profile' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.delegation_profile',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.delegation_profile.description',
-            'displayCond' => 'FIELD:auth_mode:=:delegated',
+            'displayCond' => $delegatedModeCondition,
             'config' => [
                 'type' => 'input',
                 'size' => 50,
@@ -292,7 +294,7 @@ return [
         'delegation_audience' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.delegation_audience',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.delegation_audience.description',
-            'displayCond' => 'FIELD:auth_mode:=:delegated',
+            'displayCond' => $delegatedModeCondition,
             'config' => [
                 'type' => 'input',
                 'size' => 50,
@@ -305,7 +307,7 @@ return [
         'delegation_scopes' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.delegation_scopes',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.delegation_scopes.description',
-            'displayCond' => 'FIELD:auth_mode:=:delegated',
+            'displayCond' => $delegatedModeCondition,
             'config' => [
                 'type' => 'input',
                 'size' => 50,
@@ -324,7 +326,7 @@ return [
                 ],
             ),
             [
-                'displayCond' => 'FIELD:auth_mode:=:delegated',
+                'displayCond' => $delegatedModeCondition,
                 'config' => ['searchable' => false],
             ],
         ),

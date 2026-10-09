@@ -302,6 +302,8 @@ final readonly class McpTokenExchange
             try {
                 $response->getBody()->close();
             } catch (Throwable) {
+                // Best-effort disposal must not replace a sanitized outcome with
+                // a stream exception that could contain the token response body.
             }
         }
     }
