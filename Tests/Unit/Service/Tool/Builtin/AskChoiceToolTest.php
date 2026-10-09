@@ -56,6 +56,7 @@ final class AskChoiceToolTest extends TestCase
             'a line separator'     => ['question' => 'Q?', 'options' => ['a', "b\u{2028}c"]],
             'a no-break twin'      => ['question' => 'Q?', 'options' => ['10 %', "10\u{00A0}%"]],
             'a soft-hyphen twin'   => ['question' => 'Q?', 'options' => ['Seite', "Sei\u{00AD}te"]],
+            'a decomposed twin'    => ['question' => 'Q?', 'options' => ["caf\u{00E9}", "cafe\u{0301}"]],
             'invalid UTF-8'        => ['question' => 'Q?', 'options' => ['a', "\xC3"]],
         ] as $case => $arguments) {
             try {

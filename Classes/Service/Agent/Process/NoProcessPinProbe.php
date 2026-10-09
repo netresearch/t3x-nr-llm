@@ -24,6 +24,11 @@ final readonly class NoProcessPinProbe implements ProcessPinProbe
         return false;
     }
 
+    public function processPinOf(AgentRun $run): bool
+    {
+        return false;
+    }
+
     public function anyProcessPin(array $pins): bool
     {
         return false;
