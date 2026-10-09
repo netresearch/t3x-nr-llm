@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Skill;
 
 use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
 use Throwable;
+use TYPO3\CMS\Core\Configuration\Exception\ExtensionConfigurationExtensionNotConfiguredException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
@@ -90,8 +91,9 @@ final readonly class SkillComposerFactory
      * approved version of it is composed as an instruction (ADR-214 item 2).
      *
      * Read from ``skills.instructionTrustLevel``. An absent or empty value is
-     * the default, ``verified``. An unrecognised value fails CLOSED to the
-     * highest level, ``first_party``: this threshold grants a privilege, so a
+     * the default, ``verified``, as is an extension that is not configured at
+     * all. An unrecognised value, and a configuration that cannot be read,
+     * fail CLOSED to the highest level, ``first_party``: this threshold grants a privilege, so a
      * typo must narrow it, never widen it — the opposite direction of
      * {@see self::minTrustLevel()}, which hides skills when raised. A value
      * below ``skills.minTrustLevel`` is read as ``skills.minTrustLevel``,
@@ -105,13 +107,17 @@ final readonly class SkillComposerFactory
         try {
             $skills = $this->skillsConfig();
             $value  = is_string($skills['instructionTrustLevel'] ?? null) ? trim($skills['instructionTrustLevel']) : '';
+            $level  = $value === ''
+                ? self::DEFAULT_INSTRUCTION_TRUST_LEVEL
+                : (SkillTrustLevel::tryFrom($value) ?? SkillTrustLevel::FIRST_PARTY);
+        } catch (ExtensionConfigurationExtensionNotConfiguredException) {
+            // Nothing configured at all (a fresh install): the default.
+            $level = self::DEFAULT_INSTRUCTION_TRUST_LEVEL;
         } catch (Throwable) {
-            $value = '';
+            // A configuration that exists but cannot be read is unreadable,
+            // not absent: fail closed, like an unrecognised value.
+            $level = SkillTrustLevel::FIRST_PARTY;
         }
-
-        $level = $value === ''
-            ? self::DEFAULT_INSTRUCTION_TRUST_LEVEL
-            : (SkillTrustLevel::tryFrom($value) ?? SkillTrustLevel::FIRST_PARTY);
 
         $minimum = $this->minTrustLevel();
 

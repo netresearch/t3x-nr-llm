@@ -1639,6 +1639,18 @@
                 <source>Not approved: the skill no longer exists at its source.</source>
                 <target>Nicht freigegeben: Den Skill gibt es in seiner Quelle nicht mehr.</target>
             </trans-unit>
+            <trans-unit id="skill.approval.flash.refused_invisible">
+                <source>Not approved: the version contains characters the model reads and this page cannot show.</source>
+                <target>Nicht freigegeben: Die Version enthält Zeichen, die das Modell liest, diese Seite aber nicht anzeigen kann.</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.state.invisible.title">
+                <source>Contains characters this page cannot show</source>
+                <target>Enthält Zeichen, die diese Seite nicht anzeigen kann</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.state.invisible">
+                <source>The model reads these characters, but a browser renders them as nothing, so the text below is not all the model would be told. This version cannot be approved. Remove the characters at the source and sync again.</source>
+                <target>Das Modell liest diese Zeichen, ein Browser stellt sie aber nicht dar. Der Text unten ist daher nicht alles, was dem Modell gesagt würde. Diese Version kann nicht freigegeben werden. Entfernen Sie die Zeichen in der Quelle und synchronisieren Sie erneut.</target>
+            </trans-unit>
             <trans-unit id="skill.approval.flash.revoked">
                 <source>The approvals of this version were revoked.</source>
                 <target>Die Freigaben dieser Version wurden widerrufen.</target>

@@ -27,8 +27,9 @@ use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
 final readonly class SkillVersionReview
 {
     /**
-     * @param list<string>|null   $allowedTools the current version's tool declaration, null when it declares none
-     * @param list<SkillApproval> $history      every approval of the skill, newest first
+     * @param list<string>|null   $allowedTools        the current version's tool declaration, null when it declares none
+     * @param list<SkillApproval> $history             every approval of the skill, newest first
+     * @param list<string>        $invisibleCharacters characters of the version a model reads and the page cannot show; any one blocks approval
      */
     public function __construct(
         public ?string $currentDigest,
@@ -43,11 +44,18 @@ final readonly class SkillVersionReview
         public string $bodyDiff,
         public string $allowedToolsDiff,
         public array $history,
+        public array $invisibleCharacters = [],
     ) {}
 
     public function isApprovable(): bool
     {
-        return $this->currentDigest !== null && $this->currentDigest !== '' && !$this->currentDigestApproved;
+        return $this->currentDigest !== null && $this->currentDigest !== '' && !$this->currentDigestApproved
+            && $this->invisibleCharacters === [];
+    }
+
+    public function getHasInvisibleCharacters(): bool
+    {
+        return $this->invisibleCharacters !== [];
     }
 
     public function getIsApprovable(): bool

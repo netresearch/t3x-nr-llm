@@ -13,7 +13,9 @@ use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
 /**
- * DBAL read of a skill record's existence and orphan flag (ADR-214 item 6).
+ * DBAL read of whether a skill record is active: it exists, is not deleted,
+ * hidden, disabled or orphaned (ADR-214 item 6). A skill the sync auto-disabled
+ * or the injection scan force-disabled stops steering a suspended run.
  *
  * A plain query, for the reason {@see SkillSourceLookup} gives: the answer
  * must be the stored value now, not an object a worker read earlier.
@@ -28,7 +30,7 @@ final readonly class SkillRecordLookup implements SkillRecordLookupInterface
         private ConnectionPool $connectionPool,
     ) {}
 
-    public function existsAndNotOrphaned(int $skillUid): bool
+    public function isActive(int $skillUid): bool
     {
         if ($skillUid <= 0) {
             return false;
@@ -43,6 +45,8 @@ final readonly class SkillRecordLookup implements SkillRecordLookupInterface
                 $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($skillUid, Connection::PARAM_INT)),
                 $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
                 $queryBuilder->expr()->eq('orphaned', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('hidden', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('enabled', $queryBuilder->createNamedParameter(1, Connection::PARAM_INT)),
             )
             ->executeQuery()
             ->fetchOne();

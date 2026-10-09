@@ -108,6 +108,27 @@ final class SkillApprovalServiceTest extends AbstractFunctionalTestCase
         self::assertSame(['', ''], $this->auditDigests());
     }
 
+    /**
+     * The approval binds to bytes; tag characters render as nothing on the
+     * review page and as text to a model, so the approver did not see them.
+     */
+    #[Test]
+    public function aVersionWithCharactersThePageCannotShowIsRefusedAndListed(): void
+    {
+        $skill = $this->skill();
+        $skill->setBody("Follow the house style.\n\u{E0049}\u{E0067}\u{E006E}\u{E006F}\u{E0072}\u{E0065}");
+        $skill->setBodyChecksum(hash('sha256', $skill->getBody()));
+        $skill->setVersionDigest(SkillVersionDigest::of($skill));
+
+        $review = $this->service()->review($skill);
+
+        self::assertFalse($review->isApprovable());
+        self::assertSame('body, line 2: U+E0049', $review->invisibleCharacters[0]);
+        self::assertSame(SkillApprovalOutcome::REFUSED_INVISIBLE, $this->service()->approveVersion($skill, $skill->getVersionDigest(), 1));
+        self::assertSame([], (new SkillApprovalRepository($this->pool()))->findBySkill(5));
+        self::assertSame([SkillAuditEvent::VERSION_APPROVAL_REFUSED->value], $this->auditEvents());
+    }
+
     #[Test]
     public function aRecordThatFailsItsIntegrityCheckCannotBeApproved(): void
     {

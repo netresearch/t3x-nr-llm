@@ -81,6 +81,7 @@ final readonly class SkillApprovalService
                 ? $this->diff->diff($this->toolsText($latest->allowedTools), $this->toolsText($fields['allowed_tools']))
                 : '',
             history: $this->approvals->findBySkill($uid),
+            invisibleCharacters: $this->invisibleIn($skill),
         );
     }
 
@@ -173,7 +174,27 @@ final readonly class SkillApprovalService
             return SkillApprovalOutcome::REFUSED_STALE;
         }
 
+        if ($this->invisibleIn($skill) !== []) {
+            return SkillApprovalOutcome::REFUSED_INVISIBLE;
+        }
+
         return null;
+    }
+
+    /**
+     * The characters of the version a model reads and the review page cannot
+     * show (ADR-214 item 2): the approval binds to bytes, so every byte must
+     * be visible to the approver.
+     *
+     * @return list<string>
+     */
+    private function invisibleIn(Skill $skill): array
+    {
+        return SkillInvisibleCharacters::findIn([
+            'name'        => $skill->getName(),
+            'description' => $skill->getDescription(),
+            'body'        => $skill->getBody(),
+        ]);
     }
 
     /**

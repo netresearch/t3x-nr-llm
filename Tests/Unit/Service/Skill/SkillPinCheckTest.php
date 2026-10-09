@@ -113,7 +113,15 @@ final class SkillPinCheckTest extends TestCase
         $pin                    = $this->approvedPin();
         $this->records->present = [];
 
-        self::assertSame('the skill no longer exists or is orphaned', $this->check()->failure($pin));
+        self::assertSame('the skill was deleted, disabled or orphaned', $this->check()->failure($pin));
+    }
+
+    #[Test]
+    public function aPinStandingInForADamagedEntryNeverHolds(): void
+    {
+        $this->approvedPin();
+
+        self::assertNotNull($this->check()->failure(new SkillPin(0, 0, '')));
     }
 
     #[Test]

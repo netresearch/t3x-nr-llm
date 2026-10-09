@@ -151,7 +151,12 @@ final readonly class ConfigurationCallPlanner
      */
     public function callOptions(LlmConfiguration $config, Model $model, array $optionOverrides): array
     {
-        $options = array_merge($config->toOptionsArray(), $optionOverrides);
+        // The configuration's free-form options cannot carry approved skill
+        // instructions; only the call's overrides, which the manager sets from
+        // the composer, can (ADR-214 item 2).
+        $configured = $config->toOptionsArray();
+        unset($configured[self::INSTRUCTIONS_OPTION]);
+        $options = array_merge($configured, $optionOverrides);
         unset($options['provider']);
 
         $options = $this->withSnippetTags($options, $config);

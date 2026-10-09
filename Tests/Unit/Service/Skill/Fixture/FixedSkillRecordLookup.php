@@ -12,7 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture;
 use Netresearch\NrLlm\Service\Skill\SkillRecordLookupInterface;
 
 /**
- * Skill records that exist and are not orphaned; a uid not listed is gone.
+ * Active skill records; a uid not listed is deleted, disabled or orphaned.
  */
 final class FixedSkillRecordLookup implements SkillRecordLookupInterface
 {
@@ -23,7 +23,7 @@ final class FixedSkillRecordLookup implements SkillRecordLookupInterface
         public array $present = [],
     ) {}
 
-    public function existsAndNotOrphaned(int $skillUid): bool
+    public function isActive(int $skillUid): bool
     {
         return in_array($skillUid, $this->present, true);
     }

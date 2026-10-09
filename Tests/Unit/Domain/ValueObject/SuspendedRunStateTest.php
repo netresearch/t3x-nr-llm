@@ -341,8 +341,12 @@ final class SuspendedRunStateTest extends TestCase
         self::assertSame([], SuspendedRunState::fromArray($data)->skillPins);
     }
 
+    /**
+     * Fail closed: a damaged entry becomes a pin no approval can match, so the
+     * resume stops instead of continuing with fewer checks.
+     */
     #[Test]
-    public function aMalformedPinIsDropped(): void
+    public function aMalformedPinBecomesAPinThatNeverHolds(): void
     {
         $data = [
             'messages'     => [['role' => 'user', 'content' => 'go']],
@@ -351,7 +355,18 @@ final class SuspendedRunStateTest extends TestCase
             'skillPins'    => [['skill' => 3, 'source' => 1, 'digest' => '1:x'], ['skill' => '3', 'source' => 1, 'digest' => 'd'], 'nonsense'],
         ];
 
-        self::assertEquals([new SkillPin(3, 1, '1:x')], SuspendedRunState::fromArray($data)->skillPins);
+        self::assertEquals(
+            [new SkillPin(3, 1, '1:x'), new SkillPin(0, 0, ''), new SkillPin(0, 0, '')],
+            SuspendedRunState::fromArray($data)->skillPins,
+        );
+    }
+
+    #[Test]
+    public function aStoredPinValueThatIsNotAListNeverHolds(): void
+    {
+        $data = ['messages' => [['role' => 'user', 'content' => 'go']], 'pendingCalls' => [], 'iterations' => 1, 'skillPins' => 'nonsense'];
+
+        self::assertEquals([new SkillPin(0, 0, '')], SuspendedRunState::fromArray($data)->skillPins);
     }
 
     /**

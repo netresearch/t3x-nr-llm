@@ -157,6 +157,13 @@ parameters:
     - ../../Tests
     - ../../ext_localconf.php
 
+  # Request attributes the core sets that phpstan-typo3 does not map (2.0+
+  # reads this setting). `route` is set by the backend router for every
+  # backend request; SkillApprovalController binds a state change to it.
+  typo3:
+    requestGetAttributeMapping:
+      route: TYPO3\CMS\Backend\Routing\Route|null
+
   # PHPat architectural tests configuration
   phpat:
     ignore_built_in_classes: true

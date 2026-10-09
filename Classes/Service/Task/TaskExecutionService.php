@@ -81,7 +81,9 @@ final readonly class TaskExecutionService implements TaskExecutionServiceInterfa
         $appliedSkills = $injected['included'];
         // Approved instruction sections (ADR-214 item 2) belong behind the
         // configuration's system prompt, never in the prompt, which is the
-        // user turn. The planner appends them there.
+        // user turn. The planner appends them there. Without a resolvable
+        // configuration they are not sent, and nothing else is either: the
+        // fallback below raises "no provider specified" (see there).
         $overrides = $injected['instructions'] !== ''
             ? [ConfigurationCallPlanner::INSTRUCTIONS_OPTION => $injected['instructions']]
             : [];

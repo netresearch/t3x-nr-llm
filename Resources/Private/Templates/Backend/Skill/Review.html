@@ -54,6 +54,17 @@
             </f:else>
         </f:if>
 
+        <f:if condition="{review.hasInvisibleCharacters}">
+            <f:be.infobox state="2" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.approval.state.invisible.title', default: 'Contains characters this page cannot show')}">
+                <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.approval.state.invisible" default="The model reads these characters, but a browser renders them as nothing, so the text below is not all the model would be told. This version cannot be approved. Remove the characters at the source and sync again." /></p>
+                <ul class="mb-0">
+                    <f:for each="{review.invisibleCharacters}" as="finding">
+                        <li><code>{finding}</code></li>
+                    </f:for>
+                </ul>
+            </f:be.infobox>
+        </f:if>
+
         <div class="card mb-4">
             <div class="card-body p-0">
                 <div class="table-fit table-fit-wrap">
@@ -116,7 +127,7 @@
         </div>
 
         <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.approval.body" default="Current version" /></h2>
-        <pre class="border rounded p-3 bg-body-tertiary text-break" style="white-space: pre-wrap">{skill.body}</pre>
+        <pre class="border rounded p-3 text-break" style="background: var(--typo3-surface-container-base); white-space: pre-wrap; border-radius: var(--typo3-component-border-radius);">{skill.body}</pre>
 
         <f:if condition="{review.latestApproval}">
             <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.approval.diff" default="Changes since the most recent approved version" /></h2>

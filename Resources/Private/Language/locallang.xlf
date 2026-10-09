@@ -1234,6 +1234,15 @@
             <trans-unit id="skill.approval.flash.refused_orphaned">
                 <source>Not approved: the skill no longer exists at its source.</source>
             </trans-unit>
+            <trans-unit id="skill.approval.flash.refused_invisible">
+                <source>Not approved: the version contains characters the model reads and this page cannot show.</source>
+            </trans-unit>
+            <trans-unit id="skill.approval.state.invisible.title">
+                <source>Contains characters this page cannot show</source>
+            </trans-unit>
+            <trans-unit id="skill.approval.state.invisible">
+                <source>The model reads these characters, but a browser renders them as nothing, so the text below is not all the model would be told. This version cannot be approved. Remove the characters at the source and sync again.</source>
+            </trans-unit>
             <trans-unit id="skill.approval.flash.revoked">
                 <source>The approvals of this version were revoked.</source>
             </trans-unit>

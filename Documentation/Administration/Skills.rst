@@ -268,17 +268,24 @@ A version instructs only while **both** hold:
 
 A run that waits for a human — for a write approval or for typed input —
 keeps the approved versions it was composed with. Before it continues, it
-checks each of them again: if the approval was revoked, the skill was deleted
-or orphaned, or the source fell below ``skills.instructionTrustLevel`` in the
+checks each of them again: if the approval was revoked, the skill was deleted,
+disabled, hidden or orphaned, or the source fell below ``skills.instructionTrustLevel`` in the
 meantime, the run stops with an error that names the skill and the reason, and
 no pending call executes. Start a new run to continue without that
 instruction.
 
 The fields that decide this — on a skill its source, trust level, checksums,
-version digest, enabled flag, allowed tools, support status, orphan flag and
-stored frontmatter; on a source its type and trust level — are
-:guilabel:`exclude` fields. A non-admin group reaches them only when an
-administrator grants them under :guilabel:`Allowed excludefields`.
+version digest, enabled and hidden flags, allowed tools, support status,
+orphan flag and stored frontmatter; on a source its type, trust level, hidden
+and enabled flags, URL, ref, pinned SHA, expected fingerprint and access
+token — are :guilabel:`exclude` fields. A non-admin group reaches them only
+when an administrator grants them under :guilabel:`Allowed excludefields`.
+
+A version that contains characters a browser renders as nothing but a model
+reads — Unicode tag characters, zero-width and direction marks, no-break
+spaces and similar — cannot be approved: the approval would bind to text the
+approver did not see. The review page lists each such character with its field,
+line and code point. Remove them at the source and sync again.
 
 Approving and revoking is restricted to administrators. Every approval,
 revocation and refused approval is written to the skill audit trail with the

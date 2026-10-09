@@ -54,10 +54,12 @@ return [
     ],
     'columns' => [
         // The fields marked exclude (ADR-214 item 3) decide what a skill may
-        // say, which tools it grants and whether its approval still holds.
+        // say, which tools it grants, whether its approval still holds and
+        // whether it is active.
         // A group granted tables_modify on skills reaches them only through
         // an explicit exclude-field grant.
         'hidden' => [
+            'exclude' => true,
             'label' => 'LLL:EXT:core/Resources/Private/Language/locallang_general.xlf:LGL.hidden',
             'config' => [
                 'type' => 'check',

@@ -114,8 +114,13 @@ final readonly class SkillInjectionService
     }
 
     /**
-     * Append text to the first system-role message of a list, or return null
-     * when the list holds no system message.
+     * Append text to the first system-role message of a list's head, or
+     * return null when the head holds none.
+     *
+     * The head is everything before the first user turn. A system message
+     * after it may be evicted by the context window manager, which keeps the
+     * head and trims from there, so instruction sections are never placed in
+     * one: the caller then places them itself.
      *
      * Shared by every place that writes approved instruction sections into a
      * system message that already exists (ADR-214 item 2), so they all join it
@@ -129,6 +134,10 @@ final readonly class SkillInjectionService
     {
         foreach ($messages as $index => $message) {
             if ($message instanceof ChatMessage) {
+                if ($message->isUser()) {
+                    return null;
+                }
+
                 if (!$message->isSystem()) {
                     continue;
                 }
@@ -138,7 +147,12 @@ final readonly class SkillInjectionService
                 return $messages;
             }
 
-            if (($message['role'] ?? null) !== MessageRole::SYSTEM->value) {
+            $role = $message['role'] ?? null;
+            if ($role === MessageRole::USER->value) {
+                return null;
+            }
+
+            if ($role !== MessageRole::SYSTEM->value) {
                 continue;
             }
 

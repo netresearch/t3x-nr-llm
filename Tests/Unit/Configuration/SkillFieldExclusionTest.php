@@ -33,14 +33,18 @@ final class SkillFieldExclusionTest extends TestCase
             // The eight of ADR-214 item 3 that live on the skill table…
             'trust_level', 'body_checksum', 'version_digest', 'enabled', 'source',
             // …and the sync-managed fields the integrity, tool and pin checks read.
-            'allowed_tools', 'support_status', 'orphaned', 'raw_frontmatter',
+            'allowed_tools', 'support_status', 'orphaned', 'raw_frontmatter', 'hidden',
         ],
-        'tx_nrllm_skill_source' => ['trust_level', 'type'],
+        'tx_nrllm_skill_source' => [
+            'trust_level', 'type',
+            // What the source vouches for, and whether it vouches at all.
+            'hidden', 'enabled', 'url', 'ref', 'pinned_sha', 'expected_fingerprint', 'github_token',
+        ],
     ];
 
     private const NOT_EXCLUDED = [
-        'tx_nrllm_skill'        => ['name', 'identifier', 'description', 'body', 'process', 'hidden'],
-        'tx_nrllm_skill_source' => ['title', 'url', 'hidden'],
+        'tx_nrllm_skill'        => ['name', 'identifier', 'description', 'body', 'process'],
+        'tx_nrllm_skill_source' => ['title'],
     ];
 
     #[Test]

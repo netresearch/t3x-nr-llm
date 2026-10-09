@@ -67,7 +67,7 @@ final class SkillPinLookupTest extends AbstractFunctionalTestCase
     {
         $this->skillRecord(5);
 
-        self::assertTrue((new SkillRecordLookup($this->pool()))->existsAndNotOrphaned(5));
+        self::assertTrue((new SkillRecordLookup($this->pool()))->isActive(5));
     }
 
     #[Test]
@@ -77,22 +77,25 @@ final class SkillPinLookupTest extends AbstractFunctionalTestCase
         $this->skillRecord(6, ['deleted' => 1]);
         $lookup = new SkillRecordLookup($this->pool());
 
-        self::assertFalse($lookup->existsAndNotOrphaned(5));
-        self::assertFalse($lookup->existsAndNotOrphaned(6));
-        self::assertFalse($lookup->existsAndNotOrphaned(7));
-        self::assertFalse($lookup->existsAndNotOrphaned(0));
+        self::assertFalse($lookup->isActive(5));
+        self::assertFalse($lookup->isActive(6));
+        self::assertFalse($lookup->isActive(7));
+        self::assertFalse($lookup->isActive(0));
     }
 
     /**
-     * A disabled skill is still a record: disabling ends composition, and the
-     * pin check reads only existence and the orphan flag.
+     * A skill the sync auto-disabled or the injection scan force-disabled must
+     * stop steering a suspended run, as must a hidden one.
      */
     #[Test]
-    public function aDisabledSkillRecordStillExists(): void
+    public function aDisabledOrHiddenSkillRecordIsNotActive(): void
     {
         $this->skillRecord(5, ['enabled' => 0]);
+        $this->skillRecord(6, ['hidden' => 1]);
+        $lookup = new SkillRecordLookup($this->pool());
 
-        self::assertTrue((new SkillRecordLookup($this->pool()))->existsAndNotOrphaned(5));
+        self::assertFalse($lookup->isActive(5));
+        self::assertFalse($lookup->isActive(6));
     }
 
     /**
@@ -118,6 +121,7 @@ final class SkillPinLookupTest extends AbstractFunctionalTestCase
             'source'     => 10,
             'identifier' => 'skill-' . $uid,
             'name'       => 'Skill ' . $uid,
+            'enabled'    => 1,
         ]);
     }
 

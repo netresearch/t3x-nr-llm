@@ -42,7 +42,13 @@ use TYPO3\CMS\Install\Updates\UpgradeWizardInterface;
  *   does ({@see SkillFrontmatter::allowedTools()}).
  *
  * ``raw_frontmatter`` itself is the reference because the sync wrote it and
- * FormEngine only ever showed it read-only. ADR-214 names name, description
+ * FormEngine only ever showed it read-only. That is a limit: read-only is a
+ * FormEngine setting the DataHandler does not enforce, and before this change
+ * ``body_checksum`` and ``raw_frontmatter`` were not ``exclude`` fields. A
+ * DataHandler write that changed body, checksum and frontmatter together and
+ * consistently passes the wizard. It still cannot instruct without an
+ * administrator's approval of the version shown, and the next sync compares
+ * it with the source again. ADR-214 names name, description
  * and allowed_tools; ``support_status`` is checked as well because it is part
  * of the digest and carried no ``exclude`` either.
  *

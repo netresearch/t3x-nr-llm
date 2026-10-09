@@ -97,6 +97,29 @@ final class SkillApprovalControllerTest extends AbstractFunctionalTestCase
         self::assertSame(0, $this->approvalRows(revoked: false));
     }
 
+    /**
+     * The core validates the route token against the MATCHED route, and
+     * Extbase lets a parameter override the action. A POST that matched the
+     * review route (whose token sits in an ordinary GET URL) but names
+     * approveVersion must not approve.
+     */
+    #[Test]
+    public function aPostThroughTheReviewRouteDoesNotApprove(): void
+    {
+        $this->dispatch('approveVersion', 'POST', routeAction: 'review');
+
+        self::assertSame(0, $this->approvalRows(revoked: false));
+    }
+
+    #[Test]
+    public function aPostThroughTheReviewRouteDoesNotRevoke(): void
+    {
+        $this->dispatch('approveVersion', 'POST');
+        $this->dispatch('revokeVersion', 'POST', routeAction: 'review');
+
+        self::assertSame(0, $this->approvalRows(revoked: true));
+    }
+
     #[Test]
     public function aPostedRevocationRevokes(): void
     {
@@ -116,7 +139,10 @@ final class SkillApprovalControllerTest extends AbstractFunctionalTestCase
         self::assertSame(1, $this->approvalRows(revoked: false));
     }
 
-    private function dispatch(string $action, string $method): void
+    /**
+     * @param string|null $routeAction the action the matched route names; the executing action by default
+     */
+    private function dispatch(string $action, string $method, ?string $routeAction = null): void
     {
         $parameters = new ExtbaseRequestParameters();
         $parameters->setControllerName('Backend\\SkillApproval');
@@ -127,7 +153,7 @@ final class SkillApprovalControllerTest extends AbstractFunctionalTestCase
 
         $serverRequest = (new ServerRequest('https://typo3-testing.local/typo3/', $method))
             ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)
-            ->withAttribute('route', new Route('/module/nrllm/skills', ['packageName' => 'netresearch/nr-llm']))
+            ->withAttribute('route', new Route('/module/nrllm/skills', ['packageName' => 'netresearch/nr-llm', 'action' => $routeAction ?? $action]))
             ->withAttribute('extbase', $parameters);
         $serverRequest            = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
         $GLOBALS['TYPO3_REQUEST'] = $serverRequest;

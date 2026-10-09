@@ -276,6 +276,25 @@ final class SkillInjectionServiceTest extends TestCase
         self::assertEquals([new SkillPin(5, 1, $this->approvedSkill()->getVersionDigest())], $injected['pins']);
     }
 
+    /**
+     * A system message after the first user turn is outside the head the
+     * context window keeps, so the instructions are handed back instead of
+     * being placed where they could be evicted.
+     */
+    #[Test]
+    public function aSystemMessageAfterTheFirstUserTurnDoesNotReceiveTheInstructions(): void
+    {
+        $messages = [
+            ['role' => 'user', 'content' => self::USER_INPUT],
+            ['role' => 'system', 'content' => 'Late system note.'],
+        ];
+
+        $injected = $this->instructingSubject()->composeIntoMessages($messages, [$this->approvedSkill()]);
+
+        self::assertSame($messages, $injected['messages']);
+        self::assertStringContainsString('Follow the house style.', $injected['instructions']);
+    }
+
     #[Test]
     public function aFencedSkillIsNotPinned(): void
     {

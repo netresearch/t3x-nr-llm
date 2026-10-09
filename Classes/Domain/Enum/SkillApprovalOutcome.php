@@ -41,6 +41,11 @@ enum SkillApprovalOutcome: string
      */
     case REFUSED_ORPHANED = 'refused_orphaned';
 
+    /**
+     * The version carries characters a model reads and the reviewer cannot see.
+     */
+    case REFUSED_INVISIBLE = 'refused_invisible';
+
     public function isApproved(): bool
     {
         return $this === self::APPROVED;

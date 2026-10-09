@@ -48,10 +48,13 @@ return [
     ],
     'columns' => [
         // The fields marked exclude (ADR-214 item 3) decide admission, whether
-        // an approved version instructs and whether the stored-value
-        // integrity check runs. A group granted tables_modify on sources
-        // reaches them only through an explicit exclude-field grant.
+        // an approved version instructs, whether the stored-value integrity
+        // check runs, and which content the source vouches for (location,
+        // pin, fingerprint, credential, active state). A group granted
+        // tables_modify on sources reaches them only through an explicit
+        // exclude-field grant.
         'hidden' => [
+            'exclude' => true,
             'label' => 'LLL:EXT:core/Resources/Private/Language/locallang_general.xlf:LGL.hidden',
             'config' => [
                 'type' => 'check',
@@ -84,6 +87,7 @@ return [
             ],
         ],
         'url' => [
+            'exclude' => true,
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.url',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.url.description',
             'config' => [
@@ -95,6 +99,7 @@ return [
             ],
         ],
         'ref' => [
+            'exclude' => true,
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.ref',
             'config' => [
                 'type' => 'input',
@@ -104,6 +109,7 @@ return [
             ],
         ],
         'pinned_sha' => [
+            'exclude' => true,
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.pinned_sha',
             'config' => [
                 'type' => 'input',
@@ -117,6 +123,7 @@ return [
         // FormEngine). MUST be declared here so Extbase hydrates SkillSource::$githubToken — without a TCA
         // column the DataMapper leaves it '', so every sync runs unauthenticated and hits the 60/hour limit.
         'github_token' => [
+            'exclude' => true,
             'config' => [
                 'type' => 'passthrough',
             ],
@@ -144,6 +151,7 @@ return [
         // Optional declared sha256 the source's whole skill set must hash to
         // (ADR-061). When set, a mismatch at ingest fails closed.
         'expected_fingerprint' => [
+            'exclude' => true,
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.expected_fingerprint',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.expected_fingerprint.description',
             'config' => [
@@ -190,6 +198,7 @@ return [
             ],
         ],
         'enabled' => [
+            'exclude' => true,
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.enabled',
             'config' => [
                 'type' => 'check',

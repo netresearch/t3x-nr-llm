@@ -22,7 +22,8 @@ use Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException;
  *
  * - an unrevoked approval for its skill, source and digest exists,
  * - that approval's snapshot still hashes to the digest,
- * - the skill record exists and is not orphaned, and
+ * - the skill record is active (not deleted, hidden, disabled or orphaned),
+ *   and
  * - the source's provenance is at or above the instruction threshold.
  *
  * The check runs wherever a run continues with text it composed earlier:
@@ -59,8 +60,8 @@ final readonly class SkillPinCheck
             return 'its approved text no longer matches its version digest';
         }
 
-        if (!$this->records->existsAndNotOrphaned($pin->skillUid)) {
-            return 'the skill no longer exists or is orphaned';
+        if (!$this->records->isActive($pin->skillUid)) {
+            return 'the skill was deleted, disabled or orphaned';
         }
 
         $source = $this->sources->find($pin->sourceUid);

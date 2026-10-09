@@ -37,8 +37,7 @@ final readonly class SkillPin
     }
 
     /**
-     * A stored pin, or null for a value that is not one. A malformed entry is
-     * dropped rather than repaired: a pin nobody can read vouches for nothing.
+     * A stored pin, or null for a value that is not one.
      */
     public static function fromArray(mixed $data): ?self
     {
@@ -57,23 +56,39 @@ final readonly class SkillPin
     }
 
     /**
+     * The stored pins of a run. Fails closed: a malformed entry becomes a pin
+     * that can never hold (skill 0, no digest), so a resume of a state whose
+     * pins were damaged stops instead of continuing with fewer checks. A
+     * stored value that is not a list at all is treated the same way; only an
+     * absent value (a state written before pins existed) yields no pins.
+     *
      * @return list<self>
      */
     public static function listFrom(mixed $data): array
     {
-        if (!is_array($data)) {
+        if ($data === null) {
             return [];
+        }
+
+        if (!is_array($data)) {
+            return [self::unholdable()];
         }
 
         $pins = [];
         foreach ($data as $entry) {
-            $pin = self::fromArray($entry);
-            if ($pin instanceof self) {
-                $pins[] = $pin;
-            }
+            $pins[] = self::fromArray($entry) ?? self::unholdable();
         }
 
         return $pins;
+    }
+
+    /**
+     * A pin no approval can match, standing in for a stored entry nobody can
+     * read.
+     */
+    private static function unholdable(): self
+    {
+        return new self(0, 0, '');
     }
 
     /**
