@@ -52,6 +52,10 @@ nr-llm services only and attributes indexing calls as `nr_ai_search`.
 ## Boundaries
 
 - Keep persistent source state and generation publication in nr-ai-search.
+- Directory sync requires stable effective embedding provenance and rejects
+  embedding fallback configurations before staging until embedding responses
+  expose the actual provider/configuration identity. This restriction applies
+  to the new connector; existing companion indexing remains available.
 - Reuse nr-ai-search chunking/indexing and nr-llm public embedding services.
 - Refuse symlinks, root escapes, malformed UTF-8 and oversized files before
   provider egress. A read failure makes that inventory incomplete.

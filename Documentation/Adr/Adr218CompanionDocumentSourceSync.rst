@@ -70,6 +70,11 @@ Decision
 Consequences
 ============
 
+Directory source sync requires stable effective embedding provenance. This
+connector rejects embedding configurations with fallback until responses expose
+the actual provider/configuration identity. Existing companion indexing stays
+available; it cannot reuse a cache entry whose provenance is unknown.
+
 The dependency stays ``nr_ai_search -> nr_llm``. Installing nr-llm alone
 keeps its existing lexical site-search behaviour and PHP support range.
 The optional companion continues to require PHP 8.3 or later. Public source
