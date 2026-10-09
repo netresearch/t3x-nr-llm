@@ -23,7 +23,13 @@ separate discovery credential. Tool execution requires an initiating actor;
 it cannot use the discovery credential or the server's legacy credential.
 
 Profiles and explicit identity mappings live in the installation configuration.
-Store every credential in nr-vault and use its UUID reference here:
+Store every credential in nr-vault and use its canonical reference here.
+Subject, client-secret and delegated discovery references accept UUIDv7 or an
+ASCII alias with 3 to 255 characters. An alias starts with a letter and contains
+only letters, digits and underscores. Controls, reference wrappers and other
+UUID versions are refused before contacting the identity provider. These bounds
+also apply to :php:`McpSubjectCredential` and
+:php:`McpDelegationProfile::$clientSecretIdentifier`.
 
 .. code-block:: php
    :caption: Installation configuration with an explicit actor grant
