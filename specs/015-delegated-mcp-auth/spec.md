@@ -31,6 +31,10 @@ it keeps the runtime's initiating actor through the downstream auth boundary.
 - Store the exchanged access-token value under a random expiring Vault
   identifier, use only that reference for MCP Bearer injection, delete it
   when the operation ends and retain expiry as a crash-cleanup bound.
+  Bind temporary-token ACLs to the initiating owner without inheriting backend
+  groups or frontend access. Verify the stored ACL before exposing a reference;
+  delete and deny if Vault changes its owner or access grants. Background access
+  follows the explicit Vault technical-actor policy.
 - Check freshness before every HTTP leg, including after a slow handshake.
   Renew through exchange when the held token is no longer usable. Credentials
   and cache identity cannot cross actors, profiles, audiences or scope sets.

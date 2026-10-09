@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool\Mcp;
 use JsonException;
 use Netresearch\NrLlm\Domain\Enum\McpAuthenticationMode;
 use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
+use Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpAuthOperationGuard;
 use Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpCredentialSessionInterface;
 use Netresearch\NrLlm\Service\Tool\Mcp\Exception\McpTransportException;
 use Netresearch\NrVault\Exception\RequestCancelledException;
@@ -239,7 +240,13 @@ final class McpHttpTransport
         $host = $request->getUri()->getHost();
 
         try {
-            $client = $this->requestClient($server, $host, $deadline, $credentials);
+            $client = $this->requestClient(
+                $server,
+                $host,
+                $deadline,
+                $credentials,
+                $cancellation,
+            );
 
             // Feature-detected rather than version-gated, which is the shape
             // nr-vault's interface was made for (#774): it is additive, so a
@@ -480,29 +487,29 @@ final class McpHttpTransport
     }
 
     /**
-     * Gate the MCP destination before renewing or resolving a credential. The
-     * protocol-only test seam still validates the selected authentication mode.
+     * Gate the MCP destination before renewing or resolving a credential, then
+     * charge authentication work before choosing the remaining wire timeout.
+     * The protocol-only seam follows the same check after credential resolution.
      */
     private function requestClient(
         McpServerRecord $server,
         string $host,
         McpOperationDeadline $deadline,
         ?McpCredentialSessionInterface $credentials,
+        ?CancellationSignalInterface $cancellation,
     ): ClientInterface {
-        if ($this->configuredHttpClient instanceof ClientInterface) {
-            $this->credentialFor($server, $credentials);
-            return $this->configuredHttpClient;
-        }
-
-        if (!$this->httpClientFactory->isHostAllowed($host)) {
+        if (!$this->configuredHttpClient instanceof ClientInterface && !$this->httpClientFactory->isHostAllowed($host)) {
             throw McpTransportException::forRefusedHost($server->identifier, $host);
         }
 
-        return $this->clientFor(
-            $server,
-            $deadline->legTimeoutSeconds(),
-            $this->credentialFor($server, $credentials),
+        $credential = $this->credentialFor($server, $credentials);
+        McpAuthOperationGuard::assertAlive(
+            $server->identifier,
+            $deadline,
+            $credentials instanceof McpCredentialSessionInterface ? $cancellation : null,
         );
+
+        return $this->configuredHttpClient instanceof ClientInterface ? $this->configuredHttpClient : $this->clientFor($server, $deadline->legTimeoutSeconds(), $credential);
     }
 
     private function legacyAuthentication(

@@ -87,7 +87,19 @@ final readonly class McpTokenExchange
 
             $this->validateResponse($payload, $scopes, $server->delegationAudience);
             McpAuthOperationGuard::assertAlive($server->identifier, $deadline, $cancellation);
-            return $this->storeResponse($payload, $server, $actor, $profile, $scopes, $started);
+            return $this->verifiedCredential(
+                $this->storeResponse(
+                    $payload,
+                    $server,
+                    $actor,
+                    $profile,
+                    $scopes,
+                    $started,
+                ),
+                $server,
+                $deadline,
+                $cancellation,
+            );
         } catch (McpTransportException $exception) {
             throw $exception;
         } catch (RequestCancelledException) {
@@ -203,7 +215,10 @@ final readonly class McpTokenExchange
         $expires = $started + (int)floor($this->lifetime($payload) * 1000000000);
         $remaining = (int)floor(($expires - $this->clock->monotonicNanoseconds()) / 1000000000);
         if ($remaining < 1) {
-            throw new InvalidArgumentException('The issued credential lifetime was already spent.', 9803193319);
+            throw new InvalidArgumentException(
+                'The issued credential lifetime was already spent.',
+                9803193319,
+            );
         }
 
         $token = $payload['access_token'] ?? null;
@@ -211,14 +226,14 @@ final readonly class McpTokenExchange
             throw new InvalidArgumentException('Invalid token response.', 5510676907);
         }
 
-        $identifier = Uuid::v4()->toRfc4122();
+        $identifier = Uuid::v7()->toRfc4122();
         try {
             $this->vault->store(
                 $identifier,
                 $token,
                 [
                     'owner' => $actor->backendUserUid,
-                    'groups' => $actor->backendGroupIds,
+                    'groups' => [],
                     'context' => 'mcp_delegation',
                     'expiresAt' => time() + $remaining,
                     'metadata' => [
@@ -231,6 +246,7 @@ final readonly class McpTokenExchange
                     ],
                 ],
             );
+            $this->assertStoredBinding($identifier, $actor);
         } finally {
             sodium_memzero($token);
         }
@@ -312,5 +328,55 @@ final readonly class McpTokenExchange
     private function capabilityName(): string
     {
         return implode('\\', ['Netresearch', 'NrVault', 'Http', 'AdditionalSecretHttpClientInterface']);
+    }
+
+    private function assertStoredBinding(
+        string $identifier,
+        AiActorContext $actor,
+    ): void {
+        try {
+            $details = $this->vault->getMetadata($identifier);
+            if ($details->ownerUid !== $actor->backendUserUid || $details->groups !== [] || $details->frontendAccessible) {
+                throw new InvalidArgumentException(
+                    'Stored credential binding differs from the initiating actor.',
+                    2880924673,
+                );
+            }
+        } catch (Throwable $exception) {
+            $this->vault->delete(
+                $identifier,
+                'Discard invalid MCP delegated credential binding',
+            );
+            throw $exception;
+        }
+    }
+
+    private function verifiedCredential(
+        McpIssuedCredential $credential,
+        McpServerRecord $server,
+        McpOperationDeadline $deadline,
+        ?CancellationSignalInterface $cancellation,
+    ): McpIssuedCredential {
+        try {
+            McpAuthOperationGuard::assertAlive(
+                $server->identifier,
+                $deadline,
+                $cancellation,
+            );
+            if ($this->clock->monotonicNanoseconds() >= $credential->expiresAtNanoseconds) {
+                throw new InvalidArgumentException(
+                    'Credential expired during Vault persistence.',
+                    1374592913,
+                );
+            }
+        } catch (Throwable $exception) {
+            $this->vault->delete(
+                $credential->identifier,
+                'Discard unusable MCP delegated credential',
+            );
+            throw $exception;
+        }
+
+        return $credential;
     }
 }

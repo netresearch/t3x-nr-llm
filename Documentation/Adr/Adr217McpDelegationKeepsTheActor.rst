@@ -82,7 +82,11 @@ Decision
 
 5. **Use expiring Vault references downstream.** Exchange access-token values
    are stored under random, short-lived Vault identifiers with expiry and
-   context metadata. The MCP transport only receives the reference, and Vault
+   context metadata. Their ACL binds the initiating owner without inheriting
+   backend groups or frontend access. Verify the stored ACL and delete the
+   reference before denying if Vault changes its owner or grants. A background
+   execution identity requires explicit Vault technical-actor access.
+   The MCP transport only receives the reference, and Vault
    injects the Bearer value. Cleanup deletes temporary references when the
    operation ends; expiry bounds a crashed worker's leftover record.
    Subject and client secrets are never retrieved into nr-llm to build forms.
@@ -94,6 +98,8 @@ Decision
    lifetime and exchanges again when needed. Its identity includes actor,
    exchange profile, audience and scopes. It is not cached on a shared MCP
    transport singleton, and never reused for another server/actor combination.
+   Credential resolution and storage spend the operation budget before the
+   transport checks cancellation and chooses the remaining HTTP timeout.
 
    Existing interfaces retain their signatures. Optional actor/session context
    is appended only to final concrete MCP classes; cancellation retains its

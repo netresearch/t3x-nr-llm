@@ -22,8 +22,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Optional actor-bound MCP authentication (ADR-217).** Delegated servers
   exchange explicitly mapped initiating-actor Vault credentials through RFC8693,
   with audience and scope grants, shared operation deadlines and cancellation.
-  Temporary Bearer references are renewed per HTTP leg and removed on operation
-  completion; discovery uses a separate configured reference. Existing servers
+  Temporary Bearer references bind their initiating owner without group grants,
+  are renewed per HTTP leg and removed on operation completion; discovery uses
+  a separate configured reference. Background access needs an explicitly trusted
+  Vault technical identity. Existing servers
   retain their legacy authentication. New resolver/session contracts and mode
   values are additive. Confidential exchange requires nr-vault's additional
   body-field capability (PR 409); public clients use its existing injection API.

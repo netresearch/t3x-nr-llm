@@ -377,4 +377,133 @@ final class McpDelegatedLifecycleTest extends AbstractUnitTestCase
 
         self::assertSame([], $wire->received);
     }
+
+    #[Test]
+    public function credentialRenewalSpendsTimeBeforeTheMcpLegTimeoutIsChosen(): void
+    {
+        $clock = new FakeMcpClock();
+        $timeouts = [];
+        $wire = (new McpTestServer())->willReturn(['ok' => true]);
+        [$transport, $session] = $this->delayedCredentialTransport($clock, 7.0, $timeouts, $wire);
+        $transport->call(
+            $this->server(),
+            'tools/call',
+            [],
+            McpOperationDeadline::start($clock, 10),
+            credentials: $session,
+        );
+        self::assertSame([3], $timeouts);
+        self::assertCount(1, $wire->received);
+    }
+
+    #[Test]
+    public function credentialStorageThatExhaustsTheBudgetPreventsMcpContact(): void
+    {
+        $clock = new FakeMcpClock();
+        $timeouts = [];
+        $wire = new McpTestServer();
+        [$transport, $session] = $this->delayedCredentialTransport($clock, 10.0, $timeouts, $wire);
+        try {
+            $transport->call(
+                $this->server(),
+                'tools/call',
+                [],
+                McpOperationDeadline::start($clock, 10),
+                credentials: $session,
+            );
+            self::fail(
+                'Credential exchange/storage consumed the MCP operation budget.',
+            );
+        } catch (McpTransportException $exception) {
+            self::assertSame(
+                1799990217,
+                $exception->getCode(),
+                $exception->getMessage(),
+            );
+            self::assertSame([], $timeouts);
+            self::assertSame([], $wire->received);
+        }
+    }
+
+    #[Test]
+    public function cancellationAfterCredentialResolutionPreventsMcpContact(): void
+    {
+        $clock = new FakeMcpClock();
+        $timeouts = [];
+        $wire = new McpTestServer();
+        [$transport, $session] = $this->delayedCredentialTransport($clock, 1.0, $timeouts, $wire);
+        $signal = self::createStub(CancellationSignalInterface::class);
+        $signal
+            ->method('isCancelled')
+            ->willReturnCallback(static fn(): bool => $clock->monotonicNanoseconds() >= 4243000000000);
+        try {
+            $transport->call(
+                $this->server(),
+                'tools/call',
+                [],
+                McpOperationDeadline::start($clock, 10),
+                cancellation: $signal,
+                credentials: $session,
+            );
+            self::fail(
+                'A cancelled operation must not dispatch its MCP request.',
+            );
+        } catch (McpTransportException $exception) {
+            self::assertTrue(
+                $exception->isCancellation(),
+                $exception->getMessage(),
+            );
+            self::assertSame([], $timeouts);
+            self::assertSame([], $wire->received);
+        }
+    }
+
+    /**
+     * @param list<int> $timeouts
+     *
+     * @return array{McpHttpTransport, McpCredentialSessionInterface}
+     */
+    private function delayedCredentialTransport(
+        FakeMcpClock $clock,
+        float $delay,
+        array &$timeouts,
+        McpTestServer $wire,
+    ): array {
+        $client = self::createStub(VaultHttpClientInterface::class);
+        $client->method('withReason')->willReturnSelf();
+        $client->method('withAuthentication')->willReturnSelf();
+        $client
+            ->method('withTimeout')
+            ->willReturnCallback(
+                static function (
+                    int $seconds,
+                ) use (&$timeouts, $client): VaultHttpClientInterface {
+                    $timeouts[] = $seconds;
+                    return $client;
+                },
+            );
+        $client
+            ->method('sendRequest')
+            ->willReturnCallback($wire->sendRequest(...));
+        $vault = self::createStub(VaultServiceInterface::class);
+        $vault->method('exists')->willReturn(true);
+        $vault->method('http')->willReturn($client);
+        $transport = new McpHttpTransport(
+            $vault,
+            $this->createPublicDnsHttpClientFactory(),
+            new RequestFactory(new GuzzleClientFactory()),
+            new StreamFactory(),
+        );
+        $session = self::createStub(McpCredentialSessionInterface::class);
+        $session
+            ->method('credentialIdentifier')
+            ->willReturnCallback(
+                static function () use ($clock, $delay): string {
+                    // Models the complete exchange and subsequent Vault store/cleanup work.
+                    $clock->advanceSeconds($delay);
+                    return 'ephemeral-delayed';
+                },
+            );
+        return [$transport, $session];
+    }
 }

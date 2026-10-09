@@ -20,6 +20,8 @@ use Netresearch\NrLlm\Tests\Fixtures\Mcp\FakeMcpClock;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\McpTestServer;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrVault\Audit\AuditLogServiceInterface;
+use Netresearch\NrVault\Domain\Dto\SecretDetails;
+use Netresearch\NrVault\Domain\Model\Secret;
 use Netresearch\NrVault\Exception\RequestCancelledException;
 use Netresearch\NrVault\Http\CancellationSignalInterface;
 use Netresearch\NrVault\Http\DnsResolverInterface;
@@ -237,7 +239,7 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
             $factory->openForExecution($this->server(), AiActorContext::backendUser(7), $this->deadline()),
         );
         $reference = $session->credentialIdentifier();
-        self::assertTrue(Uuid::isValid($reference));
+        self::assertSame('7', Uuid::fromString($reference)->toRfc4122()[14]);
         parse_str((string)$this->posted[0]->getBody(), $fields);
         self::assertSame('subject-one', $fields['subject_token']);
         self::assertSame('urn:one', $fields['audience']);
@@ -720,6 +722,29 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
                     $this->deleted[] = $identifier;
                 },
             );
+        $vault
+            ->method('getMetadata')
+            ->willReturnCallback(
+                function (string $identifier): SecretDetails {
+                    foreach ($this->stored as $entry) {
+                        if ($entry['identifier'] === $identifier) {
+                            $owner = $entry['options']['owner'];
+                            self::assertIsInt($owner);
+                            return SecretDetails::fromSecret(
+                                new Secret(
+                                    identifier: $identifier,
+                                    ownerUid: $owner,
+                                ),
+                            );
+                        }
+                    }
+
+                    throw new RuntimeException(
+                        'Fixture metadata is unavailable.',
+                        1074813472,
+                    );
+                },
+            );
         return $vault;
     }
 
@@ -928,5 +953,113 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
         self::assertSame([], $this->stored);
         self::assertSame([], $this->posted);
         self::assertSame([], $this->deleted);
+    }
+
+    #[Test]
+    public function tokenLifetimeSpentDuringVaultStoreCannotReturnAReference(): void
+    {
+        $factory = $this->kernel(
+            [$this->jsonResponse($this->response('short-lived', 2))],
+            onStore: function (): void {
+                $this->clock->advanceSeconds(3);
+            },
+        );
+        $session = $this->requireSession(
+            $factory->openForExecution(
+                $this->server(),
+                AiActorContext::backendUser(7),
+                $this->deadline(),
+            ),
+        );
+        try {
+            $session->credentialIdentifier();
+            self::fail(
+                'Returned a token whose lifetime was spent during storage.',
+            );
+        } catch (McpTransportException $exception) {
+            self::assertStringNotContainsString(
+                'short-lived',
+                $exception->getMessage(),
+            );
+        } finally {
+            $session->close();
+        }
+
+        self::assertCount(1, $this->stored);
+        self::assertSame([$this->stored[0]['identifier']], $this->deleted);
+    }
+
+    #[Test]
+    public function cancellationDuringVaultStoreDiscardsTheReference(): void
+    {
+        $signal = new class implements CancellationSignalInterface {
+            public bool $cancelled = false;
+
+            public function isCancelled(): bool
+            {
+                return $this->cancelled;
+            }
+        };
+        $factory = $this->kernel(
+            [$this->jsonResponse($this->response())],
+            onStore: static function () use ($signal): void {
+                $signal->cancelled = true;
+            },
+        );
+        $session = $this->requireSession(
+            $factory->openForExecution(
+                $this->server(),
+                AiActorContext::backendUser(7),
+                $this->deadline(),
+                $signal,
+            ),
+        );
+        try {
+            $session->credentialIdentifier();
+            self::fail(
+                'Returned a reference after cancellation during storage.',
+            );
+        } catch (McpTransportException $exception) {
+            self::assertTrue($exception->isCancellation());
+        } finally {
+            $session->close();
+        }
+
+        self::assertCount(1, $this->stored);
+        self::assertSame([$this->stored[0]['identifier']], $this->deleted);
+    }
+
+    #[Test]
+    public function operationDeadlineSpentDuringVaultStoreDiscardsTheReference(): void
+    {
+        $factory = $this->kernel(
+            [$this->jsonResponse($this->response())],
+            onStore: function (): void {
+                $this->clock->advanceSeconds(20);
+            },
+        );
+        $session = $this->requireSession(
+            $factory->openForExecution(
+                $this->server(),
+                AiActorContext::backendUser(7),
+                $this->deadline(),
+            ),
+        );
+        try {
+            $session->credentialIdentifier();
+            self::fail(
+                'Returned a reference after its operation deadline was spent in storage.',
+            );
+        } catch (McpTransportException $exception) {
+            self::assertStringNotContainsString(
+                'issued-token',
+                $exception->getMessage(),
+            );
+        } finally {
+            $session->close();
+        }
+
+        self::assertCount(1, $this->stored);
+        self::assertSame([$this->stored[0]['identifier']], $this->deleted);
     }
 }
