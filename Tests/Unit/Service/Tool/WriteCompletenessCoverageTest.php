@@ -67,7 +67,7 @@ final class WriteCompletenessCoverageTest extends TestCase
         $missing = [];
 
         foreach ($sites as $site) {
-            $reason = self::refusal($site['call']);
+            $reason = $this->refusal($site['call']);
             if ($reason !== null) {
                 $missing[] = sprintf('%s:%d %s', $site['file'], $site['call']->getStartLine(), $reason);
             }
@@ -110,7 +110,7 @@ final class WriteCompletenessCoverageTest extends TestCase
         foreach ($cases as $code => $expected) {
             $calls = $this->callsIn('<?php ' . $code);
             self::assertCount(1, $calls, $code);
-            self::assertSame($expected, self::refusal($calls[0]), $code);
+            self::assertSame($expected, $this->refusal($calls[0]), $code);
         }
 
         // A declaration and a docblock are not calls.
@@ -123,7 +123,7 @@ final class WriteCompletenessCoverageTest extends TestCase
     /**
      * Why the call fails the rule, or null when it states a completeness.
      */
-    private static function refusal(MethodCall|NullsafeMethodCall $call): ?string
+    private function refusal(MethodCall|NullsafeMethodCall $call): ?string
     {
         $argument = null;
         foreach ($call->getArgs() as $position => $arg) {
