@@ -94,4 +94,49 @@ final class McpDelegationBoundsFuzzyTest extends AbstractFuzzyTestCase
                 },
             );
     }
+    #[Test]
+    public function credentialAliasLengthFollowsVaultBounds(): void
+    {
+        $this
+            ->forAll(Generators::choose(0, 280))
+            ->then(
+                function (int $length): void {
+                    $accepted = $this->accepts(
+                        fn(): McpDelegationProfile => new McpDelegationProfile(
+                            'office',
+                            'https://idp.example.com/token',
+                            'client',
+                            str_repeat('a', $length),
+                            ['urn:one'],
+                            ['read'],
+                        ),
+                    );
+                    self::assertSame($length >= 3 && $length <= 255, $accepted);
+                },
+            );
+    }
+    #[Test]
+    public function credentialAliasesPermitOnlyAsciiLettersDigitsAndUnderscores(): void
+    {
+        $this
+            ->forAll(Generators::choose(0, 255))
+            ->then(
+                function (int $byte): void {
+                    $accepted = $this->accepts(
+                        fn(): McpDelegationProfile => new McpDelegationProfile(
+                            'office',
+                            'https://idp.example.com/token',
+                            'client',
+                            'Key' . chr($byte),
+                            ['urn:one'],
+                            ['read'],
+                        ),
+                    );
+                    self::assertSame(
+                        $byte >= 48 && $byte <= 57 || $byte >= 65 && $byte <= 90 || $byte === 95 || $byte >= 97 && $byte <= 122,
+                        $accepted,
+                    );
+                },
+            );
+    }
 }

@@ -21,6 +21,7 @@ final readonly class McpDelegationProfile
     public array $allowedScopes;
 
     /**
+     * @param string|null  $clientSecretIdentifier Canonical Vault UUIDv7 or ASCII alias (3–255 characters).
      * @param list<string> $allowedAudiences
      * @param list<string> $allowedScopes
      */

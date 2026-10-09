@@ -11,6 +11,7 @@ use Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpDelegationProfile;
 use Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpSubjectCredential;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
@@ -33,7 +34,7 @@ final class McpDelegationProfileTest extends AbstractUnitTestCase
         );
         self::assertSame(['urn:one', 'urn:two'], $p->allowedAudiences);
         self::assertSame(['read', 'write'], $p->allowedScopes);
-        $subject = new McpSubjectCredential('11111111-1111-4111-8111-111111111111', ['urn:one'], ['read']);
+        $subject = new McpSubjectCredential('11111111-1111-7111-8111-111111111111', ['urn:one'], ['read']);
         self::assertSame(['read'], $subject->allowedScopes);
     }
 
@@ -64,8 +65,8 @@ final class McpDelegationProfileTest extends AbstractUnitTestCase
         }
 
         $this->expectException(InvalidArgumentException::class);
-        $subject = new McpSubjectCredential('plaintext', ['urn:one'], ['read']);
-        self::assertSame('plaintext', $subject->credentialIdentifier);
+        $subject = new McpSubjectCredential('plaintext-token', ['urn:one'], ['read']);
+        self::assertSame('plaintext-token', $subject->credentialIdentifier);
     }
 
     #[Test]
@@ -86,5 +87,89 @@ final class McpDelegationProfileTest extends AbstractUnitTestCase
                 self::assertNotSame('', $exception->getMessage());
             }
         }
+    }
+
+    /**
+     * @param non-empty-string $identifier
+     */
+    #[Test]
+    #[DataProvider('canonicalCredentialIdentifiers')]
+    public function supportsCanonicalVaultIdentifiers(
+        string $identifier,
+    ): void {
+        $subject = new McpSubjectCredential($identifier, ['urn:one'], ['read']);
+        $profile = new McpDelegationProfile(
+            'office',
+            'https://idp.example.com/token',
+            'client',
+            $identifier,
+            ['urn:one'],
+            ['read'],
+        );
+        self::assertSame($identifier, $subject->credentialIdentifier);
+        self::assertSame($identifier, $profile->clientSecretIdentifier);
+    }
+
+    /**
+     * @return iterable<string,array{non-empty-string}>
+     */
+    public static function canonicalCredentialIdentifiers(): iterable
+    {
+        yield 'uuid v7' => ['abcdef12-abcd-7abc-8abc-abcdef123456'];
+        yield 'uppercase uuid v7' => ['ABCDEF12-ABCD-7ABC-BABC-ABCDEF123456'];
+        yield 'minimum alias' => ['Key'];
+        yield 'alias letters digits underscores' => ['Subject_7'];
+        yield 'maximum alias' => [str_repeat('a', 255)];
+    }
+
+    #[Test]
+    #[DataProvider('invalidCredentialIdentifiers')]
+    public function refusesNoncanonicalSubjectIdentifiers(
+        string $identifier,
+    ): void {
+        $this->expectException(InvalidArgumentException::class);
+        $subject = new McpSubjectCredential($identifier, ['urn:one'], ['read']);
+        self::assertSame($identifier, $subject->credentialIdentifier);
+    }
+
+    #[Test]
+    #[DataProvider('invalidCredentialIdentifiers')]
+    public function refusesNoncanonicalClientIdentifiers(
+        string $identifier,
+    ): void {
+        $this->expectException(InvalidArgumentException::class);
+        $profile = new McpDelegationProfile(
+            'office',
+            'https://idp.example.com/token',
+            'client',
+            $identifier,
+            ['urn:one'],
+            ['read'],
+        );
+        self::assertSame($identifier, $profile->clientSecretIdentifier);
+    }
+
+    /**
+     * @return iterable<string,array{string}>
+     */
+    public static function invalidCredentialIdentifiers(): iterable
+    {
+        yield 'empty' => [''];
+        yield 'short alias' => ['ab'];
+        yield 'long alias' => [str_repeat('a', 256)];
+        yield 'numeric alias prefix' => ['1key'];
+        yield 'underscore alias prefix' => ['_key'];
+        yield 'alias hyphen' => ['my-key'];
+        yield 'non-ascii alias' => ['schlüssel'];
+        yield 'space' => ['my key'];
+        yield 'reference syntax' => ['%vault(my_key)%'];
+        yield 'alias newline' => ["my_key\n"];
+        yield 'alias control' => ['my_key' . chr(127)];
+        yield 'uuid v4' => ['11111111-1111-4111-8111-111111111111'];
+        yield 'uuid v8' => ['11111111-1111-8111-8111-111111111111'];
+        yield 'uuid invalid variant' => ['11111111-1111-7111-c111-111111111111'];
+        yield 'uuid newline' => ["11111111-1111-7111-8111-111111111111\n"];
+        yield 'uuid uri' => ['urn:uuid:11111111-1111-7111-8111-111111111111'];
+        yield 'uuid compact' => ['11111111111171118111111111111111'];
     }
 }

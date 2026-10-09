@@ -21,10 +21,18 @@ final class McpAuthValidation
         }
     }
 
+    /**
+     * Canonical Vault UUIDv7 or an ASCII alias of 3 to 255 characters.
+     */
     public static function credentialIdentifier(string $value): void
     {
-        if (!Uuid::isValid($value)) {
-            throw new InvalidArgumentException('A delegation credential must be a Vault UUID.', 6331797530);
+        $isUuidV7 = strlen($value) === 36 && Uuid::isValid($value) && $value[14] === '7';
+        $isAlias = preg_match('/\A[A-Za-z][A-Za-z0-9_]{2,254}\z/D', $value) === 1;
+        if (preg_match('/[\x00-\x1F\x7F]/', $value) === 1 || !$isUuidV7 && !$isAlias) {
+            throw new InvalidArgumentException(
+                'A delegation credential must be a canonical Vault identifier.',
+                6331797530,
+            );
         }
     }
 

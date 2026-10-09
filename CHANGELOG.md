@@ -29,6 +29,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   retain their legacy authentication. New resolver/session contracts and mode
   values are additive. Confidential exchange requires nr-vault's additional
   body-field capability (PR 409); public clients use its existing injection API.
+  Delegated credential references accept canonical Vault UUIDv7 or ASCII aliases
+  of 3–255 characters; malformed references fail before IdP contact.
 
 - **Invocation rules extend the existing tool gate (ADR-216).** Tagged
   `ToolInvocationRuleInterface` implementations see final arguments, the actor,

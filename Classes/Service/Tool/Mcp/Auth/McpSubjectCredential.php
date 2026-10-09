@@ -21,6 +21,7 @@ final readonly class McpSubjectCredential
     public array $allowedScopes;
 
     /**
+     * @param string       $credentialIdentifier Canonical Vault UUIDv7 or ASCII alias (3–255 characters).
      * @param list<string> $allowedAudiences
      * @param list<string> $allowedScopes
      */

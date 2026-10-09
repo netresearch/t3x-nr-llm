@@ -50,11 +50,11 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 #[CoversClass(McpDelegatedCredentialSession::class)]
 final class McpDelegatedAuthTest extends AbstractUnitTestCase
 {
-    private const SUBJECT_ONE = '11111111-1111-4111-8111-111111111111';
+    private const SUBJECT_ONE = '11111111-1111-7111-8111-111111111111';
 
-    private const SUBJECT_TWO = '22222222-2222-4222-8222-222222222222';
+    private const SUBJECT_TWO = '22222222-2222-7222-8222-222222222222';
 
-    private const CLIENT_SECRET = '33333333-3333-4333-8333-333333333333';
+    private const CLIENT_SECRET = '33333333-3333-7333-8333-333333333333';
 
     /** @var array<string,ProfileDefinition> */
     private array $profiles = [];
@@ -1061,5 +1061,42 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
 
         self::assertCount(1, $this->stored);
         self::assertSame([$this->stored[0]['identifier']], $this->deleted);
+    }
+
+    #[Test]
+    public function noncanonicalCredentialReferencesAreRefusedBeforeIdpContact(): void
+    {
+        foreach (['subject', 'client', 'discovery'] as $purpose) {
+            $factory = $this->kernel([]);
+            $identifier = '11111111-1111-4111-8111-111111111111';
+            if ($purpose === 'subject') {
+                $this->profiles['office']['backendUsers'][7]['credentialIdentifier'] = $identifier;
+            } elseif ($purpose === 'client') {
+                $this->profiles['office']['clientSecretIdentifier'] = $identifier;
+            }
+
+            try {
+                $session = $purpose === 'discovery' ? $factory->openForDiscovery(
+                    $this->server(['discoveryCredential' => $identifier]),
+                    $this->deadline(),
+                ) : $factory->openForExecution(
+                    $this->server(),
+                    AiActorContext::backendUser(7),
+                    $this->deadline(),
+                );
+                self::fail(
+                    'Accepted invalid ' . $purpose . ' reference: ' . get_debug_type($session),
+                );
+            } catch (McpTransportException $exception) {
+                self::assertStringNotContainsString(
+                    $identifier,
+                    $exception->getMessage(),
+                );
+            }
+
+            self::assertSame([], $this->posted);
+            self::assertSame([], $this->reads);
+            self::assertSame([], $this->stored);
+        }
     }
 }

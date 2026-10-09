@@ -59,6 +59,13 @@ Decision
    scopes must satisfy both the profile's and the
    actor grant's bounds; an absent or disabled grant denies.
 
+   Subject, client-secret and delegated discovery references must be canonical
+   Vault UUIDv7 values or ASCII aliases of 3 to 255 characters. An alias starts
+   with a letter and contains only letters, digits and underscores. Controls,
+   reference wrappers and other UUID versions deny before IdP contact. This
+   validation belongs to the new delegated contracts; existing static server
+   authentication keeps its behaviour.
+
    New queued and suspended payloads bind the actor to the run UUID inside the
    authenticated state envelope. A backend UID must match the stored owner; a
    service actor keeps its original name and owner zero. Validate before and

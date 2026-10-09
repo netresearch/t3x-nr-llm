@@ -11,7 +11,11 @@ it keeps the runtime's initiating actor through the downstream auth boundary.
   static Vault modes remain compatible; unknown explicit modes fail closed.
 - Configure an exchange profile, explicit audience and allowed scopes, plus
   optional discovery-only Vault credential. Profile/client/subject secrets
-  are Vault identifiers; configuration holds no plaintext token.
+  are Vault identifiers; configuration holds no plaintext token. New delegated
+  subject, client-secret and discovery references accept canonical UUIDv7 or
+  ASCII aliases of 3–255 characters, starting with a letter and containing only
+  letters, digits and underscores. Controls, wrappers and other UUID versions
+  deny before IdP contact; static server authentication is unchanged.
 - Supply an installation-extensible subject resolver keyed by the explicit
   initiating actor and exchange profile. Missing, revoked or invalid mappings
   and disabled grants deny. Requested audience and scopes must satisfy both
