@@ -19,6 +19,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Optional actor-bound MCP authentication (ADR-217).** Delegated servers
+  exchange explicitly mapped initiating-actor Vault credentials through RFC8693,
+  with audience and scope grants, shared operation deadlines and cancellation.
+  Temporary Bearer references are renewed per HTTP leg and removed on operation
+  completion; discovery uses a separate configured reference. Existing servers
+  retain their legacy authentication. New resolver/session contracts and mode
+  values are additive. Confidential exchange requires nr-vault's additional
+  body-field capability (PR 409); public clients use its existing injection API.
+
 - **Invocation rules extend the existing tool gate (ADR-216).** Tagged
   `ToolInvocationRuleInterface` implementations see final arguments, the actor,
   configuration, a resolver's target and prior invocation outcomes immediately

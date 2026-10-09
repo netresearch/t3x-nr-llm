@@ -15,6 +15,8 @@ ADR-190: Cancellation crosses the transport boundary as a signal
     recorded this as a gap and said it needed its own record
 :Extends: :ref:`ADR-103 <adr-103>` (cooperative cancellation at step
     boundaries) and :ref:`ADR-111 <adr-111>` (the in-flight write fence)
+:Amended: 2026-10-09 by :ref:`ADR-217 <adr-217>` (optional trailing auth context keeps
+    the cancellation argument at its existing positional index)
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -137,7 +139,10 @@ Consequences
 - ``netresearch/nr-vault`` is required at ``^0.16.0``.
 - :php:`McpClient::callTool()`, :php:`McpHttpTransport::call()` and
   :php:`McpHttpTransport::notify()` take a nullable cancellation signal as their
-  last argument. Neither class is ``@api``; the frozen surface does not move.
+  last argument when introduced. ADR-217 appends optional actor/session context
+  on these final concrete classes; the cancellation argument keeps its original
+  index, type and nullable default, and the conformance suite pins that shape.
+  Neither class is ``@api``; the frozen surface does not move.
 - :php:`McpToolProvider` carries an
   :php:`AgentRunCancellationSignalFactory` so :php:`McpTool` — built by hand per
   catalogue row — gains one argument rather than two.

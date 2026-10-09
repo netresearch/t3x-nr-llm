@@ -197,8 +197,12 @@ final readonly class ResumeCoordinator
      *
      * @param (Closure(RunStep): void)|null $onStep
      */
-    public function approve(AiActorContext $actor, string $runUuid, ApprovalDecision $decision, ?Closure $onStep = null): AgentRunResult
-    {
+    public function approve(
+        AiActorContext $actor,
+        string $runUuid,
+        ApprovalDecision $decision,
+        ?Closure $onStep = null,
+    ): AgentRunResult {
         $run = $this->persister->findRun($runUuid);
         if (!$run instanceof AgentRun || $run->statusEnum() !== AgentRunStatus::WAITING_FOR_APPROVAL || $run->suspendedState === null) {
             throw RunNotAwaitingApprovalException::forRun($runUuid);
@@ -229,11 +233,12 @@ final readonly class ResumeCoordinator
         // write from EXECUTING, and a denial never runs the pending call — it
         // resumes the loop with the refusal. Refusing the denial would strand
         // the turn while the person who wants it gone is turned away.
-        if ($decision->approved
-            && $configuration->requiresSecondApprover()
-            && $actor->isInitiatorOf($run)
-        ) {
-            throw SelfApprovalDeniedException::forActor($actor, $runUuid, $run->configurationIdentifier);
+        if ($decision->approved && $configuration->requiresSecondApprover() && $actor->isInitiatorOf($run)) {
+            throw SelfApprovalDeniedException::forActor(
+                $actor,
+                $runUuid,
+                $run->configurationIdentifier,
+            );
         }
 
         // Reject an already-unreadable state BEFORE the claim, and do not carry
@@ -245,9 +250,7 @@ final readonly class ResumeCoordinator
         // decode settles it FAILED, and settling clears suspended_state — the
         // very blob a repair would need (compare AgentRunExecutor's rule against
         // flipping a resumable run to FAILED and destroying its state).
-        if (!is_array(json_decode($run->suspendedState, true))) {
-            throw CorruptSuspendedStateException::forRun($runUuid);
-        }
+        $this->preClaimState($run);
 
         // Probe the event-stream position BEFORE the claim: a failure here
         // refuses the resume while the run is still WAITING_FOR_APPROVAL, so
@@ -263,7 +266,11 @@ final readonly class ResumeCoordinator
         // approved calls execute here, so this is the segment the write fence
         // arms on.
         $leaseOwner = ExecutionIdentity::resume();
-        if (!$this->persister->claimResume($run, $leaseOwner, time() + AgentRuntime::LEASE_SECONDS)) {
+        if (!$this->persister->claimResume(
+            $run,
+            $leaseOwner,
+            time() + AgentRuntime::LEASE_SECONDS,
+        )) {
             throw RunAlreadyResumingException::forRun($runUuid);
         }
 
@@ -274,11 +281,13 @@ final readonly class ResumeCoordinator
         // interleave segments. The claim is won, so a failure now settles the
         // run rather than stranding it RUNNING (fail-closed either way).
         $claimed = $this->persister->findRun($runUuid);
-        $handle  = $claimed instanceof AgentRun ? $this->persister->resumeHandle($claimed) : null;
+        $handle = $claimed instanceof AgentRun ? $this->persister->resumeHandle($claimed) : null;
         if (!$claimed instanceof AgentRun || !$handle instanceof AgentRunHandle) {
             $this->persister->settleFailed(
                 new AgentRunHandle($run->uid, $run->uuid),
-                new RuntimeException('The event-stream position could not be determined after the resume claim'),
+                new RuntimeException(
+                    'The event-stream position could not be determined after the resume claim',
+                ),
             );
 
             throw RunStateUnavailableException::forRun($runUuid);
@@ -296,7 +305,9 @@ final readonly class ResumeCoordinator
         if (!is_array($decoded)) {
             $this->persister->settleFailed(
                 $handle,
-                new RuntimeException('The suspended run state could not be decoded after the resume claim'),
+                new RuntimeException(
+                    'The suspended run state could not be decoded after the resume claim',
+                ),
             );
 
             throw CorruptSuspendedStateException::forRun($runUuid);
@@ -304,6 +315,7 @@ final readonly class ResumeCoordinator
 
         /** @var array<string, mixed> $decoded */
         $state = SuspendedRunState::fromArray($decoded);
+        $initiatingActor = $this->claimedActor($state, $claimed, $handle);
 
         // Gate 1 — the decision must name THIS turn. hash_equals rather than
         // !== because comparing digests is what it is for, not because the
@@ -323,11 +335,14 @@ final readonly class ResumeCoordinator
         // (ADR-133). Only an approval is checked: a denial executes nothing.
         $refusal = $decision->approved ? $this->approverRefusal($actor, $configuration, $state, $runUuid) : null;
         if ($refusal instanceof ApproverNotPermittedException) {
-            $this->logger?->warning('Approval refused: the approver may not run the pending write', [
-                'run'    => $runUuid,
-                'actor'  => $actor->describe(),
-                'reason' => $refusal->getMessage(),
-            ]);
+            $this->logger?->warning(
+                'Approval refused: the approver may not run the pending write',
+                [
+                    'run' => $runUuid,
+                    'actor' => $actor->describe(),
+                    'reason' => $refusal->getMessage(),
+                ],
+            );
             $this->release($handle, $state, $runUuid);
 
             throw $refusal;
@@ -337,7 +352,11 @@ final readonly class ResumeCoordinator
         // who approved or denied, before the continuation's own events. An
         // approval that authorises a write and could not be recorded does not
         // execute.
-        $recorded = $this->persister->recordApproval($handle, $decision->approved, $decision->decidedByBeUser);
+        $recorded = $this->persister->recordApproval(
+            $handle,
+            $decision->approved,
+            $decision->decidedByBeUser,
+        );
         if (!$recorded && $decision->approved && $this->turnDeclaresWrite($state)) {
             $this->release($handle, $state, $runUuid);
 
@@ -352,8 +371,11 @@ final readonly class ResumeCoordinator
         return $this->executor->executeResume(
             $handle,
             $onStep,
-            AiActorContext::backendUser($run->beUser),
-            fn(ToolExecutionContext $context, RunTrace $trace): ToolLoopResult => $this->toolLoop->resume(
+            $initiatingActor,
+            fn(
+                ToolExecutionContext $context,
+                RunTrace $trace,
+            ): ToolLoopResult => $this->toolLoop->resume(
                 $state,
                 $decision->approved,
                 $configuration,
@@ -658,8 +680,12 @@ final readonly class ResumeCoordinator
      *
      * @param (Closure(RunStep): void)|null $onStep
      */
-    public function submitInput(AiActorContext $actor, string $runUuid, InputSubmission $submission, ?Closure $onStep = null): AgentRunResult
-    {
+    public function submitInput(
+        AiActorContext $actor,
+        string $runUuid,
+        InputSubmission $submission,
+        ?Closure $onStep = null,
+    ): AgentRunResult {
         $run = $this->persister->findRun($runUuid);
         if (!$run instanceof AgentRun || $run->statusEnum() !== AgentRunStatus::WAITING_FOR_INPUT || $run->suspendedState === null) {
             throw RunNotAwaitingInputException::forRun($runUuid);
@@ -682,13 +708,7 @@ final readonly class ResumeCoordinator
             throw RunConfigurationInactiveException::forRun($runUuid);
         }
 
-        $decoded = json_decode($run->suspendedState, true);
-        if (!is_array($decoded)) {
-            throw CorruptSuspendedStateException::forRun($runUuid);
-        }
-
-        /** @var array<string, mixed> $decoded */
-        $preClaim = SuspendedRunState::fromArray($decoded);
+        $preClaim = $this->preClaimState($run);
 
         // Well-formedness gate (ADR-105 M2): an input suspension with no target
         // tool or a degenerate schema is corruption, never "accept anything".
@@ -713,16 +733,22 @@ final readonly class ResumeCoordinator
         }
 
         $leaseOwner = ExecutionIdentity::resume();
-        if (!$this->persister->claimResumeFromInput($run, $leaseOwner, time() + AgentRuntime::LEASE_SECONDS)) {
+        if (!$this->persister->claimResumeFromInput(
+            $run,
+            $leaseOwner,
+            time() + AgentRuntime::LEASE_SECONDS,
+        )) {
             throw RunAlreadyResumingException::forRun($runUuid);
         }
 
         $claimed = $this->persister->findRun($runUuid);
-        $handle  = $claimed instanceof AgentRun ? $this->persister->resumeHandle($claimed) : null;
+        $handle = $claimed instanceof AgentRun ? $this->persister->resumeHandle($claimed) : null;
         if (!$claimed instanceof AgentRun || !$handle instanceof AgentRunHandle) {
             $this->persister->settleFailed(
                 new AgentRunHandle($run->uid, $run->uuid),
-                new RuntimeException('The event-stream position could not be determined after the resume claim'),
+                new RuntimeException(
+                    'The event-stream position could not be determined after the resume claim',
+                ),
             );
 
             throw RunStateUnavailableException::forRun($runUuid);
@@ -737,7 +763,9 @@ final readonly class ResumeCoordinator
         if (!is_array($claimedState)) {
             $this->persister->settleFailed(
                 $handle,
-                new RuntimeException('The suspended run state could not be decoded after the resume claim'),
+                new RuntimeException(
+                    'The suspended run state could not be decoded after the resume claim',
+                ),
             );
 
             throw CorruptSuspendedStateException::forRun($runUuid);
@@ -745,6 +773,7 @@ final readonly class ResumeCoordinator
 
         /** @var array<string, mixed> $claimedState */
         $state = SuspendedRunState::fromArray($claimedState);
+        $initiatingActor = $this->claimedActor($state, $claimed, $handle);
 
         // Gate 1 — the submission must name THIS turn (ADR-150). hash_equals for
         // the same reason as approve(): the digest is not a secret, and what it
@@ -760,11 +789,14 @@ final readonly class ResumeCoordinator
         // (ADR-150).
         $refusal = $this->submitterRefusal($actor, $configuration, $state, $runUuid);
         if ($refusal instanceof SubmitterNotPermittedException) {
-            $this->logger?->warning('Input submission refused: the submitter may not run the pending tool', [
-                'run'    => $runUuid,
-                'actor'  => $actor->describe(),
-                'reason' => $refusal->getMessage(),
-            ]);
+            $this->logger?->warning(
+                'Input submission refused: the submitter may not run the pending tool',
+                [
+                    'run' => $runUuid,
+                    'actor' => $actor->describe(),
+                    'reason' => $refusal->getMessage(),
+                ],
+            );
             $this->release($handle, $state, $runUuid);
 
             throw $refusal;
@@ -779,8 +811,11 @@ final readonly class ResumeCoordinator
         return $this->executor->executeResume(
             $handle,
             $onStep,
-            AiActorContext::backendUser($run->beUser),
-            fn(ToolExecutionContext $context, RunTrace $trace): ToolLoopResult => $this->toolLoop->resumeWithInput(
+            $initiatingActor,
+            fn(
+                ToolExecutionContext $context,
+                RunTrace $trace,
+            ): ToolLoopResult => $this->toolLoop->resumeWithInput(
                 $state,
                 $submission->data,
                 $configuration,
@@ -791,5 +826,54 @@ final readonly class ResumeCoordinator
             ),
             $leaseOwner,
         );
+    }
+
+    /**
+     * Check identity before the claim so corrupt states remain repairable.
+     */
+    private function preClaimState(AgentRun $run): SuspendedRunState
+    {
+        $decoded = json_decode($run->suspendedState ?? '', true);
+        if (!is_array($decoded)) {
+            throw CorruptSuspendedStateException::forRun($run->uuid);
+        }
+
+        /** @var array<string, mixed> $decoded */
+        $state = SuspendedRunState::fromArray($decoded);
+        $this->actorForResume($state, $run);
+        return $state;
+    }
+
+    private function claimedActor(
+        SuspendedRunState $state,
+        AgentRun $run,
+        AgentRunHandle $handle,
+    ): AiActorContext {
+        try {
+            return $this->actorForResume($state, $run);
+        } catch (CorruptSuspendedStateException $exception) {
+            $this->release($handle, $state, $run->uuid);
+            throw $exception;
+        }
+    }
+
+    /**
+     * The snapshot is inside the authenticated payload and bound to this run.
+     * Legacy states have no snapshot and retain the stored backend owner.
+     */
+    private function actorForResume(
+        SuspendedRunState $state,
+        AgentRun $run,
+    ): AiActorContext {
+        $actor = $state->initiatingActor;
+        if (!$actor instanceof AiActorContext && $state->initiatingRunUuid === '') {
+            return AiActorContext::backendUser($run->beUser);
+        }
+
+        if (!$actor instanceof AiActorContext || !$actor->isAuthenticated() || $actor->backendUserUid !== $run->beUser || $actor->isServiceAccount() && $actor->backendUserUid !== 0 || !hash_equals($run->uuid, $state->initiatingRunUuid)) {
+            throw CorruptSuspendedStateException::forRun($run->uuid);
+        }
+
+        return $actor;
     }
 }

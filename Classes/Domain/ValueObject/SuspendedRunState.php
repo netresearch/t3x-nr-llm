@@ -77,6 +77,8 @@ final readonly class SuspendedRunState
         public ?SkillToolAllowList $skillAllowList = null,
         public array $skillPins = [],
         public ?ToolInvocationHistory $invocationHistory = null,
+        public ?AiActorContext $initiatingActor = null,
+        public string $initiatingRunUuid = '',
     ) {}
 
     /**
@@ -104,11 +106,13 @@ final readonly class SuspendedRunState
             $this->skillAllowList,
             $skillPins,
             $this->invocationHistory,
+            $this->initiatingActor,
+            $this->initiatingRunUuid,
         );
     }
 
     /**
-     * @return array{messages: list<array<string, mixed>>, pendingCalls: list<array<string, mixed>>, iterations: int, promptTokens: int, completionTokens: int, allowedToolNames: list<string>|null, options: array<string, mixed>, inputToolName: string|null, inputSchema: array<string, mixed>, callPreviews: list<array{index: int, tool: string, lines: list<string>, failed: bool}>, forcedSnippetUids: list<int>, forcedSkillUids: list<int>, staleCallIndexes: list<int>, skillAllowList: array{toolNames: list<string>|null}|null, skillPins: list<array{skill: int, source: int, digest: string}>, invocationHistory: array{entries: list<array{tool: string, outcome: string, target: array{kind: string, identifier: string}|null}>, complete: bool}|null}
+     * @return array{messages: list<array<string, mixed>>, pendingCalls: list<array<string, mixed>>, iterations: int, promptTokens: int, completionTokens: int, allowedToolNames: list<string>|null, options: array<string, mixed>, inputToolName: string|null, inputSchema: array<string, mixed>, callPreviews: list<array{index: int, tool: string, lines: list<string>, failed: bool}>, forcedSnippetUids: list<int>, forcedSkillUids: list<int>, staleCallIndexes: list<int>, skillAllowList: array{toolNames: list<string>|null}|null, skillPins: list<array{skill: int, source: int, digest: string}>, invocationHistory: array{entries: list<array{tool: string, outcome: string, target: array{kind: string, identifier: string}|null}>, complete: bool}|null, initiatingActor?: array{backendUserUid: int, isAdmin: bool, backendGroupIds: list<int>, serviceAccount: string|null, scopes: list<string>, grants: list<string>}|null, initiatingRunUuid?: string}
      */
     public function toArray(): array
     {
@@ -131,7 +135,10 @@ final readonly class SuspendedRunState
             'skillAllowList' => $this->skillAllowList?->toStored(),
             'skillPins' => SkillPin::listToArray($this->skillPins),
             'invocationHistory' => $this->invocationHistory?->toStored(),
-        ];
+        ] + ($this->initiatingActor instanceof AiActorContext || $this->initiatingRunUuid !== '' ? [
+            'initiatingActor' => $this->initiatingActor?->toArray(),
+            'initiatingRunUuid' => $this->initiatingRunUuid,
+        ] : []);
     }
 
     /**
@@ -197,6 +204,8 @@ final readonly class SuspendedRunState
             ToolInvocationHistory::fromStored(
                 $data['invocationHistory'] ?? null,
             ),
+            array_key_exists('initiatingActor', $data) || array_key_exists('initiatingRunUuid', $data) ? self::actorFromStored($data['initiatingActor'] ?? null) : null,
+            is_string($data['initiatingRunUuid'] ?? null) ? $data['initiatingRunUuid'] : '',
         );
     }
 
@@ -435,5 +444,19 @@ final readonly class SuspendedRunState
         }
 
         return $out;
+    }
+
+    /**
+     * An absent key is handled as legacy by fromArray(). An unreadable explicit
+     * value is anonymous, so delegated authentication cannot select another actor.
+     */
+    private static function actorFromStored(mixed $stored): AiActorContext
+    {
+        if (!is_array($stored)) {
+            return AiActorContext::anonymous();
+        }
+
+        /** @var array<string, mixed> $stored */
+        return AiActorContext::fromArray($stored);
     }
 }

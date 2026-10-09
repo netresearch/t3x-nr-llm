@@ -614,6 +614,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                                 skillAllowList: $storedAllowList,
                                 skillPins: $skillPins,
                                 invocationHistory: $invocationHistory,
+                                initiatingActor: $context->actor,
+                                initiatingRunUuid: $context->run->uuid ?? '',
                             ),
                         );
                     }
@@ -672,6 +674,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                                 skillAllowList: $storedAllowList,
                                 skillPins: $skillPins,
                                 invocationHistory: $invocationHistory,
+                                initiatingActor: $context->actor,
+                                initiatingRunUuid: $context->run->uuid ?? '',
                             ),
                         );
                     }

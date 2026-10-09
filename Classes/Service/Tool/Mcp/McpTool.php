@@ -101,6 +101,7 @@ final readonly class McpTool implements ToolInterface, RemoteToolInterface, Remo
                 $this->record->remoteName,
                 $arguments,
                 $cancellation,
+                $context->actor,
             );
 
             // The two ways a remote call fails end the same way (ADR-161). The

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Domain\ValueObject;
 
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
@@ -413,5 +414,54 @@ final class SuspendedRunStateTest extends TestCase
         yield 'hex string'          => ['0x0'];
         yield 'boolean'             => [true];
         yield 'null'                => [null];
+    }
+    #[Test]
+    public function initiatingActorBindingSurvivesPinsAndStoredJson(): void
+    {
+        $actor = AiActorContext::serviceAccount('index-worker');
+        $uuid = '9e86f5b5-f136-4819-9afc-e6d6f63f8ac1';
+        $state = new SuspendedRunState(
+            [],
+            [],
+            1,
+            0,
+            0,
+            initiatingActor: $actor,
+            initiatingRunUuid: $uuid,
+        );
+        $cloned = $state->withSkillPins([new SkillPin(1, 2, str_repeat('a', 64))]);
+        $data = json_decode(
+            json_encode($cloned->toArray(), JSON_THROW_ON_ERROR),
+            true,
+            flags: JSON_THROW_ON_ERROR,
+        );
+        self::assertIsArray($data);
+        /** @var array<string, mixed> $data */
+        $restored = SuspendedRunState::fromArray($data);
+        self::assertSame(
+            $actor->toArray(),
+            $restored->initiatingActor?->toArray(),
+        );
+        self::assertSame($uuid, $restored->initiatingRunUuid);
+        self::assertCount(1, $restored->skillPins);
+    }
+    #[Test]
+    public function explicitUnreadableActorIsDistinctFromLegacyAbsence(): void
+    {
+        $legacy = new SuspendedRunState([], [], 1, 0, 0);
+        self::assertArrayNotHasKey('initiatingActor', $legacy->toArray());
+        self::assertNull(
+            SuspendedRunState::fromArray($legacy->toArray())->initiatingActor,
+        );
+        foreach ([null, 'unreadable', []] as $value) {
+            $restored = SuspendedRunState::fromArray(
+                $legacy->toArray() + ['initiatingActor' => $value],
+            );
+            self::assertInstanceOf(
+                AiActorContext::class,
+                $restored->initiatingActor,
+            );
+            self::assertFalse($restored->initiatingActor->isAuthenticated());
+        }
     }
 }

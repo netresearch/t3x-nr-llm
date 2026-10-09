@@ -175,4 +175,24 @@ final class McpTransportException extends RuntimeException
 
         return mb_substr($clean, 0, self::REMOTE_TEXT_LIMIT) . '…';
     }
+
+    /**
+     * Authentication failures contain only our stable reason code. Identity
+     * provider response bodies and exceptions may contain tokens (ADR-217).
+     */
+    public static function forDelegatedAuthFailure(
+        string $identifier,
+        string $reason,
+    ): self {
+        $code = preg_match('/\A[a-z][a-z0-9_.-]{0,63}\z/D', $reason) === 1 ? $reason : 'auth_failed';
+
+        return new self(
+            sprintf(
+                'Delegated authentication for MCP server "%s" was refused (%s).',
+                $identifier,
+                $code,
+            ),
+            1799990219,
+        );
+    }
 }

@@ -70,4 +70,49 @@ final class McpServerRecordTest extends TestCase
             crdate: 0,
         );
     }
+
+    #[Test]
+    public function preDelegationConstructorsKeepLegacyAuthentication(): void
+    {
+        $record = $this->record('1');
+        self::assertSame('legacy', $record->authMode);
+        self::assertSame('legacy', $record->authenticationMode()?->value);
+        self::assertSame('', $record->discoveryCredential);
+    }
+
+    #[Test]
+    public function explicitUnknownAuthenticationDoesNotBecomeLegacy(): void
+    {
+        $old = $this->record('1');
+        foreach (['', 'future', 'Legacy'] as $mode) {
+            $record = new McpServerRecord(
+                uid: $old->uid,
+                pid: $old->pid,
+                identifier: $old->identifier,
+                name: $old->name,
+                description: $old->description,
+                url: $old->url,
+                authCredential: $old->authCredential,
+                authPlacement: $old->authPlacement,
+                authHeaderName: $old->authHeaderName,
+                dataClass: $old->dataClass,
+                requiresApproval: $old->requiresApproval,
+                enabled: $old->enabled,
+                importStatus: $old->importStatus,
+                importError: $old->importError,
+                lastImported: $old->lastImported,
+                toolCount: $old->toolCount,
+                lastContact: $old->lastContact,
+                lastLatencyMs: $old->lastLatencyMs,
+                tstamp: $old->tstamp,
+                crdate: $old->crdate,
+                authMode: $mode,
+                delegationProfile: $old->delegationProfile,
+                delegationAudience: $old->delegationAudience,
+                delegationScopes: $old->delegationScopes,
+                discoveryCredential: $old->discoveryCredential,
+            );
+            self::assertNull($record->authenticationMode());
+        }
+    }
 }

@@ -98,21 +98,27 @@ final readonly class AgentRunPersister
      * not be stored — the caller must fail closed: unlike a live run, a queued
      * run without a persisted row simply does not exist.
      */
-    public function enqueue(?LlmConfiguration $configuration, int $beUser, string $requestJson): ?AgentRunHandle
-    {
+    public function enqueue(
+        ?LlmConfiguration $configuration,
+        int $beUser,
+        string $requestJson,
+    ): ?AgentRunHandle {
         try {
-            $uuid   = Uuid::v4()->toRfc4122();
+            $uuid = Uuid::v4()->toRfc4122();
             $runUid = $this->repository->enqueueRun(
                 $uuid,
                 $configuration?->getUid() ?? 0,
                 $configuration?->getIdentifier() ?? '',
                 $beUser,
-                $requestJson,
+                $this->bindQueuedActor($requestJson, $uuid),
             );
 
             return new AgentRunHandle($runUid, $uuid);
         } catch (Throwable $exception) {
-            $this->logger?->warning('AgentRun could not be enqueued', ['exception' => $exception]);
+            $this->logger?->warning(
+                'AgentRun could not be enqueued',
+                ['exception' => $exception],
+            );
 
             return null;
         }
@@ -732,5 +738,22 @@ final readonly class AgentRunPersister
 
             return false;
         }
+    }
+
+    /**
+     * Bind new actor-bearing payloads before the repository seals their bytes.
+     */
+    private function bindQueuedActor(string $requestJson, string $uuid): string
+    {
+        $payload = json_decode($requestJson, true);
+        if (!is_array($payload) || !array_key_exists('actor', $payload)) {
+            return $requestJson;
+        }
+
+        $payload['initiatingRunUuid'] = $uuid;
+        return json_encode(
+            $payload,
+            JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE,
+        );
     }
 }

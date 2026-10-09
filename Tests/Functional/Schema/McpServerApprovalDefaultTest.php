@@ -150,4 +150,60 @@ final class McpServerApprovalDefaultTest extends AbstractFunctionalTestCase
 
         return is_numeric($value) ? (int)$value : -1;
     }
+
+    #[Test]
+    public function schemaUpgradePreservesExistingMachineAuthenticationAndHydratesDelegation(): void
+    {
+        $pool = $this->get(ConnectionPool::class);
+        self::assertInstanceOf(ConnectionPool::class, $pool);
+        $connection = $pool->getConnectionForTable(self::TABLE);
+        foreach ([
+            'auth_mode',
+            'delegation_profile',
+            'delegation_audience',
+            'delegation_scopes',
+            'discovery_credential',
+        ] as $field) {
+            $connection->executeStatement(
+                'ALTER TABLE ' . self::TABLE . ' DROP COLUMN ' . $field,
+            );
+        }
+
+        $connection->insert(
+            self::TABLE,
+            [
+                'identifier' => 'machine',
+                'name' => 'Machine',
+                'auth_credential' => 'existing-uuid',
+                'auth_placement' => 'header',
+                'auth_header_name' => 'X-API-Key',
+            ],
+        );
+        $this->updateDatabaseSchema();
+        $repository = $this->get(McpServerRepository::class);
+        self::assertInstanceOf(McpServerRepository::class, $repository);
+        $records = $repository->findAll();
+        self::assertCount(1, $records);
+        self::assertSame('legacy', $records[0]->authMode);
+        self::assertSame('existing-uuid', $records[0]->authCredential);
+        self::assertSame('header', $records[0]->authPlacement);
+        self::assertSame('', $records[0]->discoveryCredential);
+        $connection->update(
+            self::TABLE,
+            [
+                'auth_mode' => 'delegated',
+                'delegation_profile' => 'company',
+                'delegation_audience' => 'mcp-api',
+                'delegation_scopes' => 'read write',
+                'discovery_credential' => 'discovery-uuid',
+            ],
+            ['identifier' => 'machine'],
+        );
+        $delegated = $repository->findAll()[0];
+        self::assertSame('delegated', $delegated->authenticationMode()?->value);
+        self::assertSame('company', $delegated->delegationProfile);
+        self::assertSame('mcp-api', $delegated->delegationAudience);
+        self::assertSame('read write', $delegated->delegationScopes);
+        self::assertSame('discovery-uuid', $delegated->discoveryCredential);
+    }
 }

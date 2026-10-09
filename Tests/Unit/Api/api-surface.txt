@@ -206,6 +206,15 @@ Netresearch\NrLlm\Domain\Enum\GuardrailVerdict (enum)
   property readonly name: string
   property readonly value: string
 
+Netresearch\NrLlm\Domain\Enum\McpAuthenticationMode (enum)
+  case DELEGATED = "delegated"
+  case LEGACY = "legacy"
+  method static cases(): array
+  method static from(int|string $value): static
+  method static tryFrom(int|string $value): ?static
+  property readonly name: string
+  property readonly value: string
+
 Netresearch\NrLlm\Domain\Enum\MessageRole (enum)
   case ASSISTANT = "assistant"
   case SYSTEM = "system"
@@ -1076,7 +1085,7 @@ Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList (class)
   property readonly toolNames: ?array
 
 Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
-  constructor(array $messages, array $pendingCalls, int $iterations, int $promptTokens, int $completionTokens, ?array $allowedToolNames = …, array $options = …, ?string $inputToolName = …, array $inputSchema = …, array $callPreviews = …, array $forcedSnippetUids = …, array $forcedSkillUids = …, array $staleCallIndexes = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …, array $skillPins = …, ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory $invocationHistory = …)
+  constructor(array $messages, array $pendingCalls, int $iterations, int $promptTokens, int $completionTokens, ?array $allowedToolNames = …, array $options = …, ?string $inputToolName = …, array $inputSchema = …, array $callPreviews = …, array $forcedSnippetUids = …, array $forcedSkillUids = …, array $staleCallIndexes = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …, array $skillPins = …, ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory $invocationHistory = …, ?Netresearch\NrLlm\Domain\ValueObject\AiActorContext $initiatingActor = …, string $initiatingRunUuid = …)
   method isInputPause(): bool
   method static fromArray(array $data): self
   method toArray(): array
@@ -1087,6 +1096,8 @@ Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
   property readonly completionTokens: int
   property readonly forcedSkillUids: array
   property readonly forcedSnippetUids: array
+  property readonly initiatingActor: ?Netresearch\NrLlm\Domain\ValueObject\AiActorContext
+  property readonly initiatingRunUuid: string
   property readonly inputSchema: array
   property readonly inputToolName: ?string
   property readonly invocationHistory: ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory
@@ -1977,6 +1988,28 @@ Netresearch\NrLlm\Service\Retrieval\SourceReference (class)
 Netresearch\NrLlm\Service\Tool\ApprovalPreviewHeadings (class)
   method static isHeading(string $line, TYPO3\CMS\Core\Localization\LanguageService $languageService): bool
   method static labelReferences(): array
+
+Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpCredentialSessionInterface (interface)
+  method close(): void
+  method credentialIdentifier(): string
+
+Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpDelegationProfile (class)
+  constructor(string $identifier, string $tokenEndpoint, string $clientId, ?string $clientSecretIdentifier, array $allowedAudiences, array $allowedScopes)
+  property readonly allowedAudiences: array
+  property readonly allowedScopes: array
+  property readonly clientId: string
+  property readonly clientSecretIdentifier: ?string
+  property readonly identifier: string
+  property readonly tokenEndpoint: string
+
+Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpSubjectCredential (class)
+  constructor(string $credentialIdentifier, array $allowedAudiences, array $allowedScopes)
+  property readonly allowedAudiences: array
+  property readonly allowedScopes: array
+  property readonly credentialIdentifier: string
+
+Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpSubjectResolverInterface (interface)
+  method resolve(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpDelegationProfile $profile, string $audience, array $scopes): Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpSubjectCredential
 
 Netresearch\NrLlm\Service\Tool\PendingTargetInterface (interface)
   method pendingTarget(array $arguments): ?Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget

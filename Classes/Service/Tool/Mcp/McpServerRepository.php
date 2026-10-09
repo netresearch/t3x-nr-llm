@@ -188,6 +188,11 @@ final readonly class McpServerRepository
             lastLatencyMs: self::toInt($row['last_latency_ms'] ?? 0),
             tstamp: self::toInt($row['tstamp'] ?? 0),
             crdate: self::toInt($row['crdate'] ?? 0),
+            authMode: array_key_exists('auth_mode', $row) ? self::toStr($row['auth_mode']) : 'legacy',
+            delegationProfile: self::toStr($row['delegation_profile'] ?? ''),
+            delegationAudience: self::toStr($row['delegation_audience'] ?? ''),
+            delegationScopes: self::toStr($row['delegation_scopes'] ?? ''),
+            discoveryCredential: self::toStr($row['discovery_credential'] ?? ''),
         );
     }
 }

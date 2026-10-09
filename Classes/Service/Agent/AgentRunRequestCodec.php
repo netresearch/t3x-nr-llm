@@ -144,7 +144,13 @@ final readonly class AgentRunRequestCodec
 
         $data = json_decode($run->queuedRequest ?? '', true);
         if (!is_array($data)) {
-            throw new RuntimeException(sprintf('The stored request of queued run %s could not be decoded', $run->uuid), 2826462004);
+            throw new RuntimeException(
+                sprintf(
+                    'The stored request of queued run %s could not be decoded',
+                    $run->uuid,
+                ),
+                2826462004,
+            );
         }
 
         $messages = [];
@@ -157,7 +163,9 @@ final readonly class AgentRunRequestCodec
 
         $allowed = null;
         if (is_array($data['allowedToolNames'] ?? null)) {
-            $allowed = array_values(array_filter($data['allowedToolNames'], is_string(...)));
+            $allowed = array_values(
+                array_filter($data['allowedToolNames'], is_string(...)),
+            );
         }
 
         $options = null;
@@ -166,7 +174,10 @@ final readonly class AgentRunRequestCodec
             $optionsData = $data['options'];
             // The initiator on the run row attributes the budget pre-flight,
             // exactly as the interactive path does.
-            $options = ToolOptions::fromArray($optionsData, $run->beUser !== 0 ? $run->beUser : null);
+            $options = ToolOptions::fromArray(
+                $optionsData,
+                $run->beUser !== 0 ? $run->beUser : null,
+            );
             // Re-inject the out-of-band budget/idempotency fields (see
             // dehydrateRequest()): a queued run's budget pre-flight must be as
             // strict as the direct path's, and its provider calls as
@@ -184,7 +195,7 @@ final readonly class AgentRunRequestCodec
             $callerSourceExtension = $data['callerSourceExtension'] ?? null;
             if (is_string($callerSourceExtension) && $callerSourceExtension !== '') {
                 $callerSourceOperation = $data['callerSourceOperation'] ?? null;
-                $options               = $options->withCallerSource(
+                $options = $options->withCallerSource(
                     $callerSourceExtension,
                     is_string($callerSourceOperation) ? $callerSourceOperation : '',
                 );
@@ -194,15 +205,20 @@ final readonly class AgentRunRequestCodec
         $augmentation = null;
         if (is_array($data['augmentation'] ?? null)) {
             $augmentationData = $data['augmentation'];
-            $skillUids        = $this->uidList($augmentationData['forcedSkillUids'] ?? null);
-            $snippetUids      = $this->uidList($augmentationData['forcedSnippetUids'] ?? null);
-            $forcedSkills     = $this->skillsByUids($skillUids);
-            $forcedSnippets   = $this->snippetsByUids($snippetUids);
-            $augmentation     = new RunAugmentation(
+            $skillUids = $this->uidList($augmentationData['forcedSkillUids'] ?? null);
+            $snippetUids = $this->uidList($augmentationData['forcedSnippetUids'] ?? null);
+            $forcedSkills = $this->skillsByUids($skillUids);
+            $forcedSnippets = $this->snippetsByUids($snippetUids);
+            $augmentation = new RunAugmentation(
                 forcedSkills: $forcedSkills,
                 forcedSnippets: $forcedSnippets,
                 dryRun: ($augmentationData['dryRun'] ?? false) === true,
-                droppedSources: $this->droppedSources($skillUids, $forcedSkills, $snippetUids, $forcedSnippets),
+                droppedSources: $this->droppedSources(
+                    $skillUids,
+                    $forcedSkills,
+                    $snippetUids,
+                    $forcedSnippets,
+                ),
             );
         }
 
@@ -210,13 +226,7 @@ final readonly class AgentRunRequestCodec
         // queued before actors were persisted has no 'actor' key: fall back to
         // the stored be_user id (the same single-int identity the pre-actor
         // worker had), so an in-flight upgrade never loses or invents privilege.
-        $actorData = $data['actor'] ?? null;
-        if (is_array($actorData)) {
-            /** @var array<string, mixed> $actorData a serialised actor is a JSON object (string keys) */
-            $actor = AiActorContext::fromArray($actorData);
-        } else {
-            $actor = AiActorContext::backendUser($run->beUser);
-        }
+        $actor = $this->queuedActor($data, $run);
 
         return new AgentRunRequest(
             configuration: $configuration,
@@ -380,5 +390,42 @@ final readonly class AgentRunRequestCodec
         }
 
         return $uids;
+    }
+
+    /**
+     * @param array<array-key, mixed> $data
+     */
+    private function queuedActor(array $data, AgentRun $run): AiActorContext
+    {
+        if (!array_key_exists('actor', $data)) {
+            if (array_key_exists('initiatingRunUuid', $data)) {
+                throw new RuntimeException(
+                    'The bound queued actor identity is missing.',
+                    1799990220,
+                );
+            }
+
+            return AiActorContext::backendUser($run->beUser);
+        }
+
+        $stored = $data['actor'];
+        if (!is_array($stored)) {
+            throw new RuntimeException(
+                'The queued actor identity is unreadable.',
+                1799990220,
+            );
+        }
+
+        /** @var array<string, mixed> $stored */
+        $actor = AiActorContext::fromArray($stored);
+        $binding = $data['initiatingRunUuid'] ?? null;
+        if (!$actor->isAuthenticated() || $actor->backendUserUid !== $run->beUser || $actor->isServiceAccount() && $actor->backendUserUid !== 0 || array_key_exists('initiatingRunUuid', $data) && (!is_string($binding) || !hash_equals($run->uuid, $binding))) {
+            throw new RuntimeException(
+                'The queued actor identity does not match its run.',
+                1799990220,
+            );
+        }
+
+        return $actor;
     }
 }

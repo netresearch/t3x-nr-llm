@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\ValueObject;
 
+use Netresearch\NrLlm\Domain\Enum\McpAuthenticationMode;
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 
 /**
@@ -52,6 +53,11 @@ final readonly class McpServerRecord
         public int $lastLatencyMs,
         public int $tstamp,
         public int $crdate,
+        public string $authMode = 'legacy',
+        public string $delegationProfile = '',
+        public string $delegationAudience = '',
+        public string $delegationScopes = '',
+        public string $discoveryCredential = '',
     ) {}
 
     /**
@@ -83,5 +89,14 @@ final readonly class McpServerRecord
     public function approvalRequired(): bool
     {
         return $this->requiresApproval !== '0';
+    }
+
+    /**
+     * Missing columns are hydrated as legacy; an explicitly unknown value stays
+     * unknown and is refused by the client and transport (ADR-217).
+     */
+    public function authenticationMode(): ?McpAuthenticationMode
+    {
+        return McpAuthenticationMode::tryFrom($this->authMode);
     }
 }

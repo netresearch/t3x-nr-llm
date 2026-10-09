@@ -36,7 +36,12 @@ it keeps the runtime's initiating actor through the downstream auth boundary.
   and cache identity cannot cross actors, profiles, audiences or scope sets.
 - Persist only actor identity, profile/server references and non-secret run
   metadata. Queued and resumed runs resolve fresh credentials for the original
-  actor. No access/refresh token enters messages, events or suspend payloads.
+  actor. New actor snapshots are bound to the run UUID inside the existing
+  authenticated payload. Backend UID must match its run owner; preserve service
+  actor names with owner zero. Check before and after claim; malformed explicit
+  actors and ciphertext copied between new runs deny. Legacy missing bindings
+  retain the old stored backend owner. Clones carry actor and UUID unchanged.
+  No access/refresh token enters messages, events or suspend payloads.
 - Discovery without a caller uses only an explicitly configured discovery
   credential or refuses. A tool execution never falls back to that credential,
   anonymous mode, static machine mode or the original user token.
@@ -56,8 +61,11 @@ it keeps the runtime's initiating actor through the downstream auth boundary.
 ## Public surface and security boundaries
 
 Additive authentication mode/profile values, subject-resolver interface and
-credential-session API. Public MCP signatures only gain optional trailing
-context where necessary. Existing positional callers retain their static mode.
+credential-session API. Existing interfaces remain unchanged. The final concrete
+MCP client and HTTP transport gain optional trailing actor/session context where
+necessary; existing positional callers retain their static mode. The existing
+cancellation parameter retains its position, nullable type and default; ADR-190
+conformance pins the exact appended auth context.
 New server fields have legacy-preserving defaults and localised TCA labels.
 The source credential stays behind Vault's injection boundary. A successful
 exchange response briefly contains a new access-token value; store it with
