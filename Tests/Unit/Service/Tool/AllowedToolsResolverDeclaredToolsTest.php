@@ -193,6 +193,35 @@ final class AllowedToolsResolverDeclaredToolsTest extends TestCase
         self::assertSame(['update_content_element'], $this->resolver()->resolveForRun($this->configuration(), [], null, [$tour])->toolNames);
     }
 
+    /**
+     * Renaming a skill's identifier onto another skill of the same source
+     * changes no digest. The allow-list runs over every admitted record, so the
+     * renamed process skill cannot shadow the restricting one; an invocation
+     * still adds its tools.
+     */
+    #[Test]
+    public function aTwinOnTheSameSourceCannotShadowARestrictingSkill(): void
+    {
+        $tour = $this->backendSkill('["update_content_element"]');
+        $tour->_setProperty('uid', 7);
+        $tour->setIdentifier('guide');
+        $tour->setProcess(true);
+
+        $this->approvals->add(7, self::BACKEND, SkillVersionDigest::of($tour), SkillVersionDigest::fieldsOf($tour), 'verified', 1);
+
+        $guide = $this->backendSkill('["get_page"]');
+        $guide->setIdentifier('guide');
+
+        $this->approvals->add(1, self::BACKEND, SkillVersionDigest::of($guide), SkillVersionDigest::fieldsOf($guide), 'verified', 1);
+
+        self::assertSame(['get_page'], $this->resolver()->resolveForRun($this->configuration($tour, $guide), [])->toolNames);
+        self::assertSame(['get_page'], $this->resolver()->resolve($this->configuration($tour, $guide)));
+        self::assertSame(
+            ['update_content_element', 'get_page'],
+            $this->resolver()->resolveForRun($this->configuration($tour, $guide), [], null, [$tour])->toolNames,
+        );
+    }
+
     private function processSkill(string $tools): Skill
     {
         $skill = $this->backendSkill($tools);

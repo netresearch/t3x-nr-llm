@@ -19,15 +19,17 @@ use Netresearch\NrLlm\Service\Skill\SkillComposer;
  * Resolves the effective allowed-tools allow-list for a run.
  *
  * Semantics (fail-closed on declaration): the allow-list is the UNION of the
- * declared lists of every effective skill (config + task, enabled, non-orphaned,
- * trust-gated, deduped — {@see SkillComposer::effectiveSkills()}). A skill that
+ * declared lists of every admitted skill (config + task, enabled, non-orphaned,
+ * trust-gated — {@see SkillComposer::admittedSkills()}). Unlike the injection
+ * path's {@see SkillComposer::effectiveSkills()}, a (source, identifier) twin
+ * is not deduped away here, so it cannot drop a restriction. A skill that
  * declares no `allowed-tools` key (its accessor returns null) contributes no
  * opinion. When NO effective skill declares anything, this returns null meaning
  * "no skill-imposed restriction" (all registry tools are permitted). When at least
  * one skill declares, the union is returned — and a lone declared empty list yields
  * `[]`, i.e. no tools at all.
  *
- * The union is the same SELECTION the injection path uses, but not necessarily the
+ * The union covers the injection path's selection, but not necessarily the
  * same SET that reaches the prompt: the skill-block byte budget is applied later,
  * in {@see SkillComposer::composeBlock()}, so a budget-dropped skill still grants
  * its tools while its prose does not ship (ADR-036 §5, ADR-038 §5). Counting the
@@ -110,13 +112,15 @@ final readonly class AllowedToolsResolver
             $invoked[spl_object_id($skill)] = true;
         }
 
-        $declared  = [];
-        $effective = $this->composer->effectiveSkills([...$invokedSkills, ...$this->toList($config->getSkills())], $additionalSkills);
-        // An invoked skill that is not effective (disabled, below the trust
-        // floor, its source gone) grants nothing, and the run is not left
-        // unrestricted because of that: fail closed.
-        $any = array_diff_key($invoked, array_flip(array_map(spl_object_id(...), $effective))) !== [];
-        foreach ($effective as $skill) {
+        $declared = [];
+        // Every admitted record, not only the one a (source, identifier) twin
+        // leaves in effect: a renamed identifier cannot drop a restriction.
+        $admitted = $this->composer->admittedSkills([...$invokedSkills, ...$this->toList($config->getSkills())], $additionalSkills);
+        // An invoked skill that is not admitted (disabled, below the trust
+        // floor) grants nothing, and the run is not left unrestricted because
+        // of that: fail closed.
+        $any = array_diff_key($invoked, array_flip(array_map(spl_object_id(...), $admitted))) !== [];
+        foreach ($admitted as $skill) {
             // What the skill may declare, not its live field: an unapproved
             // backend skill or one whose source no longer vouches grants
             // nothing, and a process skill the run does not invoke has no

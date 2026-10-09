@@ -307,6 +307,52 @@ final class SkillComposerBackendSourceTest extends TestCase
         self::assertSame([], $this->composer()->declaredTools($backend), 'an approval does not help a skill whose source is gone');
     }
 
+    /**
+     * A legacy synced row (no digest yet) is checked on its body only, so its
+     * process marker is vouched for by nothing: carrying it, the row declares
+     * the empty list rather than "no opinion". Without it, the row keeps its
+     * stored declaration.
+     */
+    #[Test]
+    public function aLegacySyncedRowCarryingTheProcessMarkerDeclaresTheEmptyList(): void
+    {
+        $skill = $this->syncedSkill('["get_page"]');
+        $skill->setVersionDigest('');
+
+        self::assertSame(['get_page'], $this->composer()->declaredTools($skill));
+
+        $skill->setProcess(true);
+
+        self::assertSame([], $this->composer()->declaredTools($skill));
+        self::assertSame([], $this->composer()->declaredTools($skill, invoked: true));
+    }
+
+    /**
+     * Compose skips a backend skill whose approved version is a process
+     * version even after its marker was switched off in the form; an approved
+     * non-process version is composed.
+     */
+    #[Test]
+    public function aBackendProcessVersionSwitchedOffInTheFormIsNotComposed(): void
+    {
+        $skill = $this->backendSkill('Tour', 'Step one.');
+        $skill->setProcess(true);
+
+        $this->approvals->add(1, self::BACKEND, SkillVersionDigest::of($skill), SkillVersionDigest::fieldsOf($skill), 'verified', 1);
+        $skill->setProcess(false);
+
+        $result = $this->composer()->composeBlock([$skill], []);
+
+        self::assertSame([], $result->included);
+        self::assertSame('', $result->block);
+        self::assertSame('', $result->instructions);
+
+        $guide = $this->backendSkill('Guide', 'House style.');
+        $this->approvals->add(1, self::BACKEND, SkillVersionDigest::of($guide), SkillVersionDigest::fieldsOf($guide), 'verified', 1);
+
+        self::assertSame(['backend-1'], $this->composer()->composeBlock([$guide], [])->included);
+    }
+
     #[Test]
     public function aComposerWithoutASourceLookupKeepsTheStoredField(): void
     {

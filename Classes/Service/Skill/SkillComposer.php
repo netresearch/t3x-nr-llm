@@ -135,7 +135,10 @@ final readonly class SkillComposer
                 continue;
             }
 
-            if ($skill->isProcess()) {
+            // A backend skill is also a process skill when the approved
+            // version it is measured against is one: switching the marker
+            // off in the form does not turn a process version into data.
+            if ($skill->isProcess() || $this->isApprovedAsProcess($skill, $digest)) {
                 $warnings[] = sprintf(self::WARN_PROCESS, $skill->getName(), $skill->getIdentifier());
                 continue;
             }
@@ -217,6 +220,35 @@ final readonly class SkillComposer
     {
         $candidates = [];
         $seen       = [];
+        foreach ($this->admittedSkills($configSkills, $taskSkills) as $skill) {
+            $key = $this->skillKey($skill);
+            if (isset($seen[$key])) {
+                continue;
+            }
+
+            $seen[$key]   = true;
+            $candidates[] = $skill;
+        }
+
+        return $candidates;
+    }
+
+    /**
+     * Every admitted skill of config-then-task, deduped by record only: unlike
+     * {@see effectiveSkills()}, a second record sharing a (source, identifier)
+     * key is kept. The tool allow-list is built over this list, so renaming one
+     * skill's identifier onto another's cannot drop that skill's restriction
+     * (ADR-214 item 3). An object without a uid is kept as it is.
+     *
+     * @param list<Skill> $configSkills
+     * @param list<Skill> $taskSkills
+     *
+     * @return list<Skill>
+     */
+    public function admittedSkills(array $configSkills, array $taskSkills): array
+    {
+        $admitted = [];
+        $seen     = [];
         foreach ([...$configSkills, ...$taskSkills] as $skill) {
             if (!$skill->isEnabled()) {
                 continue;
@@ -228,23 +260,25 @@ final readonly class SkillComposer
 
             // Trust gate (ADR-061), fail-closed: a skill whose denormalised
             // trust level does not meet the configured minimum is excluded from
-            // both the injected prose AND the allowed-tools union (this is the
-            // single source of truth for "which skills are in effect"). An
+            // both the injected prose AND the allowed-tools union. An
             // unknown/legacy trust value reads as the lowest level.
             if (!$this->admittedLevel($skill)->satisfies($this->minTrustLevel)) {
                 continue;
             }
 
-            $key = $this->skillKey($skill);
-            if (isset($seen[$key])) {
-                continue;
+            $uid = $skill->getUid();
+            if ($uid !== null && $uid > 0) {
+                if (isset($seen[$uid])) {
+                    continue;
+                }
+
+                $seen[$uid] = true;
             }
 
-            $seen[$key]   = true;
-            $candidates[] = $skill;
+            $admitted[] = $skill;
         }
 
-        return $candidates;
+        return $admitted;
     }
 
     /**
@@ -328,11 +362,29 @@ final readonly class SkillComposer
             return $approval instanceof SkillApproval ? [$approval->allowedTools, $approval->process] : null;
         }
 
-        if (SkillVersionDigest::verified($skill) === null) {
+        $digest = SkillVersionDigest::verified($skill);
+        if ($digest === null) {
+            return null;
+        }
+
+        // A legacy row (no digest yet) is checked on its body only: nothing
+        // vouches for a process marker on it, and the marker never lifts a
+        // restriction, so such a row declares nothing.
+        if ($digest === '' && $skill->isProcess()) {
             return null;
         }
 
         return [$skill->getAllowedToolsList(), $skill->isProcess()];
+    }
+
+    /**
+     * Whether a backend skill's approved version, the one it is measured
+     * against, is a process version.
+     */
+    private function isApprovedAsProcess(Skill $skill, string $digest): bool
+    {
+        return $this->isBackendAuthored($skill)
+            && $this->instructionPolicy?->approvalOf($skill, $digest)?->process === true;
     }
 
     /**
