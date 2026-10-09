@@ -79,6 +79,11 @@ scoring protocol. The label digest covers ids, question text, form, hard
 class and sorted target ids; question order, presentation text and answer
 gist do not change it.
 
+The ``labels-bytes-v1`` encoding sorts the original byte strings and
+Base64-encodes each free-form string before canonical JSON hashing. This
+preserves existing golden questions with legacy character encodings and
+distinguishes different byte sequences without lossy UTF-8 substitution.
+
 The variant fingerprint binds model, chunking and pipeline identities.
 Changing a variant remains comparable on an equal benchmark. The execution
 revision records the code used and changes neither fingerprint. The stored

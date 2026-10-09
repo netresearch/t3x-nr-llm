@@ -25,25 +25,23 @@ final readonly class RetrievalRunIdentity
         public string $variantFingerprint,
     ) {}
 
-    public static function forSet(
-        GoldenQuestionSet $set,
-        ?RetrievalProvenance $provenance,
-    ): self {
+    public static function forSet(GoldenQuestionSet $set, ?RetrievalProvenance $provenance): self
+    {
         $labels = [];
         foreach ($set->questions as $question) {
             $targets = $question->expectedDocumentIds;
             sort($targets, SORT_STRING);
             $labels[$question->id] = [
-                $question->id,
-                $question->question,
+                base64_encode($question->id),
+                base64_encode($question->question),
                 $question->form->value,
-                $question->hardClass,
-                $targets,
+                $question->hardClass !== null ? base64_encode($question->hardClass) : null,
+                array_map(base64_encode(...), $targets),
             ];
         }
 
         ksort($labels, SORT_STRING);
-        $labelsFingerprint = self::digest(['labels-v1', array_values($labels)]);
+        $labelsFingerprint = self::digest(['labels-bytes-v1', array_values($labels)]);
         if (!$provenance instanceof RetrievalProvenance) {
             return new self(null, $labelsFingerprint, '', '');
         }

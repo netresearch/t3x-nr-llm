@@ -4,8 +4,7 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-
-declare(strict_types=1);
+declare (strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Evaluation;
 
@@ -98,7 +97,9 @@ final class RetrievalEvaluationServiceTest extends TestCase
     {
         $service = new RetrievalEvaluationService();
         $result = $service->run(
-            $this->set(new GoldenQuestion('q1', 'Question one?', QuestionForm::MATCH, ['doc-x', 'doc-b'])),
+            $this->set(
+                new GoldenQuestion('q1', 'Question one?', QuestionForm::MATCH, ['doc-x', 'doc-b']),
+            ),
             new StaticRetriever(defaultRanking: ['doc-a', 'doc-b', 'doc-c']),
         );
 
@@ -143,7 +144,10 @@ final class RetrievalEvaluationServiceTest extends TestCase
             new StaticRetriever(defaultRanking: ['doc-a', 'doc-b', 'doc-c', 'doc-d', 'doc-e']),
         );
 
-        self::assertCount(RetrievalEvaluationService::TOP_K, $result->evaluations[0]->retrievedDocumentIds);
+        self::assertCount(
+            RetrievalEvaluationService::TOP_K,
+            $result->evaluations[0]->retrievedDocumentIds,
+        );
     }
 
     #[Test]
@@ -199,10 +203,13 @@ final class RetrievalEvaluationServiceTest extends TestCase
         );
 
         $limit = RetrievalEvaluationService::TOP_K * RetrievalEvaluationService::OVERFETCH_MULTIPLIER;
-        self::assertSame([
-            ['question' => 'Question one?', 'limit' => $limit],
-            ['question' => 'Question two?', 'limit' => $limit],
-        ], $retriever->receivedCalls);
+        self::assertSame(
+            [
+                ['question' => 'Question one?', 'limit' => $limit],
+                ['question' => 'Question two?', 'limit' => $limit],
+            ],
+            $retriever->receivedCalls,
+        );
     }
 
     #[Test]
@@ -239,7 +246,15 @@ final class RetrievalEvaluationServiceTest extends TestCase
     {
         $service = new RetrievalEvaluationService();
         $result = $service->run(
-            $this->set(new GoldenQuestion('q1', 'Question one?', QuestionForm::GAP, ['doc-a'], 'near-duplicate')),
+            $this->set(
+                new GoldenQuestion(
+                    'q1',
+                    'Question one?',
+                    QuestionForm::GAP,
+                    ['doc-a'],
+                    'near-duplicate',
+                ),
+            ),
             new StaticRetriever(identifier: 'nr_ai_search.vector'),
         );
 
@@ -250,5 +265,17 @@ final class RetrievalEvaluationServiceTest extends TestCase
         self::assertSame('near-duplicate', $result->evaluations[0]->hardClass);
         self::assertGreaterThanOrEqual(0, $result->evaluations[0]->latencyMs);
         self::assertGreaterThan(0, $result->runTimestamp);
+    }
+
+    #[Test]
+    public function legacyByteQuestionsRemainEvaluatableWithoutProvenance(): void
+    {
+        $question = new GoldenQuestion('q1', "Gr\xf6\xdfe?", QuestionForm::MATCH, ['doc-a']);
+        $result = (new RetrievalEvaluationService())->run(
+            $this->set($question),
+            $this->limitRespectingRetriever(['doc-a']),
+        );
+        self::assertCount(1, $result->evaluations);
+        self::assertTrue($result->evaluations[0]->top1Hit);
     }
 }

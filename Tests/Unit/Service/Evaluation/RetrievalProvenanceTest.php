@@ -192,4 +192,33 @@ final class RetrievalProvenanceTest extends TestCase
             self::assertSame($exceptionCode, $exception->getCode());
         }
     }
+
+    #[Test]
+    public function canonicalLabelsPreserveDistinctNonUtf8Bytes(): void
+    {
+        foreach ([
+            [
+                new GoldenQuestion("id\xff", 'Question', QuestionForm::MATCH, ['doc']),
+                new GoldenQuestion("id\xfe", 'Question', QuestionForm::MATCH, ['doc']),
+            ],
+            [
+                new GoldenQuestion('id', "Question\xff", QuestionForm::MATCH, ['doc']),
+                new GoldenQuestion('id', "Question\xfe", QuestionForm::MATCH, ['doc']),
+            ],
+            [
+                new GoldenQuestion('id', 'Question', QuestionForm::MATCH, ["doc\xff"]),
+                new GoldenQuestion('id', 'Question', QuestionForm::MATCH, ["doc\xfe"]),
+            ],
+            [
+                new GoldenQuestion('id', 'Question', QuestionForm::MATCH, ['doc'], "class\xff"),
+                new GoldenQuestion('id', 'Question', QuestionForm::MATCH, ['doc'], "class\xfe"),
+            ],
+        ] as [$a, $b]) {
+            $first = RetrievalRunIdentity::forSet($this->set($a), $this->provenance());
+            $second = RetrievalRunIdentity::forSet($this->set($b), $this->provenance());
+            self::assertNotSame($first->labelsFingerprint, $second->labelsFingerprint);
+            self::assertNotSame($first->benchmarkFingerprint, $second->benchmarkFingerprint);
+            self::assertSame($first->variantFingerprint, $second->variantFingerprint);
+        }
+    }
 }
