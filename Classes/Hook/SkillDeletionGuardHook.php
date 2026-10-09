@@ -14,6 +14,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\SysLog\Action\Database as SystemLogDatabaseAction;
 use TYPO3\CMS\Core\SysLog\Error as SystemLogErrorClassification;
+use TYPO3\CMS\Core\Versioning\VersionState;
 
 /**
  * Refuses to delete a skill that a configuration or a task still has
@@ -29,9 +30,12 @@ use TYPO3\CMS\Core\SysLog\Error as SystemLogErrorClassification;
  * holder that sits in the deleted subtree goes with it and does not count.
  *
  * Hooked into the DataHandler's delete action, which every delete passes —
- * a delete command, and a workspace publish that applies a delete
- * placeholder to live. A delete inside a workspace only stages the
- * placeholder and is checked when it is published.
+ * a delete command, a delete staged in a workspace, and a workspace publish
+ * that applies a delete placeholder to live. A publish refused there has
+ * already swapped the placeholder's fields onto the live row, so a publish
+ * of a page delete placeholder is also taken out of the command map before
+ * it starts (processCmdmap_beforeStart, after EXT:workspaces resolved its
+ * dependencies); the delete-action check stays as the backstop.
  *
  * Registered under `processCmdmapClass` in `ext_localconf.php`. A public
  * service, so the DataHandler's makeInstance() gets the container-built
@@ -52,11 +56,63 @@ final readonly class SkillDeletionGuardHook
     ) {}
 
     /**
+     * Take a publish of a page delete placeholder out of the command map when
+     * the page's subtree holds attached skills, before anything is swapped.
+     */
+    public function processCmdmap_beforeStart(DataHandler $dataHandler): void
+    {
+        $pageCommands = $dataHandler->cmdmap['pages'] ?? null;
+        if (!is_array($pageCommands) || !$this->anyLiveAttachment()) {
+            return;
+        }
+
+        foreach ($pageCommands as $liveUid => $commands) {
+            $version = is_array($commands) ? ($commands['version'] ?? null) : null;
+            if (!is_array($version) || !in_array($version['action'] ?? null, ['publish', 'swap'], true)) {
+                continue;
+            }
+
+            $placeholder = $version['swapWith'] ?? null;
+            if (!is_numeric($liveUid) || !is_numeric($placeholder) || !$this->isDeletePlaceholder((int)$placeholder)) {
+                continue;
+            }
+
+            $pages   = $this->subtree((int)$liveUid);
+            $holders = $this->holders($this->skillsOn($pages), $pages);
+            if ($holders === []) {
+                continue;
+            }
+
+            unset($dataHandler->cmdmap['pages'][$liveUid]['version']);
+            if ($dataHandler->cmdmap['pages'][$liveUid] === []) {
+                unset($dataHandler->cmdmap['pages'][$liveUid]);
+            }
+
+            $dataHandler->log(
+                'pages',
+                (int)$liveUid,
+                SystemLogDatabaseAction::DELETE,
+                null,
+                SystemLogErrorClassification::USER_ERROR,
+                'Cannot publish the deletion of page {uid}: it or a page below it holds skills still attached to {holders}. Detach them first.',
+                null,
+                ['uid' => (int)$liveUid, 'holders' => implode(', ', $holders)],
+            );
+        }
+    }
+
+    /**
      * @param array<string, mixed>|null $record
      */
     public function processCmdmap_deleteAction(string $table, string|int $id, ?array $record, bool &$recordWasDeleted, DataHandler $dataHandler): void
     {
         if ($recordWasDeleted || !is_numeric($id) || (int)$id <= 0 || ($table !== self::TABLE && $table !== 'pages')) {
+            return;
+        }
+
+        // A record already in the recycle bin (deleted for good there) is
+        // no longer loaded through any attachment.
+        if (is_numeric($record['deleted'] ?? null) && (int)$record['deleted'] === 1) {
             return;
         }
 
@@ -103,6 +159,20 @@ final readonly class SkillDeletionGuardHook
             null,
             ['uid' => $uid, 'holders' => implode(', ', $holders)],
         );
+    }
+
+    private function isDeletePlaceholder(int $pageUid): bool
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable('pages');
+        $queryBuilder->getRestrictions()->removeAll();
+        $state = $queryBuilder
+            ->select('t3ver_state')
+            ->from('pages')
+            ->where($queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)))
+            ->executeQuery()
+            ->fetchOne();
+
+        return is_numeric($state) && (int)$state === VersionState::DELETE_PLACEHOLDER->value;
     }
 
     /**
