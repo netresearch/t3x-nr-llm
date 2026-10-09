@@ -444,7 +444,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // headroom before the first provider call; a resume composed nothing
         // and re-admits nothing. A window manager that cannot admit refuses,
         // as at a load; only a loop without any window manager starts
-        // unmeasured.
+        // unmeasured. The measurement starts afresh: the shared manager may
+        // carry the calibration another run raised.
+        if ($instructionIds !== []) {
+            $this->beginSegment();
+        }
+
         if ($instructionIds !== [] && $this->contextWindow instanceof ContextWindowManagerInterface && (
             !$this->contextWindow instanceof SectionAdmissionInterface
             || !$this->contextWindow->admitsSection(

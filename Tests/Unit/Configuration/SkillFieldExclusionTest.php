@@ -68,6 +68,18 @@ final class SkillFieldExclusionTest extends TestCase
         self::assertSame('passthrough', $columns['caller_system_digest']['config']['type'] ?? null);
     }
 
+    /**
+     * The snippet mark and the configuration's opt-in are an administrator's
+     * whatever a group is granted (ADR-214 item 8): the DataHandler skips a
+     * HIDE_FOR_NON_ADMINS field for everyone else.
+     */
+    #[Test]
+    public function theCallerSystemFieldsAreForAdministratorsOnly(): void
+    {
+        self::assertSame('HIDE_FOR_NON_ADMINS', $this->columns('tx_nrllm_promptsnippet')['caller_system_digest']['displayCond'] ?? null);
+        self::assertSame('HIDE_FOR_NON_ADMINS', $this->columns('tx_nrllm_configuration')['snippets_in_caller_system_message']['displayCond'] ?? null);
+    }
+
     #[Test]
     public function theFieldsThatDecideTrustAreExcluded(): void
     {

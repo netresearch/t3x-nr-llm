@@ -156,16 +156,27 @@ must hold:
    marked; the page lists them.
 2. **The configuration opts in.** Tick
    :guilabel:`Marked snippets in the caller's system
-   message` on the :guilabel:`Parameters` tab. The
-   field is an excluded field: only administrators,
-   or groups granted it, see it.
+   message` on the :guilabel:`Parameters` tab. Only
+   administrators see and write the field, whatever a
+   group is granted; the mark is an administrator's
+   too.
 
 The marked blocks of the snippets the configuration
 selects by tag are then appended to the caller's
-first system message, in the order above. Without
-a caller system message nothing changes: the
-configuration's system prompt carries the snippets
-as before.
+first system message, in the order above — only to
+a system message at the head of the conversation,
+before the first user turn. Without such a message
+nothing changes: the configuration's system prompt
+carries the snippets as before.
+
+The mark binds the block, not the tags: an editor
+who may tag snippets can let a marked snippet reach
+another configuration that opts in and selects the
+new tag. Mark a snippet only when its block may join
+any opted-in configuration's caller system message.
+Unmarking or editing a snippet takes it out of every
+run composed afterwards; a run that waits for a
+human keeps the transcript it was composed with.
 
 .. _administration-snippets-developer:
 

@@ -141,6 +141,10 @@ return [
         // or written by FormEngine.
         'caller_system_digest' => [
             'exclude' => true,
+            // Never written by anyone but an administrator, whatever a group
+            // is granted: the DataHandler skips it for everyone else, and
+            // the group form does not list it (ADR-214 item 8).
+            'displayCond' => 'HIDE_FOR_NON_ADMINS',
             'config' => [
                 'type' => 'passthrough',
             ],

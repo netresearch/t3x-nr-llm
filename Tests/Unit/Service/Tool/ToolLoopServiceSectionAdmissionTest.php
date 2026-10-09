@@ -26,6 +26,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Exception\SkillSectionNotAdmittedException;
+use Netresearch\NrLlm\Service\Context\ContextWindowManager;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Context\SectionAdmissionInterface;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
@@ -113,6 +114,24 @@ final class ToolLoopServiceSectionAdmissionTest extends TestCase
         self::assertSame(1, $this->providerCalls);
     }
 
+    /**
+     * The manager is shared: another run may have raised its calibration.
+     * The start admission measures afresh, so sections that fit at the seed
+     * calibration start the run however far the last run raised it.
+     */
+    #[Test]
+    public function theStartAdmissionDoesNotInheritAnotherRunsCalibration(): void
+    {
+        $manager  = new ContextWindowManager();
+        $messages = [ChatMessage::user('go')];
+        $first    = $manager->fit($messages, $this->configuration(), null, null);
+        $manager->fit($messages, $this->configuration(), null, UsageStatistics::fromTokens($first->estimatedTokens * 400, 1));
+
+        $this->service(admits: true, window: $manager)->runLoop([ChatMessage::user('go')], $this->configuration(), ToolExecutionContext::none(), null);
+
+        self::assertSame(1, $this->providerCalls);
+    }
+
     #[Test]
     public function aStartWithoutSectionsIsNotAdmissionChecked(): void
     {
@@ -173,7 +192,7 @@ final class ToolLoopServiceSectionAdmissionTest extends TestCase
         self::assertSame(1, substr_count($this->sent[0]->content, self::BLOCK));
     }
 
-    private function service(bool $admits, bool $approve = true, bool $windowWithoutAdmission = false): ToolLoopService
+    private function service(bool $admits, bool $approve = true, bool $windowWithoutAdmission = false, ?ContextWindowManagerInterface $window = null): ToolLoopService
     {
         $this->providerCalls = 0;
         $this->sent          = [];
@@ -223,7 +242,7 @@ final class ToolLoopServiceSectionAdmissionTest extends TestCase
             ),
             skillInjection: new SkillInjectionService($composer, new NullLogger()),
             snippetComposer: new PromptSnippetComposer(),
-            contextWindow: $windowWithoutAdmission ? $this->plainWindow() : $this->window($admits),
+            contextWindow: $window ?? ($windowWithoutAdmission ? $this->plainWindow() : $this->window($admits)),
             snippetResolver: new ConfigurationSnippetResolver($repository, new PromptSnippetComposer()),
             skillPinCheck: new SkillPinCheck($approvals, $sources, new FixedSkillRecordLookup([3]), new SkillComposerFactory($extensionConfiguration)),
         );
@@ -243,6 +262,8 @@ final class ToolLoopServiceSectionAdmissionTest extends TestCase
     {
         return new class ($admits) implements ContextWindowManagerInterface, SectionAdmissionInterface {
             public function __construct(private readonly bool $admits) {}
+
+            public function beginRun(): void {}
 
             public function fit(array $messages, LlmConfiguration $configuration, ?ChatOptions $options, ?UsageStatistics $lastUsage, array $toolSpecs = [], string $injectedText = '', ?string $effectiveSystemPrompt = null, ?Model $resolvedModel = null): ContextFitResult
             {

@@ -79,6 +79,18 @@ final class CallerSystemSnippetTest extends TestCase
         self::assertSame($messages, $this->resolver($nameEdited)->appendToCallerSystemMessage($messages, $this->configuration(optIn: true)));
     }
 
+    /**
+     * Only the head carries the block: a caller system message after a turn
+     * sits where the context fit may drop it.
+     */
+    #[Test]
+    public function aSystemMessageAfterATurnIsNotExtended(): void
+    {
+        $messages = [ChatMessage::user('hi'), ChatMessage::system('Later note.')];
+
+        self::assertSame($messages, $this->resolver($this->marked())->appendToCallerSystemMessage($messages, $this->configuration(optIn: true)));
+    }
+
     #[Test]
     public function withoutACallerSystemMessageNothingIsAppended(): void
     {

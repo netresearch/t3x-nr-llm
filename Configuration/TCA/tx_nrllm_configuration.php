@@ -482,6 +482,8 @@ return [
         // message, which only an administrator decides.
         'snippets_in_caller_system_message' => [
             'exclude' => true,
+            // An administrator's decision, whatever a group is granted.
+            'displayCond' => 'HIDE_FOR_NON_ADMINS',
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.snippets_in_caller_system_message',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.snippets_in_caller_system_message.description',
             'config' => [
