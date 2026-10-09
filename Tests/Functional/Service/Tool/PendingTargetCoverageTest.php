@@ -98,6 +98,13 @@ final class PendingTargetCoverageTest extends AbstractFunctionalTestCase
 
             self::assertNull($tool->pendingTarget([]), $name . ' with no arguments');
 
+            // A field-writing call that names no field it writes has no target.
+            foreach (['update_content_element' => ['uid' => 12, 'fields' => []], 'update_page_metadata' => ['uid' => 7, 'not_a_field' => 'x'], 'update_fal_asset_meta' => ['uid' => 3]] as $fieldWriter => $fieldless) {
+                if ($name === $fieldWriter) {
+                    self::assertNull($tool->pendingTarget($fieldless), $name . ' without a field it writes');
+                }
+            }
+
             // A relation write whose field the tool picks from the record has
             // no target: an empty field list would key it like a move.
             if (array_key_exists('field', $arguments) && str_starts_with($name, 'attach_file_to_')) {

@@ -340,6 +340,8 @@ final readonly class AgentRunPersister
      * failure, which is logged.
      *
      * @param list<AgentRunStatus> $from the waiting states to move from; empty moves nothing
+     *
+     * @throws InvalidArgumentException when $from names a state that is not a wait, or $to is neither CANCELLED nor FAILED
      */
     public function settleIfWaiting(AgentRun $run, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason): bool
     {

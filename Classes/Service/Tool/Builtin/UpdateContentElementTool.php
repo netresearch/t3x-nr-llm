@@ -294,12 +294,15 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
 
     /**
      * The content element and the columns the call sets (ADR-214).
+     * A call that names no field the tool writes has no target: an empty
+     * field list would key it like a move or a delete of the record, and
+     * the call is refused when it runs anyway.
      */
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         $fields = $arguments['fields'] ?? null;
 
-        return is_array($fields)
+        return is_array($fields) && $fields !== []
             ? PendingWriteTarget::fromArguments(self::TABLE, $arguments['uid'] ?? null, array_keys($fields))
             : null;
     }

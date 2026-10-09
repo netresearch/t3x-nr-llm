@@ -449,14 +449,15 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
 
     /**
      * The page and the metadata fields the call sets (ADR-214).
+     * A call that names no field the tool writes has no target: an empty
+     * field list would key it like a move or a delete of the record, and
+     * the call is refused when it runs anyway.
      */
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
-        return PendingWriteTarget::fromArguments(
-            self::TABLE,
-            $arguments['uid'] ?? null,
-            array_values(array_intersect($this->editableFields(), array_keys($arguments))),
-        );
+        $fields = array_values(array_intersect($this->editableFields(), array_keys($arguments)));
+
+        return $fields === [] ? null : PendingWriteTarget::fromArguments(self::TABLE, $arguments['uid'] ?? null, $fields);
     }
 
     public function getEffect(): ToolEffect

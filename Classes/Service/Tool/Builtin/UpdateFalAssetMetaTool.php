@@ -382,14 +382,15 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
      * The file the call describes and the metadata fields it sets (ADR-214).
      * Named by the file uid the call carries, as `set_file_alternative_text`
      * does: the metadata row is the file's default-language row.
+     * A call that names no field the tool writes has no target: an empty
+     * field list would key it like a move or a delete of the record, and
+     * the call is refused when it runs anyway.
      */
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
-        return PendingWriteTarget::fromArguments(
-            'sys_file',
-            $arguments['uid'] ?? null,
-            array_values(array_intersect($this->writableFields(), array_keys($arguments))),
-        );
+        $fields = array_values(array_intersect($this->writableFields(), array_keys($arguments)));
+
+        return $fields === [] ? null : PendingWriteTarget::fromArguments('sys_file', $arguments['uid'] ?? null, $fields);
     }
 
     public function getEffect(): ToolEffect

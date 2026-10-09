@@ -353,8 +353,9 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
 
     /**
      * The record and the file field the call adds a reference to (ADR-214).
-     * None when the call leaves the field to the tool: the field it lands in
-     * is known only from the record, which this may not read.
+     * None when the call leaves the field to the tool: the tool then picks
+     * one of the table's file fields, and an empty field list would key the
+     * call like a move or a delete of the record.
      */
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
