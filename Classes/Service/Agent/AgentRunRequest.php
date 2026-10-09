@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Agent;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 
@@ -47,6 +48,12 @@ final readonly class AgentRunRequest
      *                                                                 rather than inheriting the worker's absent
      *                                                                 ambient BE user. Also drives the budget
      *                                                                 pre-flight and the run-row attribution.
+     * @param SkillToolAllowList|null                $skillAllowList   the skill allow-list the run started with
+     *                                                                 (ADR-038 item 5). Set for a queued run,
+     *                                                                 whose list is resolved when it is
+     *                                                                 enqueued; the loop then holds the run to
+     *                                                                 it, intersected with the live list. Null
+     *                                                                 resolves the list when the loop starts.
      */
     public function __construct(
         public LlmConfiguration $configuration,
@@ -57,5 +64,6 @@ final readonly class AgentRunRequest
         public ?int $maxIterations = null,
         public ?RunAugmentation $augmentation = null,
         public bool $captureRaw = false,
+        public ?SkillToolAllowList $skillAllowList = null,
     ) {}
 }

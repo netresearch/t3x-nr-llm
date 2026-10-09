@@ -17,10 +17,12 @@ use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
+use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
@@ -244,13 +246,55 @@ final class ResumeCoordinatorSubmitterGateTest extends AbstractFunctionalTestCas
         return AiActorContext::serviceAccount('nightly-submitter', [ServiceAccountScope::AGENT_APPROVE]);
     }
 
-    private function submission(string $tool, int $submittedBy = 2): InputSubmission
+    #[Test]
+    public function aToolOnlyTheRunsForcedSkillGrantsTakesTheSubmission(): void
+    {
+        // The configuration's skill names `ask_admin` alone; the run's stored
+        // list (ADR-038 item 5) also holds `ask_user`, which a forced skill
+        // granted. Asked with the configuration alone, the gate refused it.
+        $stored = new SkillToolAllowList(['ask_admin', 'ask_user']);
+        $uuid   = $this->suspendOn('ask_user', $stored);
+
+        $this->coordinator($this->skillNaming('ask_admin'))
+            ->submitInput($this->grantedEditor(), $uuid, $this->submission('ask_user', 2, $stored));
+
+        self::assertTrue($this->resumed, 'the input the run may take was accepted');
+        $this->assertSettledCompleted($uuid);
+    }
+
+    #[Test]
+    public function aToolOutsideTheRunsStoredListTakesNoSubmission(): void
+    {
+        $stored = new SkillToolAllowList(['ask_admin']);
+        $uuid   = $this->suspendOn('ask_user', $stored);
+
+        try {
+            $this->coordinator()->submitInput($this->grantedEditor(), $uuid, $this->submission('ask_user', 2, $stored));
+            self::fail('Expected SubmitterNotPermittedException');
+        } catch (SubmitterNotPermittedException $exception) {
+            self::assertStringContainsString('ask_user', $exception->getMessage());
+            $this->assertStillWaiting($uuid);
+        }
+    }
+
+    private function submission(string $tool, int $submittedBy = 2, ?SkillToolAllowList $skillAllowList = null): InputSubmission
     {
         return new InputSubmission(
             ['city' => 'Berlin'],
             $submittedBy,
-            (new PendingTurnDigest())->forInputState($this->state($tool)),
+            (new PendingTurnDigest())->forInputState($this->state($tool, skillAllowList: $skillAllowList)),
         );
+    }
+
+    private function skillNaming(string ...$tools): Skill
+    {
+        $skill = new Skill();
+        $skill->setSource(1);
+        $skill->setIdentifier('attached');
+        $skill->setAllowedTools((string)json_encode($tools));
+        $skill->setEnabled(true);
+
+        return $skill;
     }
 
     /**
@@ -259,11 +303,11 @@ final class ResumeCoordinatorSubmitterGateTest extends AbstractFunctionalTestCas
      *
      * @return string the run uuid
      */
-    private function suspendOn(string $tool): string
+    private function suspendOn(string $tool, ?SkillToolAllowList $skillAllowList = null): string
     {
         $handle = $this->persister->begin(null, 1);
         self::assertNotNull($handle);
-        self::assertTrue($this->persister->suspendForInput($handle, $this->state($tool)));
+        self::assertTrue($this->persister->suspendForInput($handle, $this->state($tool, skillAllowList: $skillAllowList)));
 
         return $handle->uuid;
     }
@@ -271,7 +315,7 @@ final class ResumeCoordinatorSubmitterGateTest extends AbstractFunctionalTestCas
     /**
      * @param array<string, mixed> $arguments
      */
-    private function state(string $tool, array $arguments = ['uid' => 42]): SuspendedRunState
+    private function state(string $tool, array $arguments = ['uid' => 42], ?SkillToolAllowList $skillAllowList = null): SuspendedRunState
     {
         return new SuspendedRunState(
             [],
@@ -283,6 +327,7 @@ final class ResumeCoordinatorSubmitterGateTest extends AbstractFunctionalTestCas
             [],
             $tool,
             self::SCHEMA,
+            skillAllowList: $skillAllowList,
         );
     }
 
@@ -291,7 +336,7 @@ final class ResumeCoordinatorSubmitterGateTest extends AbstractFunctionalTestCas
      * REAL schema validator; only the tool loop and the configuration lookup are
      * doubled (this test is about who may submit, not about what the call does).
      */
-    private function coordinator(): ResumeCoordinator
+    private function coordinator(?Skill $attached = null): ResumeCoordinator
     {
         $registry = new ToolRegistry([
             new FakeInputTool('ask_admin', self::SCHEMA, requiresAdmin: true),
@@ -308,7 +353,7 @@ final class ResumeCoordinatorSubmitterGateTest extends AbstractFunctionalTestCas
         );
 
         $configurationRepository = self::createStub(LlmConfigurationRepository::class);
-        $configurationRepository->method('findByUid')->willReturn($this->localConfiguration());
+        $configurationRepository->method('findByUid')->willReturn($this->localConfiguration($attached));
 
         $loop = $this->toolLoop();
 
@@ -350,7 +395,7 @@ final class ResumeCoordinatorSubmitterGateTest extends AbstractFunctionalTestCas
      * trust-zone axis of the real gate permits the fake tools and the assertions
      * are about the admin axis.
      */
-    private function localConfiguration(): LlmConfiguration
+    private function localConfiguration(?Skill $attached = null): LlmConfiguration
     {
         $provider = new Provider();
         $provider->setTrustZoneEnum(TrustZone::LOCAL);
@@ -361,6 +406,9 @@ final class ResumeCoordinatorSubmitterGateTest extends AbstractFunctionalTestCas
         $configuration = new LlmConfiguration();
         $configuration->setIdentifier('cfg-submitter-gate');
         $configuration->setLlmModel($model);
+        if ($attached instanceof Skill) {
+            $configuration->addSkill($attached);
+        }
 
         return $configuration;
     }

@@ -15,6 +15,8 @@ use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
+use Netresearch\NrLlm\Domain\Model\Skill;
+use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
@@ -69,6 +71,47 @@ final class ToolCallPolicyTest extends TestCase
         // No user is not an admin — fail closed.
         self::assertSame(ToolDenialReason::REQUIRES_ADMIN, $policy->decide('system_tool', $config, null)->reason);
         self::assertTrue($policy->decide('system_tool', $config, $this->admin())->allowed);
+    }
+
+    #[Test]
+    public function aRunsAllowListDecidesInsteadOfTheConfigurationsSkills(): void
+    {
+        // ADR-038 item 5: the run's list was resolved at run start over the
+        // forced skills too. Re-deriving it from the configuration on every
+        // decision is what let a forced skill restrict nothing.
+        $registry = new ToolRegistry([new FakeTool('read_a'), new FakeTool('read_b')]);
+        $policy   = $this->policy($registry);
+
+        $config = $this->configuration(TrustZone::LOCAL);
+        $skill  = new Skill();
+        $skill->setIdentifier('attached');
+        $skill->setAllowedTools('["read_a"]');
+        $skill->setEnabled(true);
+
+        $config->addSkill($skill);
+
+        $run = new SkillToolAllowList(['read_b']);
+
+        self::assertSame(ToolDenialReason::CONFIGURATION_GROUP, $policy->decide('read_a', $config, $this->admin(), $run)->reason);
+        self::assertTrue($policy->decide('read_b', $config, $this->admin(), $run)->allowed);
+        self::assertSame(['read_b'], $policy->filterOfferable(null, $config, $this->admin(), $run));
+        // No run: the configuration-only list, as before.
+        self::assertSame(['read_a'], $policy->filterOfferable(null, $config, $this->admin()));
+    }
+
+    #[Test]
+    public function theConfigurationsGroupGateStillAppliesOnTopOfARunsList(): void
+    {
+        $registry = new ToolRegistry([
+            new FakeTool('content_tool', 'ok', true, false, 'content'),
+            new FakeTool('code_tool', 'ok', true, false, 'code'),
+        ]);
+        $config = $this->configuration(TrustZone::LOCAL);
+        $config->setAllowedToolGroups('content');
+
+        $offered = $this->policy($registry)->filterOfferable(null, $config, $this->admin(), new SkillToolAllowList(null));
+
+        self::assertSame(['content_tool'], $offered);
     }
 
     #[Test]

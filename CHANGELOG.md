@@ -8,9 +8,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **A run's skill allow-list as a value (ADR-038 item 5).** `Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList` (`@api`) holds the union of the `allowed-tools` declarations a run resolved at its start; `null` names no restriction. `toStored()` and `fromStored()` give its persisted form, which keeps `[]` and `null` apart. `SuspendedRunState` and `AgentRunRequest` gain an optional `skillAllowList`. The API surface snapshot gains these lines.
+
+### Changed
+
+- **BREAKING for implementations of `ToolCallPolicyInterface` and `ToolLoopServiceInterface` (ADR-038 item 5).** `ToolCallPolicyInterface::decide()`, `explain()` and `filterOfferable()` take an optional `?SkillToolAllowList $runAllowList` last, and the interface gains `skillAllowListForRun()`, which resolves the list over the configuration's skills and the run's forced skills; without the argument the policy keeps the configuration-only resolution. `ToolLoopServiceInterface::runLoop()` takes an optional `?SkillToolAllowList $skillAllowList` last, the list a queued run was enqueued under. Callers are unaffected; a class outside nr-llm that implements either interface has to add the parameters and the method.
+
 ### Fixed
 
 - **Write tools read page TSconfig as the run's acting user (#1017).** `update_content_element`, `create_content_element_draft`, `create_record_draft` and `copy_record` built their approval preview and their permission checks from page TSconfig as core resolves it for the ambient backend user: that user's workspace overlaid the rootline, their user TSconfig `page.` overrides were merged in, and their identity fed the `[backend.user…]` conditions. A run approved by another user, or resumed in a worker without one, could therefore bounce its approval or be checked against the approver's TSconfig. They now read it for the acting user, like `get_tsconfig`, which shows the acting user's view as well.
+- **A forced skill's `allowed-tools` restricts the run (ADR-038 item 5).** The tool gate resolved the skill allow-list from the configuration's skills alone, so a skill forced on a run in the playground or through a queued run's augmentation offered and permitted every tool its declaration left out. The list is now resolved once at run start over the configuration's and the forced skills and enforced when tools are offered and when a call executes. A queued run resolves it when it is enqueued and carries it with the request; at execution it is intersected with the list as it is then.
+- **A resumed run never gains tools through the skill allow-list (ADR-165).** A resume re-derived the list from the live configuration, so a run whose only declaring skill was disabled while it waited resumed with every tool. The suspended state now stores the run's list; a resume, after an approval or an input, intersects it with the live list, so a change while the run waits can take tools away but not add any. The approver and submitter gate asks with the stored list. A run suspended or queued before this release has no stored list and uses the live one, as before.
 
 ## [0.40.0] - 2026-10-08
 

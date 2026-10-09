@@ -243,6 +243,9 @@ final readonly class ApprovalPreviewComparator
             $state->forcedSnippetUids,
             $state->forcedSkillUids,
             $stale,
+            // The run's start-time allow-list stays the upper bound across a
+            // re-suspension; dropping it would let the next resume widen.
+            $state->skillAllowList,
         );
     }
 }

@@ -30,6 +30,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
+use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
@@ -376,6 +377,34 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         self::assertSame($seen->uuid, $seen->correlationId(), 'The run uuid IS the correlation id.');
         self::assertGreaterThan(0, $seen->uid);
         self::assertSame($this->repository->startedRuns[0]['uuid'], $seen->uuid);
+    }
+
+    #[Test]
+    public function theLoopReceivesTheSkillAllowListTheRequestCarries(): void
+    {
+        // ADR-038 item 5: a queued run's request carries the list it was
+        // enqueued under, and the loop must be held to it.
+        $seen = 'not called';
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (mixed ...$arguments) use (&$seen): ToolLoopResult {
+                $seen = $arguments[12] ?? ($arguments['skillAllowList'] ?? null);
+
+                return $this->loopResult('ok');
+            },
+        );
+
+        $list    = new SkillToolAllowList(['read_a']);
+        $request = new AgentRunRequest(
+            configuration: new LlmConfiguration(),
+            messages: [ChatMessage::user('go')],
+            actor: AiActorContext::backendUser(9),
+            skillAllowList: $list,
+        );
+
+        $this->runtime($loop)->run($request);
+
+        self::assertSame($list, $seen);
     }
 
     #[Test]
@@ -986,6 +1015,23 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         self::assertCount(1, $dispatched);
         self::assertInstanceOf(AgentRunQueuedMessage::class, $dispatched[0]);
         self::assertSame($uuid, $dispatched[0]->runUuid);
+    }
+
+    #[Test]
+    public function enqueueStoresTheSkillAllowListWithoutAnInjectedCodec(): void
+    {
+        // The runtime's own fallback codec must resolve the list at enqueue
+        // too (ADR-038 item 5); without the policy it stored none.
+        $policy = self::createStub(ToolCallPolicyInterface::class);
+        $policy->method('skillAllowListForRun')->willReturn(new SkillToolAllowList(['read_a']));
+        $dispatched = [];
+        $runtime    = $this->runtime($this->loopReturning($this->loopResult('x')), bus: $this->recordingBus($dispatched), toolPolicy: $policy);
+
+        $runtime->enqueue($this->request());
+
+        $payload = json_decode($this->repository->enqueuedRuns[0]['requestJson'], true);
+        self::assertIsArray($payload);
+        self::assertSame(['toolNames' => ['read_a']], $payload['skillAllowList'] ?? null);
     }
 
     #[Test]

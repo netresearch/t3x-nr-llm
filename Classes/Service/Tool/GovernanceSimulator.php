@@ -99,6 +99,8 @@ final readonly class GovernanceSimulator
         $actor = $this->actor($actorUid, $user);
 
         return new GovernanceSimulation(
+            // No run: the configuration-only skill allow-list, without the
+            // forced skills a run may add (ADR-038 item 5).
             $this->toolCallPolicy->decide($toolName, $configuration, $user),
             $this->inputContextGate->decide($configuration),
             $this->modelSelectionService->explainRouting($configuration, self::OPERATION, null),

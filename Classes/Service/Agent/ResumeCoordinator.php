@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
+use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
@@ -476,7 +477,7 @@ final readonly class ResumeCoordinator
             return ApproverNotPermittedException::forUnreadableCall($runUuid, $actor);
         }
 
-        $refusal = $this->unpermittedCall($actor, $configuration, $names);
+        $refusal = $this->unpermittedCall($actor, $configuration, $names, $state->skillAllowList);
         if (!$refusal instanceof PendingCallRefusal) {
             return null;
         }
@@ -528,7 +529,7 @@ final readonly class ResumeCoordinator
             $names[] = $state->inputToolName;
         }
 
-        $refusal = $this->unpermittedCall($actor, $configuration, $names);
+        $refusal = $this->unpermittedCall($actor, $configuration, $names, $state->skillAllowList);
         if (!$refusal instanceof PendingCallRefusal) {
             return null;
         }
@@ -588,9 +589,17 @@ final readonly class ResumeCoordinator
      * uid no longer resolves to an enabled user is in the same position. "No
      * user" is not "permitted".
      *
+     * The run's skill allow-list is the one stored at run start (ADR-038
+     * item 5). Asking with the configuration alone would leave out the run's
+     * forced skills and refuse a tool only a forced skill grants — stricter than
+     * the execution this gate mirrors. The loop intersects the stored list with
+     * the live one when it resumes, so a tool the live list no longer admits is
+     * still refused there. A state persisted before the list was stored carries
+     * none, and the gate keeps the configuration-only list it used before.
+     *
      * @param list<string> $toolNames
      */
-    private function unpermittedCall(AiActorContext $actor, LlmConfiguration $configuration, array $toolNames): ?PendingCallRefusal
+    private function unpermittedCall(AiActorContext $actor, LlmConfiguration $configuration, array $toolNames, ?SkillToolAllowList $runAllowList): ?PendingCallRefusal
     {
         if (!$this->toolPolicy instanceof ToolCallPolicyInterface) {
             return null;
@@ -607,7 +616,7 @@ final readonly class ResumeCoordinator
                 return new PendingCallRefusal($name);
             }
 
-            $verdict = $this->toolPolicy->decide($name, $configuration, $user);
+            $verdict = $this->toolPolicy->decide($name, $configuration, $user, $runAllowList);
             if (!$verdict->allowed) {
                 return new PendingCallRefusal($name, $verdict->reason);
             }

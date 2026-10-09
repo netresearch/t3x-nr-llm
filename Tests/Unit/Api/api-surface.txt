@@ -1028,8 +1028,15 @@ Netresearch\NrLlm\Domain\ValueObject\RoutingSummary (class)
   property readonly qualitySignalUsed: bool
   property readonly rejectionReasons: array
 
+Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList (class)
+  constructor(?array $toolNames)
+  method intersect(self $other): self
+  method static fromStored(mixed $raw): ?self
+  method toStored(): array
+  property readonly toolNames: ?array
+
 Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
-  constructor(array $messages, array $pendingCalls, int $iterations, int $promptTokens, int $completionTokens, ?array $allowedToolNames = …, array $options = …, ?string $inputToolName = …, array $inputSchema = …, array $callPreviews = …, array $forcedSnippetUids = …, array $forcedSkillUids = …, array $staleCallIndexes = …)
+  constructor(array $messages, array $pendingCalls, int $iterations, int $promptTokens, int $completionTokens, ?array $allowedToolNames = …, array $options = …, ?string $inputToolName = …, array $inputSchema = …, array $callPreviews = …, array $forcedSnippetUids = …, array $forcedSkillUids = …, array $staleCallIndexes = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …)
   method isInputPause(): bool
   method static fromArray(array $data): self
   method toArray(): array
@@ -1046,6 +1053,7 @@ Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
   property readonly options: array
   property readonly pendingCalls: array
   property readonly promptTokens: int
+  property readonly skillAllowList: ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList
   property readonly staleCallIndexes: array
 
 Netresearch\NrLlm\Domain\ValueObject\ToolArtifact (class)
@@ -1321,7 +1329,7 @@ Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface (interface)
   method testProviderConnection(Netresearch\NrLlm\Domain\Model\Provider $provider): array
 
 Netresearch\NrLlm\Service\Agent\AgentRunRequest (class)
-  constructor(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $messages, Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, ?array $allowedToolNames = …, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunAugmentation $augmentation = …, bool $captureRaw = …)
+  constructor(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $messages, Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, ?array $allowedToolNames = …, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunAugmentation $augmentation = …, bool $captureRaw = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …)
   property readonly actor: Netresearch\NrLlm\Domain\ValueObject\AiActorContext
   property readonly allowedToolNames: ?array
   property readonly augmentation: ?Netresearch\NrLlm\Service\Tool\RunAugmentation
@@ -1330,6 +1338,7 @@ Netresearch\NrLlm\Service\Agent\AgentRunRequest (class)
   property readonly maxIterations: ?int
   property readonly messages: array
   property readonly options: ?Netresearch\NrLlm\Service\Option\ToolOptions
+  property readonly skillAllowList: ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList
 
 Netresearch\NrLlm\Service\Agent\AgentRunResult (class)
   constructor(Netresearch\NrLlm\Domain\Enum\AgentRunOutcome $outcome, string $runUuid, array $steps, ?Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult $loopResult = …, ?Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState $suspendedState = …, ?string $guardrailClass = …, ?Throwable $error = …)
@@ -1913,9 +1922,10 @@ Netresearch\NrLlm\Service\Tool\RunTrace (class)
   method recordToolResult(int $round, float $durationMs, string $name, array $arguments, Netresearch\NrLlm\Domain\ValueObject\ToolResult $result): void
 
 Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface (interface)
-  method decide(string $toolName, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $user): Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision
-  method explain(?array $requested, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $user): array
-  method filterOfferable(?array $requested, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $user): array
+  method decide(string $toolName, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $user, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $runAllowList = …): Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision
+  method explain(?array $requested, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $user, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $runAllowList = …): array
+  method filterOfferable(?array $requested, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $user, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $runAllowList = …): array
+  method skillAllowListForRun(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $forcedSkills = …): Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList
 
 Netresearch\NrLlm\Service\Tool\ToolExecutionContext (class)
   constructor(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $backendUser = …, ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference $run = …)
@@ -1943,7 +1953,7 @@ Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface (interface)
   const DECIDED_BY_UNKNOWN = "unknown"
   method resume(Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState $state, bool $approved, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunTrace $runTrace = …, ?int $beUserUid = …): Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult
   method resumeWithInput(Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState $state, array $inputData, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunTrace $runTrace = …, ?int $beUserUid = …): Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult
-  method runLoop(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context, ?array $allowedToolNames, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunTrace $runTrace = …, ?Netresearch\NrLlm\Service\Tool\RunAugmentation $augmentation = …, bool $skipAssembly = …, int $seedIterations = …, int $seedPromptTokens = …, int $seedCompletionTokens = …): Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult
+  method runLoop(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context, ?array $allowedToolNames, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunTrace $runTrace = …, ?Netresearch\NrLlm\Service\Tool\RunAugmentation $augmentation = …, bool $skipAssembly = …, int $seedIterations = …, int $seedPromptTokens = …, int $seedCompletionTokens = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …): Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult
 
 Netresearch\NrLlm\Service\Tool\ToolProviderInterface (interface)
   const TAG_NAME = "nr_llm.tool_provider"

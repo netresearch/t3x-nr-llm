@@ -110,6 +110,7 @@ final readonly class AgentRunExecutor
                 $maxIterations,
                 $trace,
                 $request->augmentation,
+                skillAllowList: $request->skillAllowList,
             ),
             $recover,
             $leaseOwner,

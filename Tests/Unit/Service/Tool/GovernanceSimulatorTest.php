@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingDecision;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingReadout;
+use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
@@ -397,7 +398,12 @@ final class RecordingToolCallPolicy implements ToolCallPolicyInterface
 
     public ?BackendUserAuthentication $askedWith = null;
 
-    public function decide(string $toolName, LlmConfiguration $configuration, ?BackendUserAuthentication $user): ToolPolicyDecision
+    public function skillAllowListForRun(LlmConfiguration $configuration, array $forcedSkills = []): SkillToolAllowList
+    {
+        return new SkillToolAllowList(null);
+    }
+
+    public function decide(string $toolName, LlmConfiguration $configuration, ?BackendUserAuthentication $user, ?SkillToolAllowList $runAllowList = null): ToolPolicyDecision
     {
         $this->asked     = true;
         $this->askedWith = $user;
@@ -416,7 +422,7 @@ final class RecordingToolCallPolicy implements ToolCallPolicyInterface
      *
      * @return list<string>
      */
-    public function filterOfferable(?array $requested, LlmConfiguration $configuration, ?BackendUserAuthentication $user): array
+    public function filterOfferable(?array $requested, LlmConfiguration $configuration, ?BackendUserAuthentication $user, ?SkillToolAllowList $runAllowList = null): array
     {
         return $requested ?? [];
     }
@@ -426,7 +432,7 @@ final class RecordingToolCallPolicy implements ToolCallPolicyInterface
      *
      * @return list<ToolPolicyDecision>
      */
-    public function explain(?array $requested, LlmConfiguration $configuration, ?BackendUserAuthentication $user): array
+    public function explain(?array $requested, LlmConfiguration $configuration, ?BackendUserAuthentication $user, ?SkillToolAllowList $runAllowList = null): array
     {
         return [];
     }
