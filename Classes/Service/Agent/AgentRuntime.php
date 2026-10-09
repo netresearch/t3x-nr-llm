@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Agent;
 
 use Closure;
+use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
+use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
@@ -250,6 +252,25 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         }
 
         return $this->persister->cancel($runUuid);
+    }
+
+    public function cancelIfWaiting(AiActorContext $actor, string $runUuid): GuardedCancelResult
+    {
+        $run = $this->persister->findRun($runUuid);
+        if (!$run instanceof AgentRun || !($actor->isInitiatorOf($run) || ($actor->isAdmin && !$actor->isServiceAccount()))) {
+            return new GuardedCancelResult(false, null);
+        }
+
+        $cancelled = $this->persister->settleIfWaiting(
+            $run,
+            [AgentRunStatus::WAITING_FOR_APPROVAL, AgentRunStatus::WAITING_FOR_INPUT],
+            AgentRunStatus::CANCELLED,
+            AgentRunTerminationReason::CANCELLED,
+        );
+
+        // Read after the attempt, not before it: a loser must learn the state
+        // that beat it, and a winner's row says CANCELLED.
+        return new GuardedCancelResult($cancelled, $this->persister->findRun($runUuid)?->statusEnum());
     }
 
     public function events(AiActorContext $actor, string $runUuid, int $afterSequence = -1): array

@@ -11,8 +11,10 @@ namespace Netresearch\NrLlm\Service\Tool;
 
 use Netresearch\NrLlm\Domain\Enum\AgentEventKind;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
+use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -205,6 +207,53 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             ->set('finished_at', $builder->createNamedParameter($now, Connection::PARAM_INT), false)
             ->set('tstamp', $builder->createNamedParameter($now, Connection::PARAM_INT), false)
             ->where(...$predicates)
+            ->executeStatement();
+
+        return $affected > 0;
+    }
+
+    public function settleIfWaiting(int $runUid, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason): bool
+    {
+        // Only a waiting run, only to a terminal state: this transition skips
+        // every claim and lease, which is safe exactly because nothing of the
+        // run is executing while a human is being asked.
+        if ($from === []) {
+            return false;
+        }
+
+        foreach ($from as $status) {
+            if ($status !== AgentRunStatus::WAITING_FOR_APPROVAL && $status !== AgentRunStatus::WAITING_FOR_INPUT) {
+                throw new InvalidArgumentException(sprintf('A run is settled from a waiting state only, not from "%s".', $status->value), 1791600301);
+            }
+        }
+
+        if (!$to->isTerminal()) {
+            throw new InvalidArgumentException(sprintf('A waiting run is settled into a terminal state only, not "%s".', $to->value), 1791600302);
+        }
+
+        $builder = $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->createQueryBuilder();
+        $now     = time();
+
+        $affected = $builder
+            ->update(self::TABLE_RUN)
+            ->set('status', $to->value)
+            ->set('termination_reason', $reason->value)
+            ->set('suspended_state', '')
+            ->set('queued_request', '')
+            ->set('claimed_by', '')
+            ->set('lease_expires', $builder->createNamedParameter(0, Connection::PARAM_INT), false)
+            ->set('finished_at', $builder->createNamedParameter($now, Connection::PARAM_INT), false)
+            ->set('tstamp', $builder->createNamedParameter($now, Connection::PARAM_INT), false)
+            ->where(
+                $builder->expr()->eq('uid', $builder->createNamedParameter($runUid, Connection::PARAM_INT)),
+                $builder->expr()->in(
+                    'status',
+                    $builder->createNamedParameter(
+                        array_map(static fn(AgentRunStatus $status): string => $status->value, $from),
+                        Connection::PARAM_STR_ARRAY,
+                    ),
+                ),
+            )
             ->executeStatement();
 
         return $affected > 0;

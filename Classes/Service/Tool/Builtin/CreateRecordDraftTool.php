@@ -13,6 +13,7 @@ use DateTimeImmutable;
 use Exception;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
+use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
@@ -20,6 +21,7 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\PageTsConfigReader;
 use Netresearch\NrLlm\Service\Tool\PageTsConfigReaderInterface;
+use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
@@ -80,7 +82,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * table it names (ADR-152), and this tool has no such subject. It is reached
  * through the assistant only.
  */
-final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface
+final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -426,6 +428,15 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
     {
         // The writers' own group (ADR-135).
         return 'editing';
+    }
+
+    /**
+     * None: the call creates its record, which has no uid before it runs
+     * (ADR-214).
+     */
+    public function pendingTarget(array $arguments): ?PendingWriteTarget
+    {
+        return null;
     }
 
     public function getEffect(): ToolEffect

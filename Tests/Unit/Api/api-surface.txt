@@ -150,6 +150,15 @@ Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason (enum)
   property readonly name: string
   property readonly value: string
 
+Netresearch\NrLlm\Domain\Enum\ApprovalDenialReason (enum)
+  case SKIP = "skip"
+  case VARIANT = "variant"
+  method static cases(): array
+  method static from(int|string $value): static
+  method static tryFrom(int|string $value): ?static
+  property readonly name: string
+  property readonly value: string
+
 Netresearch\NrLlm\Domain\Enum\ArtifactType (enum)
   case TABLE = "table"
   case TEXT = "text"
@@ -987,6 +996,13 @@ Netresearch\NrLlm\Domain\ValueObject\ModelResolution (class)
   property readonly model: ?Netresearch\NrLlm\Domain\Model\Model
   property readonly routingSummary: ?Netresearch\NrLlm\Domain\ValueObject\RoutingSummary
 
+Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget (class)
+  constructor(Netresearch\NrLlm\Domain\ValueObject\RecordReference $record, array $fields = …)
+  method static fromArguments(mixed $table, mixed $uid, array $fields = …): ?self
+  method toArray(): array
+  property readonly fields: array
+  property readonly record: Netresearch\NrLlm\Domain\ValueObject\RecordReference
+
 Netresearch\NrLlm\Domain\ValueObject\ProviderCallUsage (class)
   constructor(?int $inputTokens, ?int $outputTokens, ?float $cost, string $responseModel)
   property readonly cost: ?float
@@ -1353,6 +1369,7 @@ Netresearch\NrLlm\Service\Agent\AgentRunResult (class)
 Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface (interface)
   method approve(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid, Netresearch\NrLlm\Service\Agent\ApprovalDecision $decision, ?Closure $onStep = …): Netresearch\NrLlm\Service\Agent\AgentRunResult
   method cancel(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid): bool
+  method cancelIfWaiting(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid): Netresearch\NrLlm\Service\Agent\GuardedCancelResult
   method enqueue(Netresearch\NrLlm\Service\Agent\AgentRunRequest $request): string
   method events(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid, int $afterSequence = …): array
   method run(Netresearch\NrLlm\Service\Agent\AgentRunRequest $request, ?Closure $onStep = …): Netresearch\NrLlm\Service\Agent\AgentRunResult
@@ -1361,14 +1378,20 @@ Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface (interface)
   method submitInput(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid, Netresearch\NrLlm\Service\Agent\InputSubmission $submission, ?Closure $onStep = …): Netresearch\NrLlm\Service\Agent\AgentRunResult
 
 Netresearch\NrLlm\Service\Agent\ApprovalDecision (class)
-  constructor(bool $approved, int $decidedByBeUser, ?string $turnDigest = …)
+  constructor(bool $approved, int $decidedByBeUser, ?string $turnDigest = …, ?Netresearch\NrLlm\Domain\Enum\ApprovalDenialReason $denialReason = …)
   property readonly approved: bool
   property readonly decidedByBeUser: int
+  property readonly denialReason: ?Netresearch\NrLlm\Domain\Enum\ApprovalDenialReason
   property readonly turnDigest: ?string
 
 Netresearch\NrLlm\Service\Agent\Exception\AgentRuntimeException (class)
   constructor(string $runUuid, string $message)
   property readonly runUuid: string
+
+Netresearch\NrLlm\Service\Agent\GuardedCancelResult (class)
+  constructor(bool $cancelled, ?Netresearch\NrLlm\Domain\Enum\AgentRunStatus $status)
+  property readonly cancelled: bool
+  property readonly status: ?Netresearch\NrLlm\Domain\Enum\AgentRunStatus
 
 Netresearch\NrLlm\Service\Agent\InputSubmission (class)
   constructor(array $data, int $submittedByBeUser, ?string $turnDigest = …)
@@ -1897,6 +1920,9 @@ Netresearch\NrLlm\Service\Tool\ApprovalPreviewHeadings (class)
   method static isHeading(string $line, TYPO3\CMS\Core\Localization\LanguageService $languageService): bool
   method static labelReferences(): array
 
+Netresearch\NrLlm\Service\Tool\PendingTargetInterface (interface)
+  method pendingTarget(array $arguments): ?Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget
+
 Netresearch\NrLlm\Service\Tool\RecordCreatorInterface (interface)
   method getCreatedTables(): array
 
@@ -1951,6 +1977,8 @@ Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface (interface)
   const DECIDED_BY_OTHER_USER = "other_user"
   const DECIDED_BY_RUN_OWNER = "run_owner"
   const DECIDED_BY_UNKNOWN = "unknown"
+  const DENIAL_REASON_SKIP = "skip"
+  const DENIAL_REASON_VARIANT = "variant"
   method resume(Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState $state, bool $approved, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunTrace $runTrace = …, ?int $beUserUid = …): Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult
   method resumeWithInput(Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState $state, array $inputData, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunTrace $runTrace = …, ?int $beUserUid = …): Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult
   method runLoop(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context, ?array $allowedToolNames, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunTrace $runTrace = …, ?Netresearch\NrLlm\Service\Tool\RunAugmentation $augmentation = …, bool $skipAssembly = …, int $seedIterations = …, int $seedPromptTokens = …, int $seedCompletionTokens = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …): Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult

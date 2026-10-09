@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Fixtures;
 
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
+use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
@@ -88,6 +89,11 @@ final class FenceRecordingRunRepository implements AgentRunRepositoryInterface
         ?string $ownedBy = null,
     ): bool {
         return $this->inner->finishRun($runUid, $status, $iterations, $truncated, $promptTokens, $completionTokens, $totalTokens, $estimatedCost, $errorClass, $terminationReason, $ownedBy);
+    }
+
+    public function settleIfWaiting(int $runUid, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason): bool
+    {
+        return $this->inner->settleIfWaiting($runUid, $from, $to, $reason);
     }
 
     public function suspendRun(int $runUid, string $stateJson): bool

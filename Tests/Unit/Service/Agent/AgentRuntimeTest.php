@@ -2029,6 +2029,101 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         );
     }
 
+    /**
+     * ADR-214: the run's initiator withdraws a waiting run, and the result
+     * says it won and what the run is now.
+     */
+    #[Test]
+    public function cancelIfWaitingLetsTheInitiatorWithdrawAWaitingRun(): void
+    {
+        $this->repository->findResults = [$this->suspendedRun(), $this->suspendedRun('cancelled')];
+
+        $result = $this->runtime($this->loopReturning($this->loopResult('x')))->cancelIfWaiting(AiActorContext::backendUser(9), 'run-uuid-1');
+
+        self::assertTrue($result->cancelled);
+        self::assertSame(AgentRunStatus::CANCELLED, $result->status);
+        self::assertSame([[
+            'runUid' => 1,
+            'from'   => ['waiting_for_approval', 'waiting_for_input'],
+            'to'     => 'cancelled',
+            'reason' => 'cancelled',
+        ]], $this->repository->settledIfWaiting);
+        self::assertNull($this->repository->finished, 'the guarded transition, never the unguarded cancel');
+    }
+
+    #[Test]
+    public function cancelIfWaitingLetsAnAdministratorWithdrawSomebodyElsesRun(): void
+    {
+        $this->repository->findResults = [$this->suspendedRun(), $this->suspendedRun('cancelled')];
+
+        $result = $this->runtime($this->loopReturning($this->loopResult('x')))->cancelIfWaiting(AiActorContext::backendUser(3, isAdmin: true), 'run-uuid-1');
+
+        self::assertTrue($result->cancelled);
+        self::assertSame(AgentRunStatus::CANCELLED, $result->status);
+    }
+
+    /**
+     * The caller that loses learns the status that beat it — a decision that
+     * released the run leaves it RUNNING — and nothing else happens.
+     */
+    #[Test]
+    public function cancelIfWaitingReportsTheStatusThatBeatIt(): void
+    {
+        $this->repository->refuseSettleIfWaiting = true;
+        $this->repository->findResults           = [$this->suspendedRun(), $this->suspendedRun('running')];
+
+        $result = $this->runtime($this->loopReturning($this->loopResult('x')))->cancelIfWaiting(AiActorContext::backendUser(9), 'run-uuid-1');
+
+        self::assertFalse($result->cancelled);
+        self::assertSame(AgentRunStatus::RUNNING, $result->status);
+    }
+
+    /**
+     * Only the initiator or an administrator: a stranger, a holder of the
+     * approve grant and a service account with every scope learn nothing —
+     * the same answer as for a run that does not exist.
+     */
+    #[Test]
+    public function cancelIfWaitingRefusesEveryoneElseWithoutSayingWhy(): void
+    {
+        foreach ([
+            'stranger'        => AiActorContext::backendUser(5),
+            'approve grant'   => AiActorContext::backendUser(5, grants: [BackendUserGrant::AGENT_APPROVE]),
+            'service account' => AiActorContext::serviceAccount('sweep', ServiceAccountScope::cases()),
+            'anonymous'       => AiActorContext::anonymous(),
+        ] as $who => $actor) {
+            $this->repository->findResult = $this->suspendedRun();
+
+            $result = $this->runtime($this->loopReturning($this->loopResult('x')))->cancelIfWaiting($actor, 'run-uuid-1');
+
+            self::assertFalse($result->cancelled, $who);
+            self::assertNull($result->status, $who);
+        }
+
+        $this->repository->findResult = null;
+        $unknown                      = $this->runtime($this->loopReturning($this->loopResult('x')))->cancelIfWaiting(AiActorContext::backendUser(9), 'nope');
+        self::assertFalse($unknown->cancelled);
+        self::assertNull($unknown->status);
+
+        self::assertSame([], $this->repository->settledIfWaiting);
+    }
+
+    /**
+     * A store failure is a lost attempt, not an exception the chat has to
+     * catch.
+     */
+    #[Test]
+    public function cancelIfWaitingTreatsAStoreFailureAsNotCancelled(): void
+    {
+        $this->repository->throwOnSettleIfWaiting = true;
+        $this->repository->findResults            = [$this->suspendedRun(), $this->suspendedRun()];
+
+        $result = $this->runtime($this->loopReturning($this->loopResult('x')))->cancelIfWaiting(AiActorContext::backendUser(9), 'run-uuid-1');
+
+        self::assertFalse($result->cancelled);
+        self::assertSame(AgentRunStatus::WAITING_FOR_APPROVAL, $result->status);
+    }
+
     private function actor(): AiActorContext
     {
         // Owner (uid 9, matching request()) AND admin -> always authorised, so the

@@ -44,6 +44,17 @@ interface ToolLoopServiceInterface
     public const DECIDED_BY_UNKNOWN = 'unknown';
 
     /**
+     * The two tokens a denied write proposal of a guided process carries as
+     * its `reason` beside `decided_by` (ADR-214, amending ADR-200), one per
+     * case of {@see \Netresearch\NrLlm\Domain\Enum\ApprovalDenialReason}.
+     * Declared here for the same reason as the tokens above: the snapshot
+     * guards the exact strings the model reads.
+     */
+    public const DENIAL_REASON_VARIANT = 'variant';
+
+    public const DENIAL_REASON_SKIP = 'skip';
+
+    /**
      * Run the bounded agent loop and return its outcome.
      *
      * @param list<ChatMessage|array<string, mixed>> $messages

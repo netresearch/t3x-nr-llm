@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\Inbox;
 
+use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
+
 /**
  * One pending tool call shown to the operator on an approval card (ADR-109),
  * display-only context for the turn-level decision.
@@ -28,6 +30,17 @@ namespace Netresearch\NrLlm\Service\Agent\Inbox;
  * `$previewFailed` marks the lines as the REASON no preview exists rather than
  * the preview itself, so the card can say the decision is being made blind
  * instead of quietly showing nothing.
+ *
+ * `$pendingTarget` is the record and the fields the call names, as structured
+ * values (ADR-214, amending ADR-136) — what a consumer keys an open point to
+ * instead of parsing the preview. Null for a call that creates its record, for
+ * a tool that does not implement
+ * {@see \Netresearch\NrLlm\Service\Tool\PendingTargetInterface}, for a tool
+ * that is no longer registered, and for arguments that name no reachable
+ * record. `$declaresWrite` says whether the call is a write at all (ADR-214,
+ * item 9): a pending call that is not a write is no proposal, and its card
+ * offers a plain approve and deny. A tool that is no longer registered counts
+ * as a write, as it does for the run's effect fence.
  */
 final readonly class PendingCallView
 {
@@ -41,5 +54,7 @@ final readonly class PendingCallView
         public array $previewLines = [],
         public bool $previewFailed = false,
         public bool $previewStale = false,
+        public ?PendingWriteTarget $pendingTarget = null,
+        public bool $declaresWrite = false,
     ) {}
 }

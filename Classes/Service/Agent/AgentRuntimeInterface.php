@@ -142,6 +142,24 @@ interface AgentRuntimeInterface
     public function cancel(AiActorContext $actor, string $runUuid): bool;
 
     /**
+     * Cancel a run only while it waits for a human — WAITING_FOR_APPROVAL or
+     * WAITING_FOR_INPUT — in one guarded transition (ADR-214, item 10).
+     *
+     * A chat withdraws a waiting proposal with it when a new message arrives:
+     * if a decision already released the run, the run is QUEUED or RUNNING,
+     * this call loses, and the result says which status the run has, so the
+     * caller can put its own state back instead of stopping a write somebody
+     * approved. {@see self::cancel()} also ends a queued or running run and
+     * stays the operator's tool.
+     *
+     * Only the run's initiator or an administrator may call it; a service
+     * account may not, whatever its scopes, because withdrawing a person's
+     * proposal is that person's act. For anyone else, and for an unknown run,
+     * the result is "not cancelled" with no status.
+     */
+    public function cancelIfWaiting(AiActorContext $actor, string $runUuid): GuardedCancelResult;
+
+    /**
      * The persisted event stream of a run, ordered by sequence ascending —
      * only events with sequence > $afterSequence, so a poller can page.
      * Empty for an unknown run (indistinguishable from a run with no events;

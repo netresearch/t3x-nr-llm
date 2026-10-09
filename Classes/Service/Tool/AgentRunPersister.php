@@ -328,6 +328,30 @@ final readonly class AgentRunPersister
     }
 
     /**
+     * End a run that is still waiting for a human (ADR-214) — the guarded
+     * terminal transition behind
+     * {@see \Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface::cancelIfWaiting()}.
+     *
+     * Unlike {@see self::cancel()}, which also stops a queued or running run
+     * and stays the operator's tool, this moves the run only while it is in
+     * one of $from, so it never stops a decision somebody else already
+     * released. False when the run had left those states, or on a store
+     * failure, which is logged.
+     *
+     * @param list<AgentRunStatus> $from the waiting states to move from; empty moves nothing
+     */
+    public function settleIfWaiting(AgentRun $run, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason): bool
+    {
+        try {
+            return $this->repository->settleIfWaiting($run->uid, $from, $to, $reason);
+        } catch (Throwable $exception) {
+            $this->logger?->warning('A waiting AgentRun could not be settled', ['exception' => $exception]);
+
+            return false;
+        }
+    }
+
+    /**
      * Suspend a run for human approval (ADR-084): persist the transcript and
      * pending tool calls and move the run to WAITING_FOR_APPROVAL.
      *

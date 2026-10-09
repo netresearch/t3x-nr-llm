@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Command\Fixture;
 
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
+use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 
@@ -59,6 +60,11 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
         $this->finished[] = ['runUid' => $runUid, 'status' => $status, 'errorClass' => $errorClass, 'terminationReason' => $terminationReason, 'ownedBy' => $ownedBy];
 
         return true;
+    }
+
+    public function settleIfWaiting(int $runUid, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason): bool
+    {
+        return false;
     }
 
     public function suspendRun(int $runUid, string $stateJson): bool

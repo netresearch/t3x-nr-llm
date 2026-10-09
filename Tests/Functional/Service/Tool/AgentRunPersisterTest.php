@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -18,6 +19,7 @@ use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
@@ -901,5 +903,86 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
         $all = array_map(static fn(AgentRun $run): string => $run->uuid, $this->repository->findRecentTerminal());
         self::assertContains($mine->uuid, $all);
         self::assertContains($theirs->uuid, $all);
+    }
+
+    /**
+     * ADR-214: the guarded cancel moves a run only while it waits for a human,
+     * from either waiting state, and drops its resumable state.
+     */
+    #[Test]
+    public function settleIfWaitingEndsARunWaitingForApprovalOrForInput(): void
+    {
+        foreach (['suspend', 'suspendForInput'] as $suspend) {
+            $handle = $this->persister->begin(null, 4);
+            self::assertNotNull($handle);
+            self::assertTrue($this->persister->{$suspend}($handle, new SuspendedRunState([['role' => 'user', 'content' => 'x']], [], 1, 0, 0, inputToolName: 'ask', inputSchema: ['type' => 'object', 'properties' => ['a' => ['type' => 'string']]])));
+
+            $run = $this->repository->findByUuid($handle->uuid);
+            self::assertNotNull($run);
+            self::assertTrue($this->persister->settleIfWaiting($run, [AgentRunStatus::WAITING_FOR_APPROVAL, AgentRunStatus::WAITING_FOR_INPUT], AgentRunStatus::CANCELLED, AgentRunTerminationReason::CANCELLED), $suspend);
+
+            $settled = $this->repository->findByUuid($handle->uuid);
+            self::assertNotNull($settled);
+            self::assertSame('cancelled', $settled->status, $suspend);
+            self::assertSame('cancelled', $settled->terminationReason, $suspend);
+            self::assertNull($settled->suspendedState, $suspend);
+            self::assertGreaterThan(0, $settled->finishedAt, $suspend);
+
+            // A second attempt finds nothing waiting.
+            self::assertFalse($this->persister->settleIfWaiting($settled, [AgentRunStatus::WAITING_FOR_APPROVAL, AgentRunStatus::WAITING_FOR_INPUT], AgentRunStatus::CANCELLED, AgentRunTerminationReason::CANCELLED), $suspend);
+        }
+    }
+
+    /**
+     * The other direction: a run a decision already released (RUNNING), one
+     * still QUEUED, and one that ended stay as they are — the guarded cancel
+     * never stops a write somebody approved.
+     */
+    #[Test]
+    public function settleIfWaitingLeavesARunThatIsNotWaiting(): void
+    {
+        $waiting = [AgentRunStatus::WAITING_FOR_APPROVAL, AgentRunStatus::WAITING_FOR_INPUT];
+
+        $running = $this->persister->begin(null, 4);
+        self::assertNotNull($running);
+        $queued = $this->persister->enqueue(null, 4, '{"messages":[]}');
+        self::assertNotNull($queued);
+        $done = $this->persister->begin(null, 4);
+        self::assertNotNull($done);
+        $this->persister->settleCompleted($done, new ToolLoopResult('done', [], 1, false, UsageStatistics::fromTokens(1, 1)));
+
+        foreach (['running' => $running->uuid, 'queued' => $queued->uuid, 'completed' => $done->uuid] as $status => $uuid) {
+            $run = $this->repository->findByUuid($uuid);
+            self::assertNotNull($run);
+            self::assertFalse($this->persister->settleIfWaiting($run, $waiting, AgentRunStatus::CANCELLED, AgentRunTerminationReason::CANCELLED), $status);
+            self::assertSame($status, $this->repository->findByUuid($uuid)?->status, $status);
+        }
+
+        // Only from the approval wait when only that is named.
+        $input = $this->persister->begin(null, 4);
+        self::assertNotNull($input);
+        self::assertTrue($this->persister->suspendForInput($input, new SuspendedRunState([['role' => 'user', 'content' => 'x']], [], 1, 0, 0, inputToolName: 'ask', inputSchema: ['type' => 'object', 'properties' => ['a' => ['type' => 'string']]])));
+        $inputRun = $this->repository->findByUuid($input->uuid);
+        self::assertNotNull($inputRun);
+        self::assertFalse($this->persister->settleIfWaiting($inputRun, [AgentRunStatus::WAITING_FOR_APPROVAL], AgentRunStatus::CANCELLED, AgentRunTerminationReason::CANCELLED));
+        self::assertSame('waiting_for_input', $this->repository->findByUuid($input->uuid)?->status);
+    }
+
+    #[Test]
+    public function settleIfWaitingRefusesAStateThatIsNotAWaitOrNotTerminal(): void
+    {
+        foreach ([
+            [[AgentRunStatus::RUNNING], AgentRunStatus::CANCELLED, 1791600301],
+            [[AgentRunStatus::WAITING_FOR_APPROVAL], AgentRunStatus::RUNNING, 1791600302],
+        ] as [$from, $to, $code]) {
+            try {
+                $this->repository->settleIfWaiting(1, $from, $to, AgentRunTerminationReason::CANCELLED);
+                self::fail('settleIfWaiting accepted ' . $to->value);
+            } catch (InvalidArgumentException $e) {
+                self::assertSame($code, $e->getCode());
+            }
+        }
+
+        self::assertFalse($this->repository->settleIfWaiting(1, [], AgentRunStatus::CANCELLED, AgentRunTerminationReason::CANCELLED));
     }
 }

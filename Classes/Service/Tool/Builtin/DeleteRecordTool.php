@@ -11,11 +11,13 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
+use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
+use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -68,7 +70,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * deleted (the reference index), so a link or a shortcut that will break is
  * visible before the approval rather than after.
  */
-final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface
+final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -335,6 +337,14 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
     {
         // The writers' own group (ADR-135).
         return 'editing';
+    }
+
+    /**
+     * The record the call deletes, with no field (ADR-214).
+     */
+    public function pendingTarget(array $arguments): ?PendingWriteTarget
+    {
+        return PendingWriteTarget::fromArguments($arguments['table'] ?? null, $arguments['uid'] ?? null);
     }
 
     public function getEffect(): ToolEffect

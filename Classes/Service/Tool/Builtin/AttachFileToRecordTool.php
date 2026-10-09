@@ -11,12 +11,14 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
+use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
+use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -70,7 +72,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * Effect: {@see ToolEffect::NON_IDEMPOTENT_WRITE} — a second call attaches the
  * same file a second time.
  */
-final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface
+final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface
 {
     use SafeCastTrait;
     use WritesThroughDataHandlerTrait;
@@ -347,6 +349,17 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
     {
         // The writers' own group (ADR-135).
         return 'editing';
+    }
+
+    /**
+     * The record and the file field the call adds a reference to (ADR-214);
+     * no field when the call leaves the field to the tool.
+     */
+    public function pendingTarget(array $arguments): ?PendingWriteTarget
+    {
+        $field = $arguments['field'] ?? null;
+
+        return PendingWriteTarget::fromArguments($arguments['table'] ?? null, $arguments['record'] ?? null, $field === null ? [] : [$field]);
     }
 
     public function getEffect(): ToolEffect

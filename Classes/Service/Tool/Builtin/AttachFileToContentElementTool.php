@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
+use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
@@ -19,6 +20,7 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
+use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -65,7 +67,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * because the effect is a write (ADR-134), and the ADR-112 write fence covers it
  * through the per-segment lease (ADR-141).
  */
-final readonly class AttachFileToContentElementTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, EditorActionInterface
+final readonly class AttachFileToContentElementTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface
 {
     use SafeCastTrait;
     use WritesThroughDataHandlerTrait;
@@ -320,6 +322,17 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
         // grants the read-only FAL tools must not inherit write capability
         // because a new tool joined that group.
         return 'editing';
+    }
+
+    /**
+     * The content element and the file field the call adds a reference to
+     * (ADR-214); no field when the call leaves the field to the element's type.
+     */
+    public function pendingTarget(array $arguments): ?PendingWriteTarget
+    {
+        $field = $arguments['field'] ?? null;
+
+        return PendingWriteTarget::fromArguments(self::CONTENT_TABLE, $arguments['content_element'] ?? null, $field === null ? [] : [$field]);
     }
 
     public function getEffect(): ToolEffect
