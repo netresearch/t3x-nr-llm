@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
+use Netresearch\NrLlm\Domain\ValueObject\FieldProposal;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
@@ -20,7 +21,9 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
+use Netresearch\NrLlm\Service\Tool\FieldMeasurer;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
+use Netresearch\NrLlm\Service\Tool\StructuredPreviewInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -85,7 +88,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * ADR-136): the arguments alone are the NEW values, and an approver deciding
  * whether a change is right needs to see what it replaces.
  */
-final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface
+final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, StructuredPreviewInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions: the environment and workspace guards, the
@@ -173,6 +176,8 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
     public function __construct(
         private ConnectionPool $connectionPool,
         private ApprovalPreviewTranslator $translator,
+        // The configured ranges of a structured preview (ADR-214, item 9).
+        private FieldMeasurer $measurer = new FieldMeasurer(),
     ) {}
 
     public function getSpec(): ToolSpec
@@ -421,6 +426,66 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
         return $page !== null
             && $viewer->doesUserHaveAccess($page, Permission::PAGE_EDIT)
             && $viewer->checkLanguageAccess(self::toInt($page['sys_language_uid'] ?? 0));
+    }
+
+    /**
+     * Each field the call sets, with the value the page holds now and the one
+     * the call would write (ADR-214, item 9).
+     *
+     * Authorised against `$reader`, the user the card is rendered for, with
+     * the same page checks as {@see self::mayViewerReadPreview()}; a call the
+     * tool would refuse, a page the reader may not edit and a page that does
+     * not exist give no entry at all. A field the reader holds no
+     * field-level ("exclude field") grant for is left out, so its stored
+     * value is never shown to them. `proposed` is the value after
+     * {@see self::collectValues()}, trimmed as the write stores it.
+     *
+     * Every field of this tool is a single-line or meta field, so each text
+     * field carries its length; a select (`twitter_card`) carries none.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return list<FieldProposal>
+     */
+    public function structuredPreview(array $arguments, BackendUserAuthentication $reader): array
+    {
+        $uid = self::toInt($arguments['uid'] ?? 0);
+        if ($uid < 1) {
+            return [];
+        }
+
+        $values = $this->collectValues($arguments);
+        if (is_string($values)) {
+            return [];
+        }
+
+        $page = $this->fetchPage($uid);
+        if ($page === null
+            || !$reader->doesUserHaveAccess($page, Permission::PAGE_EDIT)
+            || !$reader->checkLanguageAccess(self::toInt($page['sys_language_uid'] ?? 0))
+        ) {
+            return [];
+        }
+
+        $ungranted = $this->columnsTheUserMayNotSet($reader, self::TABLE, array_keys($values));
+
+        $entries = [];
+        foreach ($values as $field => $proposed) {
+            if (in_array($field, $ungranted, true)) {
+                continue;
+            }
+
+            $stored    = $page[$field] ?? null;
+            $entries[] = new FieldProposal(
+                $field,
+                $this->translator->columnLabel($reader, self::TABLE, $field),
+                $stored === null ? null : self::toStr($stored),
+                $proposed,
+                $this->measurer->measure(self::TABLE, $field, $proposed, $this->allowedValuesFor($field) === null),
+            );
+        }
+
+        return $entries;
     }
 
     public function isEnabledByDefault(): bool

@@ -997,6 +997,22 @@ Netresearch\NrLlm\Domain\ValueObject\Decision\YesNoQuestion (class)
   property readonly noMeans: string
   property readonly yesMeans: string
 
+Netresearch\NrLlm\Domain\ValueObject\FieldMeasure (class)
+  constructor(int $count, ?int $min = …, ?int $max = …)
+  method toArray(): array
+  property readonly count: int
+  property readonly max: ?int
+  property readonly min: ?int
+
+Netresearch\NrLlm\Domain\ValueObject\FieldProposal (class)
+  constructor(string $field, string $label, ?string $current, string $proposed, ?Netresearch\NrLlm\Domain\ValueObject\FieldMeasure $measure = …)
+  method toArray(): array
+  property readonly current: ?string
+  property readonly field: string
+  property readonly label: string
+  property readonly measure: ?Netresearch\NrLlm\Domain\ValueObject\FieldMeasure
+  property readonly proposed: string
+
 Netresearch\NrLlm\Domain\ValueObject\GuardrailResult (class)
   method static allow(): self
   method static deny(string $reason): self
@@ -2037,6 +2053,9 @@ Netresearch\NrLlm\Service\Tool\RunTrace (class)
   method recordRequest(int $round, array $messagesSent, array $toolSpecs): void
   method recordToolExecution(int $round, float $durationMs, string $name, array $arguments, string $result, bool $isError, array $artifacts = …): void
   method recordToolResult(int $round, float $durationMs, string $name, array $arguments, Netresearch\NrLlm\Domain\ValueObject\ToolResult $result): void
+
+Netresearch\NrLlm\Service\Tool\StructuredPreviewInterface (interface)
+  method structuredPreview(array $arguments, TYPO3\CMS\Core\Authentication\BackendUserAuthentication $reader): array
 
 Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface (interface)
   method decide(string $toolName, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $user, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $runAllowList = …): Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision

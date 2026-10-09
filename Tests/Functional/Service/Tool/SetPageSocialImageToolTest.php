@@ -755,6 +755,42 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * ADR-214, item 9: the image field as structured values — the file
+     * referenced now and the file proposed, by name — and no length.
+     */
+    #[Test]
+    public function theStructuredPreviewNamesTheCurrentAndTheProposedFile(): void
+    {
+        self::assertFalse($this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE])->isError);
+
+        $entries = $this->tool->structuredPreview(
+            ['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_TWO, 'replace' => true],
+            $this->actor(1),
+        );
+
+        self::assertCount(1, $entries);
+        self::assertSame(['og_image', 'one.jpg', 'two.jpg', null], [$entries[0]->field, $entries[0]->current, $entries[0]->proposed, $entries[0]->measure]);
+        self::assertNotSame('og_image', $entries[0]->label);
+
+        $empty = $this->tool->structuredPreview(['page' => self::PAGE_OPEN, 'field' => 'twitter_image', 'file' => self::FILE_TWO], $this->actor(1));
+        self::assertCount(1, $empty);
+        self::assertNull($empty[0]->current);
+    }
+
+    /**
+     * A file outside the reader's mounts gives no entry, for the same call the
+     * admin reads in full.
+     */
+    #[Test]
+    public function theStructuredPreviewIsEmptyForAFileTheReaderMayNotReach(): void
+    {
+        $arguments = ['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_OUTSIDE_MOUNT];
+
+        self::assertCount(1, $this->tool->structuredPreview($arguments, $this->actor(1)));
+        self::assertSame([], $this->tool->structuredPreview($arguments, $this->actor(2)));
+    }
+
+    /**
      * `og_image` is an exclude field. The DataHandler would create the
      * reference row and drop the page's counter in silence, leaving a reference
      * EXT:seo never renders — so the grant is asked before anything is written.
