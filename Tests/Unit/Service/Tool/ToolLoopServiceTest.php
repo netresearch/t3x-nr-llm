@@ -3881,7 +3881,7 @@ final class ToolLoopServiceTest extends TestCase
         );
         $fenced = 0;
         $trace = new RunTrace(
-            onBeforeTool: static function (string $toolName) use (&$fenced): void {
+            onBeforeTool: static function () use (&$fenced): void {
                 ++$fenced;
             },
         );
@@ -3892,7 +3892,8 @@ final class ToolLoopServiceTest extends TestCase
             null,
             runTrace: $trace,
         );
-        self::assertSame(RemoteCallBudget::DEFAULT_LIMIT, $fenced);
+        $expectedFenceCount = RemoteCallBudget::DEFAULT_LIMIT;
+        self::assertSame($expectedFenceCount, $fenced);
         self::assertCount(RemoteCallBudget::DEFAULT_LIMIT * 2, $result->trace);
         foreach (array_slice($result->trace, RemoteCallBudget::DEFAULT_LIMIT) as $invocation) {
             self::assertFalse($invocation->isError);
