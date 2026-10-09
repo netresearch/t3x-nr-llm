@@ -35,6 +35,12 @@ credential. Metadata retention is bounded and unrelated to run privacy policy.
    health invocation, concurrency sizing and long-call heartbeat limitations.
 6. Container wiring receives real Messenger events on supported TYPO3 versions;
    monitoring does not weaken claims, fencing or retry limits.
+7. Heartbeat persistence and diagnostic failures cannot stop a healthy consumer.
+   Assign one identity before writes, including partial transport writes; retry
+   failed heartbeat attempts no more than once per 30 seconds. Stop cleanup is
+   best effort and releases in-memory identity even on failure. Log only fixed
+   diagnostic text, operation and exception class. A failed status read remains
+   an error, never a healthy snapshot.
 
 ## Acceptance evidence
 
@@ -45,6 +51,7 @@ credential. Metadata retention is bounded and unrelated to run privacy policy.
 | Start/idle/stop/two workers, pruning | functional: `WorkerOperationsWiringTest`, `WorkerOperationsRepositoryTest` |
 | JSON privacy, threshold/default/invalid exit status | unit: `AgentStatusCommandTest` |
 | Actual container listener registration and Messenger consumer events | functional: `WorkerOperationsWiringTest` |
+| Telemetry fault isolation, partial-write identity, bounded retry and sanitized diagnostics | functional: `WorkerOperationsWiringTest` |
 | Deployment and operational limits | documentation inspection and docs render |
 
 Run the repository gate and focused functional tests; report any baseline

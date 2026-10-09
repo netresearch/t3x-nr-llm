@@ -233,6 +233,13 @@ consumer restricted to other queue names cannot establish its health. Stopped
 consumers remove their entry; active heartbeat updates prune entries older than
 24 hours. Transport names contain no user or host identity.
 
+Heartbeat storage and stop cleanup are best effort. A telemetry failure does not
+stop consumption; failed heartbeat attempts retry at most once per 30 seconds
+with the same process identity. Failed cleanup can leave a heartbeat until it
+ages out. Warnings contain only the operation and exception class, without
+connection details. Missing or stale observations remain visible to monitoring;
+a failed status read is an error and does not produce a healthy snapshot.
+
 A long blocking model/tool call delays the next consumer heartbeat. Set
 ``--worker-max-age`` above the configured call timeout and polling margin. A
 heartbeat proves that the consumer event loop ran recently; it cannot prove
