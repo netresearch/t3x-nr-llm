@@ -185,6 +185,65 @@ consumer:
    Without one, queued runs are never picked up, and the stale-run reaper below
    has no worker to hand reclaimed runs back to.
 
+Worker operating profile
+========================
+
+Deploy web processes separately from Doctrine consumers. Each consumer executes
+one message at a time; start a bounded number of processes against the same
+transport to control concurrency. Atomic run claims prevent duplicate ownership
+when two consumers receive the same run. Size concurrency against model rate
+limits, memory per request and database capacity.
+
+TYPO3 14.3 supports the Symfony-style consumer limits:
+
+.. code-block:: bash
+    :caption: Bounded TYPO3 14.3 consumer
+
+    vendor/bin/typo3 messenger:consume doctrine --time-limit=3600 \
+        --memory-limit=256M --limit=100
+
+On TYPO3 13.4, use the existing ``messenger:consume doctrine`` command with a
+supervisor and the core's configured stop-worker listeners; the Symfony-style
+options above are available from TYPO3 14.2. A supervisor should restart exited
+consumers, stop them gracefully and leave enough time for a running model call
+to finish. The existing non-idempotent write fence still governs recovery when
+a process is killed during a write.
+
+Run the reaper periodically, for example once per minute with ``--limit=50``.
+Its lease duration must exceed the maximum provider/tool request duration plus
+the scheduling margin. A reaper retry is bounded by the runtime's existing
+retry budget; it is not an alternative message broker.
+
+.. code-block:: bash
+    :caption: Aggregate worker and queue health
+
+    vendor/bin/typo3 nrllm:agent:status --json --transport=doctrine \
+        --minimum-workers=1 --worker-max-age=120 --max-queue-wait=300
+
+The command returns success when no run lease is expired, all queued timestamps
+are known, queue wait is within the limit and the requested transport has enough
+live consumers. It returns failure for an unhealthy snapshot, or invalid for
+malformed options. ``--minimum-workers=0`` explicitly disables the consumer
+requirement for a synchronous-only installation. Counts of running runs include
+interactive runs and must not be interpreted as a count of consumer processes.
+
+Consumers renew a random process heartbeat at most once per 30 seconds, including
+when idle. Only consumers serving the transport's ``default`` queue count; a
+consumer restricted to other queue names cannot establish its health. Stopped
+consumers remove their entry; active heartbeat updates prune entries older than
+24 hours. Transport names contain no user or host identity.
+
+A long blocking model/tool call delays the next consumer heartbeat. Set
+``--worker-max-age`` above the configured call timeout and polling margin. A
+heartbeat proves that the consumer event loop ran recently; it cannot prove
+that a remote provider is available. Monitor provider failures separately.
+
+Queue-entry time is recorded for each enqueue/requeue, rather than guessed from
+run age. Legacy or future timestamps contribute to ``unknown_queue_wait``.
+``oldest_queue_wait_seconds`` is null when no measured queued row exists, and
+zero when a measured row has just entered the queue. JSON contains aggregate
+counts and durations only, without prompts, document data, actors or secrets.
+
 .. _administration-agent-runs-reaper:
 
 Reclaiming stale runs

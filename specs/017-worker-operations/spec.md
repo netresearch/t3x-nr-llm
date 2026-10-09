@@ -42,7 +42,7 @@ credential. Metadata retention is bounded and unrelated to run privacy policy.
 |---|---|
 | Enqueue/requeue timestamp and failed claim isolation | functional: `WorkerOperationsRepositoryTest` |
 | State aggregates, unknown vs zero, strict lease boundary | functional: `WorkerOperationsRepositoryTest` |
-| Start/idle/stop/two workers, pruning | unit and functional: `WorkerHeartbeatListenerTest`, `WorkerOperationsRepositoryTest` |
+| Start/idle/stop/two workers, pruning | functional: `WorkerOperationsWiringTest`, `WorkerOperationsRepositoryTest` |
 | JSON privacy, threshold/default/invalid exit status | unit: `AgentStatusCommandTest` |
 | Actual container listener registration and Messenger consumer events | functional: `WorkerOperationsWiringTest` |
 | Deployment and operational limits | documentation inspection and docs render |

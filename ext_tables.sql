@@ -998,6 +998,8 @@ CREATE TABLE tx_nrllm_agentrun (
     pending_effect varchar(32) DEFAULT '' NOT NULL,
 
     -- Time tracking
+    -- ADR-219: enqueue/requeue time; zero means unknown on legacy rows.
+    queued_at int(11) unsigned DEFAULT '0' NOT NULL,
     started_at int(11) unsigned DEFAULT '0' NOT NULL,
     finished_at int(11) unsigned DEFAULT '0' NOT NULL,
 
@@ -1335,4 +1337,16 @@ CREATE TABLE tx_nrllm_call_outcome (
     -- value's own grouping, enforced by the repository rather than by SQL.
     KEY correlation (correlation_id),
     KEY outcome_lookup (outcome, crdate)
+);
+
+# ADR-219: process liveness; no run payload or host/user identity.
+CREATE TABLE tx_nrllm_worker_heartbeat (
+    uid int(11) unsigned NOT NULL auto_increment,
+    pid int(11) unsigned DEFAULT '0' NOT NULL,
+    worker_id varchar(32) DEFAULT '' NOT NULL,
+    transport varchar(64) DEFAULT '' NOT NULL,
+    last_seen int(11) unsigned DEFAULT '0' NOT NULL,
+    PRIMARY KEY (uid),
+    UNIQUE KEY worker_transport (worker_id, transport),
+    KEY last_seen (last_seen)
 );

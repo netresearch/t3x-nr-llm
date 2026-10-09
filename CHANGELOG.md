@@ -19,6 +19,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Worker operations (ADR-219).** `nrllm:agent:status` reports queue wait,
+  unknown timings, expired run leases and transport-scoped consumer heartbeats,
+  with JSON output and explicit health thresholds. Queue-entry time is recorded
+  on enqueue and requeue; legacy rows remain unknown. Idle consumers renew
+  process heartbeats independently of run leases, with bounded retention.
+
 - **Optional actor-bound MCP authentication (ADR-217).** Delegated servers
   exchange explicitly mapped initiating-actor Vault credentials through RFC8693,
   with audience and scope grants, shared operation deadlines and cancellation.

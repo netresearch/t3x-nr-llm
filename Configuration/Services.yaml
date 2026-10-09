@@ -26,6 +26,7 @@ services:
       # Newable rank-fusion math (ADR-074): consumers construct it, no DI.
       - '../Classes/Service/Retrieval/ReciprocalRankFusion.php'
       - '../Classes/Service/Agent/Exception/*'
+      - '../Classes/Service/Agent/Operations/WorkerOperationsSnapshot.php'
       - '../Classes/Service/Rerank/Exception/*'
       # Scalar-argument constructor; built exclusively by RerankerFactory.
       - '../Classes/Service/Rerank/HttpReranker.php'
@@ -85,6 +86,9 @@ services:
   Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface:
     alias: Netresearch\NrLlm\Service\Tool\ToolLoopService
     public: true
+
+  Netresearch\NrLlm\Service\Agent\Operations\WorkerOperationsReaderInterface:
+    alias: Netresearch\NrLlm\Service\Agent\Operations\WorkerOperationsRepository
 
   Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpAuthenticationSessionFactory: ~
 

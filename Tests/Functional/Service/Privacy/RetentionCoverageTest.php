@@ -79,6 +79,7 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
         'tx_nrllm_mcp_server'                  => 'configuration record',
         'tx_nrllm_mcp_tool'                    => 'imported tool catalogue of an MCP server; derived from that configuration record and rewritten by every import, carries no run or user data',
         'tx_nrllm_service_usage'               => 'billing ledger the budget module reports on; retention is tracked as a follow-up',
+        'tx_nrllm_worker_heartbeat' => 'anonymous process liveness only; independently pruned after 24 hours by worker heartbeats (ADR-219)',
     ];
 
     #[Test]

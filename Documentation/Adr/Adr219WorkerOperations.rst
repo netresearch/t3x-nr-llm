@@ -49,6 +49,10 @@ heartbeat threshold; operators choose thresholds against their call timeout.
 Consequences
 ============
 
+The status command belongs to ``nr_llm_tools`` in the future package split,
+alongside the cancel/reap commands. The module seam's named ownership list
+records that placement; it does not relax the core dependency boundary.
+
 No frozen runtime or repository interface changes. Existing synchronous
 execution stays available. Schema additions are optional measurements; no
 backfill invents timing. Tests exercise queue timestamps, state aggregates,
