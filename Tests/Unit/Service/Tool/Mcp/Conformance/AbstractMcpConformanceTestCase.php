@@ -41,6 +41,7 @@ use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use ReflectionClass;
 use ReflectionMethod;
+use ReflectionParameter;
 use RuntimeException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Http\Client\GuzzleClientFactory;
@@ -564,8 +565,6 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
         self::assertStringContainsString('"' . $this->connection()->identifier . '"', $result->content);
     }
 
-    // -- cancellation ------------------------------------------------------
-
     /**
      * CANCELLATION — a gap, pinned by its absence (ADR-161).
      *
@@ -594,7 +593,9 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
         $seams = [];
 
         foreach ([McpClient::class, McpHttpTransport::class] as $class) {
-            foreach ((new ReflectionClass($class))->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
+            foreach ((new ReflectionClass($class))->getMethods(
+                ReflectionMethod::IS_PUBLIC,
+            ) as $method) {
                 if ($this->readsAsCancellation($method->getName())) {
                     $seams[] = $class . '::' . $method->getName() . '()';
                 }
@@ -604,14 +605,16 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
                 foreach ($parameters as $parameter) {
                     $type = $parameter->getType();
 
-                    if (!$this->readsAsCancellation($parameter->getName() . ' ' . ($type?->__toString() ?? ''))) {
+                    if (!$this->readsAsCancellation(
+                        $parameter->getName() . ' ' . ($type?->__toString() ?? ''),
+                    )) {
                         continue;
                     }
 
                     // Recorded WITH its shape, so the assertion below pins more
                     // than the fact that something cancellation-shaped is
-                    // there. A `mixed $cancellation`, or one moved out of last
-                    // place, is a different seam from the one ADR-190 names and
+                    // there. Its original positional index is retained even when
+                    // ADR-217 adds trailing auth context, and that exact context
                     // reads differently here.
                     $seams[] = sprintf(
                         '%s::%s(%s $%s%s)',
@@ -619,7 +622,20 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
                         $method->getName(),
                         $type?->__toString() ?? 'mixed',
                         $parameter->getName(),
-                        $parameter->getPosition() === count($parameters) - 1 ? ', last' : ', NOT last',
+                        sprintf(
+                            ', position %d, following %s',
+                            $parameter->getPosition(),
+                            implode(
+                                ',',
+                                array_map(
+                                    static fn(ReflectionParameter $next): string => $next->getName(),
+                                    array_slice(
+                                        $parameters,
+                                        $parameter->getPosition() + 1,
+                                    ),
+                                ),
+                            ),
+                        ),
                     );
                 }
             }
@@ -627,16 +643,12 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
 
         self::assertSame(
             [
-                McpClient::class . '::callTool(?' . CancellationSignalInterface::class . ' $cancellation, last)',
-                McpHttpTransport::class . '::call(?' . CancellationSignalInterface::class . ' $cancellation, last)',
-                McpHttpTransport::class . '::notify(?' . CancellationSignalInterface::class . ' $cancellation, last)',
+                McpClient::class . '::callTool(?' . CancellationSignalInterface::class . ' $cancellation, position 3, following actor)',
+                McpHttpTransport::class . '::call(?' . CancellationSignalInterface::class . ' $cancellation, position 5, following credentials)',
+                McpHttpTransport::class . '::notify(?' . CancellationSignalInterface::class . ' $cancellation, position 5, following credentials)',
             ],
             $seams,
-            'ADR-190 names the three places a cancellation may enter this path — the tool call and the '
-            . 'two transport sends it drives — and no others, each taking nr-vault\'s signal type, nullable, '
-            . 'last. A seam anywhere else is a second way in that nothing decided; a different shape in one '
-            . 'of these three is a different seam from the one the record names. This check has always been '
-            . 'for exactly that, and merely asserted the empty list while the gap was open',
+            'ADR-190 names the three places a cancellation may enter this path — the tool call and the ' . 'two transport sends it drives — and no others, each taking nr-vault\'s signal type, nullable, ' . 'at its original positional index; ADR-217 adds only the known trailing actor/session context. A seam anywhere else is a second way in that nothing decided; a different shape in one ' . 'of these three is a different seam from the one the record names. This check has always been ' . 'for exactly that, and merely asserted the empty list while the gap was open',
         );
     }
 

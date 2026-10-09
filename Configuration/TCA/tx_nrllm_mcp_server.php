@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 use Netresearch\NrVault\TCA\VaultFieldHelper;
 
+$delegatedModeCondition = 'FIELD:auth_mode:=:delegated';
+
 return [
     'ctrl' => [
         'title' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server',
@@ -36,9 +38,14 @@ return [
                     description,
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.connection,
                     url,
+                    auth_mode,
                     auth_placement,
                     auth_header_name,
                     auth_credential,
+                    delegation_profile,
+                    delegation_audience,
+                    delegation_scopes,
+                    discovery_credential,
                     data_class,
                     requires_approval,
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.metadata,
@@ -51,7 +58,7 @@ return [
                 --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
                     enabled,
                     hidden,
-            ',
+',
         ],
     ],
     'columns' => [
@@ -250,5 +257,78 @@ return [
                 'default' => 0,
             ],
         ],
+        'auth_mode' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.auth_mode',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.auth_mode.description',
+            'onChange' => 'reload',
+            'config' => [
+                'type' => 'select',
+                'renderType' => 'selectSingle',
+                'items' => [
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.auth_mode.legacy',
+                        'value' => 'legacy',
+                    ],
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.auth_mode.delegated',
+                        'value' => 'delegated',
+                    ],
+                ],
+                'default' => 'legacy',
+                'required' => true,
+            ],
+        ],
+        'delegation_profile' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.delegation_profile',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.delegation_profile.description',
+            'displayCond' => $delegatedModeCondition,
+            'config' => [
+                'type' => 'input',
+                'size' => 50,
+                'max' => 64,
+                'trim' => true,
+                'required' => true,
+                'searchable' => false,
+            ],
+        ],
+        'delegation_audience' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.delegation_audience',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.delegation_audience.description',
+            'displayCond' => $delegatedModeCondition,
+            'config' => [
+                'type' => 'input',
+                'size' => 50,
+                'max' => 2048,
+                'trim' => true,
+                'required' => true,
+                'searchable' => false,
+            ],
+        ],
+        'delegation_scopes' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.delegation_scopes',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.delegation_scopes.description',
+            'displayCond' => $delegatedModeCondition,
+            'config' => [
+                'type' => 'input',
+                'size' => 50,
+                'max' => 2048,
+                'trim' => true,
+                'required' => true,
+                'searchable' => false,
+            ],
+        ],
+        'discovery_credential' => array_replace_recursive(
+            VaultFieldHelper::getSecureFieldConfig(
+                'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.discovery_credential',
+                [
+                    'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.discovery_credential.description',
+                    'size' => 50,
+                ],
+            ),
+            [
+                'displayCond' => $delegatedModeCondition,
+                'config' => ['searchable' => false],
+            ],
+        ),
     ],
 ];

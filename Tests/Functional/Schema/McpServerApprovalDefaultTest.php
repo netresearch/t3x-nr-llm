@@ -4,8 +4,7 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-
-declare(strict_types=1);
+declare (strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Schema;
 
@@ -33,6 +32,8 @@ use TYPO3\CMS\Core\Database\Schema\SqlReader;
 #[CoversClass(McpServerRecord::class)]
 final class McpServerApprovalDefaultTest extends AbstractFunctionalTestCase
 {
+    private const DROP_COLUMN_SQL = 'ALTER TABLE ' . self::TABLE . ' DROP COLUMN ';
+
     private const TABLE = 'tx_nrllm_mcp_server';
 
     #[Test]
@@ -46,31 +47,34 @@ final class McpServerApprovalDefaultTest extends AbstractFunctionalTestCase
         // rather than a Doctrine TableDiff, whose constructor is @internal and
         // may only be produced by a Comparator.
         $connection->executeStatement(
-            'ALTER TABLE ' . self::TABLE . ' DROP COLUMN requires_approval',
+            self::DROP_COLUMN_SQL . 'requires_approval',
         );
         self::assertNotContains('requires_approval', $this->columnsOf($connectionPool));
 
         // A server from that version: configured, enabled, importing tools.
-        $connection->insert(self::TABLE, [
-            'pid'              => 0,
-            'identifier'       => 'legacy',
-            'name'             => 'Legacy server',
-            'description'      => '',
-            'url'              => 'https://mcp.example.com/rpc',
-            'auth_credential'  => '',
-            'auth_placement'   => 'bearer',
-            'auth_header_name' => '',
-            'data_class'       => 'publicContent',
-            'enabled'          => 1,
-            'import_status'    => 'ok',
-            'import_error'     => '',
-            'last_imported'    => 1_700_000_000,
-            'tool_count'       => 3,
-            'tstamp'           => 0,
-            'crdate'           => 0,
-            'deleted'          => 0,
-            'hidden'           => 0,
-        ]);
+        $connection->insert(
+            self::TABLE,
+            [
+                'pid' => 0,
+                'identifier' => 'legacy',
+                'name' => 'Legacy server',
+                'description' => '',
+                'url' => 'https://mcp.example.com/rpc',
+                'auth_credential' => '',
+                'auth_placement' => 'bearer',
+                'auth_header_name' => '',
+                'data_class' => 'publicContent',
+                'enabled' => 1,
+                'import_status' => 'ok',
+                'import_error' => '',
+                'last_imported' => 1700000000,
+                'tool_count' => 3,
+                'tstamp' => 0,
+                'crdate' => 0,
+                'deleted' => 0,
+                'hidden' => 0,
+            ],
+        );
 
         $this->updateDatabaseSchema();
 
@@ -97,10 +101,12 @@ final class McpServerApprovalDefaultTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(SchemaMigrator::class, $schemaMigrator);
 
         /** @var array<int, string> $statements */
-        $statements = array_values(array_filter(
-            $sqlReader->getCreateTableStatementArray($sqlReader->getTablesDefinitionString()),
-            is_string(...),
-        ));
+        $statements = array_values(
+            array_filter(
+                $sqlReader->getCreateTableStatementArray($sqlReader->getTablesDefinitionString()),
+                is_string(...),
+            ),
+        );
 
         $suggestions = array_merge_recursive(...array_values($schemaMigrator->getUpdateSuggestions($statements)));
 
@@ -149,5 +155,97 @@ final class McpServerApprovalDefaultTest extends AbstractFunctionalTestCase
             ->fetchOne();
 
         return is_numeric($value) ? (int)$value : -1;
+    }
+
+    #[Test]
+    public function schemaUpgradePreservesExistingMachineAuthenticationAndHydratesDelegation(): void
+    {
+        $pool = $this->get(ConnectionPool::class);
+        self::assertInstanceOf(ConnectionPool::class, $pool);
+        $connection = $pool->getConnectionForTable(self::TABLE);
+        foreach ([
+            'auth_mode',
+            'delegation_profile',
+            'delegation_audience',
+            'delegation_scopes',
+            'discovery_credential',
+        ] as $field) {
+            $connection->executeStatement(self::DROP_COLUMN_SQL . $field);
+        }
+
+        $connection->insert(
+            self::TABLE,
+            [
+                'identifier' => 'machine',
+                'name' => 'Machine',
+                'auth_credential' => 'existing-uuid',
+                'auth_placement' => 'header',
+                'auth_header_name' => 'X-API-Key',
+            ],
+        );
+        $this->updateDatabaseSchema();
+        $repository = $this->get(McpServerRepository::class);
+        self::assertInstanceOf(McpServerRepository::class, $repository);
+        $records = $repository->findAll();
+        self::assertCount(1, $records);
+        self::assertSame('legacy', $records[0]->authMode);
+        self::assertSame('existing-uuid', $records[0]->authCredential);
+        self::assertSame('header', $records[0]->authPlacement);
+        self::assertSame('', $records[0]->discoveryCredential);
+        $connection->update(
+            self::TABLE,
+            [
+                'auth_mode' => 'delegated',
+                'delegation_profile' => 'company',
+                'delegation_audience' => 'mcp-api',
+                'delegation_scopes' => 'read write',
+                'discovery_credential' => 'discovery-uuid',
+            ],
+            ['identifier' => 'machine'],
+        );
+        $delegated = $repository->findAll()[0];
+        self::assertSame('delegated', $delegated->authenticationMode()?->value);
+        self::assertSame('company', $delegated->delegationProfile);
+        self::assertSame('mcp-api', $delegated->delegationAudience);
+        self::assertSame('read write', $delegated->delegationScopes);
+        self::assertSame('discovery-uuid', $delegated->discoveryCredential);
+    }
+
+    /**
+     * Check the declared SQL bound as SQLite itself does not reject long values.
+     */
+    #[Test]
+    public function discoverySchemaAndRepositoryPreserveMaximumCanonicalVaultAliases(): void
+    {
+        $pool = $this->get(ConnectionPool::class);
+        self::assertInstanceOf(ConnectionPool::class, $pool);
+        $connection = $pool->getConnectionForTable(self::TABLE);
+        $connection->executeStatement(
+            self::DROP_COLUMN_SQL . 'discovery_credential',
+        );
+        $this->updateDatabaseSchema();
+        $columns = $connection->createSchemaManager()->listTableColumns(self::TABLE);
+        $column = $columns['discovery_credential'];
+        self::assertSame(
+            255,
+            $column->getLength(),
+            'Migrated SQL schema must preserve the complete canonical Vault alias range.',
+        );
+        $alias = 'discovery_' . str_repeat('a', 245);
+        $connection->insert(
+            self::TABLE,
+            [
+                'identifier' => 'long-discovery',
+                'name' => 'Long discovery reference',
+                'auth_mode' => 'delegated',
+                'delegation_profile' => 'company',
+                'discovery_credential' => $alias,
+            ],
+        );
+        $repository = $this->get(McpServerRepository::class);
+        self::assertInstanceOf(McpServerRepository::class, $repository);
+        $records = $repository->findAll();
+        self::assertCount(1, $records);
+        self::assertSame($alias, $records[0]->discoveryCredential);
     }
 }

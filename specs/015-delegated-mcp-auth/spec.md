@@ -11,7 +11,11 @@ it keeps the runtime's initiating actor through the downstream auth boundary.
   static Vault modes remain compatible; unknown explicit modes fail closed.
 - Configure an exchange profile, explicit audience and allowed scopes, plus
   optional discovery-only Vault credential. Profile/client/subject secrets
-  are Vault identifiers; configuration holds no plaintext token.
+  are Vault identifiers; configuration holds no plaintext token. New delegated
+  subject, client-secret and discovery references accept canonical UUIDv7 or
+  ASCII aliases of 3–255 characters, starting with a letter and containing only
+  letters, digits and underscores. Controls, wrappers and other UUID versions
+  deny before IdP contact; static server authentication is unchanged.
 - Supply an installation-extensible subject resolver keyed by the explicit
   initiating actor and exchange profile. Missing, revoked or invalid mappings
   and disabled grants deny. Requested audience and scopes must satisfy both
@@ -31,12 +35,21 @@ it keeps the runtime's initiating actor through the downstream auth boundary.
 - Store the exchanged access-token value under a random expiring Vault
   identifier, use only that reference for MCP Bearer injection, delete it
   when the operation ends and retain expiry as a crash-cleanup bound.
+  Bind temporary-token ACLs to the initiating owner without inheriting backend
+  groups or frontend access. Verify the stored ACL before exposing a reference;
+  delete and deny if Vault changes its owner or access grants. Background access
+  follows the explicit Vault technical-actor policy.
 - Check freshness before every HTTP leg, including after a slow handshake.
   Renew through exchange when the held token is no longer usable. Credentials
   and cache identity cannot cross actors, profiles, audiences or scope sets.
 - Persist only actor identity, profile/server references and non-secret run
   metadata. Queued and resumed runs resolve fresh credentials for the original
-  actor. No access/refresh token enters messages, events or suspend payloads.
+  actor. New actor snapshots are bound to the run UUID inside the existing
+  authenticated payload. Backend UID must match its run owner; preserve service
+  actor names with owner zero. Check before and after claim; malformed explicit
+  actors and ciphertext copied between new runs deny. Legacy missing bindings
+  retain the old stored backend owner. Clones carry actor and UUID unchanged.
+  No access/refresh token enters messages, events or suspend payloads.
 - Discovery without a caller uses only an explicitly configured discovery
   credential or refuses. A tool execution never falls back to that credential,
   anonymous mode, static machine mode or the original user token.
@@ -56,8 +69,11 @@ it keeps the runtime's initiating actor through the downstream auth boundary.
 ## Public surface and security boundaries
 
 Additive authentication mode/profile values, subject-resolver interface and
-credential-session API. Public MCP signatures only gain optional trailing
-context where necessary. Existing positional callers retain their static mode.
+credential-session API. Existing interfaces remain unchanged. The final concrete
+MCP client and HTTP transport gain optional trailing actor/session context where
+necessary; existing positional callers retain their static mode. The existing
+cancellation parameter retains its position, nullable type and default; ADR-190
+conformance pins the exact appended auth context.
 New server fields have legacy-preserving defaults and localised TCA labels.
 The source credential stays behind Vault's injection boundary. A successful
 exchange response briefly contains a new access-token value; store it with

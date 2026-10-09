@@ -1204,6 +1204,14 @@ CREATE TABLE tx_nrllm_mcp_server (
     auth_placement varchar(32) DEFAULT 'bearer' NOT NULL,
     auth_header_name varchar(190) DEFAULT '' NOT NULL,
 
+    -- Optional actor-bound OAuth token exchange (ADR-217). Existing rows stay
+    -- legacy; only references and public routing data are stored here.
+    auth_mode varchar(32) DEFAULT 'legacy' NOT NULL,
+    delegation_profile varchar(64) DEFAULT '' NOT NULL,
+    delegation_audience varchar(2048) DEFAULT '' NOT NULL,
+    delegation_scopes varchar(2048) DEFAULT '' NOT NULL,
+    discovery_credential varchar(255) DEFAULT '' NOT NULL,
+
     -- ToolDataClass every tool of this server is classified as (ADR-094). No
     -- default: a server whose class the operator has not declared is inert.
     data_class varchar(32) DEFAULT '' NOT NULL,

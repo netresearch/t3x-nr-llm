@@ -10,13 +10,17 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Mcp;
 
 use JsonException;
+use Netresearch\NrLlm\Domain\Enum\McpAuthenticationMode;
 use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
+use Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpAuthOperationGuard;
+use Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpCredentialSessionInterface;
 use Netresearch\NrLlm\Service\Tool\Mcp\Exception\McpTransportException;
 use Netresearch\NrVault\Exception\RequestCancelledException;
 use Netresearch\NrVault\Http\CancellableHttpClientInterface;
 use Netresearch\NrVault\Http\CancellationSignalInterface;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Http\SecureHttpClientFactory;
+use Netresearch\NrVault\Http\VaultHttpClientInterface;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
@@ -108,23 +112,39 @@ final class McpHttpTransport
         McpOperationDeadline $deadline,
         ?string $sessionId = null,
         ?CancellationSignalInterface $cancellation = null,
+        ?McpCredentialSessionInterface $credentials = null,
     ): array {
         $startedAt = hrtime(true);
 
-        $response = $this->send($server, $this->encode($server, [
-            'jsonrpc' => '2.0',
-            // A single request per connection, so the id only has to be
-            // present and echoable, not unique across calls.
-            'id'      => 1,
-            'method'  => $method,
-            'params'  => $params === [] ? new stdClass() : $params,
-        ]), $deadline, $sessionId, $cancellation);
+        $response = $this->send(
+            $server,
+            $this->encode(
+                $server,
+                [
+                    'jsonrpc' => '2.0',
+                    // A single request per connection, so the id only has to be
+                    // present and echoable, not unique across calls.
+                    'id' => 1,
+                    'method' => $method,
+                    'params' => $params === [] ? new stdClass() : $params,
+                ],
+            ),
+            $deadline,
+            $sessionId,
+            $cancellation,
+            $credentials,
+        );
 
-        $durationMs = (int)round((hrtime(true) - $startedAt) / 1_000_000);
+        $durationMs = (int)round((hrtime(true) - $startedAt) / 1000000);
 
         return [
-            'result'     => $this->decodeResult($server, $response['body'], $response['status'], $response['contentType']),
-            'sessionId'  => $response['sessionId'],
+            'result' => $this->decodeResult(
+                $server,
+                $response['body'],
+                $response['status'],
+                $response['contentType'],
+            ),
+            'sessionId' => $response['sessionId'],
             'durationMs' => $durationMs,
         ];
     }
@@ -149,12 +169,23 @@ final class McpHttpTransport
         McpOperationDeadline $deadline,
         ?string $sessionId = null,
         ?CancellationSignalInterface $cancellation = null,
+        ?McpCredentialSessionInterface $credentials = null,
     ): void {
-        $this->send($server, $this->encode($server, [
-            'jsonrpc' => '2.0',
-            'method'  => $method,
-            'params'  => $params === [] ? new stdClass() : $params,
-        ]), $deadline, $sessionId, $cancellation);
+        $this->send(
+            $server,
+            $this->encode(
+                $server,
+                [
+                    'jsonrpc' => '2.0',
+                    'method' => $method,
+                    'params' => $params === [] ? new stdClass() : $params,
+                ],
+            ),
+            $deadline,
+            $sessionId,
+            $cancellation,
+            $credentials,
+        );
     }
 
     /**
@@ -182,6 +213,7 @@ final class McpHttpTransport
         McpOperationDeadline $deadline,
         ?string $sessionId,
         ?CancellationSignalInterface $cancellation = null,
+        ?McpCredentialSessionInterface $credentials = null,
     ): array {
         // Checked before anything is built, and outside the catch below, so an
         // exhausted budget cannot be reported as a far side that failed. It is
@@ -189,20 +221,15 @@ final class McpHttpTransport
         // above bypasses that builder, and a bound only the production path
         // applies is a bound nothing asserts.
         if ($deadline->isExhausted()) {
-            throw McpTransportException::forExhaustedDeadline($server->identifier, $deadline->totalSeconds());
+            throw McpTransportException::forExhaustedDeadline(
+                $server->identifier,
+                $deadline->totalSeconds(),
+            );
         }
 
         $request = $this->requestFactory
             ->createRequest('POST', $server->url)
             ->withHeader('Content-Type', 'application/json')
-            // Both media types, because the Streamable HTTP transport requires
-            // a client to offer both on every POST — the reference servers
-            // answer `application/json` alone with 406. Offering the stream
-            // does not mean holding one: a server that frames its answer as
-            // `text/event-stream` gets the single JSON-RPC response unwrapped
-            // in {@see self::decodeResult()}, and nothing here keeps a stream
-            // open, resumes one, or answers a request the server initiates
-            // (ADR-181).
             ->withHeader('Accept', 'application/json, text/event-stream')
             ->withBody($this->streamFactory->createStream($body));
 
@@ -213,19 +240,13 @@ final class McpHttpTransport
         $host = $request->getUri()->getHost();
 
         try {
-            if ($this->configuredHttpClient instanceof ClientInterface) {
-                $client = $this->configuredHttpClient;
-            } else {
-                // Anonymous host gate first — see the class docblock. It stays
-                // inside this branch: the seam above bypasses `clientFor()` and
-                // has always bypassed the gate with it, so hoisting the check
-                // out would change what the seam exercises.
-                if (!$this->httpClientFactory->isHostAllowed($host)) {
-                    throw McpTransportException::forRefusedHost($server->identifier, $host);
-                }
-
-                $client = $this->clientFor($server, $deadline->legTimeoutSeconds());
-            }
+            $client = $this->requestClient(
+                $server,
+                $host,
+                $deadline,
+                $credentials,
+                $cancellation,
+            );
 
             // Feature-detected rather than version-gated, which is the shape
             // nr-vault's interface was made for (#774): it is additive, so a
@@ -234,11 +255,7 @@ final class McpHttpTransport
             // the only difference between the two branches; both run the same
             // scheme allowlist, host allowlist, credential injection and audit
             // write inside nr-vault.
-            $response = $cancellation instanceof CancellationSignalInterface
-                && $client instanceof CancellableHttpClientInterface
-                && $client->supportsCancellation()
-                    ? $client->sendCancellable($request, $cancellation)
-                    : $client->sendRequest($request);
+            $response = $cancellation instanceof CancellationSignalInterface && $client instanceof CancellableHttpClientInterface && $client->supportsCancellation() ? $client->sendCancellable($request, $cancellation) : $client->sendRequest($request);
         } catch (McpTransportException $e) {
             throw $e;
         } catch (RequestCancelledException) {
@@ -250,7 +267,13 @@ final class McpHttpTransport
             // true on entry -- so nothing is claimed about it here.
             throw McpTransportException::forCancelledCall($server->identifier);
         } catch (Throwable $e) {
-            throw McpTransportException::forTransportFailure($server->identifier, $e->getMessage());
+            throw $server->authenticationMode() === McpAuthenticationMode::DELEGATED ? McpTransportException::forDelegatedAuthFailure(
+                $server->identifier,
+                'credential_transport_failed',
+            ) : McpTransportException::forTransportFailure(
+                $server->identifier,
+                $e->getMessage(),
+            );
         }
 
         $status = $response->getStatusCode();
@@ -263,10 +286,10 @@ final class McpHttpTransport
         $returnedSession = $response->getHeaderLine('Mcp-Session-Id');
 
         return [
-            'status'      => $status,
-            'body'        => $this->readBounded($response->getBody()),
+            'status' => $status,
+            'body' => $this->readBounded($response->getBody()),
             'contentType' => $response->getHeaderLine('Content-Type'),
-            'sessionId'   => $returnedSession === '' ? null : $returnedSession,
+            'sessionId' => $returnedSession === '' ? null : $returnedSession,
         ];
     }
 
@@ -303,37 +326,31 @@ final class McpHttpTransport
      *
      * @throws McpTransportException when a declared credential does not resolve
      */
-    private function clientFor(McpServerRecord $server, int $timeoutSeconds): ClientInterface
-    {
-        $client = $this->vault->http()
+    private function clientFor(
+        McpServerRecord $server,
+        int $timeoutSeconds,
+        ?string $delegatedCredential = null,
+    ): ClientInterface {
+        $client = $this->vault
+            ->http()
             ->withReason(sprintf('nr-llm MCP call to "%s"', $server->identifier))
             ->withTimeout($timeoutSeconds);
 
-        if ($server->authCredential === '') {
-            return $client;
-        }
-
-        // Fail closed. An MCP server that was configured with a credential is
-        // not one to try anonymously: the anonymous call would either be
-        // refused, which hides the real fault behind a 401, or succeed with
-        // less authority than the operator intended.
-        if (!$this->vault->exists($server->authCredential)) {
-            throw McpTransportException::forMissingCredential($server->identifier);
-        }
-
-        $placement = SecretPlacement::tryFrom($server->authPlacement) ?? SecretPlacement::Bearer;
-        $options   = [];
-        if ($placement === SecretPlacement::Header) {
-            if ($server->authHeaderName === '') {
-                throw McpTransportException::forMissingCredential($server->identifier);
+        if ($delegatedCredential !== null) {
+            if (!$this->vault->exists($delegatedCredential)) {
+                throw McpTransportException::forDelegatedAuthFailure(
+                    $server->identifier,
+                    'credential_expired',
+                );
             }
 
-            $options['headerName'] = $server->authHeaderName;
+            return $client->withAuthentication(
+                $delegatedCredential,
+                SecretPlacement::Bearer,
+            );
         }
 
-        // The plaintext never enters this process: the vault client injects it
-        // as it writes the request.
-        return $client->withAuthentication($server->authCredential, $placement, $options);
+        return $this->legacyAuthentication($server, $client);
     }
 
     /**
@@ -440,6 +457,93 @@ final class McpHttpTransport
         throw McpTransportException::forMalformedResponse(
             $server->identifier,
             $messages === [] ? 'the event stream carried no message' : 'the event stream carried no response to the request',
+        );
+    }
+
+    /**
+     * Validate the mode even through the protocol test seam. A delegated server
+     * must never fall back to its legacy credential or an anonymous request.
+     */
+    private function credentialFor(
+        McpServerRecord $server,
+        ?McpCredentialSessionInterface $session,
+    ): ?string {
+        $mode = $server->authenticationMode();
+        if (!$mode instanceof McpAuthenticationMode || $mode === McpAuthenticationMode::DELEGATED && !$session instanceof McpCredentialSessionInterface) {
+            throw McpTransportException::forDelegatedAuthFailure(
+                $server->identifier,
+                'credential_session_missing',
+            );
+        }
+
+        if ($mode === McpAuthenticationMode::LEGACY && $session instanceof McpCredentialSessionInterface) {
+            throw McpTransportException::forDelegatedAuthFailure(
+                $server->identifier,
+                'unexpected_credential_session',
+            );
+        }
+
+        return $session?->credentialIdentifier();
+    }
+
+    /**
+     * Gate the MCP destination before renewing or resolving a credential, then
+     * charge authentication work before choosing the remaining wire timeout.
+     * The protocol-only seam follows the same check after credential resolution.
+     */
+    private function requestClient(
+        McpServerRecord $server,
+        string $host,
+        McpOperationDeadline $deadline,
+        ?McpCredentialSessionInterface $credentials,
+        ?CancellationSignalInterface $cancellation,
+    ): ClientInterface {
+        if (!$this->configuredHttpClient instanceof ClientInterface && !$this->httpClientFactory->isHostAllowed($host)) {
+            throw McpTransportException::forRefusedHost($server->identifier, $host);
+        }
+
+        $credential = $this->credentialFor($server, $credentials);
+        McpAuthOperationGuard::assertAlive(
+            $server->identifier,
+            $deadline,
+            $credentials instanceof McpCredentialSessionInterface ? $cancellation : null,
+        );
+
+        return $this->configuredHttpClient instanceof ClientInterface ? $this->configuredHttpClient : $this->clientFor($server, $deadline->legTimeoutSeconds(), $credential);
+    }
+
+    private function legacyAuthentication(
+        McpServerRecord $server,
+        VaultHttpClientInterface $client,
+    ): ClientInterface {
+        if ($server->authCredential === '') {
+            return $client;
+        }
+
+        // Fail closed. An MCP server that was configured with a credential is
+        // not one to try anonymously: the anonymous call would either be
+        // refused, which hides the real fault behind a 401, or succeed with
+        // less authority than the operator intended.
+        if (!$this->vault->exists($server->authCredential)) {
+            throw McpTransportException::forMissingCredential($server->identifier);
+        }
+
+        $placement = SecretPlacement::tryFrom($server->authPlacement) ?? SecretPlacement::Bearer;
+        $options = [];
+        if ($placement === SecretPlacement::Header) {
+            if ($server->authHeaderName === '') {
+                throw McpTransportException::forMissingCredential($server->identifier);
+            }
+
+            $options['headerName'] = $server->authHeaderName;
+        }
+
+        // The plaintext never enters this process: the vault client injects it
+        // as it writes the request.
+        return $client->withAuthentication(
+            $server->authCredential,
+            $placement,
+            $options,
         );
     }
 }

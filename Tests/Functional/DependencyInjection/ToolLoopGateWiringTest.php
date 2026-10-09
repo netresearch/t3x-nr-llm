@@ -21,11 +21,16 @@ use Netresearch\NrLlm\Service\Skill\SkillInstructionPolicy;
 use Netresearch\NrLlm\Service\Skill\SkillPinCheck;
 use Netresearch\NrLlm\Service\Skill\SkillRecordLookupInterface;
 use Netresearch\NrLlm\Service\Skill\SkillSourceLookupInterface;
+use Netresearch\NrLlm\Service\Tool\Mcp\Auth\ConfiguredMcpSubjectResolver;
+use Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpAuthenticationSessionFactory;
+use Netresearch\NrLlm\Service\Tool\Mcp\McpClient;
+use Netresearch\NrLlm\Service\Tool\Mcp\McpToolProvider;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ToolInvocationPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
+use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionProperty;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
@@ -172,5 +177,44 @@ final class ToolLoopGateWiringTest extends FunctionalTestCase
                 $loop,
             ),
         );
+    }
+
+    #[Test]
+    public function productionMcpToolsReceiveTheDelegatedAuthenticationFactory(): void
+    {
+        $registry = $this->get(ToolRegistry::class);
+        self::assertInstanceOf(ToolRegistry::class, $registry);
+        $providers = (new ReflectionProperty(ToolRegistry::class, 'providers'))->getValue(
+            $registry,
+        );
+        self::assertIsIterable($providers);
+        foreach ($providers as $provider) {
+            if (!$provider instanceof McpToolProvider) {
+                continue;
+            }
+
+            $client = (new ReflectionProperty(McpToolProvider::class, 'client'))->getValue(
+                $provider,
+            );
+            self::assertInstanceOf(McpClient::class, $client);
+            $factory = (new ReflectionProperty(McpClient::class, 'authentication'))->getValue(
+                $client,
+            );
+            self::assertInstanceOf(
+                McpAuthenticationSessionFactory::class,
+                $factory,
+            );
+            $resolver = (new ReflectionProperty(
+                McpAuthenticationSessionFactory::class,
+                'resolver',
+            ))->getValue($factory);
+            self::assertInstanceOf(
+                ConfiguredMcpSubjectResolver::class,
+                $resolver,
+            );
+            return;
+        }
+
+        self::fail('The production MCP provider must be registered.');
     }
 }

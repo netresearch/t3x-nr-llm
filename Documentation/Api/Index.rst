@@ -26,6 +26,7 @@ Complete API reference for the TYPO3 LLM extension.
    TranslationService
    ToolCallingService
    ToolInvocationPolicy
+   McpDelegation
    KeywordSearch
    ReciprocalRankFusion
    Reranker

@@ -13,14 +13,18 @@ ADR-217: Delegated MCP authentication keeps the acting identity
 :Date: 2026-10-09
 :Amends: :ref:`ADR-116 <adr-116>` (MCP may use an audience-scoped credential
     delegated from the initiating actor, in addition to a server credential)
+    and :ref:`ADR-190 <adr-190>` (retain cancellation argument positions while
+    appending actor/session context on the final concrete MCP classes)
 :Authors: Netresearch DTT GmbH
 
 Context
 =======
 
 The runtime already carries the initiating actor into builtin and MCP tools,
-including queue workers and resumed runs. An MCP server nevertheless sees the
-one Vault credential configured on its server record. That is appropriate for
+including queue workers. Resumed backend runs currently reconstruct the owner
+from the run row, which loses a named service actor. Suspensions therefore
+need an explicit actor snapshot. An MCP server sees the one Vault credential
+configured on its server record. That is appropriate for
 a shared service identity. It cannot let a ticket, document or calendar service
 enforce the individual caller's rights.
 
@@ -51,8 +55,23 @@ Decision
    Installation profiles map ``backendUsers[uid]`` and
    ``serviceAccounts[name]`` explicitly. Each grant declares ``enabled: true``,
    a ``credentialIdentifier``, ``allowedAudiences`` and ``allowedScopes``.
-   The requested audience and scopes must satisfy both the profile's and the
+   Requested scopes are explicit and nonempty. The requested audience and
+   scopes must satisfy both the profile's and the
    actor grant's bounds; an absent or disabled grant denies.
+
+   Subject, client-secret and delegated discovery references must be canonical
+   Vault UUIDv7 values or ASCII aliases of 3 to 255 characters. An alias starts
+   with a letter and contains only letters, digits and underscores. Controls,
+   reference wrappers and other UUID versions deny before IdP contact. This
+   validation belongs to the new delegated contracts; existing static server
+   authentication keeps its behaviour.
+
+   New queued and suspended payloads bind the actor to the run UUID inside the
+   authenticated state envelope. A backend UID must match the stored owner; a
+   service actor keeps its original name and owner zero. Validate before and
+   after claiming a suspension. Malformed explicit actors and copied states
+   deny; older payloads without actor bindings keep their stored backend owner.
+   State clones and instruction-pin updates preserve both actor and UUID.
 
 3. **Exchange rather than forward.** The RFC 8693 grant requests an access
    token with an explicit audience and bounded scopes. The subject token is
@@ -70,7 +89,11 @@ Decision
 
 5. **Use expiring Vault references downstream.** Exchange access-token values
    are stored under random, short-lived Vault identifiers with expiry and
-   context metadata. The MCP transport only receives the reference, and Vault
+   context metadata. Their ACL binds the initiating owner without inheriting
+   backend groups or frontend access. Verify the stored ACL and delete the
+   reference before denying if Vault changes its owner or grants. A background
+   execution identity requires explicit Vault technical-actor access.
+   The MCP transport only receives the reference, and Vault
    injects the Bearer value. Cleanup deletes temporary references when the
    operation ends; expiry bounds a crashed worker's leftover record.
    Subject and client secrets are never retrieved into nr-llm to build forms.
@@ -82,6 +105,12 @@ Decision
    lifetime and exchanges again when needed. Its identity includes actor,
    exchange profile, audience and scopes. It is not cached on a shared MCP
    transport singleton, and never reused for another server/actor combination.
+   Credential resolution and storage spend the operation budget before the
+   transport checks cancellation and chooses the remaining HTTP timeout.
+
+   Existing interfaces retain their signatures. Optional actor/session context
+   is appended only to final concrete MCP classes; cancellation retains its
+   existing positional index, type and nullable default (ADR-190).
 
 7. **Discovery has a separate authority.** Catalogue import and connection
    probes without an execution actor do not fabricate one. A delegated server

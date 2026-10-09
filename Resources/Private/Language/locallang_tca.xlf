@@ -1140,6 +1140,42 @@
             <trans-unit id="tx_nrllm.tool_data_class.secretAdjacent">
                 <source>Secret-adjacent</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.auth_mode">
+                <source>Authentication mode</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.auth_mode.description">
+                <source>Use an existing machine credential or exchange an explicitly mapped actor credential.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.auth_mode.legacy">
+                <source>Existing credential or anonymous</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.auth_mode.delegated">
+                <source>Actor token exchange</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.delegation_profile">
+                <source>Delegation profile</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.delegation_profile.description">
+                <source>Identifier of the operator-configured token exchange profile.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.delegation_audience">
+                <source>Target audience</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.delegation_audience.description">
+                <source>The audience permitted by both the profile and the actor mapping.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.delegation_scopes">
+                <source>Requested scopes</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.delegation_scopes.description">
+                <source>Space-separated scopes permitted by both the profile and the actor mapping.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.discovery_credential">
+                <source>Discovery credential</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.discovery_credential.description">
+                <source>Separate Vault reference for catalogue import and connection checks; never used for executing tools.</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

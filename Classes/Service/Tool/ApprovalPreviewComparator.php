@@ -253,6 +253,8 @@ final readonly class ApprovalPreviewComparator
             // re-suspension (ADR-214 item 6), so the next resume checks them.
             $state->skillPins,
             $state->invocationHistory,
+            $state->initiatingActor,
+            $state->initiatingRunUuid,
         );
     }
 }

@@ -32,6 +32,9 @@ services:
       - '../Classes/Service/SetupWizard/Exception/*'
       - '../Classes/Service/Skill/Exception/*'
       - '../Classes/Service/Tool/Mcp/Exception/*'
+      # Auth sessions and value objects are bound to one operation (ADR-217).
+      # Only the factory and configured subject resolver are container services.
+      - '../Classes/Service/Tool/Mcp/Auth/*'
       # Opened inside a client method and passed down, never injected — the
       # budget is per operation, and a container-held instance would bound the
       # process. Private constructor and a scalar argument besides (ADR-170).
@@ -82,6 +85,16 @@ services:
   Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface:
     alias: Netresearch\NrLlm\Service\Tool\ToolLoopService
     public: true
+
+  Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpAuthenticationSessionFactory: ~
+
+  Netresearch\NrLlm\Service\Tool\Mcp\Auth\ConfiguredMcpSubjectResolver: ~
+
+  Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpAuthenticationSessionFactoryInterface:
+    alias: Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpAuthenticationSessionFactory
+
+  Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpSubjectResolverInterface:
+    alias: Netresearch\NrLlm\Service\Tool\Mcp\Auth\ConfiguredMcpSubjectResolver
 
   # Resolves a run's actor to a live acting backend user for tool authorization
   # (ADR-083), so a queued run authorises identically to a synchronous one.

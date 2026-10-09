@@ -1509,6 +1509,54 @@
                 <source>Secret-adjacent</source>
                 <target>Geheimnisnah</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.auth_mode">
+                <source>Authentication mode</source>
+                <target>Authentifizierungsmodus</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.auth_mode.description">
+                <source>Use an existing machine credential or exchange an explicitly mapped actor credential.</source>
+                <target>Verwenden Sie eine bestehende technische Zugangsdatenreferenz oder tauschen Sie die explizit zugeordneten Zugangsdaten des Akteurs aus.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.auth_mode.legacy">
+                <source>Existing credential or anonymous</source>
+                <target>Bestehende Zugangsdaten oder anonym</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.auth_mode.delegated">
+                <source>Actor token exchange</source>
+                <target>Token-Austausch für den Akteur</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.delegation_profile">
+                <source>Delegation profile</source>
+                <target>Delegationsprofil</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.delegation_profile.description">
+                <source>Identifier of the operator-configured token exchange profile.</source>
+                <target>Kennung des vom Betreiber konfigurierten Profils für den Token-Austausch.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.delegation_audience">
+                <source>Target audience</source>
+                <target>Ziel-Audience</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.delegation_audience.description">
+                <source>The audience permitted by both the profile and the actor mapping.</source>
+                <target>Die Audience muss im Profil und in der Zuordnung des Akteurs erlaubt sein.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.delegation_scopes">
+                <source>Requested scopes</source>
+                <target>Angeforderte Scopes</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.delegation_scopes.description">
+                <source>Space-separated scopes permitted by both the profile and the actor mapping.</source>
+                <target>Durch Leerzeichen getrennte Scopes, die im Profil und in der Zuordnung des Akteurs erlaubt sind.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.discovery_credential">
+                <source>Discovery credential</source>
+                <target>Zugangsdaten für die Werkzeugliste</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.discovery_credential.description">
+                <source>Separate Vault reference for catalogue import and connection checks; never used for executing tools.</source>
+                <target>Separate Vault-Referenz für den Import der Werkzeugliste und Verbindungstests. Sie wird niemals zur Werkzeugausführung verwendet.</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

@@ -9,10 +9,14 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Mcp;
 
+use Netresearch\NrLlm\Domain\Enum\McpAuthenticationMode;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\McpCallOutcome;
 use Netresearch\NrLlm\Domain\ValueObject\McpConnectionReport;
 use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
 use Netresearch\NrLlm\Domain\ValueObject\McpToolsPage;
+use Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpAuthenticationSessionFactoryInterface;
+use Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpCredentialSessionInterface;
 use Netresearch\NrLlm\Service\Tool\Mcp\Exception\McpTransportException;
 use Netresearch\NrVault\Http\CancellationSignalInterface;
 use stdClass;
@@ -87,6 +91,7 @@ final readonly class McpClient
         private McpHttpTransport $transport,
         private McpHealthRecorderInterface $health,
         private McpDeadlineFactory $deadlines,
+        private ?McpAuthenticationSessionFactoryInterface $authentication = null,
     ) {}
 
     /**
@@ -104,41 +109,50 @@ final readonly class McpClient
     public function listTools(McpServerRecord $server): array
     {
         $deadline = $this->deadlines->forOperation();
-        $session  = $this->openSession($server, $deadline)['sessionId'];
+        $credentials = $this->authenticationForDiscovery($server, $deadline);
+        try {
+            $session = $this->openSession($server, $deadline, null, $credentials)['sessionId'];
 
-        $tools  = [];
-        $cursor = null;
+            $tools = [];
+            $cursor = null;
 
-        for ($page = 0; $page < self::MAX_PAGES; ++$page) {
-            $result = $this->transport->call(
-                $server,
-                'tools/list',
-                $cursor === null ? [] : ['cursor' => $cursor],
-                $deadline,
-                $session,
+            for ($page = 0; $page < self::MAX_PAGES; ++$page) {
+                $result = $this->transport->call(
+                    $server,
+                    'tools/list',
+                    $cursor === null ? [] : ['cursor' => $cursor],
+                    $deadline,
+                    $session,
+                    credentials: $credentials,
+                );
+
+                $parsed = $this->parseToolsPage($server, $result['result']);
+                foreach ($parsed->tools as $tool) {
+                    $tools[] = $tool;
+                }
+
+                $cursor = $parsed->nextCursor;
+                if ($cursor === null) {
+                    // Recorded once the walk completed, with the latency of the
+                    // page that ended it. A partial walk that then throws records
+                    // nothing: the operation did not succeed, and half a catalogue
+                    // is not a contact worth reporting as one.
+                    $this->health->recordContact($server, $result['durationMs']);
+
+                    return $tools;
+                }
+            }
+
+            throw McpTransportException::forMalformedResponse(
+                $server->identifier,
+                sprintf(
+                    'the tool listing did not end within %d pages',
+                    self::MAX_PAGES,
+                ),
             );
-
-            $parsed = $this->parseToolsPage($server, $result['result']);
-            foreach ($parsed->tools as $tool) {
-                $tools[] = $tool;
-            }
-
-            $cursor = $parsed->nextCursor;
-            if ($cursor === null) {
-                // Recorded once the walk completed, with the latency of the
-                // page that ended it. A partial walk that then throws records
-                // nothing: the operation did not succeed, and half a catalogue
-                // is not a contact worth reporting as one.
-                $this->health->recordContact($server, $result['durationMs']);
-
-                return $tools;
-            }
+        } finally {
+            $credentials?->close();
         }
-
-        throw McpTransportException::forMalformedResponse(
-            $server->identifier,
-            sprintf('the tool listing did not end within %d pages', self::MAX_PAGES),
-        );
     }
 
     /**
@@ -174,45 +188,64 @@ final readonly class McpClient
         string $remoteName,
         array $arguments,
         ?CancellationSignalInterface $cancellation = null,
+        ?AiActorContext $actor = null,
     ): McpCallOutcome {
         $deadline = $this->deadlines->forOperation();
-        // The handshake carries the signal too. It is a full round trip to the
-        // same server under the same operation deadline, so leaving it out
-        // would keep the very stall this exists to end -- just one leg earlier.
-        $session = $this->openSession($server, $deadline, $cancellation)['sessionId'];
-
-        $answer = $this->transport->call($server, 'tools/call', [
-            'name'      => $remoteName,
-            'arguments' => $arguments === [] ? new stdClass() : $arguments,
-        ], $deadline, $session, $cancellation);
-
-        // The server answered, so it is alive — including when the answer is a
-        // tool-level `isError` below. That is the tool failing, not the server.
-        $this->health->recordContact($server, $answer['durationMs']);
-
-        $result = $answer['result'];
-
-        $flattened = $this->flattenContent($result['content'] ?? null);
-        $text      = $flattened['text'];
-        $note      = $this->omissionNote($flattened['omitted']);
-
-        // `isError` is the protocol's way of reporting a tool-level failure
-        // inside a successful JSON-RPC response. It is a result, not a
-        // transport fault: the model should see what went wrong and may
-        // reasonably try something else, so it is returned rather than thrown —
-        // but it is returned AS a failure, because the flag is what the
-        // persisted step carries and what a reader counts (ADR-161).
-        if (($result['isError'] ?? false) === true) {
-            return new McpCallOutcome(
-                $note . 'The remote tool reported an error: ' . ($text === '' ? 'no detail given.' : $text),
-                true,
-            );
-        }
-
-        return new McpCallOutcome(
-            $note . ($text === '' ? 'The remote tool returned no textual content.' : $text),
-            false,
+        $credentials = $this->authenticationForExecution(
+            $server,
+            $actor,
+            $deadline,
+            $cancellation,
         );
+        try {
+            // The handshake carries the signal too. It is a full round trip to the
+            // same server under the same operation deadline, so leaving it out
+            // would keep the very stall this exists to end -- just one leg earlier.
+            $session = $this->openSession($server, $deadline, $cancellation, $credentials)['sessionId'];
+
+            $answer = $this->transport->call(
+                $server,
+                'tools/call',
+                [
+                    'name' => $remoteName,
+                    'arguments' => $arguments === [] ? new stdClass() : $arguments,
+                ],
+                $deadline,
+                $session,
+                $cancellation,
+                $credentials,
+            );
+
+            // The server answered, so it is alive — including when the answer is a
+            // tool-level `isError` below. That is the tool failing, not the server.
+            $this->health->recordContact($server, $answer['durationMs']);
+
+            $result = $answer['result'];
+
+            $flattened = $this->flattenContent($result['content'] ?? null);
+            $text = $flattened['text'];
+            $note = $this->omissionNote($flattened['omitted']);
+
+            // `isError` is the protocol's way of reporting a tool-level failure
+            // inside a successful JSON-RPC response. It is a result, not a
+            // transport fault: the model should see what went wrong and may
+            // reasonably try something else, so it is returned rather than thrown —
+            // but it is returned AS a failure, because the flag is what the
+            // persisted step carries and what a reader counts (ADR-161).
+            if (($result['isError'] ?? false) === true) {
+                return new McpCallOutcome(
+                    $note . 'The remote tool reported an error: ' . ($text === '' ? 'no detail given.' : $text),
+                    true,
+                );
+            }
+
+            return new McpCallOutcome(
+                $note . ($text === '' ? 'The remote tool returned no textual content.' : $text),
+                false,
+            );
+        } finally {
+            $credentials?->close();
+        }
     }
 
     /**
@@ -235,7 +268,7 @@ final readonly class McpClient
         }
 
         try {
-            $handshake = $this->openSession($server, $this->deadlines->forOperation());
+            $handshake = $this->handshakeForDiscovery($server);
         } catch (McpTransportException $e) {
             return McpConnectionReport::unreachable($e->getMessage());
         }
@@ -243,8 +276,8 @@ final readonly class McpClient
         $this->health->recordContact($server, $handshake['durationMs']);
 
         $result = $handshake['result'];
-        $info   = $result['serverInfo'] ?? null;
-        $info   = \is_array($info) ? $info : [];
+        $info = $result['serverInfo'] ?? null;
+        $info = \is_array($info) ? $info : [];
 
         return McpConnectionReport::reached(
             $handshake['durationMs'],
@@ -280,23 +313,37 @@ final readonly class McpClient
         McpServerRecord $server,
         McpOperationDeadline $deadline,
         ?CancellationSignalInterface $cancellation = null,
+        ?McpCredentialSessionInterface $credentials = null,
     ): array {
-        $handshake = $this->transport->call($server, 'initialize', [
-            'protocolVersion' => self::PROTOCOL_VERSION,
-            // No capabilities are declared because none are offered: this
-            // client does not accept sampling requests, does not expose roots
-            // and does not subscribe to notifications. Declaring a capability
-            // we do not implement invites the server to use it.
-            'capabilities'    => new stdClass(),
-            'clientInfo'      => [
-                'name'    => 'nr_llm',
-                'version' => '1',
+        $handshake = $this->transport->call(
+            $server,
+            'initialize',
+            [
+                'protocolVersion' => self::PROTOCOL_VERSION,
+                // No capabilities are declared because none are offered: this
+                // client does not accept sampling requests, does not expose roots
+                // and does not subscribe to notifications. Declaring a capability
+                // we do not implement invites the server to use it.
+                'capabilities' => new stdClass(),
+                'clientInfo' => ['name' => 'nr_llm', 'version' => '1'],
             ],
-        ], $deadline, null, $cancellation);
+            $deadline,
+            null,
+            $cancellation,
+            $credentials,
+        );
 
         // The protocol requires the client to confirm it is ready before it
         // issues requests. A server may reject everything until it arrives.
-        $this->transport->notify($server, 'notifications/initialized', [], $deadline, $handshake['sessionId'], $cancellation);
+        $this->transport->notify(
+            $server,
+            'notifications/initialized',
+            [],
+            $deadline,
+            $handshake['sessionId'],
+            $cancellation,
+            $credentials,
+        );
 
         return $handshake;
     }
@@ -459,5 +506,84 @@ final readonly class McpClient
     private function blockTypeLabel(mixed $type): string
     {
         return \is_string($type) && \in_array($type, self::KNOWN_BLOCK_TYPES, true) ? $type : 'other';
+    }
+
+    /**
+     * Opens an operation-bound credential session; legacy callers keep their
+     * existing anonymous or machine credential behavior (ADR-217).
+     */
+    private function authenticationForExecution(
+        McpServerRecord $server,
+        ?AiActorContext $actor,
+        McpOperationDeadline $deadline,
+        ?CancellationSignalInterface $cancellation,
+    ): ?McpCredentialSessionInterface {
+        $mode = $server->authenticationMode();
+        if ($mode === McpAuthenticationMode::LEGACY) {
+            return null;
+        }
+
+        if ($mode !== McpAuthenticationMode::DELEGATED || !$actor instanceof AiActorContext || !$this->authentication instanceof McpAuthenticationSessionFactoryInterface) {
+            throw McpTransportException::forDelegatedAuthFailure(
+                $server->identifier,
+                'execution_identity_missing',
+            );
+        }
+
+        $session = $this->authentication->openForExecution(
+            $server,
+            $actor,
+            $deadline,
+            $cancellation,
+        );
+        if (!$session instanceof McpCredentialSessionInterface) {
+            throw McpTransportException::forDelegatedAuthFailure(
+                $server->identifier,
+                'credential_session_missing',
+            );
+        }
+
+        return $session;
+    }
+
+    private function authenticationForDiscovery(
+        McpServerRecord $server,
+        McpOperationDeadline $deadline,
+    ): ?McpCredentialSessionInterface {
+        $mode = $server->authenticationMode();
+        if ($mode === McpAuthenticationMode::LEGACY) {
+            return null;
+        }
+
+        if ($mode !== McpAuthenticationMode::DELEGATED || $server->discoveryCredential === '' || !$this->authentication instanceof McpAuthenticationSessionFactoryInterface) {
+            throw McpTransportException::forDelegatedAuthFailure(
+                $server->identifier,
+                'discovery_identity_missing',
+            );
+        }
+
+        $session = $this->authentication->openForDiscovery($server, $deadline);
+        if (!$session instanceof McpCredentialSessionInterface) {
+            throw McpTransportException::forDelegatedAuthFailure(
+                $server->identifier,
+                'credential_session_missing',
+            );
+        }
+
+        return $session;
+    }
+
+    /**
+     * @return array{result: array<string, mixed>, sessionId: string|null, durationMs: int}
+     */
+    private function handshakeForDiscovery(McpServerRecord $server): array
+    {
+        $deadline = $this->deadlines->forOperation();
+        $credentials = $this->authenticationForDiscovery($server, $deadline);
+        try {
+            return $this->openSession($server, $deadline, null, $credentials);
+        } finally {
+            $credentials?->close();
+        }
     }
 }
