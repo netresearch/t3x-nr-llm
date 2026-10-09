@@ -33,6 +33,8 @@ use Netresearch\NrLlm\Service\Agent\Exception\ApprovalNotAuditableException;
 use Netresearch\NrLlm\Service\Agent\Exception\ApproverNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunDecidedInChatException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunNeedsSecondApproverException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
@@ -379,6 +381,11 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.corruptState', 'The suspended run state could not be read.')], 500);
         } catch (RunAlreadyResumingException) {
             return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.alreadyResuming', 'This run is already being processed.')], 409);
+        } catch (ProcessRunDecidedInChatException) {
+            // The runtime's own check, on its own read of the row (ADR-214).
+            return $this->decidedInTheChat();
+        } catch (ProcessRunNeedsSecondApproverException) {
+            return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.processStopped', 'This run was stopped: it is a guided process, and its configuration requires a second approver, under which nobody could apply its proposals.')], 409);
         }
 
         return $this->respondToResult($result, false);
@@ -458,6 +465,11 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.corruptState', 'The suspended run state could not be read.')], 500);
         } catch (RunAlreadyResumingException) {
             return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.alreadyResuming', 'This run is already being processed.')], 409);
+        } catch (ProcessRunDecidedInChatException) {
+            // The runtime's own check, on its own read of the row (ADR-214).
+            return $this->decidedInTheChat();
+        } catch (ProcessRunNeedsSecondApproverException) {
+            return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.processStopped', 'This run was stopped: it is a guided process, and its configuration requires a second approver, under which nobody could apply its proposals.')], 409);
         }
 
         return $this->respondToResult($result, false);

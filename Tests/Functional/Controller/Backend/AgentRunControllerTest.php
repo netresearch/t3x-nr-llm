@@ -23,6 +23,8 @@ use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunDecidedInChatException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunNeedsSecondApproverException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
@@ -323,6 +325,43 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
 
         self::assertSame('waiting_for_approval', $this->persister->findRun($approvalUuid)?->status);
         self::assertSame('waiting_for_input', $this->persister->findRun($inputUuid)?->status);
+    }
+
+    /**
+     * The runtime decides on its own read of the row, so its refusals of a
+     * process run reach the inbox even when the inbox's probe said no: both
+     * become a message on both actions, not an unhandled error.
+     */
+    #[Test]
+    public function theRuntimesProcessRefusalsBecomeMessages(): void
+    {
+        $this->suspendApproval('delete_thing', ['uid' => 42]);
+        $approvalUuid = $this->lastUuid();
+        $this->suspendInput('ask', ['type' => 'object', 'properties' => ['reason' => ['type' => 'string']], 'required' => ['reason']]);
+        $inputUuid = $this->lastUuid();
+
+        foreach ([
+            'decided in the chat' => [ProcessRunDecidedInChatException::forActor(AiActorContext::backendUser(1), 'r'), 'This run is a guided process.', ContextualFeedbackSeverity::WARNING],
+            'stopped'             => [ProcessRunNeedsSecondApproverException::forRun('r', 'cfg'), 'This run was stopped: it is a guided process', ContextualFeedbackSeverity::ERROR],
+        ] as $case => [$refusal, $message, $severity]) {
+            $runtime = $this->createMock(AgentRuntimeInterface::class);
+            $runtime->method('approve')->willThrowException($refusal);
+            $runtime->method('submitInput')->willThrowException($refusal);
+
+            $controller = $this->makeController(new ToolRegistry([new FakeTool('delete_thing'), new FakeTool('ask')]), $runtime, new ProcessPinProbeStub());
+
+            $this->setRequest($controller, 'approve');
+            self::assertSame(303, $controller->approveAction($approvalUuid, true, 'a-digest')->getStatusCode(), $case);
+            $this->setRequest($controller, 'submitInput');
+            self::assertSame(303, $controller->submitInputAction($inputUuid, ['reason' => 'because'])->getStatusCode(), $case);
+
+            $messages = $this->queuedFlashMessages();
+            self::assertCount(2, $messages, $case);
+            foreach ($messages as $flash) {
+                self::assertStringStartsWith($message, $flash->getMessage(), $case);
+                self::assertSame($severity, $flash->getSeverity(), $case);
+            }
+        }
     }
 
     /**

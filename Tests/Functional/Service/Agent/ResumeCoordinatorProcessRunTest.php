@@ -35,6 +35,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunDecidedInChatException;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunNeedsSecondApproverException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Exception\SelfApprovalDeniedException;
 use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
@@ -182,6 +183,35 @@ final class ResumeCoordinatorProcessRunTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * The stop cannot be undone, so an answer that rests on a failed approval
+     * lookup does not stop the run: it is refused as unavailable and keeps
+     * waiting, on an approval and on an answer.
+     */
+    #[Test]
+    public function aProcessPinThatCannotBeConfirmedDoesNotStopTheRun(): void
+    {
+        $probe = new ProcessPinProbeStub(everyRun: true, unknown: true);
+
+        $uuid = $this->suspendOn('touch_thing');
+        try {
+            $this->coordinator(true, $probe)->approve($this->initiator(), $uuid, $this->decision(true, 'touch_thing'));
+            self::fail('Expected RunStateUnavailableException on the approval');
+        } catch (RunStateUnavailableException) {
+            $this->assertStillWaiting($uuid, AgentRunStatus::WAITING_FOR_APPROVAL);
+        }
+
+        $uuid = $this->suspendForChoice();
+        try {
+            $this->coordinator(true, $probe)->submitInput($this->initiator(), $uuid, $this->answer('Home'));
+            self::fail('Expected RunStateUnavailableException on the answer');
+        } catch (RunStateUnavailableException) {
+            $this->assertStillWaiting($uuid, AgentRunStatus::WAITING_FOR_INPUT);
+        }
+
+        self::assertFalse($this->resumed);
+    }
+
+    /**
      * The other direction: a run without a pin on the same configuration meets
      * ADR-172's gate and keeps waiting for a colleague.
      */
@@ -242,6 +272,11 @@ final class ResumeCoordinatorProcessRunTest extends AbstractFunctionalTestCase
             {
                 ($this->meanwhile)();
 
+                return true;
+            }
+
+            public function processPinOf(AgentRun $run): bool
+            {
                 return true;
             }
 

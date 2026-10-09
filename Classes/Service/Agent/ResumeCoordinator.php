@@ -406,11 +406,19 @@ final readonly class ResumeCoordinator
      * guarded on the waiting state it is in, like the guarded cancel: a run
      * that left that state meanwhile is not touched, and the caller learns
      * that it no longer waits. The run records the refusal's class.
+     *
+     * The stop cannot be undone, so it waits for an answer that rests on
+     * approvals that were read: when the lookup failed, the run is refused
+     * as unavailable and keeps waiting, and the next attempt asks again.
      */
     private function stopOnFourEyes(AgentRun $run, LlmConfiguration $configuration, AgentRunStatus $waitingIn): void
     {
         if (!$configuration->requiresSecondApprover()) {
             return;
+        }
+
+        if (!$this->processPinProbe instanceof ProcessPinProbe || $this->processPinProbe->processPinOf($run) === null) {
+            throw RunStateUnavailableException::forRun($run->uuid);
         }
 
         $stopped = $this->persister->settleIfWaiting(

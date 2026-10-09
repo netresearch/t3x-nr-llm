@@ -3855,6 +3855,10 @@
                 <source>This run is a guided process. It is decided in the chat by the person who started it, not in the playground.</source>
                 <target>Dieser Lauf ist ein geführter Ablauf. Darüber entscheidet die Person, die ihn gestartet hat, im Chat, nicht im Playground.</target>
             </trans-unit>
+            <trans-unit id="error.tool.processStopped">
+                <source>This run was stopped: it is a guided process, and its configuration requires a second approver, under which nobody could apply its proposals.</source>
+                <target>Dieser Lauf wurde beendet: Er ist ein geführter Ablauf, und seine Konfiguration verlangt eine zweite freigebende Person. Unter dieser Einstellung könnte niemand seine Vorschläge anwenden.</target>
+            </trans-unit>
             <trans-unit id="error.tool.selfApproval">
                 <source>You started this run and its configuration requires a second approver. Someone else has to release it.</source>
                 <target>Sie haben diesen Lauf gestartet, und seine Konfiguration verlangt eine zweite freigebende Person. Die Freigabe muss jemand anderes erteilen.</target>
@@ -4299,6 +4303,10 @@
             <trans-unit id="runs.error.decidedInChat">
                 <source>This run is a guided process. Its proposals and questions are decided in the chat, by the person who started it, and not here.</source>
                 <target>Dieser Lauf ist ein geführter Ablauf. Über seine Vorschläge und Fragen entscheidet die Person, die ihn gestartet hat, im Chat, nicht hier.</target>
+            </trans-unit>
+            <trans-unit id="runs.error.processStopped">
+                <source>This run was stopped: it is a guided process, and its configuration requires a second approver, under which nobody could apply its proposals.</source>
+                <target>Dieser Lauf wurde beendet: Er ist ein geführter Ablauf, und seine Konfiguration verlangt eine zweite freigebende Person. Unter dieser Einstellung könnte niemand seine Vorschläge anwenden.</target>
             </trans-unit>
             <trans-unit id="runs.decidedInChat">
                 <source>A guided process: decided in the chat by the person who started it. It is listed here read-only.</source>

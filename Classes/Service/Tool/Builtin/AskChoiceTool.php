@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Service\Tool\ArgumentInputSchemaInterface;
 use Netresearch\NrLlm\Service\Tool\RequiresInputInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
+use Normalizer;
 
 /**
  * Ask the person one question with a fixed set of answers (ADR-214 item 9).
@@ -194,14 +195,17 @@ final readonly class AskChoiceTool implements ToolInterface, RequiresInputInterf
      * dropped, then the text is trimmed. A model writes "10 %" or "z. B."
      * with a no-break space as German typography asks; on the form it reads
      * as a space, so it is one, and "10 %" with either space is the same
-     * option to the distinctness check. Text that is not valid UTF-8 becomes
-     * empty and is refused as no line at all.
+     * option to the distinctness check. The text is composed (NFC), so an
+     * accent written as a separate mark is the same option as the accented
+     * letter. Text that is not valid UTF-8 becomes empty and is refused as no
+     * line at all.
      */
     private function normalised(string $text): string
     {
-        $spaced = preg_replace(['/\x{00AD}/u', '/\p{Zs}/u'], ['', ' '], $text);
+        $spaced   = preg_replace(['/\x{00AD}/u', '/\p{Zs}/u'], ['', ' '], $text);
+        $composed = is_string($spaced) ? Normalizer::normalize($spaced, Normalizer::FORM_C) : false;
 
-        return is_string($spaced) ? trim($spaced) : '';
+        return is_string($composed) ? trim($composed) : '';
     }
 
     private function isOneLine(string $text, int $maxLength): bool

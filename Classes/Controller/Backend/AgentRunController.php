@@ -19,6 +19,8 @@ use Netresearch\NrLlm\Service\Agent\Exception\ApprovalNotAuditableException;
 use Netresearch\NrLlm\Service\Agent\Exception\ApproverNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunDecidedInChatException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunNeedsSecondApproverException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
@@ -222,6 +224,11 @@ final class AgentRunController extends ActionController
             return $this->flashRedirect('runs.error.notAuditable', ContextualFeedbackSeverity::ERROR);
         } catch (CorruptSuspendedStateException|RunStateUnavailableException) {
             return $this->flashRedirect('runs.unreadable', ContextualFeedbackSeverity::ERROR);
+        } catch (ProcessRunDecidedInChatException) {
+            // The runtime's own check, on its own read of the row (ADR-214).
+            return $this->flashRedirect('runs.error.decidedInChat', ContextualFeedbackSeverity::WARNING);
+        } catch (ProcessRunNeedsSecondApproverException) {
+            return $this->flashRedirect('runs.error.processStopped', ContextualFeedbackSeverity::ERROR);
         }
 
         $this->flashOutcome($result, $approve);
@@ -300,6 +307,10 @@ final class AgentRunController extends ActionController
             return $this->flashRedirect('runs.error.submitterNotPermitted', ContextualFeedbackSeverity::ERROR);
         } catch (CorruptSuspendedStateException|RunStateUnavailableException) {
             return $this->flashRedirect('runs.unreadable', ContextualFeedbackSeverity::ERROR);
+        } catch (ProcessRunDecidedInChatException) {
+            return $this->flashRedirect('runs.error.decidedInChat', ContextualFeedbackSeverity::WARNING);
+        } catch (ProcessRunNeedsSecondApproverException) {
+            return $this->flashRedirect('runs.error.processStopped', ContextualFeedbackSeverity::ERROR);
         }
 
         $this->flashOutcome($result, true);

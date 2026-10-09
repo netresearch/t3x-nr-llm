@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Agent\Process;
 
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Service\Skill\SkillApprovalRepositoryInterface;
 use Psr\Log\LoggerInterface;
@@ -28,6 +29,8 @@ use Throwable;
  *
  * Fail-closed where it matters: a pin whose approval cannot be found, or a
  * lookup that fails, counts as a process pin, so the stricter rules apply. A
+ * failed lookup is reported as such by {@see processPinOf()}, so the one
+ * consequence that cannot be undone can wait for a lookup that works. A
  * run whose stored state cannot be read answers false instead (see the
  * interface): the resume path refuses it as unreadable before anything runs.
  *
@@ -42,6 +45,11 @@ final readonly class ApprovedProcessPinProbe implements ProcessPinProbe
 
     public function holdsProcessPin(AgentRun $run): bool
     {
+        return $this->processPinOf($run) ?? true;
+    }
+
+    public function processPinOf(AgentRun $run): ?bool
+    {
         if ($run->suspendedState === null || $run->suspendedState === '') {
             return false;
         }
@@ -52,11 +60,24 @@ final readonly class ApprovedProcessPinProbe implements ProcessPinProbe
         }
 
         /** @var array<string, mixed> $decoded */
-        return $this->anyProcessPin(SuspendedRunState::fromArray($decoded)->skillPins);
+        return $this->processPinAmong(SuspendedRunState::fromArray($decoded)->skillPins);
     }
 
     public function anyProcessPin(array $pins): bool
     {
+        return $this->processPinAmong($pins) ?? true;
+    }
+
+    /**
+     * True as soon as one pin is a process pin or has no approval; null when
+     * no pin is and a lookup failed; false when every approval was read and
+     * none is a process.
+     *
+     * @param list<SkillPin> $pins
+     */
+    private function processPinAmong(array $pins): ?bool
+    {
+        $failed = false;
         foreach ($pins as $pin) {
             try {
                 $known = false;
@@ -73,8 +94,8 @@ final readonly class ApprovedProcessPinProbe implements ProcessPinProbe
                 }
             } catch (Throwable $exception) {
                 $this->logger?->warning('The approval of a pinned skill version could not be read; the process rules apply.', ['exception' => $exception]);
-
-                return true;
+                $failed = true;
+                continue;
             }
 
             if (!$known) {
@@ -82,6 +103,6 @@ final readonly class ApprovedProcessPinProbe implements ProcessPinProbe
             }
         }
 
-        return false;
+        return $failed ? null : false;
     }
 }

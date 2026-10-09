@@ -15,7 +15,8 @@ use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 /**
  * Says the named runs hold a process pin (ADR-214), keyed by run uuid, and
  * that a pin list holds one when it names one of the given skills. `everyRun`
- * answers yes to both questions, whatever the pins.
+ * answers yes to both questions, whatever the pins. `unknown` makes
+ * processPinOf() answer that the lookup failed for a run that holds one.
  */
 final readonly class ProcessPinProbeStub implements ProcessPinProbe
 {
@@ -27,11 +28,17 @@ final readonly class ProcessPinProbeStub implements ProcessPinProbe
         private array $pinnedRunUuids = [],
         private bool $everyRun = false,
         private array $processSkillUids = [],
+        private bool $unknown = false,
     ) {}
 
     public function holdsProcessPin(AgentRun $run): bool
     {
         return $this->everyRun || in_array($run->uuid, $this->pinnedRunUuids, true);
+    }
+
+    public function processPinOf(AgentRun $run): ?bool
+    {
+        return $this->unknown && $this->holdsProcessPin($run) ? null : $this->holdsProcessPin($run);
     }
 
     public function anyProcessPin(array $pins): bool

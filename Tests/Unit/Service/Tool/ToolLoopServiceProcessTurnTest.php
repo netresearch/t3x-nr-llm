@@ -139,7 +139,7 @@ final class ToolLoopServiceProcessTurnTest extends TestCase
                 /**
                  * @param ArrayObject<int, string> $decided
                  */
-                public function __construct(private bool $allowed, private ArrayObject $decided) {}
+                public function __construct(private readonly bool $allowed, private ArrayObject $decided) {}
 
                 public function resolveTarget(ToolCall $call, ToolExecutionContext $context): ?ToolInvocationTarget
                 {

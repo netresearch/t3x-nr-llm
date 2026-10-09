@@ -103,6 +103,42 @@ final class ApprovedProcessPinProbeTest extends TestCase
         self::assertFalse($this->probe()->anyProcessPin([$this->pin()]), 'the approved non-process version');
     }
 
+    /**
+     * A failed lookup is told apart from a certain answer: processPinOf()
+     * says it does not know, holdsProcessPin() and anyProcessPin() still
+     * apply the rules, and a pin that is certainly a process wins over a
+     * lookup that failed for another pin.
+     */
+    #[Test]
+    public function aFailedLookupIsReportedAsUnknown(): void
+    {
+        $failing = self::createStub(SkillApprovalRepositoryInterface::class);
+        $failing->method('findBySkill')->willReturnCallback(
+            fn(int $skill): array => $skill === self::SKILL ? throw new RuntimeException('down', 1791602002) : $this->approvals->findBySkill($skill),
+        );
+        $probe = new ApprovedProcessPinProbe($failing);
+        $run   = $this->storedRun(json_encode($this->state([$this->pin()])->toArray()));
+
+        self::assertNull($probe->processPinOf($run));
+        self::assertTrue($probe->holdsProcessPin($run));
+        self::assertTrue($probe->anyProcessPin([$this->pin()]));
+
+        $this->approve(process: false);
+        self::assertFalse($this->probe()->processPinOf($run), 'every approval read, none a process');
+        self::assertFalse($this->probe()->processPinOf($this->storedRun('not-json{')), 'an unreadable state');
+
+        $this->approvals->add(5, self::SOURCE, self::DIGEST, [
+            'name'           => 'Other',
+            'description'    => '',
+            'body'           => 'Walk.',
+            'support_status' => 'full',
+            'allowed_tools'  => null,
+            'process'        => true,
+        ], 'verified', 1);
+        $both = $this->storedRun(json_encode($this->state([$this->pin(), new SkillPin(5, self::SOURCE, self::DIGEST)])->toArray()));
+        self::assertTrue($probe->processPinOf($both), 'a certain process pin wins over a failed lookup');
+    }
+
     private function approve(bool $process): void
     {
         $this->approvals->add(self::SKILL, self::SOURCE, self::DIGEST, [

@@ -46,6 +46,14 @@ interface ProcessPinProbe
     public function holdsProcessPin(AgentRun $run): bool;
 
     /**
+     * The answer of {@see holdsProcessPin()}, or null when it rests on an
+     * approval lookup that failed. holdsProcessPin() reads null as yes, so
+     * the guards apply; the four-eyes stop, which ends the run and cannot be
+     * undone, waits for an answer that rests on approvals that were read.
+     */
+    public function processPinOf(AgentRun $run): ?bool;
+
+    /**
      * Whether one of these pins is a process pin.
      *
      * @param list<SkillPin> $pins
