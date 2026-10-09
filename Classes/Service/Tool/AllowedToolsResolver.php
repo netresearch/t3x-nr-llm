@@ -121,13 +121,14 @@ final readonly class AllowedToolsResolver
         // of that: fail closed.
         $any = array_diff_key($invoked, array_flip(array_map(spl_object_id(...), $admitted))) !== [];
         // An attached skill the sync orphaned (its identifier is gone upstream,
-        // or was renamed in the record) grants nothing and still restricts the
-        // run, as a skill whose source is gone does — also one without a
-        // declaration. The sync disables what it orphans, so the enable flag
-        // does not exempt an orphan; detaching it does. An invoked orphan is
-        // not admitted and already restricts above.
+        // or was renamed in the record) or disabled (a changed version, an
+        // injection finding, a tampered row) grants nothing and still
+        // restricts the run, as a skill whose source is gone does — also one
+        // without a declaration, and a process skill. Only an administrator's
+        // disable drops a skill out; detaching it does too. An invoked skill
+        // that is not admitted already restricts above.
         foreach ([...$this->toList($config->getSkills()), ...$additionalSkills] as $skill) {
-            if ($skill->isOrphaned()) {
+            if ($skill->isOrphaned() || $skill->isDisabledBySync()) {
                 $any = true;
             }
         }

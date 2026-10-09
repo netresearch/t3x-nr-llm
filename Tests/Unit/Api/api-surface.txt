@@ -684,6 +684,8 @@ Netresearch\NrLlm\Domain\Model\Provider (class)
   method toAdapterConfig(): array
 
 Netresearch\NrLlm\Domain\Model\Skill (class)
+  const DISABLED_BY_ADMIN = "admin"
+  const DISABLED_BY_SYNC = "sync"
   method getAllowedTools(): string
   method getAllowedToolsList(): ?array
   method getBody(): string
@@ -691,6 +693,7 @@ Netresearch\NrLlm\Domain\Model\Skill (class)
   method getDataClass(): string
   method getDataClassEnum(): ?Netresearch\NrLlm\Domain\Enum\ToolDataClass
   method getDescription(): string
+  method getDisabledBy(): string
   method getIdentifier(): string
   method getInjectionFindings(): array
   method getInjectionScan(): string
@@ -709,6 +712,7 @@ Netresearch\NrLlm\Domain\Model\Skill (class)
   method getUnsupportedNotes(): string
   method getVersionDigest(): string
   method hasInjectionFindings(): bool
+  method isDisabledBySync(): bool
   method isEnabled(): bool
   method isOrphaned(): bool
   method isProcess(): bool
@@ -717,6 +721,7 @@ Netresearch\NrLlm\Domain\Model\Skill (class)
   method setBodyChecksum(string $bodyChecksum): void
   method setDataClass(string $dataClass): void
   method setDescription(string $description): void
+  method setDisabledBy(string $disabledBy): void
   method setEnabled(bool $enabled): void
   method setIdentifier(string $identifier): void
   method setInjectionScan(string $injectionScan): void

@@ -1343,6 +1343,14 @@
                 <source>Orphaned</source>
                 <target>Verwaist</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_skill.attachment.orphaned">
+                <source>orphaned</source>
+                <target>verwaist</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.attachment.disabled">
+                <source>disabled</source>
+                <target>deaktiviert</target>
+            </trans-unit>
             <trans-unit id="tx_nrllm_skill.enabled">
                 <source>Enabled</source>
                 <target>Aktiviert</target>

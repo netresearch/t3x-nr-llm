@@ -511,6 +511,7 @@ final class SkillSyncService
             $wouldEnable   = $source->getTypeEnum() === SkillSourceType::SINGLE_FILE;
             $forcedDisable = $highConf && $wouldEnable;
             $skill->setEnabled($wouldEnable && !$highConf);
+            $skill->setDisabledBy($skill->isEnabled() ? '' : Skill::DISABLED_BY_SYNC);
             $skill->setOrphaned(false);
             $this->skillRepository->add($skill);
             $this->audit?->recordSkillEvent(SkillAuditEvent::INGEST_CREATED, $skill);
@@ -542,6 +543,7 @@ final class SkillSyncService
         // reason.
         if ($wasEnabled && ($changed || $highConf)) {
             $existing->setEnabled(false);
+            $existing->setDisabledBy(Skill::DISABLED_BY_SYNC);
             $outcome = $changed ? 'changed' : 'updated';
         }
 
@@ -661,6 +663,7 @@ final class SkillSyncService
             if (!$skill->isOrphaned()) {
                 $skill->setOrphaned(true);
                 $skill->setEnabled(false);
+                $skill->setDisabledBy(Skill::DISABLED_BY_SYNC);
                 $this->skillRepository->update($skill);
                 $count++;
             }

@@ -242,6 +242,37 @@ final class AllowedToolsResolverDeclaredToolsTest extends TestCase
         self::assertSame([], $this->resolver()->resolveForRun($this->configuration(), [$skill])->toolNames, 'a forced orphan too');
     }
 
+    /**
+     * A skill the sync disabled (a changed version, an injection finding)
+     * keeps restricting the run, a process skill and a skill without a
+     * declaration included; one an administrator disabled drops out, as does
+     * a row from before the mark.
+     */
+    #[Test]
+    public function aSkillTheSyncDisabledStillRestrictsAndAnAdministratorsDisableDropsOut(): void
+    {
+        $skill = $this->syncedSkill('["get_page"]');
+        $skill->setEnabled(false);
+        $skill->setDisabledBy(Skill::DISABLED_BY_SYNC);
+
+        self::assertSame([], $this->resolver()->resolveForRun($this->configuration($skill), [])->toolNames);
+        self::assertSame([], $this->resolver()->resolve($this->configuration($skill)));
+
+        $tour = $this->processSkill('');
+        $tour->setEnabled(false);
+        $tour->setDisabledBy(Skill::DISABLED_BY_SYNC);
+
+        self::assertSame([], $this->resolver()->resolveForRun($this->configuration($tour), [])->toolNames, 'fail closed wins over no opinion');
+
+        $skill->setDisabledBy(Skill::DISABLED_BY_ADMIN);
+
+        self::assertNull($this->resolver()->resolveForRun($this->configuration($skill), [])->toolNames);
+
+        $skill->setDisabledBy('');
+
+        self::assertNull($this->resolver()->resolveForRun($this->configuration($skill), [])->toolNames, 'a row from before the mark');
+    }
+
     private function processSkill(string $tools): Skill
     {
         $skill = $this->backendSkill($tools);

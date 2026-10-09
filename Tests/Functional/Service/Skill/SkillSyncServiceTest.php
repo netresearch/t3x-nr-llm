@@ -84,6 +84,22 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         self::assertNotSame([], $result->errors);
     }
 
+    private function disabledBy(int $skillUid): string
+    {
+        $value = $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill')
+            ->select(['disabled_by'], 'tx_nrllm_skill', ['uid' => $skillUid])->fetchOne();
+
+        return is_string($value) ? $value : '';
+    }
+
+    private function column(int $skillUid, string $column): int
+    {
+        $value = $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill')
+            ->select([$column], 'tx_nrllm_skill', ['uid' => $skillUid])->fetchOne();
+
+        return is_numeric($value) ? (int)$value : -1;
+    }
+
     private function repoSource(int $uid = 10): SkillSource
     {
         $source = new SkillSource();
@@ -242,6 +258,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         self::assertCount(2, $skills);
         foreach ($skills as $skill) {
             self::assertFalse($skill->isEnabled(), 'multi-skill discovery must default disabled');
+            self::assertSame('sync', $this->disabledBy((int)$skill->getUid()), 'a skill the sync left disabled is marked so');
         }
     }
 
@@ -311,6 +328,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         $reloaded = $repo->findBySourceAndIdentifier(10, self::SKILL_A_ID);
         self::assertNotNull($reloaded);
         self::assertFalse($reloaded->isEnabled(), 'changed enabled skill must auto-disable');
+        self::assertSame('sync', $this->disabledBy((int)$reloaded->getUid()), "a disable on change is the sync's");
         self::assertSame('v2', trim((string)$reloaded->getBody()));
     }
 
@@ -332,6 +350,18 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         self::assertNotNull($b);
         self::assertTrue($b->isOrphaned());
         self::assertFalse($b->isEnabled());
+        self::assertSame('sync', $this->disabledBy((int)$b->getUid()), 'an orphan is disabled by the sync');
+
+        // Re-added upstream: the record is no longer orphaned, stays disabled,
+        // and keeps the sync's mark until an administrator enables it.
+        $this->service(new FakeGitHubClient('sha3', [self::SKILL_A_PATH, self::SKILL_B_PATH], [
+            self::SKILL_A_PATH => $this->md('A', 'x'),
+            self::SKILL_B_PATH => $this->md('B', 'y'),
+        ]))->sync($source);
+
+        self::assertSame(0, $this->column((int)$b->getUid(), 'orphaned'));
+        self::assertSame(0, $this->column((int)$b->getUid(), 'enabled'));
+        self::assertSame('sync', $this->disabledBy((int)$b->getUid()));
     }
 
     #[Test]
@@ -499,6 +529,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         $created = $repo->findBySourceAndIdentifier(20, '20:SKILL.md');
         self::assertNotNull($created);
         self::assertTrue($created->isEnabled(), 'a single_file skill is enabled on first import');
+        self::assertSame('', $this->disabledBy((int)$created->getUid()), 'an enabled skill carries no mark');
 
         // Body change: the enabled skill auto-disables.
         $changed = $this->service(new FakeGitHubClient('sha2', [], ['SKILL.md' => $this->md('S', 'v2')]))->sync($source);

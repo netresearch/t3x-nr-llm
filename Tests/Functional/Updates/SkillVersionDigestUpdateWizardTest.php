@@ -45,6 +45,7 @@ final class SkillVersionDigestUpdateWizardTest extends AbstractFunctionalTestCas
         $first = $this->row(1);
         self::assertTrue(SkillVersionDigest::isWellFormed(self::str($first['version_digest'] ?? '')));
         self::assertSame(1, (int)$first['enabled']);
+        self::assertSame('', $first['disabled_by']);
         self::assertSame(0, (int)$first['process']);
         self::assertSame(1, (int)$this->row(2)['process']);
         self::assertNotSame($first['version_digest'], $this->row(2)['version_digest'], 'the process marker is part of the version');
@@ -77,6 +78,7 @@ final class SkillVersionDigestUpdateWizardTest extends AbstractFunctionalTestCas
         $row = $this->row(1);
         self::assertSame('', $row['version_digest']);
         self::assertSame(0, (int)$row['enabled']);
+        self::assertSame('sync', $row['disabled_by'], 'the wizard disables as the sync does, so the skill keeps restricting');
         self::assertSame([SkillAuditEvent::VERSION_DIGEST_UNVERIFIED->value], $this->auditEvents());
         self::assertStringContainsString($field, $this->auditDetails()[0]);
     }
