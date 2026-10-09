@@ -72,6 +72,7 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
         'tx_nrllm_glossary'                    => 'configuration record',
         'tx_nrllm_skill'                       => 'configuration record',
         'tx_nrllm_skill_source'                => 'configuration record',
+        'tx_nrllm_skill_approval'              => 'approval of a skill version (ADR-214): purging one would silently revoke an instruction and break the pins of running conversations; it carries skill text, no run or user content',
         'tx_nrllm_tool_state'                  => 'configuration record',
         'tx_nrllm_tool_group_state'            => 'configuration record',
         'tx_nrllm_user_budget'                 => 'configuration record',

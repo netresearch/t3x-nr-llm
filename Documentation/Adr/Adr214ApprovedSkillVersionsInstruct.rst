@@ -94,10 +94,11 @@ The source types are ``single_file``, ``repo`` and ``marketplace``
 
 The sync computes ``body_checksum`` from the body alone
 (``Classes/Service/Skill/SkillSyncService.php#hash('sha256', $parsed->body)``),
-and compose re-verifies it the same way
-(``Classes/Service/Skill/SkillComposer.php#hash('sha256', $skill->getBody())``,
-ADR-036 item 6). The sync's change test compares that value only
-(``Classes/Service/Skill/SkillSyncService.php#getBodyChecksum() !== $checksum``).
+and compose re-verified it the same way (ADR-036 item 6); for a legacy row
+without a version digest it still does
+(``Classes/Service/Skill/SkillVersionDigest.php#hash('sha256', $skill->getBody())``).
+The sync's change test compared that value only, until item 1 below replaced
+it with the version digest.
 The same sync also rewrites ``name``, ``description``, ``allowed_tools``,
 ``support_status`` and ``raw_frontmatter`` (:php:`SkillSyncService::apply()`).
 An upstream change to the frontmatter alone is therefore an ``updated`` skill:
@@ -402,7 +403,11 @@ threshold read it there (:ref:`item 2 <adr-214-d2>`).
 - **Eight fields are excluded** with ``exclude => true``. On
   ``tx_nrllm_skill``: ``trust_level``, ``body_checksum``, ``version_digest``,
   ``enabled``, ``allowed_tools`` and ``source``. On ``tx_nrllm_skill_source``:
-  ``trust_level`` and ``type``.
+  ``trust_level`` and ``type``. The implementing change excludes more fields
+  that decide the same things: on the skill ``hidden``, ``support_status``,
+  ``orphaned`` and ``raw_frontmatter``; on the source ``hidden``, ``enabled``,
+  ``url``, ``ref``, ``pinned_sha``, ``expected_fingerprint`` and
+  ``github_token`` (``specs/012-approved-skill-versions/spec.md``, item 11).
   ``readOnly`` keeps a field out of FormEngine; ``exclude`` keeps it out of a
   DataHandler write by a group that holds ``tables_modify`` but was not granted
   the field. ``source`` and the source ``type`` are excluded because moving a

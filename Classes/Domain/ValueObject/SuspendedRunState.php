@@ -58,6 +58,7 @@ final readonly class SuspendedRunState
      * @param list<int>                                                                $forcedSkillUids   the run's per-run forced skills, same reason
      * @param list<int>                                                                $staleCallIndexes  indexes into `$pendingCalls` whose preview no longer matches the record (ADR-184); `[]` on a first suspension, non-empty only on one re-suspended because an approved call's subject moved
      * @param SkillToolAllowList|null                                                  $skillAllowList    the run's skill allow-list as resolved at run start (ADR-038 item 5), the upper bound a resume intersects the live list with; null only on a state persisted before the field existed
+     * @param list<SkillPin>                                                           $skillPins         the approved skill versions the transcript holds as instructions (ADR-214 item 6), re-checked before the run continues; `[]` for a run that holds none, and for a state persisted before the field existed
      */
     public function __construct(
         public array $messages,
@@ -74,10 +75,38 @@ final readonly class SuspendedRunState
         public array $forcedSkillUids = [],
         public array $staleCallIndexes = [],
         public ?SkillToolAllowList $skillAllowList = null,
+        public array $skillPins = [],
     ) {}
 
     /**
-     * @return array{messages: list<array<string, mixed>>, pendingCalls: list<array<string, mixed>>, iterations: int, promptTokens: int, completionTokens: int, allowedToolNames: list<string>|null, options: array<string, mixed>, inputToolName: string|null, inputSchema: array<string, mixed>, callPreviews: list<array{index: int, tool: string, lines: list<string>, failed: bool}>, forcedSnippetUids: list<int>, forcedSkillUids: list<int>, staleCallIndexes: list<int>, skillAllowList: array{toolNames: list<string>|null}|null}
+     * This state with the instruction pins the run holds (ADR-214 item 6).
+     * A resume carries them forward when the continuation suspends again.
+     *
+     * @param list<SkillPin> $skillPins
+     */
+    public function withSkillPins(array $skillPins): self
+    {
+        return new self(
+            $this->messages,
+            $this->pendingCalls,
+            $this->iterations,
+            $this->promptTokens,
+            $this->completionTokens,
+            $this->allowedToolNames,
+            $this->options,
+            $this->inputToolName,
+            $this->inputSchema,
+            $this->callPreviews,
+            $this->forcedSnippetUids,
+            $this->forcedSkillUids,
+            $this->staleCallIndexes,
+            $this->skillAllowList,
+            $skillPins,
+        );
+    }
+
+    /**
+     * @return array{messages: list<array<string, mixed>>, pendingCalls: list<array<string, mixed>>, iterations: int, promptTokens: int, completionTokens: int, allowedToolNames: list<string>|null, options: array<string, mixed>, inputToolName: string|null, inputSchema: array<string, mixed>, callPreviews: list<array{index: int, tool: string, lines: list<string>, failed: bool}>, forcedSnippetUids: list<int>, forcedSkillUids: list<int>, staleCallIndexes: list<int>, skillAllowList: array{toolNames: list<string>|null}|null, skillPins: list<array{skill: int, source: int, digest: string}>}
      */
     public function toArray(): array
     {
@@ -98,6 +127,7 @@ final readonly class SuspendedRunState
             // Wrapped, so "the run resolved no restriction" (toolNames null)
             // stays distinguishable from "no list was recorded" (the key null).
             'skillAllowList' => $this->skillAllowList?->toStored(),
+            'skillPins'      => SkillPin::listToArray($this->skillPins),
         ];
     }
 
@@ -154,6 +184,7 @@ final readonly class SuspendedRunState
             // whose call did not survive is dropped rather than clamped.
             self::staleFrom($data['staleCallIndexes'] ?? null, self::survivingIndexMap($rawPendingCalls)),
             SkillToolAllowList::fromStored($data['skillAllowList'] ?? null),
+            SkillPin::listFrom($data['skillPins'] ?? null),
         );
     }
 

@@ -514,8 +514,15 @@ CREATE TABLE tx_nrllm_skill (
     -- Content
     body mediumtext,
     body_checksum varchar(64) DEFAULT '' NOT NULL,
+    -- Version digest over body and frontmatter fields (ADR-214 item 1),
+    -- "<format>:<sha256 hex>". body_checksum keeps its body-only meaning for
+    -- the signed manifest and the legacy check; empty here marks a legacy row.
+    version_digest varchar(80) DEFAULT '' NOT NULL,
     source_sha varchar(64) DEFAULT '' NOT NULL,
     raw_frontmatter text,
+
+    -- Process marker of the frontmatter (ADR-214 item 6). Part of the version.
+    process tinyint(1) DEFAULT '0' NOT NULL,
 
     -- Support assessment
     support_status varchar(20) DEFAULT 'full' NOT NULL,
@@ -549,6 +556,49 @@ CREATE TABLE tx_nrllm_skill (
     KEY parent (pid),
     KEY source (source),
     KEY identifier (identifier)
+);
+
+#
+# Approvals of skill versions (ADR-214 item 2)
+#
+# One row per approval act. A row is the snapshot of the version it approves:
+# the fields that went into the digest, the provenance level of the source at
+# the time, the approver and the time. A version instructs only while an
+# unrevoked row names its skill, its current source and its current digest.
+# Revocation is per skill and digest and marks every row of that pair; only a
+# new approval, which inserts a new row, makes a revoked digest instruct again.
+# Written only by the approval action; no TCA, so no FormEngine or DataHandler
+# path reaches it.
+#
+CREATE TABLE tx_nrllm_skill_approval (
+    uid int(11) NOT NULL auto_increment,
+    pid int(11) DEFAULT '0' NOT NULL,
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+
+    skill_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    source_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    version_digest varchar(80) DEFAULT '' NOT NULL,
+
+    -- Snapshot of the approved version
+    name varchar(255) DEFAULT '' NOT NULL,
+    description text,
+    body mediumtext,
+    support_status varchar(20) DEFAULT 'full' NOT NULL,
+    -- JSON list of tool names, or empty for "no declaration"
+    allowed_tools text,
+    process tinyint(1) DEFAULT '0' NOT NULL,
+    -- Provenance level of the source when the version was approved
+    trust_level varchar(20) DEFAULT 'untrusted' NOT NULL,
+
+    approved_by int(11) unsigned DEFAULT '0' NOT NULL,
+
+    revoked tinyint(1) DEFAULT '0' NOT NULL,
+    revoked_by int(11) unsigned DEFAULT '0' NOT NULL,
+    revoked_at int(11) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY skill_digest (skill_uid, version_digest),
+    KEY skill_source_digest (skill_uid, source_uid, version_digest)
 );
 
 #
@@ -831,6 +881,10 @@ CREATE TABLE tx_nrllm_skill_audit (
     skill_identifier varchar(512) DEFAULT '' NOT NULL,
     source_sha varchar(64) DEFAULT '' NOT NULL,
     body_checksum varchar(64) DEFAULT '' NOT NULL,
+    -- The version digest the event concerns (ADR-214): an approval, a
+    -- revocation or a refused approval names it; ingest events carry the
+    -- digest the sync wrote.
+    version_digest varchar(80) DEFAULT '' NOT NULL,
     trust_level varchar(20) DEFAULT 'untrusted' NOT NULL,
     scan_result text,
     actor_uid int(11) unsigned DEFAULT '0' NOT NULL,

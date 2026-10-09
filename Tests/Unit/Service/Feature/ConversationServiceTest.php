@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
+use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
@@ -37,7 +38,11 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
+use Netresearch\NrLlm\Service\Skill\SkillInstructionPolicy;
+use Netresearch\NrLlm\Service\Skill\SkillVersionDigest;
 use Netresearch\NrLlm\Tests\Unit\Service\Session\Fixtures\RecordingAiSessionRepository;
+use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\FixedSkillSourceLookup;
+use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\InMemorySkillApprovalRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -823,6 +828,64 @@ final class ConversationServiceTest extends TestCase
         self::assertIsString($injected);
         self::assertStringContainsString('### Skill: Budget Skill', $injected);
         self::assertStringContainsString('Answer in short sentences.', $injected);
+    }
+
+    /**
+     * Approved instruction sections (ADR-214 item 2) are appended to the
+     * system message by the same send, after the fit, so they are charged too.
+     */
+    #[Test]
+    public function approvedInstructionSectionsAreHandedToTheFitAsWell(): void
+    {
+        $repository    = new RecordingAiSessionRepository();
+        $configuration = $this->configuration('editorial');
+        $skill         = $this->skill('cfg:approved', 'Approved Skill', 'Cite every source.');
+        $skill->_setProperty('uid', 9);
+        $skill->setVersionDigest(SkillVersionDigest::of($skill));
+        $configuration->getSkills()->attach($skill);
+
+        $approvals = new InMemorySkillApprovalRepository();
+        $approvals->add(9, 1, $skill->getVersionDigest(), SkillVersionDigest::fieldsOf($skill), 'verified', 1);
+
+        $injected      = null;
+        $contextWindow = $this->createMock(ContextWindowManagerInterface::class);
+        $contextWindow->method('fit')->willReturnCallback(
+            function (
+                array $messages,
+                LlmConfiguration $configuration,
+                ?ChatOptions $options,
+                ?UsageStatistics $lastUsage,
+                array $toolSpecs = [],
+                string $injectedText = '',
+            ) use (&$injected): ContextFitResult {
+                $injected = $injectedText;
+
+                return new ContextFitResult([ChatMessage::user('hi')], false, 0, 1, 10, 1000, false, 1.15, ContextBudgetBreakdown::none());
+            },
+        );
+
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chatForConfiguration')->willReturn($this->response('ok'));
+
+        $service = new ConversationService(
+            $llmManager,
+            $repository,
+            $this->resolverReturning($configuration),
+            $contextWindow,
+            null,
+            new SkillComposer(
+                SkillComposer::DEFAULT_MAX_BYTES,
+                SkillTrustLevel::UNTRUSTED,
+                new SkillInstructionPolicy($approvals, new FixedSkillSourceLookup([1 => SkillTrustLevel::VERIFIED]), SkillTrustLevel::VERIFIED),
+            ),
+        );
+        $actor   = $this->owner();
+        $session = $service->startSession($actor, '', $configuration);
+        $service->send($actor, $session->uuid, 'hi');
+
+        self::assertIsString($injected);
+        self::assertStringContainsString('## Approved skills', $injected);
+        self::assertStringContainsString('Cite every source.', $injected);
     }
 
     #[Test]

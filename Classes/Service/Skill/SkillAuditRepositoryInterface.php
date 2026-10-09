@@ -20,6 +20,10 @@ interface SkillAuditRepositoryInterface
 {
     /**
      * Append one immutable audit row.
+     *
+     * `$versionDigest` names the skill version the event concerns (ADR-214):
+     * the digest an approval, a revocation or a refused approval was about, or
+     * the digest the sync wrote.
      */
     public function record(
         string $event,
@@ -31,6 +35,7 @@ interface SkillAuditRepositoryInterface
         string $scanResult,
         int $actorUid,
         string $detail,
+        string $versionDigest = '',
     ): void;
 
     /**

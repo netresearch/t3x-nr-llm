@@ -18,6 +18,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use TYPO3\CMS\Core\Configuration\Exception\ExtensionConfigurationExtensionNotConfiguredException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
@@ -224,6 +225,82 @@ final class SkillComposerFactoryTest extends TestCase
             ->composeBlock([$below, $meets], []);
 
         self::assertSame(['v'], $result->included);
+    }
+
+    #[Test]
+    public function instructionThresholdDefaultsToVerified(): void
+    {
+        self::assertSame(SkillTrustLevel::VERIFIED, $this->factoryWith([])->instructionTrustLevel());
+        self::assertSame(SkillTrustLevel::VERIFIED, $this->factoryWith(['instructionTrustLevel' => ''])->instructionTrustLevel());
+    }
+
+    #[Test]
+    public function instructionThresholdReadsTheConfiguredLevel(): void
+    {
+        self::assertSame(SkillTrustLevel::FIRST_PARTY, $this->factoryWith(['instructionTrustLevel' => 'first_party'])->instructionTrustLevel());
+        self::assertSame(SkillTrustLevel::COMMUNITY, $this->factoryWith(['instructionTrustLevel' => 'community'])->instructionTrustLevel());
+    }
+
+    /**
+     * The threshold grants a privilege, so a value nobody can read narrows it
+     * to the highest level instead of widening it.
+     */
+    #[Test]
+    public function anUnrecognisedInstructionThresholdFailsClosedToFirstParty(): void
+    {
+        self::assertSame(SkillTrustLevel::FIRST_PARTY, $this->factoryWith(['instructionTrustLevel' => 'trusted'])->instructionTrustLevel());
+    }
+
+    #[Test]
+    public function aThresholdThatIsNotAStringFailsClosedToFirstParty(): void
+    {
+        self::assertSame(SkillTrustLevel::FIRST_PARTY, $this->factoryWith(['instructionTrustLevel' => 1])->instructionTrustLevel());
+    }
+
+    #[Test]
+    public function aConfigurationThatCannotBeReadFailsClosedToFirstParty(): void
+    {
+        $extensionConfiguration = $this->createMock(ExtensionConfiguration::class);
+        $extensionConfiguration->method('get')->willThrowException(new RuntimeException('broken configuration', 1791500120));
+
+        self::assertSame(SkillTrustLevel::FIRST_PARTY, (new SkillComposerFactory($extensionConfiguration))->instructionTrustLevel());
+    }
+
+    /**
+     * The other direction: an extension nobody configured yet is a fresh
+     * install, not an unreadable configuration, and gets the default.
+     */
+    #[Test]
+    public function anExtensionThatIsNotConfiguredGetsTheDefaultThreshold(): void
+    {
+        $extensionConfiguration = $this->createMock(ExtensionConfiguration::class);
+        $extensionConfiguration->method('get')->willThrowException(
+            new ExtensionConfigurationExtensionNotConfiguredException('not configured', 1791500121),
+        );
+
+        self::assertSame(SkillTrustLevel::VERIFIED, (new SkillComposerFactory($extensionConfiguration))->instructionTrustLevel());
+    }
+
+    #[Test]
+    public function anInstructionThresholdBelowTheMinimumIsReadAsTheMinimum(): void
+    {
+        $factory = $this->factoryWith(['instructionTrustLevel' => 'untrusted', 'minTrustLevel' => 'verified']);
+
+        self::assertSame(SkillTrustLevel::VERIFIED, $factory->instructionTrustLevel());
+    }
+
+    #[Test]
+    public function anInstructionThresholdAboveTheMinimumIsKept(): void
+    {
+        $factory = $this->factoryWith(['instructionTrustLevel' => 'first_party', 'minTrustLevel' => 'community']);
+
+        self::assertSame(SkillTrustLevel::FIRST_PARTY, $factory->instructionTrustLevel());
+    }
+
+    #[Test]
+    public function withoutTheApprovalStoresTheFactoryBuildsNoInstructionPolicy(): void
+    {
+        self::assertNull($this->factoryWith([])->instructionPolicy());
     }
 
     /**

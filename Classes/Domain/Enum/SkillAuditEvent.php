@@ -25,12 +25,14 @@ enum SkillAuditEvent: string
     case INGEST_CREATED = 'ingest_created';
 
     /**
-     * An existing skill re-synced with unchanged body.
+     * An existing skill re-synced with an unchanged version, or a changed
+     * version of a skill that was not enabled.
      */
     case INGEST_UPDATED = 'ingest_updated';
 
     /**
-     * An enabled skill auto-disabled because its body checksum changed.
+     * An enabled skill auto-disabled because its version changed: the body or
+     * a frontmatter field the version digest covers (ADR-214 item 1).
      */
     case INGEST_DISABLED_ON_CHANGE = 'ingest_disabled_on_change';
 
@@ -58,6 +60,29 @@ enum SkillAuditEvent: string
      * Ingest force-disabled a skill on a high-confidence injection finding.
      */
     case INJECTION_BLOCKED = 'injection_blocked';
+
+    /**
+     * An administrator approved one version (digest) of a skill as an
+     * instruction (ADR-214 item 2).
+     */
+    case VERSION_APPROVED = 'version_approved';
+
+    /**
+     * An administrator revoked the approvals of one version (digest).
+     */
+    case VERSION_REVOKED = 'version_revoked';
+
+    /**
+     * An approval was refused: the version the approver saw is no longer the
+     * current one, or the record failed its integrity check.
+     */
+    case VERSION_APPROVAL_REFUSED = 'version_approval_refused';
+
+    /**
+     * The version-digest upgrade wizard found stored fields that do not match
+     * what the sync wrote, disabled the skill and left it without a digest.
+     */
+    case VERSION_DIGEST_UNVERIFIED = 'version_digest_unverified';
 
     /**
      * @return list<string>

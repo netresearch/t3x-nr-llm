@@ -9,10 +9,10 @@
 ADR-036: Skill injection (attach + compose into prompts)
 ==================================================================
 
-:Status: Accepted (item 3 and the tail drop of item 5 are to stop applying to
-    skill versions approved as instructions, and the item 6 integrity check is
-    to compare a version digest over body and frontmatter fields, kept in a new
-    column — decided by :ref:`ADR-214 <adr-214>`, not yet implemented)
+:Status: Accepted (item 3 and the tail drop of item 5 no longer apply to
+    skill versions approved as instructions, and the item 6 integrity check
+    compares a version digest over body and frontmatter fields, kept in a new
+    column — decided by :ref:`ADR-214 <adr-214>`, implemented)
 :Date: 2026-06-28
 :Amended: 2026-10-08 by :ref:`ADR-214 <adr-214>`
 :Authors: Netresearch DTT GmbH

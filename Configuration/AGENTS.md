@@ -49,7 +49,7 @@ New tables get a per-table file directly under `TCA/`; nr_llm does not extend fo
 
 ### Database Tables
 
-`ext_tables.sql` is the authoritative list (26 tables as of 2026-09-25). The core entities:
+`ext_tables.sql` is the authoritative list (27 tables as of 2026-10-09, `grep -c "^CREATE TABLE" ext_tables.sql`). The core entities:
 
 | Table | Purpose |
 |-------|---------|
@@ -59,7 +59,7 @@ New tables get a per-table file directly under `TCA/`; nr_llm does not extend fo
 | `tx_nrllm_task` | Predefined task templates (+ `_skill_mm` join) |
 | `tx_nrllm_user_budget` | Per-user AI spending ceilings |
 | `tx_nrllm_service_usage` | Usage/cost tracking rows |
-| `tx_nrllm_skill`, `tx_nrllm_skill_source` | Skills and their sources (+ `tx_nrllm_skill_audit`) |
+| `tx_nrllm_skill`, `tx_nrllm_skill_source` | Skills and their sources (+ `tx_nrllm_skill_audit`, `tx_nrllm_skill_approval`) |
 | `tx_nrllm_promptsnippet` | Reusable prompt snippets |
 | `tx_nrllm_glossary` | Translation glossaries per site and language pair (ADR-208) |
 | `tx_nrllm_mcp_server`, `tx_nrllm_mcp_tool` | MCP server/tool registry |

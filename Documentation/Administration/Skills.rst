@@ -138,10 +138,12 @@ Syncing and the review flow
    created **disabled by default**. Review each one, then toggle it on
    with :guilabel:`Enable`.
 4. **Re-sync never silently changes an enabled skill.** If a re-sync
-   recomputes a different ``body_checksum`` for an enabled skill, nr-llm
-   **auto-disables it** and surfaces a diff (:guilabel:`Review changes`)
-   so you re-confirm before it is used again. Accepting the diff re-pins
-   the SHA atomically.
+   brings a different version of an enabled skill, nr-llm **auto-disables
+   it** so you re-confirm before it is used again. A version is the body
+   *and* the frontmatter fields the model reads — name, description,
+   support status, ``allowed-tools`` and the ``process`` marker — so a
+   frontmatter-only change upstream, such as a widened ``allowed-tools``,
+   disables the skill as well (:ref:`ADR-214 <adr-214>`).
 5. A skill that disappeared upstream is marked **orphaned and disabled**,
    never silently dropped, so attachments (Plan 1b) do not vanish.
 
@@ -213,15 +215,91 @@ Composition rules:
 - **Budget.** The block is bounded by a conservative character budget;
   when it is exceeded, task-additive skills are dropped before
   configuration-baseline skills and each drop is logged.
-- **Integrity.** Each skill's body checksum is re-verified at injection
-  time; a mismatch (tampering or a stale row) drops that skill — it is
-  never injected.
+- **Integrity.** Each skill's version digest — over the body and the
+  frontmatter fields the model reads — is recomputed from the stored fields at
+  injection time; a mismatch (tampering or a stale row) drops that skill — it
+  is never injected. A row synced before the digest existed is checked
+  against its body checksum until the upgrade wizard or a sync writes its
+  digest. Name, description and body are therefore read-only in FormEngine.
+- **Process skills.** A skill whose frontmatter sets ``process: true`` is
+  never composed from an attachment; it is skipped with a warning.
 - **Untrusted output.** Skill prose is third-party text; output produced
   under its influence is treated as untrusted and escaped/sanitized where
   it is stored or rendered. Message role is defense-in-depth, not a trust
   boundary.
 
 See :ref:`ADR-036 <adr-036>` for the injection design.
+
+.. _administration-skills-approval:
+
+Approving a skill version as an instruction
+===========================================
+
+By default every skill is untrusted reference data: it is fenced in the user
+message and the model is told not to follow it as instructions. An
+administrator can approve one **version** of a skill so that it is composed
+into the **system message** as an instruction of the installation, behind the
+configuration's own prompt and snippets — or appended to the caller's system
+message when the caller sends one (:ref:`ADR-214 <adr-214>`).
+
+1. In the :guilabel:`Skills` list, click the check-mark action of a skill.
+   The review page shows the current version, its version digest, the
+   source's trust level and the instruction trust level, and — once a version
+   was approved — the diff against the most recent approved version.
+2. Click :guilabel:`Approve this version`. The form sends the digest it
+   showed; if the skill changed in the meantime, the approval is refused and
+   the page shows the new state.
+3. To withdraw an approval, click :guilabel:`Revoke this version` in the
+   approval history. A revoked version becomes an instruction again only
+   through a new approval, never because a sync brought the same text back.
+
+A version instructs only while **both** hold:
+
+- an unrevoked approval names exactly this version (digest) of this skill
+  from its current source — any change to the body or a covered frontmatter
+  field, or moving the skill to another source, needs a new approval; and
+- the source record's trust level is at or above
+  ``skills.instructionTrustLevel`` (extension configuration, default
+  ``verified``). A value below ``skills.minTrustLevel`` is read as that
+  minimum; a value nobody can read is read as ``first_party``. The level is
+  read from the source record at every composition, so re-classifying a
+  source takes effect at once. A hidden or disabled source vouches for
+  nothing.
+
+A run that waits for a human — for a write approval or for typed input —
+keeps the approved versions it was composed with. Before it continues, it
+checks each of them again: if the approval was revoked, the skill was deleted,
+disabled, hidden or orphaned, or the source fell below ``skills.instructionTrustLevel`` in the
+meantime, the run stops with an error that names the skill and the reason, and
+no pending call executes. Start a new run to continue without that
+instruction.
+
+The fields that decide this — on a skill its source, trust level, checksums,
+version digest, enabled and hidden flags, allowed tools, support status,
+orphan flag and stored frontmatter; on a source its type, trust level, hidden
+and enabled flags, URL, ref, pinned SHA, expected fingerprint and access
+token — are :guilabel:`exclude` fields. A non-admin group reaches them only
+when an administrator grants them under :guilabel:`Allowed excludefields`.
+
+A version that contains characters a browser renders as nothing but a model
+reads — Unicode tag characters, zero-width and direction marks, no-break
+spaces and similar — cannot be approved: the approval would bind to text the
+approver did not see. The review page lists each such character with its field,
+line and code point. Remove them at the source and sync again.
+
+Approving and revoking is restricted to administrators. Every approval,
+revocation and refused approval is written to the skill audit trail with the
+version digest it concerns. A skill without a version digest yet (synced
+before the upgrade, and not yet migrated) cannot be approved: run the upgrade
+wizard :guilabel:`Write the version digest onto existing skills` or sync its
+source first.
+
+.. warning::
+
+   An approved skill is an instruction with the acting user's reach: it can
+   steer which tools the model calls, within the run's allow-list and the
+   user's TYPO3 permissions. Write tools still need a human approval for every
+   call; no skill can switch that off.
 
 .. _administration-skills-isolation:
 

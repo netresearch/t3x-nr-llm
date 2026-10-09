@@ -678,6 +678,7 @@ Netresearch\NrLlm\Domain\Model\Skill (class)
   method getInjectionScan(): string
   method getIsEnabled(): bool
   method getIsOrphaned(): bool
+  method getIsProcess(): bool
   method getName(): string
   method getRawFrontmatter(): string
   method getRawFrontmatterArray(): array
@@ -688,9 +689,11 @@ Netresearch\NrLlm\Domain\Model\Skill (class)
   method getTrustLevel(): string
   method getTrustLevelEnum(): Netresearch\NrLlm\Domain\Enum\SkillTrustLevel
   method getUnsupportedNotes(): string
+  method getVersionDigest(): string
   method hasInjectionFindings(): bool
   method isEnabled(): bool
   method isOrphaned(): bool
+  method isProcess(): bool
   method setAllowedTools(string $allowedTools): void
   method setBody(string $body): void
   method setBodyChecksum(string $bodyChecksum): void
@@ -701,12 +704,14 @@ Netresearch\NrLlm\Domain\Model\Skill (class)
   method setInjectionScan(string $injectionScan): void
   method setName(string $name): void
   method setOrphaned(bool $orphaned): void
+  method setProcess(bool $process): void
   method setRawFrontmatter(string $rawFrontmatter): void
   method setSource(int $source): void
   method setSourceSha(string $sourceSha): void
   method setSupportStatus(string $supportStatus): void
   method setTrustLevel(string $trustLevel): void
   method setUnsupportedNotes(string $unsupportedNotes): void
+  method setVersionDigest(string $versionDigest): void
 
 Netresearch\NrLlm\Domain\Model\StructuredCompletionResponse (class)
   constructor(array $data, Netresearch\NrLlm\Domain\Model\CompletionResponse $response, Netresearch\NrLlm\Domain\Model\UsageStatistics $usage, int $attempts)
@@ -1044,6 +1049,16 @@ Netresearch\NrLlm\Domain\ValueObject\RoutingSummary (class)
   property readonly qualitySignalUsed: bool
   property readonly rejectionReasons: array
 
+Netresearch\NrLlm\Domain\ValueObject\SkillPin (class)
+  constructor(int $skillUid, int $sourceUid, string $versionDigest)
+  method static fromArray(mixed $data): ?self
+  method static listFrom(mixed $data): array
+  method static listToArray(array $pins): array
+  method toArray(): array
+  property readonly skillUid: int
+  property readonly sourceUid: int
+  property readonly versionDigest: string
+
 Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList (class)
   constructor(?array $toolNames)
   method intersect(self $other): self
@@ -1052,11 +1067,12 @@ Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList (class)
   property readonly toolNames: ?array
 
 Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
-  constructor(array $messages, array $pendingCalls, int $iterations, int $promptTokens, int $completionTokens, ?array $allowedToolNames = …, array $options = …, ?string $inputToolName = …, array $inputSchema = …, array $callPreviews = …, array $forcedSnippetUids = …, array $forcedSkillUids = …, array $staleCallIndexes = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …)
+  constructor(array $messages, array $pendingCalls, int $iterations, int $promptTokens, int $completionTokens, ?array $allowedToolNames = …, array $options = …, ?string $inputToolName = …, array $inputSchema = …, array $callPreviews = …, array $forcedSnippetUids = …, array $forcedSkillUids = …, array $staleCallIndexes = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …, array $skillPins = …)
   method isInputPause(): bool
   method static fromArray(array $data): self
   method toArray(): array
   method toolCalls(): array
+  method withSkillPins(array $skillPins): self
   property readonly allowedToolNames: ?array
   property readonly callPreviews: array
   property readonly completionTokens: int
@@ -1070,6 +1086,7 @@ Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
   property readonly pendingCalls: array
   property readonly promptTokens: int
   property readonly skillAllowList: ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList
+  property readonly skillPins: array
   property readonly staleCallIndexes: array
 
 Netresearch\NrLlm\Domain\ValueObject\ToolArtifact (class)
@@ -1171,6 +1188,12 @@ Netresearch\NrLlm\Exception\GuardrailViolationException (class)
 Netresearch\NrLlm\Exception\InvalidArgumentException (class)
 
 Netresearch\NrLlm\Exception\NrLlmExceptionInterface (interface)
+
+Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException (class)
+  constructor(Netresearch\NrLlm\Domain\ValueObject\SkillPin $pin, string $skillName, string $reason)
+  property readonly pin: Netresearch\NrLlm\Domain\ValueObject\SkillPin
+  property readonly reason: string
+  property readonly skillName: string
 
 Netresearch\NrLlm\Exception\StructuredResponseMismatchException (class)
 

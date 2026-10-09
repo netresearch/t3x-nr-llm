@@ -158,6 +158,11 @@
                                                         <f:else><core:icon identifier="actions-toggle-off" size="small" /></f:else>
                                                     </f:if>
                                                 </button>
+                                                <f:link.action action="review" controller="Backend\SkillApproval" arguments="{skill: skill.uid}" class="btn btn-default"
+                                                               title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.review', default: 'Review and approve versions')}"
+                                                               aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.review', default: 'Review and approve versions')}">
+                                                    <core:icon identifier="actions-check" size="small" />
+                                                </f:link.action>
                                             </div>
                                         </td>
                                     </tr>

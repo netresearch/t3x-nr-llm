@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Task;
 
+use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
 use Netresearch\NrLlm\Domain\Enum\SupportStatus;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -18,12 +19,17 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
+use Netresearch\NrLlm\Service\ConfigurationCallPlanner;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
+use Netresearch\NrLlm\Service\Skill\SkillInstructionPolicy;
+use Netresearch\NrLlm\Service\Skill\SkillVersionDigest;
 use Netresearch\NrLlm\Service\Task\TaskExecutionService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\FixedSkillSourceLookup;
+use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\InMemorySkillApprovalRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -89,6 +95,64 @@ final class TaskExecutionServiceTest extends AbstractUnitTestCase
         self::assertSame($this->seenCorrelationId, $result->correlationId);
 
         self::assertSame('result', $result->content);
+    }
+
+    /**
+     * ADR-214 item 2: an approved task skill's instruction section goes to the
+     * planner through the option overrides, never into the prompt.
+     */
+    #[Test]
+    public function approvedInstructionsTravelAsAnOverrideNotInThePrompt(): void
+    {
+        $skill = new Skill();
+        $skill->_setProperty('uid', 6);
+        $skill->setSource(1);
+        $skill->setIdentifier('task-skill');
+        $skill->setName('Task Skill');
+        $skill->setBody('Use bullet points.');
+        $skill->setBodyChecksum(hash('sha256', 'Use bullet points.'));
+        $skill->setSupportStatus('full');
+        $skill->setEnabled(true);
+        $skill->setVersionDigest(SkillVersionDigest::of($skill));
+
+        $approvals = new InMemorySkillApprovalRepository();
+        $approvals->add(6, 1, $skill->getVersionDigest(), SkillVersionDigest::fieldsOf($skill), 'verified', 1);
+
+        $subject = new TaskExecutionService(
+            $this->llmServiceManager,
+            new SkillInjectionService(
+                new SkillComposer(
+                    SkillComposer::DEFAULT_MAX_BYTES,
+                    SkillTrustLevel::UNTRUSTED,
+                    new SkillInstructionPolicy($approvals, new FixedSkillSourceLookup([1 => SkillTrustLevel::VERIFIED]), SkillTrustLevel::VERIFIED),
+                ),
+                self::createStub(LoggerInterface::class),
+            ),
+        );
+
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('task-config');
+
+        $task = new Task();
+        $task->setPromptTemplate('Analyse {{input}}');
+        $task->setConfiguration($configuration);
+        $task->addSkill($skill);
+
+        $this->llmServiceManager->method('resolveEffectiveConfiguration')->willReturnArgument(0);
+        $this->llmServiceManager->expects(self::once())
+            ->method('completeWithConfiguration')
+            ->with(
+                'Analyse the logs',
+                $configuration,
+                self::anything(),
+                self::callback(static fn(array $overrides): bool => is_string($overrides[ConfigurationCallPlanner::INSTRUCTIONS_OPTION] ?? null)
+                    && str_contains($overrides[ConfigurationCallPlanner::INSTRUCTIONS_OPTION], 'Use bullet points.')),
+            )
+            ->willReturn(new CompletionResponse(content: 'r', model: 'm', usage: new UsageStatistics(1, 1, 2), provider: 'p'));
+
+        $result = $subject->execute($task, 'the logs');
+
+        self::assertSame(['task-skill'], $result->appliedSkills);
     }
 
     #[Test]

@@ -31,6 +31,13 @@ class Skill extends AbstractEntity
 
     protected string $bodyChecksum = '';
 
+    /**
+     * The version digest over body and frontmatter fields (ADR-214 item 1),
+     * ``<format>:<sha256 hex>``. Written by the sync and the version-digest
+     * upgrade wizard; empty on a legacy row that neither has rewritten yet.
+     */
+    protected string $versionDigest = '';
+
     protected string $sourceSha = '';
 
     protected string $rawFrontmatter = '';
@@ -55,6 +62,9 @@ class Skill extends AbstractEntity
     protected string $dataClass = '';
 
     protected string $injectionScan = '';
+
+    /** The process marker of the frontmatter (``process: true``, ADR-214 item 6). */
+    protected bool $process = false;
 
     protected bool $orphaned = false;
 
@@ -118,6 +128,31 @@ class Skill extends AbstractEntity
     public function setBodyChecksum(string $bodyChecksum): void
     {
         $this->bodyChecksum = $bodyChecksum;
+    }
+
+    public function getVersionDigest(): string
+    {
+        return $this->versionDigest;
+    }
+
+    public function setVersionDigest(string $versionDigest): void
+    {
+        $this->versionDigest = $versionDigest;
+    }
+
+    public function isProcess(): bool
+    {
+        return $this->process;
+    }
+
+    public function getIsProcess(): bool
+    {
+        return $this->isProcess();
+    }
+
+    public function setProcess(bool $process): void
+    {
+        $this->process = $process;
     }
 
     public function getSourceSha(): string

@@ -40,8 +40,10 @@ return [
                     support_status,
                     unsupported_notes,
                     allowed_tools,
+                    process,
                     source_sha,
                     body_checksum,
+                    version_digest,
                     raw_frontmatter,
                 --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
                     enabled,
@@ -51,7 +53,13 @@ return [
         ],
     ],
     'columns' => [
+        // The fields marked exclude (ADR-214 item 3) decide what a skill may
+        // say, which tools it grants, whether its approval still holds and
+        // whether it is active.
+        // A group granted tables_modify on skills reaches them only through
+        // an explicit exclude-field grant.
         'hidden' => [
+            'exclude' => true,
             'label' => 'LLL:EXT:core/Resources/Private/Language/locallang_general.xlf:LGL.hidden',
             'config' => [
                 'type' => 'check',
@@ -59,6 +67,7 @@ return [
             ],
         ],
         'source' => [
+            'exclude' => true,
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.source',
             'config' => [
                 'type' => 'number',
@@ -74,6 +83,9 @@ return [
                 'readOnly' => true,
             ],
         ],
+        // name, description and body are part of the version digest (ADR-214
+        // item 1) and written by the sync: an edit here fails the compose-time
+        // integrity check, so FormEngine shows them read-only.
         'name' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.name',
             'config' => [
@@ -82,6 +94,7 @@ return [
                 'max' => 255,
                 'trim' => true,
                 'required' => true,
+                'readOnly' => true,
             ],
         ],
         'description' => [
@@ -90,6 +103,7 @@ return [
                 'type' => 'text',
                 'cols' => 40,
                 'rows' => 3,
+                'readOnly' => true,
             ],
         ],
         'body' => [
@@ -98,10 +112,12 @@ return [
                 'type' => 'text',
                 'cols' => 80,
                 'rows' => 12,
+                'readOnly' => true,
                 'searchable' => false,
             ],
         ],
         'body_checksum' => [
+            'exclude' => true,
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.body_checksum',
             'config' => [
                 'type' => 'input',
@@ -109,6 +125,30 @@ return [
                 'max' => 64,
                 'readOnly' => true,
                 'searchable' => false,
+            ],
+        ],
+        // Sync-managed (ADR-214 item 1): the digest over body and frontmatter
+        // fields that approvals, revocations and pins name.
+        'version_digest' => [
+            'exclude' => true,
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.version_digest',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.version_digest.description',
+            'config' => [
+                'type' => 'input',
+                'size' => 50,
+                'max' => 80,
+                'readOnly' => true,
+                'searchable' => false,
+            ],
+        ],
+        // Sync-managed (ADR-214 item 6): the frontmatter's process marker.
+        'process' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.process',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.process.description',
+            'config' => [
+                'type' => 'check',
+                'default' => 0,
+                'readOnly' => true,
             ],
         ],
         'source_sha' => [
@@ -122,6 +162,7 @@ return [
             ],
         ],
         'raw_frontmatter' => [
+            'exclude' => true,
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.raw_frontmatter',
             'config' => [
                 'type' => 'text',
@@ -155,6 +196,7 @@ return [
             ],
         ],
         'trust_level' => [
+            'exclude' => true,
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.trust_level',
             'config' => [
                 'type' => 'select',
@@ -180,6 +222,7 @@ return [
             ],
         ],
         'support_status' => [
+            'exclude' => true,
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.support_status',
             'config' => [
                 'type' => 'select',
@@ -203,6 +246,7 @@ return [
             ],
         ],
         'allowed_tools' => [
+            'exclude' => true,
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.allowed_tools',
             'config' => [
                 'type' => 'text',
@@ -213,6 +257,7 @@ return [
             ],
         ],
         'orphaned' => [
+            'exclude' => true,
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.orphaned',
             'config' => [
                 'type' => 'check',
@@ -220,6 +265,7 @@ return [
             ],
         ],
         'enabled' => [
+            'exclude' => true,
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.enabled',
             'config' => [
                 'type' => 'check',

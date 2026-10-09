@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\CallMetadataFactory;
+use Netresearch\NrLlm\Service\ConfigurationCallPlanner;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
@@ -71,11 +72,21 @@ final readonly class TaskExecutionService implements TaskExecutionServiceInterfa
         $configSkills = $configuration instanceof LlmConfiguration
             ? SkillInjectionService::toList($configuration->getSkills())
             : [];
-        [$prompt, $appliedSkills] = $this->skillInjection->augmentPromptWithReport(
+        $injected = $this->skillInjection->composeIntoPrompt(
             $prompt,
             $configSkills,
             SkillInjectionService::toList($task->getSkills()),
         );
+        $prompt        = $injected['prompt'];
+        $appliedSkills = $injected['included'];
+        // Approved instruction sections (ADR-214 item 2) belong behind the
+        // configuration's system prompt, never in the prompt, which is the
+        // user turn. The planner appends them there. Without a resolvable
+        // configuration they are not sent, and nothing else is either: the
+        // fallback below raises "no provider specified" (see there).
+        $overrides = $injected['instructions'] !== ''
+            ? [ConfigurationCallPlanner::INSTRUCTIONS_OPTION => $injected['instructions']]
+            : [];
 
         // A JSON task gets real JSON mode (ADR-128) instead of hoping the
         // prompt says so. The appended instruction is load-bearing twice: it
@@ -96,6 +107,7 @@ final readonly class TaskExecutionService implements TaskExecutionServiceInterfa
         $fallbackOptions = new ChatOptions();
         if ($jsonOutput) {
             $fallbackOptions = $fallbackOptions->withResponseFormat('json');
+            $overrides['response_format'] = 'json';
         }
 
         if ($beUserUid !== null && $beUserUid > 0) {
@@ -115,7 +127,7 @@ final readonly class TaskExecutionService implements TaskExecutionServiceInterfa
                 $prompt,
                 $configuration,
                 $metadata + $this->callMetadata->correlation($correlationId),
-                $jsonOutput ? ['response_format' => 'json'] : [],
+                $overrides,
             )
             : $this->llmServiceManager->complete($prompt, $fallbackOptions->withCorrelationId($correlationId));
 

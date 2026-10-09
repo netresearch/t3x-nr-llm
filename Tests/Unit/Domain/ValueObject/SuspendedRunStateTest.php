@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Domain\ValueObject;
 
+use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -317,6 +318,87 @@ final class SuspendedRunStateTest extends TestCase
         ];
 
         self::assertSame([], SuspendedRunState::fromArray($data)->staleCallIndexes);
+    }
+
+    #[Test]
+    public function skillPinsSurviveTheRoundTrip(): void
+    {
+        $pins  = [new SkillPin(3, 1, '1:' . str_repeat('a', 64)), new SkillPin(4, 2, '1:' . str_repeat('b', 64))];
+        $state = new SuspendedRunState([['role' => 'user', 'content' => 'go']], [], 1, 0, 0, skillPins: $pins);
+
+        self::assertEquals($pins, SuspendedRunState::fromArray($state->toArray())->skillPins);
+    }
+
+    /**
+     * A run suspended before ADR-214 item 6 holds no pins: its transcript was
+     * composed without approved instructions, so there is nothing to re-check.
+     */
+    #[Test]
+    public function aRowWrittenBeforePinsExistedRehydratesWithNone(): void
+    {
+        $data = ['messages' => [['role' => 'user', 'content' => 'go']], 'pendingCalls' => [], 'iterations' => 1];
+
+        self::assertSame([], SuspendedRunState::fromArray($data)->skillPins);
+    }
+
+    /**
+     * Fail closed: a damaged entry becomes a pin no approval can match, so the
+     * resume stops instead of continuing with fewer checks.
+     */
+    #[Test]
+    public function aMalformedPinBecomesAPinThatNeverHolds(): void
+    {
+        $data = [
+            'messages'     => [['role' => 'user', 'content' => 'go']],
+            'pendingCalls' => [],
+            'iterations'   => 1,
+            'skillPins'    => [['skill' => 3, 'source' => 1, 'digest' => '1:x'], ['skill' => '3', 'source' => 1, 'digest' => 'd'], 'nonsense'],
+        ];
+
+        self::assertEquals(
+            [new SkillPin(3, 1, '1:x'), new SkillPin(0, 0, ''), new SkillPin(0, 0, '')],
+            SuspendedRunState::fromArray($data)->skillPins,
+        );
+    }
+
+    #[Test]
+    public function aStoredPinValueThatIsNotAListNeverHolds(): void
+    {
+        $data = ['messages' => [['role' => 'user', 'content' => 'go']], 'pendingCalls' => [], 'iterations' => 1, 'skillPins' => 'nonsense'];
+
+        self::assertEquals([new SkillPin(0, 0, '')], SuspendedRunState::fromArray($data)->skillPins);
+    }
+
+    /**
+     * withSkillPins() rebuilds the state positionally, so every other field
+     * must come through unchanged — a dropped field here would silently lose
+     * part of a suspended run on its second suspend.
+     */
+    #[Test]
+    public function withSkillPinsChangesNothingElse(): void
+    {
+        $state = new SuspendedRunState(
+            messages: [['role' => 'user', 'content' => 'go']],
+            pendingCalls: [['id' => 'c1', 'name' => 'attach_file', 'arguments' => ['uid' => 7]]],
+            iterations: 2,
+            promptTokens: 5,
+            completionTokens: 3,
+            allowedToolNames: ['attach_file'],
+            options: ['temperature' => 0.4],
+            inputToolName: 'ask_user',
+            inputSchema: ['type' => 'object'],
+            callPreviews: [['index' => 0, 'tool' => 'attach_file', 'lines' => ['x'], 'failed' => false]],
+            forcedSnippetUids: [11],
+            forcedSkillUids: [12],
+            staleCallIndexes: [0],
+            skillAllowList: new SkillToolAllowList(['attach_file']),
+        );
+        $pins = [new SkillPin(3, 1, '1:x')];
+
+        $expected              = $state->toArray();
+        $expected['skillPins'] = SkillPin::listToArray($pins);
+
+        self::assertSame($expected, $state->withSkillPins($pins)->toArray());
     }
 
     /**

@@ -1451,6 +1451,214 @@
                 <source>never</source>
                 <target>nie</target>
             </trans-unit>
+            <trans-unit id="skill.action.review">
+                <source>Review and approve versions</source>
+                <target>Versionen prüfen und freigeben</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.title">
+                <source>Review skill version</source>
+                <target>Skill-Version prüfen</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.back">
+                <source>Back to skills</source>
+                <target>Zurück zu den Skills</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.intro">
+                <source>An approved version is composed into the system message as an instruction of this installation, when its source is classified at or above the instruction trust level. Every other version stays fenced in the user message as untrusted reference data. An approval names exactly the version shown on this page; any later change to the body or a frontmatter field the model reads needs a new approval.</source>
+                <target>Eine freigegebene Version wird als Anweisung dieser Installation in die Systemnachricht aufgenommen, wenn ihre Quelle mindestens auf der Vertrauensstufe für Anweisungen eingestuft ist. Jede andere Version bleibt als nicht vertrauenswürdiges Referenzmaterial abgegrenzt in der Benutzernachricht. Eine Freigabe gilt genau für die hier gezeigte Version; jede spätere Änderung am Inhalt oder an einem Frontmatter-Feld, das das Modell liest, braucht eine neue Freigabe.</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.state.integrity.title">
+                <source>Integrity check failed</source>
+                <target>Integritätsprüfung fehlgeschlagen</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.state.integrity">
+                <source>The stored fields of this skill are not what the sync wrote. It is skipped on every call and cannot be approved until the next sync rewrites it.</source>
+                <target>Die gespeicherten Felder dieses Skills entsprechen nicht dem, was der Abgleich geschrieben hat. Er wird bei jedem Aufruf übersprungen und kann erst freigegeben werden, wenn der nächste Abgleich ihn neu schreibt.</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.state.legacy.title">
+                <source>No version digest yet</source>
+                <target>Noch keine Versions-Prüfsumme</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.state.legacy">
+                <source>This skill was synced before version digests existed. Run the upgrade wizard or sync its source before it can be approved.</source>
+                <target>Dieser Skill wurde abgeglichen, bevor es Versions-Prüfsummen gab. Führen Sie den Upgrade-Assistenten aus oder gleichen Sie seine Quelle ab, bevor er freigegeben werden kann.</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.state.instruction.title">
+                <source>Instruction</source>
+                <target>Anweisung</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.state.instruction">
+                <source>The current version is approved and its source meets the instruction trust level. It is composed into the system message.</source>
+                <target>Die aktuelle Version ist freigegeben und ihre Quelle erreicht die Vertrauensstufe für Anweisungen. Sie wird in die Systemnachricht aufgenommen.</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.state.provenance.title">
+                <source>Approved, but the source is below the instruction trust level</source>
+                <target>Freigegeben, aber die Quelle liegt unter der Vertrauensstufe für Anweisungen</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.state.provenance">
+                <source>The current version is approved, but its source is classified below the instruction trust level. It stays fenced until the source is re-classified or the level is lowered.</source>
+                <target>Die aktuelle Version ist freigegeben, aber ihre Quelle ist unter der Vertrauensstufe für Anweisungen eingestuft. Sie bleibt abgegrenzt, bis die Quelle neu eingestuft oder die Stufe gesenkt wird.</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.state.fenced.title">
+                <source>Not approved</source>
+                <target>Nicht freigegeben</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.state.fenced">
+                <source>No unrevoked approval names the current version. It is composed as fenced, untrusted reference data.</source>
+                <target>Keine gültige Freigabe nennt die aktuelle Version. Sie wird als abgegrenztes, nicht vertrauenswürdiges Referenzmaterial aufgenommen.</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.field.identifier">
+                <source>Identifier</source>
+                <target>Kennung</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.field.provenance">
+                <source>Source trust level</source>
+                <target>Vertrauensstufe der Quelle</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.field.provenance.missing">
+                <source>source not found</source>
+                <target>Quelle nicht gefunden</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.field.threshold">
+                <source>Instruction trust level</source>
+                <target>Vertrauensstufe für Anweisungen</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.field.digest">
+                <source>Current version digest</source>
+                <target>Aktuelle Versions-Prüfsumme</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.field.process">
+                <source>Process skill</source>
+                <target>Prozess-Skill</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.field.support">
+                <source>Support status</source>
+                <target>Unterstützungsstatus</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.field.tools">
+                <source>Allowed tools</source>
+                <target>Erlaubte Werkzeuge</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.field.tools.none">
+                <source>no declaration</source>
+                <target>keine Angabe</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.field.tools.empty">
+                <source>declared empty: no tools</source>
+                <target>leer angegeben: keine Werkzeuge</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.field.name">
+                <source>Name</source>
+                <target>Name</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.field.description">
+                <source>Description</source>
+                <target>Beschreibung</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.yes">
+                <source>yes</source>
+                <target>ja</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.no">
+                <source>no</source>
+                <target>nein</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.body">
+                <source>Current version</source>
+                <target>Aktuelle Version</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.diff">
+                <source>Changes since the most recent approved version</source>
+                <target>Änderungen seit der zuletzt freigegebenen Version</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.diff.base">
+                <source>Compared with the version approved on</source>
+                <target>Verglichen mit der Version, freigegeben am</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.approve">
+                <source>Approve this version</source>
+                <target>Diese Version freigeben</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.revoke">
+                <source>Revoke this version</source>
+                <target>Diese Version widerrufen</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.history">
+                <source>Approvals</source>
+                <target>Freigaben</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.history.digest">
+                <source>Version digest</source>
+                <target>Versions-Prüfsumme</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.history.approved">
+                <source>Approved</source>
+                <target>Freigegeben</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.history.trust">
+                <source>Source trust level then</source>
+                <target>Damalige Vertrauensstufe der Quelle</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.history.state">
+                <source>State</source>
+                <target>Status</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.history.revoked">
+                <source>Revoked</source>
+                <target>Widerrufen</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.history.active">
+                <source>Active</source>
+                <target>Gültig</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.history.empty">
+                <source>No version of this skill has been approved yet.</source>
+                <target>Bisher wurde keine Version dieses Skills freigegeben.</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.flash.unknownSkill">
+                <source>This skill does not exist.</source>
+                <target>Diesen Skill gibt es nicht.</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.flash.approved">
+                <source>The version was approved.</source>
+                <target>Die Version wurde freigegeben.</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.flash.refused_stale">
+                <source>Not approved: the skill changed since the page was shown. Review the current version below.</source>
+                <target>Nicht freigegeben: Der Skill hat sich geändert, seit die Seite angezeigt wurde. Prüfen Sie unten die aktuelle Version.</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.flash.refused_integrity">
+                <source>Not approved: the stored fields of this skill are not what the sync wrote.</source>
+                <target>Nicht freigegeben: Die gespeicherten Felder dieses Skills entsprechen nicht dem, was der Abgleich geschrieben hat.</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.flash.refused_legacy">
+                <source>Not approved: this skill has no version digest yet. Run the upgrade wizard or sync its source first.</source>
+                <target>Nicht freigegeben: Dieser Skill hat noch keine Versions-Prüfsumme. Führen Sie zuerst den Upgrade-Assistenten aus oder gleichen Sie seine Quelle ab.</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.flash.refused_orphaned">
+                <source>Not approved: the skill no longer exists at its source.</source>
+                <target>Nicht freigegeben: Den Skill gibt es in seiner Quelle nicht mehr.</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.flash.refused_invisible">
+                <source>Not approved: the version contains characters the model reads and this page cannot show.</source>
+                <target>Nicht freigegeben: Die Version enthält Zeichen, die das Modell liest, diese Seite aber nicht anzeigen kann.</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.state.invisible.title">
+                <source>Contains characters this page cannot show</source>
+                <target>Enthält Zeichen, die diese Seite nicht anzeigen kann</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.state.invisible">
+                <source>The model reads these characters, but a browser renders them as nothing, so the text below is not all the model would be told. This version cannot be approved. Remove the characters at the source and sync again.</source>
+                <target>Das Modell liest diese Zeichen, ein Browser stellt sie aber nicht dar. Der Text unten ist daher nicht alles, was dem Modell gesagt würde. Diese Version kann nicht freigegeben werden. Entfernen Sie die Zeichen in der Quelle und synchronisieren Sie erneut.</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.flash.revoked">
+                <source>The approvals of this version were revoked.</source>
+                <target>Die Freigaben dieser Version wurden widerrufen.</target>
+            </trans-unit>
+            <trans-unit id="skill.approval.flash.nothingRevoked">
+                <source>This version had no active approval to revoke.</source>
+                <target>Diese Version hatte keine gültige Freigabe, die widerrufen werden konnte.</target>
+            </trans-unit>
             <trans-unit id="skill.action.sync">
                 <source>Sync</source>
                 <target>Synchronisieren</target>

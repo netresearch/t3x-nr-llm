@@ -115,45 +115,104 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
     private CallMetadataFactory $metadata;
 
     /**
-     * Prepend the resolved configuration's attached skills to a plain prompt.
+     * Compose the resolved configuration's attached skills into a plain
+     * prompt.
      *
      * Used only by the configuration-driven entry points (complete()/chat()/
      * streamChat()) once a backend-managed default configuration has been
      * resolved — never by embed()/vision()/speech, keeping skill injection
      * scoped to text generation. A no-op when no SkillInjectionService is
      * wired (unit-test constructions that omit it).
+     *
+     * The fenced block is prepended to the prompt. Approved instruction
+     * sections (ADR-214 item 2) go into the option overrides, which the
+     * planner appends behind the configuration's system prompt and its
+     * snippet block.
+     *
+     * @param array<string, mixed> $optionOverrides
+     *
+     * @return array{0: string, 1: array<string, mixed>} the prompt and the overrides to send with it
      */
-    private function injectConfigSkillsIntoPrompt(string $prompt, LlmConfiguration $configuration): string
+    private function injectConfigSkillsIntoPrompt(string $prompt, LlmConfiguration $configuration, array $optionOverrides): array
     {
         if (!$this->skillInjection instanceof SkillInjectionService) {
-            return $prompt;
+            return [$prompt, $optionOverrides];
         }
 
-        return $this->skillInjection->augmentPrompt(
+        $injected = $this->skillInjection->composeIntoPrompt(
             $prompt,
             SkillInjectionService::toList($configuration->getSkills()),
         );
+
+        return [$injected['prompt'], $this->withSkillInstructions($optionOverrides, $injected['instructions'])];
     }
 
     /**
-     * Prepend the resolved configuration's attached skills to the first
-     * user-role message (system role untouched). See
-     * {@see self::injectConfigSkillsIntoPrompt()} for the scope rationale.
+     * Compose the resolved configuration's attached skills into a message
+     * list. See {@see self::injectConfigSkillsIntoPrompt()} for the scope
+     * rationale.
+     *
+     * The fenced block goes into the first user-role message. Approved
+     * instruction sections (ADR-214 item 2) are appended to the caller's own
+     * system message when the list carries one before its first user turn,
+     * and to the caller's last system message when it carries one only after
+     * it (the shaping stage then suppresses the configuration prompt, so the
+     * overrides would not be sent); otherwise they go into the option
+     * overrides, so the shaping stage prepends them behind the
+     * configuration's system prompt and its snippets instead of a bare system
+     * message suppressing both.
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param array<string, mixed>                   $optionOverrides
      *
-     * @return list<ChatMessage|array<string, mixed>>
+     * @return array{0: list<ChatMessage|array<string, mixed>>, 1: array<string, mixed>} the messages and the overrides to send with them
      */
-    private function injectConfigSkillsIntoMessages(array $messages, LlmConfiguration $configuration): array
+    private function injectConfigSkillsIntoMessages(array $messages, LlmConfiguration $configuration, array $optionOverrides): array
     {
         if (!$this->skillInjection instanceof SkillInjectionService) {
-            return $messages;
+            return [$messages, $optionOverrides];
         }
 
-        return $this->skillInjection->augmentMessages(
+        $injected = $this->skillInjection->composeIntoMessages(
             $messages,
             SkillInjectionService::toList($configuration->getSkills()),
         );
+
+        // Handed back while the caller sent a system message after its first
+        // user turn: the shaping stage suppresses the configuration prompt the
+        // planner appends them to, so they also join that system message — the
+        // last one, which the adapters that keep a single system message keep
+        // (as long as it is a string; Claude and Gemini drop a part-list system
+        // message, and the instructions with it — fail-closed, as is a caller
+        // that sends a head system message AND a later one to such an adapter).
+        // The override stays: if the context window drops every late system
+        // message, the shaping stage prepends the configuration prompt, and
+        // the instructions travel with it. While any system message survives
+        // the prompt is not sent, so they are never sent twice.
+        if ($injected['instructions'] !== '') {
+            $placed = SkillInjectionService::appendToLastSystemMessage($injected['messages'], $injected['instructions']);
+            if ($placed !== null) {
+                return [$placed, $this->withSkillInstructions($optionOverrides, $injected['instructions'])];
+            }
+        }
+
+        return [$injected['messages'], $this->withSkillInstructions($optionOverrides, $injected['instructions'])];
+    }
+
+    /**
+     * @param array<string, mixed> $optionOverrides
+     *
+     * @return array<string, mixed>
+     */
+    private function withSkillInstructions(array $optionOverrides, string $instructions): array
+    {
+        if ($instructions === '') {
+            return $optionOverrides;
+        }
+
+        $optionOverrides[ConfigurationCallPlanner::INSTRUCTIONS_OPTION] = $instructions;
+
+        return $optionOverrides;
     }
 
     /**
@@ -592,11 +651,13 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // throws (no extension-config fallback; see ADR-034).
         $defaultConfiguration = $this->configurationResolver->resolveDefaultConfiguration($providerKey);
         if ($defaultConfiguration instanceof LlmConfiguration) {
+            [$skilledMessages, $skilledOptions] = $this->injectConfigSkillsIntoMessages($messages, $defaultConfiguration, $optionsArray);
+
             return $this->chatWithConfiguration(
-                $this->injectConfigSkillsIntoMessages($messages, $defaultConfiguration),
+                $skilledMessages,
                 $defaultConfiguration,
                 $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->requestCount($options) + $this->metadata->callerSource($options),
-                $optionsArray,
+                $skilledOptions,
             );
         }
 
@@ -624,11 +685,13 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // Single source of truth: prefer the default DB configuration (see chat()).
         $defaultConfiguration = $this->configurationResolver->resolveDefaultConfiguration($providerKey);
         if ($defaultConfiguration instanceof LlmConfiguration) {
+            [$skilledPrompt, $skilledOptions] = $this->injectConfigSkillsIntoPrompt($prompt, $defaultConfiguration, $optionsArray);
+
             return $this->completeWithConfiguration(
-                $this->injectConfigSkillsIntoPrompt($prompt, $defaultConfiguration),
+                $skilledPrompt,
                 $defaultConfiguration,
                 $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options),
-                $optionsArray,
+                $skilledOptions,
             );
         }
 
@@ -784,10 +847,12 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // same over-budget users the non-streaming path rejects.
         $defaultConfiguration = $this->configurationResolver->resolveDefaultConfiguration($providerKey);
         if ($defaultConfiguration instanceof LlmConfiguration) {
+            [$skilledMessages, $skilledOptions] = $this->injectConfigSkillsIntoMessages($messages, $defaultConfiguration, $optionsArray);
+
             return $this->streamChatWithConfiguration(
-                $this->injectConfigSkillsIntoMessages($messages, $defaultConfiguration),
+                $skilledMessages,
                 $defaultConfiguration,
-                $optionsArray,
+                $skilledOptions,
                 $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->callerSource($options),
             );
         }
@@ -1298,11 +1363,13 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         $options ??= new ChatOptions();
         [, $optionsArray] = $this->splitProviderKey($options->toArray());
 
+        [$skilledMessages, $skilledOptions] = $this->injectConfigSkillsIntoMessages($messages, $configuration, $optionsArray);
+
         return $this->chatWithConfiguration(
-            $this->injectConfigSkillsIntoMessages($messages, $configuration),
+            $skilledMessages,
             $configuration,
             $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options),
-            $optionsArray,
+            $skilledOptions,
             null,
             null,
             $resolution,
@@ -1322,11 +1389,13 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
 
         $messages[] = ChatMessage::user($prompt);
 
+        [$skilledMessages, $skilledOptions] = $this->injectConfigSkillsIntoMessages($messages, $configuration, $optionsArray);
+
         return $this->chatWithConfiguration(
-            $this->injectConfigSkillsIntoMessages($messages, $configuration),
+            $skilledMessages,
             $configuration,
             $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options),
-            $optionsArray,
+            $skilledOptions,
             null,
             null,
             $resolution,

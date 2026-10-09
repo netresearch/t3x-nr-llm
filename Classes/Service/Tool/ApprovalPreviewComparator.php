@@ -246,6 +246,9 @@ final readonly class ApprovalPreviewComparator
             // The run's start-time allow-list stays the upper bound across a
             // re-suspension; dropping it would let the next resume widen.
             $state->skillAllowList,
+            // The instructions the transcript holds stay pinned across the
+            // re-suspension (ADR-214 item 6), so the next resume checks them.
+            $state->skillPins,
         );
     }
 }
