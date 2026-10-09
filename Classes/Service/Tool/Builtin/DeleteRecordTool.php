@@ -194,31 +194,30 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
             ));
         }
 
-        if ($survivors !== [] || $complaints !== '') {
+        if ($survivors !== []) {
             // The record IS deleted, so the answer names it as written even
-            // though part of what should have gone with it did not. Partial
-            // only by the read-back (ADR-214): a complaint of TYPO3 about a
-            // delete whose every record is gone leaves nothing undone.
+            // though part of what should have gone with it did not (ADR-214:
+            // partial by the read-back).
             return ToolResult::text(sprintf(
-                'Deleted %s [%d] "%s", but not completely:%s%s It is flagged deleted and can be restored from the recycler.',
+                'Deleted %s [%d] "%s", but not completely: %s %s still there.%s It is flagged deleted and can be restored from the recycler.',
                 $plan['table'],
                 $plan['uid'],
                 $this->excerpt($plan['label']),
-                $survivors === [] ? '' : ' ' . implode(', ', array_slice($survivors, 0, 10)) . ' ' . (count($survivors) === 1 ? 'is' : 'are') . ' still there.',
+                implode(', ', array_slice($survivors, 0, 10)),
+                count($survivors) === 1 ? 'is' : 'are',
                 $complaints,
-            ))->withWriteTarget(
-                new RecordReference($plan['table'], $plan['uid']),
-                WriteKind::DELETED,
-                $survivors === [] ? WriteCompleteness::COMPLETE : WriteCompleteness::PARTIAL,
-            );
+            ))->withWriteTarget(new RecordReference($plan['table'], $plan['uid']), WriteKind::DELETED, WriteCompleteness::PARTIAL);
         }
 
+        // Everything that should have gone is gone. A complaint of TYPO3
+        // beside it is named, and leaves nothing undone.
         return ToolResult::text(sprintf(
-            'Deleted %s [%d] "%s"%s. It is flagged deleted and can be restored from the recycler.',
+            'Deleted %s [%d] "%s"%s. It is flagged deleted and can be restored from the recycler.%s',
             $plan['table'],
             $plan['uid'],
             $this->excerpt($plan['label']),
             $this->alongWith($plan),
+            $complaints,
         ))->withWriteTarget(new RecordReference($plan['table'], $plan['uid']), WriteKind::DELETED, WriteCompleteness::COMPLETE);
     }
 

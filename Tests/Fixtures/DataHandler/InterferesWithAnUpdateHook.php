@@ -26,7 +26,8 @@ use TYPO3\CMS\Core\DataHandling\DataHandler;
  * - `$dropColumn` removes that column from every update, as a missing grant
  *   would, while the rest of the update is written;
  * - `$complain` adds an entry to the DataHandler's error log while the update
- *   is still written, as a hook that logs and carries on does;
+ *   is still written, as a hook that logs and carries on does — on every
+ *   update, or with `$complainWithField` only on one that writes that field;
  * - `$complainOnCommand` does the same after every command (a move, a
  *   delete) of the cmdmap, which still runs;
  * - `$keepRecord` names one `table:uid` whose delete the hook takes over and
@@ -37,9 +38,9 @@ use TYPO3\CMS\Core\DataHandling\DataHandler;
  *   default-language page moves.
  *
  * Registered per test under
- * `$GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processDatamapClass']`
- * , `processCmdmapClass` and `moveRecordClass`, and removed again in the
- * test's tearDown.
+ * `$GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']`
+ * under `processDatamapClass`, `processCmdmapClass` and `moveRecordClass`,
+ * and removed again in the test's tearDown.
  */
 final class InterferesWithAnUpdateHook
 {
@@ -48,6 +49,8 @@ final class InterferesWithAnUpdateHook
     public static ?string $dropColumn = null;
 
     public static bool $complain = false;
+
+    public static ?string $complainWithField = null;
 
     public static bool $complainOnCommand = false;
 
@@ -60,6 +63,7 @@ final class InterferesWithAnUpdateHook
         self::$keepVisible       = false;
         self::$dropColumn        = null;
         self::$complain          = false;
+        self::$complainWithField = null;
         self::$complainOnCommand = false;
         self::$keepRecord        = null;
         self::$keepInPlace       = null;
@@ -89,7 +93,7 @@ final class InterferesWithAnUpdateHook
             unset($fieldArray[self::$dropColumn]);
         }
 
-        if (self::$complain) {
+        if (self::$complain && (self::$complainWithField === null || array_key_exists(self::$complainWithField, $fieldArray))) {
             $dataHandler->log($table, (int)$id, 2, null, 1, 'A test hook complains and carries on');
         }
     }

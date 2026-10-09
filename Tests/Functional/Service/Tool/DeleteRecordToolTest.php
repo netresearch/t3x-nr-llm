@@ -203,6 +203,7 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
 
         self::assertFalse($result->isError, $result->content);
         self::assertStringContainsString('TYPO3 reported:', $result->content);
+        self::assertStringNotContainsString('not completely', $result->content);
         self::assertSame(1, $this->deletedOf('tt_content', self::TRANSLATION));
         self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
     }

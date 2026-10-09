@@ -315,7 +315,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
      * is PARTIAL whenever a text field of the draft still holds the copied
      * source text — not translated, only partly translated, or withheld
      * because the acting user may not edit it — and when the text write
-     * failed although every field reads back translated. That failure is
+     * threw although every field reads back translated. That failure is
      * rethrown by the ToolDataHandler and caught here, so the tool loop never
      * sees it and cannot flag it; what the failing code was meant to do is
      * part of the write and did not happen. A source with no text, and a
@@ -400,6 +400,10 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         $copy = $this->fetchRecord($plan['table'], $newUid) ?? [];
 
         $writeFailure = null;
+        // Only a write that THREW leaves the call partial on its own; a
+        // complaint in the error log beside fields that read back translated
+        // is named and leaves nothing undone, as for every other writer.
+        $writeThrew = false;
         try {
             $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
             $dataHandler->start([$plan['table'] => [$newUid => $values]], [], $user);
@@ -412,6 +416,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             // ToolDataHandler; the record exists all the same, and its write
             // target must reach the result (ADR-187).
             $writeFailure = 'the write failed: ' . $this->excerpt($this->sanitizeErrorMessage($e->getMessage()));
+            $writeThrew   = true;
         }
 
         $stored  = $this->fetchRecord($plan['table'], $newUid) ?? [];
@@ -473,7 +478,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         // write that failed did not finish what it started.
         return [
             'sentence'     => $sentence,
-            'completeness' => $withheld === '' && $writeFailure === null ? WriteCompleteness::COMPLETE : WriteCompleteness::PARTIAL,
+            'completeness' => $withheld === '' && !$writeThrew ? WriteCompleteness::COMPLETE : WriteCompleteness::PARTIAL,
         ];
     }
 

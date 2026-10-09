@@ -25,7 +25,9 @@ use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\FailsLikeAFlashMessageHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\InterferesWithAnUpdateHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheFailingHookTrait;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheInterferingHookTrait;
 use Netresearch\NrLlm\Tests\Fixtures\Translation\RecordingTranslator;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -66,6 +68,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
 {
     use AssertsGermanPreviewTrait;
     use RegistersTheFailingHookTrait;
+    use RegistersTheInterferingHookTrait;
 
     /** @var non-empty-string[] */
     protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'frontend'];
@@ -160,6 +163,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
     protected function tearDown(): void
     {
         $this->unregisterFailingHook();
+        $this->unregisterInterferingHook();
         unset($GLOBALS['LANG']);
         parent::tearDown();
     }
@@ -789,6 +793,29 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
             $result->content,
         );
         self::assertSame('[de] Original', $this->translationOf('tt_content', self::ELEMENT, 'l18n_parent')['header'] ?? null);
+    }
+
+    /**
+     * A hook that logs a complaint while the translated text is written and
+     * carries on: every field reads back translated, so the write is complete
+     * (ADR-214), as for every other writer, and the answer names the
+     * complaint.
+     */
+    #[Test]
+    public function aComplaintBesideATranslationThatLandedLeavesItComplete(): void
+    {
+        $context = ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1));
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$complain          = true;
+        InterferesWithAnUpdateHook::$complainWithField = 'header';
+
+        $result = $this->tool->execute(['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN], $context);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('Machine-translated 2 text field(s)', $result->content);
+        self::assertStringContainsString('TYPO3 refused the write', $result->content);
+        self::assertSame('[de] Original', $this->translationOf('tt_content', self::ELEMENT, 'l18n_parent')['header'] ?? null);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
     }
 
     /**

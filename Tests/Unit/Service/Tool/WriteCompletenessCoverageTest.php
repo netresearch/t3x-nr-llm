@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use PhpParser\Node;
+use PhpParser\Node\Expr\Assign;
+use PhpParser\Node\Expr\AssignOp\Coalesce as AssignCoalesce;
 use PhpParser\Node\Expr\BinaryOp\Coalesce;
 use PhpParser\Node\Expr\ConstFetch;
 use PhpParser\Node\Expr\Match_;
@@ -35,14 +37,15 @@ use SplFileInfo;
  * flags that are set, and a branch that forgets one looks like success. So
  * the rule is put on the call instead — every `withWriteTarget(` call under
  * `Classes/` passes a completeness argument, positionally or by name, never
- * through a spread, and no branch of it is the literal `null`: not the
- * argument itself, not a branch of a ternary, the right side of `??` or an
- * arm of a `match`. Any other expression is accepted, because a tool may
+ * through a spread or as a first-class callable, and no branch of it is the
+ * literal `null`: not the argument itself, not a branch of a ternary, the
+ * right side of `??`, an arm of a `match` or the value of an assignment. Any other expression is accepted, because a tool may
  * decide in a helper (`ReplaceFileReferenceTool` decides in
  * `settleTranslations()`).
  *
  * What this cannot see: a variable or a helper whose value is null at run
- * time. The parameter is `?WriteCompleteness` (it must be, ADR-182 freezes the
+ * time, and a call whose method name is itself an expression
+ * (`$r->{$name}(...)`), which it does not recognise as this method. The parameter is `?WriteCompleteness` (it must be, ADR-182 freezes the
  * signature), so neither PHP nor this test refuses that; a helper that
  * decides returns the non-nullable enum, and that return type is what holds
  * it, under PHPStan level 10.
@@ -116,6 +119,9 @@ final class WriteCompletenessCoverageTest extends TestCase
             '$r->withWriteTarget($t, WriteKind::UPDATED, $c ?? null);'                             => 'passes null as the completeness',
             '$r->withWriteTarget($t, WriteKind::UPDATED, match ($x) { 1 => WriteCompleteness::COMPLETE, default => null });' => 'passes null as the completeness',
             '$r->withWriteTarget(...$args);'                                                       => 'spreads its arguments, so the completeness cannot be read',
+            '$r->withWriteTarget(...);'                                                            => 'takes the method as a callable, so no completeness is passed here',
+            '$r->withWriteTarget($t, WriteKind::UPDATED, $c = null);'                              => 'passes null as the completeness',
+            '$r->withWriteTarget($t, WriteKind::UPDATED, $c ??= null);'                            => 'passes null as the completeness',
             '$r->withWriteTarget($t, ...$rest);'                                                   => 'spreads its arguments, so the completeness cannot be read',
             '$r->withWriteTarget($t, WriteKind::UPDATED, $c ?? WriteCompleteness::PARTIAL);'       => null,
             '$r->withWriteTarget($t, WriteKind::UPDATED, WriteCompleteness::PARTIAL);'             => null,
@@ -142,6 +148,10 @@ final class WriteCompletenessCoverageTest extends TestCase
      */
     private function refusal(MethodCall|NullsafeMethodCall $call): ?string
     {
+        if ($call->isFirstClassCallable()) {
+            return 'takes the method as a callable, so no completeness is passed here';
+        }
+
         $argument = null;
         foreach ($call->getArgs() as $position => $arg) {
             if ($arg->unpack) {
@@ -176,6 +186,11 @@ final class WriteCompletenessCoverageTest extends TestCase
 
         if ($expression instanceof Coalesce) {
             return $this->canBeNull($expression->right);
+        }
+
+        // `$c = null` and `$c ??= null` pass the value they assign.
+        if ($expression instanceof Assign || $expression instanceof AssignCoalesce) {
+            return $this->canBeNull($expression->expr);
         }
 
         if ($expression instanceof Match_) {

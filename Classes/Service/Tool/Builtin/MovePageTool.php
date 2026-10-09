@@ -170,13 +170,9 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
             $plan['formerParent'],
             $plan['parent'],
             $plan['afterUid'] > 0 ? sprintf(', after page [%d]', $plan['afterUid']) : '',
-            $complete && $complaints === ''
-                ? ''
-                : sprintf(
-                    ' Not completely:%s%s',
-                    $strayTranslations === [] ? '' : ' translation(s) ' . implode(', ', $strayTranslations) . ' stayed behind.',
-                    $complaints,
-                ),
+            $complete
+                ? $complaints
+                : sprintf(' Not completely: translation(s) %s stayed behind.%s', implode(', ', $strayTranslations), $complaints),
             $plan['slug'] === '' ? '(none)' : $plan['slug'],
         ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::UPDATED, $complete ? WriteCompleteness::COMPLETE : WriteCompleteness::PARTIAL);
     }
