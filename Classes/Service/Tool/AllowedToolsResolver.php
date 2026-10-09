@@ -114,7 +114,7 @@ final readonly class AllowedToolsResolver
 
         $declared = [];
         // Every admitted record, not only the one a (source, identifier) twin
-        // leaves in effect: a renamed identifier cannot drop a restriction.
+        // leaves in effect: a twin cannot drop a restriction.
         $admitted = $this->composer->admittedSkills([...$invokedSkills, ...$this->toList($config->getSkills())], $additionalSkills);
         // An invoked skill that is not admitted (disabled, below the trust
         // floor) grants nothing, and the run is not left unrestricted because
@@ -122,10 +122,12 @@ final readonly class AllowedToolsResolver
         $any = array_diff_key($invoked, array_flip(array_map(spl_object_id(...), $admitted))) !== [];
         // An attached skill the sync orphaned (its identifier is gone upstream,
         // or was renamed in the record) grants nothing and still restricts the
-        // run, as a skill whose source is gone does. A disabled one is an
-        // administrator's decision and drops out.
+        // run, as a skill whose source is gone does — also one without a
+        // declaration. The sync disables what it orphans, so the enable flag
+        // does not exempt an orphan; detaching it does. An invoked orphan is
+        // not admitted and already restricts above.
         foreach ([...$this->toList($config->getSkills()), ...$additionalSkills] as $skill) {
-            if ($skill->isEnabled() && $skill->isOrphaned()) {
+            if ($skill->isOrphaned()) {
                 $any = true;
             }
         }
