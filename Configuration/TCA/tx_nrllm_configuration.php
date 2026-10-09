@@ -8,6 +8,7 @@
 declare(strict_types=1);
 
 use Netresearch\NrLlm\Form\Tca\GuardrailItems;
+use Netresearch\NrLlm\Form\Tca\SkillAttachmentItems;
 use Netresearch\NrLlm\Form\Tca\SnippetTagItems;
 use Netresearch\NrLlm\Form\Tca\ToolGroupItems;
 
@@ -481,7 +482,11 @@ return [
                 'type' => 'select',
                 'renderType' => 'selectMultipleSideBySide',
                 'foreign_table' => 'tx_nrllm_skill',
-                'foreign_table_where' => 'AND {#tx_nrllm_skill}.{#enabled} = 1 AND {#tx_nrllm_skill}.{#orphaned} = 0 ORDER BY tx_nrllm_skill.name',
+                // Every skill; SkillAttachmentItems offers only enabled,
+                // non-orphaned ones for a new attachment and keeps an attached
+                // one whatever its state, labelled (ADR-214 item 3).
+                'foreign_table_where' => 'ORDER BY tx_nrllm_skill.name',
+                'itemsProcFunc' => SkillAttachmentItems::class . '->filterAndLabel',
                 'MM' => 'tx_nrllm_configuration_skill_mm',
                 'size' => 5,
                 'minitems' => 0,

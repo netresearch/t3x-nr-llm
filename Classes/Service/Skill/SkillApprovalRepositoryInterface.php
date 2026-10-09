@@ -43,6 +43,13 @@ interface SkillApprovalRepositoryInterface
     public function findLatestUnrevoked(int $skillUid): ?SkillApproval;
 
     /**
+     * The most recent unrevoked approval of the skill from exactly this
+     * source, whatever its digest, or null. What a backend-authored skill's
+     * tool declaration is read from (ADR-214 item 3).
+     */
+    public function findLatestUnrevokedFromSource(int $skillUid, int $sourceUid): ?SkillApproval;
+
+    /**
      * Every approval of the skill, newest first.
      *
      * @return list<SkillApproval>

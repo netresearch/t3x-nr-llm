@@ -20,7 +20,7 @@ final class SkillSourceTypeTest extends TestCase
     #[Test]
     public function valuesListsAllBackingStrings(): void
     {
-        self::assertSame(['single_file', 'repo', 'marketplace'], SkillSourceType::values());
+        self::assertSame(['single_file', 'repo', 'marketplace', 'backend'], SkillSourceType::values());
     }
 
     #[Test]
@@ -35,5 +35,14 @@ final class SkillSourceTypeTest extends TestCase
     {
         self::assertNull(SkillSourceType::tryFromString('bogus'));
         self::assertSame(SkillSourceType::REPO, SkillSourceType::tryFromString('repo'));
+    }
+
+    #[Test]
+    public function onlyTheBackendSourceIsNotSynced(): void
+    {
+        self::assertFalse(SkillSourceType::BACKEND->isSynced());
+        self::assertTrue(SkillSourceType::SINGLE_FILE->isSynced());
+        self::assertTrue(SkillSourceType::REPO->isSynced());
+        self::assertTrue(SkillSourceType::MARKETPLACE->isSynced());
     }
 }

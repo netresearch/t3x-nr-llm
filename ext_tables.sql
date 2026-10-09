@@ -544,6 +544,12 @@ CREATE TABLE tx_nrllm_skill (
     -- Lifecycle
     orphaned tinyint(1) DEFAULT '0' NOT NULL,
     enabled tinyint(1) DEFAULT '0' NOT NULL,
+    -- Who disabled the skill (ADR-214 item 3): 'sync' (the sync or the
+    -- digest wizard: a change, an injection finding, an orphan, a tampered
+    -- row) or 'admin' (an administrator's decision); empty while enabled or
+    -- for rows from before the field. A skill the sync disabled keeps
+    -- restricting the runs it is attached to.
+    disabled_by varchar(16) DEFAULT '' NOT NULL,
 
     -- Standard TYPO3 fields
     tstamp int(11) unsigned DEFAULT '0' NOT NULL,

@@ -19,15 +19,17 @@ use Netresearch\NrLlm\Service\Skill\SkillComposer;
  * Resolves the effective allowed-tools allow-list for a run.
  *
  * Semantics (fail-closed on declaration): the allow-list is the UNION of the
- * declared lists of every effective skill (config + task, enabled, non-orphaned,
- * trust-gated, deduped — {@see SkillComposer::effectiveSkills()}). A skill that
+ * declared lists of every admitted skill (config + task, enabled, non-orphaned,
+ * trust-gated — {@see SkillComposer::admittedSkills()}). Unlike the injection
+ * path's {@see SkillComposer::effectiveSkills()}, a (source, identifier) twin
+ * is not deduped away here, so it cannot drop a restriction. A skill that
  * declares no `allowed-tools` key (its accessor returns null) contributes no
- * opinion. When NO effective skill declares anything, this returns null meaning
+ * opinion. When NO admitted skill declares anything, this returns null meaning
  * "no skill-imposed restriction" (all registry tools are permitted). When at least
  * one skill declares, the union is returned — and a lone declared empty list yields
  * `[]`, i.e. no tools at all.
  *
- * The union is the same SELECTION the injection path uses, but not necessarily the
+ * The union covers the injection path's selection, but not necessarily the
  * same SET that reaches the prompt: the skill-block byte budget is applied later,
  * in {@see SkillComposer::composeBlock()}, so a budget-dropped skill still grants
  * its tools while its prose does not ship (ADR-036 §5, ADR-038 §5). Counting the
@@ -64,22 +66,26 @@ final readonly class AllowedToolsResolver
 
     /**
      * The run's skill allow-list (ADR-038 item 5): the union over every
-     * effective skill the run carries, resolved once at run start.
+     * admitted skill the run carries, resolved once at run start.
      *
      * `$runSkills` are the run's forced skills. They take the same slot the
-     * injection path gives them ({@see SkillComposer::effectiveSkills()}'s second
-     * argument), so the prose that reaches the prompt and the tools it may call
-     * stay one selection. The group gate is NOT applied here: the list is stored
+     * injection path gives them ({@see SkillComposer::admittedSkills()}'s second
+     * argument), so the tools cover the selection whose prose reaches the
+     * prompt. The group gate is NOT applied here: the list is stored
      * with the run, and the group gate is re-read live through
      * {@see self::applyGroupGateTo()}.
      *
+     * An attached or forced process skill contributes nothing — no tools and
+     * no restriction — unless the run invokes it (ADR-214 items 5 and 6).
+     *
      * @param list<Skill> $runSkills
+     * @param list<Skill> $invokedSkills the skills this run invokes; pinned process skills feed this on resume and continuation (ADR-214 item 10)
      */
-    public function resolveForRun(LlmConfiguration $config, array $runSkills, ?Task $task = null): SkillToolAllowList
+    public function resolveForRun(LlmConfiguration $config, array $runSkills, ?Task $task = null, array $invokedSkills = []): SkillToolAllowList
     {
         $taskSkills = $task instanceof Task ? $this->toList($task->getSkills()) : [];
 
-        return new SkillToolAllowList($this->declaredUnion($config, [...$taskSkills, ...$runSkills]));
+        return new SkillToolAllowList($this->declaredUnion($config, [...$taskSkills, ...$runSkills], $invokedSkills));
     }
 
     /**
@@ -95,15 +101,44 @@ final readonly class AllowedToolsResolver
 
     /**
      * @param list<Skill> $additionalSkills
+     * @param list<Skill> $invokedSkills
      *
      * @return list<string>|null
      */
-    private function declaredUnion(LlmConfiguration $config, array $additionalSkills): ?array
+    private function declaredUnion(LlmConfiguration $config, array $additionalSkills, array $invokedSkills = []): ?array
     {
+        $invoked = [];
+        foreach ($invokedSkills as $skill) {
+            $invoked[spl_object_id($skill)] = true;
+        }
+
         $declared = [];
-        $any      = false;
-        foreach ($this->composer->effectiveSkills($this->toList($config->getSkills()), $additionalSkills) as $skill) {
-            $list = $skill->getAllowedToolsList();
+        // Every admitted record, not only the one a (source, identifier) twin
+        // leaves in effect: a twin cannot drop a restriction.
+        $admitted = $this->composer->admittedSkills([...$invokedSkills, ...$this->toList($config->getSkills())], $additionalSkills);
+        // An invoked skill that is not admitted (disabled, below the trust
+        // floor) grants nothing, and the run is not left unrestricted because
+        // of that: fail closed.
+        $any = array_diff_key($invoked, array_flip(array_map(spl_object_id(...), $admitted))) !== [];
+        // An attached skill the sync orphaned (its identifier is gone upstream,
+        // or was renamed in the record) or disabled (a changed version, an
+        // injection finding, a tampered row) grants nothing and still
+        // restricts the run, as a skill whose source is gone does — also one
+        // without a declaration, and a process skill. Only an administrator's
+        // disable drops a skill out; detaching it does too. An invoked skill
+        // that is not admitted already restricts above.
+        foreach ([...$this->toList($config->getSkills()), ...$additionalSkills] as $skill) {
+            if ($skill->isOrphaned() || $skill->isDisabledBySync()) {
+                $any = true;
+            }
+        }
+
+        foreach ($admitted as $skill) {
+            // What the skill may declare, not its live field: an unapproved
+            // backend skill or one whose source no longer vouches grants
+            // nothing, and a process skill the run does not invoke has no
+            // opinion (ADR-214 items 3 and 5, {@see SkillComposer::declaredTools()}).
+            $list = $this->composer->declaredTools($skill, isset($invoked[spl_object_id($skill)]));
             if ($list === null) {
                 continue;
             }
