@@ -39,13 +39,14 @@ use SplFileInfo;
  * `Classes/` passes a completeness argument, positionally or by name, never
  * through a spread or as a first-class callable, and no branch of it is the
  * literal `null`: not the argument itself, not a branch of a ternary, the
- * right side of `??`, an arm of a `match` or the value of an assignment. Any other expression is accepted, because a tool may
- * decide in a helper (`ReplaceFileReferenceTool` decides in
- * `settleTranslations()`).
+ * right side of `??`, an arm of a `match` or the value of an assignment.
+ * Any other expression is accepted, because a tool may decide in a helper
+ * (`ReplaceFileReferenceTool` decides in `settleTranslations()`).
  *
  * What this cannot see: a variable or a helper whose value is null at run
  * time, and a call whose method name is itself an expression
- * (`$r->{$name}(...)`), which it does not recognise as this method. The parameter is `?WriteCompleteness` (it must be, ADR-182 freezes the
+ * (`$r->{$name}(...)`), which it does not recognise as this method. The
+ * parameter is `?WriteCompleteness` (it must be, ADR-182 freezes the
  * signature), so neither PHP nor this test refuses that; a helper that
  * decides returns the non-nullable enum, and that return type is what holds
  * it, under PHPStan level 10.
