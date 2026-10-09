@@ -9,8 +9,10 @@
 ADR-093: One tool gate, in the loop — not in the controller
 ============================================================================
 
-:Status: Accepted
+:Status: Accepted (the invocation context is added by
+    :ref:`ADR-216 <adr-216>`)
 :Date: 2026-07-20
+:Amended: 2026-10-09 by :ref:`ADR-216 <adr-216>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-093-context:
