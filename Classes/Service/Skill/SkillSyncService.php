@@ -85,6 +85,13 @@ final class SkillSyncService
 
     public function sync(SkillSource $source): SyncResult
     {
+        // A backend source (ADR-214 item 3) has nothing upstream. Syncing it
+        // would discover nothing and orphan every skill authored there, so it
+        // is refused before the lock is taken and before anything is written.
+        if ($source->getTypeEnum() === SkillSourceType::BACKEND) {
+            return new SyncResult(SyncStatus::ERROR, errors: ['A backend source holds skills authored in the backend; there is nothing to sync.']);
+        }
+
         $now = time();
         if ($this->isLockActive($source, $now)) {
             return new SyncResult(SyncStatus::SYNCING, errors: ['A sync is already running for this source.']);

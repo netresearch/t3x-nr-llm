@@ -21,9 +21,11 @@ final class FixedSkillSourceLookup implements SkillSourceLookupInterface
 {
     /**
      * @param array<int, SkillTrustLevel> $levels source uid → trust level
+     * @param array<int, SkillSourceType> $types  source uid → type; a source not listed is a repo
      */
     public function __construct(
         public array $levels = [],
+        public array $types = [],
     ) {}
 
     public function find(int $sourceUid): ?SkillSourceFacts
@@ -31,7 +33,7 @@ final class FixedSkillSourceLookup implements SkillSourceLookupInterface
         $level = $this->levels[$sourceUid] ?? null;
 
         return $level instanceof SkillTrustLevel
-            ? new SkillSourceFacts($sourceUid, SkillSourceType::REPO, $level)
+            ? new SkillSourceFacts($sourceUid, $this->types[$sourceUid] ?? SkillSourceType::REPO, $level)
             : null;
     }
 }

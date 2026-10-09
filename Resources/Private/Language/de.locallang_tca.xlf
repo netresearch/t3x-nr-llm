@@ -1166,6 +1166,10 @@
                 <source>Marketplace index</source>
                 <target>Marketplace-Index</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.type.backend">
+                <source>Written in the backend</source>
+                <target>Im Backend geschrieben</target>
+            </trans-unit>
             <trans-unit id="tx_nrllm_skill_source.url">
                 <source>URL</source>
                 <target>URL</target>
@@ -1294,6 +1298,10 @@
             <trans-unit id="tx_nrllm_skill.process.description">
                 <source>Set by the frontmatter key "process: true". A process skill reaches a run only through an explicit invocation.</source>
                 <target>Gesetzt durch den Frontmatter-Schlüssel "process: true". Ein Prozess-Skill gelangt nur durch einen ausdrücklichen Aufruf in einen Lauf.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.allowed_tools.backend.description">
+                <source>The tools this skill allows, as a JSON list of tool names, e.g. ["get_page","search_records"]. Leave empty for no declaration; [] allows no tool. A run uses the list of the most recent approved version, not this field, so a change takes effect only after a new approval.</source>
+                <target>Die Werkzeuge, die dieser Skill erlaubt, als JSON-Liste von Werkzeugnamen, z. B. ["get_page","search_records"]. Leer lassen für keine Angabe; [] erlaubt kein Werkzeug. Ein Lauf verwendet die Liste der zuletzt freigegebenen Version, nicht dieses Feld; eine Änderung wirkt also erst nach einer neuen Freigabe.</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_skill.source_sha">
                 <source>Source commit SHA</source>

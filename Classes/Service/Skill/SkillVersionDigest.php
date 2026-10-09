@@ -109,9 +109,19 @@ final class SkillVersionDigest
      *
      * The one integrity check: compose and the approval form both call it, so
      * a record the composer would skip can never be approved.
+     *
+     * `$synced` is false for a skill of a backend source; see below.
      */
-    public static function verified(Skill $skill): ?string
+    public static function verified(Skill $skill, bool $synced = true): ?string
     {
+        // A backend-authored skill (ADR-214 item 3) is edited in place: an
+        // edit is the expected way it changes, so its digest is computed from
+        // the current fields and nothing stored is compared. What it composes
+        // as is then decided by the approvals of that computed digest.
+        if (!$synced) {
+            return self::of($skill);
+        }
+
         $stored = $skill->getVersionDigest();
         if ($stored !== '') {
             return hash_equals($stored, self::of($skill)) ? $stored : null;

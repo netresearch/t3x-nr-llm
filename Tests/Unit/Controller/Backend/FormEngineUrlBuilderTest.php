@@ -91,4 +91,30 @@ final class FormEngineUrlBuilderTest extends TestCase
             $this->routeCalls,
         );
     }
+
+    /**
+     * A new backend-authored skill is created inside its source (ADR-214
+     * item 3): the source travels as FormEngine's preset value.
+     */
+    #[Test]
+    public function buildNewUrlWithDefaultsPresetsTheFieldValues(): void
+    {
+        $url = $this->subject->buildNewUrlWithDefaults('tx_nrllm_skill', ['source' => 7], 'nrllm_skills');
+
+        self::assertSame('/typo3/record/edit', $url);
+        self::assertSame(
+            [
+                ['nrllm_skills', []],
+                [
+                    'record_edit',
+                    [
+                        'edit' => ['tx_nrllm_skill' => [0 => 'new']],
+                        'returnUrl' => '/typo3/module/nrllm_skills',
+                        'defVals' => ['tx_nrllm_skill' => ['source' => 7]],
+                    ],
+                ],
+            ],
+            $this->routeCalls,
+        );
+    }
 }

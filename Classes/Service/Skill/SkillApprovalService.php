@@ -57,7 +57,7 @@ final readonly class SkillApprovalService
     public function review(Skill $skill): SkillVersionReview
     {
         $uid       = (int)$skill->getUid();
-        $digest    = SkillVersionDigest::verified($skill);
+        $digest    = $this->currentDigest($skill);
         $policy    = $this->composerFactory->instructionPolicy();
         $threshold = $policy?->threshold() ?? $this->composerFactory->instructionTrustLevel();
         $latest    = $this->approvals->findLatestUnrevoked($uid);
@@ -101,7 +101,7 @@ final readonly class SkillApprovalService
                 $skill,
                 $this->auditable($seenDigest),
                 $trust,
-                sprintf('%s; current digest %s', $outcome->value, SkillVersionDigest::verified($skill) ?? 'unverifiable'),
+                sprintf('%s; current digest %s', $outcome->value, $this->currentDigest($skill) ?? 'unverifiable'),
             );
 
             return $outcome;
@@ -161,7 +161,7 @@ final readonly class SkillApprovalService
             return SkillApprovalOutcome::REFUSED_ORPHANED;
         }
 
-        $current = SkillVersionDigest::verified($skill);
+        $current = $this->currentDigest($skill);
         if ($current === null) {
             return SkillApprovalOutcome::REFUSED_INTEGRITY;
         }
@@ -207,6 +207,18 @@ final readonly class SkillApprovalService
         $level = $this->provenanceOf($skill);
 
         return $level instanceof SkillTrustLevel ? $level->value : $skill->getTrustLevel();
+    }
+
+    /**
+     * The record's verified current digest, by the same rule the composer
+     * applies: stored and checked for a synced skill, computed for a skill of
+     * a backend source (ADR-214 item 3).
+     */
+    private function currentDigest(Skill $skill): ?string
+    {
+        $facts = $this->sources->find($skill->getSource());
+
+        return SkillVersionDigest::verified($skill, !$facts instanceof SkillSourceFacts || $facts->type?->isSynced() !== false);
     }
 
     private function provenanceOf(Skill $skill): ?SkillTrustLevel

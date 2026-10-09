@@ -7,9 +7,29 @@
 
 declare(strict_types=1);
 
+$githubShowitem = '
+    --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:general,
+        title,
+        type,
+        url,
+        ref,
+        trust_level,
+        expected_fingerprint,
+    --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.metadata,
+        pinned_sha,
+        sync_status,
+        sync_error,
+        last_synced,
+    --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
+        enabled,
+        hidden,
+';
+
 return [
     'ctrl' => [
         'title' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source',
+        // The form follows the source type (ADR-214 item 3).
+        'type' => 'type',
         'label' => 'title',
         'label_alt' => 'url',
         'tstamp' => 'tstamp',
@@ -26,20 +46,19 @@ return [
         ],
     ],
     'types' => [
-        '0' => [
+        // The GitHub source types share one form; the backend source type
+        // (ADR-214 item 3) fetches nothing, so it shows no location and no
+        // sync state.
+        '0' => ['showitem' => $githubShowitem],
+        'single_file' => ['showitem' => $githubShowitem],
+        'repo' => ['showitem' => $githubShowitem],
+        'marketplace' => ['showitem' => $githubShowitem],
+        'backend' => [
             'showitem' => '
                 --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:general,
                     title,
                     type,
-                    url,
-                    ref,
                     trust_level,
-                    expected_fingerprint,
-                --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.metadata,
-                    pinned_sha,
-                    sync_status,
-                    sync_error,
-                    last_synced,
                 --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
                     enabled,
                     hidden,
@@ -71,9 +90,13 @@ return [
                 'required' => true,
             ],
         ],
+        // Excluded (ADR-214 item 3): turning a synced source into a backend
+        // source would switch off the stored-value integrity check of every
+        // skill it holds, so a group granted tables_modify must not reach it.
         'type' => [
             'exclude' => true,
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.type',
+            'onChange' => 'reload',
             'config' => [
                 'type' => 'select',
                 'renderType' => 'selectSingle',
@@ -81,6 +104,7 @@ return [
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.type.single_file', 'value' => 'single_file'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.type.repo', 'value' => 'repo'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.type.marketplace', 'value' => 'marketplace'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.type.backend', 'value' => 'backend'],
                 ],
                 'default' => 'single_file',
                 'required' => true,
@@ -131,6 +155,8 @@ return [
         // Publisher-trust classification (ADR-061). Admin-editable — this is
         // the authoritative trust edit surface; skills denormalize it on sync.
         // Distinct from sync-status: trust is provenance, not health.
+        // Excluded (ADR-214 item 3): it decides admission and whether an
+        // approved version instructs, so it must not travel with tables_modify.
         'trust_level' => [
             'exclude' => true,
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.trust_level',

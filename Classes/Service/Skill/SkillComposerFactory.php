@@ -71,6 +71,7 @@ final readonly class SkillComposerFactory
             maxBytes: $this->resolveMaxBytes(),
             minTrustLevel: $this->minTrustLevel(),
             instructionPolicy: $this->instructionPolicy(),
+            sources: $this->sources,
         );
     }
 
