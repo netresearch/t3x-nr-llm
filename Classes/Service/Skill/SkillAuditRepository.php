@@ -46,6 +46,7 @@ final readonly class SkillAuditRepository implements SkillAuditRepositoryInterfa
         string $scanResult,
         int $actorUid,
         string $detail,
+        string $versionDigest = '',
     ): void {
         $this->connectionPool->getConnectionForTable(self::TABLE)->insert(self::TABLE, [
             'pid'              => 0,
@@ -55,6 +56,7 @@ final readonly class SkillAuditRepository implements SkillAuditRepositoryInterfa
             'skill_identifier' => $skillIdentifier,
             'source_sha'       => $sourceSha,
             'body_checksum'    => $bodyChecksum,
+            'version_digest'   => $versionDigest,
             'trust_level'      => $trustLevel,
             // scan_result and detail are free-form content; gate them through
             // the central privacy policy before persisting (ADR-064). All other

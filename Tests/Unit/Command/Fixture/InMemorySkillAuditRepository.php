@@ -34,6 +34,7 @@ final class InMemorySkillAuditRepository implements SkillAuditRepositoryInterfac
         string $scanResult,
         int $actorUid,
         string $detail,
+        string $versionDigest = '',
     ): void {
         // Not needed by the command tests.
     }

@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
+use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocation;
@@ -33,6 +34,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Event\AfterAiRecordWrittenEvent;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\ContextTruncatedException;
+use Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Provider\OpenAi\OpenAiCallMetadata;
@@ -44,6 +46,7 @@ use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
+use Netresearch\NrLlm\Service\Skill\SkillPinCheck;
 use Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
@@ -139,6 +142,13 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // Optional like the collaborators above; absent it, which only the lean
         // test wiring does, those lines read as their catalogue keys.
         private ?ApprovalPreviewTranslator $previewTranslator = null,
+        // Re-checks the approved skill versions a suspended run holds as
+        // instructions before it continues (ADR-214 item 6). Optional like the
+        // collaborators above, but not fail-open: absent it, which only the
+        // lean test wiring does, a run that holds pins is refused at resume
+        // (see assertPinsHeld()). ToolLoopGateWiringTest pins the production
+        // wiring.
+        private ?SkillPinCheck $skillPinCheck = null,
     ) {}
 
     /**
@@ -314,6 +324,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param list<string>|null                      $allowedToolNames
+     * @param list<SkillPin>                         $carriedPins
      */
     private function loop(
         array $messages,
@@ -330,6 +341,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         int $seedCompletionTokens,
         SkillToolAllowList $skillAllowList,
         SkillToolAllowList $storedAllowList,
+        // The approved skill versions a resumed transcript already holds as
+        // instructions (ADR-214 item 6); a fresh run composes its own below.
+        array $carriedPins = [],
     ): ToolLoopResult {
         // Every transcript enters here — a fresh run, a queued one read back
         // from the database, and both resume paths — so this is the one place
@@ -352,6 +366,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // On resume (ADR-084, skipAssembly) the transcript is already fully
         // assembled and carries the conversation, so re-assembling would double
         // the system prompt and skills.
+        // The approved skill versions the transcript holds as instructions
+        // (ADR-214 item 6): composed at assembly, or carried in by a resume,
+        // which skips assembly. Every suspension stores them, so a run that
+        // suspends again keeps them for the next resume's check.
+        $skillPins = $carriedPins;
         if ($skipAssembly) {
             $dryRun = false;
         } else {
@@ -368,7 +387,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $runTrace?->recordDroppedSources($augmentation->droppedSources);
             }
 
-            [$messages, $dryRun] = $this->assemble($messages, $configuration, $options, $augmentation);
+            [$messages, $dryRun, $skillPins] = $this->assemble($messages, $configuration, $options, $augmentation);
         }
 
         if ($dryRun) {
@@ -518,6 +537,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                             // intersection: the next resume intersects it with
                             // the live list again (ADR-038 item 5).
                             skillAllowList: $storedAllowList,
+                            skillPins: $skillPins,
                         ));
                     }
                 }
@@ -558,6 +578,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                             // intersection: the next resume intersects it with
                             // the live list again (ADR-038 item 5).
                             skillAllowList: $storedAllowList,
+                            skillPins: $skillPins,
                         ));
                     }
                 }
@@ -762,6 +783,13 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         $offered     = $this->resolveOfferedNames($state->allowedToolNames, $configuration, $context, $skillAllowList);
         $remoteCalls = new RemoteCallBudget();
 
+        // ADR-214 item 6: the transcript carries approved skill versions as
+        // system instructions. If one of them no longer holds — revoked, its
+        // source downgraded, the skill gone — the run stops here, before any
+        // approved call executes and before the model is asked again, whether
+        // the human approved or declined.
+        $this->assertPinsHeld($state);
+
         // ADR-184: an approval is a decision about the state the preview showed.
         // Checked for the WHOLE turn before any call runs — a turn is approved as
         // one (ADR-132), and checking inside the loop below would let call one
@@ -820,6 +848,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $state->completionTokens,
             $skillAllowList,
             $storedAllowList,
+            // The pins the transcript holds stay the run's on a re-suspend.
+            $state->skillPins,
         );
     }
 
@@ -910,6 +940,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         $offered        = $this->resolveOfferedNames($state->allowedToolNames, $configuration, $context, $skillAllowList);
         $remoteCalls    = new RemoteCallBudget();
 
+        // ADR-214 item 6, as in resume(): stop before the input reaches a tool.
+        $this->assertPinsHeld($state);
+
         foreach ($pendingCalls as $call) {
             if (!in_array($call->name, $offered, true)) {
                 $result = sprintf('Error: tool "%s" is no longer permitted and was not executed.', $call->name);
@@ -991,7 +1024,30 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $state->completionTokens,
             $skillAllowList,
             $storedAllowList,
+            $state->skillPins,
         );
+    }
+
+    /**
+     * The pin rules of ADR-214 item 6 for a run about to continue.
+     *
+     * Fails closed: a state that holds pins is never resumed unchecked. A
+     * construction without the pin check — only lean test wiring does that —
+     * can resume a run without pins, never one with them.
+     *
+     * @throws SkillInstructionWithdrawnException
+     */
+    private function assertPinsHeld(SuspendedRunState $state): void
+    {
+        if ($state->skillPins === []) {
+            return;
+        }
+
+        if (!$this->skillPinCheck instanceof SkillPinCheck) {
+            throw new SkillInstructionWithdrawnException($state->skillPins[0], 'unknown', 'the pin check is not available');
+        }
+
+        $this->skillPinCheck->assertHeld($state->skillPins);
     }
 
     /**
@@ -1028,7 +1084,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      *
-     * @return array{0: list<ChatMessage|array<string, mixed>>, 1: bool} [assembled messages, dryRun]
+     * @return array{0: list<ChatMessage|array<string, mixed>>, 1: bool, 2: list<SkillPin>} [assembled messages, dryRun, instruction pins]
      */
     private function assemble(
         array $messages,
@@ -1038,10 +1094,33 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     ): array {
         $configSkills = SkillInjectionService::toList($configuration->getSkills());
         $forcedSkills = $augmentation instanceof RunAugmentation ? $augmentation->forcedSkills : [];
-        $messages     = $this->skillInjection?->augmentMessages($messages, $configSkills, $forcedSkills) ?? $messages;
+        // Approved instruction sections (ADR-214 item 2) are written into the
+        // transcript's system message here, at assembly, so a suspended run
+        // replays them and the context-window fit measures them as part of the
+        // messages. The injection appends them to a caller's own system
+        // message; when the transcript has none they come back unplaced and are
+        // baked below, behind the effective system prompt.
+        $instructions = '';
+        $pins         = [];
+        if ($this->skillInjection instanceof SkillInjectionService) {
+            $injected     = $this->skillInjection->composeIntoMessages($messages, $configSkills, $forcedSkills);
+            $messages     = $injected['messages'];
+            $instructions = $injected['instructions'];
+            $pins         = $injected['pins'];
+        }
 
         if (!$augmentation instanceof RunAugmentation) {
-            return [$messages, false];
+            if ($instructions !== '') {
+                // A bare system message would make the manager's shaping stage
+                // suppress the configuration's own prompt and snippets, so the
+                // effective prompt is baked in front of the sections.
+                $messages = array_values(array_merge(
+                    [ChatMessage::system(SkillInjectionService::join($this->effectiveSystemPrompt($configuration, $options), $instructions))],
+                    $messages,
+                ));
+            }
+
+            return [$messages, false, $pins];
         }
 
         $lead = [];
@@ -1053,9 +1132,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // The same composition the manager's planner applies, so the playground
         // shows the prompt a live run sends rather than one without the
         // configuration's snippets.
-        $system = $this->effectiveSystemPrompt($configuration, $options);
-        if ($system !== '') {
-            $lead[] = ChatMessage::system($system);
+        $system     = $this->effectiveSystemPrompt($configuration, $options);
+        $leadSystem = SkillInjectionService::join($system, $instructions);
+        if ($leadSystem !== '') {
+            $lead[] = ChatMessage::system($leadSystem);
         }
 
         foreach ($augmentation->forcedSnippets as $snippet) {
@@ -1081,7 +1161,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $messages = array_values(array_merge($lead, $messages));
         }
 
-        return [$messages, $augmentation->dryRun];
+        return [$messages, $augmentation->dryRun, $pins];
     }
 
     /**

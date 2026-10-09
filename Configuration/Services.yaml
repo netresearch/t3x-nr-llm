@@ -366,6 +366,22 @@ services:
     alias: Netresearch\NrLlm\Service\Skill\SkillAuditRepository
     public: false
 
+  # The approval store and the source lookup the instruction policy reads
+  # (ADR-214 item 2). Aliased explicitly so SkillComposerFactory's optional
+  # arguments are wired in production rather than left null.
+  Netresearch\NrLlm\Service\Skill\SkillApprovalRepositoryInterface:
+    alias: Netresearch\NrLlm\Service\Skill\SkillApprovalRepository
+    public: false
+
+  Netresearch\NrLlm\Service\Skill\SkillSourceLookupInterface:
+    alias: Netresearch\NrLlm\Service\Skill\SkillSourceLookup
+    public: false
+
+  # ADR-214 item 6: the pin check a resume runs before a suspended run continues.
+  Netresearch\NrLlm\Service\Skill\SkillRecordLookupInterface:
+    alias: Netresearch\NrLlm\Service\Skill\SkillRecordLookup
+    public: false
+
   # Built via a factory so the instance-configured minimum skill trust level
   # (skills.minTrustLevel, ADR-061) is applied. Stays private — the composer is
   # an internal collaborator of the injection and allowed-tools paths.

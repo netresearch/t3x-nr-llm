@@ -47,6 +47,10 @@ return [
         ],
     ],
     'columns' => [
+        // The fields marked exclude (ADR-214 item 3) decide admission, whether
+        // an approved version instructs and whether the stored-value
+        // integrity check runs. A group granted tables_modify on sources
+        // reaches them only through an explicit exclude-field grant.
         'hidden' => [
             'label' => 'LLL:EXT:core/Resources/Private/Language/locallang_general.xlf:LGL.hidden',
             'config' => [
@@ -65,6 +69,7 @@ return [
             ],
         ],
         'type' => [
+            'exclude' => true,
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.type',
             'config' => [
                 'type' => 'select',
@@ -120,6 +125,7 @@ return [
         // the authoritative trust edit surface; skills denormalize it on sync.
         // Distinct from sync-status: trust is provenance, not health.
         'trust_level' => [
+            'exclude' => true,
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.trust_level',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.trust_level.description',
             'config' => [

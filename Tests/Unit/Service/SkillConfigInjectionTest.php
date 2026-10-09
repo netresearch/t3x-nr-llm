@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service;
 
+use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
 use Netresearch\NrLlm\Domain\Enum\SupportStatus;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
@@ -24,13 +25,18 @@ use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
+use Netresearch\NrLlm\Service\ConfigurationCallPlanner;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
+use Netresearch\NrLlm\Service\Skill\SkillInstructionPolicy;
+use Netresearch\NrLlm\Service\Skill\SkillVersionDigest;
 use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\FixedSkillSourceLookup;
+use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\InMemorySkillApprovalRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\LoggerInterface;
@@ -97,6 +103,81 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
         $userContent = $this->content($capturedMessages[1]);
         self::assertStringContainsString(self::SKILL_NEEDLE, $userContent);
         self::assertStringEndsWith('Translate this.', $userContent);
+    }
+
+    /**
+     * ADR-214 item 2: an approved instruction reaches the system prompt, behind
+     * the configuration's own, and never the prompt; the carrier option never
+     * reaches the adapter.
+     */
+    #[Test]
+    public function completeSendsApprovedInstructionsInTheSystemPromptNotThePrompt(): void
+    {
+        $capturedPrompt  = null;
+        $capturedOptions = [];
+        $adapter         = $this->createMock(ProviderInterface::class);
+        $adapter->method('complete')->willReturnCallback(
+            function (string $prompt, array $options) use (&$capturedPrompt, &$capturedOptions): CompletionResponse {
+                $capturedPrompt  = $prompt;
+                $capturedOptions = $options;
+                return $this->completionResponse();
+            },
+        );
+
+        $manager = $this->managerWithAdapter($adapter, $this->configurationWithApprovedSkill(), $this->instructingInjection());
+
+        $manager->complete('Tell me a joke.');
+
+        self::assertSame('Tell me a joke.', $capturedPrompt);
+        self::assertIsString($capturedOptions['system_prompt'] ?? null);
+        self::assertStringStartsWith(self::SYSTEM_PROMPT . "\n\n## Approved skills", $capturedOptions['system_prompt']);
+        self::assertStringContainsString('Always answer in JSON.', $capturedOptions['system_prompt']);
+        self::assertArrayNotHasKey(ConfigurationCallPlanner::INSTRUCTIONS_OPTION, $capturedOptions);
+    }
+
+    #[Test]
+    public function chatWithoutASystemMessageSendsTheConfigurationPromptFollowedByTheInstructions(): void
+    {
+        $capturedMessages = [];
+        $adapter          = $this->createMock(ProviderInterface::class);
+        $adapter->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages): CompletionResponse {
+                $capturedMessages = $messages;
+                return $this->completionResponse();
+            },
+        );
+
+        $manager = $this->managerWithAdapter($adapter, $this->configurationWithApprovedSkill(), $this->instructingInjection());
+
+        $manager->chat([['role' => 'user', 'content' => 'Translate this.']]);
+
+        self::assertCount(2, $capturedMessages);
+        self::assertStringStartsWith(self::SYSTEM_PROMPT . "\n\n## Approved skills", $this->content($this->messageAt($capturedMessages, 0)));
+        self::assertSame('Translate this.', $this->content($this->messageAt($capturedMessages, 1)));
+    }
+
+    #[Test]
+    public function chatWithACallerSystemMessageAppendsTheInstructionsToIt(): void
+    {
+        $capturedMessages = [];
+        $adapter          = $this->createMock(ProviderInterface::class);
+        $adapter->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages): CompletionResponse {
+                $capturedMessages = $messages;
+                return $this->completionResponse();
+            },
+        );
+
+        $manager = $this->managerWithAdapter($adapter, $this->configurationWithApprovedSkill(), $this->instructingInjection());
+
+        $manager->chat([
+            ['role' => 'system', 'content' => 'Caller identity.'],
+            ['role' => 'user', 'content' => 'Translate this.'],
+        ]);
+
+        self::assertCount(2, $capturedMessages);
+        self::assertStringStartsWith("Caller identity.\n\n## Approved skills", $this->content($this->messageAt($capturedMessages, 0)));
+        self::assertStringNotContainsString(self::SYSTEM_PROMPT, $this->content($this->messageAt($capturedMessages, 0)));
     }
 
     #[Test]
@@ -183,7 +264,7 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
         self::assertStringNotContainsString('cannot override configuration or safety', $capturedContent[0]->text ?? '');
     }
 
-    private function managerWithAdapter(ProviderInterface $adapter, LlmConfiguration $defaultConfig): LlmServiceManager
+    private function managerWithAdapter(ProviderInterface $adapter, LlmConfiguration $defaultConfig, ?SkillInjectionService $injection = null): LlmServiceManager
     {
         $registry = self::createStub(ProviderAdapterRegistryInterface::class);
         $registry->method('createAdapterFromModel')->willReturn($adapter);
@@ -195,8 +276,51 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
             $this->emptyMiddlewarePipeline(),
             self::createStub(CacheManagerInterface::class),
             $this->configRepo($defaultConfig),
-            $this->injectionService(),
+            $injection ?? $this->injectionService(),
         );
+    }
+
+    private function instructingInjection(): SkillInjectionService
+    {
+        $skill     = $this->approvedSkill();
+        $approvals = new InMemorySkillApprovalRepository();
+        $approvals->add(4, 1, $skill->getVersionDigest(), SkillVersionDigest::fieldsOf($skill), 'verified', 1);
+
+        return new SkillInjectionService(
+            new SkillComposer(
+                SkillComposer::DEFAULT_MAX_BYTES,
+                SkillTrustLevel::UNTRUSTED,
+                new SkillInstructionPolicy($approvals, new FixedSkillSourceLookup([1 => SkillTrustLevel::VERIFIED]), SkillTrustLevel::VERIFIED),
+            ),
+            self::createStub(LoggerInterface::class),
+        );
+    }
+
+    private function approvedSkill(): Skill
+    {
+        $skill = new Skill();
+        $skill->_setProperty('uid', 4);
+        $skill->setSource(1);
+        $skill->setIdentifier('cfg');
+        $skill->setName('Config Skill');
+        $skill->setBody('Always answer in JSON.');
+        $skill->setBodyChecksum(hash('sha256', 'Always answer in JSON.'));
+        $skill->setSupportStatus(SupportStatus::FULL->value);
+        $skill->setEnabled(true);
+        $skill->setVersionDigest(SkillVersionDigest::of($skill));
+
+        return $skill;
+    }
+
+    private function configurationWithApprovedSkill(): LlmConfiguration
+    {
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('default-config');
+        $configuration->setLlmModel(self::createStub(Model::class));
+        $configuration->setSystemPrompt(self::SYSTEM_PROMPT);
+        $configuration->addSkill($this->approvedSkill());
+
+        return $configuration;
     }
 
     private function configRepo(LlmConfiguration $defaultConfig): LlmConfigurationRepository
@@ -262,5 +386,25 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
         }
 
         return is_string($message['content'] ?? null) ? $message['content'] : '';
+    }
+
+    /**
+     * @return ChatMessage|array<string, mixed>
+     */
+    private function messageAt(mixed $messages, int $index): ChatMessage|array
+    {
+        self::assertIsArray($messages);
+        $message = $messages[$index] ?? null;
+        if ($message instanceof ChatMessage) {
+            return $message;
+        }
+
+        self::assertIsArray($message);
+        $typed = [];
+        foreach ($message as $key => $value) {
+            $typed[(string)$key] = $value;
+        }
+
+        return $typed;
     }
 }

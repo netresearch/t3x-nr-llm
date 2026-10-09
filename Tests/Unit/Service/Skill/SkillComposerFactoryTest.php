@@ -226,6 +226,52 @@ final class SkillComposerFactoryTest extends TestCase
         self::assertSame(['v'], $result->included);
     }
 
+    #[Test]
+    public function instructionThresholdDefaultsToVerified(): void
+    {
+        self::assertSame(SkillTrustLevel::VERIFIED, $this->factoryWith([])->instructionTrustLevel());
+        self::assertSame(SkillTrustLevel::VERIFIED, $this->factoryWith(['instructionTrustLevel' => ''])->instructionTrustLevel());
+    }
+
+    #[Test]
+    public function instructionThresholdReadsTheConfiguredLevel(): void
+    {
+        self::assertSame(SkillTrustLevel::FIRST_PARTY, $this->factoryWith(['instructionTrustLevel' => 'first_party'])->instructionTrustLevel());
+        self::assertSame(SkillTrustLevel::COMMUNITY, $this->factoryWith(['instructionTrustLevel' => 'community'])->instructionTrustLevel());
+    }
+
+    /**
+     * The threshold grants a privilege, so a value nobody can read narrows it
+     * to the highest level instead of widening it.
+     */
+    #[Test]
+    public function anUnrecognisedInstructionThresholdFailsClosedToFirstParty(): void
+    {
+        self::assertSame(SkillTrustLevel::FIRST_PARTY, $this->factoryWith(['instructionTrustLevel' => 'trusted'])->instructionTrustLevel());
+    }
+
+    #[Test]
+    public function anInstructionThresholdBelowTheMinimumIsReadAsTheMinimum(): void
+    {
+        $factory = $this->factoryWith(['instructionTrustLevel' => 'untrusted', 'minTrustLevel' => 'verified']);
+
+        self::assertSame(SkillTrustLevel::VERIFIED, $factory->instructionTrustLevel());
+    }
+
+    #[Test]
+    public function anInstructionThresholdAboveTheMinimumIsKept(): void
+    {
+        $factory = $this->factoryWith(['instructionTrustLevel' => 'first_party', 'minTrustLevel' => 'community']);
+
+        self::assertSame(SkillTrustLevel::FIRST_PARTY, $factory->instructionTrustLevel());
+    }
+
+    #[Test]
+    public function withoutTheApprovalStoresTheFactoryBuildsNoInstructionPolicy(): void
+    {
+        self::assertNull($this->factoryWith([])->instructionPolicy());
+    }
+
     /**
      * A config baseline and a task-additive skill that together exceed the
      * 24 000-byte default.

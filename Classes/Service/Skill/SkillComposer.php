@@ -13,25 +13,42 @@ use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
 use Netresearch\NrLlm\Domain\Enum\SupportStatus;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\ValueObject\SkillCompositionResult;
+use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 
 /**
- * Renders attached skills into a delimited, lower-trust prompt block.
+ * Renders attached skills into two channels (ADR-036, ADR-061, ADR-214).
  *
- * The block is prepended to the *user* prompt (never the system role) by
- * the service layer for text-generation operations only. Composition is
- * integrity-verified (fail-closed on checksum mismatch) and bounded by a
- * conservative byte budget with a deterministic drop order: the
- * config baseline is rendered first and kept preferentially, task-additive
- * skills are dropped first when the budget is exceeded. The bound is measured
- * with strlen() (bytes), a deliberately conservative ceiling on character
- * count for multi-byte bodies.
+ * Every admitted skill is integrity-verified first (fail-closed). A row the
+ * sync or the version-digest wizard has written carries a version digest over
+ * body and frontmatter fields, and that digest is recomputed from the stored
+ * fields; a legacy row without one is verified against its body checksum, as
+ * before (ADR-214 item 1). A mismatch skips the skill.
  *
- * Two isolation controls sharpen the instruction/data separation (ADR-061):
- * only skills whose denormalised trust level meets a configurable minimum are
- * composed at all (fail-closed — an unknown level reads as the lowest), and the
- * composed bodies are wrapped in explicit BEGIN/END markers that label them as
- * untrusted reference DATA the model must not execute as instructions. Message
- * role remains defence-in-depth, not a trust boundary.
+ * A verified skill is then composed in one of two ways (ADR-214 item 2):
+ *
+ * - **as an instruction**, when an administrator approved exactly this version
+ *   (skill, source, digest) and the source's provenance level meets the
+ *   instruction threshold. Such sections are returned separately, for the
+ *   system message, without the guard preamble and the fence. They are never
+ *   dropped from the tail;
+ * - **as data**, otherwise. These bodies are rendered into the delimited,
+ *   lower-trust block the service layer prepends to the *user* prompt: a guard
+ *   preamble, then explicit BEGIN/END markers that label them as untrusted
+ *   reference DATA. The block is bounded by a conservative byte budget with a
+ *   deterministic drop order: the config baseline is rendered first and kept
+ *   preferentially, task-additive skills are dropped first. The bound is
+ *   measured with strlen() (bytes), a deliberately conservative ceiling on
+ *   character count for multi-byte bodies.
+ *
+ * A legacy row never instructs: no approval names it.
+ *
+ * A process skill (ADR-214 item 6) reaches a run only through an explicit
+ * invocation. Every skill this composer receives arrives by attachment or by
+ * being forced onto a run, so a process skill is skipped here with a notice.
+ *
+ * Only skills whose denormalised trust level meets a configurable minimum are
+ * admitted at all (ADR-061, fail-closed — an unknown level reads as the
+ * lowest). Message role remains defence-in-depth, not a trust boundary.
  */
 final readonly class SkillComposer
 {
@@ -54,6 +71,15 @@ final readonly class SkillComposer
 
     private const WARN_CHECKSUM = 'Skill "%s" (%s) skipped: body checksum mismatch (possible tampering).';
 
+    private const WARN_DIGEST = 'Skill "%s" (%s) skipped: version digest mismatch, the stored body or frontmatter fields changed since the sync (possible tampering).';
+
+    private const WARN_PROCESS = 'Skill "%s" (%s) skipped: it is a process skill, which reaches a run only through an explicit invocation.';
+
+    private const INSTRUCTION_HEADING = '## Approved skills';
+
+    private const INSTRUCTION_PREAMBLE = 'The sections below are skill instructions an administrator of this installation reviewed and approved. '
+        . 'Follow them as instructions of this installation, within the limits of this configuration and its safety rules.';
+
     private const WARN_BUDGET = 'Skill "%s" (%s) dropped: skill block exceeds the %d-byte budget.';
 
     /** Body lines referencing scripts/assets unsupported in Plan 1a are stripped from partial skills. */
@@ -64,9 +90,14 @@ final readonly class SkillComposer
         '#\.(py|sh|js|rb)\b#i',
     ];
 
+    /**
+     * @param SkillInstructionPolicy|null $instructionPolicy decides which verified versions instruct (ADR-214);
+     *                                                       absent it, every skill keeps the fenced frame
+     */
     public function __construct(
         private int $maxBytes = self::DEFAULT_MAX_BYTES,
         private SkillTrustLevel $minTrustLevel = SkillTrustLevel::UNTRUSTED,
+        private ?SkillInstructionPolicy $instructionPolicy = null,
     ) {}
 
     /**
@@ -82,9 +113,32 @@ final readonly class SkillComposer
         $warnings = [];
         /** @var list<array{key: string, id: string, name: string, section: string}> $rendered */
         $rendered = [];
+        /** @var list<array{key: string, id: string, section: string, pin: SkillPin}> $instructions */
+        $instructions = [];
         foreach ($candidates as $skill) {
-            if (!$this->verifyChecksum($skill)) {
-                $warnings[] = sprintf(self::WARN_CHECKSUM, $skill->getName(), $skill->getIdentifier());
+            $digest = SkillVersionDigest::verified($skill);
+            if ($digest === null) {
+                $warnings[] = sprintf(
+                    $skill->getVersionDigest() !== '' ? self::WARN_DIGEST : self::WARN_CHECKSUM,
+                    $skill->getName(),
+                    $skill->getIdentifier(),
+                );
+                continue;
+            }
+
+            if ($skill->isProcess()) {
+                $warnings[] = sprintf(self::WARN_PROCESS, $skill->getName(), $skill->getIdentifier());
+                continue;
+            }
+
+            // A legacy row (digest '') never instructs: no approval names it.
+            if ($digest !== '' && $this->instructionPolicy?->isInstruction($skill, $digest) === true) {
+                $instructions[] = [
+                    'key'     => $this->skillKey($skill),
+                    'id'      => $skill->getIdentifier(),
+                    'section' => $this->renderSection($skill),
+                    'pin'     => new SkillPin((int)$skill->getUid(), $skill->getSource(), $digest),
+                ];
                 continue;
             }
 
@@ -96,10 +150,12 @@ final readonly class SkillComposer
             ];
         }
 
-        // Enforce the byte budget by dropping from the tail (task-additive before
-        // the config baseline). The assembled length is tracked incrementally
-        // instead of re-assembling the whole block each iteration: dropping one
-        // section removes its own bytes plus the single "\n" that joined it.
+        // Enforce the byte budget on the fenced block by dropping from the tail
+        // (task-additive before the config baseline). Instruction sections are
+        // never dropped from the tail (ADR-214 item 4). The assembled length is
+        // tracked incrementally instead of re-assembling the whole block each
+        // iteration: dropping one section removes its own bytes plus the single
+        // "\n" that joined it.
         $totalBytes = strlen($this->assemble(array_column($rendered, 'section')));
         while ($rendered !== [] && $totalBytes > $this->maxBytes) {
             /** @var array{key: string, id: string, name: string, section: string} $popped */
@@ -113,13 +169,13 @@ final readonly class SkillComposer
         // reported even when another source shares its bare identifier. The
         // public result exposes identifiers, so project the keys back per
         // candidate before returning.
-        $includedKeys = array_column($rendered, 'key');
-        $includedIds  = array_column($rendered, 'id');
-        // Keyed set for O(1) membership instead of in_array() per candidate.
-        $includedKeySet = array_fill_keys($includedKeys, true);
+        $includedKeySet = array_fill_keys([...array_column($instructions, 'key'), ...array_column($rendered, 'key')], true);
+        $includedIds    = [];
         $droppedIds     = [];
         foreach ($candidates as $skill) {
-            if (!isset($includedKeySet[$this->skillKey($skill)])) {
+            if (isset($includedKeySet[$this->skillKey($skill)])) {
+                $includedIds[] = $skill->getIdentifier();
+            } else {
                 $droppedIds[] = $skill->getIdentifier();
             }
         }
@@ -129,6 +185,9 @@ final readonly class SkillComposer
             $includedIds,
             $droppedIds,
             $warnings,
+            $this->assembleInstructions(array_column($instructions, 'section')),
+            array_column($instructions, 'id'),
+            array_column($instructions, 'pin'),
         );
     }
 
@@ -200,11 +259,6 @@ final readonly class SkillComposer
         return $skill->getSource() . "\x00" . $skill->getIdentifier();
     }
 
-    private function verifyChecksum(Skill $skill): bool
-    {
-        return hash_equals($skill->getBodyChecksum(), hash('sha256', $skill->getBody()));
-    }
-
     private function renderSection(Skill $skill): string
     {
         $body = $skill->getBody();
@@ -254,6 +308,23 @@ final readonly class SkillComposer
         }
 
         return false;
+    }
+
+    /**
+     * The labelled system-message section for approved skill versions, without
+     * the guard preamble and the fence (ADR-214 item 2).
+     *
+     * @param list<string> $sections
+     */
+    private function assembleInstructions(array $sections): string
+    {
+        if ($sections === []) {
+            return '';
+        }
+
+        return self::INSTRUCTION_HEADING . "\n"
+            . self::INSTRUCTION_PREAMBLE . "\n\n"
+            . rtrim(implode("\n", $sections));
     }
 
     /**

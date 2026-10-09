@@ -67,6 +67,30 @@ final readonly class SkillMarkdownParser
             throw SkillParseException::forReason($path, 'front-matter is not a mapping');
         }
 
+        /** @var array<string,mixed> $normalized */
+        $normalized = [];
+        foreach ($frontmatter as $k => $v) {
+            $normalized[(string)$k] = $v;
+        }
+
+        return $this->fromFrontmatter($path, $normalized, $body);
+    }
+
+    /**
+     * Build the parsed skill from an already-decoded front-matter mapping and
+     * a body.
+     *
+     * The second half of {@see self::parse()}, public so the version-digest
+     * upgrade wizard (ADR-214 item 1) can re-derive name, description and
+     * support status from a row's stored ``raw_frontmatter`` and body by the
+     * same rules the sync applied, instead of restating them.
+     *
+     * @param array<string,mixed> $frontmatter
+     *
+     * @throws SkillParseException when name or description is missing
+     */
+    public function fromFrontmatter(string $path, array $frontmatter, string $body): ParsedSkill
+    {
         $name = isset($frontmatter['name']) && is_scalar($frontmatter['name']) ? trim((string)$frontmatter['name']) : '';
         $description = isset($frontmatter['description']) && is_scalar($frontmatter['description']) ? trim((string)$frontmatter['description']) : '';
         if ($name === '') {
@@ -77,15 +101,9 @@ final readonly class SkillMarkdownParser
             throw SkillParseException::forReason($path, 'missing or empty "description"');
         }
 
-        /** @var array<string,mixed> $normalized */
-        $normalized = [];
-        foreach ($frontmatter as $k => $v) {
-            $normalized[(string)$k] = $v;
-        }
+        [$supportStatus, $notes] = $this->assessSupport($frontmatter, $body);
 
-        [$supportStatus, $notes] = $this->assessSupport($normalized, $body);
-
-        return new ParsedSkill($path, $name, $description, $body, $normalized, $supportStatus, $notes);
+        return new ParsedSkill($path, $name, $description, $body, $frontmatter, $supportStatus, $notes);
     }
 
     /**

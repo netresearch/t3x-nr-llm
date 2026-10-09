@@ -15,11 +15,13 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequestCodec;
+use Netresearch\NrLlm\Service\Skill\SkillPinCheck;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionProperty;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
 /**
@@ -116,5 +118,20 @@ final class ToolLoopGateWiringTest extends FunctionalTestCase
         ));
 
         self::assertSame(['toolNames' => []], $stored['skillAllowList'] ?? null);
+    }
+
+    /**
+     * The pin check is an optional constructor argument (ADR-214 item 6), so
+     * an install whose container could not build it would still compile — and
+     * resume suspended runs under revoked instructions. Pinned here for that
+     * reason.
+     */
+    #[Test]
+    public function productionWiresTheSkillPinCheckIntoTheLoop(): void
+    {
+        $loop = $this->get(ToolLoopService::class);
+        self::assertInstanceOf(ToolLoopService::class, $loop);
+
+        self::assertInstanceOf(SkillPinCheck::class, (new ReflectionProperty(ToolLoopService::class, 'skillPinCheck'))->getValue($loop));
     }
 }

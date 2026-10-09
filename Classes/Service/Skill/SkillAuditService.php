@@ -45,6 +45,29 @@ final readonly class SkillAuditService
             $skill->getInjectionScan(),
             $this->actorUid(),
             $detail,
+            $skill->getVersionDigest(),
+        );
+    }
+
+    /**
+     * Record an event about one named version of a skill (ADR-214 item 2): an
+     * approval, a revocation or a refused approval. The digest is the one the
+     * event concerns, which for a refused approval is the one the approver
+     * saw, not necessarily the record's current one.
+     */
+    public function recordVersionEvent(SkillAuditEvent $event, Skill $skill, string $versionDigest, string $trustLevel, string $detail = ''): void
+    {
+        $this->repository->record(
+            $event->value,
+            $skill->getSource(),
+            $skill->getIdentifier(),
+            $skill->getSourceSha(),
+            $skill->getBodyChecksum(),
+            $trustLevel,
+            '',
+            $this->actorUid(),
+            $detail,
+            $versionDigest,
         );
     }
 

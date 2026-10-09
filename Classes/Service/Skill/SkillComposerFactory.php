@@ -36,14 +36,31 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  * Lowering the value is the way to tighten the cap; there is no way to switch
  * it off.
  *
+ * The instruction threshold (ADR-214) is read from
+ * ``skills.instructionTrustLevel``; see {@see self::instructionTrustLevel()}.
+ *
  * A factory (rather than injecting {@see ExtensionConfiguration} into the
  * composer) keeps {@see SkillComposer} a pure, trivially constructable value
  * service for its many unit tests.
  */
 final readonly class SkillComposerFactory
 {
+    /**
+     * The instruction threshold when the setting is absent or empty
+     * (ADR-214 item 2).
+     */
+    public const DEFAULT_INSTRUCTION_TRUST_LEVEL = SkillTrustLevel::VERIFIED;
+
+    /**
+     * @param SkillApprovalRepositoryInterface|null $approvals and
+     * @param SkillSourceLookupInterface|null       $sources   are what the instruction policy (ADR-214) reads. Optional and
+     *                                                         trailing so the lean constructions keep working; absent either,
+     *                                                         the composer gets no policy and every skill keeps the fenced frame
+     */
     public function __construct(
         private ExtensionConfiguration $extensionConfiguration,
+        private ?SkillApprovalRepositoryInterface $approvals = null,
+        private ?SkillSourceLookupInterface $sources = null,
     ) {}
 
     public function create(): SkillComposer
@@ -51,7 +68,54 @@ final readonly class SkillComposerFactory
         return new SkillComposer(
             maxBytes: $this->resolveMaxBytes(),
             minTrustLevel: $this->minTrustLevel(),
+            instructionPolicy: $this->instructionPolicy(),
         );
+    }
+
+    /**
+     * The policy that decides which approved versions instruct, or null when
+     * this factory was built without the stores it reads.
+     */
+    public function instructionPolicy(): ?SkillInstructionPolicy
+    {
+        if (!$this->approvals instanceof SkillApprovalRepositoryInterface || !$this->sources instanceof SkillSourceLookupInterface) {
+            return null;
+        }
+
+        return new SkillInstructionPolicy($this->approvals, $this->sources, $this->instructionTrustLevel());
+    }
+
+    /**
+     * The effective provenance level a skill's source must reach before an
+     * approved version of it is composed as an instruction (ADR-214 item 2).
+     *
+     * Read from ``skills.instructionTrustLevel``. An absent or empty value is
+     * the default, ``verified``. An unrecognised value fails CLOSED to the
+     * highest level, ``first_party``: this threshold grants a privilege, so a
+     * typo must narrow it, never widen it — the opposite direction of
+     * {@see self::minTrustLevel()}, which hides skills when raised. A value
+     * below ``skills.minTrustLevel`` is read as ``skills.minTrustLevel``,
+     * since a skill that is not admitted cannot instruct.
+     *
+     * Public so the read-only governance readout shows the value the runtime
+     * applies.
+     */
+    public function instructionTrustLevel(): SkillTrustLevel
+    {
+        try {
+            $skills = $this->skillsConfig();
+            $value  = is_string($skills['instructionTrustLevel'] ?? null) ? trim($skills['instructionTrustLevel']) : '';
+        } catch (Throwable) {
+            $value = '';
+        }
+
+        $level = $value === ''
+            ? self::DEFAULT_INSTRUCTION_TRUST_LEVEL
+            : (SkillTrustLevel::tryFrom($value) ?? SkillTrustLevel::FIRST_PARTY);
+
+        $minimum = $this->minTrustLevel();
+
+        return $level->satisfies($minimum) ? $level : $minimum;
     }
 
     /**

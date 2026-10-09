@@ -514,16 +514,25 @@ final class SkillSyncService
             return ['created', $forcedDisable];
         }
 
-        $changed    = $existing->getBodyChecksum() !== $checksum;
+        // The change test compares version digests (ADR-214 item 1), so a
+        // change to a frontmatter field the model reads — a widened
+        // allowed-tools included — is a change, not only a body change. A
+        // legacy row carries no digest yet; its new-form digest is computed
+        // from the stored fields first, so the first sync after the upgrade
+        // compares like with like and an unchanged skill is not disabled
+        // merely because its row was legacy.
+        $previous   = $existing->getVersionDigest() !== '' ? $existing->getVersionDigest() : SkillVersionDigest::of($existing);
         $wasEnabled = $existing->isEnabled();
         $this->apply($existing, $parsed, $sha, $checksum);
+        $changed = !hash_equals($previous, $existing->getVersionDigest());
         $this->applyIsolationMetadata($existing, $source, $scan);
         $existing->setOrphaned(false);
         $outcome       = 'updated';
         $forcedDisable = $highConf && $wasEnabled;
-        // Auto-disable an enabled skill on a body change (ADR-035) OR on a
-        // high-confidence injection finding (ADR-061) — both are fail-closed
-        // re-reviews. 'changed' is reserved for the body-change reason.
+        // Auto-disable an enabled skill on a version change (ADR-035, ADR-214)
+        // OR on a high-confidence injection finding (ADR-061) — both are
+        // fail-closed re-reviews. 'changed' is reserved for the version-change
+        // reason.
         if ($wasEnabled && ($changed || $highConf)) {
             $existing->setEnabled(false);
             $outcome = $changed ? 'changed' : 'updated';
@@ -587,21 +596,12 @@ final class SkillSyncService
         $skill->setUnsupportedNotes($parsed->unsupportedNotes);
         // Distinguish "no opinion" (key absent → store '') from a present declaration (store its JSON,
         // including '[]' for a declared-empty fail-closed list). The accessor treats '' as null/no-opinion.
-        $frontmatter = $parsed->rawFrontmatter;
-        if (!array_key_exists('allowed-tools', $frontmatter) && !array_key_exists('allowed_tools', $frontmatter)) {
-            $skill->setAllowedTools('');
-        } else {
-            $tools = $frontmatter['allowed-tools'] ?? $frontmatter['allowed_tools'] ?? [];
-            // A string form ("GetTca, GetEnv" / "GetTca GetEnv" / a single name)
-            // is a real declaration, not "no tools": split it into a list rather
-            // than collapsing to the declared-empty (fail-closed, all-tools-off)
-            // list. Only a genuinely empty/whitespace value stays empty.
-            if (is_string($tools)) {
-                $tools = preg_split('/[\s,]+/', trim($tools), -1, PREG_SPLIT_NO_EMPTY) ?: [];
-            }
-
-            $skill->setAllowedTools((string)json_encode(is_array($tools) ? array_values($tools) : []));
-        }
+        $tools = SkillFrontmatter::allowedTools($parsed->rawFrontmatter);
+        $skill->setAllowedTools($tools === null ? '' : (string)json_encode($tools));
+        $skill->setProcess(SkillFrontmatter::isProcess($parsed->rawFrontmatter));
+        // Last, over the fields just written: the digest names exactly the
+        // version this row now holds (ADR-214 item 1).
+        $skill->setVersionDigest(SkillVersionDigest::of($skill));
     }
 
     /**

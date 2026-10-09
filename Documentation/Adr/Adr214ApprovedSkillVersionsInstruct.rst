@@ -94,10 +94,11 @@ The source types are ``single_file``, ``repo`` and ``marketplace``
 
 The sync computes ``body_checksum`` from the body alone
 (``Classes/Service/Skill/SkillSyncService.php#hash('sha256', $parsed->body)``),
-and compose re-verifies it the same way
-(``Classes/Service/Skill/SkillComposer.php#hash('sha256', $skill->getBody())``,
-ADR-036 item 6). The sync's change test compares that value only
-(``Classes/Service/Skill/SkillSyncService.php#getBodyChecksum() !== $checksum``).
+and compose re-verified it the same way (ADR-036 item 6); for a legacy row
+without a version digest it still does
+(``Classes/Service/Skill/SkillVersionDigest.php#hash('sha256', $skill->getBody())``).
+The sync's change test compared that value only, until item 1 below replaced
+it with the version digest.
 The same sync also rewrites ``name``, ``description``, ``allowed_tools``,
 ``support_status`` and ``raw_frontmatter`` (:php:`SkillSyncService::apply()`).
 An upstream change to the frontmatter alone is therefore an ``updated`` skill:

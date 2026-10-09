@@ -65,6 +65,9 @@ final class SkillSourceController extends ActionController
     {
         $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/SkillList.js');
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
+        // The approval actions of the same module redirect here with a flash
+        // message when the skill they were asked about does not exist.
+        $moduleTemplate->setFlashMessageQueue($this->getFlashMessageQueue());
         $this->applyModuleChrome($moduleTemplate, $this->request);
 
         // "Add source" button in the docheader → FormEngine new-record form for

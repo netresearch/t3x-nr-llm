@@ -362,7 +362,8 @@ final readonly class ConversationService implements ConversationServiceInterface
     }
 
     /**
-     * The skill block this turn's send will carry, composed once.
+     * The skill text this turn's send will carry, composed once: the fenced
+     * block and the approved instruction sections.
      *
      * {@see \Netresearch\NrLlm\Service\LlmServiceManager::chatForConfiguration()}
      * prepends it to the first user message after this service has fitted the
@@ -382,10 +383,15 @@ final readonly class ConversationService implements ConversationServiceInterface
             return '';
         }
 
-        return $this->skillComposer->composeBlock(
+        $result = $this->skillComposer->composeBlock(
             SkillInjectionService::toList($configuration->getSkills()),
             [],
-        )->block;
+        );
+
+        // Approved instruction sections (ADR-214 item 2) are appended to the
+        // system message by the same send, after this fit, so they are on the
+        // wire too and are charged with the block.
+        return SkillInjectionService::join($result->block, $result->instructions);
     }
 
     /**

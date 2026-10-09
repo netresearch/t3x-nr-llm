@@ -967,6 +967,18 @@
             <trans-unit id="tx_nrllm_skill.body_checksum">
                 <source>Body checksum</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_skill.version_digest">
+                <source>Version digest</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.version_digest.description">
+                <source>Digest over the body and the frontmatter fields the model reads, written by the sync. Approvals and revocations name a version by this value.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.process">
+                <source>Process skill</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.process.description">
+                <source>Set by the frontmatter key "process: true". A process skill reaches a run only through an explicit invocation.</source>
+            </trans-unit>
             <trans-unit id="tx_nrllm_skill.source_sha">
                 <source>Source commit SHA</source>
             </trans-unit>

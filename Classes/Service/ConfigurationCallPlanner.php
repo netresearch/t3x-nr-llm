@@ -36,6 +36,18 @@ use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
  */
 final readonly class ConfigurationCallPlanner
 {
+    /**
+     * Option key that carries approved skill instruction sections (ADR-214
+     * item 2) from the injection site to {@see self::callOptions()}.
+     *
+     * The sections belong behind the configuration's own system prompt and
+     * its snippet block, which only exist once the options are merged here, so
+     * they travel as an option and are appended to ``system_prompt`` in that
+     * order. The key is removed from the options it arrives in: it never
+     * reaches a provider adapter.
+     */
+    public const INSTRUCTIONS_OPTION = '_nrllm_skill_instructions';
+
     public function __construct(
         private ProviderAdapterRegistryInterface $adapterRegistry,
         private ?ModelSelectionServiceInterface $modelSelectionService = null,
@@ -143,6 +155,7 @@ final readonly class ConfigurationCallPlanner
         unset($options['provider']);
 
         $options = $this->withSnippetTags($options, $config);
+        $options = $this->withInstructions($options);
 
         // An explicit non-positive max_tokens override means "unset" too —
         // passing 0 through would fail provider-side validation.
@@ -202,6 +215,31 @@ final readonly class ConfigurationCallPlanner
         }
 
         $options['system_prompt'] = $effective;
+
+        return $options;
+    }
+
+    /**
+     * Append approved skill instruction sections behind the effective system
+     * prompt and its snippet block (ADR-214 item 2), and drop the carrier key.
+     *
+     * @param array<string, mixed> $options
+     *
+     * @return array<string, mixed>
+     */
+    private function withInstructions(array $options): array
+    {
+        $instructions = $options[self::INSTRUCTIONS_OPTION] ?? '';
+        unset($options[self::INSTRUCTIONS_OPTION]);
+
+        if (!is_string($instructions) || $instructions === '') {
+            return $options;
+        }
+
+        $current = $options['system_prompt'] ?? '';
+        $current = is_string($current) ? $current : '';
+
+        $options['system_prompt'] = $current === '' ? $instructions : $current . "\n\n" . $instructions;
 
         return $options;
     }

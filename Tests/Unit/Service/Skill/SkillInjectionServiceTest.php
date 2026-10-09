@@ -9,11 +9,17 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Skill;
 
+use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
 use Netresearch\NrLlm\Domain\Enum\SupportStatus;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
+use Netresearch\NrLlm\Service\Skill\SkillInstructionPolicy;
+use Netresearch\NrLlm\Service\Skill\SkillVersionDigest;
+use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\FixedSkillSourceLookup;
+use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\InMemorySkillApprovalRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -28,12 +34,12 @@ final class SkillInjectionServiceTest extends TestCase
     private const USER_INPUT = 'Summarise the changelog.';
 
     #[Test]
-    public function augmentPromptPrependsComposedBlockToUserPrompt(): void
+    public function composeIntoPromptPrependsComposedBlockToUserPrompt(): void
     {
         $subject = $this->subject();
         $skill   = $this->makeSkill('alpha', 'Alpha Skill', 'Always cite sources.');
 
-        $augmented = $subject->augmentPrompt(self::USER_INPUT, [$skill], []);
+        $augmented = $subject->composeIntoPrompt(self::USER_INPUT, [$skill], [])['prompt'];
 
         self::assertStringContainsString(self::PREAMBLE_NEEDLE, $augmented);
         self::assertStringContainsString('### Skill: Alpha Skill', $augmented);
@@ -47,22 +53,22 @@ final class SkillInjectionServiceTest extends TestCase
     }
 
     #[Test]
-    public function augmentPromptReturnsPromptUnchangedWhenNoSkills(): void
+    public function composeIntoPromptReturnsPromptUnchangedWhenNoSkills(): void
     {
         self::assertSame(
             self::USER_INPUT,
-            $this->subject()->augmentPrompt(self::USER_INPUT, [], []),
+            $this->subject()->composeIntoPrompt(self::USER_INPUT, [], [])['prompt'],
         );
     }
 
     #[Test]
-    public function augmentPromptCombinesConfigBaselineBeforeTaskAdditive(): void
+    public function composeIntoPromptCombinesConfigBaselineBeforeTaskAdditive(): void
     {
         $subject     = $this->subject();
         $configSkill = $this->makeSkill('cfg', 'Config Skill', 'Config baseline.');
         $taskSkill   = $this->makeSkill('task', 'Task Skill', 'Task additive.');
 
-        $augmented = $subject->augmentPrompt(self::USER_INPUT, [$configSkill], [$taskSkill]);
+        $augmented = $subject->composeIntoPrompt(self::USER_INPUT, [$configSkill], [$taskSkill])['prompt'];
 
         self::assertLessThan(
             strpos($augmented, '### Skill: Task Skill'),
@@ -71,7 +77,7 @@ final class SkillInjectionServiceTest extends TestCase
     }
 
     #[Test]
-    public function augmentPromptSkipsChecksumMismatchAndLogsWarning(): void
+    public function composeIntoPromptSkipsChecksumMismatchAndLogsWarning(): void
     {
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects(self::once())->method('warning');
@@ -79,13 +85,13 @@ final class SkillInjectionServiceTest extends TestCase
         $subject = new SkillInjectionService(new SkillComposer(), $logger);
         $skill   = $this->makeSkill('tampered', 'Tampered Skill', 'Body.', checksum: 'deadbeef');
 
-        $augmented = $subject->augmentPrompt(self::USER_INPUT, [$skill], []);
+        $augmented = $subject->composeIntoPrompt(self::USER_INPUT, [$skill], [])['prompt'];
 
         self::assertSame(self::USER_INPUT, $augmented);
     }
 
     #[Test]
-    public function augmentMessagesPrependsBlockToFirstUserMessageOnly(): void
+    public function composeIntoMessagesPrependsBlockToFirstUserMessageOnly(): void
     {
         $subject  = $this->subject();
         $skill    = $this->makeSkill('alpha', 'Alpha Skill', 'Always cite sources.');
@@ -95,7 +101,7 @@ final class SkillInjectionServiceTest extends TestCase
             ['role' => 'user', 'content' => 'Second user message.'],
         ];
 
-        $augmented = $subject->augmentMessages($messages, [$skill], []);
+        $augmented = $subject->composeIntoMessages($messages, [$skill], [])['messages'];
 
         self::assertIsArray($augmented[0]);
         self::assertSame('You are a translator.', $augmented[0]['content']);
@@ -108,7 +114,7 @@ final class SkillInjectionServiceTest extends TestCase
     }
 
     #[Test]
-    public function augmentMessagesLeavesMessagesUntouchedWhenNoUserMessage(): void
+    public function composeIntoMessagesLeavesMessagesUntouchedWhenNoUserMessage(): void
     {
         $subject  = $this->subject();
         $skill    = $this->makeSkill('alpha', 'Alpha Skill', 'Always cite sources.');
@@ -116,7 +122,7 @@ final class SkillInjectionServiceTest extends TestCase
             ['role' => 'system', 'content' => 'You are a translator.'],
         ];
 
-        self::assertSame($messages, $subject->augmentMessages($messages, [$skill], []));
+        self::assertSame($messages, $subject->composeIntoMessages($messages, [$skill], [])['messages']);
     }
 
     /**
@@ -127,7 +133,7 @@ final class SkillInjectionServiceTest extends TestCase
      * predicate required a string, so the block skipped ahead to a later turn.
      */
     #[Test]
-    public function augmentMessagesPrependsATextPartToAMultimodalUserMessage(): void
+    public function composeIntoMessagesPrependsATextPartToAMultimodalUserMessage(): void
     {
         $subject  = $this->subject();
         $skill    = $this->makeSkill('alpha', 'Alpha Skill', 'Always cite sources.');
@@ -140,7 +146,7 @@ final class SkillInjectionServiceTest extends TestCase
             ['role' => 'user', 'content' => 'A later text-only turn.'],
         ];
 
-        $augmented = $subject->augmentMessages($messages, [$skill], []);
+        $augmented = $subject->composeIntoMessages($messages, [$skill], [])['messages'];
 
         self::assertIsArray($augmented[1]);
         $content = $augmented[1]['content'];
@@ -168,7 +174,7 @@ final class SkillInjectionServiceTest extends TestCase
      * without a word is not.
      */
     #[Test]
-    public function augmentMessagesWarnsWhenAComposedBlockFindsNoUserMessage(): void
+    public function composeIntoMessagesWarnsWhenAComposedBlockFindsNoUserMessage(): void
     {
         $logger  = $this->createMock(LoggerInterface::class);
         $logger->expects(self::once())
@@ -179,7 +185,7 @@ final class SkillInjectionServiceTest extends TestCase
         $skill    = $this->makeSkill('alpha', 'Alpha Skill', 'Always cite sources.');
         $messages = [['role' => 'system', 'content' => 'You are a translator.']];
 
-        self::assertSame($messages, $subject->augmentMessages($messages, [$skill], []));
+        self::assertSame($messages, $subject->composeIntoMessages($messages, [$skill], [])['messages']);
     }
 
     /**
@@ -187,7 +193,7 @@ final class SkillInjectionServiceTest extends TestCase
      * lost block, not every skill-less call.
      */
     #[Test]
-    public function augmentMessagesIsSilentWhenThereIsNoBlockToPlace(): void
+    public function composeIntoMessagesIsSilentWhenThereIsNoBlockToPlace(): void
     {
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects(self::never())->method('warning');
@@ -195,11 +201,11 @@ final class SkillInjectionServiceTest extends TestCase
         $subject  = new SkillInjectionService(new SkillComposer(), $logger);
         $messages = [['role' => 'system', 'content' => 'You are a translator.']];
 
-        self::assertSame($messages, $subject->augmentMessages($messages, [], []));
+        self::assertSame($messages, $subject->composeIntoMessages($messages, [], [])['messages']);
     }
 
     #[Test]
-    public function augmentMessagesHandlesChatMessageValueObjects(): void
+    public function composeIntoMessagesHandlesChatMessageValueObjects(): void
     {
         $subject  = $this->subject();
         $skill    = $this->makeSkill('alpha', 'Alpha Skill', 'Always cite sources.');
@@ -208,7 +214,7 @@ final class SkillInjectionServiceTest extends TestCase
             ChatMessage::user('Translate this.'),
         ];
 
-        $augmented = $subject->augmentMessages($messages, [$skill], []);
+        $augmented = $subject->composeIntoMessages($messages, [$skill], [])['messages'];
 
         self::assertInstanceOf(ChatMessage::class, $augmented[0]);
         self::assertTrue($augmented[0]->isSystem());
@@ -217,6 +223,91 @@ final class SkillInjectionServiceTest extends TestCase
         self::assertTrue($augmented[1]->isUser());
         self::assertStringContainsString('### Skill: Alpha Skill', $augmented[1]->content);
         self::assertStringEndsWith('Translate this.', $augmented[1]->content);
+    }
+
+    #[Test]
+    public function approvedInstructionsAreAppendedToTheCallersSystemMessageNotTheUserTurn(): void
+    {
+        $messages = [
+            ['role' => 'system', 'content' => 'You are the editor assistant.'],
+            ['role' => 'user', 'content' => self::USER_INPUT],
+        ];
+
+        $injected = $this->instructingSubject()->composeIntoMessages($messages, [$this->approvedSkill()]);
+
+        self::assertSame('', $injected['instructions'], 'placed, nothing left over');
+        $system = $injected['messages'][0];
+        self::assertIsArray($system);
+        self::assertIsString($system['content']);
+        self::assertStringStartsWith("You are the editor assistant.\n\n## Approved skills", $system['content']);
+        self::assertStringContainsString('Follow the house style.', $system['content']);
+        self::assertIsArray($injected['messages'][1]);
+        self::assertSame(self::USER_INPUT, $injected['messages'][1]['content'], 'the user turn gets no fenced copy');
+        $skill = $this->approvedSkill();
+        self::assertEquals([new SkillPin(5, 1, $skill->getVersionDigest())], $injected['pins'], 'a placed instruction is pinned too');
+    }
+
+    #[Test]
+    public function approvedInstructionsJoinASystemChatMessage(): void
+    {
+        $messages = [ChatMessage::system('You are the editor assistant.'), ChatMessage::user(self::USER_INPUT)];
+
+        $injected = $this->instructingSubject()->composeIntoMessages($messages, [$this->approvedSkill()]);
+
+        $system = $injected['messages'][0];
+        self::assertInstanceOf(ChatMessage::class, $system);
+        self::assertTrue($system->isSystem());
+        self::assertStringContainsString('Follow the house style.', $system->content);
+    }
+
+    /**
+     * Without a system message the sections are handed back: placing them in
+     * a new system message here would suppress the configuration's own prompt.
+     */
+    #[Test]
+    public function approvedInstructionsAreHandedBackWhenThereIsNoSystemMessage(): void
+    {
+        $messages = [['role' => 'user', 'content' => self::USER_INPUT]];
+
+        $injected = $this->instructingSubject()->composeIntoMessages($messages, [$this->approvedSkill()]);
+
+        self::assertSame($messages, $injected['messages']);
+        self::assertStringContainsString('Follow the house style.', $injected['instructions']);
+        self::assertEquals([new SkillPin(5, 1, $this->approvedSkill()->getVersionDigest())], $injected['pins']);
+    }
+
+    #[Test]
+    public function aFencedSkillIsNotPinned(): void
+    {
+        $messages = [['role' => 'user', 'content' => self::USER_INPUT]];
+
+        self::assertSame([], $this->subject()->composeIntoMessages($messages, [$this->approvedSkill()])['pins']);
+    }
+
+    #[Test]
+    public function aPromptNeverCarriesApprovedInstructions(): void
+    {
+        $injected = $this->instructingSubject()->composeIntoPrompt(self::USER_INPUT, [$this->approvedSkill()]);
+
+        self::assertSame(self::USER_INPUT, $injected['prompt']);
+        self::assertStringContainsString('Follow the house style.', $injected['instructions']);
+        self::assertSame(['guide'], $injected['included']);
+    }
+
+    #[Test]
+    public function appendingToAPartListAddsATextPart(): void
+    {
+        $messages = [
+            ['role' => 'system', 'content' => [['type' => 'text', 'text' => 'Base.']]],
+            ['role' => 'user', 'content' => 'Hi'],
+        ];
+
+        $placed = SkillInjectionService::appendToFirstSystemMessage($messages, 'Added.');
+
+        self::assertNotNull($placed);
+        self::assertIsArray($placed[0]);
+        self::assertSame([['type' => 'text', 'text' => 'Base.'], ['type' => 'text', 'text' => 'Added.']], $placed[0]['content']);
+        self::assertNull(SkillInjectionService::appendToFirstSystemMessage([['role' => 'user', 'content' => 'Hi']], 'Added.'));
     }
 
     #[Test]
@@ -230,6 +321,31 @@ final class SkillInjectionServiceTest extends TestCase
 
         self::assertCount(2, $list);
         self::assertContainsOnlyInstancesOf(Skill::class, $list);
+    }
+
+    private function instructingSubject(): SkillInjectionService
+    {
+        $approvals = new InMemorySkillApprovalRepository();
+        $skill     = $this->approvedSkill();
+        $approvals->add(5, 1, $skill->getVersionDigest(), SkillVersionDigest::fieldsOf($skill), 'verified', 1);
+
+        return new SkillInjectionService(
+            new SkillComposer(
+                SkillComposer::DEFAULT_MAX_BYTES,
+                SkillTrustLevel::UNTRUSTED,
+                new SkillInstructionPolicy($approvals, new FixedSkillSourceLookup([1 => SkillTrustLevel::VERIFIED]), SkillTrustLevel::VERIFIED),
+            ),
+            self::createStub(LoggerInterface::class),
+        );
+    }
+
+    private function approvedSkill(): Skill
+    {
+        $skill = $this->makeSkill('guide', 'Guide', 'Follow the house style.');
+        $skill->_setProperty('uid', 5);
+        $skill->setVersionDigest(SkillVersionDigest::of($skill));
+
+        return $skill;
     }
 
     private function subject(): SkillInjectionService

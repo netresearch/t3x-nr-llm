@@ -13,22 +13,24 @@ use Netresearch\NrLlm\Domain\Enum\MessageRole;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\SkillCompositionResult;
+use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
 
 /**
- * Prepends the composed skill block to the *user* prompt for text-generation
- * calls.
+ * Places composed skills into a prompt for text-generation calls.
  *
  * Shared by the two service-layer injection sites — {@see
  * \Netresearch\NrLlm\Service\Task\TaskExecutionService} (task skills + the
  * task's configuration skills) and the configuration-driven completion /
  * translation path in {@see \Netresearch\NrLlm\Service\LlmServiceManager}
- * (the resolved configuration's skills). The block is never placed in the
- * system role: for a plain prompt it is prepended to the prompt string, for a
- * messages list it is prepended to the first user-role message only (the
- * system message is left untouched). Composition warnings (checksum mismatch,
- * budget drops) are logged at warning level.
+ * (the resolved configuration's skills). The fenced block of untrusted skills
+ * is never placed in the system role: for a plain prompt it is prepended to
+ * the prompt string, for a messages list it is prepended to the first
+ * user-role message only. Approved instruction sections (ADR-214 item 2) are
+ * the one thing that reaches the system message, and only through the
+ * channel each method documents. Composition warnings (integrity mismatch,
+ * process skills skipped, budget drops) are logged at warning level.
  */
 final readonly class SkillInjectionService
 {
@@ -42,51 +44,141 @@ final readonly class SkillInjectionService
     ) {}
 
     /**
-     * Prepend the composed skill block to a single-string user prompt.
+     * Compose the skills for a single-string prompt and report what applies.
      *
-     * @param list<Skill> $configSkills
-     * @param list<Skill> $taskSkills
-     */
-    public function augmentPrompt(string $userPrompt, array $configSkills, array $taskSkills = []): string
-    {
-        return $this->prepend($this->composeAndLog($configSkills, $taskSkills)->block, $userPrompt);
-    }
-
-    /**
-     * Augment a plain prompt and report which skills were applied.
+     * The fenced block is prepended to the prompt. Approved instruction
+     * sections (ADR-214 item 2) are returned separately, because a plain
+     * prompt has no system message to carry them: the caller hands them to the
+     * configuration's system prompt
+     * ({@see \Netresearch\NrLlm\Service\ConfigurationCallPlanner::INSTRUCTIONS_OPTION}).
+     * They are never folded into the prompt, which is the user turn.
      *
-     * Used by the task-execution path so the result can attribute the
-     * provider-reported token usage (which already includes the injected
-     * prose) to the contributing skills. Composition runs exactly once.
+     * Composition runs exactly once, so the applied identifiers attribute the
+     * provider-reported usage to the skills that contributed to it.
      *
      * @param list<Skill> $configSkills
      * @param list<Skill> $taskSkills
      *
-     * @return array{0: string, 1: list<string>} augmented prompt, applied skill identifiers
+     * @return array{prompt: string, instructions: string, included: list<string>}
      */
-    public function augmentPromptWithReport(string $userPrompt, array $configSkills, array $taskSkills = []): array
+    public function composeIntoPrompt(string $userPrompt, array $configSkills, array $taskSkills = []): array
     {
         $result = $this->composeAndLog($configSkills, $taskSkills);
 
-        return [$this->prepend($result->block, $userPrompt), $result->included];
+        return [
+            'prompt'       => $this->prepend($result->block, $userPrompt),
+            'instructions' => $result->instructions,
+            'included'     => $result->included,
+        ];
     }
 
     /**
-     * Prepend the composed skill block to the first user-role message.
+     * Compose the skills for a message list.
      *
-     * The system role is never modified. When no user message is present the
-     * list is returned unchanged — the block is never escalated into the
-     * system role to satisfy a missing user turn.
+     * The fenced block is prepended to the first user-role message; the system
+     * role never receives it, and when no user message is present the list is
+     * returned unchanged in that respect.
+     *
+     * Approved instruction sections (ADR-214 item 2) belong to the system
+     * message. When the list already holds one — a caller's own — they are
+     * appended to the first system message here. When it holds none, they are
+     * returned as `instructions` and NOT placed: adding a system message here
+     * would make the shaping stage suppress the configuration's own system
+     * prompt and its snippets (ADR-031), so the caller places them after that
+     * prompt itself. `instructions` is '' when nothing is left to place.
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param list<Skill>                            $configSkills
      * @param list<Skill>                            $taskSkills
      *
+     * `pins` names the versions the instruction sections were composed from
+     * (ADR-214 item 6), whether placed here or handed back.
+     *
+     * @return array{messages: list<ChatMessage|array<string, mixed>>, instructions: string, pins: list<SkillPin>}
+     */
+    public function composeIntoMessages(array $messages, array $configSkills, array $taskSkills = []): array
+    {
+        $result   = $this->composeAndLog($configSkills, $taskSkills);
+        $messages = $this->prependBlockToFirstUserMessage($messages, $result->block);
+
+        if ($result->instructions === '') {
+            return ['messages' => $messages, 'instructions' => '', 'pins' => []];
+        }
+
+        $placed = self::appendToFirstSystemMessage($messages, $result->instructions);
+        if ($placed === null) {
+            return ['messages' => $messages, 'instructions' => $result->instructions, 'pins' => $result->instructionPins];
+        }
+
+        return ['messages' => $placed, 'instructions' => '', 'pins' => $result->instructionPins];
+    }
+
+    /**
+     * Append text to the first system-role message of a list, or return null
+     * when the list holds no system message.
+     *
+     * Shared by every place that writes approved instruction sections into a
+     * system message that already exists (ADR-214 item 2), so they all join it
+     * the same way.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     *
+     * @return list<ChatMessage|array<string, mixed>>|null
+     */
+    public static function appendToFirstSystemMessage(array $messages, string $text): ?array
+    {
+        foreach ($messages as $index => $message) {
+            if ($message instanceof ChatMessage) {
+                if (!$message->isSystem()) {
+                    continue;
+                }
+
+                $messages[$index] = ChatMessage::system(self::join($message->content, $text));
+
+                return $messages;
+            }
+
+            if (($message['role'] ?? null) !== MessageRole::SYSTEM->value) {
+                continue;
+            }
+
+            $content = $message[self::KEY_CONTENT] ?? '';
+            if (is_array($content)) {
+                // A part list: the text joins as one more text part at the end.
+                $content[]                 = ['type' => 'text', 'text' => $text];
+                $message[self::KEY_CONTENT] = $content;
+            } else {
+                $message[self::KEY_CONTENT] = self::join(is_string($content) ? $content : '', $text);
+            }
+
+            $messages[$index] = $message;
+
+            return $messages;
+        }
+
+        return null;
+    }
+
+    /**
+     * Join a system prompt and appended text the way the snippet block joins
+     * the configuration's prompt (ADR-031): a blank line between them.
+     */
+    public static function join(string $systemPrompt, string $appended): string
+    {
+        if ($appended === '') {
+            return $systemPrompt;
+        }
+
+        return $systemPrompt === '' ? $appended : $systemPrompt . self::SEPARATOR . $appended;
+    }
+
+    /**
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     *
      * @return list<ChatMessage|array<string, mixed>>
      */
-    public function augmentMessages(array $messages, array $configSkills, array $taskSkills = []): array
+    private function prependBlockToFirstUserMessage(array $messages, string $block): array
     {
-        $block = $this->composeAndLog($configSkills, $taskSkills)->block;
         if ($block === '') {
             return $messages;
         }

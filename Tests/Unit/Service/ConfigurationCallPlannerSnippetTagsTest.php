@@ -127,6 +127,60 @@ final class ConfigurationCallPlannerSnippetTagsTest extends TestCase
         );
     }
 
+    /**
+     * Approved skill instructions (ADR-214 item 2) follow the configuration's
+     * prompt AND its snippet block, in that order.
+     */
+    #[Test]
+    public function skillInstructionsAreAppendedBehindThePromptAndTheSnippets(): void
+    {
+        $options = $this->planner($this->resolver())->callOptions(
+            $this->configuration('persona'),
+            new Model(),
+            [ConfigurationCallPlanner::INSTRUCTIONS_OPTION => '## Approved skills'],
+        );
+
+        self::assertSame(self::SYSTEM_PROMPT . "\n\nNova:\nYou are Nova.\n\n## Approved skills", $options['system_prompt'] ?? null);
+    }
+
+    #[Test]
+    public function withoutAnyPromptTheInstructionsBecomeTheSystemPrompt(): void
+    {
+        $configuration = $this->configuration('');
+        $configuration->setSystemPrompt('');
+
+        $options = $this->planner(null)->callOptions($configuration, new Model(), [ConfigurationCallPlanner::INSTRUCTIONS_OPTION => '## Approved skills']);
+
+        self::assertSame('## Approved skills', $options['system_prompt'] ?? null);
+    }
+
+    /**
+     * The carrier key never reaches a provider adapter, whether or not it
+     * carried text.
+     */
+    #[Test]
+    public function theInstructionCarrierKeyIsRemovedFromTheOptions(): void
+    {
+        $planner = $this->planner(null);
+
+        self::assertArrayNotHasKey(
+            ConfigurationCallPlanner::INSTRUCTIONS_OPTION,
+            $planner->callOptions($this->configuration(''), new Model(), [ConfigurationCallPlanner::INSTRUCTIONS_OPTION => 'x']),
+        );
+        self::assertArrayNotHasKey(
+            ConfigurationCallPlanner::INSTRUCTIONS_OPTION,
+            $planner->callOptions($this->configuration(''), new Model(), [ConfigurationCallPlanner::INSTRUCTIONS_OPTION => '']),
+        );
+    }
+
+    #[Test]
+    public function noInstructionsLeaveTheSystemPromptUntouched(): void
+    {
+        $options = $this->planner(null)->callOptions($this->configuration(''), new Model(), []);
+
+        self::assertSame(self::SYSTEM_PROMPT, $options['system_prompt'] ?? null);
+    }
+
     private function planner(?ConfigurationSnippetResolver $resolver): ConfigurationCallPlanner
     {
         return new ConfigurationCallPlanner(

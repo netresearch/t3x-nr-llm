@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Controller\Backend\ModelController;
 use Netresearch\NrLlm\Controller\Backend\PromptSnippetController;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
 use Netresearch\NrLlm\Controller\Backend\SetupWizardController;
+use Netresearch\NrLlm\Controller\Backend\SkillApprovalController;
 use Netresearch\NrLlm\Controller\Backend\SkillSourceController;
 use Netresearch\NrLlm\Controller\Backend\TaskExecutionController;
 use Netresearch\NrLlm\Controller\Backend\TaskListController;
@@ -304,6 +305,15 @@ return [
         'controllerActions' => [
             SkillSourceController::class => [
                 'list',
+            ],
+            // Review, approve and revoke skill versions (ADR-214 item 2). The
+            // module is admin-only, and each action re-checks that itself:
+            // until the approval permission is decided, only administrators
+            // approve or revoke.
+            SkillApprovalController::class => [
+                'review',
+                'approveVersion',
+                'revokeVersion',
             ],
         ],
     ],
