@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
@@ -52,6 +53,17 @@ interface ToolLoopServiceInterface
      *                                                                 that set ∩
      *                                                                 enabled; `[]` ⇒
      *                                                                 no tools
+     * @param SkillToolAllowList|null                $skillAllowList   the skill allow-list the run
+     *                                                                 started with, as a queued run
+     *                                                                 stores it (ADR-038 item 5); the
+     *                                                                 loop holds the run to it,
+     *                                                                 intersected with the list it
+     *                                                                 resolves now. Null resolves the
+     *                                                                 list now. A caller that resumes a
+     *                                                                 suspended state uses
+     *                                                                 {@see self::resume()}, which
+     *                                                                 applies the stored list itself;
+     *                                                                 `skipAssembly` alone does not.
      */
     public function runLoop(
         array $messages,
@@ -66,6 +78,7 @@ interface ToolLoopServiceInterface
         int $seedIterations = 0,
         int $seedPromptTokens = 0,
         int $seedCompletionTokens = 0,
+        ?SkillToolAllowList $skillAllowList = null,
     ): ToolLoopResult;
 
     /**

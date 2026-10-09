@@ -268,7 +268,16 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         int $seedIterations = 0,
         int $seedPromptTokens = 0,
         int $seedCompletionTokens = 0,
+        ?SkillToolAllowList $skillAllowList = null,
     ): ToolLoopResult {
+        // The run starts here, so its skill allow-list is resolved here, over
+        // the configuration's skills AND the forced ones (ADR-038 item 5).
+        // Before, the gate re-derived it from the configuration alone on every
+        // decision, and a forced skill's declaration restricted nothing. A
+        // queued run brings the list it was enqueued under; it stays the upper
+        // bound, as a stored list does on resume.
+        $live = $this->toolPolicy->skillAllowListForRun($configuration, $augmentation->forcedSkills ?? []);
+
         return $this->loop(
             $messages,
             $configuration,
@@ -282,12 +291,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $seedIterations,
             $seedPromptTokens,
             $seedCompletionTokens,
-            // The run starts here, so its skill allow-list is resolved here,
-            // once, over the configuration's skills AND the forced ones
-            // (ADR-038 item 5). Before, the gate re-derived it from the
-            // configuration alone on every decision, and a forced skill's
-            // declaration restricted nothing.
-            $this->toolPolicy->skillAllowListForRun($configuration, $augmentation->forcedSkills ?? []),
+            $skillAllowList instanceof SkillToolAllowList ? $skillAllowList->intersect($live) : $live,
         );
     }
 

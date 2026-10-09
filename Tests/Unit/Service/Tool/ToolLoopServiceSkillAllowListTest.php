@@ -27,6 +27,7 @@ use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
+use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
@@ -34,6 +35,7 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeInputTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\PreviewingApprovalTool;
@@ -132,6 +134,44 @@ final class ToolLoopServiceSkillAllowListTest extends TestCase
         $service->resume($state, true, $configuration, ToolExecutionContext::none());
 
         self::assertSame(['approve', 'read_a'], $this->sortedNames(array_pop($this->offered)));
+    }
+
+    #[Test]
+    public function anInputResumeWhoseLiveListResolvesToNullDoesNotWidenTheRun(): void
+    {
+        $declaring     = $this->skill('declaring', '["ask_user","read_a"]');
+        $configuration = $this->configuration($declaring);
+        $service       = $this->service($this->registry('ask_user', 'read_a', 'read_b'), [
+            $this->response('', [new ToolCall('call_1', 'ask_user', [])]),
+            $this->response('done'),
+        ]);
+
+        $state = $this->suspendForInput($service, $configuration);
+        self::assertInstanceOf(SkillToolAllowList::class, $state->skillAllowList, 'an input pause stores the list too');
+
+        $declaring->setEnabled(false);
+
+        $service->resumeWithInput($state, ['city' => 'Berlin'], $configuration, ToolExecutionContext::none());
+
+        self::assertSame(['ask_user', 'read_a'], $this->sortedNames(array_pop($this->offered)));
+    }
+
+    #[Test]
+    public function aQueuedRunIsHeldToTheListItWasEnqueuedUnder(): void
+    {
+        // Enqueued under ["read_a"]; its only declaring skill was disabled in
+        // the queue, so the list resolved at execution is null.
+        $service = $this->service($this->registry('read_a', 'read_b'), [$this->response('done')]);
+
+        $service->runLoop(
+            [$this->userTurn('go')],
+            $this->configuration($this->skill('declaring', '["read_a"]', enabled: false)),
+            ToolExecutionContext::none(),
+            null,
+            skillAllowList: new SkillToolAllowList(['read_a']),
+        );
+
+        self::assertSame([['read_a']], $this->offered);
     }
 
     #[Test]
@@ -264,6 +304,17 @@ final class ToolLoopServiceSkillAllowListTest extends TestCase
         );
     }
 
+    private function suspendForInput(ToolLoopService $service, LlmConfiguration $configuration): SuspendedRunState
+    {
+        try {
+            $service->runLoop([$this->userTurn('go')], $configuration, ToolExecutionContext::none(), null);
+        } catch (ToolInputRequiredException $e) {
+            return $e->state;
+        }
+
+        self::fail('Expected the run to suspend for input.');
+    }
+
     private function suspend(ToolLoopService $service, LlmConfiguration $configuration, ?RunAugmentation $augmentation = null): SuspendedRunState
     {
         try {
@@ -282,18 +333,22 @@ final class ToolLoopServiceSkillAllowListTest extends TestCase
     private function registry(string ...$names): ToolRegistry
     {
         return new ToolRegistry(array_map(
-            static fn(string $name): ToolInterface => $name === 'approve' ? new PreviewingApprovalTool($name) : new FakeTool($name),
+            static fn(string $name): ToolInterface => match ($name) {
+                'approve'  => new PreviewingApprovalTool($name),
+                'ask_user' => new FakeInputTool($name),
+                default    => new FakeTool($name),
+            },
             $names,
         ));
     }
 
-    private function skill(string $identifier, string $allowedTools, ?int $uid = null): Skill
+    private function skill(string $identifier, string $allowedTools, ?int $uid = null, bool $enabled = true): Skill
     {
         $skill = new Skill();
         $skill->setSource(1);
         $skill->setIdentifier($identifier);
         $skill->setAllowedTools($allowedTools);
-        $skill->setEnabled(true);
+        $skill->setEnabled($enabled);
         if ($uid !== null) {
             $skill->_setProperty('uid', $uid);
         }

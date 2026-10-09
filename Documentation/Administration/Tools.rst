@@ -1373,12 +1373,13 @@ executed, so a prompt injection cannot reach a tool the skills did not grant.
 
 The list is resolved **once, when the run starts**, over the configuration's
 skills and the skills forced on the run (the playground's skill selection, or
-a queued run's), and stored with the run. A run that waits for an approval or
-for input is resumed against that list intersected with the list resolved
-from the skills as they are then: a change while the run waits can take tools
-away, never add one. Disabling the only declaring skill therefore does not
-open a waiting run to every tool. A run suspended by an earlier version has no
-stored list and resumes with the list as it is then.
+a queued run's), and stored with the run; a queued run resolves it when it is
+enqueued. A run that waits in the queue, for an approval or for input is
+continued against that list intersected with the list resolved from the
+skills as they are then: a change while the run waits can take tools away,
+never add one. Disabling the only declaring skill therefore does not
+open a waiting run to every tool. A run queued or suspended by an earlier
+version has no stored list and continues with the list as it is then.
 
 The effective set is *not* the same as what ends up in the prompt. The
 skill-block byte budget (``skills.maxBytes``, see

@@ -97,9 +97,7 @@ final readonly class SuspendedRunState
             'staleCallIndexes'  => $this->staleCallIndexes,
             // Wrapped, so "the run resolved no restriction" (toolNames null)
             // stays distinguishable from "no list was recorded" (the key null).
-            'skillAllowList' => $this->skillAllowList instanceof SkillToolAllowList
-                ? ['toolNames' => $this->skillAllowList->toolNames]
-                : null,
+            'skillAllowList' => $this->skillAllowList?->toStored(),
         ];
     }
 
@@ -155,37 +153,8 @@ final readonly class SuspendedRunState
             // index that moved would mark the wrong call as stale. An index
             // whose call did not survive is dropped rather than clamped.
             self::staleFrom($data['staleCallIndexes'] ?? null, self::survivingIndexMap($rawPendingCalls)),
-            self::skillAllowListFrom($data['skillAllowList'] ?? null),
+            SkillToolAllowList::fromStored($data['skillAllowList'] ?? null),
         );
-    }
-
-    /**
-     * The persisted skill allow-list (ADR-038 item 5).
-     *
-     * A missing or non-array value is a state persisted before the field
-     * existed: null, and the resume takes the live list as it did then. A
-     * recorded list keeps the difference between `[]` (no tools) and null (no
-     * restriction) — collapsing `[]` to null here would widen a run that may
-     * call nothing to every tool. A recorded value that is neither degrades to
-     * `[]`, the narrow side: the field is written only by the loop, so a
-     * malformed one has been tampered with or truncated, and must not grant.
-     */
-    private static function skillAllowListFrom(mixed $raw): ?SkillToolAllowList
-    {
-        if (!is_array($raw)) {
-            return null;
-        }
-
-        $names = $raw['toolNames'] ?? null;
-        if ($names === null && array_key_exists('toolNames', $raw)) {
-            return new SkillToolAllowList(null);
-        }
-
-        if (!is_array($names)) {
-            return new SkillToolAllowList([]);
-        }
-
-        return new SkillToolAllowList(array_values(array_filter($names, is_string(...))));
     }
 
     /**

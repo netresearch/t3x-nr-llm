@@ -19,10 +19,12 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\DroppedSource;
+use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
+use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
 use RuntimeException;
 
 /**
@@ -43,6 +45,10 @@ final readonly class AgentRunRequestCodec
         private LlmConfigurationRepository $configurationRepository,
         private ?SkillRepository $skillRepository = null,
         private ?PromptSnippetRepository $promptSnippetRepository = null,
+        // Resolves the run's skill allow-list at enqueue (ADR-038 item 5).
+        // Optional like the repositories: without it no list is stored, and
+        // the worker resolves the list when the loop starts.
+        private ?ToolCallPolicyInterface $toolPolicy = null,
     ) {}
 
     /**
@@ -56,6 +62,12 @@ final readonly class AgentRunRequestCodec
     public function dehydrate(AgentRunRequest $request): array
     {
         $augmentation = $request->augmentation;
+        // The run starts here for the skill allow-list (ADR-038 item 5): a
+        // skill disabled while the run waits in the queue can take tools away
+        // at execution, but must not lift a restriction the run was queued
+        // under, which a list resolved only by the worker would do.
+        $skillAllowList = $request->skillAllowList
+            ?? $this->toolPolicy?->skillAllowListForRun($request->configuration, $augmentation->forcedSkills ?? []);
 
         return [
             'messages'         => array_map(
@@ -105,6 +117,7 @@ final readonly class AgentRunRequestCodec
                 ))),
                 'dryRun'            => $augmentation->dryRun,
             ] : null,
+            'skillAllowList'   => $skillAllowList?->toStored(),
         ];
     }
 
@@ -214,6 +227,9 @@ final readonly class AgentRunRequestCodec
             maxIterations: is_int($data['maxIterations'] ?? null) ? $data['maxIterations'] : null,
             augmentation: $augmentation,
             captureRaw: ($data['captureRaw'] ?? false) === true,
+            // A row queued before the list was stored has none; the loop then
+            // resolves it when it starts, as before.
+            skillAllowList: SkillToolAllowList::fromStored($data['skillAllowList'] ?? null),
         );
     }
 

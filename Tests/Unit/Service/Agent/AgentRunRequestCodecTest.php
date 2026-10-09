@@ -10,16 +10,28 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Agent;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequestCodec;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
+use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
+use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Service\Skill\SkillComposer;
+use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
+use Netresearch\NrLlm\Service\Tool\RunAugmentation;
+use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
+use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
+use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -79,6 +91,73 @@ final class AgentRunRequestCodecTest extends TestCase
             crdate: 0,
             queuedRequest: $payload,
         );
+    }
+
+    /**
+     * ADR-038 item 5: a queued run's skill allow-list is resolved when it is
+     * enqueued, over the configuration's AND the forced skills, and travels
+     * with the request — a skill disabled in the queue must not lift it.
+     */
+    #[Test]
+    public function theSkillAllowListIsResolvedAtEnqueueAndTravelsWithTheRequest(): void
+    {
+        $this->configuration->addSkill($this->skillNaming('attached', 'read_a'));
+        $forced = $this->skillNaming('forced', 'read_b');
+        $forced->_setProperty('uid', 9);
+
+        $request = new AgentRunRequest(
+            configuration: $this->configuration,
+            messages: [['role' => 'user', 'content' => 'hello']],
+            actor: AiActorContext::backendUser(7),
+            augmentation: new RunAugmentation(forcedSkills: [$forced]),
+        );
+
+        $registry = new ToolRegistry([new FakeTool('read_a'), new FakeTool('read_b'), new FakeTool('read_c')]);
+        $codec    = new AgentRunRequestCodec($this->configurationRepository, toolPolicy: new ToolCallPolicy(
+            $registry,
+            new FakeToolAvailability($registry->names()),
+            new AllowedToolsResolver(new SkillComposer(), $registry),
+            new ToolDataClassResolver($registry),
+            new TrustZoneResolver(),
+            new DataClassEnforcementResolver(),
+        ));
+        $payload = json_encode($codec->dehydrate($request));
+        self::assertIsString($payload);
+
+        // Both skills are disabled while the run waits in the queue.
+        $this->configuration->getSkills()->rewind();
+        $attached = $this->configuration->getSkills()->current();
+        self::assertInstanceOf(Skill::class, $attached);
+        $attached->setEnabled(false);
+        $forced->setEnabled(false);
+
+        $this->configurationRepository->method('findByUid')->willReturn($this->configuration);
+        $restored = $codec->rehydrate($this->queuedRun($payload));
+
+        self::assertInstanceOf(SkillToolAllowList::class, $restored->skillAllowList);
+        self::assertSame(['read_a', 'read_b'], $restored->skillAllowList->toolNames);
+    }
+
+    #[Test]
+    public function aRowQueuedBeforeTheListWasStoredCarriesNone(): void
+    {
+        $payload = json_encode(['messages' => [], 'actor' => AiActorContext::backendUser(7)->toArray()]);
+        self::assertIsString($payload);
+
+        $this->configurationRepository->method('findByUid')->willReturn($this->configuration);
+
+        self::assertNull($this->codec()->rehydrate($this->queuedRun($payload))->skillAllowList);
+    }
+
+    private function skillNaming(string $identifier, string $tool): Skill
+    {
+        $skill = new Skill();
+        $skill->setSource(1);
+        $skill->setIdentifier($identifier);
+        $skill->setAllowedTools((string)json_encode([$tool]));
+        $skill->setEnabled(true);
+
+        return $skill;
     }
 
     #[Test]

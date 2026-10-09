@@ -1031,6 +1031,8 @@ Netresearch\NrLlm\Domain\ValueObject\RoutingSummary (class)
 Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList (class)
   constructor(?array $toolNames)
   method intersect(self $other): self
+  method static fromStored(mixed $raw): ?self
+  method toStored(): array
   property readonly toolNames: ?array
 
 Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
@@ -1327,7 +1329,7 @@ Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface (interface)
   method testProviderConnection(Netresearch\NrLlm\Domain\Model\Provider $provider): array
 
 Netresearch\NrLlm\Service\Agent\AgentRunRequest (class)
-  constructor(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $messages, Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, ?array $allowedToolNames = …, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunAugmentation $augmentation = …, bool $captureRaw = …)
+  constructor(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $messages, Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, ?array $allowedToolNames = …, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunAugmentation $augmentation = …, bool $captureRaw = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …)
   property readonly actor: Netresearch\NrLlm\Domain\ValueObject\AiActorContext
   property readonly allowedToolNames: ?array
   property readonly augmentation: ?Netresearch\NrLlm\Service\Tool\RunAugmentation
@@ -1336,6 +1338,7 @@ Netresearch\NrLlm\Service\Agent\AgentRunRequest (class)
   property readonly maxIterations: ?int
   property readonly messages: array
   property readonly options: ?Netresearch\NrLlm\Service\Option\ToolOptions
+  property readonly skillAllowList: ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList
 
 Netresearch\NrLlm\Service\Agent\AgentRunResult (class)
   constructor(Netresearch\NrLlm\Domain\Enum\AgentRunOutcome $outcome, string $runUuid, array $steps, ?Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult $loopResult = …, ?Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState $suspendedState = …, ?string $guardrailClass = …, ?Throwable $error = …)
@@ -1950,7 +1953,7 @@ Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface (interface)
   const DECIDED_BY_UNKNOWN = "unknown"
   method resume(Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState $state, bool $approved, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunTrace $runTrace = …, ?int $beUserUid = …): Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult
   method resumeWithInput(Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState $state, array $inputData, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunTrace $runTrace = …, ?int $beUserUid = …): Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult
-  method runLoop(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context, ?array $allowedToolNames, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunTrace $runTrace = …, ?Netresearch\NrLlm\Service\Tool\RunAugmentation $augmentation = …, bool $skipAssembly = …, int $seedIterations = …, int $seedPromptTokens = …, int $seedCompletionTokens = …): Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult
+  method runLoop(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context, ?array $allowedToolNames, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunTrace $runTrace = …, ?Netresearch\NrLlm\Service\Tool\RunAugmentation $augmentation = …, bool $skipAssembly = …, int $seedIterations = …, int $seedPromptTokens = …, int $seedCompletionTokens = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …): Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult
 
 Netresearch\NrLlm\Service\Tool\ToolProviderInterface (interface)
   const TAG_NAME = "nr_llm.tool_provider"
