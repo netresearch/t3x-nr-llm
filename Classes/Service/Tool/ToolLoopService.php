@@ -820,8 +820,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
 
     // ------------------------------------------------------------------
     // ADR-214 item 4: the skill load seam. Everything the loop does for a
-    // load lives in the methods below; the loop body calls them at the
-    // offer and at the per-call dispatch only.
+    // load lives in the methods below, up to enforceContextWindow(); the
+    // loop and both resume paths call them at the offer and at the per-call
+    // dispatch only.
     // ------------------------------------------------------------------
 
     /**
@@ -857,6 +858,90 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         $environment->trace?->beforeToolExecution($call->name);
         [$messages, $pins, $result] = $this->loadSkill($call, $catalogue, $pins, $messages, $configuration, $options, $specs);
         $history = $history->append($call->name, $result->outcome->value, $target);
+
+        return [$messages, $pins, $result];
+    }
+
+    /**
+     * A resumed segment's offer with the load tool fitted to its catalogue:
+     * the resumption with `load_skill` dropped from the offered names when the
+     * catalogue is empty, the catalogue, and the specs a load's admission
+     * measures.
+     *
+     * @return array{0: ToolResumption, 1: SkillCatalogue, 2: list<ToolSpec>}
+     */
+    private function offerWithCatalogue(ToolResumption $resume, LlmConfiguration $configuration): array
+    {
+        $catalogue = $this->skillLoad?->catalogue($configuration) ?? new SkillCatalogue();
+        $offered = $resume->offered;
+        if ($catalogue->isEmpty()) {
+            $offered = array_values(array_filter($offered, static fn(string $name): bool => $name !== LoadSkillTool::NAME));
+        }
+
+        return [
+            new ToolResumption(
+                $resume->options,
+                $resume->augmentation,
+                $resume->skillAllowList,
+                $resume->storedAllowList,
+                $offered,
+            ),
+            $catalogue,
+            $this->withSkillCatalogue($this->registry->specs($offered), $catalogue),
+        ];
+    }
+
+    /**
+     * A call the suspended turn holds, run on resume: a load through
+     * dispatchLoad(), any other call through invokeResumed(). Both pass the
+     * same gates and record their outcome in the invocation history.
+     *
+     * @param list<SkillPin>                         $pins
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<ToolSpec>                         $specs
+     *
+     * @return array{0: list<ChatMessage|array<string, mixed>>, 1: list<SkillPin>, 2: ToolResult}
+     */
+    private function dispatchResumed(
+        ToolCall $call,
+        ToolResumption $resume,
+        RemoteCallBudget $remoteCalls,
+        ToolInvocationEnvironment $environment,
+        ToolInvocationHistory &$history,
+        int $iteration,
+        SkillCatalogue $catalogue,
+        array $pins,
+        array $messages,
+        array $specs,
+    ): array {
+        if ($call->name !== LoadSkillTool::NAME) {
+            return [
+                $messages,
+                $pins,
+                $this->invokeResumed($call, $call, $resume->offered, $remoteCalls, $environment, $history, $iteration),
+            ];
+        }
+
+        $startedAt = hrtime(true);
+        [$messages, $pins, $result] = $this->dispatchLoad(
+            $call,
+            $resume->offered,
+            $environment,
+            $history,
+            $catalogue,
+            $pins,
+            $messages,
+            $environment->configuration,
+            $resume->options,
+            $specs,
+        );
+        $environment->trace?->recordToolResult(
+            $iteration,
+            $this->elapsedMs($startedAt),
+            $call->name,
+            $call->arguments,
+            $result,
+        );
 
         return [$messages, $pins, $result];
     }
@@ -922,6 +1007,17 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             return [$messages, $pins, $outcome->isError ? ToolResult::error($outcome->message) : ToolResult::text($outcome->message)];
         }
 
+        // A window manager that cannot admit refuses rather than skips the
+        // check (item 7); only a loop without any window manager — the lean
+        // wiring, which bounds nothing — appends unmeasured.
+        if ($this->contextWindow instanceof ContextWindowManagerInterface && !$this->contextWindow instanceof SectionAdmissionInterface) {
+            return [$messages, $pins, ToolResult::error(sprintf('Skill "%s" was not loaded: its size cannot be checked against the context window.', $outcome->skillName))];
+        }
+
+        if ($this->headSystemIsPartList($messages)) {
+            return [$messages, $pins, ToolResult::error(sprintf('Skill "%s" was not loaded: the system message of this conversation cannot be extended.', $outcome->skillName))];
+        }
+
         $system = $this->effectiveSystemPrompt($configuration, $options);
         if ($this->contextWindow instanceof SectionAdmissionInterface && !$this->contextWindow->admitsSection(
             $messages,
@@ -950,6 +1046,40 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     }
 
     /**
+     * Whether the head's first system message is a part list, which a
+     * section cannot join without changing its shape.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     */
+    private function headSystemIsPartList(array $messages): bool
+    {
+        foreach ($messages as $message) {
+            if ($message instanceof ChatMessage) {
+                if ($message->role === 'user') {
+                    return false;
+                }
+
+                if ($message->role === 'system') {
+                    return false;
+                }
+
+                continue;
+            }
+
+            $role = $message['role'] ?? null;
+            if ($role === 'user') {
+                return false;
+            }
+
+            if ($role === 'system') {
+                return !is_string($message['content'] ?? null);
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Append a loaded section to the first system message of the head, or
      * null when the head holds none.
      *
@@ -974,7 +1104,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 return null;
             }
 
-            $messages[$index] = ChatMessage::system(SkillComposer::appendInstructionSection($content, $section));
+            $joined           = SkillComposer::appendInstructionSection($content, $section);
+            $messages[$index] = $message instanceof ChatMessage ? ChatMessage::system($joined) : ['content' => $joined] + $message;
 
             return $messages;
         }
@@ -1099,6 +1230,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         );
         $remoteCalls = new RemoteCallBudget();
         $invocationHistory = $state->invocationHistory ?? new ToolInvocationHistory([], false);
+        // ADR-214 item 4: a load the suspended turn holds runs through the
+        // same seam as in the loop, against this segment's catalogue.
+        [$resume, $catalogue, $resumeSpecs] = $this->offerWithCatalogue($resume, $configuration);
+        $pins = $state->skillPins;
 
         // ADR-214 item 6: the transcript carries approved skill versions as
         // system instructions. If one of them no longer holds — revoked, its
@@ -1149,15 +1284,19 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 );
                 $this->recordResumedRefusal($state, $call, $result, $runTrace);
             } else {
-                $tr = $this->invokeResumed(
+                [$messages, $pins, $tr] = $this->dispatchResumed(
                     $call,
-                    $call,
-                    $resume->offered,
+                    $resume,
                     $remoteCalls,
                     $environment,
                     $invocationHistory,
                     $state->iterations,
+                    $catalogue,
+                    $pins,
+                    $messages,
+                    $resumeSpecs,
                 );
+
                 $result = $tr->content;
             }
 
@@ -1179,6 +1318,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $resume,
             $maxIterations,
             $invocationHistory,
+            // The pins the transcript holds stay the run's on a re-suspend,
+            // with any section this resume loaded.
+            $pins,
         );
     }
 
@@ -1275,6 +1417,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         );
         $remoteCalls = new RemoteCallBudget();
         $invocationHistory = $state->invocationHistory ?? new ToolInvocationHistory([], false);
+        // ADR-214 item 4: a load the suspended turn holds runs through the
+        // same seam as in the loop, against this segment's catalogue.
+        [$resume, $catalogue, $resumeSpecs] = $this->offerWithCatalogue($resume, $configuration);
+        $pins = $state->skillPins;
 
         // ADR-214 item 6, as in resume(): stop before the input reaches a tool.
         $this->assertPinsHeld($state);
@@ -1353,15 +1499,19 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     ),
                 );
             } else {
-                $tr = $this->invokeResumed(
+                [$messages, $pins, $tr] = $this->dispatchResumed(
                     $call,
-                    $call,
-                    $resume->offered,
+                    $resume,
                     $remoteCalls,
                     $environment,
                     $invocationHistory,
                     $state->iterations,
+                    $catalogue,
+                    $pins,
+                    $messages,
+                    $resumeSpecs,
                 );
+
                 $result = $tr->content;
             }
 
@@ -1380,6 +1530,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $resume,
             $maxIterations,
             $invocationHistory,
+            $pins,
         );
     }
 
@@ -2199,6 +2350,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * Continue with the original counters, live gates and authoritative history.
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<SkillPin>                         $pins     the transcript's pins, with any section this resume loaded
      */
     private function continueResumed(
         SuspendedRunState $state,
@@ -2207,6 +2359,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         ToolResumption $resume,
         ?int $maxIterations,
         ToolInvocationHistory $history,
+        array $pins,
     ): ToolLoopResult {
         return $this->loop(
             $messages,
@@ -2223,7 +2376,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $state->completionTokens,
             $resume->skillAllowList,
             $resume->storedAllowList,
-            $state->skillPins,
+            $pins,
             $history,
         );
     }

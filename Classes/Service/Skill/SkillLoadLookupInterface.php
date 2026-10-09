@@ -24,9 +24,10 @@ interface SkillLoadLookupInterface
     public function isAttachedOnDemand(int $configurationUid, int $skillUid): bool;
 
     /**
-     * The stored version digest of a skill that may be loaded: the record
-     * exists and is not deleted, hidden, disabled, orphaned or a process
-     * skill. Null otherwise.
+     * The current version digest of a skill that may be loaded — computed
+     * from the fields of a skill written in the backend, the stored one
+     * otherwise — when the record exists and is not deleted, hidden,
+     * disabled, orphaned or a process skill. Null otherwise.
      */
     public function loadableDigest(int $skillUid): ?string;
 }

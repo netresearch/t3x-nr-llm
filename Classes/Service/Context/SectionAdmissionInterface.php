@@ -21,9 +21,11 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
  * A section is admitted only when the smallest send {@see ContextWindowManagerInterface::fit()}
  * can reach — the head (the system messages before the first user turn, now
  * carrying the new section, and the first user message) plus the newest turn
- * — stays at or below the budget minus a headroom of 10 % of the budget. A
- * section that passes can therefore always be sent; one that does not is
- * refused, never appended and evicted later.
+ * — stays at or below the budget minus a headroom of 10 % of the budget. The
+ * headroom absorbs what the turn adds after the check (the results of the
+ * calls still to run); a turn that outgrows it ends legibly as a truncated
+ * run, never as an unbounded send. A section that does not pass is refused,
+ * never appended and evicted later.
  *
  * Separate from {@see ContextWindowManagerInterface} so adding it breaks no
  * implementation of that interface.

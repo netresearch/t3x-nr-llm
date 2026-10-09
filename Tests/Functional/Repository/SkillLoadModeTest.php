@@ -14,6 +14,8 @@ use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Service\Skill\SkillLoadLookup;
+use Netresearch\NrLlm\Service\Skill\SkillSourceLookup;
+use Netresearch\NrLlm\Service\Skill\SkillVersionDigest;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -113,7 +115,7 @@ final class SkillLoadModeTest extends AbstractFunctionalTestCase
     #[Test]
     public function theLookupSeesOnlyOnDemandAttachments(): void
     {
-        $lookup = new SkillLoadLookup($this->pool());
+        $lookup = new SkillLoadLookup($this->pool(), new SkillSourceLookup($this->pool()));
 
         self::assertTrue($lookup->isAttachedOnDemand(130, 102));
         self::assertFalse($lookup->isAttachedOnDemand(130, 101), 'an always attachment is not an on-demand one');
@@ -123,7 +125,7 @@ final class SkillLoadModeTest extends AbstractFunctionalTestCase
     #[Test]
     public function theLookupReturnsTheDigestOfALoadableRecordOnly(): void
     {
-        $lookup = new SkillLoadLookup($this->pool());
+        $lookup = new SkillLoadLookup($this->pool(), new SkillSourceLookup($this->pool()));
 
         self::assertSame('1:' . str_repeat('b', 64), $lookup->loadableDigest(102));
         self::assertNull($lookup->loadableDigest(103), 'a process skill');
@@ -131,6 +133,44 @@ final class SkillLoadModeTest extends AbstractFunctionalTestCase
         self::assertNull($lookup->loadableDigest(105), 'a hidden skill');
         self::assertNull($lookup->loadableDigest(106), 'an orphaned skill');
         self::assertNull($lookup->loadableDigest(999), 'a missing skill');
+    }
+
+    /**
+     * A skill written in the backend stores no digest; the lookup computes
+     * it from the current fields, as the catalogue does, so it can be loaded.
+     */
+    #[Test]
+    public function theLookupComputesTheDigestOfABackendSkillFromItsFields(): void
+    {
+        $this->pool()->getConnectionForTable('tx_nrllm_skill_source')->insert('tx_nrllm_skill_source', [
+            'uid'         => 2,
+            'title'       => 'Written here',
+            'type'        => 'backend',
+            'trust_level' => 'verified',
+        ]);
+        $this->pool()->getConnectionForTable('tx_nrllm_skill')->insert('tx_nrllm_skill', [
+            'uid'            => 108,
+            'source'         => 2,
+            'identifier'     => 'lm:backend',
+            'name'           => 'Backend Skill',
+            'description'    => 'Written here.',
+            'body'           => 'Do it this way.',
+            'support_status' => 'full',
+            'enabled'        => 1,
+        ]);
+
+        $skills = $this->get(SkillRepository::class);
+        self::assertInstanceOf(SkillRepository::class, $skills);
+        $skill = $skills->findByUid(108);
+        self::assertInstanceOf(Skill::class, $skill);
+
+        $lookup = new SkillLoadLookup($this->pool(), new SkillSourceLookup($this->pool()));
+
+        self::assertSame(SkillVersionDigest::of($skill), $lookup->loadableDigest(108));
+
+        $this->pool()->getConnectionForTable('tx_nrllm_skill')->update('tx_nrllm_skill', ['body' => 'Edited.'], ['uid' => 108]);
+
+        self::assertNotSame(SkillVersionDigest::of($skill), $lookup->loadableDigest(108), 'an edit is another version');
     }
 
     private function configuration(): LlmConfiguration

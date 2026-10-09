@@ -70,6 +70,8 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
 
     private const CONFIG_SYSTEM_PROMPT = 'You are the configured assistant.';
 
+    private ?InMemorySkillApprovalRepository $approvals = null;
+
     /** @var list<array{messages: list<ChatMessage|array<string, mixed>>, specs: list<ToolSpec>}> */
     private array $sends = [];
 
@@ -113,6 +115,85 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
         $result = $this->toolResult(1, 'c1');
         self::assertStringContainsString('is loaded', $result);
         self::assertStringNotContainsString(self::BODY, $result);
+    }
+
+    /**
+     * A turn that holds a load next to an approval-bound write suspends
+     * before either runs; the resume loads through the same seam, so the
+     * section joins the system message and its pin is the run's.
+     */
+    #[Test]
+    public function aLoadInASuspendedTurnRunsOnResume(): void
+    {
+        $turns = [[$this->loadCall('c1'), new ToolCall('c2', 'write', [])]];
+        [$service, $configuration] = $this->service($turns);
+
+        try {
+            $service->runLoop([ChatMessage::user('write the release note')], $configuration, ToolExecutionContext::none(), null, null, 5);
+            self::fail('The write did not suspend the run.');
+        } catch (ToolApprovalRequiredException $e) {
+            $state = $e->state;
+        }
+
+        $service->resume($state, true, $configuration, ToolExecutionContext::none());
+
+        $last = count($this->sends) - 1;
+        self::assertStringContainsString(self::BODY, $this->systemText($last));
+        self::assertStringContainsString('is loaded', $this->toolResult($last, 'c1'));
+    }
+
+    /**
+     * A resumed segment whose catalogue is empty does not offer the load
+     * tool, so a load the suspended turn holds is refused as not permitted.
+     */
+    #[Test]
+    public function aResumeWithAnEmptyCatalogueDoesNotOfferTheLoadTool(): void
+    {
+        $turns = [[$this->loadCall('c1'), new ToolCall('c2', 'write', [])]];
+        [$service, $configuration] = $this->service($turns);
+
+        try {
+            $service->runLoop([ChatMessage::user('write the release note')], $configuration, ToolExecutionContext::none(), null, null, 5);
+            self::fail('The write did not suspend the run.');
+        } catch (ToolApprovalRequiredException $e) {
+            $state = $e->state;
+        }
+
+        $digest = $this->skill(self::SKILL_UID, 'style', null)->getVersionDigest();
+        $this->approvals?->revoke(self::SKILL_UID, $digest, 1);
+        $service->resume($state, true, $configuration, ToolExecutionContext::none());
+
+        $last = count($this->sends) - 1;
+        self::assertStringContainsString('no longer permitted', $this->toolResult($last, 'c1'));
+        self::assertNotContains(LoadSkillTool::NAME, $this->offeredNames($last));
+    }
+
+    /**
+     * A window manager that cannot admit a section refuses the load instead
+     * of skipping the check (item 7).
+     */
+    #[Test]
+    public function aWindowWithoutAdmissionRefusesTheLoad(): void
+    {
+        $this->runLoad([[$this->loadCall('c1')]], windowWithoutAdmission: true);
+
+        self::assertStringNotContainsString(self::BODY, $this->systemText(1));
+        self::assertStringContainsString('cannot be checked', $this->toolResult(1, 'c1'));
+    }
+
+    /**
+     * A system message given as a part list is not rebuilt around a
+     * section: the load is refused and the message left as it is.
+     */
+    #[Test]
+    public function aPartListSystemMessageRefusesTheLoad(): void
+    {
+        $partList = ['role' => 'system', 'content' => [['type' => 'text', 'text' => 'Chat identity.']]];
+
+        $this->runLoad([[$this->loadCall('c1')]], firstMessage: $partList);
+
+        self::assertSame($partList, $this->sends[1]['messages'][0]);
+        self::assertStringContainsString('cannot be extended', $this->toolResult(1, 'c1'));
     }
 
     /**
@@ -208,9 +289,10 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
     }
 
     /**
-     * @param list<list<ToolCall>> $turns   the tool calls of each model turn before the final answer
-     * @param list<string>|null    $enabled the globally enabled tools; null = every registered tool
-     * @param bool|null            $admits  the admission answer of a context window that admits; null = no window
+     * @param list<list<ToolCall>>      $turns        the tool calls of each model turn before the final answer
+     * @param list<string>|null         $enabled      the globally enabled tools; null = every registered tool
+     * @param bool|null                 $admits       the admission answer of a context window that admits; null = no window
+     * @param array<string, mixed>|null $firstMessage a message the caller sends before the user turn
      */
     private function runLoad(
         array $turns,
@@ -220,7 +302,38 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
         ?bool $admits = null,
         ?string $alwaysAllowedTools = null,
         ?string $onDemandAllowedTools = null,
+        bool $windowWithoutAdmission = false,
+        ?array $firstMessage = null,
     ): void {
+        [$service, $configuration] = $this->service($turns, $attachOnDemand, $approve, $enabled, $admits, $alwaysAllowedTools, $onDemandAllowedTools, $windowWithoutAdmission);
+
+        $messages = [];
+        if ($firstMessage !== null) {
+            $messages[] = $firstMessage;
+        }
+
+        $messages[] = ChatMessage::user('write the release note');
+        $service->runLoop($messages, $configuration, ToolExecutionContext::none(), null, null, 5);
+
+        self::assertNotSame([], $this->sends, 'The loop did not reach the provider call.');
+    }
+
+    /**
+     * @param list<list<ToolCall>> $turns
+     * @param list<string>|null    $enabled
+     *
+     * @return array{0: ToolLoopService, 1: LlmConfiguration}
+     */
+    private function service(
+        array &$turns,
+        bool $attachOnDemand = true,
+        bool $approve = true,
+        ?array $enabled = null,
+        ?bool $admits = null,
+        ?string $alwaysAllowedTools = null,
+        ?string $onDemandAllowedTools = null,
+        bool $windowWithoutAdmission = false,
+    ): array {
         $this->sends = [];
         $manager     = self::createStub(LlmServiceManagerInterface::class);
         $manager->method('chatWithToolsForConfiguration')->willReturnCallback(
@@ -236,7 +349,9 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
 
         $skill = $this->skill(self::SKILL_UID, 'style', $onDemandAllowedTools);
         $approvals = new InMemorySkillApprovalRepository();
-        $lookup    = new FixedSkillLoadLookup();
+        $this->approvals = $approvals;
+
+        $lookup = new FixedSkillLoadLookup();
         if ($approve) {
             $approvals->add(self::SKILL_UID, 1, $skill->getVersionDigest(), SkillVersionDigest::fieldsOf($skill), 'verified', 1);
         }
@@ -275,13 +390,21 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
                 new DataClassEnforcementResolver(),
             ),
             skillInjection: new SkillInjectionService($composer, new NullLogger()),
-            contextWindow: $admits === null ? null : $this->window($admits),
+            contextWindow: $windowWithoutAdmission ? $this->plainWindow() : ($admits === null ? null : $this->window($admits)),
             skillLoad: new SkillLoadService($composer, $lookup),
         );
 
-        $service->runLoop([ChatMessage::user('write the release note')], $configuration, ToolExecutionContext::none(), null, null, 5);
+        return [$service, $configuration];
+    }
 
-        self::assertNotSame([], $this->sends, 'The loop did not reach the provider call.');
+    private function plainWindow(): ContextWindowManagerInterface
+    {
+        return new class implements ContextWindowManagerInterface {
+            public function fit(array $messages, LlmConfiguration $configuration, ?ChatOptions $options, ?UsageStatistics $lastUsage, array $toolSpecs = [], string $injectedText = '', ?string $effectiveSystemPrompt = null, ?Model $resolvedModel = null): ContextFitResult
+            {
+                return new ContextFitResult($messages, false, 0, 0, 10, 100, false, 1.0, ContextBudgetBreakdown::none());
+            }
+        };
     }
 
     private function window(bool $admits): ContextWindowManagerInterface&SectionAdmissionInterface
