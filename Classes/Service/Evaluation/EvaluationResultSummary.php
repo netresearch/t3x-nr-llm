@@ -29,5 +29,8 @@ final readonly class EvaluationResultSummary
         public float $meanScore,
         public int $runTimestamp,
         public int $uid = 0,
+        public string $benchmarkFingerprint = '',
+        public string $variantFingerprint = '',
+        public ?RetrievalProvenance $retrievalProvenance = null,
     ) {}
 }

@@ -277,5 +277,56 @@ The command prints the per-question hits, the top-1/top-3 hit rates with
 by-form and by-hard-class breakdowns, stores the run in
 ``tx_nrllm_eval_result`` (grader ``retrieval_hit_rate``; the stored pass
 rate is the top-1 hit rate and the stored mean score the top-3 hit rate),
-and reports whether the run regressed against the previous one for the
-same set and retriever.
+and compares the run with the previous one for the same set and retriever
+when the benchmark provenance is known and equal.
+
+
+Benchmark provenance and legacy baselines
+----------------------------------------
+
+A registered retriever can declare the optional
+:php:`RetrievalProvenanceProviderInterface` capability; its bounded value
+object is documented in :ref:`api-retrieval-provenance`. Existing retrievers
+continue to run without changes. Their provenance is ``unknown``. The
+built-in lexical cascade likewise declares no frozen corpus: wrap it in a
+consumer adapter when a benchmark uses an identified export or snapshot.
+
+The command prints the declared corpus, model, chunking, pipeline and
+execution revisions, plus one baseline state:
+
+* ``baseline``: a known first run establishes a baseline.
+* ``comparable``: both runs identify the same corpus, labels and scoring
+  protocol. Existing top-1/top-3 thresholds decide the regression result.
+* ``mismatch``: a corpus or scoring-label change prevents a numeric
+  comparison. The new measurement is still recorded.
+* ``unknown``: current or previous benchmark provenance is missing or
+  invalid. The new measurement is still recorded.
+
+Without ``--fail-on-regression``, a mismatch or unknown state succeeds with
+an explicit skipped-comparison warning. With that flag, either state fails,
+including an unknown first run. No numeric delta or no-regression verdict
+is produced in those states. Legacy rows retain unknown provenance; no
+revision is assigned retroactively. Run a declared benchmark once to record
+its identity, then run it again for a comparable strict check.
+
+A changed model, chunker or pipeline on the same benchmark is reported as a
+treatment change and remains numerically comparable. Changing only the
+execution revision does not change the benchmark or variant identity.
+These are consumer declarations, not verification of an immutable corpus
+or pinned remote weights. Mock-based tests prove comparison behavior; they
+do not establish retrieval quality on a real corpus.
+
+The same ``tx_nrllm_eval_result`` row stores the benchmark and variant
+fingerprints. Its provenance metadata contains the declarations, derived
+labels fingerprint and scoring-protocol version, alongside the permitted
+detail snapshot. Details retain the measured distinct
+top-three document ids, question form, hard class, hit verdicts and latency;
+they do not preserve the full raw candidate ranking. The existing privacy
+policy filters details: metadata-only drops them while retaining safe
+revision labels and fingerprints. Existing retention removes the whole row.
+
+At full privacy, legacy byte strings in the detail fields use the versioned
+representation documented in :ref:`api-retrieval-provenance`. Ordinary
+UTF-8 records keep their JSON format. The original byte value is filtered
+before encoding, and the complete payload still passes the existing
+privacy filter. Redacted mode does not encode values around its scrubber.

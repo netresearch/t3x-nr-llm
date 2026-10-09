@@ -4,11 +4,13 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-
-declare(strict_types=1);
+declare (strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Evaluation;
 
+use InvalidArgumentException;
+use JsonException;
+use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
@@ -35,29 +37,44 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
 
     public function save(SetEvaluationResult $result): void
     {
+        $identity = $result->retrieval?->identity;
         $now = time();
-        $this->connectionPool->getConnectionForTable(self::TABLE)->insert(self::TABLE, [
-            'pid' => 0,
-            'set_identifier' => $result->setIdentifier,
-            'model_id' => $result->model,
-            'grader' => $result->grader,
-            'prompt_count' => $result->promptCount(),
-            'passed_count' => $result->passedCount(),
-            'pass_rate' => $result->passRate(),
-            'mean_score' => $result->meanScore(),
-            // The details snapshot is the per-prompt content payload; gate it
-            // through the central privacy policy before persisting (ADR-064).
-            // Metadata columns above are always kept.
-            'details' => $this->privacyPolicy->filterContent($this->encodeDetails($result)) ?? '',
-            'run_date' => $result->runTimestamp,
-            'tstamp' => $now,
-            'crdate' => $now,
-        ]);
+        $this->connectionPool
+            ->getConnectionForTable(self::TABLE)
+            ->insert(
+                self::TABLE,
+                [
+                    'pid' => 0,
+                    'set_identifier' => $result->setIdentifier,
+                    'model_id' => $result->model,
+                    'grader' => $result->grader,
+                    'retrieval_provenance' => $identity?->provenance instanceof RetrievalProvenance ? json_encode(
+                        $identity->provenance->toArray() + [
+                            'labelsFingerprint' => $identity->labelsFingerprint,
+                            'scoringVersion' => RetrievalRunIdentity::SCORING_VERSION,
+                        ],
+                        JSON_THROW_ON_ERROR,
+                    ) : '',
+                    'benchmark_fingerprint' => $identity->benchmarkFingerprint ?? '',
+                    'variant_fingerprint' => $identity->variantFingerprint ?? '',
+                    'prompt_count' => $result->promptCount(),
+                    'passed_count' => $result->passedCount(),
+                    'pass_rate' => $result->passRate(),
+                    'mean_score' => $result->meanScore(),
+                    // The details snapshot is the per-prompt content payload; gate it
+                    // through the central privacy policy before persisting (ADR-064).
+                    // Metadata columns above are always kept.
+                    'details' => $this->privacyPolicy->filterContent($this->encodeDetails($result)) ?? '',
+                    'run_date' => $result->runTimestamp,
+                    'tstamp' => $now,
+                    'crdate' => $now,
+                ],
+            );
     }
 
     public function purgeOlderThan(int $timestamp): int
     {
-        $connection   = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
         $queryBuilder = $connection->createQueryBuilder();
 
         return $queryBuilder
@@ -66,23 +83,34 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
             ->executeStatement();
     }
 
-    public function findLatest(string $setIdentifier, string $model, string $grader): ?EvaluationResultSummary
-    {
+    public function findLatest(
+        string $setIdentifier,
+        string $model,
+        string $grader,
+    ): ?EvaluationResultSummary {
         $recent = $this->findRecent($setIdentifier, $model, $grader, 1);
 
         return $recent[0] ?? null;
     }
 
-    public function findRecent(string $setIdentifier, string $model, string $grader, int $limit): array
-    {
+    public function findRecent(
+        string $setIdentifier,
+        string $model,
+        string $grader,
+        int $limit,
+    ): array {
         if ($limit < 1) {
             return [];
         }
 
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $rows = $this->baseSelect($queryBuilder)
+        $rows = $this
+            ->baseSelect($queryBuilder)
             ->where(
-                $queryBuilder->expr()->eq('set_identifier', $queryBuilder->createNamedParameter($setIdentifier)),
+                $queryBuilder->expr()->eq(
+                    'set_identifier',
+                    $queryBuilder->createNamedParameter($setIdentifier),
+                ),
                 $queryBuilder->expr()->eq('model_id', $queryBuilder->createNamedParameter($model)),
                 $queryBuilder->expr()->eq('grader', $queryBuilder->createNamedParameter($grader)),
             )
@@ -134,6 +162,9 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
         return $queryBuilder
             ->select(
                 'uid',
+                'retrieval_provenance',
+                'benchmark_fingerprint',
+                'variant_fingerprint',
                 'set_identifier',
                 'model_id',
                 'grader',
@@ -161,18 +192,24 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
             $this->toFloat($row['mean_score'] ?? 0),
             $this->toInt($row['run_date'] ?? 0),
             $this->toInt($row['uid'] ?? 0),
+            $this->readFingerprint($row['benchmark_fingerprint'] ?? null),
+            $this->readFingerprint($row['variant_fingerprint'] ?? null),
+            $this->readProvenance($row['retrieval_provenance'] ?? null),
         );
     }
 
     private function encodeDetails(SetEvaluationResult $result): string
     {
-        $details = array_map(
-            static fn(PromptEvaluation $evaluation): array => $evaluation->toArray(),
-            $result->evaluations,
-        );
+        if ($result->retrieval instanceof RetrievalSetEvaluationResult) {
+            $mapper = $this->privacyPolicy->level() === PrivacyLevel::FULL ? $this->losslessRetrievalDetails(...) : static fn(QuestionEvaluation $evaluation): array => $evaluation->toArray();
+            $details = array_map($mapper, $result->retrieval->evaluations);
+        } else {
+            $details = array_map(
+                static fn(PromptEvaluation $evaluation): array => $evaluation->toArray(),
+                $result->evaluations,
+            );
+        }
 
-        // Graded output is provider content and may carry invalid bytes; substitute
-        // rather than throw, so persisting an eval run cannot crash on one response.
         return json_encode($details, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
     }
 
@@ -189,5 +226,92 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
     private function toFloat(mixed $value): float
     {
         return is_numeric($value) ? (float)$value : 0.0;
+    }
+
+    private function readFingerprint(mixed $value): string
+    {
+        return is_string($value) && preg_match('/^v1:[a-f0-9]{64}$/D', $value) === 1 ? $value : '';
+    }
+
+    private function readProvenance(mixed $value): ?RetrievalProvenance
+    {
+        if (!is_string($value) || $value === '') {
+            return null;
+        }
+
+        try {
+            $decoded = json_decode($value, true, 8, JSON_THROW_ON_ERROR);
+            return is_array($decoded) ? $this->decodeProvenance($decoded) : null;
+        } catch (JsonException|InvalidArgumentException) {
+            return null;
+        }
+    }
+
+    /**
+     * Validate the stored field types before constructing the bounded revision declarations.
+     *
+     * @param array<array-key, mixed> $decoded
+     */
+    private function decodeProvenance(array $decoded): ?RetrievalProvenance
+    {
+        foreach (['corpusRevision', 'modelRevision', 'chunkingIdentity', 'pipelineIdentity'] as $key) {
+            if (!is_string($decoded[$key] ?? null)) {
+                return null;
+            }
+        }
+
+        $execution = $decoded['executionRevision'] ?? null;
+        if ($execution !== null && !is_string($execution)) {
+            return null;
+        }
+
+        return new RetrievalProvenance(
+            $decoded['corpusRevision'],
+            $decoded['modelRevision'],
+            $decoded['chunkingIdentity'],
+            $decoded['pipelineIdentity'],
+            $execution,
+        );
+    }
+
+    /**
+     * Ordinary UTF-8 fields retain their existing JSON shape; legacy bytes are tagged only at FULL privacy.
+     *
+     * @return array<string, mixed>
+     */
+    private function losslessRetrievalDetails(QuestionEvaluation $evaluation): array
+    {
+        return array_replace(
+            $evaluation->toArray(),
+            [
+                'questionId' => $this->losslessRetrievalString($evaluation->questionId),
+                'hardClass' => $evaluation->hardClass === null ? null : $this->losslessRetrievalString($evaluation->hardClass),
+                'retrievedDocumentIds' => array_map($this->losslessRetrievalString(...), $evaluation->retrievedDocumentIds),
+            ],
+        );
+    }
+
+    /**
+     * Filter original invalid UTF-8 bytes before encoding; custom FULL policies can scrub or drop them.
+     * The complete JSON payload separately passes the existing filter in save().
+     *
+     * @return string|array{encoding: string, version: string, value: string}|null
+     */
+    private function losslessRetrievalString(string $value): string|array|null
+    {
+        if (preg_match('//u', $value) === 1) {
+            return $value;
+        }
+
+        $permitted = $this->privacyPolicy->filterContent($value);
+        if ($permitted === null || preg_match('//u', $permitted) === 1) {
+            return $permitted;
+        }
+
+        return [
+            'encoding' => 'base64',
+            'version' => 'retrieval-bytes-v1',
+            'value' => base64_encode($permitted),
+        ];
     }
 }
