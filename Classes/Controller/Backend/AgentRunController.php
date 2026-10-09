@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunDecidedInChatException;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunNeedsSecondApproverException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessVerdictUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
@@ -177,8 +178,8 @@ final class AgentRunController extends ActionController
             return $this->flashRedirect('runs.unreadable', ContextualFeedbackSeverity::ERROR);
         }
 
-        if ($this->isDecidedInTheChat($run)) {
-            return $this->flashRedirect('runs.error.decidedInChat', ContextualFeedbackSeverity::WARNING);
+        if (($refusal = $this->refusalOfAProcessRun($run)) instanceof ResponseInterface) {
+            return $refusal;
         }
 
         try {
@@ -229,6 +230,8 @@ final class AgentRunController extends ActionController
             return $this->flashRedirect('runs.error.decidedInChat', ContextualFeedbackSeverity::WARNING);
         } catch (ProcessRunNeedsSecondApproverException) {
             return $this->flashRedirect('runs.error.processStopped', ContextualFeedbackSeverity::ERROR);
+        } catch (ProcessVerdictUnavailableException) {
+            return $this->flashRedirect('runs.error.processVerdictUnavailable', ContextualFeedbackSeverity::WARNING);
         }
 
         $this->flashOutcome($result, $approve);
@@ -259,8 +262,8 @@ final class AgentRunController extends ActionController
 
         // ADR-214: the answer to a guided process's question belongs to the
         // chat, as its proposals do.
-        if ($this->isDecidedInTheChat($run)) {
-            return $this->flashRedirect('runs.error.decidedInChat', ContextualFeedbackSeverity::WARNING);
+        if (($refusal = $this->refusalOfAProcessRun($run)) instanceof ResponseInterface) {
+            return $refusal;
         }
 
         $schema = $run instanceof AgentRun ? $this->viewFactory->inputSchemaForRun($run) : null;
@@ -311,6 +314,8 @@ final class AgentRunController extends ActionController
             return $this->flashRedirect('runs.error.decidedInChat', ContextualFeedbackSeverity::WARNING);
         } catch (ProcessRunNeedsSecondApproverException) {
             return $this->flashRedirect('runs.error.processStopped', ContextualFeedbackSeverity::ERROR);
+        } catch (ProcessVerdictUnavailableException) {
+            return $this->flashRedirect('runs.error.processVerdictUnavailable', ContextualFeedbackSeverity::WARNING);
         }
 
         $this->flashOutcome($result, true);
@@ -345,6 +350,20 @@ final class AgentRunController extends ActionController
     private function isDecidedInTheChat(?AgentRun $run): bool
     {
         return $run instanceof AgentRun && $this->processPins->holdsProcessPin($run);
+    }
+
+    /**
+     * The answer to a decision on a run that holds a process pin, or null to
+     * hand the decision to the runtime: decided in the chat when it holds
+     * one, retryable when that could not be checked.
+     */
+    private function refusalOfAProcessRun(?AgentRun $run): ?ResponseInterface
+    {
+        return match ($run instanceof AgentRun ? $this->processPins->processPinOf($run) : false) {
+            true  => $this->flashRedirect('runs.error.decidedInChat', ContextualFeedbackSeverity::WARNING),
+            null  => $this->flashRedirect('runs.error.processVerdictUnavailable', ContextualFeedbackSeverity::WARNING),
+            false => null,
+        };
     }
 
     /**

@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunDecidedInChatException;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunNeedsSecondApproverException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessVerdictUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
@@ -343,6 +344,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         foreach ([
             'decided in the chat' => [ProcessRunDecidedInChatException::forActor(AiActorContext::backendUser(1), 'r'), 'This run is a guided process.', ContextualFeedbackSeverity::WARNING],
             'stopped'             => [ProcessRunNeedsSecondApproverException::forRun('r', 'cfg'), 'This run was stopped: it is a guided process', ContextualFeedbackSeverity::ERROR],
+            'not checkable'       => [ProcessVerdictUnavailableException::forRun('r'), 'Whether this run is a guided process could not be checked', ContextualFeedbackSeverity::WARNING],
         ] as $case => [$refusal, $message, $severity]) {
             $runtime = $this->createMock(AgentRuntimeInterface::class);
             $runtime->method('approve')->willThrowException($refusal);
@@ -361,6 +363,36 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
                 self::assertStringStartsWith($message, $flash->getMessage(), $case);
                 self::assertSame($severity, $flash->getSeverity(), $case);
             }
+        }
+    }
+
+    /**
+     * The inbox's own check refuses as retryable, without asking the
+     * runtime, when whether the run is a guided process cannot be checked.
+     */
+    #[Test]
+    public function aRunWhoseProcessPinCannotBeCheckedIsNotHandedToTheRuntime(): void
+    {
+        $this->suspendApproval('delete_thing', ['uid' => 42]);
+        $approvalUuid = $this->lastUuid();
+        $this->suspendInput('ask', ['type' => 'object', 'properties' => ['reason' => ['type' => 'string']], 'required' => ['reason']]);
+        $inputUuid = $this->lastUuid();
+
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->expects(self::never())->method('approve');
+        $runtime->expects(self::never())->method('submitInput');
+
+        $controller = $this->makeController(new ToolRegistry([new FakeTool('delete_thing'), new FakeTool('ask')]), $runtime, new ProcessPinProbeStub(everyRun: true, unknown: true));
+
+        $this->setRequest($controller, 'approve');
+        $controller->approveAction($approvalUuid, true, 'a-digest');
+        $this->setRequest($controller, 'submitInput');
+        $controller->submitInputAction($inputUuid, ['reason' => 'because']);
+
+        $messages = $this->queuedFlashMessages();
+        self::assertCount(2, $messages);
+        foreach ($messages as $flash) {
+            self::assertStringStartsWith('Whether this run is a guided process could not be checked', $flash->getMessage());
         }
     }
 

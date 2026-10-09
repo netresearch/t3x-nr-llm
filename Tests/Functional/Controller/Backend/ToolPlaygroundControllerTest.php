@@ -1207,6 +1207,42 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         }
     }
 
+    /**
+     * Whether the run is a guided process cannot be checked: the
+     * playground's own check refuses as retryable (503) without asking the
+     * runtime, and when only the runtime's check fails, its refusal gets the
+     * same answer.
+     */
+    #[Test]
+    public function aRunWhoseProcessPinCannotBeCheckedIsRefusedAsRetryable(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        foreach ([
+            // Not on four-eyes: the runtime would go on, and reach a provider
+            // that must never be called, so the answer is the playground's.
+            'the playground cannot check' => [static fn(): ProcessPinProbe => new ProcessPinProbeStub(everyRun: true, unknown: true), false],
+            'the runtime cannot check'    => [fn(): ProcessPinProbe => $this->probeThatSaysNoOnce(null), true],
+        ] as $case => [$probe, $fourEyes]) {
+            foreach (['resume', 'submitInput'] as $action) {
+                [$controller, $persister, $uuid, $digest] = $this->suspendedApprovalController(processPins: $probe(), fourEyes: $fourEyes, forInput: $action === 'submitInput');
+                $request                                  = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/x'))->withParsedBody(['runUuid' => $uuid, 'approve' => '1', 'input' => ['a' => 'b'], 'turnDigest' => $digest]);
+                $response                                 = $action === 'resume' ? $controller->resumeAction($request) : $controller->submitInputAction($request);
+
+                self::assertSame(503, $response->getStatusCode(), $case . ', ' . $action . ': ' . $response->getBody());
+                $payload = json_decode((string)$response->getBody(), true);
+                self::assertIsArray($payload);
+                self::assertIsString($payload['error']);
+                self::assertStringStartsWith('Whether this run is a guided process could not be checked', $payload['error'], $case);
+                self::assertArrayNotHasKey('status', $payload, $case);
+                $run = $persister->findRun($uuid);
+                self::assertInstanceOf(AgentRun::class, $run);
+                self::assertSame($action === 'resume' ? AgentRunStatus::WAITING_FOR_APPROVAL : AgentRunStatus::WAITING_FOR_INPUT, $run->statusEnum(), $case . ', ' . $action . ': the run keeps waiting');
+            }
+        }
+    }
+
     #[Test]
     public function resumeActionRefusesAnApprovalThatCarriesNoTurnDigest(): void
     {
@@ -1644,22 +1680,24 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * A probe that answers no to its first question and yes to every later
-     * one: the controller asks first, the runtime after it.
+     * A probe that answers no to its first question and `$later` to every
+     * later one: the controller asks first, the runtime after it.
      */
-    private function probeThatSaysNoOnce(): ProcessPinProbe
+    private function probeThatSaysNoOnce(?bool $later = true): ProcessPinProbe
     {
-        return new class implements ProcessPinProbe {
+        return new class ($later) implements ProcessPinProbe {
             private int $asked = 0;
+
+            public function __construct(private readonly ?bool $later) {}
 
             public function holdsProcessPin(AgentRun $run): bool
             {
-                return $this->asked++ > 0;
+                return $this->processPinOf($run) ?? true;
             }
 
-            public function processPinOf(AgentRun $run): bool
+            public function processPinOf(AgentRun $run): ?bool
             {
-                return true;
+                return $this->asked++ === 0 ? false : $this->later;
             }
 
             public function anyProcessPin(array $pins): bool
