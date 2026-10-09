@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 
 /**
  * Persistence contract for agent runs and their event streams (ADR-081).
@@ -83,7 +84,7 @@ interface AgentRunRepositoryInterface
      *
      * @param list<AgentRunStatus> $from the waiting states to move from; empty moves nothing
      *
-     * @throws \Netresearch\NrLlm\Exception\InvalidArgumentException when $from names a state that is not a wait, or $to is neither CANCELLED nor FAILED
+     * @throws InvalidArgumentException when $from names a state that is not a wait, or $to is neither CANCELLED nor FAILED
      *
      * @return bool true when this call moved the run, false when it was no longer in $from (or gone)
      */
