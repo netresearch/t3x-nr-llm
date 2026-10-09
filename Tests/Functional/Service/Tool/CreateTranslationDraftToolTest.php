@@ -813,7 +813,9 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
 
         self::assertFalse($result->isError, $result->content);
         self::assertStringContainsString('Machine-translated 2 text field(s)', $result->content);
-        self::assertStringContainsString('TYPO3 refused the write', $result->content);
+        self::assertStringContainsString(' TYPO3 reported: [1.2]: A test hook complains and carries on.', $result->content);
+        self::assertStringNotContainsString('refused', $result->content);
+        self::assertStringNotContainsString('check what the failing step', $result->content);
         self::assertSame('[de] Original', $this->translationOf('tt_content', self::ELEMENT, 'l18n_parent')['header'] ?? null);
         self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
     }

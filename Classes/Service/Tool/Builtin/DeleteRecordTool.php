@@ -182,7 +182,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
         }
 
         $recordGone = $this->fetchRowByUid($plan['table'], $plan['uid'], 'uid') === null;
-        $complaints = $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . $this->summariseErrors($dataHandler->errorLog);
+        $complaints = $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . rtrim($this->summariseErrors($dataHandler->errorLog), '.') . '.';
         if (!$recordGone) {
             return ToolResult::error(sprintf(
                 'The delete did not take: %s [%d] is still there%s.%s The acting backend user is most likely missing a '
@@ -199,11 +199,12 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
             // though part of what should have gone with it did not (ADR-214:
             // partial by the read-back).
             return ToolResult::text(sprintf(
-                'Deleted %s [%d] "%s", but not completely: %s %s still there.%s It is flagged deleted and can be restored from the recycler.',
+                'Deleted %s [%d] "%s", but not completely: %s%s %s still there.%s It is flagged deleted and can be restored from the recycler.',
                 $plan['table'],
                 $plan['uid'],
                 $this->excerpt($plan['label']),
                 implode(', ', array_slice($survivors, 0, 10)),
+                count($survivors) > 10 ? sprintf(' and %d more', count($survivors) - 10) : '',
                 count($survivors) === 1 ? 'is' : 'are',
                 $complaints,
             ))->withWriteTarget(new RecordReference($plan['table'], $plan['uid']), WriteKind::DELETED, WriteCompleteness::PARTIAL);

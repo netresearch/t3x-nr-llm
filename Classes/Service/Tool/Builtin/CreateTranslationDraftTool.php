@@ -409,7 +409,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             $dataHandler->start([$plan['table'] => [$newUid => $values]], [], $user);
             $dataHandler->process_datamap();
             if ($dataHandler->errorLog !== []) {
-                $writeFailure = 'TYPO3 refused the write: ' . $this->summariseErrors($dataHandler->errorLog);
+                $writeFailure = $this->summariseErrors($dataHandler->errorLog);
             }
         } catch (Throwable $e) {
             // A hook that fails before the row is written is rethrown by the
@@ -435,7 +435,11 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         }
 
         if ($missing !== []) {
-            $reason = $writeFailure ?? sprintf('the translated text of %s did not land', implode(', ', $missing));
+            $reason = match (true) {
+                $writeFailure === null => sprintf('the translated text of %s did not land', implode(', ', $missing)),
+                $writeThrew            => $writeFailure,
+                default                => 'TYPO3 refused the write: ' . $writeFailure,
+            };
             if ($landed === []) {
                 return $this->notTranslated($reason, $withheld);
             }
@@ -464,13 +468,18 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             $plan['glossaryTerms'] > 0 ? sprintf(', with the site glossary (%d term(s))', $plan['glossaryTerms']) : '',
             $cut !== [] ? sprintf(" Cut to the column's maximum length: %s.", implode(', ', $cut)) : '',
             $withheld,
-            // Every field holds its translation, and yet the write reported a
-            // failure — a hook that threw after the row was stored. The record
-            // is as read back; what else that hook meant to do did not happen.
-            $writeFailure === null ? '' : sprintf(
-                ' Every field holds its translation, but %s — check what the failing step was meant to do.',
-                rtrim($writeFailure, '.'),
-            ),
+            // Every field holds its translation. A write that threw anyway did
+            // not finish what it started, so the answer says to check it; a
+            // complaint TYPO3 logged beside a write that landed is named, as
+            // the other writers name it.
+            match (true) {
+                $writeFailure === null => '',
+                $writeThrew            => sprintf(
+                    ' Every field holds its translation, but %s — check what the failing step was meant to do.',
+                    rtrim($writeFailure, '.'),
+                ),
+                default => sprintf(' TYPO3 reported: %s.', rtrim($writeFailure, '.')),
+            },
         );
 
         // Every field the call could translate holds its translation; fields
