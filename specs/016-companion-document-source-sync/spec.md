@@ -30,11 +30,14 @@ nr-llm services only and attributes indexing calls as `nr_ai_search`.
 3. A stable document identity and a content/metadata fingerprint distinguish
    unchanged, changed and removed source items. No embeddings run for an
    unchanged fingerprint. Configuration/model changes invalidate revision
-   reuse where they affect vectors or citations.
+   reuse where they affect vectors or citations. Identity includes the
+   effective provider endpoint/configuration/model and versioned effective
+   chunking parameters; a bare model name is not sufficient.
 4. A changed file stages a separate generation using existing ingestion
    services. The manifest publishes the new generation only after success;
    failures keep the prior published generation readable. Retrieval
-   excludes staging and obsolete generations.
+   excludes staging and obsolete generations before reranker egress;
+   cached grounded answers recheck directory citations before reuse.
 5. A successful inventory removes absent documents. Failed traversal/read
    never infers deletion from missing items. Explicit ACL withdrawal is
    independently enforced before content is embedded or retrieved.
@@ -65,6 +68,7 @@ nr-llm services only and attributes indexing calls as `nr_ai_search`.
 | Files, revision fingerprint, ACL/path/UTF-8/size boundary | companion `DirectorySourceConnectorTest` unit tests |
 | Update/no-op/deletion/failed-scan and generation lifecycle | companion `DirectorySourceSyncTest` functional tests |
 | Partial store failure, late or duplicate work, revoked/staged vectors | companion publication and retry unit/functional tests |
+| Provider identity/chunking change invalidates revision; denied text never reaches reranker or cached-answer reuse | companion revision, retrieval and cache unit/functional tests |
 | Actual scan → chunks → embeddings → retrieval → update → delete | companion `DirectorySourceSyncTest` functional fixture |
 | Real CLI and Messenger routing, safe status | companion command unit and DI/routing functional tests |
 

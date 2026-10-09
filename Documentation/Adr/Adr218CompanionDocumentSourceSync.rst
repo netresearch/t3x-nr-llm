@@ -45,6 +45,9 @@ Decision
    vector indexing implementation. An unchanged fingerprint performs no
    embedding work. A changed fingerprint stages a new generation; the
    previous generation remains readable until successful publication.
+   Revision identity includes the effective embedding provider,
+   configuration and model plus versioned chunking parameters; a model name
+   alone cannot distinguish providers or changed chunk boundaries.
 4. Complete successful source scans may identify removed documents.
    Unreadable roots, interrupted traversals and failed source inventories
    never infer removal from absence. An explicit access withdrawal can
@@ -52,6 +55,8 @@ Decision
 5. Revocation and deletion make the document unavailable before vector
    cleanup. Retrieval checks the currently published generation, so a
    failed cleanup cannot expose an old revision or a revoked document.
+   The guard runs before reranking egress and also validates directory
+   citations in cached answers before cached prose is returned.
 6. Queue messages refer to configured sources, not user-supplied paths.
    Synchronisation uses a source-level lock and revalidates bytes and access
    markers before provider egress. Symlinks and paths escaping a root are
