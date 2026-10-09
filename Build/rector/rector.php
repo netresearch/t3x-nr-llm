@@ -100,6 +100,10 @@ return static function (RectorConfig $rectorConfig) use ($configure): void {
             // callUserFunction() path; Tests/Functional/Form/Tca/SiteItemsTest
             // runs exactly that path.
             __DIR__ . '/../../Classes/Form/Tca/SiteItems.php',
+            // The skill choice of a configuration or a task (ADR-214), an
+            // itemsProcFunc FormEngine calls without arguments, like
+            // SnippetTagItems.
+            __DIR__ . '/../../Classes/Form/Tca/SkillAttachmentItems.php',
             // It extends the core DataHandler and inherits its constructor,
             // whose parameters differ between TYPO3 13.4 and 14.3. A
             // constructor of its own that injects the logger would have to
@@ -116,6 +120,7 @@ return static function (RectorConfig $rectorConfig) use ($configure): void {
         ReadOnlyClassRector::class => [
             __DIR__ . '/../../Classes/Form/Tca/SnippetTagItems.php',
             __DIR__ . '/../../Classes/Form/Tca/SiteItems.php',
+            __DIR__ . '/../../Classes/Form/Tca/SkillAttachmentItems.php',
         ],
         // Each Guzzle major types its own isHostInNoProxy() bool, so Rector
         // drops that call's `=== true`; the other major's call is unknown to

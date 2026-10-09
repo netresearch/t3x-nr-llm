@@ -110,6 +110,23 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
         $skill = $this->get(SkillRepository::class)->findBySourceAndIdentifier(1, '1:SKILL.md');
         self::assertNotNull($skill);
         self::assertFalse($skill->isEnabled());
+        self::assertSame('admin', $this->disabledBy(1), "an administrator's disable is marked as such");
+
+        // A sync's mark is cleared by an administrator's re-enable.
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill')->update('tx_nrllm_skill', ['disabled_by' => 'sync'], ['uid' => 1]);
+        $this->get(PersistenceManagerInterface::class)->clearState();
+        $controller->toggleSkillAction((new ServerRequest())->withParsedBody(['skill' => 1, 'enabled' => 1]));
+        $this->get(PersistenceManagerInterface::class)->persistAll();
+
+        self::assertSame('', $this->disabledBy(1));
+    }
+
+    private function disabledBy(int $skillUid): string
+    {
+        $value = $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill')
+            ->select(['disabled_by'], 'tx_nrllm_skill', ['uid' => $skillUid])->fetchOne();
+
+        return is_string($value) ? $value : '';
     }
 
     #[Test]

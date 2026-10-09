@@ -170,6 +170,10 @@ final class SkillSourceController extends ActionController
 
         assert($skill instanceof Skill);
         $skill->setEnabled($this->boolFromBody($body, 'enabled'));
+        // An administrator's decision: a disable drops the skill out of the
+        // runs it is attached to, a re-enable clears the sync's mark.
+        $skill->setDisabledBy($skill->isEnabled() ? '' : Skill::DISABLED_BY_ADMIN);
+
         $this->skillRepository->update($skill);
         $this->persistenceManager->persistAll();
         // Append-only audit record of the admin's enable/disable (ADR-061).

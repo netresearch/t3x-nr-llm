@@ -328,5 +328,14 @@ return [
                 'default' => 0,
             ],
         ],
+        // Written by the sync and by SkillDisabledByHook when the enable flag
+        // changes in the form; never shown or written by FormEngine.
+        'disabled_by' => [
+            'exclude' => true,
+            'displayCond' => 'HIDE_FOR_NON_ADMINS',
+            'config' => [
+                'type' => 'passthrough',
+            ],
+        ],
     ],
 ];
