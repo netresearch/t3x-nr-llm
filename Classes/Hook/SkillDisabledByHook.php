@@ -39,7 +39,8 @@ use TYPO3\CMS\Core\SysLog\Error as SystemLogErrorClassification;
  *   enabled. Stored disabled, it is marked 'sync' — "not enabled by an
  *   administrator" — so a copy that inherits an attachment (a copied page
  *   holding a configuration and its skill) keeps restricting until an
- *   administrator enables it.
+ *   administrator enables it; an administrator's copy of a skill an
+ *   administrator disabled keeps the 'admin' mark.
  *
  * Runs after the field checks, on the field array that is about to be
  * written; core has already removed the fields a save leaves unchanged.
@@ -56,6 +57,7 @@ final class SkillDisabledByHook
             return;
         }
 
+        $incomingMark = $fieldArray['disabled_by'] ?? null;
         unset($fieldArray['disabled_by'], $fieldArray['orphaned']);
         $admin = $this->isInteractiveAdmin($dataHandler->BE_USER);
 
@@ -66,7 +68,13 @@ final class SkillDisabledByHook
                 $this->refuse($dataHandler, $id, 'Only an administrator may enable skill {uid}; it was stored disabled.');
             }
 
-            $fieldArray['disabled_by'] = $this->isOn($fieldArray['enabled'] ?? 0) ? '' : Skill::DISABLED_BY_SYNC;
+            // An administrator's copy of a skill an administrator disabled
+            // keeps that decision; every other new disabled row restricts.
+            $fieldArray['disabled_by'] = match (true) {
+                $this->isOn($fieldArray['enabled'] ?? 0)                => '',
+                $admin && $incomingMark === Skill::DISABLED_BY_ADMIN => Skill::DISABLED_BY_ADMIN,
+                default                                                 => Skill::DISABLED_BY_SYNC,
+            };
 
             return;
         }
@@ -78,6 +86,11 @@ final class SkillDisabledByHook
 
         if (!$admin) {
             unset($fieldArray['enabled'], $fieldArray['hidden']);
+            // Nothing else left: do not write a timestamp-only update.
+            if (array_keys($fieldArray) === ['tstamp']) {
+                unset($fieldArray['tstamp']);
+            }
+
             $this->refuse($dataHandler, $id, 'Only an administrator may enable, disable, hide or unhide skill {uid}; the change was not saved.');
 
             return;

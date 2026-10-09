@@ -113,6 +113,36 @@ final class SkillDisabledByHookTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * Unhiding is an administrator's too: an editor cannot bring back a
+     * skill an administrator hid.
+     */
+    #[Test]
+    public function anEditorCannotUnhideASkill(): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill')->update('tx_nrllm_skill', ['hidden' => 1], ['uid' => self::SKILL_UID]);
+
+        $this->actAs(self::EDITOR_UID);
+
+        self::assertNotSame([], $this->write(['hidden' => 0]));
+        self::assertSame('1', $this->column('hidden'));
+    }
+
+    /**
+     * A write the hook refuses entirely leaves the record untouched, its
+     * timestamp included.
+     */
+    #[Test]
+    public function aFullyRefusedWriteLeavesTheRecordUntouched(): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill')->update('tx_nrllm_skill', ['tstamp' => 1000], ['uid' => self::SKILL_UID]);
+
+        $this->actAs(self::EDITOR_UID);
+        $this->write(['enabled' => 1]);
+
+        self::assertSame('1000', $this->column('tstamp'));
+    }
+
+    /**
      * The orphan flag is the sync's: nobody clears it through the
      * DataHandler, an administrator neither.
      */

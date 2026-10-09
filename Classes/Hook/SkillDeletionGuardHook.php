@@ -56,8 +56,12 @@ final readonly class SkillDeletionGuardHook
     ) {}
 
     /**
-     * Take a publish of a page delete placeholder out of the command map when
-     * the page's subtree holds attached skills, before anything is swapped.
+     * Refuse a publish of a page delete placeholder when the page's subtree
+     * holds attached skills, before anything is swapped. EXT:workspaces
+     * publishes a page together with its dependent records (inline and file
+     * children), so the whole publish request is refused, not only the
+     * page's command: taking out the page alone would publish the deletion
+     * of its children onto a page that stays live.
      */
     public function processCmdmap_beforeStart(DataHandler $dataHandler): void
     {
@@ -83,21 +87,47 @@ final readonly class SkillDeletionGuardHook
                 continue;
             }
 
-            unset($dataHandler->cmdmap['pages'][$liveUid]['version']);
-            if ($dataHandler->cmdmap['pages'][$liveUid] === []) {
-                unset($dataHandler->cmdmap['pages'][$liveUid]);
-            }
-
+            $this->dropVersionCommands($dataHandler);
             $dataHandler->log(
                 'pages',
                 (int)$liveUid,
                 SystemLogDatabaseAction::DELETE,
                 null,
                 SystemLogErrorClassification::USER_ERROR,
-                'Cannot publish the deletion of page {uid}: it or a page below it holds skills still attached to {holders}. Detach them first.',
+                'Cannot publish the deletion of page {uid}: it or a page below it holds skills still attached to {holders}. Detach them first; nothing in this publish was applied.',
                 null,
                 ['uid' => (int)$liveUid, 'holders' => implode(', ', $holders)],
             );
+
+            return;
+        }
+    }
+
+    /**
+     * Remove every publish or swap from the command map, leaving other
+     * commands as they are.
+     */
+    private function dropVersionCommands(DataHandler $dataHandler): void
+    {
+        foreach ($dataHandler->cmdmap as $table => $records) {
+            if (!is_array($records)) {
+                continue;
+            }
+
+            foreach ($records as $uid => $commands) {
+                if (!is_array($commands) || !array_key_exists('version', $commands)) {
+                    continue;
+                }
+
+                unset($dataHandler->cmdmap[$table][$uid]['version']);
+                if ($dataHandler->cmdmap[$table][$uid] === []) {
+                    unset($dataHandler->cmdmap[$table][$uid]);
+                }
+            }
+
+            if ($dataHandler->cmdmap[$table] === []) {
+                unset($dataHandler->cmdmap[$table]);
+            }
         }
     }
 
@@ -110,9 +140,9 @@ final readonly class SkillDeletionGuardHook
             return;
         }
 
-        // A record already in the recycle bin (deleted for good there) is
-        // no longer loaded through any attachment.
-        if (is_numeric($record['deleted'] ?? null) && (int)$record['deleted'] === 1) {
+        // A skill already in the recycle bin (deleted for good there) is no
+        // longer loaded through any attachment.
+        if ($table === self::TABLE && is_numeric($record['deleted'] ?? null) && (int)$record['deleted'] === 1) {
             return;
         }
 

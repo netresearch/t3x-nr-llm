@@ -38,6 +38,7 @@ final class SkillDeletionGuardWorkspaceTest extends AbstractFunctionalTestCase
         $pool = $this->getConnectionPool();
         $pool->getConnectionForTable('sys_workspace')->insert('sys_workspace', ['uid' => self::WORKSPACE, 'pid' => 0, 'title' => 'Draft']);
         $pool->getConnectionForTable('pages')->insert('pages', ['uid' => 10, 'pid' => 0, 'title' => 'Skills', 'doktype' => 254]);
+        $pool->getConnectionForTable('pages')->insert('pages', ['uid' => 11, 'pid' => 0, 'title' => 'Other', 'doktype' => 254]);
         $pool->getConnectionForTable('tx_nrllm_skill')->insert('tx_nrllm_skill', ['uid' => 7, 'pid' => 10, 'identifier' => 'guide']);
     }
 
@@ -83,6 +84,70 @@ final class SkillDeletionGuardWorkspaceTest extends AbstractFunctionalTestCase
             ->executeQuery()->fetchOne();
 
         return is_string($value) ? $value : '';
+    }
+
+    /**
+     * The auto-publish path sends 'swap' instead of 'publish'.
+     */
+    #[Test]
+    public function swappingAPageDeleteIsRefusedToo(): void
+    {
+        $placeholder = $this->stageDeleteThenAttach();
+
+        $this->commands(['pages' => [10 => ['version' => ['action' => 'swap', 'swapWith' => $placeholder]]]]);
+
+        self::assertSame(0, $this->deleted('pages', 10));
+        self::assertSame($placeholder, $this->placeholderOf(10));
+    }
+
+    /**
+     * A workspace publishes a page with its dependent records in one
+     * request; a refused page delete refuses the whole request, so nothing
+     * of it is applied — here, another page's staged change.
+     */
+    #[Test]
+    public function aRefusedPageDeleteRefusesTheWholePublish(): void
+    {
+        $backendUser = $this->setUpBackendUser(1);
+        $backendUser->setWorkspace(self::WORKSPACE);
+        $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
+        $data = GeneralUtility::makeInstance(DataHandler::class);
+        $data->start(['pages' => [11 => ['title' => 'Other, edited']]], []);
+        $data->process_datamap();
+
+        $otherVersion = $this->placeholderOf(11);
+        self::assertGreaterThan(0, $otherVersion, "the workspace holds the other page's change");
+
+        $placeholder = $this->stageDeleteThenAttach();
+
+        $this->commands(['pages' => [
+            10 => ['version' => ['action' => 'publish', 'swapWith' => $placeholder]],
+            11 => ['version' => ['action' => 'publish', 'swapWith' => $otherVersion]],
+        ]]);
+
+        self::assertSame(0, $this->deleted('pages', 10));
+        self::assertSame('Other', $this->title(11), 'the other change in the same publish was not applied');
+
+        $this->commands(['pages' => [11 => ['version' => ['action' => 'publish', 'swapWith' => $otherVersion]]]]);
+
+        self::assertSame('Other, edited', $this->title(11), 'on its own, it publishes');
+    }
+
+    private function stageDeleteThenAttach(): int
+    {
+        $backendUser     = $this->setUpBackendUser(1);
+        $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
+        $backendUser->setWorkspace(self::WORKSPACE);
+        $this->commands(['pages' => [10 => ['delete' => 1]]]);
+        $placeholder = $this->placeholderOf(10);
+        self::assertGreaterThan(0, $placeholder);
+
+        $backendUser->setWorkspace(0);
+        $pool = $this->getConnectionPool();
+        $pool->getConnectionForTable('tx_nrllm_configuration')->insert('tx_nrllm_configuration', ['uid' => 3, 'pid' => 0]);
+        $pool->getConnectionForTable('tx_nrllm_configuration_skill_mm')->insert('tx_nrllm_configuration_skill_mm', ['uid_local' => 3, 'uid_foreign' => 7]);
+
+        return $placeholder;
     }
 
     /**
