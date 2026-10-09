@@ -52,6 +52,12 @@ final class ContextWindowManager implements ContextWindowManagerInterface, Secti
         private readonly LoggerInterface $logger = new NullLogger(),
     ) {}
 
+    public function beginRun(): void
+    {
+        $this->calibration      = self::CALIBRATION_SEED;
+        $this->lastSentEstimate = null;
+    }
+
     public function fit(
         array $messages,
         LlmConfiguration $configuration,

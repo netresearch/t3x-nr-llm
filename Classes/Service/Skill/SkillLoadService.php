@@ -74,8 +74,16 @@ final readonly class SkillLoadService
             return SkillLoadOutcome::refused(sprintf('Skill "%s" changed or was disabled since this run started; it cannot be loaded.', $entry->name));
         }
 
-        $skill    = $this->attachedOnDemand($configuration, $skillUid);
-        $composed = $skill instanceof Skill ? $this->composer->composeInstruction($skill, $entry->versionDigest) : null;
+        $skill  = $this->attachedOnDemand($configuration, $skillUid);
+        $stored = $this->lookup->trustLevel($skillUid);
+        if ($skill instanceof Skill && $stored !== null) {
+            // The trust floor is measured against the level stored now, not
+            // the one the run's object was read with.
+            $skill = clone $skill;
+            $skill->setTrustLevel($stored);
+        }
+
+        $composed = $skill instanceof Skill && $stored !== null ? $this->composer->composeInstruction($skill, $entry->versionDigest) : null;
         if ($composed === null) {
             return SkillLoadOutcome::refused(sprintf('Skill "%s" is not an approved instruction right now; it cannot be loaded.', $entry->name));
         }

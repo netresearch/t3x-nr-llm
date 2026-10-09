@@ -30,4 +30,11 @@ interface SkillLoadLookupInterface
      * disabled, orphaned or a process skill. Null otherwise.
      */
     public function loadableDigest(int $skillUid): ?string;
+
+    /**
+     * The trust level stored on the skill record now, or null when the record
+     * is gone. A load measures the trust floor against this value, not
+     * against the object the run started with.
+     */
+    public function trustLevel(int $skillUid): ?string;
 }

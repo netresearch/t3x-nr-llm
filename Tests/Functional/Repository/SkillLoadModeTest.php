@@ -135,6 +135,20 @@ final class SkillLoadModeTest extends AbstractFunctionalTestCase
         self::assertNull($lookup->loadableDigest(999), 'a missing skill');
     }
 
+    #[Test]
+    public function theLookupReadsTheStoredTrustLevel(): void
+    {
+        $lookup = new SkillLoadLookup($this->pool(), new SkillSourceLookup($this->pool()));
+        $this->pool()->getConnectionForTable('tx_nrllm_skill')->update('tx_nrllm_skill', ['trust_level' => 'verified'], ['uid' => 102]);
+
+        self::assertSame('verified', $lookup->trustLevel(102));
+
+        $this->pool()->getConnectionForTable('tx_nrllm_skill')->update('tx_nrllm_skill', ['trust_level' => 'untrusted'], ['uid' => 102]);
+
+        self::assertSame('untrusted', $lookup->trustLevel(102));
+        self::assertNull($lookup->trustLevel(999), 'a missing skill');
+    }
+
     /**
      * A skill written in the backend stores no digest; the lookup computes
      * it from the current fields, as the catalogue does, so it can be loaded.

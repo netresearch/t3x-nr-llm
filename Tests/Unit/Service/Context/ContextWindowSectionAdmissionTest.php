@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Context;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Service\Context\ContextWindowManager;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -87,6 +88,37 @@ final class ContextWindowSectionAdmissionTest extends TestCase
 
         self::assertFalse($fit->overflowAtFloor, 'the refused section would still have fit without the headroom');
         self::assertGreaterThan((int)floor($fit->budget * 0.9), $fit->estimatedTokens);
+    }
+
+    /**
+     * A shared instance carries the calibration of the run it served last.
+     * After beginRun() an admission measures with the seed again: a section
+     * that the raised calibration refuses is admitted.
+     */
+    #[Test]
+    public function beginRunDropsTheCalibrationAnotherRunRaised(): void
+    {
+        $manager  = new ContextWindowManager();
+        $config   = $this->config(10000, 1000);
+        $messages = [ChatMessage::system('Identity.'), ChatMessage::user('Write the note.')];
+
+        $words = 100;
+        while ($manager->admitsSection($messages, str_repeat('word ', $words + 20), $config, null)) {
+            $words += 20;
+        }
+
+        $section = str_repeat('word ', $words);
+        self::assertTrue($manager->admitsSection($messages, $section, $config, null));
+
+        // Another run: its provider reports twice the estimate.
+        $first = $manager->fit($messages, $config, null, null);
+        $manager->fit($messages, $config, null, UsageStatistics::fromTokens($first->estimatedTokens * 2, 1));
+
+        self::assertFalse($manager->admitsSection($messages, $section, $config, null), 'the raised calibration refuses it');
+
+        $manager->beginRun();
+
+        self::assertTrue($manager->admitsSection($messages, $section, $config, null));
     }
 
     #[Test]

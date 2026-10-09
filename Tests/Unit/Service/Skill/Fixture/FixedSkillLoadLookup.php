@@ -19,13 +19,20 @@ use Netresearch\NrLlm\Service\Skill\SkillLoadLookupInterface;
 final class FixedSkillLoadLookup implements SkillLoadLookupInterface
 {
     /**
-     * @param array<int, list<int>> $onDemand configuration uid => skill uids
-     * @param array<int, string>    $digests  skill uid => stored digest of a loadable record
+     * @param array<int, list<int>> $onDemand    configuration uid => skill uids
+     * @param array<int, string>    $digests     skill uid => stored digest of a loadable record
+     * @param array<int, string>    $trustLevels skill uid => stored trust level
      */
     public function __construct(
         public array $onDemand = [],
         public array $digests = [],
+        public array $trustLevels = [],
     ) {}
+
+    public function trustLevel(int $skillUid): ?string
+    {
+        return $this->trustLevels[$skillUid] ?? null;
+    }
 
     public function isAttachedOnDemand(int $configurationUid, int $skillUid): bool
     {

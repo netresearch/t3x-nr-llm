@@ -195,6 +195,28 @@ final class SkillLoadServiceTest extends TestCase
         self::assertFalse($outcome->appendsSection());
     }
 
+    /**
+     * The trust floor is measured against the level stored at the moment of
+     * the load: a skill lowered below the floor since the run started is
+     * refused, one that still meets it loads.
+     */
+    #[Test]
+    public function aSkillLoweredBelowTheTrustFloorSinceTheRunStartedIsRefused(): void
+    {
+        $skill = $this->skill(7);
+        $skill->setTrustLevel(SkillTrustLevel::VERIFIED->value);
+        $this->approve($skill);
+        $configuration = $this->configuration($skill);
+        $catalogue     = $this->service(SkillTrustLevel::VERIFIED)->catalogue($configuration);
+
+        self::assertTrue($this->service(SkillTrustLevel::VERIFIED)->load(7, $catalogue, [], $configuration)->appendsSection());
+
+        $this->lookup->trustLevels[7] = SkillTrustLevel::UNTRUSTED->value;
+
+        self::assertTrue($this->service(SkillTrustLevel::VERIFIED)->load(7, $catalogue, [], $configuration)->isError);
+        self::assertSame(SkillTrustLevel::VERIFIED->value, $skill->getTrustLevel(), "the run's object is not changed");
+    }
+
     #[Test]
     public function aSectionJoinsTheApprovedSkillsHeadingOnceAndOtherwiseBringsIt(): void
     {
@@ -206,12 +228,12 @@ final class SkillLoadServiceTest extends TestCase
         self::assertStringEndsWith("body a\n\n### Skill: B\nbody b", $second);
     }
 
-    private function service(): SkillLoadService
+    private function service(SkillTrustLevel $minimum = SkillTrustLevel::UNTRUSTED): SkillLoadService
     {
         return new SkillLoadService(
             new SkillComposer(
                 SkillComposer::DEFAULT_MAX_BYTES,
-                SkillTrustLevel::UNTRUSTED,
+                $minimum,
                 new SkillInstructionPolicy($this->approvals, new FixedSkillSourceLookup([1 => SkillTrustLevel::VERIFIED]), SkillTrustLevel::VERIFIED),
             ),
             $this->lookup,
@@ -243,6 +265,7 @@ final class SkillLoadServiceTest extends TestCase
         $this->approvals->add($uid, 1, $skill->getVersionDigest(), SkillVersionDigest::fieldsOf($skill), 'verified', 1);
         $this->lookup->onDemand[self::CONFIGURATION_UID][] = $uid;
         $this->lookup->digests[$uid]                       = $skill->getVersionDigest();
+        $this->lookup->trustLevels[$uid]                   = $skill->getTrustLevel();
     }
 
     private function skill(int $uid): Skill

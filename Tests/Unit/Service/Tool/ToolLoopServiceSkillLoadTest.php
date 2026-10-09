@@ -37,6 +37,7 @@ use Netresearch\NrLlm\Service\Skill\SkillVersionDigest;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\Builtin\LoadSkillTool;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
+use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -45,6 +46,7 @@ use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\FixedSkillLoadLookup;
 use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\FixedSkillSourceLookup;
 use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\InMemorySkillApprovalRepository;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeInputTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -140,6 +142,96 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
         $last = count($this->sends) - 1;
         self::assertStringContainsString(self::BODY, $this->systemText($last));
         self::assertStringContainsString('is loaded', $this->toolResult($last, 'c1'));
+    }
+
+    /**
+     * The same holds for a turn that suspended for typed input: the load
+     * runs through the seam when the input arrives.
+     */
+    #[Test]
+    public function aLoadInATurnSuspendedForInputRunsOnResumeWithInput(): void
+    {
+        $turns = [[$this->loadCall('c1'), new ToolCall('c2', 'ask_user', [])]];
+        [$service, $configuration] = $this->service($turns);
+
+        try {
+            $service->runLoop([ChatMessage::user('write the release note')], $configuration, ToolExecutionContext::none(), null, null, 5);
+            self::fail('The input tool did not suspend the run.');
+        } catch (ToolInputRequiredException $e) {
+            $state = $e->state;
+        }
+
+        $service->resumeWithInput($state, ['city' => 'Berlin'], $configuration, ToolExecutionContext::none());
+
+        $last = count($this->sends) - 1;
+        self::assertStringContainsString(self::BODY, $this->systemText($last));
+        self::assertStringContainsString('is loaded', $this->toolResult($last, 'c1'));
+    }
+
+    /**
+     * A declined turn runs none of its calls. A load in it is told the turn
+     * was declined, not that a human declined the load, and nothing is
+     * appended.
+     */
+    #[Test]
+    public function aLoadInADeclinedTurnIsNotRunAndSaysWhy(): void
+    {
+        $turns = [[$this->loadCall('c1'), new ToolCall('c2', 'write', [])]];
+        [$service, $configuration] = $this->service($turns);
+
+        try {
+            $service->runLoop([ChatMessage::user('write the release note')], $configuration, ToolExecutionContext::none(), null, null, 5);
+            self::fail('The write did not suspend the run.');
+        } catch (ToolApprovalRequiredException $e) {
+            $state = $e->state;
+        }
+
+        $service->resume($state, false, $configuration, ToolExecutionContext::none());
+
+        $last = count($this->sends) - 1;
+        self::assertStringNotContainsString(self::BODY, $this->systemText($last));
+        self::assertStringContainsString('the turn it was requested in was declined', $this->toolResult($last, 'c1'));
+        self::assertStringNotContainsString('the turn it was requested in was declined', $this->toolResult($last, 'c2'), 'the write keeps its own answer');
+    }
+
+    /**
+     * Both resume paths start the window's measurement afresh before a load
+     * is admitted, so another run's calibration does not decide it.
+     */
+    #[Test]
+    public function aResumeStartsTheWindowsMeasurementAfresh(): void
+    {
+        $turns = [[$this->loadCall('c1'), new ToolCall('c2', 'write', [])]];
+        [$service, $configuration, $window] = $this->service($turns, admits: true);
+        self::assertNotNull($window);
+
+        try {
+            $service->runLoop([ChatMessage::user('write the release note')], $configuration, ToolExecutionContext::none(), null, null, 5);
+            self::fail('The write did not suspend the run.');
+        } catch (ToolApprovalRequiredException $e) {
+            $state = $e->state;
+        }
+
+        $before = $window->begun;
+        $service->resume($state, true, $configuration, ToolExecutionContext::none());
+
+        self::assertSame($before + 1, $window->begun);
+
+        $turns = [[$this->loadCall('c1'), new ToolCall('c2', 'ask_user', [])]];
+        [$service, $configuration, $window] = $this->service($turns, admits: true);
+        self::assertNotNull($window);
+
+        try {
+            $service->runLoop([ChatMessage::user('write the release note')], $configuration, ToolExecutionContext::none(), null, null, 5);
+            self::fail('The input tool did not suspend the run.');
+        } catch (ToolInputRequiredException $e) {
+            $state = $e->state;
+        }
+
+        $before = $window->begun;
+        $service->resumeWithInput($state, ['city' => 'Berlin'], $configuration, ToolExecutionContext::none());
+
+        self::assertSame($before + 1, $window->begun);
     }
 
     /**
@@ -322,7 +414,7 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
      * @param list<list<ToolCall>> $turns
      * @param list<string>|null    $enabled
      *
-     * @return array{0: ToolLoopService, 1: LlmConfiguration}
+     * @return array{0: ToolLoopService, 1: LlmConfiguration, 2: (ContextWindowManagerInterface&SectionAdmissionInterface&object{begun: int})|null}
      */
     private function service(
         array &$turns,
@@ -361,6 +453,7 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
             $configuration->addSkillOnDemand($skill);
             $lookup->onDemand[self::CONFIGURATION_UID] = [self::SKILL_UID];
             $lookup->digests[self::SKILL_UID]         = $skill->getVersionDigest();
+            $lookup->trustLevels[self::SKILL_UID]     = $skill->getTrustLevel();
         }
 
         if ($alwaysAllowedTools !== null) {
@@ -377,7 +470,9 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
             new FakeTool('secret'),
             new FakeTool('write', effect: ToolEffect::IDEMPOTENT_WRITE),
             new LoadSkillTool(),
+            new FakeInputTool('ask_user'),
         ]);
+        $window   = $admits === null ? null : $this->window($admits);
         $service  = new ToolLoopService(
             $manager,
             $registry,
@@ -390,11 +485,11 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
                 new DataClassEnforcementResolver(),
             ),
             skillInjection: new SkillInjectionService($composer, new NullLogger()),
-            contextWindow: $windowWithoutAdmission ? $this->plainWindow() : ($admits === null ? null : $this->window($admits)),
+            contextWindow: $windowWithoutAdmission ? $this->plainWindow() : $window,
             skillLoad: new SkillLoadService($composer, $lookup),
         );
 
-        return [$service, $configuration];
+        return [$service, $configuration, $window];
     }
 
     private function plainWindow(): ContextWindowManagerInterface
@@ -407,10 +502,20 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
         };
     }
 
+    /**
+     * @return ContextWindowManagerInterface&SectionAdmissionInterface&object{begun: int}
+     */
     private function window(bool $admits): ContextWindowManagerInterface&SectionAdmissionInterface
     {
         return new class ($admits) implements ContextWindowManagerInterface, SectionAdmissionInterface {
+            public int $begun = 0;
+
             public function __construct(private readonly bool $admits) {}
+
+            public function beginRun(): void
+            {
+                ++$this->begun;
+            }
 
             public function fit(array $messages, LlmConfiguration $configuration, ?ChatOptions $options, ?UsageStatistics $lastUsage, array $toolSpecs = [], string $injectedText = '', ?string $effectiveSystemPrompt = null, ?Model $resolvedModel = null): ContextFitResult
             {

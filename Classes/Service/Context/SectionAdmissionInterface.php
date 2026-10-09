@@ -38,6 +38,13 @@ interface SectionAdmissionInterface
     public const HEADROOM_FRACTION = 0.10;
 
     /**
+     * Start measuring a new run, or a new segment of a suspended one: the
+     * calibration another run raised on a shared instance does not carry
+     * into an admission made before this run's first send.
+     */
+    public function beginRun(): void;
+
+    /**
      * @param list<ChatMessage|array<string, mixed>> $messages              the transcript the section would join
      * @param string                                 $section               the text that would be appended to the head's system message
      * @param list<array<string, mixed>>             $toolSpecs             the tool schemas on the wire for the next send

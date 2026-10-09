@@ -97,4 +97,25 @@ final readonly class SkillLoadLookup implements SkillLoadLookupInterface
 
         return SkillVersionDigest::of($skill);
     }
+
+    public function trustLevel(int $skillUid): ?string
+    {
+        if ($skillUid <= 0) {
+            return null;
+        }
+
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::SKILL_TABLE);
+        $queryBuilder->getRestrictions()->removeAll();
+        $value = $queryBuilder
+            ->select('trust_level')
+            ->from(self::SKILL_TABLE)
+            ->where(
+                $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($skillUid, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+            )
+            ->executeQuery()
+            ->fetchOne();
+
+        return is_string($value) ? $value : null;
+    }
 }

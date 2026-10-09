@@ -1046,6 +1046,18 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     }
 
     /**
+     * A resumed segment admits loads before its first send: start the window
+     * manager's measurement afresh, so another run's calibration on the
+     * shared instance does not decide them (ADR-214 item 7).
+     */
+    private function beginSegment(): void
+    {
+        if ($this->contextWindow instanceof SectionAdmissionInterface) {
+            $this->contextWindow->beginRun();
+        }
+    }
+
+    /**
      * Whether the head's first system message is a part list, which a
      * section cannot join without changing its shape.
      *
@@ -1234,6 +1246,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // same seam as in the loop, against this segment's catalogue.
         [$resume, $catalogue, $resumeSpecs] = $this->offerWithCatalogue($resume, $configuration);
         $pins = $state->skillPins;
+        $this->beginSegment();
 
         // ADR-214 item 6: the transcript carries approved skill versions as
         // system instructions. If one of them no longer holds — revoked, its
@@ -1257,7 +1270,15 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         }
 
         foreach ($pendingCalls as $call) {
-            if (!$approved) {
+            if (!$approved && $call->name === LoadSkillTool::NAME) {
+                // A load is never approval-bound; it shares the declined
+                // turn's fate, and the model may simply ask again.
+                $result = sprintf(
+                    'Error: tool "%s" was not executed because the turn it was requested in was declined; call it again if the skill is still needed.',
+                    $call->name,
+                );
+                $this->recordResumedRefusal($state, $call, $result, $runTrace);
+            } elseif (!$approved) {
                 $result = $this->approvalDeniedResult(
                     $call->name,
                     $beUserUid,
@@ -1421,6 +1442,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // same seam as in the loop, against this segment's catalogue.
         [$resume, $catalogue, $resumeSpecs] = $this->offerWithCatalogue($resume, $configuration);
         $pins = $state->skillPins;
+        $this->beginSegment();
 
         // ADR-214 item 6, as in resume(): stop before the input reaches a tool.
         $this->assertPinsHeld($state);
