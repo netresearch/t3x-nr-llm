@@ -127,11 +127,6 @@ final class SkillDisabledByHook
 
         if (!$admin) {
             unset($fieldArray['enabled'], $fieldArray['hidden']);
-            // Nothing else left: do not write a timestamp-only update.
-            if (array_keys($fieldArray) === ['tstamp']) {
-                unset($fieldArray['tstamp']);
-            }
-
             $this->refuse($dataHandler, $id, 'Only an administrator may enable, disable, hide or unhide skill {uid}; the change was not saved.');
 
             return;
