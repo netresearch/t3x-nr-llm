@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdateContentElementTool;
@@ -125,6 +126,7 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
         self::assertFalse($result->isError, $result->content);
         self::assertSame(WriteKind::UPDATED, $result->writeKind);
         self::assertSame(self::TEXT, $result->writeTarget?->uid);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
 
         $row = $this->elementRow(self::TEXT);
         self::assertSame('New header', $row['header'] ?? null);
@@ -158,6 +160,7 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
         self::assertFalse($result->isError, $result->content);
         self::assertStringContainsString('in part: header took. Did not take: subheader', $result->content);
         self::assertSame(self::TEXT, $result->writeTarget?->uid);
+        self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
         self::assertSame('New header', $this->elementRow(self::TEXT)['header'] ?? null);
     }
 
@@ -176,6 +179,7 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
         self::assertStringStartsWith('Updated content element [20] "Old header": header. TYPO3 reported:', $result->content);
         self::assertStringContainsString('A test hook complains and carries on', $result->content);
         self::assertSame(WriteKind::UPDATED, $result->writeKind);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
         self::assertSame('New header', $this->elementRow(self::TEXT)['header'] ?? null);
     }
 

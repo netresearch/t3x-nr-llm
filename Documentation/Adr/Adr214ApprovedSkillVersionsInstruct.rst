@@ -1020,7 +1020,9 @@ renders them and owns the open points.
   - ``Classes/Service/Tool/Builtin/MovePageTool.php#Not completely:``
     (translations stayed behind);
   - ``Classes/Service/Tool/Builtin/ReplaceFileReferenceTool.php#The translations are not settled:``
-    (appended to both of its success returns);
+    (appended to both of its success returns), and
+    ``Classes/Service/Tool/Builtin/ReplaceFileReferenceTool.php#did not take on the new reference``
+    (a text the replacement was asked to set);
   - ``Classes/Service/Tool/Builtin/CreateTranslationDraftTool.php#The text was only PARTLY machine-translated:``
     (only partly translated).
 
@@ -1062,11 +1064,13 @@ renders them and owns the open points.
 
   **The completeness must survive** :php:`ToolResult::withBoundedChannels()`,
   the transformation every tool result passes through in
-  :php:`ToolLoopService`: it rebuilds the result by constructor position
-  (``Classes/Domain/ValueObject/ToolResult.php#return new self($content, false, $artifacts, $this->outcome, $this->writeTarget, $this->writeKind);``),
-  so its docblock's claim that a property added later is carried by default
-  does not hold, and the completeness and the hook flag would be dropped
-  there unless that line passes them on.
+  :php:`ToolLoopService`: it rebuilds the result by constructor position, so
+  the docblock's earlier claim that a property added later is carried by
+  default did not hold, and the completeness and the hook flag would have
+  been dropped there. The rebuild of a successful result passes both on
+  (``Classes/Domain/ValueObject/ToolResult.php#$this->writeCompleteness,``),
+  an error result carries neither, and ``ToolResultTest`` asserts that every
+  member survives.
 
   Nothing is inferred from persisted events, and no other path marks a point
   applied.

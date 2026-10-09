@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
@@ -137,7 +138,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
         // one at a time and goes on past a refusal, so a complaint does not
         // mean the page stayed. Parent AND position are compared — a reorder
         // under the same parent changes no `pid`.
-        $complaints = $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . $this->summariseErrors($dataHandler->errorLog);
+        $complaints = $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . rtrim($this->summariseErrors($dataHandler->errorLog), '.') . '.';
         if (!$this->landedWherePlanned($plan['uid'], $plan['parent'], $plan['afterUid'])) {
             return ToolResult::error(sprintf(
                 'The move did not take: page [%d] is not %s under page [%d] afterwards.%s The acting backend user is most '
@@ -156,6 +157,12 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
             }
         }
 
+        // The page is where it was asked to go. Translations left behind make
+        // the move partial (ADR-214); a complaint of TYPO3 beside a move that
+        // the read-back shows complete does not, because nothing the call
+        // planned is missing. The answer still names the complaint.
+        $complete = $strayTranslations === [];
+
         return ToolResult::text(sprintf(
             'Moved page [%d] "%s" from under page [%d] to under page [%d]%s.%s Its URL path is unchanged: %s',
             $plan['uid'],
@@ -163,15 +170,11 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
             $plan['formerParent'],
             $plan['parent'],
             $plan['afterUid'] > 0 ? sprintf(', after page [%d]', $plan['afterUid']) : '',
-            $strayTranslations === [] && $complaints === ''
-                ? ''
-                : sprintf(
-                    ' Not completely:%s%s',
-                    $strayTranslations === [] ? '' : ' translation(s) ' . implode(', ', $strayTranslations) . ' stayed behind.',
-                    $complaints,
-                ),
+            $complete
+                ? $complaints
+                : sprintf(' Not completely: translation(s) %s stayed behind.%s', implode(', ', $strayTranslations), $complaints),
             $plan['slug'] === '' ? '(none)' : $plan['slug'],
-        ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::UPDATED);
+        ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::UPDATED, $complete ? WriteCompleteness::COMPLETE : WriteCompleteness::PARTIAL);
     }
 
     /**

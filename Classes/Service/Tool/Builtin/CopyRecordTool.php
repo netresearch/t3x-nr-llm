@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
@@ -270,7 +271,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             $plan['targetPage'],
             $plan['table'] === self::CONTENT_TABLE ? sprintf(', column %d', $plan['column']) : '',
             $translations === [] ? '' : sprintf(', with %d hidden translation(s)', count($translations)),
-        ))->withWriteTarget(new RecordReference($plan['table'], $newUid), WriteKind::CREATED);
+        ))->withWriteTarget(new RecordReference($plan['table'], $newUid), WriteKind::CREATED, WriteCompleteness::COMPLETE);
     }
 
     /**

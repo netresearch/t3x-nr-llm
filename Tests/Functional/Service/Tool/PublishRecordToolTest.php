@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\PublishRecordTool;
@@ -137,6 +138,7 @@ final class PublishRecordToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('Cleared the hidden flag of tt_content [21]', $result->content);
         self::assertSame(0, $this->hiddenOf('tt_content', self::ELEMENT_ON_OPEN));
         self::assertSame(WriteKind::UPDATED, $result->writeKind);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
         self::assertSame(self::ELEMENT_ON_OPEN, $result->writeTarget?->uid);
     }
 

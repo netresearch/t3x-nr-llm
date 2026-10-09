@@ -15,6 +15,8 @@ use Netresearch\NrLlm\Service\Tool\Builtin\AttachFileToRecordTool;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\InterferesWithAnUpdateHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheInterferingHookTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -39,6 +41,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
 {
     use AssertsGermanPreviewTrait;
+    use RegistersTheInterferingHookTrait;
 
     private const STORAGE_CONFIGURATION = '<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <T3FlexForms><data><sheet index="sDEF"><language index="lDEF">
@@ -165,6 +168,7 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
 
     protected function tearDown(): void
     {
+        $this->unregisterInterferingHook();
         $GLOBALS['TCA'] = $this->originalTca;
         unset($GLOBALS['TYPO3_REQUEST'], $GLOBALS['LANG']);
         parent::tearDown();
@@ -320,6 +324,46 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
         self::assertSame(self::GALLERY, $reference['tablenames']);
         self::assertSame('media', $reference['fieldname']);
         self::assertSame($this->draftUid, (int)$reference['uid_foreign']);
+    }
+
+    /**
+     * An asked empty text is an explicit override, and NULL is not one: a hook
+     * that drops it leaves NULL, which did not take (ADR-214). The other
+     * direction, '' stored as '', took.
+     */
+    #[Test]
+    public function anEmptyTextTookOnlyWhenItIsStoredAsEmpty(): void
+    {
+        $arguments = ['table' => self::GALLERY, 'record' => $this->draftUid, 'file' => 1, 'field' => 'media', 'alternative' => ''];
+
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$dropColumnOnCreate = 'alternative';
+        $dropped = $this->attach($arguments);
+        self::assertTrue($dropped->isError);
+        self::assertStringContainsString('"alternative" did not take', $dropped->content);
+        self::assertSame([], $this->references(self::GALLERY, $this->draftUid, 'media'), 'the reference that did not take was removed');
+
+        $this->unregisterInterferingHook();
+        $taken = $this->attach($arguments);
+        self::assertFalse($taken->isError, $taken->content);
+    }
+
+    /**
+     * A title is 255 characters in the TCA, and core cuts a longer one without
+     * a word: refused before anything is written, while 255 is taken.
+     */
+    #[Test]
+    public function aTitleIsTakenUpToItsColumnsLimitAndRefusedBeyondIt(): void
+    {
+        $arguments = ['table' => self::GALLERY, 'record' => $this->draftUid, 'file' => 1, 'field' => 'media'];
+
+        $refused = $this->attach([...$arguments, 'title' => str_repeat('t', 256)]);
+        self::assertTrue($refused->isError);
+        self::assertStringContainsString('"title" is longer than 255 characters', $refused->content);
+        self::assertSame([], $this->references(self::GALLERY, $this->draftUid, 'media'), 'refused before anything was written');
+
+        $taken = $this->attach([...$arguments, 'title' => str_repeat('t', 255)]);
+        self::assertFalse($taken->isError, $taken->content);
     }
 
     /**

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Error;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Service\CacheManager;
 use Netresearch\NrLlm\Service\Feature\TranslationPromptBuilder;
@@ -24,7 +25,9 @@ use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\FailsLikeAFlashMessageHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\InterferesWithAnUpdateHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheFailingHookTrait;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheInterferingHookTrait;
 use Netresearch\NrLlm\Tests\Fixtures\Translation\RecordingTranslator;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -65,6 +68,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
 {
     use AssertsGermanPreviewTrait;
     use RegistersTheFailingHookTrait;
+    use RegistersTheInterferingHookTrait;
 
     /** @var non-empty-string[] */
     protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'frontend'];
@@ -159,6 +163,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
     protected function tearDown(): void
     {
         $this->unregisterFailingHook();
+        $this->unregisterInterferingHook();
         unset($GLOBALS['LANG']);
         parent::tearDown();
     }
@@ -261,6 +266,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
             $result->content,
         );
         self::assertSame(WriteKind::CREATED, $result->writeKind);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
     }
 
     #[Test]
@@ -353,6 +359,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('the provider is down', $result->content);
         self::assertStringNotContainsString('Machine-translated', $result->content);
         self::assertSame(WriteKind::CREATED, $result->writeKind);
+        self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
 
         $translation = $this->translationOf('tt_content', self::ELEMENT, 'l18n_parent');
         self::assertSame(1, (int)($translation['hidden'] ?? 0));
@@ -675,6 +682,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('Machine-translated 1 text field(s) (title)', $result->content);
         self::assertStringContainsString("Cut to the column's maximum length: title (to 255 characters).", $result->content);
         self::assertStringNotContainsString('NOT machine-translated', $result->content);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
         self::assertSame(
             mb_substr('[de] ' . $long, 0, 255),
             $this->translationOf('pages', self::CHILD_PAGE, 'l10n_parent')['title'] ?? null,
@@ -701,6 +709,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
             'The text was NOT machine-translated: Language model (llm) cut the translation of "header" off at its output limit.',
             $result->content,
         );
+        self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
         self::assertStringNotContainsString('[de]', $this->stringOf($this->translationOf('tt_content', self::ELEMENT, 'l18n_parent')['header'] ?? null));
     }
 
@@ -723,6 +732,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
 
         self::assertFalse($result->isError, $result->content);
         self::assertSame(WriteKind::CREATED, $result->writeKind);
+        self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
         self::assertStringContainsString('The text was NOT machine-translated: the write failed', $result->content);
         $translation = $this->translationOf('tt_content', self::ELEMENT, 'l18n_parent');
         self::assertSame(1, (int)($translation['hidden'] ?? 0));
@@ -774,12 +784,40 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
 
         self::assertFalse($result->isError, $result->content);
         self::assertSame(WriteKind::CREATED, $result->writeKind);
+        // ADR-214: the failure was caught by the tool, so no hook flag can
+        // report it; the tool states the write did not finish.
+        self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
         self::assertStringContainsString('Machine-translated 2 text field(s)', $result->content);
         self::assertStringContainsString(
             'Every field holds its translation, but the write failed: A test hook fails after the row is stored',
             $result->content,
         );
         self::assertSame('[de] Original', $this->translationOf('tt_content', self::ELEMENT, 'l18n_parent')['header'] ?? null);
+    }
+
+    /**
+     * A hook that logs a complaint while the translated text is written and
+     * carries on: every field reads back translated, so the write is complete
+     * (ADR-214), as for every other writer, and the answer names the
+     * complaint.
+     */
+    #[Test]
+    public function aComplaintBesideATranslationThatLandedLeavesItComplete(): void
+    {
+        $context = ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1));
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$complain          = true;
+        InterferesWithAnUpdateHook::$complainWithField = 'header';
+
+        $result = $this->tool->execute(['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN], $context);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('Machine-translated 2 text field(s)', $result->content);
+        self::assertStringContainsString(' TYPO3 reported: [1.2]: A test hook complains and carries on.', $result->content);
+        self::assertStringNotContainsString('refused', $result->content);
+        self::assertStringNotContainsString('check what the failing step', $result->content);
+        self::assertSame('[de] Original', $this->translationOf('tt_content', self::ELEMENT, 'l18n_parent')['header'] ?? null);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
     }
 
     /**
@@ -801,6 +839,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
             . 'source text as the localize command copied it (the translated text of bodytext did not land).',
             $result->content,
         );
+        self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
         $translation = $this->translationOf('tt_content', self::ELEMENT, 'l18n_parent');
         self::assertSame('[de] Original', $translation['header'] ?? null);
         self::assertStringNotContainsString('[de]', $this->stringOf($translation['bodytext'] ?? null));
@@ -830,6 +869,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         self::assertNotContains('Original subheader', array_column($this->llm->calls, 'text'));
         self::assertContains('Original', array_column($this->llm->calls, 'text'));
         self::assertStringContainsString('Not translated, because you may not edit them: subheader.', $result->content);
+        self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
     }
 
     /**

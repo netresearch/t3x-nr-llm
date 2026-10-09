@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
@@ -274,7 +275,7 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
                 fn(string $field): string => $field . ' → ' . $this->quoted($values[$field]),
                 array_keys($values),
             )),
-        ))->withWriteTarget(new RecordReference(self::METADATA_TABLE, $metadataUid), WriteKind::UPDATED);
+        ))->withWriteTarget(new RecordReference(self::METADATA_TABLE, $metadataUid), WriteKind::UPDATED, WriteCompleteness::COMPLETE);
     }
 
     /**

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
@@ -290,8 +291,8 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             $this->excerpt($plan['label']),
             $plan['language'],
             $plan['existingUid'] > 0 ? sprintf(', replacing translation [%d]', $plan['existingUid']) : '',
-            $translated,
-        ))->withWriteTarget(new RecordReference($plan['table'], $newUid), WriteKind::CREATED);
+            $translated['sentence'],
+        ))->withWriteTarget(new RecordReference($plan['table'], $newUid), WriteKind::CREATED, $translated['completeness']);
     }
 
     /**
@@ -310,11 +311,22 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
      * A value longer than the column's TCA `max` is cut to it before the
      * write, as the DataHandler would cut it, and the result names the field.
      *
+     * The completeness is decided beside each sentence (ADR-214): the call
+     * is PARTIAL whenever a text field of the draft still holds the copied
+     * source text — not translated, only partly translated, or withheld
+     * because the acting user may not edit it — and when the text write
+     * threw although every field reads back translated. That failure is
+     * rethrown by the ToolDataHandler and caught here, so the tool loop never
+     * sees it and cannot flag it; what the failing code was meant to do is
+     * part of the write and did not happen. A source with no text, and a
+     * draft whose every field holds its translation after a write that did
+     * not fail, are COMPLETE.
+     *
      * @param Plan $plan
      *
-     * @return string the sentence the result carries
+     * @return array{sentence: string, completeness: WriteCompleteness} the sentence the result carries
      */
-    private function translateTexts(array $plan, int $newUid, BackendUserAuthentication $user): string
+    private function translateTexts(array $plan, int $newUid, BackendUserAuthentication $user): array
     {
         $withheld = $plan['withheld'] === []
             ? ''
@@ -322,12 +334,15 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
 
         if ($plan['texts'] === []) {
             return $plan['withheld'] === []
-                ? 'The source holds no text to translate.'
-                : sprintf(
-                    'No text field was machine-translated: you may not edit any of the fields that hold text (%s). '
-                    . 'The translation holds the source text as the localize command copied it.',
-                    implode(', ', $plan['withheld']),
-                );
+                ? ['sentence' => 'The source holds no text to translate.', 'completeness' => WriteCompleteness::COMPLETE]
+                : [
+                    'sentence' => sprintf(
+                        'No text field was machine-translated: you may not edit any of the fields that hold text (%s). '
+                        . 'The translation holds the source text as the localize command copied it.',
+                        implode(', ', $plan['withheld']),
+                    ),
+                    'completeness' => WriteCompleteness::PARTIAL,
+                ];
         }
 
         $options = (new TranslationOptions())
@@ -354,11 +369,11 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
                     $plan['translatorName'],
                     $field,
                     $this->excerpt($this->sanitizeErrorMessage($e->getMessage())),
-                )) . $withheld;
+                ), $withheld);
             }
 
             if (trim($result->translatedText) === '') {
-                return $this->notTranslated(sprintf('%s returned no text for "%s"', $plan['translatorName'], $field)) . $withheld;
+                return $this->notTranslated(sprintf('%s returned no text for "%s"', $plan['translatorName'], $field), $withheld);
             }
 
             if (($result->metadata['truncated'] ?? false) === true) {
@@ -366,7 +381,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
                     '%s cut the translation of "%s" off at its output limit',
                     $plan['translatorName'],
                     $field,
-                )) . $withheld;
+                ), $withheld);
             }
 
             $value = $text['trim'] ? trim($result->translatedText) : $result->translatedText;
@@ -385,18 +400,23 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         $copy = $this->fetchRecord($plan['table'], $newUid) ?? [];
 
         $writeFailure = null;
+        // Only a write that THREW leaves the call partial on its own; a
+        // complaint in the error log beside fields that read back translated
+        // is named and leaves nothing undone, as for every other writer.
+        $writeThrew = false;
         try {
             $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
             $dataHandler->start([$plan['table'] => [$newUid => $values]], [], $user);
             $dataHandler->process_datamap();
             if ($dataHandler->errorLog !== []) {
-                $writeFailure = 'TYPO3 refused the write: ' . $this->summariseErrors($dataHandler->errorLog);
+                $writeFailure = $this->summariseErrors($dataHandler->errorLog);
             }
         } catch (Throwable $e) {
             // A hook that fails before the row is written is rethrown by the
             // ToolDataHandler; the record exists all the same, and its write
             // target must reach the result (ADR-187).
             $writeFailure = 'the write failed: ' . $this->excerpt($this->sanitizeErrorMessage($e->getMessage()));
+            $writeThrew   = true;
         }
 
         $stored  = $this->fetchRecord($plan['table'], $newUid) ?? [];
@@ -415,22 +435,29 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         }
 
         if ($missing !== []) {
-            $reason = $writeFailure ?? sprintf('the translated text of %s did not land', implode(', ', $missing));
+            $reason = match (true) {
+                $writeFailure === null => sprintf('the translated text of %s did not land', implode(', ', $missing)),
+                $writeThrew            => $writeFailure,
+                default                => 'TYPO3 refused the write: ' . $writeFailure,
+            };
             if ($landed === []) {
-                return $this->notTranslated($reason) . $withheld;
+                return $this->notTranslated($reason, $withheld);
             }
 
-            return sprintf(
-                'The text was only PARTLY machine-translated: %s hold(s) the translation, %s still hold(s) the source '
-                . 'text as the localize command copied it (%s). Review the translation.%s',
-                implode(', ', $landed),
-                implode(', ', $missing),
-                rtrim($reason, '.'),
-                $withheld,
-            );
+            return [
+                'sentence' => sprintf(
+                    'The text was only PARTLY machine-translated: %s hold(s) the translation, %s still hold(s) the source '
+                    . 'text as the localize command copied it (%s). Review the translation.%s',
+                    implode(', ', $landed),
+                    implode(', ', $missing),
+                    rtrim($reason, '.'),
+                    $withheld,
+                ),
+                'completeness' => WriteCompleteness::PARTIAL,
+            ];
         }
 
-        return sprintf(
+        $sentence = sprintf(
             'Machine-translated %d text field(s) (%s) from "%s" to "%s" with %s%s%s — a human must review the text.%s%s%s',
             count($values),
             implode(', ', array_keys($values)),
@@ -441,26 +468,45 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             $plan['glossaryTerms'] > 0 ? sprintf(', with the site glossary (%d term(s))', $plan['glossaryTerms']) : '',
             $cut !== [] ? sprintf(" Cut to the column's maximum length: %s.", implode(', ', $cut)) : '',
             $withheld,
-            // Every field holds its translation, and yet the write reported a
-            // failure — a hook that threw after the row was stored. The record
-            // is as read back; what else that hook meant to do did not happen.
-            $writeFailure === null ? '' : sprintf(
-                ' Every field holds its translation, but %s — check what the failing step was meant to do.',
-                rtrim($writeFailure, '.'),
-            ),
+            // Every field holds its translation. A write that threw anyway did
+            // not finish what it started, so the answer says to check it; a
+            // complaint TYPO3 logged beside a write that landed is named, as
+            // the other writers name it.
+            match (true) {
+                $writeFailure === null => '',
+                $writeThrew            => sprintf(
+                    ' Every field holds its translation, but %s — check what the failing step was meant to do.',
+                    rtrim($writeFailure, '.'),
+                ),
+                default => sprintf(' TYPO3 reported: %s.', rtrim($writeFailure, '.')),
+            },
         );
+
+        // Every field the call could translate holds its translation; fields
+        // withheld from the acting user still hold the source text, and a
+        // write that failed did not finish what it started.
+        return [
+            'sentence'     => $sentence,
+            'completeness' => $withheld === '' && !$writeThrew ? WriteCompleteness::COMPLETE : WriteCompleteness::PARTIAL,
+        ];
     }
 
     /**
-     * The sentence for a draft whose text stayed as core copied it.
+     * The sentence for a draft whose text stayed as core copied it, which is
+     * always a partial write: the record exists, the translation does not.
+     *
+     * @return array{sentence: string, completeness: WriteCompleteness}
      */
-    private function notTranslated(string $reason): string
+    private function notTranslated(string $reason, string $withheld): array
     {
-        return sprintf(
-            'The text was NOT machine-translated: %s. The translation holds the source text as the localize command '
-            . 'copied it.',
-            rtrim($reason, '.'),
-        );
+        return [
+            'sentence' => sprintf(
+                'The text was NOT machine-translated: %s. The translation holds the source text as the localize command '
+                . 'copied it.',
+                rtrim($reason, '.'),
+            ) . $withheld,
+            'completeness' => WriteCompleteness::PARTIAL,
+        ];
     }
 
     /**

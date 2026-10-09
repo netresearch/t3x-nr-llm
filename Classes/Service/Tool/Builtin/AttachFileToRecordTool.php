@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
@@ -263,7 +264,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
             $field,
             count($existing) + 1,
             count($existing) + 1,
-        ))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $newUid), WriteKind::CREATED);
+        ))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $newUid), WriteKind::CREATED, WriteCompleteness::COMPLETE);
     }
 
     /**
@@ -696,8 +697,9 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
             }
 
             $value = self::toStr($arguments[$name]);
-            if (mb_strlen($value) > self::MAX_TEXT_LENGTH) {
-                return sprintf('Refused: "%s" is longer than %d characters.', $name, self::MAX_TEXT_LENGTH);
+            $max   = $this->textLimitOf(self::REFERENCE_TABLE, $name, self::MAX_TEXT_LENGTH);
+            if (mb_strlen($value) > $max) {
+                return sprintf('Refused: "%s" is longer than %d characters.', $name, $max);
             }
 
             $texts[$name] = $value;
@@ -773,13 +775,14 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
         }
 
         foreach ($texts as $name => $value) {
-            if (self::toStr($row[$name] ?? '') === $value) {
+            if (self::storedTextHolds($row[$name] ?? null, $value)) {
                 continue;
             }
 
             return sprintf(
                 'The reference was created but "%s" did not take. The acting backend user is most likely '
-                . 'missing the field-level ("exclude field") grant for %s:%s.',
+                . 'missing the field-level ("exclude field") grant for %s:%s, or a hook of the installation '
+                . 'dropped or changed the value.',
                 $name,
                 self::REFERENCE_TABLE,
                 $name,

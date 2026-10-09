@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
@@ -155,7 +156,7 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
             : [...$this->fieldsThatDidNotTake($stored, $plan['fields'], $plan['type']), ...$this->unchangedThoughAsked($stored, $plan)];
         $notTaken   = array_values(array_unique($notTaken));
 
-        $complaints = $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . $this->summariseErrors($dataHandler->errorLog);
+        $complaints = $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . rtrim($this->summariseErrors($dataHandler->errorLog), '.') . '.';
 
         // What this call changed on the row: the columns that took and did
         // not already hold the value.
@@ -175,7 +176,7 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
                 $this->excerpt($plan['header']),
                 implode(', ', array_keys($plan['fields'])),
                 $complaints,
-            ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::UPDATED);
+            ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::UPDATED, WriteCompleteness::COMPLETE);
         }
 
         $notTakenText = sprintf(
@@ -201,7 +202,7 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
             implode(', ', $changed),
             $notTakenText,
             $complaints,
-        ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::UPDATED);
+        ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::UPDATED, WriteCompleteness::PARTIAL);
     }
 
     /**

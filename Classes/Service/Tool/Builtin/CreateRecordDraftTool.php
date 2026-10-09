@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 use DateTimeImmutable;
 use Exception;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
@@ -340,7 +341,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             $newUid,
             $plan['pid'],
             $this->summarised($plan['display']),
-        ))->withWriteTarget(new RecordReference($plan['table'], $newUid), WriteKind::CREATED);
+        ))->withWriteTarget(new RecordReference($plan['table'], $newUid), WriteKind::CREATED, WriteCompleteness::COMPLETE);
     }
 
     /**

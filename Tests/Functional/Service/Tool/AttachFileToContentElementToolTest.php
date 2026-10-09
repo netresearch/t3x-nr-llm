@@ -14,6 +14,8 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\AttachFileToContentElementTool;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\InterferesWithAnUpdateHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheInterferingHookTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -38,6 +40,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 final class AttachFileToContentElementToolTest extends AbstractFunctionalTestCase
 {
     use AssertsGermanPreviewTrait;
+    use RegistersTheInterferingHookTrait;
 
     private const STORAGE_CONFIGURATION = '<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <T3FlexForms><data><sheet index="sDEF"><language index="lDEF">
@@ -127,6 +130,7 @@ final class AttachFileToContentElementToolTest extends AbstractFunctionalTestCas
 
     protected function tearDown(): void
     {
+        $this->unregisterInterferingHook();
         unset($GLOBALS['TYPO3_REQUEST'], $GLOBALS['LANG']);
         parent::tearDown();
     }
@@ -275,6 +279,52 @@ final class AttachFileToContentElementToolTest extends AbstractFunctionalTestCas
         self::assertSame('tt_content', $row['tablenames']);
         self::assertSame('assets', $row['fieldname']);
         self::assertSame($this->elementUid, (int)$row['uid_foreign']);
+    }
+
+    /**
+     * An asked empty text is an explicit override, and NULL is not one (the
+     * frontend falls back to the file's metadata): a hook that drops it leaves
+     * NULL, which did not take (ADR-214).
+     */
+    #[Test]
+    public function anEmptyTextAHookDropsDidNotTake(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$dropColumnOnCreate = 'alternative';
+
+        $result = $this->attach(['content_element' => $this->elementUid, 'file' => 1, 'field' => 'assets', 'alternative' => '']);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('"alternative" did not take', $result->content);
+        self::assertSame([], $this->references(), 'the reference that did not take was removed');
+        self::assertSame(0, $this->counter());
+    }
+
+    /**
+     * The other direction: an asked empty text stored as '' took.
+     */
+    #[Test]
+    public function anEmptyTextThatIsStoredTook(): void
+    {
+        $result = $this->attach(['content_element' => $this->elementUid, 'file' => 1, 'field' => 'assets', 'alternative' => '']);
+
+        self::assertFalse($result->isError, $result->content);
+    }
+
+    /**
+     * A title is 255 characters in the TCA, and core cuts a longer one without
+     * a word: refused before anything is written, while 255 is taken.
+     */
+    #[Test]
+    public function aTitleIsTakenUpToItsColumnsLimitAndRefusedBeyondIt(): void
+    {
+        $refused = $this->attach(['content_element' => $this->elementUid, 'file' => 1, 'field' => 'assets', 'title' => str_repeat('t', 256)]);
+        self::assertTrue($refused->isError);
+        self::assertStringContainsString('"title" is longer than 255 characters', $refused->content);
+        self::assertSame([], $this->references());
+
+        $taken = $this->attach(['content_element' => $this->elementUid, 'file' => 1, 'field' => 'assets', 'title' => str_repeat('t', 255)]);
+        self::assertFalse($taken->isError, $taken->content);
     }
 
     /**

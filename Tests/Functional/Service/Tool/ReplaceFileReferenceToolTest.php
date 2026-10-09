@@ -9,12 +9,15 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReplaceFileReferenceTool;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\InterferesWithAnUpdateHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheInterferingHookTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -36,6 +39,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
 {
     use AssertsGermanPreviewTrait;
+    use RegistersTheInterferingHookTrait;
 
     private const STORAGE_CONFIGURATION = '<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <T3FlexForms><data><sheet index="sDEF"><language index="lDEF">
@@ -184,6 +188,7 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
 
     protected function tearDown(): void
     {
+        $this->unregisterInterferingHook();
         unset($GLOBALS['TYPO3_REQUEST'], $GLOBALS['LANG']);
         parent::tearDown();
     }
@@ -195,6 +200,7 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
 
         self::assertFalse($result->isError, $result->content);
         self::assertSame(WriteKind::CREATED, $result->writeKind);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
         $newUid = (int)$result->writeTarget?->uid;
 
         self::assertSame([$newUid, self::SECOND], $this->liveReferences(self::ELEMENT));
@@ -211,6 +217,79 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
 
         self::assertFalse($result->isError, $result->content);
         self::assertSame('Three', $this->referenceRow((int)$result->writeTarget?->uid)['alternative'] ?? null);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
+    }
+
+    /**
+     * A text the card showed is part of the plan: a hook that drops it from
+     * the new reference leaves the file replaced and the write partial
+     * (ADR-214).
+     */
+    #[Test]
+    public function aTextAHookDropsMakesTheReplacementPartial(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$dropColumnOnCreate = 'alternative';
+
+        $result = $this->change(['reference' => self::FIRST, 'action' => 'replace', 'file' => self::FILE_THREE, 'alternative' => 'Three', 'title' => 'Kept']);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(WriteKind::CREATED, $result->writeKind);
+        self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
+        self::assertStringContainsString('Not completely: alternative did not take on the new reference', $result->content);
+        self::assertSame('Kept', $this->referenceRow((int)$result->writeTarget?->uid)['title'] ?? null);
+    }
+
+    /**
+     * An asked empty text is an explicit override, and NULL is not one: the
+     * frontend falls back to the file's metadata for NULL. A hook that drops
+     * the empty text leaves NULL, which is not what was asked.
+     */
+    #[Test]
+    public function anEmptyTextAHookDropsMakesTheReplacementPartial(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$dropColumnOnCreate = 'alternative';
+
+        $result = $this->change(['reference' => self::FIRST, 'action' => 'replace', 'file' => self::FILE_THREE, 'alternative' => '']);
+
+        self::assertFalse($result->isError, $result->content);
+        $row = $this->referenceRow((int)$result->writeTarget?->uid);
+        self::assertArrayHasKey('alternative', $row);
+        self::assertNull($row['alternative']);
+        self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
+    }
+
+    /**
+     * The other direction: an asked empty text that is stored as '' is what
+     * was asked.
+     */
+    #[Test]
+    public function anEmptyTextThatTakesLeavesTheReplacementComplete(): void
+    {
+        $result = $this->change(['reference' => self::FIRST, 'action' => 'replace', 'file' => self::FILE_THREE, 'alternative' => '']);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame('', $this->referenceRow((int)$result->writeTarget?->uid)['alternative'] ?? null);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
+    }
+
+    /**
+     * A text longer than its column takes is refused before anything is
+     * written: core would cut a title to 255 characters without a word.
+     */
+    #[Test]
+    public function aTextLongerThanItsColumnTakesIsRefusedBeforeTheWrite(): void
+    {
+        $result = $this->change(['reference' => self::FIRST, 'action' => 'replace', 'file' => self::FILE_THREE, 'title' => str_repeat('t', 256)]);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('"title" is longer than 255 characters', $result->content);
+        self::assertSame([self::FIRST, self::SECOND], $this->liveReferences(self::ELEMENT));
+
+        $taken = $this->change(['reference' => self::FIRST, 'action' => 'replace', 'file' => self::FILE_THREE, 'title' => str_repeat('t', 255)]);
+        self::assertFalse($taken->isError, $taken->content);
+        self::assertSame(WriteCompleteness::COMPLETE, $taken->writeCompleteness);
     }
 
     #[Test]
@@ -221,6 +300,7 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
         self::assertFalse($result->isError, $result->content);
         self::assertSame(WriteKind::DELETED, $result->writeKind);
         self::assertSame(self::SECOND, $result->writeTarget?->uid);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
         self::assertSame([self::FIRST], $this->liveReferences(self::ELEMENT));
         self::assertSame(1, $this->counter(self::ELEMENT));
     }
@@ -232,9 +312,49 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
 
         self::assertFalse($result->isError, $result->content);
         self::assertStringContainsString('Its 1 translated reference(s) were deleted with it.', $result->content);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
         self::assertSame(1, (int)($this->referenceRow(self::OVERLAY_OF_SECOND)['deleted'] ?? 0));
         self::assertSame([self::OVERLAY_OF_FIRST], $this->liveReferences(self::TRANSLATED_ELEMENT));
         self::assertSame(1, $this->counter(self::TRANSLATED_ELEMENT));
+    }
+
+    /**
+     * The replace branch decides through the same step: the reference is
+     * replaced, its translated overlay is kept by a hook, and the write is
+     * partial (ADR-214).
+     */
+    #[Test]
+    public function aTranslatedOverlayAHookKeepsMakesTheReplacementPartial(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$keepRecord = 'sys_file_reference:' . self::OVERLAY_OF_FIRST;
+
+        $result = $this->change(['reference' => self::FIRST, 'action' => 'replace', 'file' => self::FILE_THREE]);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('The translations are not settled: translated reference [112] is still there', $result->content);
+        self::assertSame(WriteKind::CREATED, $result->writeKind);
+        self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
+    }
+
+    /**
+     * The reference is removed, and its translated overlay, which should have
+     * gone with it, is kept by a hook: the translations are not settled, and
+     * the write is partial (ADR-214) — decided in settleTranslations().
+     */
+    #[Test]
+    public function aTranslatedOverlayAHookKeepsMakesTheRemovalPartial(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$keepRecord = 'sys_file_reference:' . self::OVERLAY_OF_SECOND;
+
+        $result = $this->change(['reference' => self::SECOND, 'action' => 'remove']);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('The translations are not settled: translated reference [111] is still there', $result->content);
+        self::assertSame([self::FIRST], $this->liveReferences(self::ELEMENT));
+        self::assertSame(self::SECOND, $result->writeTarget?->uid);
+        self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
     }
 
     #[Test]

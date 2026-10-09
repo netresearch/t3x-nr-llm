@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
@@ -181,7 +182,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
         }
 
         $recordGone = $this->fetchRowByUid($plan['table'], $plan['uid'], 'uid') === null;
-        $complaints = $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . $this->summariseErrors($dataHandler->errorLog);
+        $complaints = $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . rtrim($this->summariseErrors($dataHandler->errorLog), '.') . '.';
         if (!$recordGone) {
             return ToolResult::error(sprintf(
                 'The delete did not take: %s [%d] is still there%s.%s The acting backend user is most likely missing a '
@@ -193,26 +194,32 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
             ));
         }
 
-        if ($survivors !== [] || $complaints !== '') {
+        if ($survivors !== []) {
             // The record IS deleted, so the answer names it as written even
-            // though part of what should have gone with it did not.
+            // though part of what should have gone with it did not (ADR-214:
+            // partial by the read-back).
             return ToolResult::text(sprintf(
-                'Deleted %s [%d] "%s", but not completely:%s%s It is flagged deleted and can be restored from the recycler.',
+                'Deleted %s [%d] "%s", but not completely: %s%s %s still there.%s It is flagged deleted and can be restored from the recycler.',
                 $plan['table'],
                 $plan['uid'],
                 $this->excerpt($plan['label']),
-                $survivors === [] ? '' : ' ' . implode(', ', array_slice($survivors, 0, 10)) . ' ' . (count($survivors) === 1 ? 'is' : 'are') . ' still there.',
+                implode(', ', array_slice($survivors, 0, 10)),
+                count($survivors) > 10 ? sprintf(' and %d more', count($survivors) - 10) : '',
+                count($survivors) === 1 ? 'is' : 'are',
                 $complaints,
-            ))->withWriteTarget(new RecordReference($plan['table'], $plan['uid']), WriteKind::DELETED);
+            ))->withWriteTarget(new RecordReference($plan['table'], $plan['uid']), WriteKind::DELETED, WriteCompleteness::PARTIAL);
         }
 
+        // Everything that should have gone is gone. A complaint of TYPO3
+        // beside it is named, and leaves nothing undone.
         return ToolResult::text(sprintf(
-            'Deleted %s [%d] "%s"%s. It is flagged deleted and can be restored from the recycler.',
+            'Deleted %s [%d] "%s"%s. It is flagged deleted and can be restored from the recycler.%s',
             $plan['table'],
             $plan['uid'],
             $this->excerpt($plan['label']),
             $this->alongWith($plan),
-        ))->withWriteTarget(new RecordReference($plan['table'], $plan['uid']), WriteKind::DELETED);
+            $complaints,
+        ))->withWriteTarget(new RecordReference($plan['table'], $plan['uid']), WriteKind::DELETED, WriteCompleteness::COMPLETE);
     }
 
     /**

@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Closure;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
@@ -348,9 +349,11 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
                     return sprintf('Refused: the value for "%s" must be a string.', $name);
                 }
 
+                // The column's own limit where it has one (`title` is 255).
                 $text = trim(self::toStr($arguments[$name]));
-                if (mb_strlen($text) > self::MAX_TEXT_LENGTH) {
-                    return sprintf('Refused: "%s" is longer than %d characters.', $name, self::MAX_TEXT_LENGTH);
+                $max  = $this->textLimitOf(self::REFERENCE_TABLE, $name, self::MAX_TEXT_LENGTH);
+                if (mb_strlen($text) > $max) {
+                    return sprintf('Refused: "%s" is longer than %d characters.', $name, $max);
                 }
 
                 $texts[$name] = $text;
@@ -564,8 +567,25 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
                 $newUid,
                 $plan['reference'],
                 $plan['field'],
-                $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . $this->summariseErrors($dataHandler->errorLog),
+                $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . rtrim($this->summariseErrors($dataHandler->errorLog), '.') . '.',
             ));
+        }
+
+        $settled = $this->settleTranslations($plan, $user);
+
+        // The texts asked for are part of the plan as much as the file: a hook
+        // or a rule of the column can drop or rewrite one without a word, and
+        // the reference then carries the new file without the text the card
+        // showed. That leaves the write PARTIAL, not undone (ADR-214).
+        $notTaken = $this->textsThatDidNotTake($newUid, $plan['texts']);
+        if ($notTaken !== []) {
+            $settled = [
+                'sentence'     => $settled['sentence'] . sprintf(
+                    ' Not completely: %s did not take on the new reference — the DataHandler dropped or changed the value.',
+                    implode(', ', $notTaken),
+                ),
+                'completeness' => WriteCompleteness::PARTIAL,
+            ];
         }
 
         return ToolResult::text(sprintf(
@@ -579,8 +599,8 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             $this->excerpt($plan['header']),
             $plan['reference'],
             $newUid,
-            $this->settleTranslations($plan, $user),
-        ))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $newUid), WriteKind::CREATED);
+            $settled['sentence'],
+        ))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $newUid), WriteKind::CREATED, $settled['completeness']);
     }
 
     /**
@@ -617,6 +637,8 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             ));
         }
 
+        $settled = $this->settleTranslations($plan, $user);
+
         return ToolResult::text(sprintf(
             'Removed reference [%d] to file [%d] "%s" from %s of tt_content [%d] "%s"; %d reference(s) remain. The file '
             . 'itself is unchanged.%s',
@@ -627,8 +649,8 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             $plan['element'],
             $this->excerpt($plan['header']),
             count($remaining),
-            $this->settleTranslations($plan, $user),
-        ))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $plan['reference']), WriteKind::DELETED);
+            $settled['sentence'],
+        ))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $plan['reference']), WriteKind::DELETED, $settled['completeness']);
     }
 
     /**
@@ -676,6 +698,30 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
     }
 
     /**
+     * The asked texts the new reference does not hold as asked, by name. A row
+     * that cannot be read back verifies nothing, so every text counts; that
+     * case is not reached today, because the read-back before the cmdmap
+     * already refuses a new row that is not there.
+     *
+     * @param array<string, string> $texts
+     *
+     * @return list<string>
+     */
+    private function textsThatDidNotTake(int $referenceUid, array $texts): array
+    {
+        $row = $this->fetchRowByUid(self::REFERENCE_TABLE, $referenceUid);
+
+        $missed = [];
+        foreach ($texts as $name => $expected) {
+            if (!self::storedTextHolds($row[$name] ?? null, $expected)) {
+                $missed[] = $name;
+            }
+        }
+
+        return $missed;
+    }
+
+    /**
      * Take a failed replacement back — the new reference deleted, the
      * element's field set to the list it had — and say whether that worked.
      *
@@ -709,12 +755,18 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      * matches its rows, and say what came of it — '' when there were none,
      * otherwise a sentence for the answer.
      *
+     * The completeness is decided here, beside the sentence, because this is
+     * where it is known (ADR-214): translations that are not settled leave
+     * the write PARTIAL, whatever the element itself carries.
+     *
      * @param array{field:string, translated:list<array{reference:int, element:int, language:int}>} $plan
+     *
+     * @return array{sentence: string, completeness: WriteCompleteness}
      */
-    private function settleTranslations(array $plan, BackendUserAuthentication $user): string
+    private function settleTranslations(array $plan, BackendUserAuthentication $user): array
     {
         if ($plan['translated'] === []) {
-            return '';
+            return ['sentence' => '', 'completeness' => WriteCompleteness::COMPLETE];
         }
 
         $elements = array_values(array_filter(
@@ -745,13 +797,21 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             }
         }
 
-        return $problems === []
-            ? sprintf(' Its %d translated reference(s) were deleted with it.', count($plan['translated']))
-            : sprintf(
+        if ($problems === []) {
+            return [
+                'sentence'     => sprintf(' Its %d translated reference(s) were deleted with it.', count($plan['translated'])),
+                'completeness' => WriteCompleteness::COMPLETE,
+            ];
+        }
+
+        return [
+            'sentence' => sprintf(
                 ' The translations are not settled: %s.%s',
                 implode('; ', $problems),
-                $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . $this->summariseErrors($dataHandler->errorLog),
-            );
+                $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . rtrim($this->summariseErrors($dataHandler->errorLog), '.') . '.',
+            ),
+            'completeness' => WriteCompleteness::PARTIAL,
+        ];
     }
 
     /**

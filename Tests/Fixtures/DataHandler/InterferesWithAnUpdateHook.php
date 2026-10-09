@@ -25,11 +25,24 @@ use TYPO3\CMS\Core\DataHandling\DataHandler;
  *   copy back;
  * - `$dropColumn` removes that column from every update, as a missing grant
  *   would, while the rest of the update is written;
+ * - `$dropColumnOnCreate` removes that column from a NEW row of any table, as
+ *   a hook that empties a field on create would — the one switch that is not
+ *   limited to `pages` and `tt_content`;
  * - `$complain` adds an entry to the DataHandler's error log while the update
- *   is still written, as a hook that logs and carries on does.
+ *   is still written, as a hook that logs and carries on does — on every
+ *   update, or with `$complainWithField` only on one that writes that field;
+ * - `$complainOnCommand` does the same after every command (a move, a
+ *   delete) of the cmdmap, which still runs;
+ * - `$keepRecord` names one `table:uid` whose delete the hook takes over and
+ *   does not carry out, as an installation's hook that vetoes a delete can —
+ *   the record stays live while the rest of the command runs;
+ * - `$keepInPlace` names one `table:uid` whose move the hook takes over and
+ *   does not carry out, so a page translation stays where it was while its
+ *   default-language page moves.
  *
  * Registered per test under
- * `$GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processDatamapClass']`
+ * `$GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']`
+ * under `processDatamapClass`, `processCmdmapClass` and `moveRecordClass`,
  * and removed again in the test's tearDown.
  */
 final class InterferesWithAnUpdateHook
@@ -38,13 +51,29 @@ final class InterferesWithAnUpdateHook
 
     public static ?string $dropColumn = null;
 
+    /** A column dropped from a NEW row of any table, as a hook that empties a field on create would. */
+    public static ?string $dropColumnOnCreate = null;
+
     public static bool $complain = false;
+
+    public static ?string $complainWithField = null;
+
+    public static bool $complainOnCommand = false;
+
+    public static ?string $keepRecord = null;
+
+    public static ?string $keepInPlace = null;
 
     public static function reset(): void
     {
-        self::$keepVisible = false;
-        self::$dropColumn  = null;
-        self::$complain    = false;
+        self::$keepVisible        = false;
+        self::$dropColumn         = null;
+        self::$dropColumnOnCreate = null;
+        self::$complain           = false;
+        self::$complainWithField  = null;
+        self::$complainOnCommand  = false;
+        self::$keepRecord         = null;
+        self::$keepInPlace        = null;
     }
 
     /**
@@ -52,6 +81,10 @@ final class InterferesWithAnUpdateHook
      */
     public function processDatamap_postProcessFieldArray(string $status, string $table, string|int $id, array &$fieldArray, DataHandler $dataHandler): void
     {
+        if ($status === 'new' && self::$dropColumnOnCreate !== null) {
+            unset($fieldArray[self::$dropColumnOnCreate]);
+        }
+
         if (!in_array($table, ['pages', 'tt_content'], true)) {
             return;
         }
@@ -71,8 +104,36 @@ final class InterferesWithAnUpdateHook
             unset($fieldArray[self::$dropColumn]);
         }
 
-        if (self::$complain) {
+        if (self::$complain && (self::$complainWithField === null || array_key_exists(self::$complainWithField, $fieldArray))) {
             $dataHandler->log($table, (int)$id, 2, null, 1, 'A test hook complains and carries on');
+        }
+    }
+
+    public function processCmdmap_postProcess(string $command, string $table, string|int $id, mixed $value, DataHandler $dataHandler): void
+    {
+        if (self::$complainOnCommand) {
+            $dataHandler->log($table, (int)$id, 2, null, 1, 'A test hook complains about a command and carries on');
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $record
+     */
+    public function processCmdmap_deleteAction(string $table, string|int $id, array $record, bool &$recordWasDeleted, DataHandler $dataHandler): void
+    {
+        if (self::$keepRecord === $table . ':' . $id) {
+            $recordWasDeleted = true;
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $propArr
+     * @param array<string, mixed> $moveRec
+     */
+    public function moveRecord(string $table, string|int $uid, mixed $destPid, array $propArr, array $moveRec, mixed $resolvedPid, bool &$recordWasMoved, DataHandler $dataHandler): void
+    {
+        if (self::$keepInPlace === $table . ':' . $uid) {
+            $recordWasMoved = true;
         }
     }
 }

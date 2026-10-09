@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Domain\ValueObject;
 
 use Netresearch\NrLlm\Domain\Enum\ArtifactType;
 use Netresearch\NrLlm\Domain\Enum\ToolOutcome;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
@@ -261,10 +262,111 @@ final class ToolResultTest extends TestCase
         sort($properties);
 
         self::assertSame(
-            ['artifacts', 'content', 'isError', 'outcome', 'writeKind', 'writeTarget'],
+            ['artifacts', 'content', 'hookFailedAfterWrite', 'isError', 'outcome', 'writeCompleteness', 'writeKind', 'writeTarget'],
             $properties,
             'ToolResult gained a property. Decide in withBoundedChannels() whether it is bounded or carried '
             . 'forward — ADR-182 names three values already lost to a rebuild that answered for neither.',
         );
+    }
+
+    /**
+     * The completeness travels with the target, as the tool stated it, and a
+     * third-party call that does not state it leaves it null — "not stated",
+     * never a default guess (ADR-214).
+     */
+    #[Test]
+    public function theCompletenessTravelsWithTheTargetAsStated(): void
+    {
+        foreach (WriteCompleteness::cases() as $completeness) {
+            $written = ToolResult::text('Updated page [42].')
+                ->withWriteTarget(new RecordReference('pages', 42), WriteKind::UPDATED, $completeness);
+
+            self::assertSame($completeness, $written->writeCompleteness);
+        }
+
+        $unstated = ToolResult::text('Updated page [42].')
+            ->withWriteTarget(new RecordReference('pages', 42), WriteKind::UPDATED);
+        self::assertNull($unstated->writeCompleteness);
+
+        self::assertNull(ToolResult::text('read something')->writeCompleteness);
+        self::assertNull(
+            ToolResult::error('nope')
+                ->withWriteTarget(new RecordReference('pages', 42), WriteKind::UPDATED, WriteCompleteness::COMPLETE)
+                ->writeCompleteness,
+        );
+    }
+
+    /**
+     * ADR-214 names this line: bounding rebuilds by constructor position, so
+     * the completeness and the hook flag are lost here unless it passes them
+     * on. Both directions: PARTIAL stays PARTIAL, COMPLETE stays COMPLETE.
+     */
+    #[Test]
+    public function boundingCarriesTheCompletenessAndTheHookFlag(): void
+    {
+        foreach (WriteCompleteness::cases() as $completeness) {
+            $bounded = ToolResult::text('long content')
+                ->withWriteTarget(new RecordReference('tt_content', 7), WriteKind::UPDATED, $completeness)
+                ->withHookFailedAfterWrite()
+                ->withBoundedChannels('short', []);
+
+            self::assertSame($completeness, $bounded->writeCompleteness);
+            self::assertTrue($bounded->hookFailedAfterWrite);
+        }
+
+        $quiet = ToolResult::text('long content')
+            ->withWriteTarget(new RecordReference('tt_content', 7), WriteKind::UPDATED, WriteCompleteness::COMPLETE)
+            ->withBoundedChannels('short', []);
+        self::assertFalse($quiet->hookFailedAfterWrite);
+    }
+
+    /**
+     * The flag is a second fact beside the completeness, never a change of it:
+     * a COMPLETE write after which a hook failed is still COMPLETE, and the
+     * order of the two transformations does not matter.
+     */
+    #[Test]
+    public function theHookFlagLeavesEveryOtherMemberAsItIs(): void
+    {
+        $artifact = new ToolArtifact(ArtifactType::TEXT, 'label', ['text' => 'x']);
+        $before   = ToolResult::text('Published.', $artifact)
+            ->withWriteTarget(new RecordReference('pages', 42), WriteKind::UPDATED, WriteCompleteness::COMPLETE);
+
+        $flagged = $before->withHookFailedAfterWrite();
+
+        self::assertFalse($before->hookFailedAfterWrite);
+        self::assertTrue($flagged->hookFailedAfterWrite);
+        self::assertSame($before->content, $flagged->content);
+        self::assertSame($before->artifacts, $flagged->artifacts);
+        self::assertSame($before->outcome, $flagged->outcome);
+        self::assertSame($before->writeTarget, $flagged->writeTarget);
+        self::assertSame(WriteKind::UPDATED, $flagged->writeKind);
+        self::assertSame(WriteCompleteness::COMPLETE, $flagged->writeCompleteness);
+        self::assertFalse($flagged->isError);
+
+        // Flagged first, named afterwards: the flag survives withWriteTarget().
+        $flaggedFirst = ToolResult::text('Published.')
+            ->withHookFailedAfterWrite()
+            ->withWriteTarget(new RecordReference('pages', 42), WriteKind::UPDATED, WriteCompleteness::PARTIAL);
+        self::assertTrue($flaggedFirst->hookFailedAfterWrite);
+        self::assertSame(WriteCompleteness::PARTIAL, $flaggedFirst->writeCompleteness);
+    }
+
+    /**
+     * An error result names no write, so it carries no hook flag either —
+     * set on it or carried through bounding — like the target and the
+     * artifacts it refuses.
+     */
+    #[Test]
+    public function anErrorResultCarriesNoHookFlag(): void
+    {
+        $flagged = ToolResult::error('refused')->withHookFailedAfterWrite();
+        self::assertFalse($flagged->hookFailedAfterWrite);
+
+        $bounded = $flagged->withBoundedChannels('bounded', []);
+        self::assertTrue($bounded->isError);
+        self::assertFalse($bounded->hookFailedAfterWrite);
+        self::assertNull($bounded->writeTarget);
+        self::assertNull($bounded->writeCompleteness);
     }
 }

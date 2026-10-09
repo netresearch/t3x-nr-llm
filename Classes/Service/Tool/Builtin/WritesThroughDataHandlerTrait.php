@@ -228,6 +228,38 @@ trait WritesThroughDataHandlerTrait
     }
 
     /**
+     * The longest text a column takes: its TCA `max` where it declares one,
+     * never more than $ceiling. For an `input` column core cuts a longer value
+     * to `max` without a word (`sys_file_reference.title` is 255), so a tool
+     * refuses it before it writes rather than storing a text its card did not
+     * show. The count is in characters, as core's cut is. A `max` on a
+     * column of another type is honoured too, although core does not cut
+     * there: that can only refuse a text core would have stored whole, never
+     * lose one.
+     */
+    private function textLimitOf(string $table, string $column, int $ceiling): int
+    {
+        $definition = $this->tcaColumnsFor($table)[$column] ?? null;
+        $config     = is_array($definition) ? ($definition['config'] ?? null) : null;
+        $declared   = is_array($config) ? ($config['max'] ?? null) : null;
+        $max        = is_numeric($declared) ? (int)$declared : 0;
+
+        return $max > 0 ? min($max, $ceiling) : $ceiling;
+    }
+
+    /**
+     * Whether a stored text holds the one asked for (ADR-214). NULL never does:
+     * the text columns of a file reference are nullable, NULL falls back to the
+     * file's metadata in the frontend while '' is an explicit empty override,
+     * and the DataHandler keeps an asked '' as ''. Read as '', a dropped empty
+     * text would pass for one that took.
+     */
+    private static function storedTextHolds(mixed $stored, string $asked): bool
+    {
+        return $stored !== null && self::toStr($stored) === $asked;
+    }
+
+    /**
      * A table's column definitions from the live TCA, or null when no TCA is
      * loaded. Narrowed step by step because `$GLOBALS` is untyped.
      *
