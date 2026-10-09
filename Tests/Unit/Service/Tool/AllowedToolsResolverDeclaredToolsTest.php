@@ -91,6 +91,67 @@ final class AllowedToolsResolverDeclaredToolsTest extends TestCase
         self::assertNull($this->resolver()->resolve($this->configuration($this->syncedSkill(''))), 'no declaration stays no opinion');
     }
 
+    /**
+     * ADR-214 item 5: an attached process skill the run does not invoke adds
+     * neither tools nor a restriction. The normal skill alone decides, and
+     * without any declaring skill the run is unrestricted.
+     */
+    #[Test]
+    public function anAttachedProcessSkillThatIsNotInvokedContributesNothing(): void
+    {
+        $tour   = $this->processSkill('["update_content_element"]');
+        $normal = $this->syncedSkill('["get_page"]');
+
+        self::assertSame(['get_page'], $this->resolver()->resolveForRun($this->configuration($tour, $normal), [])->toolNames);
+        self::assertSame(['get_page'], $this->resolver()->resolve($this->configuration($tour, $normal)));
+        self::assertNull($this->resolver()->resolveForRun($this->configuration($tour, $this->syncedSkill('')), [])->toolNames, 'no declaring skill: no restriction');
+        self::assertNull($this->resolver()->resolveForRun($this->configuration(), [$tour])->toolNames, 'forced is not invoked');
+    }
+
+    #[Test]
+    public function aRunThatInvokesTheProcessSkillGetsItsTools(): void
+    {
+        $tour   = $this->processSkill('["update_content_element"]');
+        $normal = $this->syncedSkill('["get_page"]');
+
+        self::assertSame(
+            ['update_content_element', 'get_page'],
+            $this->resolver()->resolveForRun($this->configuration($tour, $normal), [], null, [$tour])->toolNames,
+        );
+    }
+
+    /**
+     * Fail closed: an invoked process skill whose declaration nothing vouches
+     * for, or that declares nothing, restricts the run to nothing — never "no
+     * opinion".
+     */
+    #[Test]
+    public function anInvokedProcessSkillWithoutAVouchedDeclarationRestrictsTheRunToNothing(): void
+    {
+        $edited = $this->processSkill('["update_content_element"]');
+        $edited->setAllowedTools('["update_content_element","delete_record"]');
+
+        self::assertSame([], $this->resolver()->resolveForRun($this->configuration($edited), [], null, [$edited])->toolNames);
+
+        $undeclared = $this->processSkill('');
+
+        self::assertSame([], $this->resolver()->resolveForRun($this->configuration($undeclared), [], null, [$undeclared])->toolNames);
+    }
+
+    private function processSkill(string $tools): Skill
+    {
+        $skill = $this->backendSkill($tools);
+        $skill->_setProperty('uid', 3);
+        $skill->setSource(self::SYNCED);
+        $skill->setIdentifier('tour-1');
+        $skill->setProcess(true);
+        $skill->setTrustLevel(SkillTrustLevel::VERIFIED->value);
+        $skill->setBodyChecksum(hash('sha256', 'House style.'));
+        $skill->setVersionDigest(SkillVersionDigest::of($skill));
+
+        return $skill;
+    }
+
     private function resolver(): AllowedToolsResolver
     {
         $composer = new SkillComposer(

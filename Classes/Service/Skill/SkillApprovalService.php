@@ -216,9 +216,7 @@ final readonly class SkillApprovalService
      */
     private function currentDigest(Skill $skill): ?string
     {
-        $facts = $this->sources->find($skill->getSource());
-
-        return SkillVersionDigest::verified($skill, !$facts instanceof SkillSourceFacts || $facts->type?->isSynced() !== false);
+        return SkillVersionDigest::verified($skill, !SkillComposer::isEditedInPlace($skill, $this->sources->find($skill->getSource())));
     }
 
     private function provenanceOf(Skill $skill): ?SkillTrustLevel

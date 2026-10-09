@@ -201,21 +201,48 @@ final class SkillComposerBackendSourceTest extends TestCase
         self::assertSame([], $this->composer()->declaredTools($skill));
     }
 
+    /**
+     * ADR-214 item 5: attached without an invocation a process skill has no
+     * opinion; invoked, it is vouched for like any skill.
+     */
     #[Test]
-    public function aProcessSkillDeclaresTheEmptyListOnTheAttachedPath(): void
+    public function aProcessSkillHasNoOpinionUnlessInvoked(): void
     {
         $skill = $this->syncedSkill('["get_page"]', process: true);
 
-        self::assertSame([], $this->composer()->declaredTools($skill));
+        self::assertNull($this->composer()->declaredTools($skill));
+        self::assertSame(['get_page'], $this->composer()->declaredTools($skill, invoked: true));
     }
 
     /**
-     * A process skill grants nothing from an attachment on a backend source
-     * either, approved or not; nor does a skill whose approved version was a
-     * process skill and whose author since switched the marker off.
+     * A synced skill moved onto a backend source keeps what its sync wrote,
+     * so it is still checked against it: an edit after the move fails the
+     * integrity check, is not admitted at the backend source's level and
+     * declares nothing it was not synced with.
      */
     #[Test]
-    public function aBackendProcessSkillDeclaresTheEmptyListEvenWhenApproved(): void
+    public function aSyncedSkillMovedOntoABackendSourceStaysCheckedAgainstItsSync(): void
+    {
+        $skill = $this->syncedSkill('["get_page"]');
+        $skill->setSource(self::BACKEND);
+        $skill->setTrustLevel(SkillTrustLevel::UNTRUSTED->value);
+
+        self::assertSame(['get_page'], $this->composer()->declaredTools($skill), 'intact: its synced declaration');
+
+        $skill->setBody('Text written after the move.');
+
+        self::assertSame([], $this->composer()->declaredTools($skill));
+        self::assertSame('', $this->composer()->composeBlock([$skill], [])->block, 'skipped as tampered, not composed as a new version');
+        self::assertSame([], $this->composer(SkillTrustLevel::VERIFIED)->effectiveSkills([$skill], []), 'admitted by its own column, not the backend source');
+    }
+
+    /**
+     * A process skill on a backend source grants its approved tools only to a
+     * run that invokes it; a skill whose only approved version is a process
+     * version and whose author since switched the marker off grants nothing.
+     */
+    #[Test]
+    public function aBackendProcessSkillGrantsItsApprovedToolsOnlyWhenInvoked(): void
     {
         $skill = $this->backendSkill('Tour', 'Step one.');
         $skill->setAllowedTools('["get_page"]');
@@ -223,7 +250,8 @@ final class SkillComposerBackendSourceTest extends TestCase
 
         $this->approvals->add(1, self::BACKEND, SkillVersionDigest::of($skill), SkillVersionDigest::fieldsOf($skill), 'verified', 1);
 
-        self::assertSame([], $this->composer()->declaredTools($skill));
+        self::assertNull($this->composer()->declaredTools($skill), 'attached, not invoked: no opinion');
+        self::assertSame(['get_page'], $this->composer()->declaredTools($skill, invoked: true));
 
         $skill->setProcess(false);
 

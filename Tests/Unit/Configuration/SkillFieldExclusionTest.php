@@ -101,8 +101,15 @@ final class SkillFieldExclusionTest extends TestCase
         }
 
         foreach (['single_file', 'repo', 'marketplace', '0'] as $type) {
-            self::assertArrayNotHasKey('columnsOverrides', $tca['types'][$type] ?? [], $type . ' overrides nothing');
+            $overrides = $tca['types'][$type]['columnsOverrides'] ?? [];
+            self::assertIsArray($overrides);
+            self::assertSame(['source'], array_keys($overrides), $type . ' overrides only the source');
+            self::assertTrue($overrides['source']['config']['readOnly'] ?? false, $type . ': a synced skill keeps its source in the form');
         }
+
+        $where = $backend['source']['config']['foreign_table_where'] ?? null;
+        self::assertIsString($where);
+        self::assertStringContainsString("{#type} = 'backend'", $where, 'a backend skill is offered backend sources only');
     }
 
     /**

@@ -154,6 +154,26 @@ final class BackendSkillSourceTest extends AbstractFunctionalTestCase
         self::assertSame([], $this->composerFactory()->create()->declaredTools($skill));
     }
 
+    /**
+     * A record that carries what a sync wrote is checked against it on any
+     * source: moved onto a backend source and edited, it is an integrity
+     * failure, not a new version anyone could approve.
+     */
+    #[Test]
+    public function aSyncedSkillMovedOntoTheBackendSourceCannotBeApprovedAfterAnEdit(): void
+    {
+        $body = 'Pick a page, then work through the findings.';
+        $this->pool()->getConnectionForTable('tx_nrllm_skill')->update('tx_nrllm_skill', ['body_checksum' => hash('sha256', $body)], ['uid' => 7]);
+        $skill = $this->skill();
+        $skill->setVersionDigest(SkillVersionDigest::of($skill));
+        $this->pool()->getConnectionForTable('tx_nrllm_skill')->update('tx_nrllm_skill', ['version_digest' => $skill->getVersionDigest()], ['uid' => 7]);
+
+        $skill = $this->skill();
+        $skill->setBody('Text written after the move.');
+
+        self::assertSame(SkillApprovalOutcome::REFUSED_INTEGRITY, $this->approvalService()->approveVersion($skill, SkillVersionDigest::of($skill), 1));
+    }
+
     private function skill(): Skill
     {
         $this->get(PersistenceManagerInterface::class)->clearState();

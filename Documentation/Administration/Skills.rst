@@ -262,13 +262,21 @@ fields an administrator granted: the source, the enable flag, the allowed
 tools and the data class are excluded fields (:guilabel:`Allowed
 excludefields` of the backend group). Without the source grant a new skill
 is stored without a source and is never composed; without the enable grant it
-stays disabled until an administrator enables it.
+stays disabled until an administrator enables it. The :guilabel:`New skill`
+button creates the record on the root page, which only administrators may
+write; a backend user who is not an administrator creates the skill with
+:guilabel:`Create new record` on a page in their web mount.
 
-The same rule protects every skill's tool declaration: a process skill
-(written in the backend or synced, approved or not), a
-skill whose source is missing, hidden or disabled, and a synced skill edited
-after its sync all count as a declared empty list. They restrict a run's tools
-instead of widening them.
+A skill does not change its kind by changing its source: a skill that a sync
+wrote keeps being checked against what the sync wrote, also on a backend
+source, so an edit after such a move takes it out instead of becoming a new
+version.
+
+The same rule protects every skill's tool declaration: a skill whose source
+is missing, hidden or disabled, and a synced skill edited after its sync count
+as a declared empty list. They restrict a run's tools instead of widening them.
+A process skill counts only in a run that invokes it; attached without an
+invocation it adds neither tools nor a restriction.
 
 A backend source cannot be synced.
 
