@@ -64,8 +64,14 @@ expiry and do not place it in reusable transport fields or logging contexts.
 Dependency feasibility is an acceptance gate: verify supported nr-vault
 BodyField injection, temporary `store(expiresAt)`/`delete`, combined subject
 and confidential-client authentication, cancellation and host-gate behaviour.
-If a supported older dependency lacks these contracts, explicitly raise the
-minimum dependency with a compatibility note instead of bypassing Vault.
+Public-client exchange uses the supported existing BodyField contract. A
+confidential client additionally requires the additive
+`AdditionalSecretHttpClientInterface::withAdditionalBodyField()` capability
+proposed in nr-vault PR 409. Without it the configured confidential exchange
+must fail before contacting the IdP. Existing static modes and public clients
+remain usable with the current stable dependency. Document that capability
+requirement and, once released, its real minimum version; do not invent an
+unreleased version constraint or bypass Vault to emulate missing capability.
 
 ## Which suite proves each requirement
 

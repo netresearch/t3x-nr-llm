@@ -46,6 +46,12 @@ Decision
    suspended state, transcript or event. A service actor needs an explicit
    mapping too; it never inherits a backend user's ambient session.
 
+   Installation profiles map ``backendUsers[uid]`` and
+   ``serviceAccounts[name]`` explicitly. Each grant declares ``enabled: true``,
+   a ``credentialIdentifier``, ``allowedAudiences`` and ``allowedScopes``.
+   The requested audience and scopes must satisfy both the profile's and the
+   actor grant's bounds; an absent or disabled grant denies.
+
 3. **Exchange rather than forward.** The RFC 8693 grant requests an access
    token with an explicit audience and bounded scopes. The subject token is
    injected into the form by nr-vault's body-field placement. Optional client
@@ -109,6 +115,16 @@ expiry/store/delete and confidential-client composition contracts against the
 supported dependency range. If a required combination is unavailable, it is a
 dependency requirement to resolve; secrets must not be manually copied into
 an unguarded request to make a test pass.
+
+Public OAuth clients use the existing Vault body-field injection for their
+subject token. Confidential clients additionally require Vault's additive
+``AdditionalSecretHttpClientInterface::withAdditionalBodyField()`` capability
+to combine their client credential with the subject credential in one checked
+request. That capability is proposed separately in nr-vault PR 409. Its absence
+denies confidential exchanges before an IdP request, while existing static
+authentication and public-client exchanges remain compatible. No unreleased
+version number is invented as a Composer constraint; installation instructions
+name the capability requirement until a release supplies it.
 
 Specification: ``specs/015-delegated-mcp-auth/spec.md``. Tests exercise the wire
 against fixture IdP and MCP clients, including actor isolation, renewal and
