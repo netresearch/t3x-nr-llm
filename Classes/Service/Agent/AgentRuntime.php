@@ -257,7 +257,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
     public function cancelIfWaiting(AiActorContext $actor, string $runUuid): GuardedCancelResult
     {
         $run = $this->persister->findRun($runUuid);
-        if (!$run instanceof AgentRun || !($actor->isInitiatorOf($run) || ($actor->isAdmin && !$actor->isServiceAccount()))) {
+        if (!$run instanceof AgentRun || !$this->mayWithdraw($actor, $run)) {
             return new GuardedCancelResult(false, null);
         }
 
@@ -271,6 +271,21 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         // Read after the attempt, not before it: a loser must learn the state
         // that beat it, and a winner's row says CANCELLED.
         return new GuardedCancelResult($cancelled, $this->persister->findRun($runUuid)?->statusEnum());
+    }
+
+    /**
+     * The initiator or an administrator (ADR-214): withdrawing a person's
+     * waiting proposal is that person's act, so neither the approve grant nor
+     * a service account's scopes reach it, as {@see AiActorContext::mayActOnRun()}
+     * would let them.
+     */
+    private function mayWithdraw(AiActorContext $actor, AgentRun $run): bool
+    {
+        if ($actor->isInitiatorOf($run)) {
+            return true;
+        }
+
+        return $actor->isAdmin && !$actor->isServiceAccount();
     }
 
     public function events(AiActorContext $actor, string $runUuid, int $afterSequence = -1): array
