@@ -3892,8 +3892,8 @@ final class ToolLoopServiceTest extends TestCase
             null,
             runTrace: $trace,
         );
-        $expectedFenceCount = RemoteCallBudget::DEFAULT_LIMIT;
-        self::assertSame($expectedFenceCount, $fenced);
+        // Only permitted invocations enter the execution fence.
+        self::assertSame(RemoteCallBudget::DEFAULT_LIMIT, $fenced);
         self::assertCount(RemoteCallBudget::DEFAULT_LIMIT * 2, $result->trace);
         foreach (array_slice($result->trace, RemoteCallBudget::DEFAULT_LIMIT) as $invocation) {
             self::assertFalse($invocation->isError);
