@@ -1015,7 +1015,9 @@ renders them and owns the open points.
   - ``Classes/Service/Tool/Builtin/MovePageTool.php#Not completely:``
     (translations stayed behind);
   - ``Classes/Service/Tool/Builtin/ReplaceFileReferenceTool.php#The translations are not settled:``
-    (appended to both of its success returns);
+    (appended to both of its success returns), and
+    ``Classes/Service/Tool/Builtin/ReplaceFileReferenceTool.php#did not take on the new reference``
+    (a text the replacement was asked to set);
   - ``Classes/Service/Tool/Builtin/CreateTranslationDraftTool.php#The text was only PARTLY machine-translated:``
     (only partly translated).
 

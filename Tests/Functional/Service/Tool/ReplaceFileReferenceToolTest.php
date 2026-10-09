@@ -240,6 +240,52 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
         self::assertSame('Kept', $this->referenceRow((int)$result->writeTarget?->uid)['title'] ?? null);
     }
 
+    /**
+     * An asked empty text is an explicit override, and NULL is not one: the
+     * frontend falls back to the file's metadata for NULL. A hook that drops
+     * the empty text leaves NULL, which is not what was asked.
+     */
+    #[Test]
+    public function anEmptyTextAHookDropsMakesTheReplacementPartial(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$dropColumnOnCreate = 'alternative';
+
+        $result = $this->change(['reference' => self::FIRST, 'action' => 'replace', 'file' => self::FILE_THREE, 'alternative' => '']);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertNull($this->referenceRow((int)$result->writeTarget?->uid)['alternative'] ?? null);
+        self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
+    }
+
+    /**
+     * The other direction: an asked empty text that is stored as '' is what
+     * was asked.
+     */
+    #[Test]
+    public function anEmptyTextThatTakesLeavesTheReplacementComplete(): void
+    {
+        $result = $this->change(['reference' => self::FIRST, 'action' => 'replace', 'file' => self::FILE_THREE, 'alternative' => '']);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame('', $this->referenceRow((int)$result->writeTarget?->uid)['alternative'] ?? null);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
+    }
+
+    /**
+     * A text longer than its column takes is refused before anything is
+     * written: core would cut a title to 255 characters without a word.
+     */
+    #[Test]
+    public function aTextLongerThanItsColumnTakesIsRefusedBeforeTheWrite(): void
+    {
+        $result = $this->change(['reference' => self::FIRST, 'action' => 'replace', 'file' => self::FILE_THREE, 'title' => str_repeat('t', 256)]);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('"title" is longer than 255 characters', $result->content);
+        self::assertSame([self::FIRST, self::SECOND], $this->liveReferences(self::ELEMENT));
+    }
+
     #[Test]
     public function anAdminRemovesAReferenceAndTheCounterFollows(): void
     {

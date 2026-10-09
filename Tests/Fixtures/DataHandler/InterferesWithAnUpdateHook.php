@@ -25,6 +25,9 @@ use TYPO3\CMS\Core\DataHandling\DataHandler;
  *   copy back;
  * - `$dropColumn` removes that column from every update, as a missing grant
  *   would, while the rest of the update is written;
+ * - `$dropColumnOnCreate` removes that column from a NEW row of any table, as
+ *   a hook that empties a field on create would — the one switch that is not
+ *   limited to `pages` and `tt_content`;
  * - `$complain` adds an entry to the DataHandler's error log while the update
  *   is still written, as a hook that logs and carries on does — on every
  *   update, or with `$complainWithField` only on one that writes that field;
@@ -64,7 +67,7 @@ final class InterferesWithAnUpdateHook
     public static function reset(): void
     {
         self::$keepVisible       = false;
-        self::$dropColumn        = null;
+        self::$dropColumn         = null;
         self::$dropColumnOnCreate = null;
         self::$complain          = false;
         self::$complainWithField = null;
