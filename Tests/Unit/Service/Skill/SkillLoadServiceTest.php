@@ -217,6 +217,25 @@ final class SkillLoadServiceTest extends TestCase
         self::assertSame(SkillTrustLevel::VERIFIED->value, $skill->getTrustLevel(), "the run's object is not changed");
     }
 
+    /**
+     * Without a stored trust level to measure, the load is refused; with
+     * one, the same skill loads.
+     */
+    #[Test]
+    public function aSkillWhoseStoredTrustCannotBeReadIsRefused(): void
+    {
+        $skill         = $this->approvedOnDemand(7);
+        $configuration = $this->configuration($skill);
+        $catalogue     = $this->service()->catalogue($configuration);
+        unset($this->lookup->trustLevels[7]);
+
+        self::assertTrue($this->service()->load(7, $catalogue, [], $configuration)->isError);
+
+        $this->lookup->trustLevels[7] = $skill->getTrustLevel();
+
+        self::assertTrue($this->service()->load(7, $catalogue, [], $configuration)->appendsSection());
+    }
+
     #[Test]
     public function aSectionJoinsTheApprovedSkillsHeadingOnceAndOtherwiseBringsIt(): void
     {
