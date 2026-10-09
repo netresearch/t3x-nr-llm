@@ -9,6 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\DependencyInjection;
 
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Skill;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
+use Netresearch\NrLlm\Service\Agent\AgentRunRequestCodec;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
@@ -83,5 +89,32 @@ final class ToolLoopGateWiringTest extends FunctionalTestCase
         $policy = $this->get(ToolCallPolicyInterface::class);
 
         self::assertInstanceOf(ToolCallPolicy::class, $policy);
+    }
+
+    #[Test]
+    public function theQueuedRunCodecResolvesTheSkillAllowListAtEnqueue(): void
+    {
+        // The codec takes the policy as an optional collaborator, so a
+        // container that did not inject it would queue runs without their
+        // skill allow-list (ADR-038 item 5) and compile all the same.
+        $codec = $this->get(AgentRunRequestCodec::class);
+        self::assertInstanceOf(AgentRunRequestCodec::class, $codec);
+
+        $skill = new Skill();
+        $skill->setSource(1);
+        $skill->setIdentifier('declaring');
+        $skill->setAllowedTools('[]');
+        $skill->setEnabled(true);
+
+        $configuration = new LlmConfiguration();
+        $configuration->addSkill($skill);
+
+        $stored = $codec->dehydrate(new AgentRunRequest(
+            configuration: $configuration,
+            messages: [ChatMessage::user('go')],
+            actor: AiActorContext::backendUser(1),
+        ));
+
+        self::assertSame(['toolNames' => []], $stored['skillAllowList'] ?? null);
     }
 }
