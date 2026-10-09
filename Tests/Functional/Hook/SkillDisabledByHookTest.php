@@ -117,6 +117,21 @@ final class SkillDisabledByHookTest extends AbstractFunctionalTestCase
         self::assertSame('admin', $this->column('disabled_by'));
     }
 
+    /**
+     * Every form save sends the enable flag along, unchanged. Saving another
+     * field of a skill the sync disabled keeps the sync's mark, also for an
+     * administrator.
+     */
+    #[Test]
+    public function aFormSaveThatLeavesTheFlagUnchangedKeepsTheSyncMark(): void
+    {
+        $this->actAs(1);
+
+        self::assertSame([], $this->write(['description' => 'Edited', 'enabled' => 0]));
+        self::assertSame('Edited', $this->column('description'));
+        self::assertSame('sync', $this->column('disabled_by'));
+    }
+
     #[Test]
     public function theMarkIsNeverWrittenThroughTheDataHandler(): void
     {

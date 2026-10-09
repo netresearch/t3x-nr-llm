@@ -25,7 +25,13 @@ use TYPO3\CMS\Core\SysLog\Error as SystemLogErrorClassification;
  * who may write skills could lift a restriction nobody approved lifting. The
  * attachment is detached first, on the configuration or the task, by whoever
  * may edit those. Deleting a page deletes the records on it and below it
- * without a delete command per record, so the page delete is checked too.
+ * without a delete action per record, so the page delete is checked too; a
+ * holder that sits in the deleted subtree goes with it and does not count.
+ *
+ * Hooked into the DataHandler's delete action, which every delete passes —
+ * a delete command, and a workspace publish that applies a delete
+ * placeholder to live. A delete inside a workspace only stages the
+ * placeholder and is checked when it is published.
  *
  * Registered under `processCmdmapClass` in `ext_localconf.php`. A public
  * service, so the DataHandler's makeInstance() gets the container-built
@@ -45,69 +51,93 @@ final readonly class SkillDeletionGuardHook
         private ConnectionPool $connectionPool,
     ) {}
 
-    public function processCmdmap(string $command, string $table, string|int $id, mixed $value, bool &$commandIsProcessed, DataHandler $dataHandler): void
+    /**
+     * @param array<string, mixed>|null $record
+     */
+    public function processCmdmap_deleteAction(string $table, string|int $id, ?array $record, bool &$recordWasDeleted, DataHandler $dataHandler): void
     {
-        if ($commandIsProcessed || $command !== 'delete' || !is_numeric($id) || (int)$id <= 0) {
+        if ($recordWasDeleted || !is_numeric($id) || (int)$id <= 0 || ($table !== self::TABLE && $table !== 'pages')) {
             return;
         }
 
+        $uid = (int)$id;
         if ($table === self::TABLE) {
-            $holders = $this->holders((int)$id);
+            $holders = $this->holders([$uid], []);
             if ($holders === []) {
                 return;
             }
 
-            $commandIsProcessed = true;
+            $recordWasDeleted = true;
             $dataHandler->log(
                 $table,
-                (int)$id,
+                $uid,
                 SystemLogDatabaseAction::DELETE,
                 null,
                 SystemLogErrorClassification::USER_ERROR,
                 'Cannot delete skill {uid}: it is still attached to {holders}. Detach it there first.',
                 null,
-                ['uid' => (int)$id, 'holders' => implode(', ', $holders)],
+                ['uid' => $uid, 'holders' => implode(', ', $holders)],
             );
 
             return;
         }
 
-        if ($table !== 'pages') {
+        if (!$this->anyLiveAttachment()) {
             return;
         }
 
-        $attached = [];
-        foreach ($this->skillsBelow((int)$id) as $skillUid) {
-            if ($this->holders($skillUid) !== []) {
-                $attached[] = $skillUid;
-            }
-        }
-
-        if ($attached === []) {
+        $pages   = $this->subtree($uid);
+        $holders = $this->holders($this->skillsOn($pages), $pages);
+        if ($holders === []) {
             return;
         }
 
-        $commandIsProcessed = true;
+        $recordWasDeleted = true;
         $dataHandler->log(
             $table,
-            (int)$id,
+            $uid,
             SystemLogDatabaseAction::DELETE,
             null,
             SystemLogErrorClassification::USER_ERROR,
-            'Cannot delete page {uid}: it or a page below it holds skills still attached to a configuration or a task ({skills}). Detach them first.',
+            'Cannot delete page {uid}: it or a page below it holds skills still attached to {holders}. Detach them first.',
             null,
-            ['uid' => (int)$id, 'skills' => implode(', ', $attached)],
+            ['uid' => $uid, 'holders' => implode(', ', $holders)],
         );
     }
 
     /**
-     * The uids of the skills on the page and on every page below it.
+     * Whether any skill is attached to a live configuration or task at all —
+     * the cheap answer for the usual page delete.
+     */
+    private function anyLiveAttachment(): bool
+    {
+        foreach (self::ATTACHMENTS as $mmTable => $holderTable) {
+            $queryBuilder = $this->connectionPool->getQueryBuilderForTable($mmTable);
+            $queryBuilder->getRestrictions()->removeAll();
+            $found = $queryBuilder
+                ->select('mm.uid_foreign')
+                ->from($mmTable, 'mm')
+                ->join('mm', $holderTable, 'h', $queryBuilder->expr()->eq('h.uid', $queryBuilder->quoteIdentifier('mm.uid_local')))
+                ->where($queryBuilder->expr()->eq('h.deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)))
+                ->setMaxResults(1)
+                ->executeQuery()
+                ->fetchOne();
+            if ($found !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The page and every live page below it.
      *
      * @return list<int>
      */
-    private function skillsBelow(int $pageUid): array
+    private function subtree(int $pageUid): array
     {
-        $pages    = [$pageUid];
+        $pages    = [$pageUid => true];
         $frontier = [$pageUid];
         while ($frontier !== []) {
             $queryBuilder = $this->connectionPool->getQueryBuilderForTable('pages');
@@ -123,13 +153,25 @@ final readonly class SkillDeletionGuardHook
                 ->fetchFirstColumn();
             $frontier = [];
             foreach ($children as $child) {
-                if (is_numeric($child) && !in_array((int)$child, $pages, true)) {
-                    $pages[]    = (int)$child;
-                    $frontier[] = (int)$child;
+                if (is_numeric($child) && !isset($pages[(int)$child])) {
+                    $pages[(int)$child] = true;
+                    $frontier[]         = (int)$child;
                 }
             }
         }
 
+        return array_keys($pages);
+    }
+
+    /**
+     * The live skills on the given pages.
+     *
+     * @param list<int> $pages
+     *
+     * @return list<int>
+     */
+    private function skillsOn(array $pages): array
+    {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $queryBuilder->getRestrictions()->removeAll();
         $skills = $queryBuilder
@@ -153,31 +195,45 @@ final readonly class SkillDeletionGuardHook
     }
 
     /**
-     * @return list<string> "table:uid" of every live record that has the skill attached
+     * "table:uid" of every live configuration or task that has one of the
+     * skills attached, leaving out holders on the pages being deleted.
+     *
+     * @param list<int> $skillUids
+     * @param list<int> $deletedPages
+     *
+     * @return list<string>
      */
-    private function holders(int $skillUid): array
+    private function holders(array $skillUids, array $deletedPages): array
     {
+        if ($skillUids === []) {
+            return [];
+        }
+
         $holders = [];
         foreach (self::ATTACHMENTS as $mmTable => $holderTable) {
             $queryBuilder = $this->connectionPool->getQueryBuilderForTable($mmTable);
             $queryBuilder->getRestrictions()->removeAll();
-            $rows = $queryBuilder
+            $queryBuilder
                 ->select('h.uid')
                 ->from($mmTable, 'mm')
                 ->join('mm', $holderTable, 'h', $queryBuilder->expr()->eq('h.uid', $queryBuilder->quoteIdentifier('mm.uid_local')))
                 ->where(
-                    $queryBuilder->expr()->eq('mm.uid_foreign', $queryBuilder->createNamedParameter($skillUid, Connection::PARAM_INT)),
+                    $queryBuilder->expr()->in('mm.uid_foreign', $queryBuilder->createNamedParameter($skillUids, Connection::PARAM_INT_ARRAY)),
                     $queryBuilder->expr()->eq('h.deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
-                )
-                ->executeQuery()
-                ->fetchFirstColumn();
-            foreach ($rows as $uid) {
+                );
+            if ($deletedPages !== []) {
+                $queryBuilder->andWhere(
+                    $queryBuilder->expr()->notIn('h.pid', $queryBuilder->createNamedParameter($deletedPages, Connection::PARAM_INT_ARRAY)),
+                );
+            }
+
+            foreach ($queryBuilder->executeQuery()->fetchFirstColumn() as $uid) {
                 if (is_numeric($uid)) {
-                    $holders[] = $holderTable . ':' . (int)$uid;
+                    $holders[$holderTable . ':' . (int)$uid] = true;
                 }
             }
         }
 
-        return $holders;
+        return array_keys($holders);
     }
 }

@@ -271,6 +271,8 @@ Only an administrator enables or disables a skill. A skill the sync disabled
 keeps restricting the runs it is attached to until an administrator enables
 it again or detaches it; a skill an administrator disabled drops out of those
 runs.
+Hiding a skill (an excluded field) takes it out of every run like an
+administrator's disable: a hidden skill neither instructs nor restricts.
 
 A backend user who is not an administrator writes skills only with the
 fields an administrator granted: the source, the allowed tools and the data

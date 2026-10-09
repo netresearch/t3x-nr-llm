@@ -364,6 +364,27 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         self::assertSame('sync', $this->disabledBy((int)$b->getUid()));
     }
 
+    /**
+     * An orphan from before the mark existed carries none. Coming back
+     * upstream, it is marked as the sync's, so it keeps restricting.
+     */
+    #[Test]
+    public function anOrphanFromBeforeTheMarkIsMarkedWhenItComesBack(): void
+    {
+        $source = $this->repoSource();
+        $this->service(new FakeGitHubClient('sha1', [self::SKILL_A_PATH], [self::SKILL_A_PATH => $this->md('A', 'x')]))->sync($source);
+        $skill = $this->get(SkillRepository::class)->findBySourceAndIdentifier(10, self::SKILL_A_ID);
+        self::assertNotNull($skill);
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill')
+            ->update('tx_nrllm_skill', ['orphaned' => 1, 'enabled' => 0, 'disabled_by' => ''], ['uid' => (int)$skill->getUid()]);
+        $this->get(PersistenceManagerInterface::class)->clearState();
+
+        $this->service(new FakeGitHubClient('sha2', [self::SKILL_A_PATH], [self::SKILL_A_PATH => $this->md('A', 'x')]))->sync($source);
+
+        self::assertSame(0, $this->column((int)$skill->getUid(), 'orphaned'));
+        self::assertSame('sync', $this->disabledBy((int)$skill->getUid()));
+    }
+
     #[Test]
     public function parseErrorYieldsPartialStatusButImportsValidSkills(): void
     {

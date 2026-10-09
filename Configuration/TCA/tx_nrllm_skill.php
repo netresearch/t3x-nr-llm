@@ -332,6 +332,7 @@ return [
         // changes in the form; never shown or written by FormEngine.
         'disabled_by' => [
             'exclude' => true,
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.disabled_by',
             'displayCond' => 'HIDE_FOR_NON_ADMINS',
             'config' => [
                 'type' => 'passthrough',
