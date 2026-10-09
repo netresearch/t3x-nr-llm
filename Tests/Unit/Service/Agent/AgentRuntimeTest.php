@@ -1018,6 +1018,23 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function enqueueStoresTheSkillAllowListWithoutAnInjectedCodec(): void
+    {
+        // The runtime's own fallback codec must resolve the list at enqueue
+        // too (ADR-038 item 5); without the policy it stored none.
+        $policy = self::createStub(ToolCallPolicyInterface::class);
+        $policy->method('skillAllowListForRun')->willReturn(new SkillToolAllowList(['read_a']));
+        $dispatched = [];
+        $runtime    = $this->runtime($this->loopReturning($this->loopResult('x')), bus: $this->recordingBus($dispatched), toolPolicy: $policy);
+
+        $runtime->enqueue($this->request());
+
+        $payload = json_decode($this->repository->enqueuedRuns[0]['requestJson'], true);
+        self::assertIsArray($payload);
+        self::assertSame(['toolNames' => ['read_a']], $payload['skillAllowList'] ?? null);
+    }
+
+    #[Test]
     public function enqueueFailsClosedWhenTheRowCannotBeStored(): void
     {
         $this->repository->throwOnEnqueue = true;

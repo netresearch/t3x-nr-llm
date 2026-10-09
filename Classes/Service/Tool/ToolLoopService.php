@@ -230,14 +230,22 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * because the only declaring skill was disabled meanwhile keeps the stored
      * list instead of widening the run to every tool.
      *
-     * A state persisted before the list was stored carries none; the live list
-     * then applies on its own, as before.
+     * Returned with the list to store on a further suspension: the stored one
+     * again, not the intersection, so a tool taken away while the run waited
+     * comes back at the next resume once its skill is live again — the stored
+     * list is the run's, the live one only narrows a segment. A state persisted
+     * before the list was stored carries none; the live list then applies on
+     * its own, as before, and is what a further suspension stores.
+     *
+     * @return array{0: SkillToolAllowList, 1: SkillToolAllowList} [the list this segment runs under, the list to store]
      */
-    private function resumedSkillAllowList(SuspendedRunState $state, LlmConfiguration $configuration, ?RunAugmentation $augmentation): SkillToolAllowList
+    private function resumedSkillAllowList(SuspendedRunState $state, LlmConfiguration $configuration, ?RunAugmentation $augmentation): array
     {
         $live = $this->toolPolicy->skillAllowListForRun($configuration, $augmentation->forcedSkills ?? []);
 
-        return $state->skillAllowList instanceof SkillToolAllowList ? $state->skillAllowList->intersect($live) : $live;
+        return $state->skillAllowList instanceof SkillToolAllowList
+            ? [$state->skillAllowList->intersect($live), $state->skillAllowList]
+            : [$live, $live];
     }
 
     /**
@@ -292,6 +300,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $seedPromptTokens,
             $seedCompletionTokens,
             $skillAllowList instanceof SkillToolAllowList ? $skillAllowList->intersect($live) : $live,
+            $skillAllowList ?? $live,
         );
     }
 
@@ -299,9 +308,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * The loop itself, held to the run's skill allow-list.
      *
      * {@see self::runLoop()} resolves that list at run start; the two resume
-     * paths pass the stored list intersected with the live one instead, so a
-     * resumed run, and any suspension inside its continuation, keeps the
-     * start-time list as its upper bound.
+     * paths pass the stored list intersected with the live one instead.
+     * `$storedAllowList` is the run's start-time list, which every suspension
+     * persists unchanged, so it stays the upper bound of every later resume.
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param list<string>|null                      $allowedToolNames
@@ -320,6 +329,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         int $seedPromptTokens,
         int $seedCompletionTokens,
         SkillToolAllowList $skillAllowList,
+        SkillToolAllowList $storedAllowList,
     ): ToolLoopResult {
         // Every transcript enters here — a fresh run, a queued one read back
         // from the database, and both resume paths — so this is the one place
@@ -504,10 +514,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                             // re-applies the ADR-164 ceiling to it (ADR-165).
                             forcedSnippetUids: $this->uidsOf($augmentation->forcedSnippets ?? []),
                             forcedSkillUids: $this->uidsOf($augmentation->forcedSkills ?? []),
-                            // The list this segment ran under — on a resumed run
-                            // already intersected — so the next resume keeps it
-                            // as its upper bound (ADR-038 item 5).
-                            skillAllowList: $skillAllowList,
+                            // The run's start-time list, never a segment's
+                            // intersection: the next resume intersects it with
+                            // the live list again (ADR-038 item 5).
+                            skillAllowList: $storedAllowList,
                         ));
                     }
                 }
@@ -544,10 +554,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                             inputSchema: $schema,
                             forcedSnippetUids: $this->uidsOf($augmentation->forcedSnippets ?? []),
                             forcedSkillUids: $this->uidsOf($augmentation->forcedSkills ?? []),
-                            // The list this segment ran under — on a resumed run
-                            // already intersected — so the next resume keeps it
-                            // as its upper bound (ADR-038 item 5).
-                            skillAllowList: $skillAllowList,
+                            // The run's start-time list, never a segment's
+                            // intersection: the next resume intersects it with
+                            // the live list again (ADR-038 item 5).
+                            skillAllowList: $storedAllowList,
                         ));
                     }
                 }
@@ -745,7 +755,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // Rebuilt from the persisted uids, not carried in memory: a resume runs
         // in a different process from the suspend (ADR-165).
         $augmentation   = $this->augmentationFrom($state);
-        $skillAllowList = $this->resumedSkillAllowList($state, $configuration, $augmentation);
+        [$skillAllowList, $storedAllowList] = $this->resumedSkillAllowList($state, $configuration, $augmentation);
         // Re-apply the gate NOW (a tool may have been disabled or restricted while
         // the run was suspended) rather than trusting the names captured at
         // suspend time.
@@ -809,6 +819,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $state->promptTokens,
             $state->completionTokens,
             $skillAllowList,
+            $storedAllowList,
         );
     }
 
@@ -895,7 +906,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         $pendingCalls = $state->toolCalls();
         $options      = $this->restoreCallerSource(ToolOptions::fromArray($state->options, $beUserUid), $state->options);
         $augmentation   = $this->augmentationFrom($state);
-        $skillAllowList = $this->resumedSkillAllowList($state, $configuration, $augmentation);
+        [$skillAllowList, $storedAllowList] = $this->resumedSkillAllowList($state, $configuration, $augmentation);
         $offered        = $this->resolveOfferedNames($state->allowedToolNames, $configuration, $context, $skillAllowList);
         $remoteCalls    = new RemoteCallBudget();
 
@@ -979,6 +990,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $state->promptTokens,
             $state->completionTokens,
             $skillAllowList,
+            $storedAllowList,
         );
     }
 

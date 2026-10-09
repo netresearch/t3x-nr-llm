@@ -198,7 +198,9 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
      */
     private function requestCodec(): AgentRunRequestCodec
     {
-        return $this->requestCodec ?? new AgentRunRequestCodec($this->configurationRepository);
+        // With the policy, so a queued run stores its skill allow-list here too
+        // (ADR-038 item 5).
+        return $this->requestCodec ?? new AgentRunRequestCodec($this->configurationRepository, toolPolicy: $this->toolPolicy);
     }
 
     public function run(AgentRunRequest $request, ?Closure $onStep = null): AgentRunResult

@@ -220,13 +220,14 @@ final class ToolLoopServiceSkillAllowListTest extends TestCase
     }
 
     #[Test]
-    public function aSuspensionInsideAResumedRunStoresTheIntersectedList(): void
+    public function aSuspensionInsideAResumedRunStoresTheStartTimeList(): void
     {
         $declaring     = $this->skill('declaring', '["approve","read_a","read_b"]');
         $configuration = $this->configuration($declaring);
         $service       = $this->service($this->registry('approve', 'read_a', 'read_b'), [
             $this->response('', [new ToolCall('call_1', 'approve', [])]),
             $this->response('', [new ToolCall('call_2', 'approve', [])]),
+            $this->response('done'),
         ]);
 
         $state = $this->suspend($service, $configuration);
@@ -236,8 +237,16 @@ final class ToolLoopServiceSkillAllowListTest extends TestCase
             $service->resume($state, true, $configuration, ToolExecutionContext::none());
             self::fail('Expected the continuation to suspend again.');
         } catch (ToolApprovalRequiredException $again) {
+            // This segment ran without read_b ...
+            self::assertSame(['approve', 'read_a'], $this->sortedNames(array_pop($this->offered)));
+            // ... but the run keeps its start-time list, so read_b returns once
+            // its skill grants it again.
             self::assertInstanceOf(SkillToolAllowList::class, $again->state->skillAllowList);
-            self::assertSame(['approve', 'read_a'], $this->sortedNames($again->state->skillAllowList->toolNames ?? []));
+            self::assertSame(['approve', 'read_a', 'read_b'], $this->sortedNames($again->state->skillAllowList->toolNames ?? []));
+
+            $declaring->setAllowedTools('["approve","read_a","read_b"]');
+            $service->resume($again->state, true, $configuration, ToolExecutionContext::none());
+            self::assertSame(['approve', 'read_a', 'read_b'], $this->sortedNames(array_pop($this->offered)));
         }
     }
 
