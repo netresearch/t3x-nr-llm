@@ -27,7 +27,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   stable reason codes. `ToolCallPolicyInterface` stays compatible. New `@api`
   invocation types and a trailing optional `SuspendedRunState::$invocationHistory`
   preserve observations outside the model transcript; legacy states are marked
-  incomplete. Denials consume no remote-call budget and do not fence a write.
+  incomplete. A trailing optional `ToolExecutionContext::$initialInvocationHistory`
+  carries authoritative runtime history; same-run queue retries with missing
+  observations are incomplete. First attempts and retries without added rules
+  retain their behaviour. Denials consume no remote-call budget and do not fence a write.
 
 - **Architecture and acceptance specifications for retrieval provenance,
   per-invocation tool rules, optional delegated MCP authentication, companion

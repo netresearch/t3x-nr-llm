@@ -2012,7 +2012,7 @@ Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface (interface)
   method skillAllowListForRun(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $forcedSkills = …): Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList
 
 Netresearch\NrLlm\Service\Tool\ToolExecutionContext (class)
-  constructor(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $backendUser = …, ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference $run = …)
+  constructor(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $backendUser = …, ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference $run = …, ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory $initialInvocationHistory = …)
   method actingBackendUser(): ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication
   method isAdmin(): bool
   method static forBackendUser(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $backendUser): self
@@ -2020,6 +2020,7 @@ Netresearch\NrLlm\Service\Tool\ToolExecutionContext (class)
   method static none(): self
   property readonly actor: Netresearch\NrLlm\Domain\ValueObject\AiActorContext
   property readonly backendUser: ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication
+  property readonly initialInvocationHistory: ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory
   property readonly run: ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference
 
 Netresearch\NrLlm\Service\Tool\ToolInterface (interface)

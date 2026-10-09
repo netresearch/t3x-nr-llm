@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Domain\Enum\ToolDenialReason;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
+use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
@@ -32,6 +33,8 @@ use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
+use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
@@ -64,6 +67,7 @@ use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
 use Netresearch\NrLlm\Service\Agent\QueuedRunCoordinator;
 use Netresearch\NrLlm\Service\Agent\QueuedRunFailureRecovery;
 use Netresearch\NrLlm\Service\Agent\ResumeCoordinator;
+use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
@@ -73,6 +77,10 @@ use Netresearch\NrLlm\Service\Tool\RunTrace;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Service\Tool\ToolInvocationContext;
+use Netresearch\NrLlm\Service\Tool\ToolInvocationPolicy;
+use Netresearch\NrLlm\Service\Tool\ToolInvocationRuleInterface;
+use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
@@ -2299,6 +2307,128 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
             finishedAt: 0,
             crdate: 0,
             suspendedState: $status === 'waiting_for_approval' ? $encoded : null,
+        );
+    }
+
+    #[Test]
+    #[DataProvider('queuedInvocationHistoryCases')]
+    public function queuedInvocationHistoryUsesTheClaimedRunFacts(
+        int $requeueCount,
+        int $maxSequence,
+        bool $expectedComplete,
+        ?int $claimedRequeueCount = null,
+    ): void {
+        $this->repository->findResult = $this->queuedRun(
+            'run-uuid-q',
+            '{"messages":[]}',
+            $claimedRequeueCount ?? $requeueCount,
+        );
+        $this->repository->findResults = [
+            $this->queuedRun('run-uuid-q', '{"messages":[]}', $requeueCount),
+            $this->repository->findResult,
+        ];
+        $this->repository->maxSequence = $maxSequence;
+
+        $seen = [];
+        $observer = self::createStub(ToolInvocationRuleInterface::class);
+        $observer->method('identifier')->willReturn('observe.history');
+        $observer->method('requiresCompleteHistory')->willReturn(false);
+        $observer
+            ->method('decide')
+            ->willReturnCallback(
+                static function (
+                    ToolInvocationContext $context,
+                ) use (&$seen): ToolInvocationDecision {
+                    $seen[] = $context->history;
+                    return ToolInvocationDecision::allow();
+                },
+            );
+        $rule = self::createStub(ToolInvocationRuleInterface::class);
+        $rule->method('identifier')->willReturn('requires.prior.history');
+        $rule->method('requiresCompleteHistory')->willReturn(true);
+        $rule->method('decide')->willReturn(ToolInvocationDecision::allow());
+        $result = $this
+            ->runtime($this->invocationLoop([$observer, $rule]))
+            ->runQueued('run-uuid-q');
+        self::assertNotNull($result);
+        self::assertSame(
+            AgentRunOutcome::COMPLETED,
+            $result->outcome,
+            $result->error?->getMessage() ?? 'no exception',
+        );
+        self::assertCount(1, $seen);
+        self::assertSame([], $seen[0]->entries);
+        self::assertSame($expectedComplete, $seen[0]->complete);
+        self::assertNotNull($result->loopResult);
+        self::assertSame(
+            !$expectedComplete,
+            $result->loopResult->trace[0]->isError,
+        );
+        if (!$expectedComplete) {
+            self::assertStringContainsString(
+                'history_incomplete',
+                $result->loopResult->trace[0]->result,
+            );
+        }
+    }
+
+    /**
+     * @return iterable<string, array{0: int, 1: int, 2: bool, 3?: int}>
+     */
+    public static function queuedInvocationHistoryCases(): iterable
+    {
+        yield 'first attempt without earlier events' => [0, -1, true];
+        yield 'prior events without a retry count' => [0, 5, false];
+        yield 'crash retry before an event was persisted' => [1, -1, false];
+        yield 'retry retains the original event stream' => [1, 5, false];
+        yield 'fresh claimed row records an intervening retry' => [0, -1, false, 1];
+    }
+
+    #[Test]
+    public function aQueuedRetryWithoutInvocationRulesStillExecutes(): void
+    {
+        $this->repository->findResult = $this->queuedRun('run-uuid-q', '{"messages":[]}', 1);
+        $this->repository->maxSequence = 5;
+
+        $result = $this->runtime($this->invocationLoop([]))->runQueued('run-uuid-q');
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
+        self::assertNotNull($result->loopResult);
+        self::assertFalse($result->loopResult->trace[0]->isError);
+    }
+
+    /**
+     * @param list<ToolInvocationRuleInterface> $rules
+     */
+    private function invocationLoop(array $rules): ToolLoopService
+    {
+        $registry = new ToolRegistry([new FakeTool('read_record')]);
+        $manager = self::createStub(LlmServiceManagerInterface::class);
+        $manager
+            ->method('chatWithToolsForConfiguration')
+            ->willReturn(
+                new CompletionResponse(
+                    '',
+                    'fixture',
+                    UsageStatistics::fromTokens(0, 0),
+                    toolCalls: [new ToolCall('call', 'read_record', [])],
+                ),
+                new CompletionResponse(
+                    'done',
+                    'fixture',
+                    UsageStatistics::fromTokens(0, 0),
+                ),
+            );
+        $offerability = self::createStub(ToolCallPolicyInterface::class);
+        $offerability->method('filterOfferable')->willReturn(['read_record']);
+        $offerability
+            ->method('skillAllowListForRun')
+            ->willReturn(new SkillToolAllowList(null));
+        return new ToolLoopService(
+            $manager,
+            $registry,
+            $offerability,
+            invocationPolicy: new ToolInvocationPolicy($rules),
         );
     }
 }

@@ -35,7 +35,10 @@ adds an installation-extensible PHP gate without an external policy service.
 - Preserve history across suspension and rehydrate it before any pending
   call executes. Old states without the metadata are recognised as incomplete,
   not as proven empty. A rule requiring complete history fails closed unless
-  authoritative stored observations can restore it.
+  authoritative stored observations can restore it. A queued retry/crash with
+  missing observations starts incomplete whenever the persisted retry count or
+  existing event stream shows an earlier attempt. First attempts stay complete;
+  installations without additional invocation rules keep their retry behaviour.
 - Record the rule identifier and bounded reason through ordinary tool/run
   governance paths. Do not persist an additional copy of argument values,
   target content, credentials or transcript text for policy decisions.

@@ -58,6 +58,10 @@ Decision
    cancelled and successful invocations remain distinct. A failed write may
    have affected its target, so a conservative sequence rule may count it.
    The policy sees earlier siblings in a multi-call turn in execution order.
+   A same-run queue retry may have executed before a crash without preserving
+   its observations. Its claimed retry count and existing event position mark
+   that history incomplete; a fresh attempt keeps a complete empty history.
+   Privacy-filtered events are not a substitute for authoritative observations.
 
 5. **One execution point covers every path.** The shared invocation method
    performs the additional gate before remote-call charging and before

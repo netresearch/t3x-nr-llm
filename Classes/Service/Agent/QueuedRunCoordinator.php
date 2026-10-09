@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
+use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory;
 use Netresearch\NrLlm\Service\Agent\Exception\RunEnqueueFailedException;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
@@ -169,7 +170,16 @@ final readonly class QueuedRunCoordinator
             return $this->failureRecovery->recover($handle, $runUuid, $workerIdentity, $e, $steps);
         };
 
-        return $this->executor->executeRequest($request, $handle, $onStep, $workerIdentity, $recover);
+        return $this->executor->executeRequest(
+            $request,
+            $handle,
+            $onStep,
+            $workerIdentity,
+            $recover,
+            initialInvocationHistory: new ToolInvocationHistory(
+                complete: $run->requeueCount === 0 && $claimed instanceof AgentRun && $claimed->requeueCount === 0 && $handle->sequence === 0,
+            ),
+        );
     }
 
     /**

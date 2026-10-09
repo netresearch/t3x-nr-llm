@@ -358,7 +358,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // singleton and the queue worker outlives many runs, so a counter held
         // anywhere but a local would bound the process instead (ADR-116).
         $remoteCalls = new RemoteCallBudget();
-        $invocationHistory = $carriedInvocationHistory ?? new ToolInvocationHistory();
+        $invocationHistory = $carriedInvocationHistory ?? $context->initialInvocationHistory ?? new ToolInvocationHistory();
 
         // Assemble the outgoing prompt once, before the loop: configuration
         // skills inject into the tool path here (the loop is the sole caller of
