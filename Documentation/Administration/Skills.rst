@@ -254,9 +254,18 @@ every change is in the record history with a diff and a rollback. Every edit
 changes the version: an approved version stops instructing at the next run
 until the edited version is approved. Until a version is approved the skill
 grants no tools — it counts as a declared empty list — and afterwards it grants
-the tools of its most recent approved version, not the ones in the field.
+the tools of the approved version it holds, or of its most recent approved
+version while it holds an unapproved one; never the ones in the field.
 
-The same rule protects every skill's tool declaration: a process skill, a
+A backend user who is not an administrator writes skills only with the
+fields an administrator granted: the source, the enable flag, the allowed
+tools and the data class are excluded fields (:guilabel:`Allowed
+excludefields` of the backend group). Without the source grant a new skill
+is stored without a source and is never composed; without the enable grant it
+stays disabled until an administrator enables it.
+
+The same rule protects every skill's tool declaration: a process skill
+(written in the backend or synced, approved or not), a
 skill whose source is missing, hidden or disabled, and a synced skill edited
 after its sync all count as a declared empty list. They restrict a run's tools
 instead of widening them.

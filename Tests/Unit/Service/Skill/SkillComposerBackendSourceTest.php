@@ -210,6 +210,53 @@ final class SkillComposerBackendSourceTest extends TestCase
     }
 
     /**
+     * A process skill grants nothing from an attachment on a backend source
+     * either, approved or not; nor does a skill whose approved version was a
+     * process skill and whose author since switched the marker off.
+     */
+    #[Test]
+    public function aBackendProcessSkillDeclaresTheEmptyListEvenWhenApproved(): void
+    {
+        $skill = $this->backendSkill('Tour', 'Step one.');
+        $skill->setAllowedTools('["get_page"]');
+        $skill->setProcess(true);
+
+        $this->approvals->add(1, self::BACKEND, SkillVersionDigest::of($skill), SkillVersionDigest::fieldsOf($skill), 'verified', 1);
+
+        self::assertSame([], $this->composer()->declaredTools($skill));
+
+        $skill->setProcess(false);
+
+        self::assertSame([], $this->composer()->declaredTools($skill), 'the only approved version is a process version');
+    }
+
+    /**
+     * The tools come from the approved version that instructs: an author who
+     * reverts to an older approved version gets that version's declaration,
+     * not the newest approval's.
+     */
+    #[Test]
+    public function aBackendSkillDeclaresTheToolsOfTheApprovedVersionItCurrentlyHolds(): void
+    {
+        $skill = $this->backendSkill('Guide', 'Version one.');
+        $skill->setAllowedTools('["get_page"]');
+
+        $versionOne = SkillVersionDigest::of($skill);
+        $this->approvals->add(1, self::BACKEND, $versionOne, SkillVersionDigest::fieldsOf($skill), 'verified', 1);
+
+        $skill->setBody('Version two.');
+        $skill->setAllowedTools('["read_records"]');
+
+        $this->approvals->add(1, self::BACKEND, SkillVersionDigest::of($skill), SkillVersionDigest::fieldsOf($skill), 'verified', 1);
+        self::assertSame(['read_records'], $this->composer()->declaredTools($skill));
+
+        $skill->setBody('Version one.');
+        $skill->setAllowedTools('["get_page"]');
+        self::assertSame($versionOne, SkillVersionDigest::of($skill));
+        self::assertSame(['get_page'], $this->composer()->declaredTools($skill));
+    }
+
+    /**
      * Missing, hidden and disabled sources all read as "no source" through the
      * lookup; none vouches for a declaration.
      */

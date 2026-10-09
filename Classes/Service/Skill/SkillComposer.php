@@ -287,16 +287,23 @@ final readonly class SkillComposer
             return $skill->getAllowedToolsList();
         }
 
+        // A process skill grants nothing from an attachment, whatever its
+        // source: it reaches a run only through an invocation (ADR-214
+        // item 6).
+        if ($skill->isProcess()) {
+            return [];
+        }
+
         $facts = $this->sources->find($skill->getSource());
         if (!$facts instanceof SkillSourceFacts || !$facts->type instanceof SkillSourceType) {
             return [];
         }
 
         if (!$facts->type->isSynced()) {
-            return $this->instructionPolicy?->approvedToolsOf($skill) ?? [];
+            return $this->instructionPolicy?->approvedToolsOf($skill, SkillVersionDigest::verified($skill, false)) ?? [];
         }
 
-        if ($skill->isProcess() || SkillVersionDigest::verified($skill) === null) {
+        if (SkillVersionDigest::verified($skill) === null) {
             return [];
         }
 

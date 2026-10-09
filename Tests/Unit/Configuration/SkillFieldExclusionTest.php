@@ -34,6 +34,8 @@ final class SkillFieldExclusionTest extends TestCase
             'trust_level', 'body_checksum', 'version_digest', 'enabled', 'source',
             // …and the sync-managed fields the integrity, tool and pin checks read.
             'allowed_tools', 'support_status', 'orphaned', 'raw_frontmatter', 'hidden',
+            // The egress class: clearing it lifts the ceiling, and no approval covers it.
+            'data_class',
         ],
         'tx_nrllm_skill_source' => [
             'trust_level', 'type',
