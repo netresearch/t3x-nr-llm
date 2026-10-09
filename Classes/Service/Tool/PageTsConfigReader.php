@@ -109,7 +109,9 @@ final readonly class PageTsConfigReader implements PageTsConfigReaderInterface
         $uid    = $pageUid;
         $guard  = 100;
         while ($uid !== 0 && $guard-- > 0) {
-            $row = BackendUtility::getRecord('pages', $uid, self::ROOTLINE_FIELDS);
+            // A comma list: TYPO3 13.4 types $fields as string, 14.3 takes an
+            // array too.
+            $row = BackendUtility::getRecord('pages', $uid, implode(',', self::ROOTLINE_FIELDS));
             if ($row === null) {
                 break;
             }
