@@ -60,7 +60,8 @@ final class PendingWriteTargetTest extends TestCase
         $this->expectExceptionCode(1791600101);
 
         // A non-string, as a caller ignoring the documented type could pass.
-        new PendingWriteTarget(new RecordReference('pages', 42), [42]); // @phpstan-ignore argument.type
+        $accepted = new PendingWriteTarget(new RecordReference('pages', 42), [42]); // @phpstan-ignore argument.type
+        self::fail('Accepted the field names ' . implode(', ', $accepted->fields));
     }
 
     /**
