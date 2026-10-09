@@ -216,13 +216,15 @@ return [
                 'searchable' => false,
             ],
         ],
-        // Denormalized from the source; sync-managed and read-only here (the
-        // source's classification is the authoritative edit surface).
+        // Denormalized from the source by the sync.
         // A SECOND axis from trust_level (ADR-144): trust says who wrote the
         // skill, this says how sensitive what it carries is. A first-party
         // skill can still hold confidential material. Empty means undeclared
         // and cannot block, so ingested skills keep working untouched.
+        // Excluded: clearing it lifts the egress ceiling for the skill's text,
+        // and no approval covers it (ADR-214 item 3).
         'data_class' => [
+            'exclude' => true,
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.data_class',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.data_class.description',
             'config' => [
