@@ -25,6 +25,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   on enqueue and requeue; legacy rows remain unknown. Idle consumers renew
   process heartbeats independently of run leases, with bounded retention.
 
+- **Retrieval experiment provenance (ADR-215).** Registered retrievers can add the optional `RetrievalProvenanceProviderInterface` and readonly `RetrievalProvenance` (`@api`) to declare corpus, model, chunking, pipeline and execution revisions. The existing result row preserves benchmark/variant fingerprints and privacy-filtered measured rankings, form, hard class and latency. The API inventory is additive.
+
 - **Optional actor-bound MCP authentication (ADR-217).** Delegated servers
   exchange explicitly mapped initiating-actor Vault credentials through RFC8693,
   with audience and scope grants, shared operation deadlines and cancellation.
@@ -73,6 +75,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Retrieval regression checks require comparable benchmark provenance (ADR-215).** Corpus or scoring-label changes and unknown legacy provenance skip numeric comparison; `--fail-on-regression` now fails in those states. A changed model, chunker or pipeline on the same benchmark remains comparable and is reported as a treatment change. The first known run establishes a baseline. Existing retrievers still run without the optional capability.
 - **The sync's change test and the compose-time integrity check compare the version digest (ADR-214 item 1)** instead of the body checksum. `body_checksum` keeps its body-only meaning for the signed manifest and for rows without a digest.
 - **A skill whose frontmatter sets `process: true` is not composed from an attachment or a forced skill**; it is skipped with a warning. Process skills reach a run only through an explicit invocation, which a later change adds (ADR-214 item 6).
 - **BREAKING for implementations of `ToolCallPolicyInterface` and `ToolLoopServiceInterface` (ADR-038 item 5).** `ToolCallPolicyInterface::decide()`, `explain()` and `filterOfferable()` take an optional `?SkillToolAllowList $runAllowList` last, and the interface gains `skillAllowListForRun()`, which resolves the list over the configuration's skills and the run's forced skills; without the argument the policy keeps the configuration-only resolution. `ToolLoopServiceInterface::runLoop()` takes an optional `?SkillToolAllowList $skillAllowList` last, the list a queued run was enqueued under. Callers are unaffected; a class outside nr-llm that implements either interface has to add the parameters and the method.

@@ -1564,6 +1564,20 @@ Netresearch\NrLlm\Service\Evaluation\GoldenQuestionSetProviderInterface (interfa
   const TAG_NAME = "nr_llm.golden_question_set"
   method getGoldenQuestionSets(): array
 
+Netresearch\NrLlm\Service\Evaluation\RetrievalProvenance (class)
+  const MAX_IDENTITY_BYTES = 190
+  const NOT_APPLICABLE = "not-applicable"
+  constructor(string $corpusRevision, string $modelRevision, string $chunkingIdentity, string $pipelineIdentity, ?string $executionRevision = …)
+  method toArray(): array
+  property readonly chunkingIdentity: string
+  property readonly corpusRevision: string
+  property readonly executionRevision: ?string
+  property readonly modelRevision: string
+  property readonly pipelineIdentity: string
+
+Netresearch\NrLlm\Service\Evaluation\RetrievalProvenanceProviderInterface (interface)
+  method getRetrievalProvenance(): Netresearch\NrLlm\Service\Evaluation\RetrievalProvenance
+
 Netresearch\NrLlm\Service\Feature\CompletionService (class)
   constructor(Netresearch\NrLlm\Service\LlmServiceManagerInterface $llmManager, ?Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface $beUserContextResolver = …, Netresearch\NrLlm\Service\Schema\JsonSchemaValidator $schemaValidator = …)
   method complete(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse

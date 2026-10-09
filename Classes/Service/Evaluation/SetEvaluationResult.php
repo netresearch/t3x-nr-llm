@@ -28,6 +28,7 @@ final readonly class SetEvaluationResult
         public string $grader,
         public array $evaluations,
         public int $runTimestamp,
+        public ?RetrievalSetEvaluationResult $retrieval = null,
     ) {}
 
     /**
@@ -106,6 +107,9 @@ final readonly class SetEvaluationResult
             $this->meanScore(),
             $this->runTimestamp,
             $uid,
+            $this->retrieval->identity->benchmarkFingerprint ?? '',
+            $this->retrieval->identity->variantFingerprint ?? '',
+            $this->retrieval?->identity?->provenance,
         );
     }
 }

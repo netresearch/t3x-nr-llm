@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Command;
 
 use Netresearch\NrLlm\Command\RetrievalEvalRunCommand;
 use Netresearch\NrLlm\Domain\Enum\QuestionForm;
+use Netresearch\NrLlm\Service\Evaluation\EvaluatableRetrieverInterface;
 use Netresearch\NrLlm\Service\Evaluation\EvaluatableRetrieverRegistry;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultSummary;
 use Netresearch\NrLlm\Service\Evaluation\GoldenQuestion;
@@ -19,6 +20,7 @@ use Netresearch\NrLlm\Service\Evaluation\GoldenQuestionSetProviderInterface;
 use Netresearch\NrLlm\Service\Evaluation\GoldenQuestionSetRegistry;
 use Netresearch\NrLlm\Service\Evaluation\RegressionDetector;
 use Netresearch\NrLlm\Service\Evaluation\RetrievalEvaluationService;
+use Netresearch\NrLlm\Service\Evaluation\RetrievalProvenance;
 use Netresearch\NrLlm\Service\Evaluation\RetrievalSetEvaluationResult;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryEvaluationResultRepository;
 use Netresearch\NrLlm\Tests\Unit\Service\Evaluation\Fixture\StaticRetriever;
@@ -56,8 +58,10 @@ final class RetrievalEvalRunCommandTest extends TestCase
         return new GoldenQuestionSetRegistry([$provider]);
     }
 
-    private function command(StaticRetriever $retriever, InMemoryEvaluationResultRepository $repository): RetrievalEvalRunCommand
-    {
+    private function command(
+        EvaluatableRetrieverInterface $retriever,
+        InMemoryEvaluationResultRepository $repository,
+    ): RetrievalEvalRunCommand {
         return new RetrievalEvalRunCommand(
             $this->registry(),
             new EvaluatableRetrieverRegistry([$retriever]),
@@ -77,16 +81,10 @@ final class RetrievalEvalRunCommandTest extends TestCase
 
     private function perfectBaseline(): EvaluationResultSummary
     {
-        return new EvaluationResultSummary(
-            self::SET_IDENTIFIER,
-            self::RETRIEVER_IDENTIFIER,
-            RetrievalSetEvaluationResult::GRADER_IDENTIFIER,
-            2,
-            2,
-            1.0,
-            1.0,
-            1_700_000_000,
-        );
+        return (new RetrievalEvaluationService())
+            ->run($this->registry()->all()[0], $this->perfectRetriever())
+            ->toSetEvaluationResult()
+            ->toSummary();
     }
 
     #[Test]
@@ -193,5 +191,284 @@ final class RetrievalEvalRunCommandTest extends TestCase
 
         self::assertSame(Command::SUCCESS, $exitCode);
         self::assertStringContainsString('No regression', $tester->getDisplay());
+    }
+
+    #[Test]
+    public function legacyRetrieverRunsButCannotPassStrictGate(): void
+    {
+        $legacy = new class implements EvaluatableRetrieverInterface {
+            public function getIdentifier(): string
+            {
+                return 'test.legacy';
+            }
+
+            public function retrieve(string $question, int $limit): array
+            {
+                return ['doc-a'];
+            }
+        };
+        $repository = new InMemoryEvaluationResultRepository();
+        $tester = new CommandTester($this->command($legacy, $repository));
+        self::assertSame(
+            Command::FAILURE,
+            $tester->execute(
+                [
+                    'set' => self::SET_IDENTIFIER,
+                    'retriever' => 'test.legacy',
+                    '--fail-on-regression' => true,
+                ],
+            ),
+        );
+        self::assertStringContainsString(
+            'Baseline state: unknown',
+            $tester->getDisplay(),
+        );
+        self::assertStringNotContainsString(
+            'No regression:',
+            $tester->getDisplay(),
+        );
+        self::assertCount(1, $repository->saved);
+        self::assertSame(
+            Command::SUCCESS,
+            $tester->execute(
+                ['set' => self::SET_IDENTIFIER, 'retriever' => 'test.legacy'],
+            ),
+        );
+    }
+
+    #[Test]
+    public function legacyPreviousRowDoesNotPassKnownCurrentGate(): void
+    {
+        $repository = new InMemoryEvaluationResultRepository();
+        $repository->seed(
+            new EvaluationResultSummary(
+                self::SET_IDENTIFIER,
+                self::RETRIEVER_IDENTIFIER,
+                RetrievalSetEvaluationResult::GRADER_IDENTIFIER,
+                2,
+                2,
+                1.0,
+                1.0,
+                1,
+            ),
+        );
+        $tester = new CommandTester(
+            $this->command($this->perfectRetriever(), $repository),
+        );
+        self::assertSame(
+            Command::FAILURE,
+            $tester->execute(
+                [
+                    'set' => self::SET_IDENTIFIER,
+                    'retriever' => self::RETRIEVER_IDENTIFIER,
+                    '--fail-on-regression' => true,
+                ],
+            ),
+        );
+        self::assertStringContainsString(
+            'Baseline state: unknown',
+            $tester->getDisplay(),
+        );
+        self::assertStringNotContainsString(
+            'No regression:',
+            $tester->getDisplay(),
+        );
+    }
+
+    #[Test]
+    public function changedCorpusIsRecordedWithoutFalseRegressionVerdict(): void
+    {
+        $repository = new InMemoryEvaluationResultRepository();
+        $repository->seed($this->perfectBaseline());
+
+        $retriever = new StaticRetriever(
+            provenance: new RetrievalProvenance(
+                'corpus-v2',
+                'test-embed-v1',
+                'test-chunk-v1',
+                'test-pipeline-v1',
+            ),
+        );
+        $tester = new CommandTester($this->command($retriever, $repository));
+        self::assertSame(
+            Command::FAILURE,
+            $tester->execute(
+                [
+                    'set' => self::SET_IDENTIFIER,
+                    'retriever' => self::RETRIEVER_IDENTIFIER,
+                    '--fail-on-regression' => true,
+                ],
+            ),
+        );
+        self::assertStringContainsString(
+            'Baseline state: mismatch',
+            $tester->getDisplay(),
+        );
+        self::assertStringNotContainsString(
+            'No regression:',
+            $tester->getDisplay(),
+        );
+        self::assertCount(1, $repository->saved);
+    }
+
+    #[Test]
+    public function changedTreatmentStillDetectsRegressionOnSameBenchmark(): void
+    {
+        $repository = new InMemoryEvaluationResultRepository();
+        $repository->seed($this->perfectBaseline());
+
+        $retriever = new StaticRetriever(
+            provenance: new RetrievalProvenance(
+                'test-corpus-v1',
+                'embed-v2',
+                'chunk-v2',
+                'hybrid-v2',
+            ),
+        );
+        $tester = new CommandTester($this->command($retriever, $repository));
+        self::assertSame(
+            Command::FAILURE,
+            $tester->execute(
+                [
+                    'set' => self::SET_IDENTIFIER,
+                    'retriever' => self::RETRIEVER_IDENTIFIER,
+                    '--fail-on-regression' => true,
+                ],
+            ),
+        );
+        self::assertStringContainsString(
+            'Baseline state: comparable',
+            $tester->getDisplay(),
+        );
+        self::assertStringContainsString(
+            'Treatment changed:',
+            $tester->getDisplay(),
+        );
+        self::assertStringContainsString(
+            'Retrieval regression detected',
+            $tester->getDisplay(),
+        );
+    }
+
+    #[Test]
+    public function executionRevisionAloneDoesNotInvalidateComparison(): void
+    {
+        $repository = new InMemoryEvaluationResultRepository();
+        $repository->seed($this->perfectBaseline());
+
+        $retriever = new StaticRetriever(
+            [
+                'Where is the office?' => ['doc-a'],
+                'When are you open?' => ['doc-b'],
+            ],
+            provenance: new RetrievalProvenance(
+                'test-corpus-v1',
+                'test-embed-v1',
+                'test-chunk-v1',
+                'test-pipeline-v1',
+                'new-commit',
+            ),
+        );
+        $tester = new CommandTester($this->command($retriever, $repository));
+        self::assertSame(
+            Command::SUCCESS,
+            $tester->execute(
+                [
+                    'set' => self::SET_IDENTIFIER,
+                    'retriever' => self::RETRIEVER_IDENTIFIER,
+                    '--fail-on-regression' => true,
+                ],
+            ),
+        );
+        self::assertStringContainsString(
+            'No regression:',
+            $tester->getDisplay(),
+        );
+        self::assertStringNotContainsString(
+            'Treatment changed:',
+            $tester->getDisplay(),
+        );
+    }
+
+    #[Test]
+    public function aKnownFirstRunPassesTheStrictBaselineGate(): void
+    {
+        $repository = new InMemoryEvaluationResultRepository();
+        $tester = new CommandTester(
+            $this->command($this->perfectRetriever(), $repository),
+        );
+        self::assertSame(
+            Command::SUCCESS,
+            $tester->execute(
+                [
+                    'set' => self::SET_IDENTIFIER,
+                    'retriever' => self::RETRIEVER_IDENTIFIER,
+                    '--fail-on-regression' => true,
+                ],
+            ),
+        );
+        self::assertStringContainsString(
+            'Baseline state: baseline',
+            $tester->getDisplay(),
+        );
+        self::assertCount(1, $repository->saved);
+    }
+
+    #[Test]
+    public function changedLabelsInvalidateTheNumericComparison(): void
+    {
+        $set = new GoldenQuestionSet(
+            self::SET_IDENTIFIER,
+            'Test',
+            'desc',
+            [
+                new GoldenQuestion(
+                    'office',
+                    'Where is the office?',
+                    QuestionForm::MATCH,
+                    ['doc-changed'],
+                    'normal',
+                ),
+                new GoldenQuestion(
+                    'hours',
+                    'When are you open?',
+                    QuestionForm::GAP,
+                    ['doc-b'],
+                ),
+            ],
+        );
+        $repository = new InMemoryEvaluationResultRepository();
+        $repository->seed(
+            (new RetrievalEvaluationService())
+                ->run($set, $this->perfectRetriever())
+                ->toSetEvaluationResult()
+                ->toSummary(),
+        );
+        $tester = new CommandTester(
+            $this->command($this->perfectRetriever(), $repository),
+        );
+        self::assertSame(
+            Command::FAILURE,
+            $tester->execute(
+                [
+                    'set' => self::SET_IDENTIFIER,
+                    'retriever' => self::RETRIEVER_IDENTIFIER,
+                    '--fail-on-regression' => true,
+                ],
+            ),
+        );
+        self::assertStringContainsString(
+            'Baseline state: mismatch',
+            $tester->getDisplay(),
+        );
+        self::assertStringNotContainsString(
+            'No regression:',
+            $tester->getDisplay(),
+        );
+        self::assertStringNotContainsString(
+            'Retrieval regression detected',
+            $tester->getDisplay(),
+        );
+        self::assertCount(1, $repository->saved);
     }
 }

@@ -141,4 +141,33 @@ final class RetrievalSetEvaluationResultTest extends TestCase
         self::assertEqualsWithDelta(-0.5, $report->passRateDelta, 1e-9);
         self::assertSame(0.0, $report->meanScoreDelta);
     }
+
+    #[Test]
+    public function persistableResultKeepsRankingsAndQuestionClasses(): void
+    {
+        $result = $this->retrievalResult(
+            $this->evaluation(
+                'q1',
+                false,
+                true,
+                QuestionForm::GAP,
+                'near-duplicate',
+            ),
+        );
+        $converted = $result->toSetEvaluationResult();
+        self::assertSame($result, $converted->retrieval);
+        self::assertSame(
+            ['doc-a'],
+            $converted->retrieval->evaluations[0]->retrievedDocumentIds,
+        );
+        self::assertSame(
+            QuestionForm::GAP,
+            $converted->retrieval->evaluations[0]->form,
+        );
+        self::assertSame(
+            'near-duplicate',
+            $converted->retrieval->evaluations[0]->hardClass,
+        );
+        self::assertSame(5, $converted->retrieval->evaluations[0]->latencyMs);
+    }
 }

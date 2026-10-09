@@ -38,6 +38,7 @@ final readonly class RetrievalSetEvaluationResult
         public string $retriever,
         public array $evaluations,
         public int $runTimestamp,
+        public ?RetrievalRunIdentity $identity = null,
     ) {}
 
     public function questionCount(): int
@@ -128,6 +129,7 @@ final readonly class RetrievalSetEvaluationResult
             self::GRADER_IDENTIFIER,
             $evaluations,
             $this->runTimestamp,
+            retrieval: $this,
         );
     }
 

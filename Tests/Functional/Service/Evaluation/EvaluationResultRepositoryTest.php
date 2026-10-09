@@ -9,11 +9,18 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Evaluation;
 
+use Netresearch\NrLlm\Domain\Enum\QuestionForm;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepository;
+use Netresearch\NrLlm\Service\Evaluation\GoldenQuestion;
+use Netresearch\NrLlm\Service\Evaluation\GoldenQuestionSet;
 use Netresearch\NrLlm\Service\Evaluation\GradingResult;
 use Netresearch\NrLlm\Service\Evaluation\PromptEvaluation;
+use Netresearch\NrLlm\Service\Evaluation\QuestionEvaluation;
 use Netresearch\NrLlm\Service\Evaluation\RegressionDetector;
 use Netresearch\NrLlm\Service\Evaluation\RegressionThresholds;
+use Netresearch\NrLlm\Service\Evaluation\RetrievalProvenance;
+use Netresearch\NrLlm\Service\Evaluation\RetrievalRunIdentity;
+use Netresearch\NrLlm\Service\Evaluation\RetrievalSetEvaluationResult;
 use Netresearch\NrLlm\Service\Evaluation\SetEvaluationResult;
 use Netresearch\NrLlm\Service\Privacy\ContentRedactor;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicy;
@@ -224,5 +231,171 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
         $extensionConfiguration->method('get')->willReturn(['privacy' => ['level' => $level]]);
 
         return new PrivacyPolicy($extensionConfiguration, new ContentRedactor());
+    }
+
+    private function retrievalResult(): SetEvaluationResult
+    {
+        $set = new GoldenQuestionSet(
+            'test.retrieval',
+            'Set',
+            'Description',
+            [
+                new GoldenQuestion(
+                    'q1',
+                    'Question?',
+                    QuestionForm::GAP,
+                    ['internal-doc'],
+                ),
+            ],
+        );
+        $identity = RetrievalRunIdentity::forSet(
+            $set,
+            new RetrievalProvenance(
+                'corpus-sha256',
+                'model-revision',
+                'chunk-sha256',
+                'pipeline-sha256',
+                'commit-sha',
+            ),
+        );
+        return (new RetrievalSetEvaluationResult(
+            $set->identifier,
+            'test.retriever',
+            [
+                new QuestionEvaluation(
+                    'q1',
+                    QuestionForm::GAP,
+                    'near-duplicate',
+                    true,
+                    true,
+                    ['internal-doc', 'second-doc'],
+                    19,
+                ),
+            ],
+            1700000000,
+            $identity,
+        ))->toSetEvaluationResult();
+    }
+
+    #[Test]
+    public function retrievalIdentityAndRankingRoundTripWithoutNewResultStore(): void
+    {
+        $result = $this->retrievalResult();
+        $this->repository->save($result);
+        $summary = $this->repository->findLatest(
+            'test.retrieval',
+            'test.retriever',
+            RetrievalSetEvaluationResult::GRADER_IDENTIFIER,
+        );
+        self::assertNotNull($summary);
+        self::assertSame(
+            $result->toSummary()->benchmarkFingerprint,
+            $summary->benchmarkFingerprint,
+        );
+        self::assertSame(
+            $result->toSummary()->variantFingerprint,
+            $summary->variantFingerprint,
+        );
+        self::assertSame(
+            $result->toSummary()->retrievalProvenance?->toArray(),
+            $summary->retrievalProvenance?->toArray(),
+        );
+        $row = $this
+            ->get(ConnectionPool::class)
+            ->getConnectionForTable(self::TABLE)
+            ->select(['details'], self::TABLE, ['set_identifier' => 'test.retrieval'])
+            ->fetchAssociative();
+        self::assertIsArray($row);
+        self::assertIsString($row['details']);
+        $details = json_decode($row['details'], true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(
+            [
+                [
+                    'questionId' => 'q1',
+                    'form' => 'gap',
+                    'hardClass' => 'near-duplicate',
+                    'top1Hit' => true,
+                    'top3Hit' => true,
+                    'retrievedDocumentIds' => ['internal-doc', 'second-doc'],
+                    'latencyMs' => 19,
+                ],
+            ],
+            $details,
+        );
+    }
+
+    #[Test]
+    public function metadataPrivacyKeepsIdentityButDropsRetrievalRankings(): void
+    {
+        $repository = new EvaluationResultRepository(
+            $this->get(ConnectionPool::class),
+            $this->policy('metadata'),
+        );
+        $repository->save($this->retrievalResult());
+
+        $row = $this
+            ->get(ConnectionPool::class)
+            ->getConnectionForTable(self::TABLE)
+            ->select(
+                ['details', 'retrieval_provenance', 'benchmark_fingerprint'],
+                self::TABLE,
+                ['set_identifier' => 'test.retrieval'],
+            )
+            ->fetchAssociative();
+        self::assertIsArray($row);
+        self::assertSame('', $row['details']);
+        self::assertIsString($row['retrieval_provenance']);
+        self::assertStringNotContainsString(
+            'internal-doc',
+            $row['retrieval_provenance'],
+        );
+        self::assertStringNotContainsString(
+            'Question?',
+            $row['retrieval_provenance'],
+        );
+        self::assertNotSame('', $row['benchmark_fingerprint']);
+        self::assertSame(1, $repository->purgeOlderThan(1700000001));
+        self::assertNull(
+            $repository->findLatest(
+                'test.retrieval',
+                'test.retriever',
+                RetrievalSetEvaluationResult::GRADER_IDENTIFIER,
+            ),
+        );
+        $metadata = json_decode($row['retrieval_provenance'], true, 8, JSON_THROW_ON_ERROR);
+        self::assertIsArray($metadata);
+        self::assertSame(
+            $this->retrievalResult()->retrieval?->identity?->labelsFingerprint,
+            $metadata['labelsFingerprint'],
+        );
+        self::assertSame(
+            RetrievalRunIdentity::SCORING_VERSION,
+            $metadata['scoringVersion'],
+        );
+    }
+
+    #[Test]
+    public function legacyAndMalformedMetadataReadAsUnknown(): void
+    {
+        $this->repository->save($this->buildResult(1, 1, 1700000000));
+        $summary = $this->repository->findLatest(self::SET, self::MODEL, self::GRADER);
+        self::assertNotNull($summary);
+        self::assertSame('', $summary->benchmarkFingerprint);
+        self::assertNull($summary->retrievalProvenance);
+        $this
+            ->get(ConnectionPool::class)
+            ->getConnectionForTable(self::TABLE)
+            ->update(
+                self::TABLE,
+                [
+                    'retrieval_provenance' => '{broken',
+                    'benchmark_fingerprint' => 'wrong',
+                ],
+                ['set_identifier' => self::SET],
+            );
+        $malformed = $this->repository->findLatest(self::SET, self::MODEL, self::GRADER);
+        self::assertNotNull($malformed);
+        self::assertSame('', $malformed->benchmarkFingerprint);
+        self::assertNull($malformed->retrievalProvenance);
     }
 }

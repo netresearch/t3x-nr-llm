@@ -12,11 +12,13 @@ namespace Netresearch\NrLlm\Command;
 use Netresearch\NrLlm\Service\Evaluation\EvaluatableRetrieverInterface;
 use Netresearch\NrLlm\Service\Evaluation\EvaluatableRetrieverRegistry;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepositoryInterface;
+use Netresearch\NrLlm\Service\Evaluation\EvaluationResultSummary;
 use Netresearch\NrLlm\Service\Evaluation\GoldenQuestionSet;
 use Netresearch\NrLlm\Service\Evaluation\GoldenQuestionSetRegistry;
 use Netresearch\NrLlm\Service\Evaluation\RegressionDetector;
 use Netresearch\NrLlm\Service\Evaluation\RegressionThresholds;
 use Netresearch\NrLlm\Service\Evaluation\RetrievalEvaluationService;
+use Netresearch\NrLlm\Service\Evaluation\RetrievalProvenance;
 use Netresearch\NrLlm\Service\Evaluation\RetrievalSetEvaluationResult;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -62,18 +64,22 @@ final class RetrievalEvalRunCommand extends Command
             ->addArgument('retriever', InputArgument::REQUIRED, 'Retriever identifier (e.g. nr_llm.lexical)')
             ->addOption('max-top1-drop', null, InputOption::VALUE_REQUIRED, 'Top-1 hit-rate drop (0..1) that counts as a regression', '0.1')
             ->addOption('max-top3-drop', null, InputOption::VALUE_REQUIRED, 'Top-3 hit-rate drop (0..1) that counts as a regression', '0.1')
-            ->addOption('fail-on-regression', null, InputOption::VALUE_NONE, 'Exit with a non-zero status when a regression is detected');
+            ->addOption('fail-on-regression', null, InputOption::VALUE_NONE, 'Fail on regression or when benchmark provenance is unknown or incompatible');
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output): int
-    {
+    protected function execute(
+        InputInterface $input,
+        OutputInterface $output,
+    ): int {
         $io = new SymfonyStyle($input, $output);
 
         $setArgument = $input->getArgument('set');
         $setIdentifier = is_string($setArgument) ? $setArgument : '';
         $set = $this->setRegistry->findByIdentifier($setIdentifier);
         if (!$set instanceof GoldenQuestionSet) {
-            $io->error(sprintf('Unknown golden question set "%s".', $setIdentifier));
+            $io->error(
+                sprintf('Unknown golden question set "%s".', $setIdentifier),
+            );
             $available = $this->setRegistry->identifiers();
             if ($available !== []) {
                 $io->writeln('Available sets: ' . implode(', ', $available));
@@ -89,7 +95,9 @@ final class RetrievalEvalRunCommand extends Command
             $io->error(sprintf('Unknown retriever "%s".', $retrieverIdentifier));
             $available = $this->retrieverRegistry->identifiers();
             if ($available !== []) {
-                $io->writeln('Available retrievers: ' . implode(', ', $available));
+                $io->writeln(
+                    'Available retrievers: ' . implode(', ', $available),
+                );
             }
 
             return Command::FAILURE;
@@ -97,15 +105,54 @@ final class RetrievalEvalRunCommand extends Command
 
         $result = $this->evaluationService->run($set, $retriever);
 
-        $io->title(sprintf('Retrieval evaluation: %s vs %s', $set->identifier, $retriever->getIdentifier()));
+        $io->title(
+            sprintf(
+                'Retrieval evaluation: %s vs %s',
+                $set->identifier,
+                $retriever->getIdentifier(),
+            ),
+        );
         $this->renderEvaluations($io, $result);
 
         $persistable = $result->toSetEvaluationResult();
-        $previous = $this->repository->findLatest($persistable->setIdentifier, $persistable->model, $persistable->grader);
+        $previous = $this->repository->findLatest(
+            $persistable->setIdentifier,
+            $persistable->model,
+            $persistable->grader,
+        );
         $this->repository->save($persistable);
 
+        $current = $persistable->toSummary();
+        $baselineState = match (true) {
+            !$current->retrievalProvenance instanceof RetrievalProvenance || $current->benchmarkFingerprint === '' => 'unknown',
+            !$previous instanceof EvaluationResultSummary => 'baseline',
+            !$previous->retrievalProvenance instanceof RetrievalProvenance || $previous->benchmarkFingerprint === '' => 'unknown',
+            $previous->benchmarkFingerprint !== $current->benchmarkFingerprint => 'mismatch',
+            default => 'comparable',
+        };
+        $io->section('Retrieval provenance');
+        if ($current->retrievalProvenance instanceof RetrievalProvenance) {
+            foreach ($current->retrievalProvenance->toArray() as $key => $value) {
+                $io->writeln($key . ': ' . ($value ?? 'unknown'));
+            }
+        }
+
+        $io->writeln('Baseline state: ' . $baselineState);
+        if ($baselineState === 'unknown' || $baselineState === 'mismatch') {
+            $io->warning(
+                'Regression comparison skipped: benchmark provenance is ' . $baselineState . '. The measurement was recorded.',
+            );
+            return $input->getOption('fail-on-regression') === true ? Command::FAILURE : Command::SUCCESS;
+        }
+
+        if ($previous instanceof EvaluationResultSummary && $previous->variantFingerprint !== $current->variantFingerprint) {
+            $io->writeln(
+                'Treatment changed: model, chunking or pipeline identity differs; the benchmark remains comparable.',
+            );
+        }
+
         $report = $this->regressionDetector->compare(
-            $persistable->toSummary(),
+            $current,
             $previous,
             new RegressionThresholds(
                 $this->floatOption($input, 'max-top1-drop', 0.1),
@@ -113,11 +160,15 @@ final class RetrievalEvalRunCommand extends Command
             ),
         );
 
-        $io->section('Regression check (pass rate = top-1 hit rate, mean score = top-3 hit rate)');
+        $io->section(
+            'Regression check (pass rate = top-1 hit rate, mean score = top-3 hit rate)',
+        );
         $io->writeln($report->summary);
 
         if ($report->isRegression) {
-            $io->warning('Retrieval regression detected against the previous run.');
+            $io->warning(
+                'Retrieval regression detected against the previous run.',
+            );
             if ($input->getOption('fail-on-regression') === true) {
                 return Command::FAILURE;
             }

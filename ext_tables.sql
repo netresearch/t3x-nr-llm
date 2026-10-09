@@ -916,6 +916,12 @@ CREATE TABLE tx_nrllm_eval_result (
     -- ("decision:typesafe:jev-1.13.0:v1", ADR-211), hence the width.
     grader varchar(190) DEFAULT '' NOT NULL,
 
+    -- Retrieval experiment identity (ADR-215). Empty means unmeasured/legacy.
+    -- Only bounded opaque revision labels, never raw options or credentials.
+    retrieval_provenance text,
+    benchmark_fingerprint varchar(67) DEFAULT '' NOT NULL,
+    variant_fingerprint varchar(67) DEFAULT '' NOT NULL,
+
     -- Aggregate metrics (pass_rate / mean_score normalised 0.0000-1.0000)
     prompt_count int(11) unsigned DEFAULT '0' NOT NULL,
     passed_count int(11) unsigned DEFAULT '0' NOT NULL,

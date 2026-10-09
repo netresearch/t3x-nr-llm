@@ -54,6 +54,10 @@ final readonly class RetrievalEvaluationService
      */
     public function run(GoldenQuestionSet $set, EvaluatableRetrieverInterface $retriever): RetrievalSetEvaluationResult
     {
+        $identity = RetrievalRunIdentity::forSet(
+            $set,
+            $retriever instanceof RetrievalProvenanceProviderInterface ? $retriever->getRetrievalProvenance() : null,
+        );
         $evaluations = [];
 
         foreach ($set->questions as $question) {
@@ -82,7 +86,13 @@ final readonly class RetrievalEvaluationService
             );
         }
 
-        return new RetrievalSetEvaluationResult($set->identifier, $retriever->getIdentifier(), $evaluations, time());
+        return new RetrievalSetEvaluationResult(
+            $set->identifier,
+            $retriever->getIdentifier(),
+            $evaluations,
+            time(),
+            $identity,
+        );
     }
 
     /**

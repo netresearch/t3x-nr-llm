@@ -29,6 +29,7 @@ Complete API reference for the TYPO3 LLM extension.
    McpDelegation
    KeywordSearch
    ReciprocalRankFusion
+   RetrievalProvenance
    Reranker
    ResponseObjects
    OptionClasses
