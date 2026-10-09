@@ -4,8 +4,7 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-
-declare(strict_types=1);
+declare (strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Evaluation;
 
@@ -64,9 +63,7 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
                     // The details snapshot is the per-prompt content payload; gate it
                     // through the central privacy policy before persisting (ADR-064).
                     // Metadata columns above are always kept.
-                    'details' => $this->privacyPolicy->filterContent(
-                        $this->encodeDetails($result),
-                    ) ?? '',
+                    'details' => $this->privacyPolicy->filterContent($this->encodeDetails($result)) ?? '',
                     'run_date' => $result->runTimestamp,
                     'tstamp' => $now,
                     'crdate' => $now,
@@ -76,7 +73,7 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
 
     public function purgeOlderThan(int $timestamp): int
     {
-        $connection   = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
         $queryBuilder = $connection->createQueryBuilder();
 
         return $queryBuilder
@@ -85,23 +82,34 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
             ->executeStatement();
     }
 
-    public function findLatest(string $setIdentifier, string $model, string $grader): ?EvaluationResultSummary
-    {
+    public function findLatest(
+        string $setIdentifier,
+        string $model,
+        string $grader,
+    ): ?EvaluationResultSummary {
         $recent = $this->findRecent($setIdentifier, $model, $grader, 1);
 
         return $recent[0] ?? null;
     }
 
-    public function findRecent(string $setIdentifier, string $model, string $grader, int $limit): array
-    {
+    public function findRecent(
+        string $setIdentifier,
+        string $model,
+        string $grader,
+        int $limit,
+    ): array {
         if ($limit < 1) {
             return [];
         }
 
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $rows = $this->baseSelect($queryBuilder)
+        $rows = $this
+            ->baseSelect($queryBuilder)
             ->where(
-                $queryBuilder->expr()->eq('set_identifier', $queryBuilder->createNamedParameter($setIdentifier)),
+                $queryBuilder->expr()->eq(
+                    'set_identifier',
+                    $queryBuilder->createNamedParameter($setIdentifier),
+                ),
                 $queryBuilder->expr()->eq('model_id', $queryBuilder->createNamedParameter($model)),
                 $queryBuilder->expr()->eq('grader', $queryBuilder->createNamedParameter($grader)),
             )
@@ -192,20 +200,13 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
     private function encodeDetails(SetEvaluationResult $result): string
     {
         $details = $result->retrieval instanceof RetrievalSetEvaluationResult ? array_map(
-            static fn(
-                QuestionEvaluation $evaluation,
-            ): array => $evaluation->toArray(),
+            static fn(QuestionEvaluation $evaluation): array => $evaluation->toArray(),
             $result->retrieval->evaluations,
         ) : array_map(
-            static fn(
-                PromptEvaluation $evaluation,
-            ): array => $evaluation->toArray(),
+            static fn(PromptEvaluation $evaluation): array => $evaluation->toArray(),
             $result->evaluations,
         );
-        return json_encode(
-            $details,
-            JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE,
-        );
+        return json_encode($details, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
     }
 
     private function toString(mixed $value): string
@@ -236,35 +237,36 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
 
         try {
             $decoded = json_decode($value, true, 8, JSON_THROW_ON_ERROR);
-            if (!is_array($decoded)) {
-                return null;
-            }
-
-            foreach ([
-                'corpusRevision',
-                'modelRevision',
-                'chunkingIdentity',
-                'pipelineIdentity',
-            ] as $key) {
-                if (!is_string($decoded[$key] ?? null)) {
-                    return null;
-                }
-            }
-
-            $execution = $decoded['executionRevision'] ?? null;
-            if ($execution !== null && !is_string($execution)) {
-                return null;
-            }
-
-            return new RetrievalProvenance(
-                $decoded['corpusRevision'],
-                $decoded['modelRevision'],
-                $decoded['chunkingIdentity'],
-                $decoded['pipelineIdentity'],
-                $execution,
-            );
+            return is_array($decoded) ? $this->decodeProvenance($decoded) : null;
         } catch (JsonException|InvalidArgumentException) {
             return null;
         }
+    }
+
+    /**
+     * Validate the stored field types before constructing the bounded revision declarations.
+     *
+     * @param array<array-key, mixed> $decoded
+     */
+    private function decodeProvenance(array $decoded): ?RetrievalProvenance
+    {
+        foreach (['corpusRevision', 'modelRevision', 'chunkingIdentity', 'pipelineIdentity'] as $key) {
+            if (!is_string($decoded[$key] ?? null)) {
+                return null;
+            }
+        }
+
+        $execution = $decoded['executionRevision'] ?? null;
+        if ($execution !== null && !is_string($execution)) {
+            return null;
+        }
+
+        return new RetrievalProvenance(
+            $decoded['corpusRevision'],
+            $decoded['modelRevision'],
+            $decoded['chunkingIdentity'],
+            $decoded['pipelineIdentity'],
+            $execution,
+        );
     }
 }

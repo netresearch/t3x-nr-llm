@@ -4,8 +4,7 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-
-declare(strict_types=1);
+declare (strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Evaluation;
 
@@ -66,8 +65,13 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
      * Build a result with `$total` prompts of which `$passed` pass and whose
      * mean score equals `$passed / $total`.
      */
-    private function buildResult(int $total, int $passed, int $runTimestamp, string $model = self::MODEL, string $grader = self::GRADER): SetEvaluationResult
-    {
+    private function buildResult(
+        int $total,
+        int $passed,
+        int $runTimestamp,
+        string $model = self::MODEL,
+        string $grader = self::GRADER,
+    ): SetEvaluationResult {
         $evaluations = [];
         for ($i = 0; $i < $total; ++$i) {
             $didPass = $i < $passed;
@@ -84,14 +88,25 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function saveStoresAggregatesAndDetails(): void
     {
-        $this->repository->save($this->buildResult(4, 3, 1_700_000_000));
+        $this->repository->save($this->buildResult(4, 3, 1700000000));
 
         $connection = $this->get(ConnectionPool::class)->getConnectionForTable(self::TABLE);
-        $row = $connection->select(
-            ['set_identifier', 'model_id', 'grader', 'prompt_count', 'passed_count', 'pass_rate', 'mean_score', 'details'],
-            self::TABLE,
-            ['set_identifier' => self::SET],
-        )->fetchAssociative();
+        $row = $connection
+            ->select(
+                [
+                    'set_identifier',
+                    'model_id',
+                    'grader',
+                    'prompt_count',
+                    'passed_count',
+                    'pass_rate',
+                    'mean_score',
+                    'details',
+                ],
+                self::TABLE,
+                ['set_identifier' => self::SET],
+            )
+            ->fetchAssociative();
 
         self::assertIsArray($row);
         self::assertSame(self::MODEL, $row['model_id']);
@@ -112,27 +127,27 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function findLatestReturnsMostRecentRun(): void
     {
-        $this->repository->save($this->buildResult(4, 4, 1_700_000_000));
-        $this->repository->save($this->buildResult(4, 1, 1_700_000_100));
+        $this->repository->save($this->buildResult(4, 4, 1700000000));
+        $this->repository->save($this->buildResult(4, 1, 1700000100));
 
         $latest = $this->repository->findLatest(self::SET, self::MODEL, self::GRADER);
 
         self::assertNotNull($latest);
-        self::assertSame(1_700_000_100, $latest->runTimestamp);
+        self::assertSame(1700000100, $latest->runTimestamp);
         self::assertEqualsWithDelta(0.25, $latest->passRate, 0.0001);
     }
 
     #[Test]
     public function findRecentReturnsRunsNewestFirst(): void
     {
-        $this->repository->save($this->buildResult(4, 4, 1_700_000_000));
-        $this->repository->save($this->buildResult(4, 2, 1_700_000_100));
+        $this->repository->save($this->buildResult(4, 4, 1700000000));
+        $this->repository->save($this->buildResult(4, 2, 1700000100));
 
         $recent = $this->repository->findRecent(self::SET, self::MODEL, self::GRADER, 2);
 
         self::assertCount(2, $recent);
-        self::assertSame(1_700_000_100, $recent[0]->runTimestamp);
-        self::assertSame(1_700_000_000, $recent[1]->runTimestamp);
+        self::assertSame(1700000100, $recent[0]->runTimestamp);
+        self::assertSame(1700000000, $recent[1]->runTimestamp);
     }
 
     #[Test]
@@ -145,15 +160,19 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
     public function regressionIsDetectedAcrossTwoPersistedRuns(): void
     {
         // First (baseline) run: all pass. Second run: quality collapses.
-        $this->repository->save($this->buildResult(4, 4, 1_700_000_000));
+        $this->repository->save($this->buildResult(4, 4, 1700000000));
 
         $previous = $this->repository->findLatest(self::SET, self::MODEL, self::GRADER);
         self::assertNotNull($previous);
 
-        $current = $this->buildResult(4, 1, 1_700_000_100);
+        $current = $this->buildResult(4, 1, 1700000100);
         $this->repository->save($current);
 
-        $report = (new RegressionDetector())->compare($current->toSummary(), $previous, new RegressionThresholds());
+        $report = (new RegressionDetector())->compare(
+            $current->toSummary(),
+            $previous,
+            new RegressionThresholds(),
+        );
 
         self::assertTrue($report->hasBaseline);
         self::assertTrue($report->isRegression);
@@ -164,8 +183,8 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
     public function meanQualityScoreAveragesLatestRunPerSet(): void
     {
         // Older run should be ignored in favour of the latest for the same set.
-        $this->repository->save($this->buildResult(4, 4, 1_700_000_000));
-        $this->repository->save($this->buildResult(4, 2, 1_700_000_100));
+        $this->repository->save($this->buildResult(4, 4, 1700000000));
+        $this->repository->save($this->buildResult(4, 2, 1700000100));
 
         $score = $this->repository->meanQualityScoreForModel(self::MODEL, self::GRADER);
 
@@ -187,17 +206,17 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
         // are not comparable, so regression detection must not pair them. A
         // stored run of the removed llm_judge grader is no baseline for the
         // decision grader either (ADR-211): its yardstick was another one.
-        $this->repository->save($this->buildResult(4, 4, 1_700_000_000, self::MODEL, 'deterministic'));
-        $this->repository->save($this->buildResult(4, 1, 1_700_000_100, self::MODEL, 'decision'));
-        $this->repository->save($this->buildResult(4, 3, 1_700_000_200, self::MODEL, 'llm_judge'));
+        $this->repository->save($this->buildResult(4, 4, 1700000000, self::MODEL, 'deterministic'));
+        $this->repository->save($this->buildResult(4, 1, 1700000100, self::MODEL, 'decision'));
+        $this->repository->save($this->buildResult(4, 3, 1700000200, self::MODEL, 'llm_judge'));
 
         $deterministic = $this->repository->findLatest(self::SET, self::MODEL, 'deterministic');
         $decision = $this->repository->findLatest(self::SET, self::MODEL, 'decision');
 
         self::assertNotNull($deterministic);
         self::assertNotNull($decision);
-        self::assertSame(1_700_000_000, $deterministic->runTimestamp);
-        self::assertSame(1_700_000_100, $decision->runTimestamp);
+        self::assertSame(1700000000, $deterministic->runTimestamp);
+        self::assertSame(1700000100, $decision->runTimestamp);
         self::assertEqualsWithDelta(1.0, $deterministic->passRate, 0.0001);
         self::assertEqualsWithDelta(0.25, $decision->passRate, 0.0001);
     }
@@ -209,13 +228,12 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(ConnectionPool::class, $connectionPool);
         $repository = new EvaluationResultRepository($connectionPool, $this->policy('metadata'));
 
-        $repository->save($this->buildResult(4, 3, 1_700_000_500));
+        $repository->save($this->buildResult(4, 3, 1700000500));
 
-        $row = $connectionPool->getConnectionForTable(self::TABLE)->select(
-            ['prompt_count', 'passed_count', 'details'],
-            self::TABLE,
-            ['run_date' => 1_700_000_500],
-        )->fetchAssociative();
+        $row = $connectionPool
+            ->getConnectionForTable(self::TABLE)
+            ->select(['prompt_count', 'passed_count', 'details'], self::TABLE, ['run_date' => 1700000500])
+            ->fetchAssociative();
 
         self::assertIsArray($row);
         // Metadata columns are preserved...
@@ -239,14 +257,7 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
             'test.retrieval',
             'Set',
             'Description',
-            [
-                new GoldenQuestion(
-                    'q1',
-                    'Question?',
-                    QuestionForm::GAP,
-                    ['internal-doc'],
-                ),
-            ],
+            [new GoldenQuestion('q1', 'Question?', QuestionForm::GAP, ['internal-doc'])],
         );
         $identity = RetrievalRunIdentity::forSet(
             $set,
@@ -288,14 +299,8 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
             RetrievalSetEvaluationResult::GRADER_IDENTIFIER,
         );
         self::assertNotNull($summary);
-        self::assertSame(
-            $result->toSummary()->benchmarkFingerprint,
-            $summary->benchmarkFingerprint,
-        );
-        self::assertSame(
-            $result->toSummary()->variantFingerprint,
-            $summary->variantFingerprint,
-        );
+        self::assertSame($result->toSummary()->benchmarkFingerprint, $summary->benchmarkFingerprint);
+        self::assertSame($result->toSummary()->variantFingerprint, $summary->variantFingerprint);
         self::assertSame(
             $result->toSummary()->retrievalProvenance?->toArray(),
             $summary->retrievalProvenance?->toArray(),
@@ -327,10 +332,7 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function metadataPrivacyKeepsIdentityButDropsRetrievalRankings(): void
     {
-        $repository = new EvaluationResultRepository(
-            $this->get(ConnectionPool::class),
-            $this->policy('metadata'),
-        );
+        $repository = new EvaluationResultRepository($this->get(ConnectionPool::class), $this->policy('metadata'));
         $repository->save($this->retrievalResult());
 
         $row = $this
@@ -345,14 +347,8 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
         self::assertIsArray($row);
         self::assertSame('', $row['details']);
         self::assertIsString($row['retrieval_provenance']);
-        self::assertStringNotContainsString(
-            'internal-doc',
-            $row['retrieval_provenance'],
-        );
-        self::assertStringNotContainsString(
-            'Question?',
-            $row['retrieval_provenance'],
-        );
+        self::assertStringNotContainsString('internal-doc', $row['retrieval_provenance']);
+        self::assertStringNotContainsString('Question?', $row['retrieval_provenance']);
         self::assertNotSame('', $row['benchmark_fingerprint']);
         self::assertSame(1, $repository->purgeOlderThan(1700000001));
         self::assertNull(
@@ -368,10 +364,7 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
             $this->retrievalResult()->retrieval?->identity?->labelsFingerprint,
             $metadata['labelsFingerprint'],
         );
-        self::assertSame(
-            RetrievalRunIdentity::SCORING_VERSION,
-            $metadata['scoringVersion'],
-        );
+        self::assertSame(RetrievalRunIdentity::SCORING_VERSION, $metadata['scoringVersion']);
     }
 
     #[Test]
@@ -387,15 +380,59 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
             ->getConnectionForTable(self::TABLE)
             ->update(
                 self::TABLE,
-                [
-                    'retrieval_provenance' => '{broken',
-                    'benchmark_fingerprint' => 'wrong',
-                ],
+                ['retrieval_provenance' => '{broken', 'benchmark_fingerprint' => 'wrong'],
                 ['set_identifier' => self::SET],
             );
         $malformed = $this->repository->findLatest(self::SET, self::MODEL, self::GRADER);
         self::assertNotNull($malformed);
         self::assertSame('', $malformed->benchmarkFingerprint);
         self::assertNull($malformed->retrievalProvenance);
+    }
+
+    /**
+     * Corrupt stored field types and unsafe revisions cannot establish known provenance.
+     */
+    #[Test]
+    public function invalidProvenanceShapesAndRevisionsReadAsUnknown(): void
+    {
+        $this->repository->save($this->retrievalResult());
+        $connection = $this->get(ConnectionPool::class)->getConnectionForTable(self::TABLE);
+        $valid = [
+            'corpusRevision' => 'corpus-v1',
+            'modelRevision' => 'model-v1',
+            'chunkingIdentity' => 'chunk-v1',
+            'pipelineIdentity' => 'pipeline-v1',
+        ];
+        $invalid = [
+            'null',
+            '"plain-string"',
+            '[]',
+            json_encode($valid + ['executionRevision' => []], JSON_THROW_ON_ERROR),
+        ];
+        foreach (array_keys($valid) as $key) {
+            $missing = $valid;
+            unset($missing[$key]);
+            $invalid[] = json_encode($missing, JSON_THROW_ON_ERROR);
+            $invalid[] = json_encode(array_replace($valid, [$key => 12]), JSON_THROW_ON_ERROR);
+            $invalid[] = json_encode(
+                array_replace($valid, [$key => 'https://private.test/revision']),
+                JSON_THROW_ON_ERROR,
+            );
+        }
+
+        foreach ($invalid as $metadata) {
+            $connection->update(
+                self::TABLE,
+                ['retrieval_provenance' => $metadata],
+                ['set_identifier' => 'test.retrieval'],
+            );
+            $summary = $this->repository->findLatest(
+                'test.retrieval',
+                'test.retriever',
+                RetrievalSetEvaluationResult::GRADER_IDENTIFIER,
+            );
+            self::assertNotNull($summary);
+            self::assertNull($summary->retrievalProvenance, $metadata);
+        }
     }
 }
