@@ -341,6 +341,13 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
             self::SKILL_B_PATH => $this->md('B', 'y'),
         ]))->sync($source);
 
+        // An administrator enabled B, so the orphaning sync is what disables it.
+        $enabled = $this->get(SkillRepository::class)->findBySourceAndIdentifier(10, self::SKILL_B_ID);
+        self::assertNotNull($enabled);
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill')
+            ->update('tx_nrllm_skill', ['enabled' => 1, 'disabled_by' => ''], ['uid' => (int)$enabled->getUid()]);
+        $this->get(PersistenceManagerInterface::class)->clearState();
+
         $result = $this->service(new FakeGitHubClient('sha2', [self::SKILL_A_PATH], [
             self::SKILL_A_PATH => $this->md('A', 'x'),
         ]))->sync($source);
