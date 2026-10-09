@@ -180,12 +180,19 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
 
         // Handed back while the caller sent a system message after its first
         // user turn: the shaping stage suppresses the configuration prompt the
-        // planner would append them to, so they join that system message
-        // instead — the last one, which every adapter sends.
+        // planner appends them to, so they also join that system message — the
+        // last one, which the adapters that keep a single system message keep
+        // (as long as it is a string; Claude and Gemini drop a part-list system
+        // message, and the instructions with it — fail-closed, as is a caller
+        // that sends a head system message AND a later one to such an adapter).
+        // The override stays: if the context window drops every late system
+        // message, the shaping stage prepends the configuration prompt, and
+        // the instructions travel with it. While any system message survives
+        // the prompt is not sent, so they are never sent twice.
         if ($injected['instructions'] !== '') {
             $placed = SkillInjectionService::appendToLastSystemMessage($injected['messages'], $injected['instructions']);
             if ($placed !== null) {
-                return [$placed, $optionOverrides];
+                return [$placed, $this->withSkillInstructions($optionOverrides, $injected['instructions'])];
             }
         }
 

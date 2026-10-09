@@ -20,13 +20,17 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
+use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\ConfigurationCallPlanner;
+use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
@@ -181,9 +185,62 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
             ['role' => 'system', 'content' => 'Late caller note.'],
         ]);
 
-        self::assertCount(2, $capturedMessages);
+        self::assertCount(2, $capturedMessages, 'no configuration prompt is added while a caller system message is sent');
         self::assertSame('Translate this.', $this->content($this->messageAt($capturedMessages, 0)));
         self::assertStringStartsWith("Late caller note.\n\n## Approved skills", $this->content($this->messageAt($capturedMessages, 1)));
+    }
+
+    /**
+     * The late system message is a droppable turn for the context window.
+     * When the fit drops it, the shaping stage prepends the configuration
+     * prompt — and the instructions must travel with that prompt instead of
+     * vanishing with the dropped message.
+     */
+    #[Test]
+    public function instructionsSurviveTheContextWindowDroppingTheLateSystemMessage(): void
+    {
+        $capturedMessages = [];
+        $adapter          = $this->createMock(ProviderInterface::class);
+        $adapter->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages): CompletionResponse {
+                $capturedMessages = $messages;
+                return $this->completionResponse();
+            },
+        );
+        $dropsSystemTurns = new class implements ContextWindowManagerInterface {
+            public function fit(array $messages, LlmConfiguration $configuration, ?ChatOptions $options, ?UsageStatistics $lastUsage, array $toolSpecs = [], string $injectedText = '', ?string $effectiveSystemPrompt = null, ?Model $resolvedModel = null): ContextFitResult
+            {
+                $kept = array_values(array_filter(
+                    $messages,
+                    static fn(mixed $message): bool => !($message instanceof ChatMessage ? $message->isSystem() : (is_array($message) && ($message['role'] ?? null) === 'system')),
+                ));
+
+                return new ContextFitResult($kept, true, 1, 1, 10, 100, false, 1.0, ContextBudgetBreakdown::none());
+            }
+        };
+
+        $registry = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registry->method('createAdapterFromModel')->willReturn($adapter);
+        $manager = $this->createLlmServiceManager(
+            $this->extensionConfigStub(),
+            self::createStub(LoggerInterface::class),
+            $registry,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            $this->configRepo($this->configurationWithApprovedSkill()),
+            $this->instructingInjection(),
+            contextWindow: $dropsSystemTurns,
+        );
+
+        $manager->chat([
+            ['role' => 'user', 'content' => 'Translate this.'],
+            ['role' => 'system', 'content' => 'Late caller note.'],
+        ]);
+
+        self::assertCount(2, $capturedMessages);
+        $head = $this->content($this->messageAt($capturedMessages, 0));
+        self::assertStringStartsWith(self::SYSTEM_PROMPT . "\n\n## Approved skills", $head);
+        self::assertSame(1, substr_count($head, '## Approved skills'));
     }
 
     #[Test]
