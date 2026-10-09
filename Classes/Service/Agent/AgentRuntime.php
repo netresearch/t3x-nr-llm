@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
@@ -132,6 +133,10 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         // an approver is checked against the writes they release (ADR-133). Held
         // here only to pass down: this runtime never asks it anything itself.
         private ?ToolCallPolicyInterface $toolPolicy = null,
+        // Whether a run holds a process pin (ADR-214 item 6), handed to the
+        // resume coordinator this runtime builds when none was injected, so
+        // the process guards hold on that path too. Held only to pass down.
+        private ?ProcessPinProbe $processPinProbe = null,
     ) {}
 
     /**
@@ -151,6 +156,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             $this->toolPolicy,
             $this->actingBackendUserResolver,
             $this->logger,
+            $this->processPinProbe,
         );
     }
 

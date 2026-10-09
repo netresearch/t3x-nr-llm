@@ -349,10 +349,10 @@ final readonly class AgentRunPersister
      *
      * @throws InvalidArgumentException when $from names a state that is not a wait, or $to is neither CANCELLED nor FAILED
      */
-    public function settleIfWaiting(AgentRun $run, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason): bool
+    public function settleIfWaiting(AgentRun $run, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason, string $errorClass = ''): bool
     {
         try {
-            return $this->repository->settleIfWaiting($run->uid, $from, $to, $reason);
+            return $this->repository->settleIfWaiting($run->uid, $from, $to, $reason, $errorClass);
         } catch (InvalidArgumentException $exception) {
             // A caller's mistake, not a store failure: never a quiet "lost".
             throw $exception;

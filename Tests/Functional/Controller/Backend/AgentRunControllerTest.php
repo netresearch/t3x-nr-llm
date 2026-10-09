@@ -30,6 +30,8 @@ use Netresearch\NrLlm\Service\Agent\Exception\StaleInputTurnException;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunViewFactory;
 use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
+use Netresearch\NrLlm\Service\Agent\Process\NoProcessPinProbe;
+use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 use Netresearch\NrLlm\Service\Agent\Timeline\RunTimelineFactory;
 use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRecord;
@@ -42,6 +44,7 @@ use Netresearch\NrLlm\Service\Tool\SchemaInputCoercer;
 use Netresearch\NrLlm\Service\Tool\SchemaPropertyClassifier;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
+use Netresearch\NrLlm\Tests\Fixtures\Process\ProcessPinProbeStub;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\PreviewingApprovalTool;
@@ -114,6 +117,27 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('name="input[reason]"', $body);
         self::assertStringContainsString('Reason', $body);
         self::assertStringContainsString('<fieldset', $body);
+    }
+
+    /**
+     * An enumerated field — the choice builtin's answer (ADR-214 item 9) — is
+     * a labelled select of its members, not a text field to type exactly.
+     */
+    #[Test]
+    public function listActionRendersAnEnumeratedFieldAsASelect(): void
+    {
+        $this->suspendInput('ask_choice', ['type' => 'object', 'properties' => ['answer' => ['type' => 'string', 'title' => 'Which page?', 'enum' => ['Home', 'About']]], 'required' => ['answer']]);
+
+        $controller = $this->makeController(new ToolRegistry([]), self::createStub(AgentRuntimeInterface::class));
+        $this->setRequest($controller, 'list');
+
+        $body = (string)$controller->listAction()->getBody();
+
+        self::assertMatchesRegularExpression('/<select[^>]*name="input\[answer\]"/', $body);
+        self::assertMatchesRegularExpression('/<label class="form-label" for="f-[^"]+-answer">Which page\?/', $body);
+        self::assertStringContainsString('<option value="Home">Home</option>', $body);
+        self::assertStringContainsString('<option value="About">About</option>', $body);
+        self::assertDoesNotMatchRegularExpression('/<input[^>]*name="input\[answer\]"/', $body);
     }
 
     /**
@@ -259,6 +283,109 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         $controller->submitInputAction($uuid, ['reason' => 'because']);
         self::assertInstanceOf(InputSubmission::class, $seen);
         self::assertNull($seen->turnDigest);
+    }
+
+    /**
+     * ADR-214: a guided process is decided on its chat card only. The inbox
+     * refuses both decisions server-side, for the initiator too — the run
+     * started by backend user 1 is refused to backend user 1 — and never asks
+     * the runtime.
+     */
+    #[Test]
+    public function aProcessRunIsNeitherApprovedNorAnsweredHere(): void
+    {
+        $this->suspendApproval('delete_thing', ['uid' => 42]);
+        $approvalUuid = $this->lastUuid();
+        $this->suspendInput('ask', ['type' => 'object', 'properties' => ['reason' => ['type' => 'string']], 'required' => ['reason']]);
+        $inputUuid = $this->lastUuid();
+
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->expects(self::never())->method('approve');
+        $runtime->expects(self::never())->method('submitInput');
+
+        $controller = $this->makeController(
+            new ToolRegistry([new FakeTool('delete_thing'), new FakeTool('ask')]),
+            $runtime,
+            new ProcessPinProbeStub([$approvalUuid, $inputUuid]),
+        );
+
+        $this->setRequest($controller, 'approve');
+        self::assertSame(303, $controller->approveAction($approvalUuid, true, 'a-digest')->getStatusCode());
+        $this->setRequest($controller, 'submitInput');
+        self::assertSame(303, $controller->submitInputAction($inputUuid, ['reason' => 'because'])->getStatusCode());
+
+        $messages = $this->queuedFlashMessages();
+        self::assertCount(2, $messages);
+        foreach ($messages as $message) {
+            self::assertStringStartsWith('This run is a guided process.', $message->getMessage());
+            self::assertSame(ContextualFeedbackSeverity::WARNING, $message->getSeverity());
+        }
+
+        self::assertSame('waiting_for_approval', $this->persister->findRun($approvalUuid)?->status);
+        self::assertSame('waiting_for_input', $this->persister->findRun($inputUuid)?->status);
+    }
+
+    /**
+     * A run the inbox cannot load is refused before the runtime reads it
+     * again: a second read that succeeded would get past the process check.
+     */
+    #[Test]
+    public function aRunThatCannotBeLoadedIsNotHandedToTheRuntime(): void
+    {
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->expects(self::never())->method('approve');
+        $runtime->expects(self::never())->method('submitInput');
+
+        $controller = $this->makeController(new ToolRegistry([new FakeTool('delete_thing')]), $runtime, new ProcessPinProbeStub(everyRun: true));
+
+        $this->setRequest($controller, 'approve');
+        self::assertSame(303, $controller->approveAction('no-such-run', true, 'a-digest')->getStatusCode());
+        $this->setRequest($controller, 'submitInput');
+        self::assertSame(303, $controller->submitInputAction('no-such-run', ['reason' => 'because'])->getStatusCode());
+
+        $messages = $this->queuedFlashMessages();
+        self::assertCount(2, $messages);
+        foreach ($messages as $message) {
+            self::assertSame("This run's state could not be read; no action is available.", $message->getMessage());
+            self::assertSame(ContextualFeedbackSeverity::ERROR, $message->getSeverity());
+        }
+    }
+
+    /**
+     * The other direction: a run without a process pin reaches the runtime,
+     * and the inbox lists a process run read-only — its note instead of the
+     * form — while the other run keeps its form.
+     */
+    #[Test]
+    public function onlyAProcessRunIsListedReadOnlyAndOnlyItIsRefused(): void
+    {
+        $this->suspendApproval('delete_thing', ['uid' => 42]);
+        $ordinary = $this->lastUuid();
+        $this->suspendApproval('delete_thing', ['uid' => 43]);
+        $process = $this->lastUuid();
+
+        $called  = [];
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->method('approve')->willReturnCallback(
+            static function (AiActorContext $actor, string $runUuid) use (&$called): AgentRunResult {
+                $called[] = $runUuid;
+
+                throw RunNotAwaitingApprovalException::forRun($runUuid);
+            },
+        );
+
+        $controller = $this->makeController(new ToolRegistry([new FakeTool('delete_thing')]), $runtime, new ProcessPinProbeStub([$process]));
+
+        $this->setRequest($controller, 'list');
+        $body = (string)$controller->listAction()->getBody();
+        self::assertStringContainsString('decided in the chat by the person who started it', $body);
+        self::assertSame(1, substr_count($body, 'decided in the chat by the person who started it'));
+        self::assertSame(1, substr_count($body, 'name="turnDigest"'), 'only the ordinary run carries the form');
+
+        $this->setRequest($controller, 'approve');
+        $controller->approveAction($ordinary, true, 'a-digest');
+        $controller->approveAction($process, true, 'a-digest');
+        self::assertSame([$ordinary], $called);
     }
 
     #[Test]
@@ -776,7 +903,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         return new AgentRunRepository($connectionPool, $this->get(AgentStateCodec::class));
     }
 
-    private function makeController(ToolRegistry $registry, AgentRuntimeInterface $runtime): AgentRunController
+    private function makeController(ToolRegistry $registry, AgentRuntimeInterface $runtime, ?ProcessPinProbe $processPins = null): AgentRunController
     {
         $moduleTemplateFactory = $this->get(ModuleTemplateFactory::class);
         self::assertInstanceOf(ModuleTemplateFactory::class, $moduleTemplateFactory);
@@ -794,6 +921,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
                 $this->get(TelemetryRepositoryInterface::class),
                 $this->get(GovernanceEventRepositoryInterface::class),
             ),
+            $processPins ?? new NoProcessPinProbe(),
         );
     }
 

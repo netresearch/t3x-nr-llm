@@ -213,7 +213,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         return $affected > 0;
     }
 
-    public function settleIfWaiting(int $runUid, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason): bool
+    public function settleIfWaiting(int $runUid, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason, string $errorClass = ''): bool
     {
         // Only a waiting run, only to CANCELLED or FAILED: this transition
         // skips every claim and lease, which is safe exactly because nothing
@@ -240,6 +240,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             ->update(self::TABLE_RUN)
             ->set('status', $to->value)
             ->set('termination_reason', $reason->value)
+            ->set('error_class', $errorClass)
             ->set('suspended_state', '')
             ->set('queued_request', '')
             ->set('claimed_by', '')

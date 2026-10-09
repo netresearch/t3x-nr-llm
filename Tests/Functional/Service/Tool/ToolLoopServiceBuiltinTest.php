@@ -12,6 +12,8 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
+use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
@@ -19,6 +21,8 @@ use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
 use Netresearch\NrLlm\Domain\ValueObject\McpToolRecord;
+use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
+use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
@@ -45,6 +49,7 @@ use Netresearch\NrLlm\Service\Tool\Mcp\McpDeadlineFactory;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpHttpTransport;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpServerRepository;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpTool;
+use Netresearch\NrLlm\Service\Tool\RunTrace;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
@@ -473,6 +478,48 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * The write step carries the failure as a flag beside the completeness the
+     * tool stated (ADR-214 item 9), from the same failures the note names, so
+     * the chat reads "approved, check the record" without parsing the note.
+     */
+    #[Test]
+    public function aHookThatFailsAfterTheWriteIsFlaggedOnTheWriteStep(): void
+    {
+        $this->prepareTheElementToWrite();
+        $this->registerHook('processDatamapClass', FailsLikeAFlashMessageHook::class);
+        FailsLikeAFlashMessageHook::$failAt = FailsLikeAFlashMessageHook::AFTER_ALL_OPERATIONS;
+
+        $trace = new RunTrace();
+        $this->runTheWritingTool(runTrace: $trace, namesTheRecord: true);
+
+        $write = $this->writeStep($trace);
+        self::assertTrue($write->hookFailedAfterWrite);
+        self::assertSame(WriteCompleteness::COMPLETE, $write->writeCompleteness, "the tool's statement is not changed");
+    }
+
+    /**
+     * The other direction: a write no hook disturbed carries no flag.
+     */
+    #[Test]
+    public function aWriteNoHookDisturbedCarriesNoFlag(): void
+    {
+        $this->prepareTheElementToWrite();
+
+        $trace = new RunTrace();
+        $this->runTheWritingTool(runTrace: $trace, namesTheRecord: true);
+
+        self::assertFalse($this->writeStep($trace)->hookFailedAfterWrite);
+    }
+
+    private function writeStep(RunTrace $trace): RunStep
+    {
+        $writes = array_values(array_filter($trace->getSteps(), static fn(RunStep $step): bool => $step->kind === RunStep::KIND_WRITE));
+        self::assertCount(1, $writes);
+
+        return $writes[0];
+    }
+
+    /**
      * Five writes whose hook fails five times with four different messages:
      * the note names each message once, three at most, and says how many more
      * the log has.
@@ -556,7 +603,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('default');
     }
 
-    private function runTheWritingTool(int $writes = 1, string $answer = 'WROTE'): ToolLoopResult
+    private function runTheWritingTool(int $writes = 1, string $answer = 'WROTE', ?RunTrace $runTrace = null, bool $namesTheRecord = false): ToolLoopResult
     {
         $queue = [
             $this->response('', [new ToolCall('call_1', 'write_through_the_data_handler', [])]),
@@ -573,8 +620,8 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
                 return $next;
             });
 
-        $result = $this->buildService($mgr, [$this->dataHandlerTool($writes, $answer)])
-            ->runLoop([$this->userTurn('write it')], $this->localConfiguration(), $this->contextFor($this->writer), null);
+        $result = $this->buildService($mgr, [$this->dataHandlerTool($writes, $answer, $namesTheRecord)])
+            ->runLoop([$this->userTurn('write it')], $this->localConfiguration(), $this->contextFor($this->writer), null, runTrace: $runTrace);
         self::assertCount(1, $result->trace);
 
         return $result;
@@ -596,10 +643,10 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
      * approval — the note is added on every path a call runs through, and this
      * one needs no suspended run to reach it.
      */
-    private function dataHandlerTool(int $writes, string $answer): ToolInterface
+    private function dataHandlerTool(int $writes, string $answer, bool $namesTheRecord = false): ToolInterface
     {
-        return new class (self::ELEMENT, $writes, $answer) implements ToolInterface {
-            public function __construct(private readonly int $element, private readonly int $writes, private readonly string $answer) {}
+        return new class (self::ELEMENT, $writes, $answer, $namesTheRecord) implements ToolInterface {
+            public function __construct(private readonly int $element, private readonly int $writes, private readonly string $answer, private readonly bool $namesTheRecord) {}
 
             public function getSpec(): ToolSpec
             {
@@ -617,7 +664,11 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
                     $dataHandler->process_datamap();
                 }
 
-                return ToolResult::text($this->answer);
+                $result = ToolResult::text($this->answer);
+
+                return $this->namesTheRecord
+                    ? $result->withWriteTarget(new RecordReference('tt_content', $this->element), WriteKind::UPDATED, WriteCompleteness::COMPLETE)
+                    : $result;
             }
 
             public function isEnabledByDefault(): bool

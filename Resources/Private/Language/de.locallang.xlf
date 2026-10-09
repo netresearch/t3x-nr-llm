@@ -3851,6 +3851,10 @@
                 <source>Unknown tool group</source>
                 <target>Unbekannte Werkzeuggruppe</target>
             </trans-unit>
+            <trans-unit id="error.tool.decidedInChat">
+                <source>This run is a guided process. It is decided in the chat by the person who started it, not in the playground.</source>
+                <target>Dieser Lauf ist ein geführter Ablauf. Darüber entscheidet die Person, die ihn gestartet hat, im Chat, nicht im Playground.</target>
+            </trans-unit>
             <trans-unit id="error.tool.selfApproval">
                 <source>You started this run and its configuration requires a second approver. Someone else has to release it.</source>
                 <target>Sie haben diesen Lauf gestartet, und seine Konfiguration verlangt eine zweite freigebende Person. Die Freigabe muss jemand anderes erteilen.</target>
@@ -4268,6 +4272,10 @@
                 <source>This field type is not supported in this form.</source>
                 <target>Dieser Feldtyp wird in diesem Formular nicht unterstützt.</target>
             </trans-unit>
+            <trans-unit id="runs.field.choose">
+                <source>Choose one</source>
+                <target>Bitte auswählen</target>
+            </trans-unit>
             <trans-unit id="runs.error.summaryHeading">
                 <source>Your input could not be submitted</source>
                 <target>Ihre Eingabe konnte nicht abgesendet werden</target>
@@ -4287,6 +4295,14 @@
             <trans-unit id="runs.error.approverNotPermitted">
                 <source>This action runs a tool you are not permitted to use yourself, so you may not approve it. The run is still waiting for someone who is.</source>
                 <target>Diese Aktion führt ein Werkzeug aus, das Sie selbst nicht verwenden dürfen; deshalb können Sie sie nicht freigeben. Der Lauf wartet weiterhin auf eine berechtigte Person.</target>
+            </trans-unit>
+            <trans-unit id="runs.error.decidedInChat">
+                <source>This run is a guided process. Its proposals and questions are decided in the chat, by the person who started it, and not here.</source>
+                <target>Dieser Lauf ist ein geführter Ablauf. Über seine Vorschläge und Fragen entscheidet die Person, die ihn gestartet hat, im Chat, nicht hier.</target>
+            </trans-unit>
+            <trans-unit id="runs.decidedInChat">
+                <source>A guided process: decided in the chat by the person who started it. It is listed here read-only.</source>
+                <target>Ein geführter Ablauf: Darüber entscheidet die Person, die ihn gestartet hat, im Chat. Hier wird er nur angezeigt.</target>
             </trans-unit>
             <trans-unit id="runs.error.selfApproval">
                 <source>You started this run, and its configuration requires a second approver. Someone else has to release it. You can still deny it.</source>

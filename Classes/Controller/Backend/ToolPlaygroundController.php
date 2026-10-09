@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
@@ -44,9 +45,11 @@ use Netresearch\NrLlm\Service\Agent\Exception\StaleInputTurnException;
 use Netresearch\NrLlm\Service\Agent\Exception\SubmitterNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
+use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 use Netresearch\NrLlm\Service\Context\InputContextClassification;
 use Netresearch\NrLlm\Service\Context\InputContextClassifier;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface;
 use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
@@ -119,6 +122,12 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         // inspector reads it rather than re-deriving "what does this
         // configuration inject", so the readout and the gate cannot disagree.
         private readonly InputContextClassifier $inputContextClassifier,
+        // ADR-214: a guided process is decided in the chat only, so both
+        // actions that decide a run refuse one here.
+        private readonly ProcessPinProbe $processPins,
+        // The probe needs the stored row: the runtime's status() strips the
+        // suspended state, and with it the pins the probe reads.
+        private readonly AgentRunPersister $persister,
     ) {}
 
     public function listAction(): ResponseInterface
@@ -307,6 +316,10 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         // a client that does not send it cannot approve.
         $digest = trim($this->stringFromBody($body, 'turnDigest'));
 
+        if (($refusal = $this->refusalBeforeTheRuntime($runUuid)) instanceof ResponseInterface) {
+            return $refusal;
+        }
+
         try {
             $result = $this->agentRuntime->approve(
                 $this->currentActor(),
@@ -395,6 +408,10 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         // not send it cannot submit.
         $digest = trim($this->stringFromBody($body, 'turnDigest'));
 
+        if (($refusal = $this->refusalBeforeTheRuntime($runUuid)) instanceof ResponseInterface) {
+            return $refusal;
+        }
+
         try {
             $result = $this->agentRuntime->submitInput(
                 $this->currentActor(),
@@ -444,6 +461,43 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         }
 
         return $this->respondToResult($result, false);
+    }
+
+    /**
+     * The answer given before the runtime is asked, or null to ask it. Both
+     * actions accept any run uuid for an administrator, so this is the place
+     * a run started in the chat could otherwise be decided outside it
+     * (ADR-214). The probe reads the stored row: status() strips the
+     * suspended state the pins live in. A row that cannot be loaded is
+     * answered here rather than handed on, because the runtime reads it again
+     * and a second read that succeeds would get past the process check. Only
+     * an administrator reaches this (denyNonAdmin()); the runtime authorises
+     * the decision itself.
+     */
+    private function refusalBeforeTheRuntime(string $runUuid): ?ResponseInterface
+    {
+        if ($runUuid === '') {
+            return null;
+        }
+
+        $run = $this->persister->findRun($runUuid);
+        if (!$run instanceof AgentRun) {
+            return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.unreadable', "This run's state could not be read; no action is available.")], 400);
+        }
+
+        return $this->processPins->holdsProcessPin($run) ? $this->decidedInTheChat() : null;
+    }
+
+    /**
+     * 409 and no status to re-signal: nothing here can decide the run, and the
+     * run stays waiting for its chat card.
+     */
+    private function decidedInTheChat(): ResponseInterface
+    {
+        return $this->respondJson([
+            'success' => false,
+            'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.decidedInChat', 'This run is a guided process. It is decided in the chat by the person who started it, not in the playground.'),
+        ], 409);
     }
 
     /**

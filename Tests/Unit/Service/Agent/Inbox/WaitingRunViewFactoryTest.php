@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Service\Agent\Inbox\InputFieldView;
 use Netresearch\NrLlm\Service\Agent\Inbox\PendingCallView;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunViewFactory;
@@ -247,6 +248,9 @@ final class WaitingRunViewFactoryTest extends TestCase
 
         $enum = $view->inputFields[1];
         self::assertSame(['low', 'high', '3'], $enum->options);
+        // Enforced on submission (ADR-214 item 9), so offered as a choice.
+        self::assertSame(InputFieldView::CONTROL_SELECT, $enum->controlType);
+        self::assertNotSame(InputFieldView::CONTROL_SELECT, $number->controlType);
     }
 
     #[Test]

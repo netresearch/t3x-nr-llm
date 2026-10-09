@@ -1,0 +1,16 @@
+<!--
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ *
+ * One enumerated field as a select of its members (ADR-214 item 9), extracted
+ * like FieldCheckbox so its id-bearing control lives in a file of its own —
+ * every id appears at most once per file.
+-->
+<label class="form-label" for="{fid}">{field.label}<f:if condition="{field.required}"><span aria-hidden="true"> *</span></f:if></label>
+<f:form.select class="form-select" id="{fid}" name="input[{field.name}]" required="{field.required}" value="{value}" additionalAttributes="{aria-describedby: '{did}'}">
+    <f:form.select.option value=""><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.field.choose" default="Choose one" /></f:form.select.option>
+    <f:for each="{field.options}" as="option">
+        <f:form.select.option value="{option}">{option}</f:form.select.option>
+    </f:for>
+</f:form.select>
+<small id="{did}" class="form-text text-variant">{field.description}</small>

@@ -11,7 +11,7 @@ ADR-172: Four-eyes approval is a per-configuration switch, default off
 
 :Status: Accepted (a run holding a process pin is to stop with a four-eyes
     message instead of the self-approval refusal — decided by
-    :ref:`ADR-214 <adr-214>`, not yet implemented)
+    :ref:`ADR-214 <adr-214>`; implemented; whether a run holds a process pin is read from the approval snapshot of its pins (``ApprovedProcessPinProbe``), and a process skill reaches a run only through an invocation, which is not implemented yet)
 :Date: 2026-08-14
 :Amended: 2026-10-08 by :ref:`ADR-214 <adr-214>` (process runs)
 :Authors: Netresearch DTT GmbH

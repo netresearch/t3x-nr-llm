@@ -15,6 +15,10 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequestCodec;
+use Netresearch\NrLlm\Service\Agent\AgentRuntime;
+use Netresearch\NrLlm\Service\Agent\Process\ApprovedProcessPinProbe;
+use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
+use Netresearch\NrLlm\Service\Agent\ResumeCoordinator;
 use Netresearch\NrLlm\Service\Skill\SkillApprovalRepositoryInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposerFactory;
 use Netresearch\NrLlm\Service\Skill\SkillInstructionPolicy;
@@ -144,6 +148,24 @@ final class ToolLoopGateWiringTest extends FunctionalTestCase
         self::assertInstanceOf(ToolLoopService::class, $loop);
 
         self::assertInstanceOf(SkillPinCheck::class, (new ReflectionProperty(ToolLoopService::class, 'skillPinCheck'))->getValue($loop));
+    }
+
+    /**
+     * The process rules (ADR-214 items 6 and 9) hang on an optional probe in
+     * the loop, the resume coordinator and the runtime. A container that left
+     * it null, or kept the null probe, would compile and leave every process
+     * run without its rules; pinned here.
+     */
+    #[Test]
+    public function productionAnswersTheProcessPinQuestionFromTheApprovals(): void
+    {
+        self::assertInstanceOf(ApprovedProcessPinProbe::class, $this->get(ProcessPinProbe::class));
+
+        foreach ([ToolLoopService::class, ResumeCoordinator::class, AgentRuntime::class] as $class) {
+            $service = $this->get($class);
+            self::assertInstanceOf($class, $service);
+            self::assertInstanceOf(ApprovedProcessPinProbe::class, (new ReflectionProperty($class, 'processPinProbe'))->getValue($service), $class);
+        }
     }
 
     /**
