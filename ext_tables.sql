@@ -1210,7 +1210,7 @@ CREATE TABLE tx_nrllm_mcp_server (
     delegation_profile varchar(64) DEFAULT '' NOT NULL,
     delegation_audience varchar(2048) DEFAULT '' NOT NULL,
     delegation_scopes varchar(2048) DEFAULT '' NOT NULL,
-    discovery_credential varchar(64) DEFAULT '' NOT NULL,
+    discovery_credential varchar(255) DEFAULT '' NOT NULL,
 
     -- ToolDataClass every tool of this server is classified as (ADR-094). No
     -- default: a server whose class the operator has not declared is inert.
