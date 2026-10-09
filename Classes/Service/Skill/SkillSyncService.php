@@ -534,6 +534,13 @@ final class SkillSyncService
         $this->apply($existing, $parsed, $sha, $checksum);
         $changed = !hash_equals($previous, $existing->getVersionDigest());
         $this->applyIsolationMetadata($existing, $source, $scan);
+        // An orphan comes back disabled. One orphaned before the mark
+        // existed carries none, but only the sync disables an orphan: mark
+        // it, so un-orphaning it does not lift its restriction.
+        if ($existing->isOrphaned() && !$existing->isEnabled() && $existing->getDisabledBy() === '') {
+            $existing->setDisabledBy(Skill::DISABLED_BY_SYNC);
+        }
+
         $existing->setOrphaned(false);
         $outcome       = 'updated';
         $forcedDisable = $highConf && $wasEnabled;

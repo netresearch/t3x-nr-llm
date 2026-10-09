@@ -134,6 +134,22 @@ final class SkillDeletionGuardHookTest extends AbstractFunctionalTestCase
         self::assertSame(0, $this->deletedFlag());
     }
 
+    /**
+     * A holder in the deleted subtree goes with it, so it does not count.
+     */
+    #[Test]
+    public function aPageWhoseSkillIsAttachedOnlyFromTheSameSubtreeIsDeleted(): void
+    {
+        $this->page(10, 0);
+        $this->moveSkillTo(10);
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_configuration')->insert('tx_nrllm_configuration', ['uid' => 3, 'pid' => 10]);
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_configuration_skill_mm')
+            ->insert('tx_nrllm_configuration_skill_mm', ['uid_local' => 3, 'uid_foreign' => self::SKILL_UID]);
+
+        self::assertSame([], $this->delete('pages', 10));
+        self::assertSame(1, $this->deletedFlag('pages', 10));
+    }
+
     #[Test]
     public function aPageWithoutAttachedSkillsIsDeleted(): void
     {

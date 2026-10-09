@@ -1015,6 +1015,9 @@
             <trans-unit id="tx_nrllm_skill.orphaned">
                 <source>Orphaned</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_skill.disabled_by">
+                <source>Disabled by (sync or administrator)</source>
+            </trans-unit>
             <trans-unit id="tx_nrllm_skill.attachment.orphaned">
                 <source>orphaned</source>
             </trans-unit>
