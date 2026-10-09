@@ -76,6 +76,7 @@ final readonly class SuspendedRunState
         public array $staleCallIndexes = [],
         public ?SkillToolAllowList $skillAllowList = null,
         public array $skillPins = [],
+        public ?ToolInvocationHistory $invocationHistory = null,
     ) {}
 
     /**
@@ -102,32 +103,34 @@ final readonly class SuspendedRunState
             $this->staleCallIndexes,
             $this->skillAllowList,
             $skillPins,
+            $this->invocationHistory,
         );
     }
 
     /**
-     * @return array{messages: list<array<string, mixed>>, pendingCalls: list<array<string, mixed>>, iterations: int, promptTokens: int, completionTokens: int, allowedToolNames: list<string>|null, options: array<string, mixed>, inputToolName: string|null, inputSchema: array<string, mixed>, callPreviews: list<array{index: int, tool: string, lines: list<string>, failed: bool}>, forcedSnippetUids: list<int>, forcedSkillUids: list<int>, staleCallIndexes: list<int>, skillAllowList: array{toolNames: list<string>|null}|null, skillPins: list<array{skill: int, source: int, digest: string}>}
+     * @return array{messages: list<array<string, mixed>>, pendingCalls: list<array<string, mixed>>, iterations: int, promptTokens: int, completionTokens: int, allowedToolNames: list<string>|null, options: array<string, mixed>, inputToolName: string|null, inputSchema: array<string, mixed>, callPreviews: list<array{index: int, tool: string, lines: list<string>, failed: bool}>, forcedSnippetUids: list<int>, forcedSkillUids: list<int>, staleCallIndexes: list<int>, skillAllowList: array{toolNames: list<string>|null}|null, skillPins: list<array{skill: int, source: int, digest: string}>, invocationHistory: array{entries: list<array{tool: string, outcome: string, target: array{kind: string, identifier: string}|null}>, complete: bool}|null}
      */
     public function toArray(): array
     {
         return [
-            'messages'         => $this->messages,
-            'pendingCalls'     => $this->pendingCalls,
-            'iterations'       => $this->iterations,
-            'promptTokens'     => $this->promptTokens,
+            'messages' => $this->messages,
+            'pendingCalls' => $this->pendingCalls,
+            'iterations' => $this->iterations,
+            'promptTokens' => $this->promptTokens,
             'completionTokens' => $this->completionTokens,
             'allowedToolNames' => $this->allowedToolNames,
-            'options'          => $this->options,
-            'inputToolName'    => $this->inputToolName,
-            'inputSchema'      => $this->inputSchema,
-            'callPreviews'     => $this->callPreviews,
+            'options' => $this->options,
+            'inputToolName' => $this->inputToolName,
+            'inputSchema' => $this->inputSchema,
+            'callPreviews' => $this->callPreviews,
             'forcedSnippetUids' => $this->forcedSnippetUids,
-            'forcedSkillUids'   => $this->forcedSkillUids,
-            'staleCallIndexes'  => $this->staleCallIndexes,
+            'forcedSkillUids' => $this->forcedSkillUids,
+            'staleCallIndexes' => $this->staleCallIndexes,
             // Wrapped, so "the run resolved no restriction" (toolNames null)
             // stays distinguishable from "no list was recorded" (the key null).
             'skillAllowList' => $this->skillAllowList?->toStored(),
-            'skillPins'      => SkillPin::listToArray($this->skillPins),
+            'skillPins' => SkillPin::listToArray($this->skillPins),
+            'invocationHistory' => $this->invocationHistory?->toStored(),
         ];
     }
 
@@ -136,7 +139,7 @@ final readonly class SuspendedRunState
      */
     public static function fromArray(array $data): self
     {
-        $allowed          = $data['allowedToolNames'] ?? null;
+        $allowed = $data['allowedToolNames'] ?? null;
         $allowedToolNames = is_array($allowed) ? array_values(array_filter($allowed, is_string(...))) : null;
 
         $options = $data['options'] ?? null;
@@ -170,7 +173,10 @@ final readonly class SuspendedRunState
             // in its database. A missing or malformed value degrades to "no
             // preview" — the card then shows the arguments alone, exactly as it
             // did before — and NEVER stops the run from resuming.
-            self::previewsFrom($data['callPreviews'] ?? null, self::survivingIndexMap($rawPendingCalls)),
+            self::previewsFrom(
+                $data['callPreviews'] ?? null,
+                self::survivingIndexMap($rawPendingCalls),
+            ),
             // Back-compat (ADR-165), the same shape as the preview field above:
             // a row suspended before the forced set was persisted has neither
             // key and rehydrates with none. That is the pre-ADR-165 behaviour —
@@ -182,9 +188,15 @@ final readonly class SuspendedRunState
             // reason the previews are: rehydration renumbers the list, and an
             // index that moved would mark the wrong call as stale. An index
             // whose call did not survive is dropped rather than clamped.
-            self::staleFrom($data['staleCallIndexes'] ?? null, self::survivingIndexMap($rawPendingCalls)),
+            self::staleFrom(
+                $data['staleCallIndexes'] ?? null,
+                self::survivingIndexMap($rawPendingCalls),
+            ),
             SkillToolAllowList::fromStored($data['skillAllowList'] ?? null),
             SkillPin::listFrom($data['skillPins'] ?? null),
+            ToolInvocationHistory::fromStored(
+                $data['invocationHistory'] ?? null,
+            ),
         );
     }
 

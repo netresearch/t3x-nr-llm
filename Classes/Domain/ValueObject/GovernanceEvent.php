@@ -24,14 +24,14 @@ final readonly class GovernanceEvent
     /**
      * @param string $correlationId           trace id linking a guardrail-origin row to its telemetry / run; '' when unknown at the write point
      * @param string $decision                a {@see \Netresearch\NrLlm\Domain\Enum\GovernanceDecision} value
-     * @param string $reason                  raw enum value: ToolDenialReason, GuardrailVerdict, or the 'content_filter' literal
+     * @param string $reason                  decision-specific reason: ToolDenialReason for tool_denied; bounded installation code for invocation_denied; guardrail/context/write reasons for their decisions
      * @param string $provider                provider identifier ('' when unknown)
      * @param string $model                   model identifier ('' when unknown)
      * @param string $configurationIdentifier configuration identifier ('' when unknown)
      * @param int    $beUser                  acting backend user uid (0 for CLI / scheduler / unauthenticated)
      * @param string $toolName                the tool this decision was about; '' for guardrail / content_filter rows
      * @param int    $agentrunUid             the agent run this decision belongs to; 0 when not available at the write point
-     * @param string $guardrail               the deciding guardrail FQCN for guardrail rows; '' for tool_denied rows
+     * @param string $guardrail               the deciding guardrail FQCN for guardrail rows; '' for tool and invocation denial rows
      * @param string $detail                  optional short policy detail — never content
      */
     public function __construct(

@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
+use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
@@ -88,6 +89,7 @@ final readonly class AgentRunExecutor
         ?Closure $onStep,
         ?string $leaseOwner = null,
         ?Closure $recover = null,
+        ?ToolInvocationHistory $initialInvocationHistory = null,
     ): AgentRunResult {
         $maxIterations = $request->maxIterations !== null
             ? min($request->maxIterations, AgentRuntime::MAX_ITERATIONS)
@@ -96,7 +98,7 @@ final readonly class AgentRunExecutor
         $trace = $this->trace($handle, $onStep, $request->captureRaw, $leaseOwner);
         // Resolve the run's explicit actor to a live acting backend user ONCE,
         // identically whether this runs synchronously or in a worker (ADR-083).
-        $context = $this->toolContext($request->actor, $handle);
+        $context = $this->toolContext($request->actor, $handle, $initialInvocationHistory);
 
         return $this->execute(
             $handle,
@@ -273,7 +275,7 @@ final readonly class AgentRunExecutor
      * attribute the governance rows it writes. A run that could not be persisted
      * (null handle) contributes none — those calls keep their per-call trace.
      */
-    private function toolContext(AiActorContext $actor, ?AgentRunHandle $handle): ToolExecutionContext
+    private function toolContext(AiActorContext $actor, ?AgentRunHandle $handle, ?ToolInvocationHistory $initialInvocationHistory = null): ToolExecutionContext
     {
         $resolver = $this->actingBackendUserResolver ?? new ActingBackendUserResolver();
 
@@ -281,6 +283,7 @@ final readonly class AgentRunExecutor
             $actor,
             $resolver->resolve($actor),
             $handle instanceof AgentRunHandle ? new AgentRunReference($handle->runUid, $handle->uuid) : null,
+            $initialInvocationHistory,
         );
     }
 

@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Service\Skill\SkillRecordLookupInterface;
 use Netresearch\NrLlm\Service\Skill\SkillSourceLookupInterface;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
+use Netresearch\NrLlm\Service\Tool\ToolInvocationPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
 use PHPUnit\Framework\Attributes\Test;
@@ -158,5 +159,18 @@ final class ToolLoopGateWiringTest extends FunctionalTestCase
         $policy = $factory->instructionPolicy();
         self::assertInstanceOf(SkillInstructionPolicy::class, $policy);
         self::assertInstanceOf(SkillRecordLookupInterface::class, (new ReflectionProperty(SkillInstructionPolicy::class, 'records'))->getValue($policy), 'the policy applies the record rule');
+    }
+
+    #[Test]
+    public function productionInjectsTheInvocationRuleChain(): void
+    {
+        $loop = $this->get(ToolLoopService::class);
+        self::assertInstanceOf(ToolLoopService::class, $loop);
+        self::assertInstanceOf(
+            ToolInvocationPolicy::class,
+            (new ReflectionProperty(ToolLoopService::class, 'invocationPolicy'))->getValue(
+                $loop,
+            ),
+        );
     }
 }

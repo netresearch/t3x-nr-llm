@@ -169,6 +169,10 @@
                 <source>Tool denied</source>
                 <target>Tool abgelehnt</target>
             </trans-unit>
+            <trans-unit id="widget.governance_blocks.decision.invocation_denied">
+                <source>Invocation denied</source>
+                <target>Tool-Aufruf abgelehnt</target>
+            </trans-unit>
             <trans-unit id="widget.governance_blocks.decision.response_blocked">
                 <source>Response blocked</source>
                 <target>Antwort blockiert</target>

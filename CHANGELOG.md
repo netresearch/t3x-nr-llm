@@ -19,6 +19,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Invocation rules extend the existing tool gate (ADR-216).** Tagged
+  `ToolInvocationRuleInterface` implementations see final arguments, the actor,
+  configuration, a resolver's target and prior invocation outcomes immediately
+  before execution, including approval and input resumes. Rules compose with
+  AND; a failed rule or unavailable required history refuses execution with
+  stable reason codes. `ToolCallPolicyInterface` stays compatible. New `@api`
+  invocation types and a trailing optional `SuspendedRunState::$invocationHistory`
+  preserve observations outside the model transcript; legacy states are marked
+  incomplete. A trailing optional `ToolExecutionContext::$initialInvocationHistory`
+  carries authoritative runtime history; same-run queue retries with missing
+  observations are incomplete. First attempts and retries without added rules
+  retain their behaviour. Denials consume no remote-call budget and do not fence a write.
+
 - **Architecture and acceptance specifications for retrieval provenance,
   per-invocation tool rules, optional delegated MCP authentication, companion
   document-source synchronisation and worker operations (ADR-215 to ADR-219).**
@@ -47,6 +60,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Public tool-loop continuations preserve uncertainty about prior calls (ADR-216).** Skipping prompt assembly or seeding any resumed counter without authoritative invocation history now marks that history incomplete, so a rule requiring complete history refuses execution. Explicitly supplied history keeps its completeness flag.
+- **Invocation-rule denials have their own governance decision (ADR-216).** The governance chart and run timeline show `invocation_denied` with the bounded rule reason; the original tool-denial reason counts remain limited to offering-gate decisions.
 - **Write tools read page TSconfig as the run's acting user (#1017).** `update_content_element`, `create_content_element_draft`, `create_record_draft` and `copy_record` built their approval preview and their permission checks from page TSconfig as core resolves it for the ambient backend user: that user's workspace overlaid the rootline, their user TSconfig `page.` overrides were merged in, and their identity fed the `[backend.user…]` conditions. A run approved by another user, or resumed in a worker without one, could therefore bounce its approval or be checked against the approver's TSconfig. They now read it for the acting user, like `get_tsconfig`, which shows the acting user's view as well.
 - **A forced skill's `allowed-tools` restricts the run (ADR-038 item 5).** The tool gate resolved the skill allow-list from the configuration's skills alone, so a skill forced on a run in the playground or through a queued run's augmentation offered and permitted every tool its declaration left out. The list is now resolved once at run start over the configuration's and the forced skills and enforced when tools are offered and when a call executes. A queued run resolves it when it is enqueued and carries it with the request; at execution it is intersected with the list as it is then.
 - **A resumed run never gains tools through the skill allow-list (ADR-165).** A resume re-derived the list from the live configuration, so a run whose only declaring skill was disabled while it waited resumed with every tool. The suspended state now stores the run's list; a resume, after an approval or an input, intersects it with the live list, so a change while the run waits can take tools away but not add any. The approver and submitter gate asks with the stored list. A run suspended or queued before this release has no stored list and uses the live one, as before.

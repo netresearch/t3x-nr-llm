@@ -227,8 +227,11 @@ final readonly class ApprovalPreviewComparator
      * @param list<array{index: int, tool: string, lines: list<string>, failed: bool}> $previews
      * @param list<int>                                                                $stale
      */
-    private function restale(SuspendedRunState $state, array $previews, array $stale): SuspendedRunState
-    {
+    private function restale(
+        SuspendedRunState $state,
+        array $previews,
+        array $stale,
+    ): SuspendedRunState {
         return new SuspendedRunState(
             $state->messages,
             $state->pendingCalls,
@@ -249,6 +252,7 @@ final readonly class ApprovalPreviewComparator
             // The instructions the transcript holds stay pinned across the
             // re-suspension (ADR-214 item 6), so the next resume checks them.
             $state->skillPins,
+            $state->invocationHistory,
         );
     }
 }

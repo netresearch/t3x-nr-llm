@@ -30,6 +30,45 @@ final class RunTimelineFactoryTest extends TestCase
     private const RUN_UUID = 'c0ffee00-0000-4000-8000-000000000042';
 
     #[Test]
+    public function invocationDenialsExposeTheRuleReasonAndKindInTheRunTimeline(): void
+    {
+        $governance = new InMemoryGovernanceEventRepository();
+        $governance->runEvents = [
+            new RecordedGovernanceEvent(
+                decision: 'invocation_denied',
+                reason: 'outside_site',
+                toolName: 'lookup',
+                guardrail: '',
+                detail: 'invocationRule=installation.boundary',
+                crdate: 1700000030,
+            ),
+        ];
+        $factory = new RunTimelineFactory(new InMemoryTelemetryRepository(), $governance);
+
+        $timeline = $factory->build($this->agentRun(), []);
+
+        self::assertCount(1, $timeline);
+        self::assertSame(
+            RunTimelineEntry::SOURCE_GOVERNANCE,
+            $timeline[0]->source,
+        );
+        self::assertSame('invocation_denied', $timeline[0]->kind);
+        self::assertSame(
+            RunTimelineEntry::OUTCOME_FAILED,
+            $timeline[0]->outcome,
+        );
+        self::assertStringContainsString(
+            'reason=outside_site',
+            $timeline[0]->detail,
+        );
+        self::assertStringContainsString('tool=lookup', $timeline[0]->detail);
+        self::assertStringContainsString(
+            'invocationRule=installation.boundary',
+            $timeline[0]->detail,
+        );
+    }
+
+    #[Test]
     public function theThreeStreamsAreJoinedOnTheRunAndOrderedInTime(): void
     {
         $telemetry = new InMemoryTelemetryRepository();

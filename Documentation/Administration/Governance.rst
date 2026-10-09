@@ -260,6 +260,14 @@ ceiling. Two places show them:
   denials, guardrail response blocks, and the guardrail's own
   ``approval_required`` verdict on a response.
 
+  The ``invocation_denied`` bar counts calls an installation-specific rule
+  refused after the tool passed the offering gate. Its ``reason`` is a bounded
+  installation code, such as ``outside_site``, and ``detail`` names the rule as
+  ``invocationRule``. These events also appear in the run timeline. The
+  :guilabel:`Tool denials by reason` widget counts only ``tool_denied`` events,
+  whose reasons belong to :php:`ToolDenialReason`; invocation rules do not
+  change those counts.
+
   A ``write_unapproved`` bar counts writes the runtime refused because
   nothing had approved them: a pending call that reached the input-resume
   path after its tool was switched on mid-run. It is a refusal, not an

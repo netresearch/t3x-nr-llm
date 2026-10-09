@@ -41,6 +41,9 @@ use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocation;
+use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision;
+use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory;
+use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationTarget;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
@@ -66,9 +69,13 @@ use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
+use Netresearch\NrLlm\Service\Tool\ToolInvocationContext;
+use Netresearch\NrLlm\Service\Tool\ToolInvocationPolicy;
+use Netresearch\NrLlm\Service\Tool\ToolInvocationRuleInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolResultBounder;
+use Netresearch\NrLlm\Service\Tool\ToolTargetResolverInterface;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryGovernanceEventRepository;
 use Netresearch\NrLlm\Tests\Unit\Language\EnglishPreviewTranslatorTrait;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeInputTool;
@@ -3527,5 +3534,665 @@ final class ToolLoopServiceTest extends TestCase
 
         self::assertSame(0, $tool->executions);
         self::assertSame('understood', $result->finalContent);
+    }
+
+    #[Test]
+    public function invocationRulesObserveEveryCallAndAuthoritativePriorOutcomes(): void
+    {
+        $tool = new FakeTool('read_record');
+        $registry = new ToolRegistry([$tool]);
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr
+            ->method('chatWithToolsForConfiguration')
+            ->willReturnCallback(
+                $this->queueCallback(
+                    [
+                        $this->response(
+                            '',
+                            [
+                                new ToolCall(
+                                    'first',
+                                    'read_record',
+                                    ['uid' => 7],
+                                ),
+                                new ToolCall(
+                                    'second',
+                                    'read_record',
+                                    ['uid' => 8],
+                                ),
+                            ],
+                        ),
+                        $this->response('done'),
+                    ],
+                ),
+            );
+        $seen = [];
+        $rule = self::createStub(ToolInvocationRuleInterface::class);
+        $rule->method('identifier')->willReturn('record.boundary');
+        $rule->method('requiresCompleteHistory')->willReturn(true);
+        $rule
+            ->method('decide')
+            ->willReturnCallback(
+                static function (
+                    ToolInvocationContext $context,
+                ) use (&$seen): ToolInvocationDecision {
+                    $seen[] = $context;
+                    return $context->arguments['uid'] === 8 ? ToolInvocationDecision::deny('outside_site') : ToolInvocationDecision::allow();
+                },
+            );
+        $resolver = self::createStub(ToolTargetResolverInterface::class);
+        $resolver
+            ->method('resolve')
+            ->willReturnCallback(
+                static fn(
+                    ToolCall $call,
+                ): ToolInvocationTarget => new ToolInvocationTarget(
+                    'pages',
+                    $call->arguments['uid'] === 7 ? '7' : '8',
+                ),
+            );
+        $service = new ToolLoopService(
+            $mgr,
+            $registry,
+            $this->realPolicy(
+                $registry,
+                new FakeToolAvailability($registry->names()),
+            ),
+            invocationPolicy: new ToolInvocationPolicy([$rule], [$resolver]),
+        );
+        $configuration = $this->localConfiguration();
+        $context = ToolExecutionContext::none();
+        $result = $service->runLoop(
+            [$this->userTurn('read')],
+            $configuration,
+            $context,
+            null,
+        );
+        self::assertCount(2, $seen);
+        self::assertSame($configuration, $seen[0]->configuration);
+        self::assertSame($context, $seen[0]->execution);
+        self::assertTrue($seen[0]->history->complete);
+        self::assertSame([], $seen[0]->history->entries);
+        self::assertSame(
+            [
+                [
+                    'tool' => 'read_record',
+                    'outcome' => 'ok',
+                    'target' => ['kind' => 'pages', 'identifier' => '7'],
+                ],
+            ],
+            $seen[1]->history->entries,
+        );
+        self::assertFalse($result->trace[0]->isError);
+        self::assertTrue($result->trace[1]->isError);
+        self::assertStringContainsString(
+            'outside_site',
+            $result->trace[1]->result,
+        );
+    }
+
+    #[Test]
+    public function approvalResumeRechecksInvocationWithPersistedHistory(): void
+    {
+        $registry = new ToolRegistry([$this->approvalTool()]);
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr
+            ->method('chatWithToolsForConfiguration')
+            ->willReturnCallback(
+                $this->queueCallback(
+                    [
+                        $this->response(
+                            '',
+                            [
+                                new ToolCall(
+                                    'approve',
+                                    'delete_thing',
+                                    ['id' => 7],
+                                ),
+                            ],
+                        ),
+                        $this->response('done'),
+                    ],
+                ),
+            );
+        $rule = self::createMock(ToolInvocationRuleInterface::class);
+        $rule->method('identifier')->willReturn('approval.boundary');
+        $rule->method('requiresCompleteHistory')->willReturn(true);
+        $rule
+            ->expects(self::once())
+            ->method('decide')
+            ->willReturnCallback(
+                static function (
+                    ToolInvocationContext $context,
+                ): ToolInvocationDecision {
+                    self::assertTrue($context->history->complete);
+                    self::assertSame([], $context->history->entries);
+                    self::assertSame(7, $context->arguments['id']);
+                    return ToolInvocationDecision::deny('record_changed');
+                },
+            );
+        $service = new ToolLoopService(
+            $mgr,
+            $registry,
+            $this->realPolicy(
+                $registry,
+                new FakeToolAvailability($registry->names()),
+            ),
+            invocationPolicy: new ToolInvocationPolicy([$rule]),
+        );
+        $state = SuspendedRunState::fromArray($this->suspend($service)->toArray());
+        $service->resume(
+            $state,
+            true,
+            $this->localConfiguration(),
+            ToolExecutionContext::none(),
+            runTrace: $trace = new RunTrace(),
+        );
+        self::assertTrue(array_values(
+            array_filter(
+                $trace->getSteps(),
+                static fn(
+                    RunStep $step,
+                ): bool => $step->kind === RunStep::KIND_TOOL,
+            ),
+        )[0]->toolIsError);
+        self::assertStringContainsString(
+            'record_changed',
+            array_values(
+                array_filter(
+                    $trace->getSteps(),
+                    static fn(
+                        RunStep $step,
+                    ): bool => $step->kind === RunStep::KIND_TOOL,
+                ),
+            )[0]->toolResult ?? '',
+        );
+    }
+
+    #[Test]
+    public function legacyResumeFailsClosedForAHistoryDependentRule(): void
+    {
+        $registry = new ToolRegistry([$this->approvalTool()]);
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr
+            ->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('done'));
+        $rule = self::createMock(ToolInvocationRuleInterface::class);
+        $rule->method('identifier')->willReturn('sequence.required');
+        $rule->method('requiresCompleteHistory')->willReturn(true);
+        $rule->expects(self::never())->method('decide');
+        $service = new ToolLoopService(
+            $mgr,
+            $registry,
+            $this->realPolicy(
+                $registry,
+                new FakeToolAvailability($registry->names()),
+            ),
+            invocationPolicy: new ToolInvocationPolicy([$rule]),
+        );
+        $state = new SuspendedRunState(
+            [$this->userTurn('delete')],
+            [(new ToolCall('legacy', 'delete_thing', []))->toArray()],
+            1,
+            0,
+            0,
+            ['delete_thing'],
+        );
+        $service->resume(
+            $state,
+            true,
+            $this->localConfiguration(),
+            ToolExecutionContext::none(),
+            runTrace: $trace = new RunTrace(),
+        );
+        self::assertTrue(array_values(
+            array_filter(
+                $trace->getSteps(),
+                static fn(
+                    RunStep $step,
+                ): bool => $step->kind === RunStep::KIND_TOOL,
+            ),
+        )[0]->toolIsError);
+        self::assertStringContainsString(
+            'history_incomplete',
+            array_values(
+                array_filter(
+                    $trace->getSteps(),
+                    static fn(
+                        RunStep $step,
+                    ): bool => $step->kind === RunStep::KIND_TOOL,
+                ),
+            )[0]->toolResult ?? '',
+        );
+    }
+
+    #[Test]
+    public function inputResumeChecksTheValidatedHumanArgumentsBeforeExecuting(): void
+    {
+        $tool = new FakeInputTool('ask_user');
+        $registry = new ToolRegistry([$tool]);
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr
+            ->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('done'));
+        $rule = self::createMock(ToolInvocationRuleInterface::class);
+        $rule->method('identifier')->willReturn('input.boundary');
+        $rule->method('requiresCompleteHistory')->willReturn(false);
+        $rule
+            ->expects(self::once())
+            ->method('decide')
+            ->willReturnCallback(
+                static function (
+                    ToolInvocationContext $context,
+                ): ToolInvocationDecision {
+                    self::assertSame(['city' => 'Berlin'], $context->arguments);
+                    return ToolInvocationDecision::deny('city_restricted');
+                },
+            );
+        $service = new ToolLoopService(
+            $mgr,
+            $registry,
+            $this->realPolicy(
+                $registry,
+                new FakeToolAvailability($registry->names()),
+            ),
+            invocationPolicy: new ToolInvocationPolicy([$rule]),
+        );
+        $state = new SuspendedRunState(
+            [$this->userTurn('ask')],
+            [
+                (new ToolCall('input', 'ask_user', ['city' => 'ModelGuess']))->toArray(),
+            ],
+            1,
+            0,
+            0,
+            ['ask_user'],
+            [],
+            'ask_user',
+            $tool->getInputSchema(),
+        );
+        $service->resumeWithInput(
+            $state,
+            ['city' => 'Berlin'],
+            $this->localConfiguration(),
+            ToolExecutionContext::none(),
+            runTrace: $trace = new RunTrace(),
+        );
+        self::assertTrue(array_values(
+            array_filter(
+                $trace->getSteps(),
+                static fn(
+                    RunStep $step,
+                ): bool => $step->kind === RunStep::KIND_TOOL,
+            ),
+        )[0]->toolIsError);
+        self::assertStringContainsString(
+            'city_restricted',
+            array_values(
+                array_filter(
+                    $trace->getSteps(),
+                    static fn(
+                        RunStep $step,
+                    ): bool => $step->kind === RunStep::KIND_TOOL,
+                ),
+            )[0]->toolResult ?? '',
+        );
+        self::assertNull($tool->capturedArguments);
+    }
+
+    #[Test]
+    public function deniedInvocationsConsumeNeitherTheRemoteBudgetNorTheExecutionFence(): void
+    {
+        $calls = [];
+        for ($i = 0; $i < RemoteCallBudget::DEFAULT_LIMIT; ++$i) {
+            $calls[] = new ToolCall('denied_' . $i, 'remote_thing', ['deny' => true]);
+        }
+
+        for ($i = 0; $i < RemoteCallBudget::DEFAULT_LIMIT; ++$i) {
+            $calls[] = new ToolCall('allowed_' . $i, 'remote_thing', ['deny' => false]);
+        }
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr
+            ->method('chatWithToolsForConfiguration')
+            ->willReturnCallback(
+                $this->queueCallback(
+                    [$this->response('', $calls), $this->response('done')],
+                ),
+            );
+        $registry = new ToolRegistry([$this->remoteTool()]);
+        $rule = self::createStub(ToolInvocationRuleInterface::class);
+        $rule->method('identifier')->willReturn('remote.boundary');
+        $rule->method('requiresCompleteHistory')->willReturn(false);
+        $rule
+            ->method('decide')
+            ->willReturnCallback(
+                static fn(
+                    ToolInvocationContext $context,
+                ): ToolInvocationDecision => $context->arguments['deny'] ? ToolInvocationDecision::deny('forbidden_target') : ToolInvocationDecision::allow(),
+            );
+        $service = new ToolLoopService(
+            $mgr,
+            $registry,
+            $this->realPolicy(
+                $registry,
+                new FakeToolAvailability($registry->names()),
+            ),
+            invocationPolicy: new ToolInvocationPolicy([$rule]),
+        );
+        $fenced = [];
+        $trace = new RunTrace(
+            onBeforeTool: static function (string $toolName) use (&$fenced): void {
+                $fenced[] = $toolName;
+            },
+        );
+        $result = $service->runLoop(
+            [$this->userTurn('go')],
+            $this->localConfiguration(),
+            ToolExecutionContext::none(),
+            null,
+            runTrace: $trace,
+        );
+        // Only permitted invocations enter the execution fence.
+        self::assertCount(RemoteCallBudget::DEFAULT_LIMIT, $fenced);
+        self::assertCount(RemoteCallBudget::DEFAULT_LIMIT * 2, $result->trace);
+        foreach (array_slice($result->trace, RemoteCallBudget::DEFAULT_LIMIT) as $invocation) {
+            self::assertFalse($invocation->isError);
+        }
+    }
+
+    #[Test]
+    public function invocationFailureMetadataContainsCodesRatherThanArgumentsOrExceptionText(): void
+    {
+        $registry = new ToolRegistry([new FakeTool('lookup')]);
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr
+            ->method('chatWithToolsForConfiguration')
+            ->willReturnCallback(
+                $this->queueCallback(
+                    [
+                        $this->response(
+                            '',
+                            [
+                                new ToolCall(
+                                    'call',
+                                    'lookup',
+                                    ['credential' => 'secret-payload'],
+                                ),
+                            ],
+                        ),
+                        $this->response('done'),
+                    ],
+                ),
+            );
+        $rule = self::createStub(ToolInvocationRuleInterface::class);
+        $rule->method('identifier')->willReturn('credential.rule');
+        $rule->method('requiresCompleteHistory')->willReturn(false);
+        $rule
+            ->method('decide')
+            ->willThrowException(new RuntimeException('secret-exception'));
+        $events = new InMemoryGovernanceEventRepository();
+        $service = new ToolLoopService(
+            $mgr,
+            $registry,
+            $this->realPolicy(
+                $registry,
+                new FakeToolAvailability($registry->names()),
+            ),
+            governanceEvents: $events,
+            invocationPolicy: new ToolInvocationPolicy([$rule]),
+        );
+        $result = $service->runLoop(
+            [$this->userTurn('go')],
+            $this->localConfiguration(),
+            ToolExecutionContext::none(),
+            null,
+        );
+        self::assertSame('rule_failed', $events->recorded[0]->reason);
+        self::assertSame(
+            'invocationRule=credential.rule',
+            $events->recorded[0]->detail,
+        );
+        self::assertStringNotContainsString(
+            'secret-',
+            $result->trace[0]->result,
+        );
+    }
+
+    #[Test]
+    public function pruningTheModelTranscriptDoesNotEraseInvocationHistory(): void
+    {
+        $registry = new ToolRegistry([new FakeTool('private_lookup'), new FakeTool('noop')]);
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr
+            ->method('chatWithToolsForConfiguration')
+            ->willReturnCallback(
+                $this->queueCallback(
+                    [
+                        $this->response(
+                            '',
+                            [new ToolCall('private', 'private_lookup', [])],
+                        ),
+                        $this->response('', [new ToolCall('noop', 'noop', [])]),
+                        $this->response(
+                            '',
+                            [new ToolCall('after_prune', 'private_lookup', [])],
+                        ),
+                        $this->response('done'),
+                    ],
+                ),
+            );
+        $fits = 0;
+        $window = self::createStub(ContextWindowManagerInterface::class);
+        $window
+            ->method('fit')
+            ->willReturnCallback(
+                static function (
+                    array $messages,
+                ) use (&$fits): ContextFitResult {
+                    /** @var list<ChatMessage|array<string, mixed>> $messages */
+                    ++$fits;
+                    $pruned = $fits >= 3;
+                    if ($pruned) {
+                        $messages = [$messages[0], ...array_slice($messages, -2)];
+                    }
+
+                    return new ContextFitResult(
+                        $messages,
+                        $pruned,
+                        $pruned ? 1 : 0,
+                        1,
+                        10,
+                        100,
+                        false,
+                        1.15,
+                        ContextBudgetBreakdown::none(),
+                    );
+                },
+            );
+        $rule = self::createStub(ToolInvocationRuleInterface::class);
+        $rule->method('identifier')->willReturn('private.sequence');
+        $rule->method('requiresCompleteHistory')->willReturn(true);
+        $rule
+            ->method('decide')
+            ->willReturnCallback(
+                static function (
+                    ToolInvocationContext $context,
+                ): ToolInvocationDecision {
+                    if (count($context->history->entries) === 2) {
+                        self::assertSame(
+                            'private_lookup',
+                            $context->history->entries[0]['tool'],
+                        );
+                        return ToolInvocationDecision::deny('private_already_read');
+                    }
+
+                    return ToolInvocationDecision::allow();
+                },
+            );
+        $service = new ToolLoopService(
+            $mgr,
+            $registry,
+            $this->realPolicy(
+                $registry,
+                new FakeToolAvailability($registry->names()),
+            ),
+            contextWindow: $window,
+            invocationPolicy: new ToolInvocationPolicy([$rule]),
+        );
+        $result = $service->runLoop(
+            [$this->userTurn('go')],
+            $this->localConfiguration(),
+            ToolExecutionContext::none(),
+            null,
+        );
+        self::assertSame(4, $fits);
+        self::assertFalse($result->trace[0]->isError);
+        self::assertTrue($result->trace[2]->isError);
+        self::assertStringContainsString(
+            'private_already_read',
+            $result->trace[2]->result,
+        );
+    }
+
+    #[Test]
+    public function aRemoteBudgetRefusalIsRecordedAsDeniedRatherThanExecutedAndFailed(): void
+    {
+        $calls = [];
+        for ($i = 0; $i <= RemoteCallBudget::DEFAULT_LIMIT; ++$i) {
+            $calls[] = new ToolCall('remote_' . $i, 'remote_thing', []);
+        }
+
+        $calls[] = new ToolCall('observe', 'noop', []);
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr
+            ->method('chatWithToolsForConfiguration')
+            ->willReturnCallback(
+                $this->queueCallback(
+                    [$this->response('', $calls), $this->response('done')],
+                ),
+            );
+        $registry = new ToolRegistry([$this->remoteTool(), new FakeTool('noop')]);
+        $rule = self::createStub(ToolInvocationRuleInterface::class);
+        $rule->method('identifier')->willReturn('outcome.observer');
+        $rule->method('requiresCompleteHistory')->willReturn(true);
+        $rule
+            ->method('decide')
+            ->willReturnCallback(
+                static function (
+                    ToolInvocationContext $context,
+                ): ToolInvocationDecision {
+                    if ($context->toolName === 'noop') {
+                        self::assertCount(
+                            RemoteCallBudget::DEFAULT_LIMIT + 1,
+                            $context->history->entries,
+                        );
+                        self::assertSame(
+                            'denied',
+                            $context->history->entries[RemoteCallBudget::DEFAULT_LIMIT]['outcome'],
+                        );
+                    }
+
+                    return ToolInvocationDecision::allow();
+                },
+            );
+        $service = new ToolLoopService(
+            $mgr,
+            $registry,
+            $this->realPolicy(
+                $registry,
+                new FakeToolAvailability($registry->names()),
+            ),
+            invocationPolicy: new ToolInvocationPolicy([$rule]),
+        );
+        $result = $service->runLoop(
+            [$this->userTurn('go')],
+            $this->localConfiguration(),
+            ToolExecutionContext::none(),
+            null,
+        );
+        self::assertTrue(
+            $result->trace[RemoteCallBudget::DEFAULT_LIMIT]->isError,
+        );
+        self::assertFalse(
+            $result->trace[RemoteCallBudget::DEFAULT_LIMIT + 1]->isError,
+        );
+    }
+
+    #[Test]
+    #[DataProvider('publicContinuationHistoryCases')]
+    public function publicContinuationsRequireAuthoritativeInvocationHistory(
+        bool $skipAssembly,
+        int $seedIterations,
+        int $seedPromptTokens,
+        int $seedCompletionTokens,
+        ?bool $providedComplete,
+        bool $expectedAllowed,
+    ): void {
+        $registry = new ToolRegistry([new FakeTool('lookup')]);
+        $manager = self::createStub(LlmServiceManagerInterface::class);
+        $manager
+            ->method('chatWithToolsForConfiguration')
+            ->willReturn(
+                $this->response('', [new ToolCall('lookup', 'lookup', [])]),
+                $this->response('done'),
+            );
+        $rule = self::createStub(ToolInvocationRuleInterface::class);
+        $rule->method('identifier')->willReturn('sequence.required');
+        $rule->method('requiresCompleteHistory')->willReturn(true);
+        $rule->method('decide')->willReturn(ToolInvocationDecision::allow());
+        $service = new ToolLoopService(
+            $manager,
+            $registry,
+            $this->realPolicy(
+                $registry,
+                new FakeToolAvailability($registry->names()),
+            ),
+            invocationPolicy: new ToolInvocationPolicy([$rule]),
+        );
+        $context = new ToolExecutionContext(
+            AiActorContext::anonymous(),
+            initialInvocationHistory: $providedComplete === null ? null : new ToolInvocationHistory(complete: $providedComplete),
+        );
+        $executed = [];
+        $trace = new RunTrace(
+            onBeforeTool: static function (string $tool) use (&$executed): void {
+                $executed[] = $tool;
+            },
+        );
+        $result = $service->runLoop(
+            [$this->userTurn('continue')],
+            $this->localConfiguration(),
+            $context,
+            null,
+            runTrace: $trace,
+            skipAssembly: $skipAssembly,
+            seedIterations: $seedIterations,
+            seedPromptTokens: $seedPromptTokens,
+            seedCompletionTokens: $seedCompletionTokens,
+        );
+        self::assertSame(!$expectedAllowed, $result->trace[0]->isError);
+        self::assertSame($expectedAllowed ? ['lookup'] : [], $executed);
+        if (!$expectedAllowed) {
+            self::assertStringContainsString(
+                'history_incomplete',
+                $result->trace[0]->result,
+            );
+        }
+    }
+
+    /**
+     * @return iterable<string, array{bool, int, int, int, ?bool, bool}>
+     */
+    public static function publicContinuationHistoryCases(): iterable
+    {
+        yield 'fresh run' => [false, 0, 0, 0, null, true];
+        yield 'assembled continuation' => [true, 0, 0, 0, null, false];
+        yield 'iteration seed alone' => [false, 1, 0, 0, null, false];
+        yield 'prompt token seed alone' => [false, 0, 7, 0, null, false];
+        yield 'completion token seed alone' => [false, 0, 0, 7, null, false];
+        yield 'all continuation markers' => [true, 1, 7, 7, null, false];
+        yield 'authoritative complete history wins' => [true, 1, 7, 7, true, true];
+        yield 'authoritative incomplete history stays incomplete' => [false, 0, 0, 0, false, false];
     }
 }
