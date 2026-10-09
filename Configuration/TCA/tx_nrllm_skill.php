@@ -63,7 +63,8 @@ return [
     // control is that a record carrying sync-written values stays checked
     // against them on any source (SkillComposer::isEditedInPlace()).
     'types' => [
-        '0' => ['showitem' => $syncedShowitem, 'columnsOverrides' => $syncedOverrides],
+        // No source yet (a new record): the source is picked here.
+        '0' => ['showitem' => $syncedShowitem],
         'single_file' => ['showitem' => $syncedShowitem, 'columnsOverrides' => $syncedOverrides],
         'repo' => ['showitem' => $syncedShowitem, 'columnsOverrides' => $syncedOverrides],
         'marketplace' => ['showitem' => $syncedShowitem, 'columnsOverrides' => $syncedOverrides],

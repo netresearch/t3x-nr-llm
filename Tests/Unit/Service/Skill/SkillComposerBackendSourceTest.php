@@ -255,7 +255,9 @@ final class SkillComposerBackendSourceTest extends TestCase
 
         $skill->setProcess(false);
 
-        self::assertSame([], $this->composer()->declaredTools($skill), 'the only approved version is a process version');
+        // The marker is read from the approved version, not the form.
+        self::assertNull($this->composer()->declaredTools($skill), 'the approved version is a process version: still no opinion uninvoked');
+        self::assertSame(['get_page'], $this->composer()->declaredTools($skill, invoked: true));
     }
 
     /**

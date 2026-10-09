@@ -138,6 +138,61 @@ final class AllowedToolsResolverDeclaredToolsTest extends TestCase
         self::assertSame([], $this->resolver()->resolveForRun($this->configuration($undeclared), [], null, [$undeclared])->toolNames);
     }
 
+    /**
+     * The process marker of a backend skill is read from the approved
+     * version, like its tools: switching it on in the form does not turn an
+     * approved restriction into "no opinion".
+     */
+    #[Test]
+    public function aBackendSkillSwitchedToProcessAfterApprovalKeepsItsApprovedRestriction(): void
+    {
+        $skill = $this->backendSkill('["get_page"]');
+        $this->approvals->add(1, self::BACKEND, SkillVersionDigest::of($skill), SkillVersionDigest::fieldsOf($skill), 'verified', 1);
+        $skill->setProcess(true);
+
+        self::assertSame(['get_page'], $this->resolver()->resolve($this->configuration($skill)));
+        self::assertSame(['get_page'], $this->resolver()->resolveForRun($this->configuration($skill), [])->toolNames);
+    }
+
+    /**
+     * The other direction: an approved process version stays a process
+     * version when the form switches the marker off, so a run that does not
+     * invoke it does not get its tools.
+     */
+    #[Test]
+    public function aBackendProcessSkillSwitchedOffAfterApprovalStillNeedsAnInvocation(): void
+    {
+        $tour = $this->backendSkill('["update_content_element"]');
+        $tour->setProcess(true);
+
+        $this->approvals->add(1, self::BACKEND, SkillVersionDigest::of($tour), SkillVersionDigest::fieldsOf($tour), 'verified', 1);
+        $tour->setProcess(false);
+        $normal = $this->syncedSkill('["get_page"]');
+
+        self::assertSame(['get_page'], $this->resolver()->resolveForRun($this->configuration($tour, $normal), [])->toolNames);
+        self::assertSame(
+            ['update_content_element', 'get_page'],
+            $this->resolver()->resolveForRun($this->configuration($tour, $normal), [], null, [$tour])->toolNames,
+        );
+    }
+
+    /**
+     * An invoked skill that is not effective (here: disabled) grants nothing
+     * and still restricts the run; an effective one grants its tools.
+     */
+    #[Test]
+    public function anInvokedSkillThatIsNotEffectiveRestrictsTheRunToNothing(): void
+    {
+        $tour = $this->processSkill('["update_content_element"]');
+        $tour->setEnabled(false);
+
+        self::assertSame([], $this->resolver()->resolveForRun($this->configuration(), [], null, [$tour])->toolNames);
+
+        $tour->setEnabled(true);
+
+        self::assertSame(['update_content_element'], $this->resolver()->resolveForRun($this->configuration(), [], null, [$tour])->toolNames);
+    }
+
     private function processSkill(string $tools): Skill
     {
         $skill = $this->backendSkill($tools);

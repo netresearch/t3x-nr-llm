@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\SkillSourceType;
 use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
 use Netresearch\NrLlm\Domain\Enum\SupportStatus;
 use Netresearch\NrLlm\Domain\Model\Skill;
+use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
 use Netresearch\NrLlm\Domain\ValueObject\SkillCompositionResult;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SkillSourceFacts;
@@ -262,67 +263,76 @@ final readonly class SkillComposer
      *
      * Fail-closed in every case where the declaration is not vouched for: the
      * declared empty list grants nothing and, unlike "no declaration", can
-     * never leave a run unrestricted (ADR-214 item 3).
+     * never leave a run unrestricted (ADR-214 item 3). The process marker is
+     * read from the vouched version too, never from a field nobody vouched
+     * for, so switching it on does not lift a restriction.
      *
      * - No active source record (missing, hidden, disabled, of an unknown
      *   type): the empty list.
-     * - A backend-authored skill: the declaration of its most recent unrevoked
-     *   approved version from the same source, and the empty list while none
-     *   is approved — an author cannot widen a run's tools with an edit nobody
-     *   approved. Without a policy to read approvals from it grants nothing.
-     * - A process skill that the run does not invoke (ADR-214 items 5 and
-     *   6): no opinion. It is composed only through an invocation, so a run
-     *   that only has it attached gets neither its section nor its tools,
-     *   and it does not restrict that run either. An invoked process skill
-     *   is vouched for like any other skill.
+     * - A backend-authored skill: the approved version it holds, else its most
+     *   recent unrevoked approved version from the same source; the empty
+     *   list while none is approved — an author cannot widen a run's tools
+     *   with an edit nobody approved. Without a policy to read approvals from
+     *   it grants nothing.
      * - A synced skill whose stored fields fail the integrity check: the empty
-     *   list, as compose skips it.
-     * - Any other synced skill: its stored field.
+     *   list, as compose skips it. Otherwise its stored fields are the
+     *   vouched version.
+     * - A vouched process version the run does not invoke (ADR-214 items 5
+     *   and 6): no opinion — neither its tools nor a restriction. An invoked
+     *   one contributes its declaration, and the empty list rather than null
+     *   when it declares none (fail closed).
      *
-     * A composer built without a source lookup (lean wiring) keeps the stored
-     * field, as before ADR-214.
+     * A composer built without a source lookup (lean wiring) takes the
+     * record's own fields as the version, as before ADR-214, and applies the
+     * process rule to them.
      *
-     * @param bool $invoked whether the run invokes this skill (or holds its pin);
-     *                      an invoked process skill without a vouched declaration
-     *                      declares the empty list, never null
+     * @param bool $invoked whether the run invokes this skill (or holds its pin)
      *
      * @return list<string>|null null = no opinion; a list = the declaration
      */
     public function declaredTools(Skill $skill, bool $invoked = false): ?array
     {
-        if (!$skill->isProcess()) {
-            return $this->vouchedTools($skill, false);
+        $version = $this->vouchedVersion($skill);
+        if ($version === null) {
+            return [];
         }
 
-        // An invoked process skill never leaves the run unrestricted: what
-        // nothing vouches for, or no declaration at all, restricts it to
-        // nothing (fail closed).
-        return $invoked ? ($this->vouchedTools($skill, true) ?? []) : null;
+        [$tools, $process] = $version;
+        if (!$process) {
+            return $tools;
+        }
+
+        return $invoked ? ($tools ?? []) : null;
     }
 
     /**
-     * @return list<string>|null
+     * The vouched declaration and process marker of a skill, or null when
+     * nothing vouches for it.
+     *
+     * @return array{0: list<string>|null, 1: bool}|null
      */
-    private function vouchedTools(Skill $skill, bool $invoked): ?array
+    private function vouchedVersion(Skill $skill): ?array
     {
         if (!$this->sources instanceof SkillSourceLookupInterface) {
-            return $skill->getAllowedToolsList();
+            return [$skill->getAllowedToolsList(), $skill->isProcess()];
         }
 
         $facts = $this->sources->find($skill->getSource());
         if (!$facts instanceof SkillSourceFacts || !$facts->type instanceof SkillSourceType) {
-            return [];
+            return null;
         }
 
         if (self::isEditedInPlace($skill, $facts)) {
-            return $this->instructionPolicy?->approvedToolsOf($skill, SkillVersionDigest::verified($skill, false), $invoked) ?? [];
+            $approval = $this->instructionPolicy?->approvalOf($skill, SkillVersionDigest::verified($skill, false));
+
+            return $approval instanceof SkillApproval ? [$approval->allowedTools, $approval->process] : null;
         }
 
         if (SkillVersionDigest::verified($skill) === null) {
-            return [];
+            return null;
         }
 
-        return $skill->getAllowedToolsList();
+        return [$skill->getAllowedToolsList(), $skill->isProcess()];
     }
 
     /**
