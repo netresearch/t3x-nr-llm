@@ -415,6 +415,10 @@ final class SuspendedRunStateTest extends TestCase
         yield 'boolean'             => [true];
         yield 'null'                => [null];
     }
+
+    /**
+     * A pin refresh must not lose the identity a later resume authenticates.
+     */
     #[Test]
     public function initiatingActorBindingSurvivesPinsAndStoredJson(): void
     {
@@ -445,6 +449,7 @@ final class SuspendedRunStateTest extends TestCase
         self::assertSame($uuid, $restored->initiatingRunUuid);
         self::assertCount(1, $restored->skillPins);
     }
+
     #[Test]
     public function explicitUnreadableActorIsDistinctFromLegacyAbsence(): void
     {
