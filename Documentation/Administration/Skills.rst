@@ -256,6 +256,9 @@ until the edited version is approved. Until a version is approved the skill
 grants no tools — it counts as a declared empty list — and afterwards it grants
 the tools of the approved version it holds, or of its most recent approved
 version while it holds an unapproved one; never the ones in the field.
+Every unrevoked approval keeps vouching: an author who restores the fields of
+an older approved version gets that version back, its tools included. Revoke
+an older version when a newer one is meant to replace it.
 
 A backend user who is not an administrator writes skills only with the
 fields an administrator granted: the source, the enable flag, the allowed
