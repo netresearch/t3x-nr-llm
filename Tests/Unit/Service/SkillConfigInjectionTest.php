@@ -156,6 +156,36 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
         self::assertSame('Translate this.', $this->content($this->messageAt($capturedMessages, 1)));
     }
 
+    /**
+     * A caller system message after the first user turn suppresses the
+     * configuration prompt, so the instructions join that message — the last
+     * system message, which every adapter sends — instead of being handed to
+     * a prompt that is not sent.
+     */
+    #[Test]
+    public function chatWithALateCallerSystemMessageAppendsTheInstructionsToIt(): void
+    {
+        $capturedMessages = [];
+        $adapter          = $this->createMock(ProviderInterface::class);
+        $adapter->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages): CompletionResponse {
+                $capturedMessages = $messages;
+                return $this->completionResponse();
+            },
+        );
+
+        $manager = $this->managerWithAdapter($adapter, $this->configurationWithApprovedSkill(), $this->instructingInjection());
+
+        $manager->chat([
+            ['role' => 'user', 'content' => 'Translate this.'],
+            ['role' => 'system', 'content' => 'Late caller note.'],
+        ]);
+
+        self::assertCount(2, $capturedMessages);
+        self::assertSame('Translate this.', $this->content($this->messageAt($capturedMessages, 0)));
+        self::assertStringStartsWith("Late caller note.\n\n## Approved skills", $this->content($this->messageAt($capturedMessages, 1)));
+    }
+
     #[Test]
     public function chatWithACallerSystemMessageAppendsTheInstructionsToIt(): void
     {

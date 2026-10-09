@@ -41,7 +41,7 @@ final readonly class SkillInstructionPolicy
         // orphaned), read now: the same rule the pin check applies at resume,
         // so a skill hidden to stop it cannot instruct through a forced list
         // that ignores enable fields. Optional for lean test wiring only;
-        // production wires it (SkillComposerFactoryWiringTest).
+        // production wires it (ToolLoopGateWiringTest).
         private ?SkillRecordLookupInterface $records = null,
     ) {}
 

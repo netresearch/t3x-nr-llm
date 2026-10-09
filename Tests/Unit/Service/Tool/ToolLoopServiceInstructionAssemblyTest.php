@@ -83,6 +83,25 @@ final class ToolLoopServiceInstructionAssemblyTest extends TestCase
         self::assertStringNotContainsString(self::CONFIG_SYSTEM_PROMPT, $sent[0]->content, 'a caller system message still suppresses the configuration prompt');
     }
 
+    /**
+     * A caller system message after the first user turn is outside the head:
+     * the instructions are not placed there but behind the effective prompt
+     * the loop bakes at the head, so the configuration prompt goes out with
+     * them.
+     */
+    #[Test]
+    public function aLateCallerSystemMessageLeavesTheInstructionsBehindTheEffectivePrompt(): void
+    {
+        $sent = $this->runAndCapture([ChatMessage::user(self::USER_TURN), ChatMessage::system('Late caller note.')], null);
+
+        self::assertInstanceOf(ChatMessage::class, $sent[0]);
+        self::assertTrue($sent[0]->isSystem());
+        self::assertStringStartsWith(self::CONFIG_SYSTEM_PROMPT . "\n\n## Approved skills", $sent[0]->content);
+        $late = $sent[array_key_last($sent)];
+        self::assertInstanceOf(ChatMessage::class, $late);
+        self::assertSame('Late caller note.', $late->content, 'the late message is left as the caller sent it');
+    }
+
     #[Test]
     public function onThePlaygroundPathTheInstructionsJoinTheBakedLead(): void
     {

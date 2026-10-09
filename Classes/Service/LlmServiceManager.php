@@ -154,8 +154,11 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      *
      * The fenced block goes into the first user-role message. Approved
      * instruction sections (ADR-214 item 2) are appended to the caller's own
-     * system message when the list carries one; otherwise they go into the
-     * option overrides, so the shaping stage prepends them behind the
+     * system message when the list carries one before its first user turn,
+     * and to the caller's last system message when it carries one only after
+     * it (the shaping stage then suppresses the configuration prompt, so the
+     * overrides would not be sent); otherwise they go into the option
+     * overrides, so the shaping stage prepends them behind the
      * configuration's system prompt and its snippets instead of a bare system
      * message suppressing both.
      *
@@ -174,6 +177,17 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $messages,
             SkillInjectionService::toList($configuration->getSkills()),
         );
+
+        // Handed back while the caller sent a system message after its first
+        // user turn: the shaping stage suppresses the configuration prompt the
+        // planner would append them to, so they join that system message
+        // instead — the last one, which every adapter sends.
+        if ($injected['instructions'] !== '') {
+            $placed = SkillInjectionService::appendToLastSystemMessage($injected['messages'], $injected['instructions']);
+            if ($placed !== null) {
+                return [$placed, $optionOverrides];
+            }
+        }
 
         return [$injected['messages'], $this->withSkillInstructions($optionOverrides, $injected['instructions'])];
     }

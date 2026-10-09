@@ -278,10 +278,9 @@ final class SkillInjectionServiceTest extends TestCase
 
     /**
      * A system message after the first user turn is outside the head the
-     * context window keeps, so the instructions are not placed there. They
-     * get a system message of their own at the head: handed back, they would
-     * be dropped, since a caller's system message suppresses the
-     * configuration prompt they would be appended to.
+     * context window keeps, so the instructions are not placed there; they
+     * are handed back for the caller to place (the tool loop behind the
+     * effective prompt, the manager in the caller's last system message).
      */
     #[Test]
     public function aSystemMessageAfterTheFirstUserTurnDoesNotReceiveTheInstructions(): void
@@ -293,13 +292,26 @@ final class SkillInjectionServiceTest extends TestCase
 
         $injected = $this->instructingSubject()->composeIntoMessages($messages, [$this->approvedSkill()]);
 
-        self::assertSame('', $injected['instructions'], 'nothing is handed back: the shaping stage would drop it');
-        self::assertCount(3, $injected['messages']);
-        $head = $injected['messages'][0];
-        self::assertInstanceOf(ChatMessage::class, $head);
-        self::assertTrue($head->isSystem());
-        self::assertStringContainsString('Follow the house style.', $head->content);
-        self::assertSame($messages, array_slice($injected['messages'], 1), 'the caller\'s messages follow unchanged');
+        self::assertSame($messages, $injected['messages']);
+        self::assertStringContainsString('Follow the house style.', $injected['instructions']);
+    }
+
+    #[Test]
+    public function appendingToTheLastSystemMessageJoinsTheLatestOne(): void
+    {
+        $messages = [
+            ['role' => 'system', 'content' => 'First.'],
+            ['role' => 'user', 'content' => self::USER_INPUT],
+            ChatMessage::system('Last.'),
+        ];
+
+        $placed = SkillInjectionService::appendToLastSystemMessage($messages, '## Approved skills');
+
+        self::assertIsArray($placed);
+        self::assertSame($messages[0], $placed[0], 'the first one is left alone');
+        self::assertInstanceOf(ChatMessage::class, $placed[2]);
+        self::assertSame("Last.\n\n## Approved skills", $placed[2]->content);
+        self::assertNull(SkillInjectionService::appendToLastSystemMessage([['role' => 'user', 'content' => 'x']], 'y'));
     }
 
     #[Test]

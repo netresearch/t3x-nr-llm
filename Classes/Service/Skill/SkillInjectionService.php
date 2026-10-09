@@ -80,9 +80,11 @@ final readonly class SkillInjectionService
      * returned unchanged in that respect.
      *
      * Approved instruction sections (ADR-214 item 2) belong to the system
-     * message. When the list already holds one — a caller's own — they are
-     * appended to the first system message here. When it holds none, they are
-     * returned as `instructions` and NOT placed: adding a system message here
+     * message. When the list's head (everything before the first user turn)
+     * holds one — a caller's own — they are appended to it here. Otherwise
+     * they are returned as `instructions` and NOT placed: a system message
+     * after the first user turn is outside the head the context window keeps,
+     * and adding a system message here
      * would make the shaping stage suppress the configuration's own system
      * prompt and its snippets (ADR-031), so the caller places them after that
      * prompt itself. `instructions` is '' when nothing is left to place.
@@ -106,15 +108,6 @@ final readonly class SkillInjectionService
         }
 
         $placed = self::appendToFirstSystemMessage($messages, $result->instructions);
-        if ($placed === null && self::hasSystemMessage($messages)) {
-            // The caller's system message comes after the first user turn, so
-            // it is outside the head and not a safe place; handing the text
-            // back would not help either, because a caller's system message
-            // anywhere suppresses the configuration prompt the planner appends
-            // to. The sections get a system message of their own at the head.
-            $placed = [ChatMessage::system($result->instructions), ...$messages];
-        }
-
         if ($placed === null) {
             return ['messages' => $messages, 'instructions' => $result->instructions, 'pins' => $result->instructionPins];
         }
@@ -183,17 +176,51 @@ final readonly class SkillInjectionService
     }
 
     /**
+     * Append text to the LAST system-role message of a list, or return null
+     * when the list holds none.
+     *
+     * For a caller whose only system messages come after the first user turn,
+     * where {@see self::appendToFirstSystemMessage()} declines: the manager's
+     * shaping stage drops the configuration prompt once a caller sends any
+     * system message, so text handed back would be lost, and adapters that
+     * keep one system message keep the last one.
+     *
      * @param list<ChatMessage|array<string, mixed>> $messages
+     *
+     * @return list<ChatMessage|array<string, mixed>>|null
      */
-    private static function hasSystemMessage(array $messages): bool
+    public static function appendToLastSystemMessage(array $messages, string $text): ?array
     {
-        foreach ($messages as $message) {
-            if ($message instanceof ChatMessage ? $message->isSystem() : ($message['role'] ?? null) === MessageRole::SYSTEM->value) {
-                return true;
+        for ($index = count($messages) - 1; $index >= 0; --$index) {
+            $message = $messages[$index];
+            if ($message instanceof ChatMessage) {
+                if ($message->isSystem()) {
+                    $messages[$index] = ChatMessage::system(self::join($message->content, $text));
+
+                    return array_values($messages);
+                }
+
+                continue;
             }
+
+            if (($message['role'] ?? null) !== MessageRole::SYSTEM->value) {
+                continue;
+            }
+
+            $content = $message[self::KEY_CONTENT] ?? '';
+            if (is_array($content)) {
+                $content[]                  = ['type' => 'text', 'text' => $text];
+                $message[self::KEY_CONTENT] = $content;
+            } else {
+                $message[self::KEY_CONTENT] = self::join(is_string($content) ? $content : '', $text);
+            }
+
+            $messages[$index] = $message;
+
+            return array_values($messages);
         }
 
-        return false;
+        return null;
     }
 
     /**
