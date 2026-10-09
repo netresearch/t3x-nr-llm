@@ -275,7 +275,15 @@ Hiding a skill takes it out of every run like an administrator's disable: a
 hidden skill neither instructs nor restricts. Like the enable flag, hiding
 and unhiding an existing skill is an administrator's, even where a group is
 granted the field. A new skill, a copy included, is stored disabled unless
-an administrator enables it.
+an administrator enables it, and such a skill restricts the runs it gets
+attached to — a copied page's configuration, for example — until an
+administrator enables it; an administrator's copy of a skill an
+administrator disabled stays out.
+
+A workspace publish that would delete a page holding an attached skill, on
+it or below it, is refused as a whole: nothing in that publish is applied.
+The single and the "publish all" actions show the refusal; publishing a
+selection writes it to the system log only.
 
 A backend user who is not an administrator writes skills only with the
 fields an administrator granted: the source, the allowed tools and the data
