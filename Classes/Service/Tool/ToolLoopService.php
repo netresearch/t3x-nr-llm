@@ -28,6 +28,8 @@ use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocation;
+use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision;
+use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
@@ -149,6 +151,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // (see assertPinsHeld()). ToolLoopGateWiringTest pins the production
         // wiring.
         private ?SkillPinCheck $skillPinCheck = null,
+        private ?ToolInvocationPolicyInterface $invocationPolicy = null,
     ) {}
 
     /**
@@ -344,16 +347,18 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // The approved skill versions a resumed transcript already holds as
         // instructions (ADR-214 item 6); a fresh run composes its own below.
         array $carriedPins = [],
+        ?ToolInvocationHistory $carriedInvocationHistory = null,
     ): ToolLoopResult {
         // Every transcript enters here — a fresh run, a queued one read back
         // from the database, and both resume paths — so this is the one place
         // a stored turn carrying provider items becomes a value object again.
         $messages = $this->rehydrateTranscript($messages);
-        $max      = $maxIterations ?? $this->defaultMaxIterations;
+        $max = $maxIterations ?? $this->defaultMaxIterations;
         // Created HERE, per run, and passed down: this service is a container
         // singleton and the queue worker outlives many runs, so a counter held
         // anywhere but a local would bound the process instead (ADR-116).
         $remoteCalls = new RemoteCallBudget();
+        $invocationHistory = $carriedInvocationHistory ?? new ToolInvocationHistory();
 
         // Assemble the outgoing prompt once, before the loop: configuration
         // skills inject into the tool path here (the loop is the sole caller of
@@ -393,11 +398,22 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         if ($dryRun) {
             $runTrace?->recordAssembledMessages($messages);
 
-            return new ToolLoopResult('', [], 0, false, UsageStatistics::fromTokens(0, 0));
+            return new ToolLoopResult(
+                '',
+                [],
+                0,
+                false,
+                UsageStatistics::fromTokens(0, 0),
+            );
         }
 
-        $effective = $this->resolveOfferedNames($allowedToolNames, $configuration, $context, $skillAllowList);
-        $specs     = $this->registry->specs($effective);
+        $effective = $this->resolveOfferedNames(
+            $allowedToolNames,
+            $configuration,
+            $context,
+            $skillAllowList,
+        );
+        $specs = $this->registry->specs($effective);
 
         // No tools offered (an empty allow-list, or nothing registered): a tools
         // request with an empty `tools` array makes some providers (OpenAI) 400.
@@ -407,16 +423,38 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             // continuation with no offered tools can still be over-long. No tools
             // go on this wire, so pass toolSpecs = [].
             try {
-                $messages = $this->enforceContextWindow($messages, $configuration, $options, null, 1, [], $runTrace);
+                $messages = $this->enforceContextWindow(
+                    $messages,
+                    $configuration,
+                    $options,
+                    null,
+                    1,
+                    [],
+                    $runTrace,
+                );
             } catch (ContextTruncatedException $e) {
-                $this->logger?->warning('Agent loop stopped: transcript exceeds the context window even at its floor.', ['exception' => $e]);
+                $this->logger?->warning(
+                    'Agent loop stopped: transcript exceeds the context window even at its floor.',
+                    ['exception' => $e],
+                );
 
-                return $this->contextTruncatedResult([], $seedIterations + 1, $seedPromptTokens, $seedCompletionTokens);
+                return $this->contextTruncatedResult(
+                    [],
+                    $seedIterations + 1,
+                    $seedPromptTokens,
+                    $seedCompletionTokens,
+                );
             }
 
             $runTrace?->recordRequest(1, $messages, []);
-            $t0   = hrtime(true);
-            $resp = $this->mgr->chatWithConfiguration($messages, $configuration, $this->budgetMetadata($options), run: $context->run, injectedContext: $augmentation?->injectedContext());
+            $t0 = hrtime(true);
+            $resp = $this->mgr->chatWithConfiguration(
+                $messages,
+                $configuration,
+                $this->budgetMetadata($options),
+                run: $context->run,
+                injectedContext: $augmentation?->injectedContext(),
+            );
             $runTrace?->recordLlmCall(1, $this->elapsedMs($t0), $resp);
 
             // Fold in any carried-over counters (a resume whose continuation has
@@ -439,10 +477,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // offered tool.
         $allowedNames = array_map(static fn(ToolSpec $s): string => $s->name, $specs);
 
-        $trace            = [];
-        $promptTokens     = $seedPromptTokens;
+        $trace = [];
+        $promptTokens = $seedPromptTokens;
         $completionTokens = $seedCompletionTokens;
-        $iterations       = $seedIterations;
+        $iterations = $seedIterations;
         // The previous call's usage, fed back to calibrate the token estimator
         // (ADR-107); null before the first call.
         $lastUsage = null;
@@ -458,20 +496,34 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     $options,
                     $lastUsage,
                     $iterations,
-                    array_map(static fn(ToolSpec $s): array => $s->toArray(), $specs),
+                    array_map(
+                        static fn(ToolSpec $s): array => $s->toArray(),
+                        $specs,
+                    ),
                     $runTrace,
                 );
                 // Streamed BEFORE the provider call so the inspector shows the
                 // outgoing request (and a waiting state) from second zero.
                 $runTrace?->recordRequest($iterations, $messages, $allowedNames);
-                $t0   = hrtime(true);
+                $t0 = hrtime(true);
                 // The run travels with the call (ADR-153): every round of one run
                 // lands on the run's correlation id instead of minting its own,
                 // so its telemetry rows are attributable to the run afterwards.
-                $resp = $this->mgr->chatWithToolsForConfiguration($messages, $specs, $configuration, $options, $context->run, $augmentation?->injectedContext());
-                $runTrace?->recordLlmCall($iterations, $this->elapsedMs($t0), $resp);
-                $lastUsage         = $resp->usage;
-                $promptTokens     += $resp->usage->promptTokens;
+                $resp = $this->mgr->chatWithToolsForConfiguration(
+                    $messages,
+                    $specs,
+                    $configuration,
+                    $options,
+                    $context->run,
+                    $augmentation?->injectedContext(),
+                );
+                $runTrace?->recordLlmCall(
+                    $iterations,
+                    $this->elapsedMs($t0),
+                    $resp,
+                );
+                $lastUsage = $resp->usage;
+                $promptTokens += $resp->usage->promptTokens;
                 $completionTokens += $resp->usage->completionTokens;
 
                 if (!$resp->hasToolCalls()) {
@@ -480,7 +532,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                         $trace,
                         $iterations,
                         false,
-                        UsageStatistics::fromTokens($promptTokens, $completionTokens),
+                        UsageStatistics::fromTokens(
+                            $promptTokens,
+                            $completionTokens,
+                        ),
                     );
                 }
 
@@ -512,33 +567,53 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     // the Governance simulation, which reports the requirement
                     // as its own axis. Narrowing the remote exemption is one
                     // edit rather than three kept in step by a comment.
-                    if (in_array($call->name, $allowedNames, true)
-                        && ToolApprovalRule::requiresApproval($this->registry->get($call->name))) {
-                        throw ToolApprovalRequiredException::fromState(new SuspendedRunState(
-                            array_map(static fn(ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toTranscriptArray() : $m, $messages),
-                            array_map(static fn(ToolCall $c): array => $c->toArray(), $resp->toolCalls ?? []),
-                            $iterations,
-                            $promptTokens,
-                            $completionTokens,
-                            // Persist the run's constraints so resume re-applies the
-                            // SAME allow-list and options instead of falling back to
-                            // defaults (ADR-084).
-                            $allowedToolNames,
-                            $this->persistedRunOptions($options),
-                            // What the turn WOULD do, captured here and not at
-                            // approval time: this is the run's actor context, the
-                            // only identity allowed to read the targets (ADR-136).
-                            callPreviews: $this->previewsForTurn($resp->toolCalls ?? [], $allowedNames, $context),
-                            // The forced set travels with the suspend so resume
-                            // re-applies the ADR-164 ceiling to it (ADR-165).
-                            forcedSnippetUids: $this->uidsOf($augmentation->forcedSnippets ?? []),
-                            forcedSkillUids: $this->uidsOf($augmentation->forcedSkills ?? []),
-                            // The run's start-time list, never a segment's
-                            // intersection: the next resume intersects it with
-                            // the live list again (ADR-038 item 5).
-                            skillAllowList: $storedAllowList,
-                            skillPins: $skillPins,
-                        ));
+                    if (in_array($call->name, $allowedNames, true) && ToolApprovalRule::requiresApproval(
+                        $this->registry->get($call->name),
+                    )) {
+                        throw ToolApprovalRequiredException::fromState(
+                            new SuspendedRunState(
+                                array_map(
+                                    static fn(
+                                        ChatMessage|array $m,
+                                    ): array => $m instanceof ChatMessage ? $m->toTranscriptArray() : $m,
+                                    $messages,
+                                ),
+                                array_map(
+                                    static fn(
+                                        ToolCall $c,
+                                    ): array => $c->toArray(),
+                                    $resp->toolCalls ?? [],
+                                ),
+                                $iterations,
+                                $promptTokens,
+                                $completionTokens,
+                                // Persist the run's constraints so resume re-applies the
+                                // SAME allow-list and options instead of falling back to
+                                // defaults (ADR-084).
+                                $allowedToolNames,
+                                $this->persistedRunOptions($options),
+                                // What the turn WOULD do, captured here and not at
+                                // approval time: this is the run's actor context, the
+                                // only identity allowed to read the targets (ADR-136).
+                                callPreviews: $this->previewsForTurn(
+                                    $resp->toolCalls ?? [],
+                                    $allowedNames,
+                                    $context,
+                                ),
+                                // The forced set travels with the suspend so resume
+                                // re-applies the ADR-164 ceiling to it (ADR-165).
+                                forcedSnippetUids: $this->uidsOf(
+                                    $augmentation->forcedSnippets ?? [],
+                                ),
+                                forcedSkillUids: $this->uidsOf($augmentation->forcedSkills ?? []),
+                                // The run's start-time list, never a segment's
+                                // intersection: the next resume intersects it with
+                                // the live list again (ADR-038 item 5).
+                                skillAllowList: $storedAllowList,
+                                skillPins: $skillPins,
+                                invocationHistory: $invocationHistory,
+                            ),
+                        );
                     }
                 }
 
@@ -549,51 +624,85 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 // like the approval scan: only an OFFERED input tool pauses.
                 foreach ($resp->toolCalls ?? [] as $call) {
                     $inputTool = $this->registry->get($call->name);
-                    if (in_array($call->name, $allowedNames, true)
-                        && $inputTool instanceof RequiresInputInterface) {
+                    if (in_array($call->name, $allowedNames, true) && $inputTool instanceof RequiresInputInterface) {
                         $schema = $inputTool->getInputSchema();
                         // Capture-time gate (ADR-105 M2): a RequiresInputInterface
                         // tool with a degenerate schema is a programming error;
                         // never persist a suspend that would rehydrate fail-open.
                         if (!InputSchema::isUsable($schema)) {
                             throw new LogicException(
-                                sprintf('Tool "%s" implements RequiresInputInterface but returned a degenerate input schema.', $call->name),
+                                sprintf(
+                                    'Tool "%s" implements RequiresInputInterface but returned a degenerate input schema.',
+                                    $call->name,
+                                ),
                                 1784600105,
                             );
                         }
 
-                        throw ToolInputRequiredException::fromState(new SuspendedRunState(
-                            array_map(static fn(ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toTranscriptArray() : $m, $messages),
-                            array_map(static fn(ToolCall $c): array => $c->toArray(), $resp->toolCalls ?? []),
-                            $iterations,
-                            $promptTokens,
-                            $completionTokens,
-                            $allowedToolNames,
-                            $this->persistedRunOptions($options),
-                            inputToolName: $call->name,
-                            inputSchema: $schema,
-                            forcedSnippetUids: $this->uidsOf($augmentation->forcedSnippets ?? []),
-                            forcedSkillUids: $this->uidsOf($augmentation->forcedSkills ?? []),
-                            // The run's start-time list, never a segment's
-                            // intersection: the next resume intersects it with
-                            // the live list again (ADR-038 item 5).
-                            skillAllowList: $storedAllowList,
-                            skillPins: $skillPins,
-                        ));
+                        throw ToolInputRequiredException::fromState(
+                            new SuspendedRunState(
+                                array_map(
+                                    static fn(
+                                        ChatMessage|array $m,
+                                    ): array => $m instanceof ChatMessage ? $m->toTranscriptArray() : $m,
+                                    $messages,
+                                ),
+                                array_map(
+                                    static fn(
+                                        ToolCall $c,
+                                    ): array => $c->toArray(),
+                                    $resp->toolCalls ?? [],
+                                ),
+                                $iterations,
+                                $promptTokens,
+                                $completionTokens,
+                                $allowedToolNames,
+                                $this->persistedRunOptions($options),
+                                inputToolName: $call->name,
+                                inputSchema: $schema,
+                                forcedSnippetUids: $this->uidsOf(
+                                    $augmentation->forcedSnippets ?? [],
+                                ),
+                                forcedSkillUids: $this->uidsOf($augmentation->forcedSkills ?? []),
+                                // The run's start-time list, never a segment's
+                                // intersection: the next resume intersects it with
+                                // the live list again (ADR-038 item 5).
+                                skillAllowList: $storedAllowList,
+                                skillPins: $skillPins,
+                                invocationHistory: $invocationHistory,
+                            ),
+                        );
                     }
                 }
 
                 foreach ($resp->toolCalls ?? [] as $call) {
                     $tt0 = hrtime(true);
-                    // Fence the operation before any side effect (ADR-111): the
-                    // runtime records the tool's effect and renews the lease so a
-                    // reap mid non-idempotent-write can refuse to retry it.
-                    $runTrace?->beforeToolExecution($call->name);
-                    $tr = $this->invoke($call, $allowedNames, $context, $remoteCalls);
+                    $tr = $this->invoke(
+                        $call,
+                        $allowedNames,
+                        $context,
+                        $remoteCalls,
+                        $configuration,
+                        $skillAllowList,
+                        $invocationHistory,
+                        $runTrace,
+                    );
                     // WIRE: content ONLY — artifacts are run-scoped and never egress to the provider.
                     $messages[] = ChatMessage::toolResult($call->id, $tr->content);
-                    $trace[]    = new ToolInvocation($call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
-                    $runTrace?->recordToolResult($iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr);
+                    $trace[] = new ToolInvocation(
+                        $call->name,
+                        $call->arguments,
+                        $tr->content,
+                        $tr->isError,
+                        $tr->artifacts,
+                    );
+                    $runTrace?->recordToolResult(
+                        $iterations,
+                        $this->elapsedMs($tt0),
+                        $call->name,
+                        $call->arguments,
+                        $tr,
+                    );
                 }
             }
 
@@ -608,9 +717,17 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             // bound it with toolSpecs = [] (ADR-107) — counting phantom schema
             // bytes here, on the run's largest transcript, could otherwise
             // discard a real final answer as a spurious overflow.
-            $messages = $this->enforceContextWindow($messages, $configuration, $options, $lastUsage, $iterations + 1, [], $runTrace);
+            $messages = $this->enforceContextWindow(
+                $messages,
+                $configuration,
+                $options,
+                $lastUsage,
+                $iterations + 1,
+                [],
+                $runTrace,
+            );
             $runTrace?->recordRequest($iterations + 1, $messages, []);
-            $t0    = hrtime(true);
+            $t0 = hrtime(true);
             $final = $this->mgr->chatWithConfiguration(
                 $messages,
                 $configuration,
@@ -618,8 +735,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 run: $context->run,
                 injectedContext: $augmentation?->injectedContext(),
             );
-            $runTrace?->recordLlmCall($iterations + 1, $this->elapsedMs($t0), $final);
-            $promptTokens     += $final->usage->promptTokens;
+            $runTrace?->recordLlmCall(
+                $iterations + 1,
+                $this->elapsedMs($t0),
+                $final,
+            );
+            $promptTokens += $final->usage->promptTokens;
             $completionTokens += $final->usage->completionTokens;
 
             return new ToolLoopResult(
@@ -639,7 +760,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 ['exception' => $e],
             );
 
-            return $this->contextTruncatedResult($trace, $iterations, $promptTokens, $completionTokens);
+            return $this->contextTruncatedResult(
+                $trace,
+                $iterations,
+                $promptTokens,
+                $completionTokens,
+            );
         } catch (BudgetExceededException $e) {
             // Budget fires pre-flight and tools are read-only, so the partial
             // trace is consistent. Surface what ran rather than aborting, and
@@ -767,21 +893,30 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         ?RunTrace $runTrace = null,
         ?int $beUserUid = null,
     ): ToolLoopResult {
-        $messages     = $state->messages;
+        $messages = $state->messages;
         $pendingCalls = $state->toolCalls();
         // Restore the run's options and re-inject the acting user's uid so the
         // resumed continuation is budget-checked — the uid is intentionally not
         // part of the persisted options (ADR-084).
-        $options = $this->restoreCallerSource(ToolOptions::fromArray($state->options, $beUserUid), $state->options);
+        $options = $this->restoreCallerSource(
+            ToolOptions::fromArray($state->options, $beUserUid),
+            $state->options,
+        );
         // Rebuilt from the persisted uids, not carried in memory: a resume runs
         // in a different process from the suspend (ADR-165).
-        $augmentation   = $this->augmentationFrom($state);
+        $augmentation = $this->augmentationFrom($state);
         [$skillAllowList, $storedAllowList] = $this->resumedSkillAllowList($state, $configuration, $augmentation);
         // Re-apply the gate NOW (a tool may have been disabled or restricted while
         // the run was suspended) rather than trusting the names captured at
         // suspend time.
-        $offered     = $this->resolveOfferedNames($state->allowedToolNames, $configuration, $context, $skillAllowList);
+        $offered = $this->resolveOfferedNames(
+            $state->allowedToolNames,
+            $configuration,
+            $context,
+            $skillAllowList,
+        );
         $remoteCalls = new RemoteCallBudget();
+        $invocationHistory = $state->invocationHistory ?? new ToolInvocationHistory([], false);
 
         // ADR-214 item 6: the transcript carries approved skill versions as
         // system instructions. If one of them no longer holds — revoked, its
@@ -796,7 +931,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // mutate before call two is found stale, which is a partial write against
         // a state nobody approved.
         if ($approved) {
-            $restale = $this->previewComparator()->compare($state, $pendingCalls, $offered, $context);
+            $restale = $this
+                ->previewComparator()
+                ->compare($state, $pendingCalls, $offered, $context);
             if ($restale instanceof SuspendedRunState) {
                 throw ToolApprovalRequiredException::fromState($restale);
             }
@@ -804,11 +941,32 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
 
         foreach ($pendingCalls as $call) {
             if (!$approved) {
-                $result = $this->approvalDeniedResult($call->name, $beUserUid, $context->actor->backendUserUid);
-                $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
+                $result = $this->approvalDeniedResult(
+                    $call->name,
+                    $beUserUid,
+                    $context->actor->backendUserUid,
+                );
+                $runTrace?->recordToolExecution(
+                    $state->iterations,
+                    0.0,
+                    $call->name,
+                    $call->arguments,
+                    $result,
+                    true,
+                );
             } elseif (!in_array($call->name, $offered, true)) {
-                $result = sprintf('Error: tool "%s" is no longer permitted and was not executed.', $call->name);
-                $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
+                $result = sprintf(
+                    'Error: tool "%s" is no longer permitted and was not executed.',
+                    $call->name,
+                );
+                $runTrace?->recordToolExecution(
+                    $state->iterations,
+                    0.0,
+                    $call->name,
+                    $call->arguments,
+                    $result,
+                    true,
+                );
             } elseif ($this->registry->get($call->name) instanceof RequiresInputInterface) {
                 // ADR-105 M1 defence in depth: the approval-resume path carries no
                 // user input. An input-requiring pending call must NOT fail-open
@@ -817,16 +975,45 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 // suspends for a proper submitInput(). (The dual approval+input
                 // marker is already banned at registration; this guards the case
                 // regardless.)
-                $result = sprintf('Error: tool "%s" requires user input that was not provided.', $call->name);
-                $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
+                $result = sprintf(
+                    'Error: tool "%s" requires user input that was not provided.',
+                    $call->name,
+                );
+                $runTrace?->recordToolExecution(
+                    $state->iterations,
+                    0.0,
+                    $call->name,
+                    $call->arguments,
+                    $result,
+                    true,
+                );
             } else {
                 $tt0 = hrtime(true);
-                $runTrace?->beforeToolExecution($call->name);
-                $tr     = $this->invoke($call, $offered, $context, $remoteCalls);
+                $tr = $this->invoke(
+                    $call,
+                    $offered,
+                    $context,
+                    $remoteCalls,
+                    $configuration,
+                    $skillAllowList,
+                    $invocationHistory,
+                    $runTrace,
+                );
                 $result = $tr->content;
-                $runTrace?->recordToolResult($state->iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr);
+                $runTrace?->recordToolResult(
+                    $state->iterations,
+                    $this->elapsedMs($tt0),
+                    $call->name,
+                    $call->arguments,
+                    $tr,
+                );
             }
 
+            if (!isset($tr)) {
+                $invocationHistory = $invocationHistory->append($call->name, 'denied', null);
+            }
+
+            unset($tr);
             $messages[] = ChatMessage::toolResult($call->id, $result);
         }
 
@@ -850,6 +1037,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $storedAllowList,
             // The pins the transcript holds stay the run's on a re-suspend.
             $state->skillPins,
+            $invocationHistory,
         );
     }
 
@@ -929,36 +1117,84 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     ): ToolLoopResult {
         // Defence in depth: do not trust the caller's "already validated" claim.
         if (!$this->schemaValidator->validate($inputData, $state->inputSchema)) {
-            throw new LogicException('resumeWithInput received input that does not match the declared schema.', 1784600106);
+            throw new LogicException(
+                'resumeWithInput received input that does not match the declared schema.',
+                1784600106,
+            );
         }
 
-        $messages     = $state->messages;
+        $messages = $state->messages;
         $pendingCalls = $state->toolCalls();
-        $options      = $this->restoreCallerSource(ToolOptions::fromArray($state->options, $beUserUid), $state->options);
-        $augmentation   = $this->augmentationFrom($state);
+        $options = $this->restoreCallerSource(
+            ToolOptions::fromArray($state->options, $beUserUid),
+            $state->options,
+        );
+        $augmentation = $this->augmentationFrom($state);
         [$skillAllowList, $storedAllowList] = $this->resumedSkillAllowList($state, $configuration, $augmentation);
-        $offered        = $this->resolveOfferedNames($state->allowedToolNames, $configuration, $context, $skillAllowList);
-        $remoteCalls    = new RemoteCallBudget();
+        $offered = $this->resolveOfferedNames(
+            $state->allowedToolNames,
+            $configuration,
+            $context,
+            $skillAllowList,
+        );
+        $remoteCalls = new RemoteCallBudget();
+        $invocationHistory = $state->invocationHistory ?? new ToolInvocationHistory([], false);
 
         // ADR-214 item 6, as in resume(): stop before the input reaches a tool.
         $this->assertPinsHeld($state);
 
         foreach ($pendingCalls as $call) {
             if (!in_array($call->name, $offered, true)) {
-                $result = sprintf('Error: tool "%s" is no longer permitted and was not executed.', $call->name);
-                $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
+                $result = sprintf(
+                    'Error: tool "%s" is no longer permitted and was not executed.',
+                    $call->name,
+                );
+                $runTrace?->recordToolExecution(
+                    $state->iterations,
+                    0.0,
+                    $call->name,
+                    $call->arguments,
+                    $result,
+                    true,
+                );
             } elseif ($call->name === $state->inputToolName) {
                 $tt0 = hrtime(true);
-                $runTrace?->beforeToolExecution($call->name);
-                $tr = $this->invoke($this->withInput($call, $state->inputSchema, $inputData), $offered, $context, $remoteCalls);
+                $tr = $this->invoke(
+                    $this->withInput($call, $state->inputSchema, $inputData),
+                    $offered,
+                    $context,
+                    $remoteCalls,
+                    $configuration,
+                    $skillAllowList,
+                    $invocationHistory,
+                    $runTrace,
+                );
                 $result = $tr->content;
-                $runTrace?->recordToolResult($state->iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr);
+                $runTrace?->recordToolResult(
+                    $state->iterations,
+                    $this->elapsedMs($tt0),
+                    $call->name,
+                    $call->arguments,
+                    $tr,
+                );
             } elseif ($this->registry->get($call->name) instanceof RequiresInputInterface) {
                 // A second input-requiring call in the same turn got no data —
                 // one submission satisfies one tool. Fail-closed refusal.
-                $result = sprintf('Error: tool "%s" requires input that was not provided.', $call->name);
-                $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
-            } elseif (ToolApprovalRule::requiresApproval($this->registry->get($call->name))) {
+                $result = sprintf(
+                    'Error: tool "%s" requires input that was not provided.',
+                    $call->name,
+                );
+                $runTrace?->recordToolExecution(
+                    $state->iterations,
+                    0.0,
+                    $call->name,
+                    $call->arguments,
+                    $result,
+                    true,
+                );
+            } elseif (ToolApprovalRule::requiresApproval(
+                $this->registry->get($call->name),
+            )) {
                 // Nothing on THIS path ever approved anything — an input
                 // submission is not an approval. For a turn that suspended
                 // normally the branch is unreachable, because the approval scan
@@ -976,36 +1212,67 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 // Refusing rather than suspending keeps one approval per
                 // submission: the model re-requests in a fresh turn, which hits
                 // the approval scan and suspends for a real one.
-                $result = sprintf('Error: tool "%s" requires approval that was not given.', $call->name);
-                $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
+                $result = sprintf(
+                    'Error: tool "%s" requires approval that was not given.',
+                    $call->name,
+                );
+                $runTrace?->recordToolExecution(
+                    $state->iterations,
+                    0.0,
+                    $call->name,
+                    $call->arguments,
+                    $result,
+                    true,
+                );
                 // Recorded, not only traced (#757). The run timeline shows this
                 // refusal for one run; the governance table is what answers
                 // "did this ever fire, and how often" — which is the question
                 // that says whether the gap this branch closes is theoretical.
-                $this->governanceEvents?->record(new GovernanceEvent(
-                    correlationId: $context->run?->correlationId() ?? '',
-                    decision: GovernanceDecision::WRITE_UNAPPROVED->value,
-                    reason: 'inputResumeWithoutApproval',
-                    provider: $configuration->getProviderType(),
-                    model: $configuration->getModelId(),
-                    configurationIdentifier: $configuration->getIdentifier(),
-                    beUser: $context->actor->backendUserUid,
-                    toolName: $call->name,
-                    agentrunUid: $context->run->uid ?? 0,
-                    guardrail: '',
-                    // The tool that DID receive the human's input, so an
-                    // operator can see which suspend the refused call rode in
-                    // on. Never the arguments: this row is metadata.
-                    detail: 'inputTool=' . $state->inputToolName,
-                ));
+                $this->governanceEvents?->record(
+                    new GovernanceEvent(
+                        correlationId: $context->run?->correlationId() ?? '',
+                        decision: GovernanceDecision::WRITE_UNAPPROVED->value,
+                        reason: 'inputResumeWithoutApproval',
+                        provider: $configuration->getProviderType(),
+                        model: $configuration->getModelId(),
+                        configurationIdentifier: $configuration->getIdentifier(),
+                        beUser: $context->actor->backendUserUid,
+                        toolName: $call->name,
+                        agentrunUid: $context->run->uid ?? 0,
+                        guardrail: '',
+                        // The tool that DID receive the human's input, so an
+                        // operator can see which suspend the refused call rode in
+                        // on. Never the arguments: this row is metadata.
+                        detail: 'inputTool=' . $state->inputToolName,
+                    ),
+                );
             } else {
                 $tt0 = hrtime(true);
-                $runTrace?->beforeToolExecution($call->name);
-                $tr     = $this->invoke($call, $offered, $context, $remoteCalls);
+                $tr = $this->invoke(
+                    $call,
+                    $offered,
+                    $context,
+                    $remoteCalls,
+                    $configuration,
+                    $skillAllowList,
+                    $invocationHistory,
+                    $runTrace,
+                );
                 $result = $tr->content;
-                $runTrace?->recordToolResult($state->iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr);
+                $runTrace?->recordToolResult(
+                    $state->iterations,
+                    $this->elapsedMs($tt0),
+                    $call->name,
+                    $call->arguments,
+                    $tr,
+                );
             }
 
+            if (!isset($tr)) {
+                $invocationHistory = $invocationHistory->append($call->name, 'denied', null);
+            }
+
+            unset($tr);
             $messages[] = ChatMessage::toolResult($call->id, $result);
         }
 
@@ -1025,6 +1292,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $skillAllowList,
             $storedAllowList,
             $state->skillPins,
+            $invocationHistory,
         );
     }
 
@@ -1395,36 +1663,38 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * through — before any ToolResult leaves the process: `content` via
      * {@see ToolResultBounder::content()}, `artifacts` via {@see ToolResultBounder::artifacts()}.
      *
-     * @param list<string> $allowedNames
+     * @param bool $executed whether execute() was entered; pre-flight refusals remain denied
      */
-    private function invoke(ToolCall $call, array $allowedNames, ToolExecutionContext $context, RemoteCallBudget $remoteCalls): ToolResult
-    {
-        $tool = $this->registry->get($call->name);
-        if (!$tool instanceof ToolInterface) {
-            return ToolResult::error(sprintf('Error: unknown tool "%s"', $call->name));
-        }
-
-        if (!in_array($call->name, $allowedNames, true)) {
-            return ToolResult::error(sprintf('Error: tool "%s" not permitted', $call->name));
-        }
-
+    private function executeInvocation(
+        ToolCall $call,
+        ToolInterface $tool,
+        ToolExecutionContext $context,
+        RemoteCallBudget $remoteCalls,
+        ?RunTrace $runTrace = null,
+        bool &$executed = false,
+    ): ToolResult {
         // Charged after the permission checks and before execution, so a
         // refused call costs nothing and a granted one is counted exactly once.
         // The message says the budget is spent rather than that the tool is
         // broken, so the model stops calling it instead of retrying.
         if ($tool instanceof RemoteToolInterface && !$remoteCalls->tryConsume()) {
-            return ToolResult::error(sprintf(
-                'Error: this run has used its budget of %d calls to external tools; "%s" was not called.',
-                $remoteCalls->limit(),
-                $call->name,
-            ));
+            return ToolResult::error(
+                sprintf(
+                    'Error: this run has used its budget of %d calls to external tools; "%s" was not called.',
+                    $remoteCalls->limit(),
+                    $call->name,
+                ),
+            );
         }
+
+        $runTrace?->beforeToolExecution($call->name);
 
         // A failure a DataHandler recorded outside this call is not this
         // call's to report (ADR-206).
         ToolDataHandler::takeFailures();
 
         try {
+            $executed = true;
             $result = $tool->execute($call->arguments, $context);
         } catch (Throwable $e) {
             // Keep the logged summary generic — the exception body may embed
@@ -1446,7 +1716,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // error result is the value object's rule, not a condition repeated at
         // every call site.
         $bounded = $result->withBoundedChannels(
-            $this->bounder->content($this->hookFailureNote(ToolDataHandler::takeFailures()) . $result->content),
+            $this->bounder->content(
+                $this->hookFailureNote(ToolDataHandler::takeFailures()) . $result->content,
+            ),
             $this->bounder->artifacts($result->artifacts),
         );
 
@@ -1651,5 +1923,95 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         }
 
         return $metadata;
+    }
+
+    /**
+     * @param list<string> $allowedNames
+     */
+    private function invoke(
+        ToolCall $call,
+        array $allowedNames,
+        ToolExecutionContext $context,
+        RemoteCallBudget $remoteCalls,
+        LlmConfiguration $configuration,
+        SkillToolAllowList $skillAllowList,
+        ToolInvocationHistory &$history,
+        ?RunTrace $runTrace = null,
+    ): ToolResult {
+        $tool = $this->registry->get($call->name);
+        if (!$tool instanceof ToolInterface || !in_array($call->name, $allowedNames, true) || !in_array(
+            $call->name,
+            $this->toolPolicy->filterOfferable(
+                [$call->name],
+                $configuration,
+                $context->actingBackendUser(),
+                $skillAllowList,
+            ),
+            true,
+        )) {
+            $history = $history->append($call->name, 'denied', null);
+            $message = $tool instanceof ToolInterface ? 'Error: tool "%s" not permitted' : 'Error: unknown tool "%s"';
+            return ToolResult::error(sprintf($message, $call->name));
+        }
+
+        $policy = $this->invocationPolicy ?? new ToolInvocationPolicy();
+        $target = null;
+        try {
+            $target = $policy->resolveTarget($call, $context);
+            $decision = $policy->decide(
+                new ToolInvocationContext(
+                    $call->name,
+                    $call->arguments,
+                    $target,
+                    $configuration,
+                    $context,
+                    $history,
+                ),
+            );
+        } catch (Throwable) {
+            $decision = new ToolInvocationDecision(false, 'policy_failed', 'invocation');
+        }
+
+        if (!$decision->allowed) {
+            $history = $history->append($call->name, 'denied', $target);
+            $this->governanceEvents?->record(
+                new GovernanceEvent(
+                    correlationId: $context->run?->correlationId() ?? '',
+                    decision: GovernanceDecision::TOOL_DENIED->value,
+                    reason: $decision->reason,
+                    provider: $configuration->getProviderType(),
+                    model: $configuration->getModelId(),
+                    configurationIdentifier: $configuration->getIdentifier(),
+                    beUser: $context->actor->backendUserUid,
+                    toolName: $call->name,
+                    agentrunUid: $context->run->uid ?? 0,
+                    guardrail: '',
+                    detail: 'invocationRule=' . $decision->ruleIdentifier,
+                ),
+            );
+            return ToolResult::error(
+                sprintf(
+                    'Error: invocation denied (rule: %s, reason: %s). Nothing was executed.',
+                    $decision->ruleIdentifier,
+                    $decision->reason,
+                ),
+            );
+        }
+
+        $executed = false;
+        $result = $this->executeInvocation(
+            $call,
+            $tool,
+            $context,
+            $remoteCalls,
+            $runTrace,
+            $executed,
+        );
+        $history = $history->append(
+            $call->name,
+            $executed ? $result->outcome->value : 'denied',
+            $target,
+        );
+        return $result;
     }
 }

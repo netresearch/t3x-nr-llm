@@ -64,17 +64,17 @@ already denied does not learn sensitive target or rule facts.
 | Requirement | Suite and intended contract |
 |---|---|
 | Existing gates remain necessary; no rules preserves behaviour | unit `ToolInvocationPolicyTest`, existing `ToolCallPolicyTest` |
-| Rule identifier collision, exception and unknown required target deny | unit `ToolInvocationPolicyTest`, `ToolTargetResolverTest` |
+| Rule identifier collision, exception and unknown required target deny | unit `ToolInvocationPolicyTest`, including ambiguous target resolvers |
 | Argument/target rules see the actual proposed invocation | unit `ToolInvocationPolicyTest` with two calls of the same tool |
-| Denied call never executes or consumes remote budget | unit `ToolLoopInvocationPolicyTest` |
-| Earlier siblings and actual outcomes are visible | unit `ToolLoopInvocationPolicyTest` |
-| Context truncation does not erase prior execution | unit `ToolLoopInvocationPolicyTest` with bounded model transcript |
-| Fresh, queued, approved and input-resumed paths enforce equally | functional `AgentRunInvocationPolicyTest`; unit loop contracts |
-| Live rule/actor changes after suspension deny before execution | functional `AgentRunInvocationPolicyTest` |
+| Denied call never executes or consumes remote budget | unit `ToolLoopServiceTest`, including the execution fence |
+| Earlier siblings and actual outcomes are visible | unit `ToolLoopServiceTest` |
+| Context truncation does not erase prior execution | unit `ToolLoopServiceTest` with pruned, paired model turns |
+| Fresh, queued, approved and input-resumed paths enforce equally | functional `ToolLoopGateWiringTest` pins the shared production loop; unit loop/resume contracts; existing AgentRuntime queue contracts |
+| Approval cannot bypass a live invocation denial | unit approval-resume invocation contract; existing acting-user and live offerability contracts |
 | Final human input, not stale proposed args, is evaluated | unit input-resume invocation contract |
 | New suspend metadata roundtrips; legacy incomplete history is explicit | unit `SuspendedRunStateTest`, invocation-history tests |
-| Denial attribution without copying payloads | functional governance event contract |
-| Any new history/argument bounds reject instead of silently widening | unit plus corresponding fuzzy bound twins |
+| Denial attribution without copying payloads | unit loop governance event contract |
+| Denial metadata stays within nonempty ASCII codes of at most 64 characters | `ToolInvocationCodesFuzzyTest` |
 | Public signatures and ADR reciprocal links | unit `ApiSurfaceSnapshotTest`, `AdrLifecycleTest`, `AdrReferenceIntegrityTest` |
 
 The final implementation gate is `make gate`. Fixture tools and fake rules

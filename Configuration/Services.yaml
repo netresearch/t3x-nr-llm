@@ -109,6 +109,10 @@ services:
     alias: Netresearch\NrLlm\Service\Tool\ToolCallPolicy
     public: true
 
+  # Invocation facts extend the offer gate just before execution (ADR-216).
+  Netresearch\NrLlm\Service\Tool\ToolInvocationPolicyInterface:
+    alias: Netresearch\NrLlm\Service\Tool\ToolInvocationPolicy
+
   # Which of the offerable tools run without an approval (ADR-210).
   Netresearch\NrLlm\Service\Tool\UnattendedToolFilterInterface:
     alias: Netresearch\NrLlm\Service\Tool\UnattendedToolFilter

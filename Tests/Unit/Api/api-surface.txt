@@ -1076,7 +1076,7 @@ Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList (class)
   property readonly toolNames: ?array
 
 Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
-  constructor(array $messages, array $pendingCalls, int $iterations, int $promptTokens, int $completionTokens, ?array $allowedToolNames = …, array $options = …, ?string $inputToolName = …, array $inputSchema = …, array $callPreviews = …, array $forcedSnippetUids = …, array $forcedSkillUids = …, array $staleCallIndexes = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …, array $skillPins = …)
+  constructor(array $messages, array $pendingCalls, int $iterations, int $promptTokens, int $completionTokens, ?array $allowedToolNames = …, array $options = …, ?string $inputToolName = …, array $inputSchema = …, array $callPreviews = …, array $forcedSnippetUids = …, array $forcedSkillUids = …, array $staleCallIndexes = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …, array $skillPins = …, ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory $invocationHistory = …)
   method isInputPause(): bool
   method static fromArray(array $data): self
   method toArray(): array
@@ -1089,6 +1089,7 @@ Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
   property readonly forcedSnippetUids: array
   property readonly inputSchema: array
   property readonly inputToolName: ?string
+  property readonly invocationHistory: ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory
   property readonly iterations: int
   property readonly messages: array
   property readonly options: array
@@ -1117,6 +1118,28 @@ Netresearch\NrLlm\Domain\ValueObject\ToolCall (class)
   property readonly id: string
   property readonly name: string
   property readonly type: string
+
+Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision (class)
+  constructor(bool $allowed, string $reason = …, string $ruleIdentifier = …)
+  method forRule(string $identifier): self
+  method static allow(): self
+  method static deny(string $reason): self
+  property readonly allowed: bool
+  property readonly reason: string
+  property readonly ruleIdentifier: string
+
+Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory (class)
+  constructor(array $entries = …, bool $complete = …)
+  method append(string $tool, string $outcome, ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationTarget $target): self
+  method static fromStored(mixed $raw): self
+  method toStored(): array
+  property readonly complete: bool
+  property readonly entries: array
+
+Netresearch\NrLlm\Domain\ValueObject\ToolInvocationTarget (class)
+  constructor(string $kind, string $identifier)
+  property readonly identifier: string
+  property readonly kind: string
 
 Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult (class)
   constructor(string $finalContent, array $trace, int $iterations, bool $truncated, Netresearch\NrLlm\Domain\Model\UsageStatistics $usage, Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason $terminationReason = …)
@@ -2007,6 +2030,30 @@ Netresearch\NrLlm\Service\Tool\ToolInterface (interface)
   method isEnabledByDefault(): bool
   method requiresAdmin(): bool
 
+Netresearch\NrLlm\Service\Tool\ToolInvocationContext (class)
+  constructor(string $toolName, array $arguments, ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationTarget $target, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $execution, Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory $history)
+  property readonly arguments: array
+  property readonly configuration: Netresearch\NrLlm\Domain\Model\LlmConfiguration
+  property readonly execution: Netresearch\NrLlm\Service\Tool\ToolExecutionContext
+  property readonly history: Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory
+  property readonly target: ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationTarget
+  property readonly toolName: string
+
+Netresearch\NrLlm\Service\Tool\ToolInvocationPolicy (class)
+  constructor(iterable $rules = …, iterable $resolvers = …)
+  method decide(Netresearch\NrLlm\Service\Tool\ToolInvocationContext $context): Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision
+  method resolveTarget(Netresearch\NrLlm\Domain\ValueObject\ToolCall $call, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context): ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationTarget
+
+Netresearch\NrLlm\Service\Tool\ToolInvocationPolicyInterface (interface)
+  method decide(Netresearch\NrLlm\Service\Tool\ToolInvocationContext $context): Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision
+  method resolveTarget(Netresearch\NrLlm\Domain\ValueObject\ToolCall $call, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context): ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationTarget
+
+Netresearch\NrLlm\Service\Tool\ToolInvocationRuleInterface (interface)
+  const TAG_NAME = "nr_llm.tool_invocation_rule"
+  method decide(Netresearch\NrLlm\Service\Tool\ToolInvocationContext $context): Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision
+  method identifier(): string
+  method requiresCompleteHistory(): bool
+
 Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface (interface)
   const APPROVAL_DENIED = "approval_denied"
   const DECIDED_BY_OTHER_USER = "other_user"
@@ -2021,6 +2068,10 @@ Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface (interface)
 Netresearch\NrLlm\Service\Tool\ToolProviderInterface (interface)
   const TAG_NAME = "nr_llm.tool_provider"
   method tools(): iterable
+
+Netresearch\NrLlm\Service\Tool\ToolTargetResolverInterface (interface)
+  const TAG_NAME = "nr_llm.tool_target_resolver"
+  method resolve(Netresearch\NrLlm\Domain\ValueObject\ToolCall $call, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context): ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationTarget
 
 Netresearch\NrLlm\Service\Tool\UnattendedToolFilterInterface (interface)
   method unattended(array $toolNames): array

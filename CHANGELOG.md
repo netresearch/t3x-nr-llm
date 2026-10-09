@@ -19,6 +19,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Invocation rules extend the existing tool gate (ADR-216).** Tagged
+  `ToolInvocationRuleInterface` implementations see final arguments, the actor,
+  configuration, a resolver's target and prior invocation outcomes immediately
+  before execution, including approval and input resumes. Rules compose with
+  AND; a failed rule or unavailable required history refuses execution with
+  stable reason codes. `ToolCallPolicyInterface` stays compatible. New `@api`
+  invocation types and a trailing optional `SuspendedRunState::$invocationHistory`
+  preserve observations outside the model transcript; legacy states are marked
+  incomplete. Denials consume no remote-call budget and do not fence a write.
+
 - **Architecture and acceptance specifications for retrieval provenance,
   per-invocation tool rules, optional delegated MCP authentication, companion
   document-source synchronisation and worker operations (ADR-215 to ADR-219).**

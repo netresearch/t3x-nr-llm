@@ -25,6 +25,7 @@ Complete API reference for the TYPO3 LLM extension.
    DocumentAnalysisService
    TranslationService
    ToolCallingService
+   ToolInvocationPolicy
    KeywordSearch
    ReciprocalRankFusion
    Reranker
