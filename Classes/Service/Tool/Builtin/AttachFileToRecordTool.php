@@ -781,7 +781,8 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
 
             return sprintf(
                 'The reference was created but "%s" did not take. The acting backend user is most likely '
-                . 'missing the field-level ("exclude field") grant for %s:%s.',
+                . 'missing the field-level ("exclude field") grant for %s:%s, or a hook of the installation '
+                . 'dropped or changed the value.',
                 $name,
                 self::REFERENCE_TABLE,
                 $name,

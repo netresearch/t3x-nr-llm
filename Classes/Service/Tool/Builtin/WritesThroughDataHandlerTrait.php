@@ -232,7 +232,10 @@ trait WritesThroughDataHandlerTrait
      * never more than $ceiling. For an `input` column core cuts a longer value
      * to `max` without a word (`sys_file_reference.title` is 255), so a tool
      * refuses it before it writes rather than storing a text its card did not
-     * show. The count is in characters, as core's cut is.
+     * show. The count is in characters, as core's cut is. A `max` on a
+     * column of another type is honoured too, although core does not cut
+     * there: that can only refuse a text core would have stored whole, never
+     * lose one.
      */
     private function textLimitOf(string $table, string $column, int $ceiling): int
     {

@@ -296,6 +296,8 @@ final class AttachFileToContentElementToolTest extends AbstractFunctionalTestCas
 
         self::assertTrue($result->isError);
         self::assertStringContainsString('"alternative" did not take', $result->content);
+        self::assertSame([], $this->references(), 'the reference that did not take was removed');
+        self::assertSame(0, $this->counter());
     }
 
     /**

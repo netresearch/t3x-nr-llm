@@ -172,6 +172,8 @@ final class AttachFileToRecordToolTest extends AbstractUnitTestCase
         yield 'no record'           => [['record' => 0] + $valid, '"record" must be the positive uid'];
         yield 'a negative record'   => [['record' => -3] + $valid, '"record" must be the positive uid'];
         yield 'no file'             => [['file' => 0] + $valid, '"file" must be the positive sys_file uid'];
+        // This test's TCA declares no columns for sys_file_reference, so the
+        // 1000-character ceiling applies; with core's TCA a title stops at 255.
         yield 'a long title'        => [$valid + ['title' => str_repeat('a', 1001)], '"title" is longer than 1000 characters'];
         yield 'a long alternative'  => [$valid + ['alternative' => str_repeat('a', 1001)], '"alternative" is longer than 1000 characters'];
         yield 'hidden smuggled in'  => [$valid + ['hidden' => 0], '"hidden" is not an argument of this tool'];

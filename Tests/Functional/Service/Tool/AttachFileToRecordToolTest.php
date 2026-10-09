@@ -341,6 +341,7 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
         $dropped = $this->attach($arguments);
         self::assertTrue($dropped->isError);
         self::assertStringContainsString('"alternative" did not take', $dropped->content);
+        self::assertSame([], $this->references(self::GALLERY, $this->draftUid, 'media'), 'the reference that did not take was removed');
 
         $this->unregisterInterferingHook();
         $taken = $this->attach($arguments);
@@ -359,6 +360,7 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
         $refused = $this->attach([...$arguments, 'title' => str_repeat('t', 256)]);
         self::assertTrue($refused->isError);
         self::assertStringContainsString('"title" is longer than 255 characters', $refused->content);
+        self::assertSame([], $this->references(self::GALLERY, $this->draftUid, 'media'), 'refused before anything was written');
 
         $taken = $this->attach([...$arguments, 'title' => str_repeat('t', 255)]);
         self::assertFalse($taken->isError, $taken->content);
