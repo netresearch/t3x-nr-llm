@@ -105,6 +105,20 @@ final class SkillVersionDigestUpdateWizardTest extends AbstractFunctionalTestCas
         self::assertSame(1, (int)$this->row(1)['enabled']);
     }
 
+    /**
+     * MySQL counts an UPDATE that changes nothing as no affected row. An
+     * edited row that was already disabled must still be audited.
+     */
+    #[Test]
+    public function anEditedRowThatWasAlreadyDisabledIsStillAudited(): void
+    {
+        $this->insert(1, ['name' => 'Renamed in the backend', 'enabled' => 0]);
+
+        $this->wizard()->executeUpdate();
+
+        self::assertSame([SkillAuditEvent::VERSION_DIGEST_UNVERIFIED->value], $this->auditEvents());
+    }
+
     private function wizard(): SkillVersionDigestUpdateWizard
     {
         return new SkillVersionDigestUpdateWizard($this->pool(), new SkillMarkdownParser(), new SkillAuditService($this->auditRepository()));

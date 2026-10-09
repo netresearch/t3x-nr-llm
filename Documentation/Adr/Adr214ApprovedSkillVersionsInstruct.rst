@@ -403,7 +403,11 @@ threshold read it there (:ref:`item 2 <adr-214-d2>`).
 - **Eight fields are excluded** with ``exclude => true``. On
   ``tx_nrllm_skill``: ``trust_level``, ``body_checksum``, ``version_digest``,
   ``enabled``, ``allowed_tools`` and ``source``. On ``tx_nrllm_skill_source``:
-  ``trust_level`` and ``type``.
+  ``trust_level`` and ``type``. The implementing change excludes more fields
+  that decide the same things: on the skill ``hidden``, ``support_status``,
+  ``orphaned`` and ``raw_frontmatter``; on the source ``hidden``, ``enabled``,
+  ``url``, ``ref``, ``pinned_sha``, ``expected_fingerprint`` and
+  ``github_token`` (``specs/012-approved-skill-versions/spec.md``, item 11).
   ``readOnly`` keeps a field out of FormEngine; ``exclude`` keeps it out of a
   DataHandler write by a group that holds ``tables_modify`` but was not granted
   the field. ``source`` and the source ``type`` are excluded because moving a

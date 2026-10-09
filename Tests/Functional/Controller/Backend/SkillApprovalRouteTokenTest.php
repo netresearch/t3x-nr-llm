@@ -128,8 +128,10 @@ final class SkillApprovalRouteTokenTest extends AbstractFunctionalTestCase
             $seen[]     = $identifier;
             if ($route->getOption('action') === $action && is_string($controller) && str_contains($controller, 'SkillApproval')) {
                 self::assertNotSame('public', $route->getOption('access'));
+                $path = $route->getPath();
+                self::assertIsString($path);
 
-                return $route->getPath();
+                return $path;
             }
         }
 

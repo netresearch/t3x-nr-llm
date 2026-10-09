@@ -48,6 +48,7 @@ final class SkillInvisibleCharactersTest extends TestCase
         yield 'line separator' => ["a\u{2028}b", 'U+2028'];
         yield 'NUL control' => ["a\u{0000}b", 'U+0000'];
         yield 'Hangul filler' => ["a\u{3164}b", 'U+3164'];
+        yield 'Braille pattern blank' => ["a\u{2800}b", 'U+2800'];
     }
 
     #[Test]
@@ -82,15 +83,15 @@ final class SkillInvisibleCharactersTest extends TestCase
     }
 
     /**
-     * The class is the one the write tools' approval previews use; it is
-     * repeated here, so this pins both to the same definition.
+     * The class is the one the write tools' approval previews use, plus the
+     * Braille pattern blank; it is repeated here, so this keeps both in step.
      */
     #[Test]
-    public function thePatternIsTheWriteToolsInvisibleCharacterClass(): void
+    public function thePatternIsTheWriteToolsInvisibleCharacterClassPlusBrailleBlank(): void
     {
-        self::assertSame(
-            (new ReflectionClassConstant(CopyRecordTool::class, 'INVISIBLE_CHARACTERS'))->getValue(),
-            SkillInvisibleCharacters::PATTERN,
-        );
+        $toolPattern = (new ReflectionClassConstant(CopyRecordTool::class, 'INVISIBLE_CHARACTERS'))->getValue();
+        self::assertIsString($toolPattern);
+
+        self::assertSame(str_replace('\x{E01EF}]', '\x{E01EF}\x{2800}]', $toolPattern), SkillInvisibleCharacters::PATTERN);
     }
 }

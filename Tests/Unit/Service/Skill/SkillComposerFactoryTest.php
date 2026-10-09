@@ -252,6 +252,12 @@ final class SkillComposerFactoryTest extends TestCase
     }
 
     #[Test]
+    public function aThresholdThatIsNotAStringFailsClosedToFirstParty(): void
+    {
+        self::assertSame(SkillTrustLevel::FIRST_PARTY, $this->factoryWith(['instructionTrustLevel' => 1])->instructionTrustLevel());
+    }
+
+    #[Test]
     public function aConfigurationThatCannotBeReadFailsClosedToFirstParty(): void
     {
         $extensionConfiguration = $this->createMock(ExtensionConfiguration::class);

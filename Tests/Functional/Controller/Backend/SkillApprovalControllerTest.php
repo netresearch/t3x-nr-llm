@@ -111,6 +111,18 @@ final class SkillApprovalControllerTest extends AbstractFunctionalTestCase
         self::assertSame(0, $this->approvalRows(revoked: false));
     }
 
+    /**
+     * Hardening: an action of the same name on another controller's route
+     * must not stand in for this controller's route either.
+     */
+    #[Test]
+    public function aPostThroughAnotherControllersRouteDoesNotApprove(): void
+    {
+        $this->dispatch('approveVersion', 'POST', routeController: 'Backend\\SkillSource');
+
+        self::assertSame(0, $this->approvalRows(revoked: false));
+    }
+
     #[Test]
     public function aPostThroughTheReviewRouteDoesNotRevoke(): void
     {
@@ -142,7 +154,7 @@ final class SkillApprovalControllerTest extends AbstractFunctionalTestCase
     /**
      * @param string|null $routeAction the action the matched route names; the executing action by default
      */
-    private function dispatch(string $action, string $method, ?string $routeAction = null): void
+    private function dispatch(string $action, string $method, ?string $routeAction = null, ?string $routeController = null): void
     {
         $parameters = new ExtbaseRequestParameters();
         $parameters->setControllerName('Backend\\SkillApproval');
@@ -153,7 +165,7 @@ final class SkillApprovalControllerTest extends AbstractFunctionalTestCase
 
         $serverRequest = (new ServerRequest('https://typo3-testing.local/typo3/', $method))
             ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)
-            ->withAttribute('route', new Route('/module/nrllm/skills', ['packageName' => 'netresearch/nr-llm', 'action' => $routeAction ?? $action]))
+            ->withAttribute('route', new Route('/module/nrllm/skills', ['packageName' => 'netresearch/nr-llm', 'controller' => $routeController ?? 'Backend\\SkillApproval', 'action' => $routeAction ?? $action]))
             ->withAttribute('extbase', $parameters);
         $serverRequest            = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
         $GLOBALS['TYPO3_REQUEST'] = $serverRequest;

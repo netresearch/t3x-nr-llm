@@ -101,7 +101,11 @@ final readonly class SkillVersionDigestUpdateWizard implements UpgradeWizardInte
             }
 
             $skill->setEnabled(false);
-            if ($this->update($skill, ['enabled' => 0]) === 0) {
+            // Zero affected rows means either a sync digested the row
+            // meanwhile (skip: it is no longer legacy) or the row was already
+            // disabled (MySQL counts an unchanged row as unaffected; it still
+            // gets its audit row).
+            if ($this->update($skill, ['enabled' => 0]) === 0 && !$this->isStillLegacy($skill)) {
                 continue;
             }
 
@@ -257,6 +261,15 @@ final readonly class SkillVersionDigestUpdateWizard implements UpgradeWizardInte
         $skill->setEnabled(self::toInt($row['enabled'] ?? 0) === 1);
 
         return $skill;
+    }
+
+    private function isStillLegacy(Skill $skill): bool
+    {
+        $digest = $this->connectionPool->getConnectionForTable(self::TABLE)
+            ->select(['version_digest'], self::TABLE, ['uid' => (int)$skill->getUid()])
+            ->fetchOne();
+
+        return $digest === '';
     }
 
     /**

@@ -167,7 +167,9 @@ final class SkillApprovalController extends ActionController
 
         $route = $this->request->getAttribute('route');
 
-        return $route instanceof Route && $route->getOption('action') === $action;
+        return $route instanceof Route
+            && $route->getOption('controller') === $this->request->getControllerName()
+            && $route->getOption('action') === $action;
     }
 
     private function findSkill(int $uid): ?Skill

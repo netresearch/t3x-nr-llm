@@ -21,14 +21,15 @@ namespace Netresearch\NrLlm\Service\Skill;
  *
  * The character class is the one the write tools' approval previews use
  * ({@see \Netresearch\NrLlm\Service\Tool\Builtin\WritesThroughDataHandlerTrait},
- * `INVISIBLE_CHARACTERS`; a test keeps both identical), except that line
- * feed, carriage return and tab are layout in a Markdown body, not hidden.
+ * `INVISIBLE_CHARACTERS`; a test keeps both in step), plus U+2800, the Braille
+ * pattern blank, which renders as nothing too. Line feed, carriage return and
+ * tab are exempt: they are layout in a Markdown body, not hidden.
  *
  * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final class SkillInvisibleCharacters
 {
-    public const PATTERN = '/[\p{C}\p{Zl}\p{Zp}\x{034F}\x{115F}\x{1160}\x{17B4}\x{17B5}\x{180B}-\x{180F}\x{3164}\x{FE00}-\x{FE0F}\x{FFA0}\x{E0100}-\x{E01EF}]|(?! )\p{Zs}/u';
+    public const PATTERN = '/[\p{C}\p{Zl}\p{Zp}\x{034F}\x{115F}\x{1160}\x{17B4}\x{17B5}\x{180B}-\x{180F}\x{3164}\x{FE00}-\x{FE0F}\x{FFA0}\x{E0100}-\x{E01EF}\x{2800}]|(?! )\p{Zs}/u';
 
     /** How many findings are listed by position; the rest are counted. */
     private const MAX_LISTED = 20;

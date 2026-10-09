@@ -278,8 +278,10 @@ final class SkillInjectionServiceTest extends TestCase
 
     /**
      * A system message after the first user turn is outside the head the
-     * context window keeps, so the instructions are handed back instead of
-     * being placed where they could be evicted.
+     * context window keeps, so the instructions are not placed there. They
+     * get a system message of their own at the head: handed back, they would
+     * be dropped, since a caller's system message suppresses the
+     * configuration prompt they would be appended to.
      */
     #[Test]
     public function aSystemMessageAfterTheFirstUserTurnDoesNotReceiveTheInstructions(): void
@@ -291,8 +293,13 @@ final class SkillInjectionServiceTest extends TestCase
 
         $injected = $this->instructingSubject()->composeIntoMessages($messages, [$this->approvedSkill()]);
 
-        self::assertSame($messages, $injected['messages']);
-        self::assertStringContainsString('Follow the house style.', $injected['instructions']);
+        self::assertSame('', $injected['instructions'], 'nothing is handed back: the shaping stage would drop it');
+        self::assertCount(3, $injected['messages']);
+        $head = $injected['messages'][0];
+        self::assertInstanceOf(ChatMessage::class, $head);
+        self::assertTrue($head->isSystem());
+        self::assertStringContainsString('Follow the house style.', $head->content);
+        self::assertSame($messages, array_slice($injected['messages'], 1), 'the caller\'s messages follow unchanged');
     }
 
     #[Test]

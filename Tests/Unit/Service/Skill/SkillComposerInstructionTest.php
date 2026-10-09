@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Skill\SkillInstructionPolicy;
 use Netresearch\NrLlm\Service\Skill\SkillVersionDigest;
+use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\FixedSkillRecordLookup;
 use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\FixedSkillSourceLookup;
 use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\InMemorySkillApprovalRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -37,11 +38,32 @@ final class SkillComposerInstructionTest extends TestCase
 
     private FixedSkillSourceLookup $sources;
 
+    private ?FixedSkillRecordLookup $records = null;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->approvals = new InMemorySkillApprovalRepository();
         $this->sources   = new FixedSkillSourceLookup([self::SOURCE => SkillTrustLevel::VERIFIED]);
+    }
+
+    /**
+     * A skill hidden or disabled to stop it must not instruct through a list
+     * that ignores enable fields (a forced skill): composition applies the
+     * record rule the pin check applies at resume.
+     */
+    #[Test]
+    public function anApprovedVersionOfAnInactiveSkillRecordIsNotAnInstruction(): void
+    {
+        $skill = $this->syncedSkill(11, 'Guide', 'Follow the house style.');
+        $this->approve($skill);
+        $this->records = new FixedSkillRecordLookup([]);
+
+        self::assertSame('', $this->composer()->composeBlock([], [$skill])->instructions);
+
+        $this->records = new FixedSkillRecordLookup([11]);
+
+        self::assertNotSame('', $this->composer()->composeBlock([], [$skill])->instructions, 'an active record instructs');
     }
 
     #[Test]
@@ -244,7 +266,7 @@ final class SkillComposerInstructionTest extends TestCase
         return new SkillComposer(
             $maxBytes,
             SkillTrustLevel::UNTRUSTED,
-            new SkillInstructionPolicy($this->approvals, $this->sources, SkillTrustLevel::VERIFIED),
+            new SkillInstructionPolicy($this->approvals, $this->sources, SkillTrustLevel::VERIFIED, $this->records),
         );
     }
 

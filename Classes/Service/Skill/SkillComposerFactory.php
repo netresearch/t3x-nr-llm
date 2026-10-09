@@ -62,6 +62,7 @@ final readonly class SkillComposerFactory
         private ExtensionConfiguration $extensionConfiguration,
         private ?SkillApprovalRepositoryInterface $approvals = null,
         private ?SkillSourceLookupInterface $sources = null,
+        private ?SkillRecordLookupInterface $records = null,
     ) {}
 
     public function create(): SkillComposer
@@ -83,7 +84,7 @@ final readonly class SkillComposerFactory
             return null;
         }
 
-        return new SkillInstructionPolicy($this->approvals, $this->sources, $this->instructionTrustLevel());
+        return new SkillInstructionPolicy($this->approvals, $this->sources, $this->instructionTrustLevel(), $this->records);
     }
 
     /**
@@ -106,10 +107,15 @@ final readonly class SkillComposerFactory
     {
         try {
             $skills = $this->skillsConfig();
-            $value  = is_string($skills['instructionTrustLevel'] ?? null) ? trim($skills['instructionTrustLevel']) : '';
-            $level  = $value === ''
-                ? self::DEFAULT_INSTRUCTION_TRUST_LEVEL
-                : (SkillTrustLevel::tryFrom($value) ?? SkillTrustLevel::FIRST_PARTY);
+            $raw   = $skills['instructionTrustLevel'] ?? null;
+            $value = is_string($raw) ? trim($raw) : '';
+            $level = match (true) {
+                $raw === null, $value === '' && is_string($raw) => self::DEFAULT_INSTRUCTION_TRUST_LEVEL,
+                // Present but not a string (an integer in settings.php, say):
+                // unrecognised, so it fails closed like a typo.
+                !is_string($raw) => SkillTrustLevel::FIRST_PARTY,
+                default          => SkillTrustLevel::tryFrom($value) ?? SkillTrustLevel::FIRST_PARTY,
+            };
         } catch (ExtensionConfigurationExtensionNotConfiguredException) {
             // Nothing configured at all (a fresh install): the default.
             $level = self::DEFAULT_INSTRUCTION_TRUST_LEVEL;

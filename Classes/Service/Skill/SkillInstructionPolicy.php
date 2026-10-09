@@ -37,6 +37,12 @@ final readonly class SkillInstructionPolicy
         private SkillApprovalRepositoryInterface $approvals,
         private SkillSourceLookupInterface $sources,
         private SkillTrustLevel $threshold,
+        // Whether the skill record is active (not deleted, hidden, disabled or
+        // orphaned), read now: the same rule the pin check applies at resume,
+        // so a skill hidden to stop it cannot instruct through a forced list
+        // that ignores enable fields. Optional for lean test wiring only;
+        // production wires it (SkillComposerFactoryWiringTest).
+        private ?SkillRecordLookupInterface $records = null,
     ) {}
 
     /**
@@ -61,6 +67,10 @@ final readonly class SkillInstructionPolicy
         }
 
         if (!$this->provenanceSuffices($skill->getSource())) {
+            return false;
+        }
+
+        if ($this->records instanceof SkillRecordLookupInterface && !$this->records->isActive($uid)) {
             return false;
         }
 

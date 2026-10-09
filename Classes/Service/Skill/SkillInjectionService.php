@@ -106,6 +106,15 @@ final readonly class SkillInjectionService
         }
 
         $placed = self::appendToFirstSystemMessage($messages, $result->instructions);
+        if ($placed === null && self::hasSystemMessage($messages)) {
+            // The caller's system message comes after the first user turn, so
+            // it is outside the head and not a safe place; handing the text
+            // back would not help either, because a caller's system message
+            // anywhere suppresses the configuration prompt the planner appends
+            // to. The sections get a system message of their own at the head.
+            $placed = [ChatMessage::system($result->instructions), ...$messages];
+        }
+
         if ($placed === null) {
             return ['messages' => $messages, 'instructions' => $result->instructions, 'pins' => $result->instructionPins];
         }
@@ -171,6 +180,20 @@ final readonly class SkillInjectionService
         }
 
         return null;
+    }
+
+    /**
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     */
+    private static function hasSystemMessage(array $messages): bool
+    {
+        foreach ($messages as $message) {
+            if ($message instanceof ChatMessage ? $message->isSystem() : ($message['role'] ?? null) === MessageRole::SYSTEM->value) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
