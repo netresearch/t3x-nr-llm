@@ -106,6 +106,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             'finished_at'              => 0,
             'tstamp'                   => $now,
             'crdate'                   => $now,
+            'queued_at' => $now,
         ]);
 
         return (int)$connection->lastInsertId();
@@ -894,6 +895,11 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
 
         return $builder
             ->update(self::TABLE_RUN)
+            ->set(
+                'queued_at',
+                $builder->createNamedParameter($now, Connection::PARAM_INT),
+                false,
+            )
             ->set('status', $builder->createNamedParameter(AgentRunStatus::QUEUED->value), false)
             ->set('requeue_count', 'requeue_count + 1', false)
             ->set('claimed_by', $builder->createNamedParameter(''), false)

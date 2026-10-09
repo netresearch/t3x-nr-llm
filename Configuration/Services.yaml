@@ -26,6 +26,7 @@ services:
       # Newable rank-fusion math (ADR-074): consumers construct it, no DI.
       - '../Classes/Service/Retrieval/ReciprocalRankFusion.php'
       - '../Classes/Service/Agent/Exception/*'
+      - '../Classes/Service/Agent/Operations/WorkerOperationsSnapshot.php'
       - '../Classes/Service/Rerank/Exception/*'
       # Scalar-argument constructor; built exclusively by RerankerFactory.
       - '../Classes/Service/Rerank/HttpReranker.php'
@@ -85,6 +86,20 @@ services:
   Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface:
     alias: Netresearch\NrLlm\Service\Tool\ToolLoopService
     public: true
+
+  Netresearch\NrLlm\Service\Agent\Operations\WorkerOperationsReaderInterface:
+    alias: Netresearch\NrLlm\Service\Agent\Operations\WorkerOperationsRepository
+
+  # TYPO3 13.4 has no PSR clock alias. Bind this operational wall clock locally
+  # rather than depending on (or replacing) the TYPO3 14 clock registration.
+  nrllm.worker_clock:
+    class: Symfony\Component\Clock\NativeClock
+    autowire: false
+    autoconfigure: false
+
+  Netresearch\NrLlm\Service\Agent\Operations\WorkerHeartbeatListener:
+    arguments:
+      $clock: '@nrllm.worker_clock'
 
   Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpAuthenticationSessionFactory: ~
 

@@ -32,6 +32,14 @@ consumer is idle; a stopped worker removes its entry. Heartbeats are pruned
 after a bounded retention interval. Worker identifiers contain random process
 identities rather than host names, user names or credentials.
 
+Heartbeat writes and cleanup are best effort. Persistence or logging failures
+must not interrupt message consumption. Assign the process identity before any
+write and throttle attempts, including failed ones, to once per 30 seconds.
+Stop releases the in-memory identity even if database cleanup fails. Diagnostics
+include only fixed text, the operation and exception class; they exclude error
+messages, exception objects and connection details. Failed measurements can leave
+missing or stale heartbeats; a status read failure remains an error.
+
 An internal operational repository and ``nrllm:agent:status`` command report
 queued/running/dead-letter counts, oldest known queue wait, unknown queue-wait
 count, expired run leases and live consumer count for a named transport. JSON
@@ -48,6 +56,10 @@ heartbeat threshold; operators choose thresholds against their call timeout.
 
 Consequences
 ============
+
+The status command belongs to ``nr_llm_tools`` in the future package split,
+alongside the cancel/reap commands. The module seam's named ownership list
+records that placement; it does not relax the core dependency boundary.
 
 No frozen runtime or repository interface changes. Existing synchronous
 execution stays available. Schema additions are optional measurements; no

@@ -19,6 +19,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Worker operations (ADR-219).** `nrllm:agent:status` reports queue wait,
+  unknown timings, expired run leases and transport-scoped consumer heartbeats,
+  with JSON output and explicit health thresholds. Queue-entry time is recorded
+  on enqueue and requeue; legacy rows remain unknown. Idle consumers renew
+  process heartbeats independently of run leases, with bounded retention.
+
 - **Optional actor-bound MCP authentication (ADR-217).** Delegated servers
   exchange explicitly mapped initiating-actor Vault credentials through RFC8693,
   with audience and scope grants, shared operation deadlines and cancellation.
@@ -73,6 +79,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Worker telemetry failures do not stop healthy consumers (ADR-219).** Heartbeat writes, pruning and stop cleanup isolate storage and logging failures. Retries retain one process identity and wait at least 30 seconds, including after partial writes; diagnostic warnings exclude connection details. Status read failures remain errors.
 - **Public tool-loop continuations preserve uncertainty about prior calls (ADR-216).** Skipping prompt assembly or seeding any resumed counter without authoritative invocation history now marks that history incomplete, so a rule requiring complete history refuses execution. Explicitly supplied history keeps its completeness flag.
 - **Invocation-rule denials have their own governance decision (ADR-216).** The governance chart and run timeline show `invocation_denied` with the bounded rule reason; the original tool-denial reason counts remain limited to offering-gate decisions.
 - **Write tools read page TSconfig as the run's acting user (#1017).** `update_content_element`, `create_content_element_draft`, `create_record_draft` and `copy_record` built their approval preview and their permission checks from page TSconfig as core resolves it for the ambient backend user: that user's workspace overlaid the rootline, their user TSconfig `page.` overrides were merged in, and their identity fed the `[backend.user…]` conditions. A run approved by another user, or resumed in a worker without one, could therefore bounce its approval or be checked against the approver's TSconfig. They now read it for the acting user, like `get_tsconfig`, which shows the acting user's view as well.

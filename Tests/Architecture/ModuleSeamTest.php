@@ -4,11 +4,11 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-
-declare(strict_types=1);
+declare (strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Architecture;
 
+use Netresearch\NrLlm\Command\AgentStatusCommand;
 use Netresearch\NrLlm\Command\CancelAgentRunCommand;
 use Netresearch\NrLlm\Command\ImportMcpCatalogueCommand;
 use Netresearch\NrLlm\Command\PurgePrivacyDataCommand;
@@ -94,7 +94,9 @@ final class ModuleSeamTest
                 Selector::inNamespace(self::NS_AGENT),
                 Selector::inNamespace(self::NS_RETRIEVAL),
             )
-            ->because('nr_llm_specialized depends on core only, never on nr_llm_tools (ADR-090).');
+            ->because(
+                'nr_llm_specialized depends on core only, never on nr_llm_tools (ADR-090).',
+            );
     }
 
     /**
@@ -115,7 +117,9 @@ final class ModuleSeamTest
             )
             ->shouldNotDependOn()
             ->classes(Selector::inNamespace(self::NS_SPECIALIZED))
-            ->because('nr_llm_tools depends on core only, never on nr_llm_specialized (ADR-090).');
+            ->because(
+                'nr_llm_tools depends on core only, never on nr_llm_specialized (ADR-090).',
+            );
     }
 
     /**
@@ -138,7 +142,9 @@ final class ModuleSeamTest
                 Selector::inNamespace(self::NS_RETRIEVAL),
                 Selector::inNamespace(self::NS_SPECIALIZED),
             )
-            ->because('Guardrails are invoked by the tool and specialized modules, never the reverse (ADR-090).');
+            ->because(
+                'Guardrails are invoked by the tool and specialized modules, never the reverse (ADR-090).',
+            );
     }
 
     /**
@@ -159,20 +165,24 @@ final class ModuleSeamTest
     public function testNothingOutsideTheBackendDependsOnIt(): Rule
     {
         return PHPat::rule()
-            ->classes(Selector::AllOf(
-                Selector::inNamespace(self::NS_ROOT),
-                Selector::NoneOf(
-                    Selector::inNamespace(self::NS_CONTROLLER),
-                    Selector::inNamespace(self::NS_WIDGETS),
-                    Selector::inNamespace(self::NS_TESTS),
+            ->classes(
+                Selector::AllOf(
+                    Selector::inNamespace(self::NS_ROOT),
+                    Selector::NoneOf(
+                        Selector::inNamespace(self::NS_CONTROLLER),
+                        Selector::inNamespace(self::NS_WIDGETS),
+                        Selector::inNamespace(self::NS_TESTS),
+                    ),
                 ),
-            ))
+            )
             ->shouldNotDependOn()
             ->classes(
                 Selector::inNamespace(self::NS_CONTROLLER),
                 Selector::inNamespace(self::NS_WIDGETS),
             )
-            ->because('nr_llm_backend depends on the other packages; nothing outside it may depend on the backend (ADR-090).');
+            ->because(
+                'nr_llm_backend depends on the other packages; nothing outside it may depend on the backend (ADR-090).',
+            );
     }
 
     /**
@@ -189,7 +199,7 @@ final class ModuleSeamTest
      * not counted here: it said "seven" while carrying six, because a class
      * left it without the number following.
      *
-     * - `CancelAgentRunCommand`, `ReapStaleAgentRunsCommand` — CLI entry
+     * - `AgentStatusCommand`, `CancelAgentRunCommand`, `ReapStaleAgentRunsCommand` — CLI entry
      *   points of the agent runtime (→ nr_llm_tools)
      * - `ImportMcpCatalogueCommand` — the CLI entry point of the MCP
      *   catalogue import, the same operation the MCP Servers module runs
@@ -221,32 +231,37 @@ final class ModuleSeamTest
     public function testCoreDoesNotDependOnTheToolModule(): Rule
     {
         return PHPat::rule()
-            ->classes(Selector::AllOf(
-                Selector::inNamespace(self::NS_ROOT),
-                Selector::NoneOf(
-                    Selector::inNamespace(self::NS_SPECIALIZED),
-                    Selector::inNamespace(self::NS_TOOL),
-                    Selector::inNamespace(self::NS_AGENT),
-                    Selector::inNamespace(self::NS_RETRIEVAL),
-                    Selector::inNamespace(self::NS_GUARDRAIL),
-                    Selector::inNamespace(self::NS_CONTROLLER),
-                    Selector::inNamespace(self::NS_WIDGETS),
-                    Selector::inNamespace(self::NS_TESTS),
-                    Selector::classname(CancelAgentRunCommand::class),
-                    Selector::classname(ImportMcpCatalogueCommand::class),
-                    Selector::classname(PurgePrivacyDataCommand::class),
-                    Selector::classname(ReapStaleAgentRunsCommand::class),
-                    Selector::classname(ToolGroupItems::class),
-                    Selector::classname(LexicalSearchRetriever::class),
-                    Selector::classname(OverviewReadinessService::class),
+            ->classes(
+                Selector::AllOf(
+                    Selector::inNamespace(self::NS_ROOT),
+                    Selector::NoneOf(
+                        Selector::inNamespace(self::NS_SPECIALIZED),
+                        Selector::inNamespace(self::NS_TOOL),
+                        Selector::inNamespace(self::NS_AGENT),
+                        Selector::inNamespace(self::NS_RETRIEVAL),
+                        Selector::inNamespace(self::NS_GUARDRAIL),
+                        Selector::inNamespace(self::NS_CONTROLLER),
+                        Selector::inNamespace(self::NS_WIDGETS),
+                        Selector::inNamespace(self::NS_TESTS),
+                        Selector::classname(AgentStatusCommand::class),
+                        Selector::classname(CancelAgentRunCommand::class),
+                        Selector::classname(ImportMcpCatalogueCommand::class),
+                        Selector::classname(PurgePrivacyDataCommand::class),
+                        Selector::classname(ReapStaleAgentRunsCommand::class),
+                        Selector::classname(ToolGroupItems::class),
+                        Selector::classname(LexicalSearchRetriever::class),
+                        Selector::classname(OverviewReadinessService::class),
+                    ),
                 ),
-            ))
+            )
             ->shouldNotDependOn()
             ->classes(
                 Selector::inNamespace(self::NS_TOOL),
                 Selector::inNamespace(self::NS_AGENT),
                 Selector::inNamespace(self::NS_RETRIEVAL),
             )
-            ->because('Core is what every package depends on; core reaching back into nr_llm_tools would make the split circular (ADR-090).');
+            ->because(
+                'Core is what every package depends on; core reaching back into nr_llm_tools would make the split circular (ADR-090).',
+            );
     }
 }
