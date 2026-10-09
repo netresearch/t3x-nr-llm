@@ -90,6 +90,17 @@ services:
   Netresearch\NrLlm\Service\Agent\Operations\WorkerOperationsReaderInterface:
     alias: Netresearch\NrLlm\Service\Agent\Operations\WorkerOperationsRepository
 
+  # TYPO3 13.4 has no PSR clock alias. Bind this operational wall clock locally
+  # rather than depending on (or replacing) the TYPO3 14 clock registration.
+  nrllm.worker_clock:
+    class: Symfony\Component\Clock\NativeClock
+    autowire: false
+    autoconfigure: false
+
+  Netresearch\NrLlm\Service\Agent\Operations\WorkerHeartbeatListener:
+    arguments:
+      $clock: '@nrllm.worker_clock'
+
   Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpAuthenticationSessionFactory: ~
 
   Netresearch\NrLlm\Service\Tool\Mcp\Auth\ConfiguredMcpSubjectResolver: ~
