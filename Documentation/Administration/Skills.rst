@@ -266,12 +266,19 @@ identifier the sync no longer finds — grants no tools and still restricts, as
 does a skill whose source is gone. A skill that is still attached cannot be
 deleted; detach it on the configuration or the task first.
 
+Only an administrator enables or disables a skill. A skill the sync disabled
+— its version changed, the scanner found an injection, or it was orphaned —
+keeps restricting the runs it is attached to until an administrator enables
+it again or detaches it; a skill an administrator disabled drops out of those
+runs.
+
 A backend user who is not an administrator writes skills only with the
-fields an administrator granted: the source, the enable flag, the allowed
-tools and the data class are excluded fields (:guilabel:`Allowed
-excludefields` of the backend group). Without the source grant a new skill
-is stored without a source and is never composed; without the enable grant it
-stays disabled until an administrator enables it. The :guilabel:`New skill`
+fields an administrator granted: the source, the allowed tools and the data
+class are excluded fields (:guilabel:`Allowed excludefields` of the backend
+group). Without the source grant a new skill is stored without a source and
+is never composed. The enable flag is an administrator's, even when a group
+is granted it: a new skill stays disabled until an administrator enables
+it. The :guilabel:`New skill`
 button creates the record on the root page, which only administrators may
 write; a backend user who is not an administrator creates the skill with
 :guilabel:`Create new record` on a page in their web mount.
