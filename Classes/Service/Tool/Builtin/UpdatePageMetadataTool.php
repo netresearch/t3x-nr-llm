@@ -12,12 +12,14 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
+use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
+use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -82,7 +84,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * ADR-136): the arguments alone are the NEW values, and an approver deciding
  * whether a change is right needs to see what it replaces.
  */
-final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, EditorActionInterface
+final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions: the environment and workspace guards, the
@@ -443,6 +445,19 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
         // the read-only `content` group must not inherit write capability
         // because a new tool joined that group.
         return 'editing';
+    }
+
+    /**
+     * The page and the metadata fields the call sets (ADR-214).
+     * A call that names no field the tool writes has no target: an empty
+     * field list would key it like a move or a delete of the record, and
+     * the call is refused when it runs anyway.
+     */
+    public function pendingTarget(array $arguments): ?PendingWriteTarget
+    {
+        $fields = array_values(array_intersect($this->editableFields(), array_keys($arguments)));
+
+        return $fields === [] ? null : PendingWriteTarget::fromArguments(self::TABLE, $arguments['uid'] ?? null, $fields);
     }
 
     public function getEffect(): ToolEffect

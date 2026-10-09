@@ -12,8 +12,10 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Agent\Inbox;
 use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Service\Agent\Inbox\PendingCallView;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunViewFactory;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
@@ -23,6 +25,7 @@ use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Unit\Language\EnglishPreviewTranslatorTrait;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\PreviewingApprovalTool;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\TargetNamingWriteTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -86,6 +89,59 @@ final class WaitingRunViewFactoryTest extends TestCase
 
         self::assertSame(WaitingRunView::MODE_APPROVAL, $view->mode);
         self::assertFalse($view->pendingCalls[0]->toolStillRegistered);
+    }
+
+    /**
+     * ADR-214: a write proposal names its record and fields as structured
+     * values, and says it is a write, so a chat keys an open point without
+     * parsing prose and offers its three answers only on a write.
+     */
+    #[Test]
+    public function aWriteCallCarriesItsPendingTargetAndSaysItWrites(): void
+    {
+        $state = $this->approvalState('set_title', ['uid' => 42, 'fields' => ['title', 'nav_title']]);
+        $call  = $this->factory(new TargetNamingWriteTool())->buildWaiting([$this->makeRun('a', $state)])[0]->pendingCalls[0];
+
+        self::assertTrue($call->declaresWrite);
+        self::assertInstanceOf(PendingWriteTarget::class, $call->pendingTarget);
+        self::assertSame(['table' => 'pages', 'uid' => 42, 'fields' => ['nav_title', 'title']], $call->pendingTarget->toArray());
+    }
+
+    /**
+     * The other direction: a read-only call is no proposal and names no
+     * target; a tool that is gone counts as a write, as for the effect fence,
+     * and names none; a tool that breaks the contract by throwing costs the
+     * target, not the card.
+     */
+    #[Test]
+    public function aCallThatNamesNoTargetStillRendersAndSaysWhetherItWrites(): void
+    {
+        $read = $this->factory(new FakeTool('fetch_page'))
+            ->buildWaiting([$this->makeRun('a', $this->approvalState('fetch_page', ['uid' => 42]))])[0]->pendingCalls[0];
+        self::assertFalse($read->declaresWrite);
+        self::assertNull($read->pendingTarget);
+
+        $gone = $this->factory()
+            ->buildWaiting([$this->makeRun('a', $this->approvalState('gone_tool', ['uid' => 42]))])[0]->pendingCalls[0];
+        self::assertTrue($gone->declaresWrite);
+        self::assertNull($gone->pendingTarget);
+
+        $view = $this->factory(new TargetNamingWriteTool(throwOnTarget: true))
+            ->buildWaiting([$this->makeRun('a', $this->approvalState('set_title', ['uid' => 42]))])[0];
+        self::assertSame(WaitingRunView::MODE_APPROVAL, $view->mode);
+        self::assertTrue($view->pendingCalls[0]->declaresWrite);
+        self::assertNull($view->pendingCalls[0]->pendingTarget);
+    }
+
+    /**
+     * A view built by hand without the argument counts as a write: "not a
+     * write" is the answer that has to be stated, so a consumer's fixture for
+     * a write tool cannot model it as a plain approve and deny by omission.
+     */
+    #[Test]
+    public function aPendingCallViewWithoutTheArgumentCountsAsAWrite(): void
+    {
+        self::assertTrue((new PendingCallView('delete_record', '{}', true))->declaresWrite);
     }
 
     #[Test]

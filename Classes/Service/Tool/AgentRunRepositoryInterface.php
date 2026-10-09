@@ -10,8 +10,10 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool;
 
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
+use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 
 /**
  * Persistence contract for agent runs and their event streams (ADR-081).
@@ -70,6 +72,23 @@ interface AgentRunRepositoryInterface
      * cancelled run is never resurrected into an approval queue.
      */
     public function suspendRun(int $runUid, string $stateJson): bool;
+
+    /**
+     * End a run that is still waiting for a human, in one conditional UPDATE
+     * (ADR-214): move it from one of $from — a subset of WAITING_FOR_APPROVAL
+     * and WAITING_FOR_INPUT — to $to, CANCELLED or FAILED, recording $reason and
+     * dropping its suspended state. The counterpart of the claims below: a
+     * run that a resume already claimed, or that settled, does not move.
+     *
+     * Totals are left as the run recorded them; nothing ran in between.
+     *
+     * @param list<AgentRunStatus> $from the waiting states to move from; empty moves nothing
+     *
+     * @throws InvalidArgumentException when $from names a state that is not a wait, or $to is neither CANCELLED nor FAILED
+     *
+     * @return bool true when this call moved the run, false when it was no longer in $from (or gone)
+     */
+    public function settleIfWaiting(int $runUid, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason): bool;
 
     /**
      * Suspend a run for typed user input (ADR-105): the input sibling of

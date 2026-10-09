@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
+use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
@@ -19,6 +20,7 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
+use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -124,7 +126,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * human approval (ADR-134) and covered by the ADR-112 write fence, which arms
  * on every executing segment since ADR-141.
  */
-final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, EditorActionInterface
+final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions: the environment and workspace guards, the
@@ -374,6 +376,21 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
         // already grants the read-only FAL tools must not inherit write
         // capability because a new tool joined that group.
         return 'editing';
+    }
+
+    /**
+     * The file the call describes and the metadata fields it sets (ADR-214).
+     * Named by the file uid the call carries, as `set_file_alternative_text`
+     * does: the metadata row is the file's default-language row.
+     * A call that names no field the tool writes has no target: an empty
+     * field list would key it like a move or a delete of the record, and
+     * the call is refused when it runs anyway.
+     */
+    public function pendingTarget(array $arguments): ?PendingWriteTarget
+    {
+        $fields = array_values(array_intersect($this->writableFields(), array_keys($arguments)));
+
+        return $fields === [] ? null : PendingWriteTarget::fromArguments('sys_file', $arguments['uid'] ?? null, $fields);
     }
 
     public function getEffect(): ToolEffect

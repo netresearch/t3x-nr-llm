@@ -12,12 +12,14 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
+use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
+use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -65,7 +67,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * one card. A model that wants both calls this tool and then
  * {@see CreateContentElementDraftTool} on the page it was given.
  */
-final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, EditorActionInterface, RecordCreatorInterface
+final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, RecordCreatorInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -308,6 +310,15 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
     {
         // The writers' own group (ADR-135).
         return 'editing';
+    }
+
+    /**
+     * None: the call creates its record, which has no uid before it runs
+     * (ADR-214).
+     */
+    public function pendingTarget(array $arguments): ?PendingWriteTarget
+    {
+        return null;
     }
 
     public function getEffect(): ToolEffect

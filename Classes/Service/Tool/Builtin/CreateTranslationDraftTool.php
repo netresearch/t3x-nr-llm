@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
+use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
@@ -22,6 +23,7 @@ use Netresearch\NrLlm\Service\Option\TranslationOptions;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
+use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -91,7 +93,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * @phpstan-type TextField array{text:string, html:bool, max:int, trim:bool, exact:bool}
  * @phpstan-type Plan array{table:non-empty-string, uid:int, label:string, language:int, existingUid:int, existingLabel:string, translator:string, translatorName:string, translatorTitle:string, site:string, source:string, sourceTitle:string, target:string, targetTitle:string, glossaryTerms:int, texts:array<string, TextField>, withheld:list<string>}
  */
-final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, EditorActionInterface, RecordCreatorInterface
+final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, RecordCreatorInterface
 {
     use SafeCastTrait;
     use ErrorMessageSanitizerTrait;
@@ -628,6 +630,15 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
     {
         // The writers' own group (ADR-135).
         return 'editing';
+    }
+
+    /**
+     * None: the call creates its record, which has no uid before it runs
+     * (ADR-214).
+     */
+    public function pendingTarget(array $arguments): ?PendingWriteTarget
+    {
+        return null;
     }
 
     public function getEffect(): ToolEffect

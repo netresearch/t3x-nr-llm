@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
+use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
@@ -19,6 +20,7 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
+use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -113,7 +115,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * interactive path too. ADR-135 recorded the opposite while that was still
  * true; read ADR-141 for the current guarantee.
  */
-final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, EditorActionInterface
+final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions: the environment and workspace guards, the
@@ -338,6 +340,16 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
         // already grants the read-only FAL tools must not inherit write
         // capability because a new tool joined that group.
         return 'editing';
+    }
+
+    /**
+     * The file the call describes and the one metadata field it writes
+     * (ADR-214). Named by the file uid the call carries: the metadata row is
+     * the file's default-language row, and finding its uid would mean a read.
+     */
+    public function pendingTarget(array $arguments): ?PendingWriteTarget
+    {
+        return PendingWriteTarget::fromArguments('sys_file', $arguments['uid'] ?? null, [self::FIELD]);
     }
 
     public function getEffect(): ToolEffect

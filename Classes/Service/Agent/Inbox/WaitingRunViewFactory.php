@@ -13,15 +13,19 @@ use Netresearch\NrLlm\Domain\Enum\ApprovalAttribution;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
+use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\SchemaPropertyClassifier;
+use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
@@ -156,7 +160,8 @@ final readonly class WaitingRunViewFactory
             $previews[$preview['index']] = $preview;
         }
 
-        $calls = [];
+        $effects = new ToolEffectResolver($this->registry);
+        $calls   = [];
         foreach ($state->pendingCalls as $index => $raw) {
             // tryFromArray skips a corrupt entry rather than throwing (unlike
             // SuspendedRunState::toolCalls()), so one bad call never blanks the
@@ -205,6 +210,11 @@ final readonly class WaitingRunViewFactory
                 // now, and the card has to say so or the approver re-reads what
                 // looks like the same card.
                 previewStale: in_array($index, $state->staleCallIndexes, true),
+                // ADR-214: structured, read from the arguments only, so it is
+                // the same for every viewer and needs no read gate — the
+                // arguments are on the card already.
+                pendingTarget: $this->pendingTarget($tool, $call->arguments),
+                declaresWrite: $effects->effectFor($call->name)->isWrite(),
             );
         }
 
@@ -220,6 +230,29 @@ final readonly class WaitingRunViewFactory
             turnDigest: $this->digest->forState($state),
             pendingCalls: $calls,
         );
+    }
+
+    /**
+     * The structured target of a pending call, or null (ADR-214).
+     *
+     * A tool that throws here breaks its own contract — a pure function of the
+     * arguments — but must not take the whole card down with it: the call then
+     * has no structured target, which a consumer already handles for a tool
+     * that offers none.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    private function pendingTarget(?ToolInterface $tool, array $arguments): ?PendingWriteTarget
+    {
+        if (!$tool instanceof PendingTargetInterface) {
+            return null;
+        }
+
+        try {
+            return $tool->pendingTarget($arguments);
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /**

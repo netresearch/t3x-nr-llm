@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Privacy\RunStepPrivacyFilter;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Uid\Uuid;
@@ -322,6 +323,35 @@ final readonly class AgentRunPersister
             );
         } catch (Throwable $exception) {
             $this->logger?->warning('AgentRun could not be cancelled', ['exception' => $exception]);
+
+            return false;
+        }
+    }
+
+    /**
+     * End a run that is still waiting for a human (ADR-214) — the guarded
+     * terminal transition behind
+     * {@see \Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface::cancelIfWaiting()}.
+     *
+     * Unlike {@see self::cancel()}, which also stops a queued or running run
+     * and stays the operator's tool, this moves the run only while it is in
+     * one of $from, so it never stops a decision somebody else already
+     * released. False when the run had left those states, or on a store
+     * failure, which is logged.
+     *
+     * @param list<AgentRunStatus> $from the waiting states to move from; empty moves nothing
+     *
+     * @throws InvalidArgumentException when $from names a state that is not a wait, or $to is neither CANCELLED nor FAILED
+     */
+    public function settleIfWaiting(AgentRun $run, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason): bool
+    {
+        try {
+            return $this->repository->settleIfWaiting($run->uid, $from, $to, $reason);
+        } catch (InvalidArgumentException $exception) {
+            // A caller's mistake, not a store failure: never a quiet "lost".
+            throw $exception;
+        } catch (Throwable $exception) {
+            $this->logger?->warning('A waiting AgentRun could not be settled', ['exception' => $exception]);
 
             return false;
         }

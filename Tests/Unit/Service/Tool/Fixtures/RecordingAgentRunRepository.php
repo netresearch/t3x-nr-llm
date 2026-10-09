@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures;
 
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
+use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
@@ -128,6 +129,30 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
 
     /** Simulates a run no longer RUNNING (cancelled/settled), so the guarded suspend matches no row. */
     public bool $refuseSuspend = false;
+
+    /** Simulates a run that already left the waiting states, so the guarded settle matches no row. */
+    public bool $refuseSettleIfWaiting = false;
+
+    public bool $throwOnSettleIfWaiting = false;
+
+    /** @var list<array{runUid: int, from: list<string>, to: string, reason: string}> */
+    public array $settledIfWaiting = [];
+
+    public function settleIfWaiting(int $runUid, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason): bool
+    {
+        if ($this->throwOnSettleIfWaiting) {
+            throw new RuntimeException('settleIfWaiting failed', 1791600399);
+        }
+
+        $this->settledIfWaiting[] = [
+            'runUid' => $runUid,
+            'from'   => array_map(static fn(AgentRunStatus $status): string => $status->value, $from),
+            'to'     => $to->value,
+            'reason' => $reason->value,
+        ];
+
+        return !$this->refuseSettleIfWaiting;
+    }
 
     public function suspendRun(int $runUid, string $stateJson): bool
     {

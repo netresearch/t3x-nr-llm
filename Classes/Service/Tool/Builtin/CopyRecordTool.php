@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
+use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
@@ -18,6 +19,7 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\PageTsConfigReader;
 use Netresearch\NrLlm\Service\Tool\PageTsConfigReaderInterface;
+use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -70,7 +72,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * - **A draft workspace and a process without a backend environment**, through
  *   {@see WritesThroughDataHandlerTrait}.
  */
-final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, RecordCreatorInterface
+final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, RecordCreatorInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -383,6 +385,15 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
     {
         // The writers' own group (ADR-135).
         return 'editing';
+    }
+
+    /**
+     * None: the call creates its record, which has no uid before it runs
+     * (ADR-214).
+     */
+    public function pendingTarget(array $arguments): ?PendingWriteTarget
+    {
+        return null;
     }
 
     public function getEffect(): ToolEffect

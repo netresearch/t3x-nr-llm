@@ -12,12 +12,14 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 use Closure;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
+use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
+use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -64,7 +66,7 @@ use TYPO3\CMS\Core\Utility\StringUtility;
  * A reference, an element and a file that do not exist, and those the user may
  * not touch, all return one neutral string.
  */
-final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface
+final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -281,6 +283,16 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
     {
         // The writers' own group (ADR-135).
         return 'editing';
+    }
+
+    /**
+     * The file reference the call replaces or removes, with no field
+     * (ADR-214). A replacement creates a new reference, but the card is about
+     * the one it replaces, which exists and is what the arguments name.
+     */
+    public function pendingTarget(array $arguments): ?PendingWriteTarget
+    {
+        return PendingWriteTarget::fromArguments(self::REFERENCE_TABLE, $arguments['reference'] ?? null);
     }
 
     public function getEffect(): ToolEffect

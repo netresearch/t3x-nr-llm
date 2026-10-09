@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Agent;
 
 use Closure;
+use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
+use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
@@ -250,6 +252,44 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         }
 
         return $this->persister->cancel($runUuid);
+    }
+
+    public function cancelIfWaiting(AiActorContext $actor, string $runUuid): GuardedCancelResult
+    {
+        $run = $this->persister->findRun($runUuid);
+        if (!$run instanceof AgentRun || !$this->mayWithdraw($actor, $run)) {
+            return new GuardedCancelResult(false, null);
+        }
+
+        $cancelled = $this->persister->settleIfWaiting(
+            $run,
+            [AgentRunStatus::WAITING_FOR_APPROVAL, AgentRunStatus::WAITING_FOR_INPUT],
+            AgentRunStatus::CANCELLED,
+            AgentRunTerminationReason::CANCELLED,
+        );
+
+        if ($cancelled) {
+            return new GuardedCancelResult(true, AgentRunStatus::CANCELLED);
+        }
+
+        // Read after the attempt, not before it: a loser must learn the state
+        // that beat it.
+        return new GuardedCancelResult(false, $this->persister->findRun($runUuid)?->statusEnum());
+    }
+
+    /**
+     * The initiator or an administrator (ADR-214): withdrawing a person's
+     * waiting proposal is that person's act, so neither the approve grant nor
+     * a service account's scopes reach it, as {@see AiActorContext::mayActOnRun()}
+     * would let them.
+     */
+    private function mayWithdraw(AiActorContext $actor, AgentRun $run): bool
+    {
+        if ($actor->isInitiatorOf($run)) {
+            return true;
+        }
+
+        return $actor->isAdmin && !$actor->isServiceAccount();
     }
 
     public function events(AiActorContext $actor, string $runUuid, int $afterSequence = -1): array

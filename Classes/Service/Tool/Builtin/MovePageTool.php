@@ -11,11 +11,13 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
+use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
+use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -53,7 +55,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * - **A draft workspace and a process without a backend environment**, through
  *   {@see WritesThroughDataHandlerTrait}.
  */
-final readonly class MovePageTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface
+final readonly class MovePageTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -262,6 +264,14 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
     {
         // The writers' own group (ADR-135).
         return 'editing';
+    }
+
+    /**
+     * The page the call moves, with no field (ADR-214).
+     */
+    public function pendingTarget(array $arguments): ?PendingWriteTarget
+    {
+        return PendingWriteTarget::fromArguments(self::TABLE, $arguments['uid'] ?? null);
     }
 
     public function getEffect(): ToolEffect
