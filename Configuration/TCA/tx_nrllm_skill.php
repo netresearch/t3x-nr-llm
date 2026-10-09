@@ -32,6 +32,10 @@ $syncedShowitem = '
         hidden,
 ';
 
+$syncedOverrides = [
+    'source' => ['config' => ['readOnly' => true]],
+];
+
 return [
     'ctrl' => [
         'title' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill',
@@ -54,11 +58,15 @@ return [
     // The form follows the type of the skill's source (ADR-214 item 3). A
     // synced skill is written by the sync only, so every field the version
     // digest covers is read-only. A backend-authored skill is written here.
+    // The source is not moved in the form: a synced skill keeps its source,
+    // and a backend skill offers only backend sources. A convenience — the
+    // control is that a record carrying sync-written values stays checked
+    // against them on any source (SkillComposer::isEditedInPlace()).
     'types' => [
-        '0' => ['showitem' => $syncedShowitem],
-        'single_file' => ['showitem' => $syncedShowitem],
-        'repo' => ['showitem' => $syncedShowitem],
-        'marketplace' => ['showitem' => $syncedShowitem],
+        '0' => ['showitem' => $syncedShowitem, 'columnsOverrides' => $syncedOverrides],
+        'single_file' => ['showitem' => $syncedShowitem, 'columnsOverrides' => $syncedOverrides],
+        'repo' => ['showitem' => $syncedShowitem, 'columnsOverrides' => $syncedOverrides],
+        'marketplace' => ['showitem' => $syncedShowitem, 'columnsOverrides' => $syncedOverrides],
         'backend' => [
             'showitem' => '
                 --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:general,
@@ -76,6 +84,7 @@ return [
                     hidden,
             ',
             'columnsOverrides' => [
+                'source' => ['config' => ['foreign_table_where' => "AND {#tx_nrllm_skill_source}.{#type} = 'backend' ORDER BY tx_nrllm_skill_source.title"]],
                 'identifier' => ['config' => ['readOnly' => false, 'required' => true]],
                 'name' => ['config' => ['readOnly' => false]],
                 'description' => ['config' => ['readOnly' => false]],

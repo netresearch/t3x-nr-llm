@@ -270,8 +270,11 @@ final readonly class SkillComposer
      *   approved version from the same source, and the empty list while none
      *   is approved — an author cannot widen a run's tools with an edit nobody
      *   approved. Without a policy to read approvals from it grants nothing.
-     * - A process skill (ADR-214 item 6): the empty list; it is composed only
-     *   through invocation, so attaching it grants nothing either.
+     * - A process skill that the run does not invoke (ADR-214 items 5 and
+     *   6): no opinion. It is composed only through an invocation, so a run
+     *   that only has it attached gets neither its section nor its tools,
+     *   and it does not restrict that run either. An invoked process skill
+     *   is vouched for like any other skill.
      * - A synced skill whose stored fields fail the integrity check: the empty
      *   list, as compose skips it.
      * - Any other synced skill: its stored field.
@@ -279,19 +282,31 @@ final readonly class SkillComposer
      * A composer built without a source lookup (lean wiring) keeps the stored
      * field, as before ADR-214.
      *
+     * @param bool $invoked whether the run invokes this skill (or holds its pin);
+     *                      an invoked process skill without a vouched declaration
+     *                      declares the empty list, never null
+     *
      * @return list<string>|null null = no opinion; a list = the declaration
      */
-    public function declaredTools(Skill $skill): ?array
+    public function declaredTools(Skill $skill, bool $invoked = false): ?array
+    {
+        if (!$skill->isProcess()) {
+            return $this->vouchedTools($skill, false);
+        }
+
+        // An invoked process skill never leaves the run unrestricted: what
+        // nothing vouches for, or no declaration at all, restricts it to
+        // nothing (fail closed).
+        return $invoked ? ($this->vouchedTools($skill, true) ?? []) : null;
+    }
+
+    /**
+     * @return list<string>|null
+     */
+    private function vouchedTools(Skill $skill, bool $invoked): ?array
     {
         if (!$this->sources instanceof SkillSourceLookupInterface) {
             return $skill->getAllowedToolsList();
-        }
-
-        // A process skill grants nothing from an attachment, whatever its
-        // source: it reaches a run only through an invocation (ADR-214
-        // item 6).
-        if ($skill->isProcess()) {
-            return [];
         }
 
         $facts = $this->sources->find($skill->getSource());
@@ -299,8 +314,8 @@ final readonly class SkillComposer
             return [];
         }
 
-        if (!$facts->type->isSynced()) {
-            return $this->instructionPolicy?->approvedToolsOf($skill, SkillVersionDigest::verified($skill, false)) ?? [];
+        if (self::isEditedInPlace($skill, $facts)) {
+            return $this->instructionPolicy?->approvedToolsOf($skill, SkillVersionDigest::verified($skill, false), $invoked) ?? [];
         }
 
         if (SkillVersionDigest::verified($skill) === null) {
@@ -322,11 +337,30 @@ final readonly class SkillComposer
     private function admittedLevel(Skill $skill): SkillTrustLevel
     {
         $facts = $this->sources?->find($skill->getSource());
-        if ($facts instanceof SkillSourceFacts && $facts->type === SkillSourceType::BACKEND) {
+        if ($facts instanceof SkillSourceFacts && self::isEditedInPlace($skill, $facts)) {
             return $facts->trustLevel;
         }
 
         return $skill->getTrustLevelEnum();
+    }
+
+    /**
+     * Whether a skill is backend-authored: its source is of a type nothing
+     * syncs, AND the record carries none of the values a sync writes.
+     *
+     * The second half is the control, not the source alone. A synced skill
+     * moved onto a backend source keeps its stored digest or checksum — only
+     * the sync and the digest wizard write them, both are excluded fields,
+     * and neither touches a backend source — so it stays checked against
+     * them: an edit after the move still fails the integrity check instead of
+     * becoming a new version (ADR-214 item 3).
+     */
+    public static function isEditedInPlace(Skill $skill, ?SkillSourceFacts $facts): bool
+    {
+        return $facts instanceof SkillSourceFacts
+            && $facts->type?->isSynced() === false
+            && $skill->getVersionDigest() === ''
+            && $skill->getBodyChecksum() === '';
     }
 
     /**
@@ -335,7 +369,7 @@ final readonly class SkillComposer
      */
     private function isBackendAuthored(Skill $skill): bool
     {
-        return $this->sources?->find($skill->getSource())?->type?->isSynced() === false;
+        return self::isEditedInPlace($skill, $this->sources?->find($skill->getSource()));
     }
 
     /**

@@ -505,7 +505,10 @@ tools, a load grants nothing.** Attaching or forcing a skill is an
 administrator's act; a load is something content can ask for. Content that
 talks the model into loading skill B therefore cannot grant tools the run did
 not already have. What changes against ADR-038 is the set the union is taken
-over, and that it is taken once.
+over, and that it is taken once. A process skill is effective here only in a
+run that invokes it or holds its pin: attached or forced without an
+invocation it contributes nothing, no tools and no restriction
+(:ref:`item 6 <adr-214-d6>`).
 
 **The resolved list is stored with the run** — on the run request a queued
 run persists and in :php:`SuspendedRunState` — and :php:`ToolCallPolicy`

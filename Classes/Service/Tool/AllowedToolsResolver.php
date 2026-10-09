@@ -73,13 +73,17 @@ final readonly class AllowedToolsResolver
      * with the run, and the group gate is re-read live through
      * {@see self::applyGroupGateTo()}.
      *
+     * An attached or forced process skill contributes nothing — no tools and
+     * no restriction — unless the run invokes it (ADR-214 items 5 and 6).
+     *
      * @param list<Skill> $runSkills
+     * @param list<Skill> $invokedSkills the skills this run invokes; pinned process skills feed this on resume and continuation (ADR-214 item 10)
      */
-    public function resolveForRun(LlmConfiguration $config, array $runSkills, ?Task $task = null): SkillToolAllowList
+    public function resolveForRun(LlmConfiguration $config, array $runSkills, ?Task $task = null, array $invokedSkills = []): SkillToolAllowList
     {
         $taskSkills = $task instanceof Task ? $this->toList($task->getSkills()) : [];
 
-        return new SkillToolAllowList($this->declaredUnion($config, [...$taskSkills, ...$runSkills]));
+        return new SkillToolAllowList($this->declaredUnion($config, [...$taskSkills, ...$runSkills], $invokedSkills));
     }
 
     /**
@@ -95,19 +99,25 @@ final readonly class AllowedToolsResolver
 
     /**
      * @param list<Skill> $additionalSkills
+     * @param list<Skill> $invokedSkills
      *
      * @return list<string>|null
      */
-    private function declaredUnion(LlmConfiguration $config, array $additionalSkills): ?array
+    private function declaredUnion(LlmConfiguration $config, array $additionalSkills, array $invokedSkills = []): ?array
     {
+        $invoked = [];
+        foreach ($invokedSkills as $skill) {
+            $invoked[spl_object_id($skill)] = true;
+        }
+
         $declared = [];
         $any      = false;
-        foreach ($this->composer->effectiveSkills($this->toList($config->getSkills()), $additionalSkills) as $skill) {
+        foreach ($this->composer->effectiveSkills([...$invokedSkills, ...$this->toList($config->getSkills())], $additionalSkills) as $skill) {
             // What the skill may declare, not its live field: an unapproved
-            // backend skill, a process skill, one whose source no longer
-            // vouches or one edited after the sync grants nothing
-            // (ADR-214 item 3, {@see SkillComposer::declaredTools()}).
-            $list = $this->composer->declaredTools($skill);
+            // backend skill or one whose source no longer vouches grants
+            // nothing, and a process skill the run does not invoke has no
+            // opinion (ADR-214 items 3 and 5, {@see SkillComposer::declaredTools()}).
+            $list = $this->composer->declaredTools($skill, isset($invoked[spl_object_id($skill)]));
             if ($list === null) {
                 continue;
             }

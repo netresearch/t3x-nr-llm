@@ -85,11 +85,12 @@ final readonly class SkillInstructionPolicy
      * the most recent unrevoked approved version. Null when that version
      * declared none; the declared empty list when no version is approved, so
      * an unapproved backend skill grants nothing and still counts as a
-     * declaration, and when the approved version is a process skill.
+     * declaration, and when the approved version is a process skill and the
+     * run does not invoke it.
      *
      * @return list<string>|null
      */
-    public function approvedToolsOf(Skill $skill, ?string $currentDigest = null): ?array
+    public function approvedToolsOf(Skill $skill, ?string $currentDigest = null, bool $invoked = false): ?array
     {
         $uid = $skill->getUid();
         if ($uid === null || $uid <= 0) {
@@ -101,7 +102,8 @@ final readonly class SkillInstructionPolicy
             : null;
         $approval ??= $this->approvals->findLatestUnrevokedFromSource($uid, $skill->getSource());
 
-        if (!$approval instanceof SkillApproval || $approval->process) {
+        // A process version grants tools only to a run that invokes it.
+        if (!$approval instanceof SkillApproval || ($approval->process && !$invoked)) {
             return [];
         }
 
