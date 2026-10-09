@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateRecordDraftTool;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
+use Netresearch\NrLlm\Service\Tool\PageTsConfigReaderInterface;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -41,8 +42,6 @@ use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
-use TYPO3\CMS\Core\TypoScript\AST\Node\RootNode;
-use TYPO3\CMS\Core\TypoScript\PageTsConfig;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
@@ -182,18 +181,15 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
         $GLOBALS['LANG']    = self::createStub(LanguageService::class);
         $GLOBALS['BE_USER'] = $this->liveUser();
 
-        // The page every call addresses has no TSconfig. getPagesTSconfig()
-        // answers from the runtime cache before it builds a rootline, which
-        // would need a database; the two keys are the same in TYPO3 13.4 and
-        // 14.3 (BackendUtility::getPagesTSconfig()).
+        // A runtime cache for the core helpers the rules call. The page every
+        // call addresses has no TSconfig; that answer comes from the reader
+        // double the tool is built with (noPageTsConfig()), because resolving
+        // it would need a database.
         $this->cacheManager = new CacheManager();
         $this->cacheManager->setCacheConfigurations([
             'runtime' => ['frontend' => VariableFrontend::class, 'backend' => TransientMemoryBackend::class, 'options' => [], 'groups' => []],
         ]);
         GeneralUtility::setSingletonInstance(CacheManager::class, $this->cacheManager);
-        $runtimeCache = $this->cacheManager->getCache('runtime');
-        $runtimeCache->set('pageTsConfig-pid-to-hash-7', 'nrllm-unit-page-7');
-        $runtimeCache->set('pageTsConfig-hash-to-object-nrllm-unit-page-7', new PageTsConfig(new RootNode(), []));
 
         // Every call must stop before the write. One that passes every rule
         // meets this DataHandler and fails the test, rather than dying on the
@@ -626,6 +622,7 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
             new ApprovalPreviewTranslator(self::createStub(LanguageServiceFactory::class)),
             [],
             $throwing,
+            pageTsConfig: $this->noPageTsConfig(),
         );
 
         $result = $tool->execute($this->call(['title' => 'x']), $this->contextFor($this->liveUser()));
@@ -763,6 +760,7 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
             $writers,
             new ExtensionConfiguration(),
             $typo3Version,
+            $this->noPageTsConfig(),
         );
     }
 
@@ -777,7 +775,16 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
             new ApprovalPreviewTranslator(self::createStub(LanguageServiceFactory::class)),
             [],
             $extensionConfiguration,
+            pageTsConfig: $this->noPageTsConfig(),
         );
+    }
+
+    private function noPageTsConfig(): PageTsConfigReaderInterface
+    {
+        $reader = self::createStub(PageTsConfigReaderInterface::class);
+        $reader->method('forPage')->willReturn([]);
+
+        return $reader;
     }
 
     /**

@@ -16,12 +16,13 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
+use Netresearch\NrLlm\Service\Tool\PageTsConfigReader;
+use Netresearch\NrLlm\Service\Tool\PageTsConfigReaderInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
-use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
@@ -90,6 +91,9 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
     public function __construct(
         private ConnectionPool $connectionPool,
         private ApprovalPreviewTranslator $translator,
+        // Page TSconfig as the ACTING user sees it, never the ambient one
+        // (#1017). Defaulted: the reader is stateless.
+        private PageTsConfigReaderInterface $pageTsConfig = new PageTsConfigReader(),
     ) {}
 
     public function getSpec(): ToolSpec
@@ -355,7 +359,7 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
         }
 
         $pageUid  = self::toInt($page['uid'] ?? 0);
-        $narrowed = $this->pageTsConfigRefusalFor($pageUid, $type, $fields);
+        $narrowed = $this->pageTsConfigRefusalFor($pageUid, $type, $fields, $user);
         if ($narrowed !== null) {
             return $narrowed;
         }
@@ -530,9 +534,9 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
      *
      * @param array<non-empty-string, string|int> $fields
      */
-    private function pageTsConfigRefusalFor(int $pageUid, string $type, array $fields): ?string
+    private function pageTsConfigRefusalFor(int $pageUid, string $type, array $fields, BackendUserAuthentication $user): ?string
     {
-        $tsConfig = BackendUtility::getPagesTSconfig($pageUid);
+        $tsConfig = $this->pageTsConfig->forPage($pageUid, $user);
         $tceForm  = is_array($tsConfig['TCEFORM.'] ?? null) ? $tsConfig['TCEFORM.'] : [];
         $rules    = is_array($tceForm[self::TABLE . '.'] ?? null) ? $tceForm[self::TABLE . '.'] : [];
         if ($rules === []) {

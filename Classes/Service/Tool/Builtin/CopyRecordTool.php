@@ -16,13 +16,14 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
+use Netresearch\NrLlm\Service\Tool\PageTsConfigReader;
+use Netresearch\NrLlm\Service\Tool\PageTsConfigReaderInterface;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
-use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -92,6 +93,9 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
     public function __construct(
         private ConnectionPool $connectionPool,
         private ApprovalPreviewTranslator $translator,
+        // Page TSconfig as the ACTING user sees it, never the ambient one
+        // (#1017). Defaulted: the reader is stateless.
+        private PageTsConfigReaderInterface $pageTsConfig = new PageTsConfigReader(),
     ) {}
 
     public function getSpec(): ToolSpec
@@ -554,7 +558,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
 
         if ($table === self::CONTENT_TABLE && $language > 0
             && $this->holdsConnectedTranslations($targetUid, $language)
-            && !$this->allowsInconsistentLanguageHandling($targetUid)
+            && !$this->allowsInconsistentLanguageHandling($targetUid, $user)
         ) {
             return sprintf(
                 'Refused: page [%d] already holds connected translations in language %d, and a standalone element beside '
@@ -697,9 +701,9 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
      * Whether the page's TSconfig opts in to mixed translation modes, read as
      * the page module reads it (ADR-193).
      */
-    private function allowsInconsistentLanguageHandling(int $pageUid): bool
+    private function allowsInconsistentLanguageHandling(int $pageUid, BackendUserAuthentication $user): bool
     {
-        $tsConfig  = BackendUtility::getPagesTSconfig($pageUid);
+        $tsConfig  = $this->pageTsConfig->forPage($pageUid, $user);
         $mod       = is_array($tsConfig['mod.'] ?? null) ? $tsConfig['mod.'] : [];
         $webLayout = is_array($mod['web_layout.'] ?? null) ? $mod['web_layout.'] : [];
 

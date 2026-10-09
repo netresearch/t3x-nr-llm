@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Write tools read page TSconfig as the run's acting user (#1017).** `update_content_element`, `create_content_element_draft`, `create_record_draft` and `copy_record` built their approval preview and their permission checks from page TSconfig as core resolves it for the ambient backend user: that user's workspace overlaid the rootline, their user TSconfig `page.` overrides were merged in, and their identity fed the `[backend.user…]` conditions. A run approved by another user, or resumed in a worker without one, could therefore bounce its approval or be checked against the approver's TSconfig. They now read it for the acting user, like `get_tsconfig`, which shows the acting user's view as well.
+
 ## [0.40.0] - 2026-10-08
 
 ### Upgrading from 0.39

@@ -105,6 +105,11 @@ return static function (RectorConfig $rectorConfig) use ($configure): void {
             // constructor of its own that injects the logger would have to
             // restate the core one for both versions (ADR-206).
             __DIR__ . '/../../Classes/Service/Tool/Builtin/ToolDataHandler.php',
+            // Defaulted into the constructors of five tools (#1017), so a tool
+            // built with `new` needs no reader passed. It resolves the core
+            // services per call, as BackendUtility::getPagesTSconfig(), which
+            // it replaces, does.
+            __DIR__ . '/../../Classes/Service/Tool/PageTsConfigReader.php',
         ],
         // Same reason: without a constructor there is nothing to make readonly,
         // and the rule only fires because of the rewrite skipped above.

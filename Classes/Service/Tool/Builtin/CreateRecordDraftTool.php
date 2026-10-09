@@ -18,6 +18,8 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
+use Netresearch\NrLlm\Service\Tool\PageTsConfigReader;
+use Netresearch\NrLlm\Service\Tool\PageTsConfigReaderInterface;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
@@ -182,6 +184,9 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         private iterable $tools = [],
         private ?ExtensionConfiguration $extensionConfiguration = null,
         private ?Typo3Version $typo3Version = null,
+        // Page TSconfig as the ACTING user sees it, never the ambient one
+        // (#1017). Defaulted: the reader is stateless.
+        private PageTsConfigReaderInterface $pageTsConfig = new PageTsConfigReader(),
     ) {}
 
     public function getSpec(): ToolSpec
@@ -534,7 +539,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         }
 
         // The rules are the page's.
-        $pageRule = $this->refuseByPageTsConfig($table, $pid, $type['name'], $collected['values']);
+        $pageRule = $this->refuseByPageTsConfig($table, $pid, $type['name'], $collected['values'], $user);
         if ($pageRule !== null) {
             return $pageRule;
         }
@@ -626,9 +631,9 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      *
      * @param array<string, int|float|string> $values
      */
-    private function refuseByPageTsConfig(string $table, int $pid, string $recordType, array $values): ?string
+    private function refuseByPageTsConfig(string $table, int $pid, string $recordType, array $values, BackendUserAuthentication $user): ?string
     {
-        $tsConfig = BackendUtility::getPagesTSconfig($pid);
+        $tsConfig = $this->pageTsConfig->forPage($pid, $user);
         $tceform  = is_array($tsConfig['TCEFORM.'] ?? null) ? $tsConfig['TCEFORM.'] : [];
         $rules    = is_array($tceform[$table . '.'] ?? null) ? $tceform[$table . '.'] : [];
 
@@ -992,7 +997,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             if ($given !== null) {
                 $candidates[] = [$given, false];
             } else {
-                $default = $this->tcaDefaultOf(BackendUtility::getPagesTSconfig($pid), $table, $typeField);
+                $default = $this->tcaDefaultOf($this->pageTsConfig->forPage($pid, $user), $table, $typeField);
                 $source  = sprintf('page TSconfig of page [%d]', $pid);
                 if ($default === null) {
                     $default = $this->tcaDefaultOf($user->getTSConfig(), $table, $typeField);

@@ -49,7 +49,8 @@
         "typo3/cms-filemetadata": "^13.4 || ^14.3",
         "typo3/cms-indexed-search": "^13.4 || ^14.3",
         "typo3/cms-install": "^13.4 || ^14.3",
-        "typo3/cms-seo": "^13.4 || ^14.3"
+        "typo3/cms-seo": "^13.4 || ^14.3",
+        "typo3/cms-workspaces": "^13.4 || ^14.3"
     },
     "suggest": {
         "apache-solr-for-typo3/solr": "Site-search RAG tools retrieve evidence from the Solr index when installed",

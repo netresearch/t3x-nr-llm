@@ -372,6 +372,34 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
         self::assertSame(1, $this->rowCount('tt_content', ['pid' => self::TARGET_PAGE, 'sys_language_uid' => 1]));
     }
 
+    /**
+     * #1017: page TSconfig is read for the run's ACTING user. The ambient
+     * backend user is the approver at resume, or nobody in a worker; neither
+     * may change what plan() refuses.
+     */
+    #[Test]
+    public function thePageTsConfigIsReadForTheActingUserNotTheAmbientOne(): void
+    {
+        $optIn     = 'page.mod.web_layout.allowInconsistentLanguageHandling = 1';
+        $arguments = ['table' => 'tt_content', 'uid' => self::FREE_MODE, 'target_page' => self::TARGET_PAGE];
+        $users     = $this->connectionPool->getConnectionForTable('be_users');
+
+        // The approver opted in to mixed translation modes; the acting admin did not.
+        $users->update('be_users', ['TSconfig' => $optIn], ['uid' => 2]);
+
+        $acting  = ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1));
+        $ambient = $this->setUpBackendUser(2);
+        self::assertStringContainsString('Inconsistent content detected', implode("\n", $this->tool->previewCall($arguments, $acting)));
+        self::assertSame($ambient, $GLOBALS['BE_USER'], 'the preview must not replace the ambient user');
+
+        // The acting admin's own opt-in lifts the refusal, with no ambient user.
+        $users->update('be_users', ['TSconfig' => $optIn], ['uid' => 1]);
+        $acting = ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1));
+        unset($GLOBALS['BE_USER']);
+        self::assertStringNotContainsString('Inconsistent content detected', implode("\n", $this->tool->previewCall($arguments, $acting)));
+        self::assertArrayNotHasKey('BE_USER', $GLOBALS, 'the preview must not leave an ambient user behind');
+    }
+
     #[Test]
     public function aPageIsCopiedHiddenWithItsContentButWithoutItsSubpages(): void
     {

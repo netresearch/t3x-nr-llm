@@ -11,11 +11,12 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\PageTsConfigReader;
+use Netresearch\NrLlm\Service\Tool\PageTsConfigReaderInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use Throwable;
-use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
@@ -25,7 +26,8 @@ use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
  *
  * Inspired by the typo3-tsconfig tool of EXT:typo3_ai_mate (konradmichalik,
  * GPL-2.0-or-later); own in-process implementation over
- * {@see BackendUtility::getPagesTSconfig()}.
+ * {@see PageTsConfigReader}, which resolves it for the run's acting user
+ * rather than the ambient one (#1017).
  *
  * Security contract (see {@see ToolInterface} and ADR-042): ADMIN-only —
  * TSconfig can expose backend structure and module configuration. Values
@@ -42,6 +44,9 @@ final readonly class GetTsConfigTool implements ToolInterface
 
     public function __construct(
         private ConnectionPool $connectionPool,
+        // Page TSconfig as the ACTING user sees it, never the ambient one
+        // (#1017). Defaulted: the reader is stateless.
+        private PageTsConfigReaderInterface $pageTsConfig = new PageTsConfigReader(),
     ) {}
 
     public function getSpec(): ToolSpec
@@ -78,7 +83,7 @@ final readonly class GetTsConfigTool implements ToolInterface
         $path = trim(self::toStr($arguments['path'] ?? ''));
 
         try {
-            $tsConfig = BackendUtility::getPagesTSconfig($pageUid);
+            $tsConfig = $this->pageTsConfig->forPage($pageUid, $context->actingBackendUser());
         } catch (Throwable) {
             // Neutral by design — resolution internals must not egress.
             return ToolResult::text(self::NOT_FOUND);
