@@ -49,7 +49,7 @@ final class SkillDisabledByHookTest extends AbstractFunctionalTestCase
         $pool->getConnectionForTable('be_groups')->insert('be_groups', [
             'uid' => 1, 'pid' => 0, 'title' => 'Skill authors',
             'tables_select' => 'tx_nrllm_skill', 'tables_modify' => 'tx_nrllm_skill',
-            'non_exclude_fields' => 'tx_nrllm_skill:enabled,tx_nrllm_skill:disabled_by',
+            'non_exclude_fields' => 'tx_nrllm_skill:enabled,tx_nrllm_skill:disabled_by,tx_nrllm_skill:hidden,tx_nrllm_skill:orphaned',
             'db_mountpoints' => '10',
         ]);
         $pool->getConnectionForTable('be_users')->insert('be_users', [
@@ -92,6 +92,65 @@ final class SkillDisabledByHookTest extends AbstractFunctionalTestCase
         self::assertSame([], $this->write(['description' => 'Edited']), 'the control: the editor may write the record');
         self::assertSame('Edited', $this->column('description'));
         self::assertSame('sync', $this->column('disabled_by'));
+    }
+
+    /**
+     * Hiding takes a skill out of its runs as a disable does: an editor
+     * granted the hidden flag cannot hide a skill the sync disabled.
+     */
+    #[Test]
+    public function anEditorCannotHideASkill(): void
+    {
+        $this->actAs(self::EDITOR_UID);
+
+        self::assertNotSame([], $this->write(['hidden' => 1]));
+        self::assertSame('0', $this->column('hidden'));
+
+        $this->actAs(1);
+
+        self::assertSame([], $this->write(['hidden' => 1]), 'an administrator may');
+        self::assertSame('1', $this->column('hidden'));
+    }
+
+    /**
+     * The orphan flag is the sync's: nobody clears it through the
+     * DataHandler, an administrator neither.
+     */
+    #[Test]
+    public function nobodyClearsTheOrphanFlag(): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill')->update('tx_nrllm_skill', ['orphaned' => 1], ['uid' => self::SKILL_UID]);
+
+        $this->actAs(self::EDITOR_UID);
+        $this->write(['orphaned' => 0]);
+        self::assertSame('1', $this->column('orphaned'));
+
+        $this->actAs(1);
+        $this->write(['orphaned' => 0]);
+        self::assertSame('1', $this->column('orphaned'));
+    }
+
+    /**
+     * A new skill is attached nowhere yet. An editor creates it disabled
+     * without an error, marked as not enabled by an administrator; asking to
+     * create it enabled stores it disabled and says why. An administrator
+     * may create it enabled.
+     */
+    #[Test]
+    public function aNewSkillIsStoredDisabledAndMarkedUnlessAnAdministratorEnablesIt(): void
+    {
+        $this->actAs(self::EDITOR_UID);
+
+        self::assertSame([], $this->create('NEW1', ['identifier' => 'draft']));
+        self::assertSame(['0', 'sync'], $this->stateOf('draft'));
+
+        self::assertNotSame([], $this->create('NEW2', ['identifier' => 'eager', 'enabled' => 1]));
+        self::assertSame(['0', 'sync'], $this->stateOf('eager'));
+
+        $this->actAs(1);
+
+        self::assertSame([], $this->create('NEW3', ['identifier' => 'admins', 'enabled' => 1]));
+        self::assertSame(['1', ''], $this->stateOf('admins'));
     }
 
     #[Test]
@@ -171,10 +230,45 @@ final class SkillDisabledByHookTest extends AbstractFunctionalTestCase
         return $errors;
     }
 
+    /**
+     * @param array<string, int|string> $fields
+     *
+     * @return list<string>
+     */
+    private function create(string $newId, array $fields): array
+    {
+        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler->start(['tx_nrllm_skill' => [$newId => ['pid' => 10, ...$fields]]], []);
+        $dataHandler->process_datamap();
+
+        $errors = [];
+        foreach ($dataHandler->errorLog as $error) {
+            $errors[] = is_string($error) ? $error : var_export($error, true);
+        }
+
+        return $errors;
+    }
+
+    /**
+     * @return array{0: string, 1: string} enabled and disabled_by of the skill with the identifier
+     */
+    private function stateOf(string $identifier): array
+    {
+        $row = $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill')
+            ->select(['enabled', 'disabled_by'], 'tx_nrllm_skill', ['identifier' => $identifier])->fetchAssociative();
+        self::assertIsArray($row, 'the skill was created');
+
+        return [is_scalar($row['enabled']) ? (string)$row['enabled'] : '', is_scalar($row['disabled_by']) ? (string)$row['disabled_by'] : ''];
+    }
+
     private function column(string $column): string
     {
-        $value = $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill')
-            ->select([$column], 'tx_nrllm_skill', ['uid' => self::SKILL_UID])->fetchOne();
+        // Without restrictions: a hidden row is read too.
+        $queryBuilder = $this->getConnectionPool()->getQueryBuilderForTable('tx_nrllm_skill');
+        $queryBuilder->getRestrictions()->removeAll();
+        $value = $queryBuilder->select($column)->from('tx_nrllm_skill')
+            ->where($queryBuilder->expr()->eq('uid', self::SKILL_UID))
+            ->executeQuery()->fetchOne();
 
         return is_scalar($value) ? (string)$value : '';
     }

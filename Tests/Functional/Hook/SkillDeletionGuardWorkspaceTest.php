@@ -59,9 +59,10 @@ final class SkillDeletionGuardWorkspaceTest extends AbstractFunctionalTestCase
         $placeholder = $this->placeholderOf(10);
         self::assertGreaterThan(0, $placeholder, 'the workspace holds a delete placeholder');
 
-        // In live, the skill on the page is attached.
+        // In live, the skill on the page is attached and the page edited.
         $backendUser->setWorkspace(0);
         $pool = $this->getConnectionPool();
+        $pool->getConnectionForTable('pages')->update('pages', ['title' => 'Edited live'], ['uid' => 10]);
         $pool->getConnectionForTable('tx_nrllm_configuration')->insert('tx_nrllm_configuration', ['uid' => 3, 'pid' => 0]);
         $pool->getConnectionForTable('tx_nrllm_configuration_skill_mm')->insert('tx_nrllm_configuration_skill_mm', ['uid_local' => 3, 'uid_foreign' => 7]);
 
@@ -69,6 +70,19 @@ final class SkillDeletionGuardWorkspaceTest extends AbstractFunctionalTestCase
 
         self::assertSame(0, $this->deleted('tx_nrllm_skill', 7), 'the attached skill stays');
         self::assertSame(0, $this->deleted('pages', 10), 'and the page it is on');
+        self::assertSame($placeholder, $this->placeholderOf(10), 'the staged delete stays in the workspace');
+        self::assertSame('Edited live', $this->title(10), 'the live page was not swapped with the placeholder');
+    }
+
+    private function title(int $uid): string
+    {
+        $queryBuilder = $this->getConnectionPool()->getQueryBuilderForTable('pages');
+        $queryBuilder->getRestrictions()->removeAll();
+        $value = $queryBuilder->select('title')->from('pages')
+            ->where($queryBuilder->expr()->eq('uid', $uid))
+            ->executeQuery()->fetchOne();
+
+        return is_string($value) ? $value : '';
     }
 
     /**

@@ -315,9 +315,12 @@ return [
         'orphaned' => [
             'exclude' => true,
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.orphaned',
+            // Written by the sync only; SkillDisabledByHook removes it from
+            // every DataHandler write (ADR-214 item 3).
             'config' => [
                 'type' => 'check',
                 'default' => 0,
+                'readOnly' => true,
             ],
         ],
         'enabled' => [

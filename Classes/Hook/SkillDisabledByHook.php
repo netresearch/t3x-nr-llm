@@ -11,27 +11,39 @@ namespace Netresearch\NrLlm\Hook;
 
 use Netresearch\NrLlm\Domain\Model\Skill;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Authentication\CommandLineUserAuthentication;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\SysLog\Action\Database as SystemLogDatabaseAction;
 use TYPO3\CMS\Core\SysLog\Error as SystemLogErrorClassification;
 
 /**
- * Who may enable or disable a skill through the DataHandler, and the mark
+ * Who may switch a skill off or on through the DataHandler, and the mark
  * that records it (ADR-214 item 3).
  *
- * Only an administrator changes the enable flag here. A disable is then the
- * administrator's decision and is marked 'admin', so the skill drops out of
- * the runs it is attached to; an enable clears the mark, including the
- * 'sync' mark only a re-enable may clear. Anyone else — an editor with the
- * field granted, and a write without an interactive backend user (the CLI
- * and the scheduler run as `_cli_`) — has the flag removed from the write
- * and is told why: otherwise toggling a skill the sync disabled would turn
- * the sync's mark into an administrator's and lift the restriction. The
- * mark itself is never written through the DataHandler; the sync writes it
- * through the repository, which does not pass here.
+ * A skill attached to a configuration or a task restricts its runs until an
+ * administrator takes it out. Three fields take a skill out of those runs:
+ * the enable flag, the hidden flag (Extbase does not load a hidden skill
+ * through an attachment) and the orphan flag the sync sets. So:
+ *
+ * - Only an interactive administrator changes `enabled` or `hidden` on an
+ *   existing skill. An administrator's disable is marked 'admin', so the
+ *   skill drops out; an enable clears the mark, including the 'sync' mark
+ *   only a re-enable may clear. Anyone else — an editor granted the fields,
+ *   and a write without an interactive backend user (the CLI and the
+ *   scheduler run as `_cli_`) — has the change removed and is told why.
+ * - `orphaned` and `disabled_by` belong to the sync: they are removed from
+ *   every DataHandler write. The sync writes them through the repository,
+ *   which does not pass here.
+ * - A new record, a copy included, is not attached anywhere yet. It may be
+ *   stored disabled or hidden by anyone; only an administrator may store it
+ *   enabled. Stored disabled, it is marked 'sync' — "not enabled by an
+ *   administrator" — so a copy that inherits an attachment (a copied page
+ *   holding a configuration and its skill) keeps restricting until an
+ *   administrator enables it.
  *
  * Runs after the field checks, on the field array that is about to be
- * written. Registered under `processDatamapClass` in `ext_localconf.php`.
+ * written; core has already removed the fields a save leaves unchanged.
+ * Registered under `processDatamapClass` in `ext_localconf.php`.
  */
 final class SkillDisabledByHook
 {
@@ -44,34 +56,60 @@ final class SkillDisabledByHook
             return;
         }
 
-        unset($fieldArray['disabled_by']);
-        if (!array_key_exists('enabled', $fieldArray)) {
-            return;
-        }
+        unset($fieldArray['disabled_by'], $fieldArray['orphaned']);
+        $admin = $this->isInteractiveAdmin($dataHandler->BE_USER);
 
-        if (!$this->isInteractiveAdmin($dataHandler->BE_USER)) {
-            unset($fieldArray['enabled']);
-            $dataHandler->log(
-                $table,
-                is_numeric($id) ? (int)$id : 0,
-                SystemLogDatabaseAction::UPDATE,
-                null,
-                SystemLogErrorClassification::USER_ERROR,
-                'Only an administrator may enable or disable skill {uid}; the change was not saved.',
-                null,
-                ['uid' => $id],
-            );
+        if ($status === 'new') {
+            $enable = $this->isOn($fieldArray['enabled'] ?? 0);
+            if ($enable && !$admin) {
+                $fieldArray['enabled'] = 0;
+                $this->refuse($dataHandler, $id, 'Only an administrator may enable skill {uid}; it was stored disabled.');
+            }
+
+            $fieldArray['disabled_by'] = $this->isOn($fieldArray['enabled'] ?? 0) ? '' : Skill::DISABLED_BY_SYNC;
 
             return;
         }
 
-        $enabled                   = $fieldArray['enabled'];
-        $fieldArray['disabled_by'] = is_numeric($enabled) && (int)$enabled === 1 ? '' : Skill::DISABLED_BY_ADMIN;
+        $changed = array_intersect_key($fieldArray, ['enabled' => true, 'hidden' => true]);
+        if ($changed === []) {
+            return;
+        }
+
+        if (!$admin) {
+            unset($fieldArray['enabled'], $fieldArray['hidden']);
+            $this->refuse($dataHandler, $id, 'Only an administrator may enable, disable, hide or unhide skill {uid}; the change was not saved.');
+
+            return;
+        }
+
+        if (array_key_exists('enabled', $fieldArray)) {
+            $fieldArray['disabled_by'] = $this->isOn($fieldArray['enabled']) ? '' : Skill::DISABLED_BY_ADMIN;
+        }
+    }
+
+    private function refuse(DataHandler $dataHandler, string|int $id, string $message): void
+    {
+        $dataHandler->log(
+            'tx_nrllm_skill',
+            is_numeric($id) ? (int)$id : 0,
+            SystemLogDatabaseAction::UPDATE,
+            null,
+            SystemLogErrorClassification::USER_ERROR,
+            $message,
+            null,
+            ['uid' => $id],
+        );
+    }
+
+    private function isOn(mixed $value): bool
+    {
+        return is_numeric($value) && (int)$value === 1;
     }
 
     private function isInteractiveAdmin(mixed $user): bool
     {
-        if (!$user instanceof BackendUserAuthentication || !$user->isAdmin()) {
+        if (!$user instanceof BackendUserAuthentication || $user instanceof CommandLineUserAuthentication || !$user->isAdmin()) {
             return false;
         }
 
