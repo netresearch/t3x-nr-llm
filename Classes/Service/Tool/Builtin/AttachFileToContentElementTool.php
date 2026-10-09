@@ -326,13 +326,16 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
 
     /**
      * The content element and the file field the call adds a reference to
-     * (ADR-214); no field when the call leaves the field to the element's type.
+     * (ADR-214). None when the call leaves the field to the element's type:
+     * the field it lands in is known only from the element, which this may
+     * not read, and an empty field list would key it like a move or a delete
+     * of the element.
      */
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         $field = $arguments['field'] ?? null;
 
-        return PendingWriteTarget::fromArguments(self::CONTENT_TABLE, $arguments['content_element'] ?? null, $field === null ? [] : [$field]);
+        return $field === null ? null : PendingWriteTarget::fromArguments(self::CONTENT_TABLE, $arguments['content_element'] ?? null, [$field]);
     }
 
     public function getEffect(): ToolEffect

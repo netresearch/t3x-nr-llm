@@ -24,16 +24,17 @@ use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
  * Contract for implementors:
  *
  * - **A pure function of the arguments.** It runs when a card is rendered,
- *   for whoever renders it, so it must read nothing: not the database, not
- *   the acting user. What it returns is already in the call's arguments,
- *   which the card shows anyway.
+ *   for whoever renders it, so it reads neither the database nor any user —
+ *   the TCA, which is the same for every viewer, is fine. What it returns is
+ *   already in the call's arguments, which the card shows anyway.
  * - Name the record the call acts on and the fields it writes. A call that
  *   writes a relation field of an existing record (a file reference on a
  *   content element, a social image on a page) names that record and field.
  *   A write that names a record but no field — a move, a publish, a delete —
  *   returns an empty field list.
  * - Return null for a call that creates its record, which has no uid before
- *   it runs, and for arguments that name no reachable record;
+ *   it runs; for a call whose written field is known only from the record;
+ *   and for arguments that name no reachable record;
  *   {@see PendingWriteTarget::fromArguments()} does the second for you.
  *
  * @api Extension point: third-party write tools may implement this. No new

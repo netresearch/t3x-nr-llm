@@ -214,21 +214,22 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
 
     public function settleIfWaiting(int $runUid, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason): bool
     {
-        // Only a waiting run, only to a terminal state: this transition skips
-        // every claim and lease, which is safe exactly because nothing of the
-        // run is executing while a human is being asked.
-        if ($from === []) {
-            return false;
-        }
-
+        // Only a waiting run, only to CANCELLED or FAILED: this transition
+        // skips every claim and lease, which is safe exactly because nothing
+        // of the run is executing while a human is being asked — and a run
+        // nothing executed cannot have COMPLETED.
         foreach ($from as $status) {
             if ($status !== AgentRunStatus::WAITING_FOR_APPROVAL && $status !== AgentRunStatus::WAITING_FOR_INPUT) {
                 throw new InvalidArgumentException(sprintf('A run is settled from a waiting state only, not from "%s".', $status->value), 1791600301);
             }
         }
 
-        if (!$to->isTerminal()) {
-            throw new InvalidArgumentException(sprintf('A waiting run is settled into a terminal state only, not "%s".', $to->value), 1791600302);
+        if ($to !== AgentRunStatus::CANCELLED && $to !== AgentRunStatus::FAILED) {
+            throw new InvalidArgumentException(sprintf('A waiting run is settled as cancelled or failed only, not "%s".', $to->value), 1791600302);
+        }
+
+        if ($from === []) {
+            return false;
         }
 
         $builder = $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->createQueryBuilder();

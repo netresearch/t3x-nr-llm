@@ -974,6 +974,8 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
         foreach ([
             [[AgentRunStatus::RUNNING], AgentRunStatus::CANCELLED, 1791600301],
             [[AgentRunStatus::WAITING_FOR_APPROVAL], AgentRunStatus::RUNNING, 1791600302],
+            [[AgentRunStatus::WAITING_FOR_APPROVAL], AgentRunStatus::COMPLETED, 1791600302],
+            [[], AgentRunStatus::COMPLETED, 1791600302],
         ] as [$from, $to, $code]) {
             try {
                 $this->repository->settleIfWaiting(1, $from, $to, AgentRunTerminationReason::CANCELLED);
@@ -984,5 +986,14 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
         }
 
         self::assertFalse($this->repository->settleIfWaiting(1, [], AgentRunStatus::CANCELLED, AgentRunTerminationReason::CANCELLED));
+
+        // The persister passes a caller's mistake on rather than logging it as
+        // a lost attempt.
+        $handle = $this->persister->begin(null, 4);
+        self::assertNotNull($handle);
+        $run = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($run);
+        $this->expectException(InvalidArgumentException::class);
+        $this->persister->settleIfWaiting($run, [AgentRunStatus::RUNNING], AgentRunStatus::CANCELLED, AgentRunTerminationReason::CANCELLED);
     }
 }

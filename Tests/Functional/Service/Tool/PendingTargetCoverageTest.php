@@ -98,6 +98,14 @@ final class PendingTargetCoverageTest extends AbstractFunctionalTestCase
 
             self::assertNull($tool->pendingTarget([]), $name . ' with no arguments');
 
+            // A relation write whose field the tool picks from the record has
+            // no target: an empty field list would key it like a move.
+            if (array_key_exists('field', $arguments) && str_starts_with($name, 'attach_file_to_')) {
+                $withoutField = $arguments;
+                unset($withoutField['field']);
+                self::assertNull($tool->pendingTarget($withoutField), $name . ' without a field');
+            }
+
             $broken = array_map(static fn(mixed $value): mixed => is_int($value) ? -1 : $value, $arguments);
             if ($expected !== null) {
                 self::assertNotInstanceOf(PendingWriteTarget::class, $tool->pendingTarget($broken), $name . ' with a negative uid');

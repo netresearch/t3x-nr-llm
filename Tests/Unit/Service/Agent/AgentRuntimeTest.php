@@ -2109,6 +2109,37 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     }
 
     /**
+     * Lost to an operator's cancel: the read-back says CANCELLED and the
+     * call says it did not do it — `cancelled` is the call's own win, never
+     * read off the status.
+     */
+    #[Test]
+    public function cancelIfWaitingDoesNotClaimAnOperatorsCancel(): void
+    {
+        $this->repository->refuseSettleIfWaiting = true;
+        $this->repository->findResults           = [$this->suspendedRun(), $this->suspendedRun('cancelled')];
+
+        $result = $this->runtime($this->loopReturning($this->loopResult('x')))->cancelIfWaiting(AiActorContext::backendUser(9), 'run-uuid-1');
+
+        self::assertFalse($result->cancelled);
+        self::assertSame(AgentRunStatus::CANCELLED, $result->status);
+    }
+
+    /**
+     * A won cancel answers CANCELLED without a read-back that could fail.
+     */
+    #[Test]
+    public function aWonCancelSaysCancelledEvenWhenTheRunCannotBeReadBack(): void
+    {
+        $this->repository->findResults = [$this->suspendedRun(), null];
+
+        $result = $this->runtime($this->loopReturning($this->loopResult('x')))->cancelIfWaiting(AiActorContext::backendUser(9), 'run-uuid-1');
+
+        self::assertTrue($result->cancelled);
+        self::assertSame(AgentRunStatus::CANCELLED, $result->status);
+    }
+
+    /**
      * A store failure is a lost attempt, not an exception the chat has to
      * catch.
      */

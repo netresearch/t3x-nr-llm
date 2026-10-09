@@ -40,8 +40,8 @@ final class PendingWriteTargetTest extends TestCase
     {
         foreach (['', 'title; DROP', "title\n", str_repeat('a', 65), 'tïtle'] as $field) {
             try {
-                new PendingWriteTarget(new RecordReference('pages', 42), [$field]);
-                self::fail('Accepted the field name ' . var_export($field, true));
+                $accepted = new PendingWriteTarget(new RecordReference('pages', 42), [$field]);
+                self::fail('Accepted the field names ' . implode(', ', $accepted->fields));
             } catch (InvalidArgumentException $e) {
                 self::assertSame(1791600101, $e->getCode());
             }

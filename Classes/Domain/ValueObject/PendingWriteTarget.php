@@ -22,6 +22,12 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
  *
  * It names what the call's ARGUMENTS name, before anything runs, and nothing
  * the record holds — an identity like {@see RecordReference}, never a value.
+ * The record is the one the call ADDRESSES, which is not always the row it
+ * writes: `set_file_alternative_text` and `update_fal_asset_meta` address a
+ * file (`sys_file` and the uid the call carries) and write the fields of its
+ * metadata row, whose uid only a read would find. The write step names the
+ * row written; this names what the card asked about, so two cards for the
+ * same file and fields carry equal targets.
  * A write that names a record but no field, such as a move, a publish or a
  * delete, carries an empty field list. A call that creates its record has no
  * uid yet and has no target at all.

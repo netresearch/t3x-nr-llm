@@ -352,14 +352,15 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
     }
 
     /**
-     * The record and the file field the call adds a reference to (ADR-214);
-     * no field when the call leaves the field to the tool.
+     * The record and the file field the call adds a reference to (ADR-214).
+     * None when the call leaves the field to the tool: the field it lands in
+     * is known only from the record, which this may not read.
      */
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         $field = $arguments['field'] ?? null;
 
-        return PendingWriteTarget::fromArguments($arguments['table'] ?? null, $arguments['record'] ?? null, $field === null ? [] : [$field]);
+        return $field === null ? null : PendingWriteTarget::fromArguments($arguments['table'] ?? null, $arguments['record'] ?? null, [$field]);
     }
 
     public function getEffect(): ToolEffect

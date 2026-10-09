@@ -15,12 +15,20 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
  * What {@see AgentRuntimeInterface::cancelIfWaiting()} did (ADR-214, item 10).
  *
  * `$cancelled` is true only for the call that moved a waiting run to
- * CANCELLED. `$status` is the run's status after the attempt, so a caller
- * that lost tells apart a run somebody is still executing (QUEUED, RUNNING)
- * from one that already ended. It is null when there is nothing the caller
- * may know: the run does not exist, or the caller is neither its initiator
- * nor an administrator — the two are deliberately the same answer, so a
- * guessed uuid learns nothing.
+ * CANCELLED, and `$status` is then CANCELLED. Otherwise `$status` is the
+ * run's status read after the attempt:
+ *
+ * - QUEUED or RUNNING: a decision released the run and it is executing; the
+ *   caller must not treat its proposal as withdrawn.
+ * - a terminal status: the run ended before the attempt, by an operator's
+ *   cancel or on its own.
+ * - WAITING_FOR_APPROVAL or WAITING_FOR_INPUT: nothing was cancelled, though
+ *   the run waits — a resume claimed it and handed it back in between, or the
+ *   store failed. Not withdrawn; the caller retries or answers that the run
+ *   is busy.
+ * - null: there is nothing the caller may know — the run does not exist, or
+ *   the caller is neither its initiator nor an administrator. The two are
+ *   deliberately the same answer, so a guessed uuid learns nothing.
  *
  * Nothing about the proposal that was withdrawn is part of it.
  *

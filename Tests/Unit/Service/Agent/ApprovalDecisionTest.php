@@ -29,8 +29,8 @@ final class ApprovalDecisionTest extends TestCase
     {
         foreach (ApprovalDenialReason::cases() as $reason) {
             try {
-                new ApprovalDecision(true, 9, 'digest', $reason);
-                self::fail('An approval accepted the reason ' . $reason->value . '.');
+                $accepted = new ApprovalDecision(true, 9, 'digest', $reason);
+                self::fail('An approval was built, approved=' . var_export($accepted->approved, true) . ', with the reason ' . $reason->value . '.');
             } catch (InvalidArgumentException $e) {
                 self::assertSame(1791600201, $e->getCode());
             }

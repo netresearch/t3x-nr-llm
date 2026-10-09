@@ -268,9 +268,13 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             AgentRunTerminationReason::CANCELLED,
         );
 
+        if ($cancelled) {
+            return new GuardedCancelResult(true, AgentRunStatus::CANCELLED);
+        }
+
         // Read after the attempt, not before it: a loser must learn the state
-        // that beat it, and a winner's row says CANCELLED.
-        return new GuardedCancelResult($cancelled, $this->persister->findRun($runUuid)?->statusEnum());
+        // that beat it.
+        return new GuardedCancelResult(false, $this->persister->findRun($runUuid)?->statusEnum());
     }
 
     /**

@@ -75,13 +75,15 @@ interface AgentRunRepositoryInterface
     /**
      * End a run that is still waiting for a human, in one conditional UPDATE
      * (ADR-214): move it from one of $from — a subset of WAITING_FOR_APPROVAL
-     * and WAITING_FOR_INPUT — to the terminal $to, recording $reason and
+     * and WAITING_FOR_INPUT — to $to, CANCELLED or FAILED, recording $reason and
      * dropping its suspended state. The counterpart of the claims below: a
      * run that a resume already claimed, or that settled, does not move.
      *
      * Totals are left as the run recorded them; nothing ran in between.
      *
      * @param list<AgentRunStatus> $from the waiting states to move from; empty moves nothing
+     *
+     * @throws \Netresearch\NrLlm\Exception\InvalidArgumentException when $from names a state that is not a wait, or $to is neither CANCELLED nor FAILED
      *
      * @return bool true when this call moved the run, false when it was no longer in $from (or gone)
      */

@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Privacy\RunStepPrivacyFilter;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Uid\Uuid;
@@ -344,6 +345,9 @@ final readonly class AgentRunPersister
     {
         try {
             return $this->repository->settleIfWaiting($run->uid, $from, $to, $reason);
+        } catch (InvalidArgumentException $exception) {
+            // A caller's mistake, not a store failure: never a quiet "lost".
+            throw $exception;
         } catch (Throwable $exception) {
             $this->logger?->warning('A waiting AgentRun could not be settled', ['exception' => $exception]);
 
