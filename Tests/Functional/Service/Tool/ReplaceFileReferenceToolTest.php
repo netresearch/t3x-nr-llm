@@ -217,6 +217,27 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
 
         self::assertFalse($result->isError, $result->content);
         self::assertSame('Three', $this->referenceRow((int)$result->writeTarget?->uid)['alternative'] ?? null);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
+    }
+
+    /**
+     * A text the card showed is part of the plan: a hook that drops it from
+     * the new reference leaves the file replaced and the write partial
+     * (ADR-214).
+     */
+    #[Test]
+    public function aTextAHookDropsMakesTheReplacementPartial(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$dropColumnOnCreate = 'alternative';
+
+        $result = $this->change(['reference' => self::FIRST, 'action' => 'replace', 'file' => self::FILE_THREE, 'alternative' => 'Three', 'title' => 'Kept']);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(WriteKind::CREATED, $result->writeKind);
+        self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
+        self::assertStringContainsString('Not completely: alternative did not take on the new reference', $result->content);
+        self::assertSame('Kept', $this->referenceRow((int)$result->writeTarget?->uid)['title'] ?? null);
     }
 
     #[Test]

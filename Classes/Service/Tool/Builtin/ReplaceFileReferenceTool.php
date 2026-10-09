@@ -571,6 +571,21 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
 
         $settled = $this->settleTranslations($plan, $user);
 
+        // The texts asked for are part of the plan as much as the file: a hook
+        // or a rule of the column can drop or rewrite one without a word, and
+        // the reference then carries the new file without the text the card
+        // showed. That leaves the write PARTIAL, not undone (ADR-214).
+        $notTaken = $this->textsThatDidNotTake($newUid, $plan['texts']);
+        if ($notTaken !== []) {
+            $settled = [
+                'sentence'     => $settled['sentence'] . sprintf(
+                    ' Not completely: %s did not take on the new reference — the DataHandler dropped or changed the value.',
+                    implode(', ', $notTaken),
+                ),
+                'completeness' => WriteCompleteness::PARTIAL,
+            ];
+        }
+
         return ToolResult::text(sprintf(
             'Replaced file [%d] "%s" with file [%d] "%s" in %s of tt_content [%d] "%s" (reference [%d] is now [%d]).%s',
             $plan['oldFile'],
@@ -678,6 +693,28 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         }
 
         return null;
+    }
+
+    /**
+     * The asked texts the new reference does not hold as asked, by name. A row
+     * that cannot be read back verifies nothing, so every text counts.
+     *
+     * @param array<string, string> $texts
+     *
+     * @return list<string>
+     */
+    private function textsThatDidNotTake(int $referenceUid, array $texts): array
+    {
+        $row = $this->fetchRowByUid(self::REFERENCE_TABLE, $referenceUid);
+
+        $missed = [];
+        foreach ($texts as $name => $expected) {
+            if ($row === null || self::toStr($row[$name] ?? '') !== $expected) {
+                $missed[] = $name;
+            }
+        }
+
+        return $missed;
     }
 
     /**

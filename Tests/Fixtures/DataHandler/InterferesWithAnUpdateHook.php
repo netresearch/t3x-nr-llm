@@ -48,6 +48,9 @@ final class InterferesWithAnUpdateHook
 
     public static ?string $dropColumn = null;
 
+    /** A column dropped from a NEW row of any table, as a hook that empties a field on create would. */
+    public static ?string $dropColumnOnCreate = null;
+
     public static bool $complain = false;
 
     public static ?string $complainWithField = null;
@@ -62,6 +65,7 @@ final class InterferesWithAnUpdateHook
     {
         self::$keepVisible       = false;
         self::$dropColumn        = null;
+        self::$dropColumnOnCreate = null;
         self::$complain          = false;
         self::$complainWithField = null;
         self::$complainOnCommand = false;
@@ -74,6 +78,10 @@ final class InterferesWithAnUpdateHook
      */
     public function processDatamap_postProcessFieldArray(string $status, string $table, string|int $id, array &$fieldArray, DataHandler $dataHandler): void
     {
+        if ($status === 'new' && self::$dropColumnOnCreate !== null) {
+            unset($fieldArray[self::$dropColumnOnCreate]);
+        }
+
         if (!in_array($table, ['pages', 'tt_content'], true)) {
             return;
         }
