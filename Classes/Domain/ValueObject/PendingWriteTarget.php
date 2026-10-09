@@ -55,7 +55,9 @@ final readonly class PendingWriteTarget
         array $fields = [],
     ) {
         foreach ($fields as $field) {
-            if (preg_match(self::IDENTIFIER_PATTERN, $field) !== 1) {
+            // is_string() first: under strict types preg_match() on an int
+            // throws a TypeError, not the documented exception.
+            if (!is_string($field) || preg_match(self::IDENTIFIER_PATTERN, $field) !== 1) {
                 throw new InvalidArgumentException(
                     'A pending write target needs field names that are database identifiers.',
                     1791600101,
@@ -75,6 +77,13 @@ final readonly class PendingWriteTarget
      * identifier. A tool's `pendingTarget()` uses this instead of throwing on
      * arguments it has not validated yet: the call is refused when it runs,
      * and until then it simply has no structured target.
+     *
+     * The uid is read more strictly than the tools read it: an integer or a
+     * string of digits without a leading zero. A tool casts any numeric value
+     * (`12.0`, `"012"`), so such a call can still write record 12 while its
+     * card carries no target. The difference always leans toward no target,
+     * never toward a wrong one, so a consumer may miss an open point but never
+     * key one to the wrong record.
      *
      * @param list<mixed> $fields
      */

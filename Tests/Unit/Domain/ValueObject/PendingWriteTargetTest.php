@@ -49,6 +49,21 @@ final class PendingWriteTargetTest extends TestCase
     }
 
     /**
+     * A caller of the public constructor that passes a non-string gets the
+     * documented exception, not the TypeError preg_match() raises under strict
+     * types.
+     */
+    #[Test]
+    public function aFieldNameThatIsNoStringIsRefusedWithTheDocumentedException(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(1791600101);
+
+        // A non-string, as a caller ignoring the documented type could pass.
+        new PendingWriteTarget(new RecordReference('pages', 42), [42]); // @phpstan-ignore argument.type
+    }
+
+    /**
      * Model-supplied arguments name a reachable record or nothing: every shape
      * that could not reach one is null, never an exception, because the call
      * itself is refused only when it runs.

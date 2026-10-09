@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Service\Agent\Inbox\PendingCallView;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunViewFactory;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
@@ -130,6 +131,17 @@ final class WaitingRunViewFactoryTest extends TestCase
         self::assertSame(WaitingRunView::MODE_APPROVAL, $view->mode);
         self::assertTrue($view->pendingCalls[0]->declaresWrite);
         self::assertNull($view->pendingCalls[0]->pendingTarget);
+    }
+
+    /**
+     * A view built by hand without the argument counts as a write: "not a
+     * write" is the answer that has to be stated, so a consumer's fixture for
+     * a write tool cannot model it as a plain approve and deny by omission.
+     */
+    #[Test]
+    public function aPendingCallViewWithoutTheArgumentCountsAsAWrite(): void
+    {
+        self::assertTrue((new PendingCallView('delete_record', '{}', true))->declaresWrite);
     }
 
     #[Test]

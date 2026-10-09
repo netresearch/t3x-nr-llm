@@ -40,7 +40,8 @@ use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
  * record. `$declaresWrite` says whether the call is a write at all (ADR-214,
  * item 9): a pending call that is not a write is no proposal, and its card
  * offers a plain approve and deny. A tool that is no longer registered counts
- * as a write, as it does for the run's effect fence.
+ * as a write, as it does for the run's effect fence, and so does a view built
+ * without the argument: "not a write" is the answer that has to be stated.
  */
 final readonly class PendingCallView
 {
@@ -55,6 +56,6 @@ final readonly class PendingCallView
         public bool $previewFailed = false,
         public bool $previewStale = false,
         public ?PendingWriteTarget $pendingTarget = null,
-        public bool $declaresWrite = false,
+        public bool $declaresWrite = true,
     ) {}
 }
