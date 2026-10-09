@@ -349,11 +349,9 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
                     return sprintf('Refused: the value for "%s" must be a string.', $name);
                 }
 
-                // The column's own limit where it has one: the DataHandler
-                // cuts a longer value without a word (`title` is 255), and the
-                // card would show a text the record never holds.
+                // The column's own limit where it has one (`title` is 255).
                 $text = trim(self::toStr($arguments[$name]));
-                $max  = $this->textLimit($name);
+                $max  = $this->textLimitOf(self::REFERENCE_TABLE, $name, self::MAX_TEXT_LENGTH);
                 if (mb_strlen($text) > $max) {
                     return sprintf('Refused: "%s" is longer than %d characters.', $name, $max);
                 }
@@ -700,20 +698,6 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
     }
 
     /**
-     * The longest text a column takes: its TCA `max` where it declares one,
-     * never more than {@see self::MAX_TEXT_LENGTH}.
-     */
-    private function textLimit(string $column): int
-    {
-        $definition = $this->tcaColumnsFor(self::REFERENCE_TABLE)[$column] ?? null;
-        $config     = is_array($definition) ? $definition['config'] ?? null : null;
-        $declared   = is_array($config) ? $config['max'] ?? null : null;
-        $max        = is_numeric($declared) ? (int)$declared : 0;
-
-        return $max > 0 ? min($max, self::MAX_TEXT_LENGTH) : self::MAX_TEXT_LENGTH;
-    }
-
-    /**
      * The asked texts the new reference does not hold as asked, by name. A row
      * that cannot be read back verifies nothing, so every text counts; that
      * case is not reached today, because the read-back before the cmdmap
@@ -729,12 +713,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
 
         $missed = [];
         foreach ($texts as $name => $expected) {
-            // NULL is not ''. The three columns are nullable, and a NULL falls
-            // back to the file's metadata in the frontend while '' is an
-            // explicit empty override, so a NULL never holds an asked text —
-            // the plan always sends a string, and the DataHandler keeps ''.
-            $value = $row[$name] ?? null;
-            if ($value === null || self::toStr($value) !== $expected) {
+            if (!self::storedTextHolds($row[$name] ?? null, $expected)) {
                 $missed[] = $name;
             }
         }

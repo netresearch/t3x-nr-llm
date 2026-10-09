@@ -66,14 +66,14 @@ final class InterferesWithAnUpdateHook
 
     public static function reset(): void
     {
-        self::$keepVisible       = false;
+        self::$keepVisible        = false;
         self::$dropColumn         = null;
         self::$dropColumnOnCreate = null;
-        self::$complain          = false;
-        self::$complainWithField = null;
-        self::$complainOnCommand = false;
-        self::$keepRecord        = null;
-        self::$keepInPlace       = null;
+        self::$complain           = false;
+        self::$complainWithField  = null;
+        self::$complainOnCommand  = false;
+        self::$keepRecord         = null;
+        self::$keepInPlace        = null;
     }
 
     /**

@@ -612,8 +612,9 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
             }
 
             $value = self::toStr($arguments[$name]);
-            if (mb_strlen($value) > self::MAX_TEXT_LENGTH) {
-                return sprintf('Refused: "%s" is longer than %d characters.', $name, self::MAX_TEXT_LENGTH);
+            $max   = $this->textLimitOf(self::REFERENCE_TABLE, $name, self::MAX_TEXT_LENGTH);
+            if (mb_strlen($value) > $max) {
+                return sprintf('Refused: "%s" is longer than %d characters.', $name, $max);
             }
 
             $texts[$name] = $value;
@@ -692,7 +693,7 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
         }
 
         foreach ($texts as $name => $value) {
-            if (self::toStr($row[$name] ?? '') === $value) {
+            if (self::storedTextHolds($row[$name] ?? null, $value)) {
                 continue;
             }
 

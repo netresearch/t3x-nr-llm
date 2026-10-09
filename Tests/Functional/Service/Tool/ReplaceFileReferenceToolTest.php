@@ -254,7 +254,9 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
         $result = $this->change(['reference' => self::FIRST, 'action' => 'replace', 'file' => self::FILE_THREE, 'alternative' => '']);
 
         self::assertFalse($result->isError, $result->content);
-        self::assertNull($this->referenceRow((int)$result->writeTarget?->uid)['alternative'] ?? null);
+        $row = $this->referenceRow((int)$result->writeTarget?->uid);
+        self::assertArrayHasKey('alternative', $row);
+        self::assertNull($row['alternative']);
         self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
     }
 
@@ -284,6 +286,10 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
         self::assertTrue($result->isError);
         self::assertStringContainsString('"title" is longer than 255 characters', $result->content);
         self::assertSame([self::FIRST, self::SECOND], $this->liveReferences(self::ELEMENT));
+
+        $taken = $this->change(['reference' => self::FIRST, 'action' => 'replace', 'file' => self::FILE_THREE, 'title' => str_repeat('t', 255)]);
+        self::assertFalse($taken->isError, $taken->content);
+        self::assertSame(WriteCompleteness::COMPLETE, $taken->writeCompleteness);
     }
 
     #[Test]
