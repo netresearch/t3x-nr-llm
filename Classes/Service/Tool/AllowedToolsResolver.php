@@ -24,7 +24,7 @@ use Netresearch\NrLlm\Service\Skill\SkillComposer;
  * path's {@see SkillComposer::effectiveSkills()}, a (source, identifier) twin
  * is not deduped away here, so it cannot drop a restriction. A skill that
  * declares no `allowed-tools` key (its accessor returns null) contributes no
- * opinion. When NO effective skill declares anything, this returns null meaning
+ * opinion. When NO admitted skill declares anything, this returns null meaning
  * "no skill-imposed restriction" (all registry tools are permitted). When at least
  * one skill declares, the union is returned — and a lone declared empty list yields
  * `[]`, i.e. no tools at all.
@@ -66,12 +66,12 @@ final readonly class AllowedToolsResolver
 
     /**
      * The run's skill allow-list (ADR-038 item 5): the union over every
-     * effective skill the run carries, resolved once at run start.
+     * admitted skill the run carries, resolved once at run start.
      *
      * `$runSkills` are the run's forced skills. They take the same slot the
-     * injection path gives them ({@see SkillComposer::effectiveSkills()}'s second
-     * argument), so the prose that reaches the prompt and the tools it may call
-     * stay one selection. The group gate is NOT applied here: the list is stored
+     * injection path gives them ({@see SkillComposer::admittedSkills()}'s second
+     * argument), so the tools cover the selection whose prose reaches the
+     * prompt. The group gate is NOT applied here: the list is stored
      * with the run, and the group gate is re-read live through
      * {@see self::applyGroupGateTo()}.
      *
@@ -120,6 +120,16 @@ final readonly class AllowedToolsResolver
         // floor) grants nothing, and the run is not left unrestricted because
         // of that: fail closed.
         $any = array_diff_key($invoked, array_flip(array_map(spl_object_id(...), $admitted))) !== [];
+        // An attached skill the sync orphaned (its identifier is gone upstream,
+        // or was renamed in the record) grants nothing and still restricts the
+        // run, as a skill whose source is gone does. A disabled one is an
+        // administrator's decision and drops out.
+        foreach ([...$this->toList($config->getSkills()), ...$additionalSkills] as $skill) {
+            if ($skill->isEnabled() && $skill->isOrphaned()) {
+                $any = true;
+            }
+        }
+
         foreach ($admitted as $skill) {
             // What the skill may declare, not its live field: an unapproved
             // backend skill or one whose source no longer vouches grants

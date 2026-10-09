@@ -353,6 +353,27 @@ final class SkillComposerBackendSourceTest extends TestCase
         self::assertSame(['backend-1'], $this->composer()->composeBlock([$guide], [])->included);
     }
 
+    /**
+     * A second record with the same (source, identifier) is left out of the
+     * prose with a warning, not silently; distinct identifiers compose both.
+     */
+    #[Test]
+    public function aSameSourceTwinIsReportedWhenItIsLeftOut(): void
+    {
+        $first  = $this->backendSkill('Guide', 'House style.');
+        $second = $this->backendSkill('Other', 'Other text.');
+        $second->_setProperty('uid', 2);
+
+        $warnings = $this->composer()->composeBlock([$first, $second], [])->warnings;
+
+        self::assertCount(1, $warnings);
+        self::assertStringContainsString('"Other" (backend-1) skipped: another skill of the same source', $warnings[0]);
+
+        $second->setIdentifier('backend-2');
+
+        self::assertSame([], $this->composer()->composeBlock([$first, $second], [])->warnings);
+    }
+
     #[Test]
     public function aComposerWithoutASourceLookupKeepsTheStoredField(): void
     {

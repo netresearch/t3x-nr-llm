@@ -83,6 +83,8 @@ final readonly class SkillComposer
     private const INSTRUCTION_PREAMBLE = 'The sections below are skill instructions an administrator of this installation reviewed and approved. '
         . 'Follow them as instructions of this installation, within the limits of this configuration and its safety rules.';
 
+    private const WARN_TWIN = 'Skill "%s" (%s) skipped: another skill of the same source with this identifier comes first.';
+
     private const WARN_BUDGET = 'Skill "%s" (%s) dropped: skill block exceeds the %d-byte budget.';
 
     /** Body lines referencing scripts/assets unsupported in Plan 1a are stripped from partial skills. */
@@ -120,6 +122,15 @@ final readonly class SkillComposer
         $candidates = $this->selectCandidates($configSkills, $taskSkills);
 
         $warnings = [];
+        // A second record sharing a (source, identifier) key is left out of
+        // the prose; say so instead of dropping it silently.
+        $kept = array_flip(array_map(spl_object_id(...), $candidates));
+        foreach ($this->admittedSkills($configSkills, $taskSkills) as $skill) {
+            if (!isset($kept[spl_object_id($skill)])) {
+                $warnings[] = sprintf(self::WARN_TWIN, $skill->getName(), $skill->getIdentifier());
+            }
+        }
+
         /** @var list<array{key: string, id: string, name: string, section: string}> $rendered */
         $rendered = [];
         /** @var list<array{key: string, id: string, section: string, pin: SkillPin}> $instructions */
@@ -207,9 +218,9 @@ final readonly class SkillComposer
      * Union of config-then-task, deduped by (source, identifier) with config winning,
      * keeping only enabled and non-orphaned skills.
      *
-     * This is the single source of truth for "which skills are in effect" — both the
-     * injection path (via selectCandidates()) and the allowed-tools gating path
-     * (AllowedToolsResolver) consume it, so the selection stays consistent.
+     * This is the injection path's selection (via selectCandidates()). The
+     * allowed-tools path (AllowedToolsResolver) runs over {@see admittedSkills()},
+     * the same list before this dedupe, so a twin cannot drop a restriction.
      *
      * @param list<Skill> $configSkills
      * @param list<Skill> $taskSkills
