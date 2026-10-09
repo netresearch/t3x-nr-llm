@@ -3879,10 +3879,10 @@ final class ToolLoopServiceTest extends TestCase
             ),
             invocationPolicy: new ToolInvocationPolicy([$rule]),
         );
-        $fenced = 0;
+        $fenced = [];
         $trace = new RunTrace(
-            onBeforeTool: static function () use (&$fenced): void {
-                ++$fenced;
+            onBeforeTool: static function (string $toolName) use (&$fenced): void {
+                $fenced[] = $toolName;
             },
         );
         $result = $service->runLoop(
@@ -3893,7 +3893,7 @@ final class ToolLoopServiceTest extends TestCase
             runTrace: $trace,
         );
         // Only permitted invocations enter the execution fence.
-        self::assertSame(RemoteCallBudget::DEFAULT_LIMIT, $fenced);
+        self::assertCount(RemoteCallBudget::DEFAULT_LIMIT, $fenced);
         self::assertCount(RemoteCallBudget::DEFAULT_LIMIT * 2, $result->trace);
         foreach (array_slice($result->trace, RemoteCallBudget::DEFAULT_LIMIT) as $invocation) {
             self::assertFalse($invocation->isError);
