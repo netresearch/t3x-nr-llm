@@ -3,7 +3,9 @@
 
 # Cross-encoder reranker sidecar for nr_llm (ADR-075).
 # CPU image; the model is baked in at build time so the container starts offline.
-FROM python:3.14-slim
+# The Docker official image through its ECR Public mirror: the same
+# manifests, without Docker Hub's anonymous pull limit.
+FROM public.ecr.aws/docker/library/python:3.14-slim
 
 ENV HF_HOME=/models \
     RERANKER_MODEL=BAAI/bge-reranker-v2-m3 \
