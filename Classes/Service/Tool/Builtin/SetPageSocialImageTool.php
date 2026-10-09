@@ -282,7 +282,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
                 $plan['page'],
                 count(array_diff($live, [$newUid])),
                 $plan['field'],
-                $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . $this->summariseErrors($dataHandler->errorLog),
+                $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . rtrim($this->summariseErrors($dataHandler->errorLog), '.') . '.',
                 $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $user),
             ));
         }

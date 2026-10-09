@@ -565,7 +565,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
                 $newUid,
                 $plan['reference'],
                 $plan['field'],
-                $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . $this->summariseErrors($dataHandler->errorLog),
+                $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . rtrim($this->summariseErrors($dataHandler->errorLog), '.') . '.',
             ));
         }
 
@@ -767,7 +767,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             'sentence' => sprintf(
                 ' The translations are not settled: %s.%s',
                 implode('; ', $problems),
-                $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . $this->summariseErrors($dataHandler->errorLog),
+                $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . rtrim($this->summariseErrors($dataHandler->errorLog), '.') . '.',
             ),
             'completeness' => WriteCompleteness::PARTIAL,
         ];

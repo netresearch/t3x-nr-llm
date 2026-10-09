@@ -137,7 +137,7 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
         // and a non-empty one does not mean the flag stayed. "Published" about
         // a record that is still hidden would send a human to look for a page
         // nobody can see; "refused" about one that is live would hide that it is.
-        $complaints = $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . $this->summariseErrors($dataHandler->errorLog);
+        $complaints = $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . rtrim($this->summariseErrors($dataHandler->errorLog), '.') . '.';
         $stored     = $this->fetchRowByUid($plan['table'], $plan['uid'], 'uid', $plan['hiddenColumn']);
         if ($stored === null || self::toInt($stored[$plan['hiddenColumn']] ?? 1) !== 0) {
             return ToolResult::error(sprintf(
