@@ -81,6 +81,11 @@ final readonly class RunTimelineFactory
         // timeline go and look at what the run actually changed.
         'writeTargetTable',
         'writeTargetUid',
+        // Whether that write did all it planned, and whether a hook failed
+        // after it (ADR-214): two flags an operator needs before trusting the
+        // record named above.
+        'writeCompleteness',
+        'hookFailedAfterWrite',
     ];
 
     public function __construct(

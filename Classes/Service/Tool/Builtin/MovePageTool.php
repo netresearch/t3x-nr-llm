@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
@@ -156,6 +157,11 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
             }
         }
 
+        // The page is where it was asked to go. Translations left behind, or a
+        // complaint of TYPO3 beside it, make the move partial (ADR-214) — the
+        // same condition that makes the answer say "Not completely".
+        $complete = $strayTranslations === [] && $complaints === '';
+
         return ToolResult::text(sprintf(
             'Moved page [%d] "%s" from under page [%d] to under page [%d]%s.%s Its URL path is unchanged: %s',
             $plan['uid'],
@@ -163,7 +169,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
             $plan['formerParent'],
             $plan['parent'],
             $plan['afterUid'] > 0 ? sprintf(', after page [%d]', $plan['afterUid']) : '',
-            $strayTranslations === [] && $complaints === ''
+            $complete
                 ? ''
                 : sprintf(
                     ' Not completely:%s%s',
@@ -171,7 +177,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
                     $complaints,
                 ),
             $plan['slug'] === '' ? '(none)' : $plan['slug'],
-        ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::UPDATED);
+        ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::UPDATED, $complete ? WriteCompleteness::COMPLETE : WriteCompleteness::PARTIAL);
     }
 
     /**

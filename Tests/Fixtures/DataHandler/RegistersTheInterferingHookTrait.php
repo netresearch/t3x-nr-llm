@@ -18,29 +18,33 @@ trait RegistersTheInterferingHookTrait
     private function registerInterferingHook(): void
     {
         InterferesWithAnUpdateHook::reset();
-        $hooks   = $this->processDatamapHooks();
-        $hooks[] = InterferesWithAnUpdateHook::class;
-        $this->storeProcessDatamapHooks($hooks);
+        foreach (['processDatamapClass', 'processCmdmapClass'] as $list) {
+            $hooks   = $this->interferingHookList($list);
+            $hooks[] = InterferesWithAnUpdateHook::class;
+            $this->storeInterferingHookList($list, $hooks);
+        }
     }
 
     private function unregisterInterferingHook(): void
     {
         InterferesWithAnUpdateHook::reset();
-        $this->storeProcessDatamapHooks(array_values(array_filter(
-            $this->processDatamapHooks(),
-            static fn(mixed $className): bool => $className !== InterferesWithAnUpdateHook::class,
-        )));
+        foreach (['processDatamapClass', 'processCmdmapClass'] as $list) {
+            $this->storeInterferingHookList($list, array_values(array_filter(
+                $this->interferingHookList($list),
+                static fn(mixed $className): bool => $className !== InterferesWithAnUpdateHook::class,
+            )));
+        }
     }
 
     /**
      * @return list<mixed>
      */
-    private function processDatamapHooks(): array
+    private function interferingHookList(string $list): array
     {
         $confVars  = is_array($GLOBALS['TYPO3_CONF_VARS'] ?? null) ? $GLOBALS['TYPO3_CONF_VARS'] : [];
         $scOptions = is_array($confVars['SC_OPTIONS'] ?? null) ? $confVars['SC_OPTIONS'] : [];
         $tcemain   = is_array($scOptions['t3lib/class.t3lib_tcemain.php'] ?? null) ? $scOptions['t3lib/class.t3lib_tcemain.php'] : [];
-        $hooks     = is_array($tcemain['processDatamapClass'] ?? null) ? $tcemain['processDatamapClass'] : [];
+        $hooks     = is_array($tcemain[$list] ?? null) ? $tcemain[$list] : [];
 
         return array_values($hooks);
     }
@@ -48,13 +52,13 @@ trait RegistersTheInterferingHookTrait
     /**
      * @param list<mixed> $hooks
      */
-    private function storeProcessDatamapHooks(array $hooks): void
+    private function storeInterferingHookList(string $list, array $hooks): void
     {
         $confVars  = is_array($GLOBALS['TYPO3_CONF_VARS'] ?? null) ? $GLOBALS['TYPO3_CONF_VARS'] : [];
         $scOptions = is_array($confVars['SC_OPTIONS'] ?? null) ? $confVars['SC_OPTIONS'] : [];
         $tcemain   = is_array($scOptions['t3lib/class.t3lib_tcemain.php'] ?? null) ? $scOptions['t3lib/class.t3lib_tcemain.php'] : [];
 
-        $tcemain['processDatamapClass']                 = $hooks;
+        $tcemain[$list]                                 = $hooks;
         $scOptions['t3lib/class.t3lib_tcemain.php']     = $tcemain;
         $confVars['SC_OPTIONS']                         = $scOptions;
         $GLOBALS['TYPO3_CONF_VARS']                     = $confVars;

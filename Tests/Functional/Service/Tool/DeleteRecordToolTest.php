@@ -9,10 +9,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\DeleteRecordTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\InterferesWithAnUpdateHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheInterferingHookTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -32,6 +35,7 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 final class DeleteRecordToolTest extends AbstractFunctionalTestCase
 {
     use AssertsPreviewHeadingTrait;
+    use RegistersTheInterferingHookTrait;
 
     /** @var non-empty-string[] */
     protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'frontend'];
@@ -136,6 +140,7 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
 
     protected function tearDown(): void
     {
+        $this->unregisterInterferingHook();
         unset($GLOBALS['LANG']);
         parent::tearDown();
     }
@@ -154,6 +159,30 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
         self::assertSame(1, $this->deletedOf('tt_content', self::TRANSLATION));
         self::assertSame(WriteKind::DELETED, $result->writeKind);
         self::assertSame(self::ELEMENT, $result->writeTarget?->uid);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
+    }
+
+    /**
+     * The element is deleted and its translation, which should have gone with
+     * it, is still there: a partial delete (ADR-214), named as written.
+     */
+    #[Test]
+    public function aTranslationAHookKeepsMakesTheDeletePartial(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$keepRecord = 'tt_content:' . self::TRANSLATION;
+
+        $result = $this->tool->execute(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('but not completely:', $result->content);
+        self::assertSame(1, $this->deletedOf('tt_content', self::ELEMENT));
+        self::assertSame(0, $this->deletedOf('tt_content', self::TRANSLATION));
+        self::assertSame(self::ELEMENT, $result->writeTarget?->uid);
+        self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
     }
 
     #[Test]

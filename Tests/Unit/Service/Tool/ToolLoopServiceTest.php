@@ -17,6 +17,8 @@ use Netresearch\NrLlm\Domain\Enum\ArtifactType;
 use Netresearch\NrLlm\Domain\Enum\GovernanceDecision;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
+use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
@@ -3065,6 +3067,8 @@ final class ToolLoopServiceTest extends TestCase
             [],
             ToolEffect::IDEMPOTENT_WRITE,
             new RecordReference('pages', 42),
+            WriteKind::UPDATED,
+            WriteCompleteness::PARTIAL,
         );
 
         $mgr = self::createStub(LlmServiceManagerInterface::class);
@@ -3096,6 +3100,13 @@ final class ToolLoopServiceTest extends TestCase
         $payload = $writeSteps[0]->toArray();
         self::assertSame('pages', $payload['writeTargetTable'] ?? null);
         self::assertSame(42, $payload['writeTargetUid'] ?? null);
+
+        // ADR-214: what the tool stated about its plan survives the bounding
+        // every result passes through, onto the step the chat reads. PARTIAL,
+        // because a value nothing sets would pass as the default.
+        self::assertSame(WriteCompleteness::PARTIAL, $writeSteps[0]->writeCompleteness);
+        self::assertSame('partial', $payload['writeCompleteness'] ?? null);
+        self::assertFalse($writeSteps[0]->hookFailedAfterWrite);
     }
 
     /**

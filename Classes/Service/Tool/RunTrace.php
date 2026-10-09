@@ -279,6 +279,11 @@ final class RunTrace
             durationMs: 0.0,
             toolName: $name,
             writeTarget: $result->writeTarget,
+            // Copied as the tool and the loop stated them (ADR-214); a
+            // consumer reads whether the write was applied from these two and
+            // from nothing else.
+            writeCompleteness: $result->writeCompleteness,
+            hookFailedAfterWrite: $result->hookFailedAfterWrite,
         ));
     }
 

@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Closure;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
@@ -568,6 +569,8 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             ));
         }
 
+        $settled = $this->settleTranslations($plan, $user);
+
         return ToolResult::text(sprintf(
             'Replaced file [%d] "%s" with file [%d] "%s" in %s of tt_content [%d] "%s" (reference [%d] is now [%d]).%s',
             $plan['oldFile'],
@@ -579,8 +582,8 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             $this->excerpt($plan['header']),
             $plan['reference'],
             $newUid,
-            $this->settleTranslations($plan, $user),
-        ))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $newUid), WriteKind::CREATED);
+            $settled['sentence'],
+        ))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $newUid), WriteKind::CREATED, $settled['completeness']);
     }
 
     /**
@@ -617,6 +620,8 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             ));
         }
 
+        $settled = $this->settleTranslations($plan, $user);
+
         return ToolResult::text(sprintf(
             'Removed reference [%d] to file [%d] "%s" from %s of tt_content [%d] "%s"; %d reference(s) remain. The file '
             . 'itself is unchanged.%s',
@@ -627,8 +632,8 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             $plan['element'],
             $this->excerpt($plan['header']),
             count($remaining),
-            $this->settleTranslations($plan, $user),
-        ))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $plan['reference']), WriteKind::DELETED);
+            $settled['sentence'],
+        ))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $plan['reference']), WriteKind::DELETED, $settled['completeness']);
     }
 
     /**
@@ -709,12 +714,18 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      * matches its rows, and say what came of it — '' when there were none,
      * otherwise a sentence for the answer.
      *
+     * The completeness is decided here, beside the sentence, because this is
+     * where it is known (ADR-214): translations that are not settled leave
+     * the write PARTIAL, whatever the element itself carries.
+     *
      * @param array{field:string, translated:list<array{reference:int, element:int, language:int}>} $plan
+     *
+     * @return array{sentence: string, completeness: WriteCompleteness}
      */
-    private function settleTranslations(array $plan, BackendUserAuthentication $user): string
+    private function settleTranslations(array $plan, BackendUserAuthentication $user): array
     {
         if ($plan['translated'] === []) {
-            return '';
+            return ['sentence' => '', 'completeness' => WriteCompleteness::COMPLETE];
         }
 
         $elements = array_values(array_filter(
@@ -745,13 +756,21 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             }
         }
 
-        return $problems === []
-            ? sprintf(' Its %d translated reference(s) were deleted with it.', count($plan['translated']))
-            : sprintf(
+        if ($problems === []) {
+            return [
+                'sentence'     => sprintf(' Its %d translated reference(s) were deleted with it.', count($plan['translated'])),
+                'completeness' => WriteCompleteness::COMPLETE,
+            ];
+        }
+
+        return [
+            'sentence' => sprintf(
                 ' The translations are not settled: %s.%s',
                 implode('; ', $problems),
                 $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . $this->summariseErrors($dataHandler->errorLog),
-            );
+            ),
+            'completeness' => WriteCompleteness::PARTIAL,
+        ];
     }
 
     /**

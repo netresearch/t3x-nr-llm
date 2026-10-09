@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
@@ -45,6 +46,7 @@ final readonly class FakeTool implements ToolInterface, ToolEffectInterface
         private ToolEffect $effect = ToolEffect::READ_ONLY,
         private ?RecordReference $writeTarget = null,
         private WriteKind $writeKind = WriteKind::UPDATED,
+        private ?WriteCompleteness $writeCompleteness = null,
     ) {}
 
     public function getEffect(): ToolEffect
@@ -69,7 +71,7 @@ final readonly class FakeTool implements ToolInterface, ToolEffectInterface
         $result = ToolResult::text($this->result, ...$this->artifacts);
 
         return $this->writeTarget instanceof RecordReference
-            ? $result->withWriteTarget($this->writeTarget, $this->writeKind)
+            ? $result->withWriteTarget($this->writeTarget, $this->writeKind, $this->writeCompleteness)
             : $result;
     }
 

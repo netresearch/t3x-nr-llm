@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Domain\ValueObject;
 
 use Netresearch\NrLlm\Domain\Enum\ToolOutcome;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 
 /**
@@ -150,7 +151,30 @@ final readonly class RunStep
          *                           on every other kind (ADR-182)
          */
         public ?RecordReference $writeTarget = null,
+        /**
+         * Whether the write did everything the call planned, as the tool
+         * stated it (ADR-214). Null on every other kind, and null on a write
+         * step whose tool did not state it — which a consumer must read as
+         * "check the record", never as complete.
+         */
+        public ?WriteCompleteness $writeCompleteness = null,
+        /**
+         * True when a DataHandler hook of the installation failed after the
+         * last write of the call (ADR-206, ADR-214); false on a write step
+         * where none did. Null on every other kind.
+         */
+        public ?bool $hookFailedAfterWrite = null,
     ) {
+        // Both are statements about a write and only a write step carries one.
+        // Refused here, like the outcome pair below, because a completeness on
+        // a tool step would be read by nobody and believed by somebody.
+        if (($writeCompleteness instanceof WriteCompleteness || $hookFailedAfterWrite !== null) && $kind !== self::KIND_WRITE) {
+            throw new InvalidArgumentException(
+                sprintf('A %s step states no write completeness; only a write step does.', $kind),
+                1791600001,
+            );
+        }
+
         // The pair is one statement in two fields, and the timeline reads them
         // in that order: `toolIsError` decides WHETHER a step states an outcome,
         // `toolOutcome` decides WHICH. A step carrying `false` beside CANCELLED
@@ -228,6 +252,11 @@ final readonly class RunStep
             // read without parsing a composite string.
             'writeTargetTable'   => $this->writeTarget?->table,
             'writeTargetUid'     => $this->writeTarget?->uid,
+            // Two facts beside the identity, never derived from the tool's
+            // text (ADR-214): what the tool said of its plan, and whether a
+            // hook failed after the write.
+            'writeCompleteness'    => $this->writeCompleteness?->value,
+            'hookFailedAfterWrite' => $this->hookFailedAfterWrite,
         ];
 
         foreach ($optional as $key => $value) {

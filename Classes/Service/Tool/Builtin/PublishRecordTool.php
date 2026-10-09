@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
@@ -158,7 +159,7 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
             $plan['page'],
             $plan['restrictions'] === [] ? '' : ' What may still restrict it: ' . implode('; ', array_map($this->restrictionInEnglish(...), $plan['restrictions'])) . '.',
             $complaints,
-        ))->withWriteTarget(new RecordReference($plan['table'], $plan['uid']), WriteKind::UPDATED);
+        ))->withWriteTarget(new RecordReference($plan['table'], $plan['uid']), WriteKind::UPDATED, WriteCompleteness::COMPLETE);
     }
 
     /**

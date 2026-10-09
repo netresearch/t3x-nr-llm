@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
@@ -203,7 +204,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
                 $this->excerpt($plan['label']),
                 $survivors === [] ? '' : ' ' . implode(', ', array_slice($survivors, 0, 10)) . ' ' . (count($survivors) === 1 ? 'is' : 'are') . ' still there.',
                 $complaints,
-            ))->withWriteTarget(new RecordReference($plan['table'], $plan['uid']), WriteKind::DELETED);
+            ))->withWriteTarget(new RecordReference($plan['table'], $plan['uid']), WriteKind::DELETED, WriteCompleteness::PARTIAL);
         }
 
         return ToolResult::text(sprintf(
@@ -212,7 +213,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
             $plan['uid'],
             $this->excerpt($plan['label']),
             $this->alongWith($plan),
-        ))->withWriteTarget(new RecordReference($plan['table'], $plan['uid']), WriteKind::DELETED);
+        ))->withWriteTarget(new RecordReference($plan['table'], $plan['uid']), WriteKind::DELETED, WriteCompleteness::COMPLETE);
     }
 
     /**

@@ -26,11 +26,16 @@ use TYPO3\CMS\Core\DataHandling\DataHandler;
  * - `$dropColumn` removes that column from every update, as a missing grant
  *   would, while the rest of the update is written;
  * - `$complain` adds an entry to the DataHandler's error log while the update
- *   is still written, as a hook that logs and carries on does.
+ *   is still written, as a hook that logs and carries on does;
+ * - `$complainOnCommand` does the same after every command (a move, a
+ *   delete) of the cmdmap, which still runs;
+ * - `$keepRecord` names one `table:uid` whose delete the hook takes over and
+ *   does not carry out, as an installation's hook that vetoes a delete can —
+ *   the record stays live while the rest of the command runs.
  *
  * Registered per test under
  * `$GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processDatamapClass']`
- * and removed again in the test's tearDown.
+ * and `processCmdmapClass`, and removed again in the test's tearDown.
  */
 final class InterferesWithAnUpdateHook
 {
@@ -40,11 +45,17 @@ final class InterferesWithAnUpdateHook
 
     public static bool $complain = false;
 
+    public static bool $complainOnCommand = false;
+
+    public static ?string $keepRecord = null;
+
     public static function reset(): void
     {
-        self::$keepVisible = false;
-        self::$dropColumn  = null;
-        self::$complain    = false;
+        self::$keepVisible       = false;
+        self::$dropColumn        = null;
+        self::$complain          = false;
+        self::$complainOnCommand = false;
+        self::$keepRecord        = null;
     }
 
     /**
@@ -73,6 +84,23 @@ final class InterferesWithAnUpdateHook
 
         if (self::$complain) {
             $dataHandler->log($table, (int)$id, 2, null, 1, 'A test hook complains and carries on');
+        }
+    }
+
+    public function processCmdmap_postProcess(string $command, string $table, string|int $id, mixed $value, DataHandler $dataHandler): void
+    {
+        if (self::$complainOnCommand) {
+            $dataHandler->log($table, (int)$id, 2, null, 1, 'A test hook complains about a command and carries on');
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $record
+     */
+    public function processCmdmap_deleteAction(string $table, string|int $id, array $record, bool &$recordWasDeleted, DataHandler $dataHandler): void
+    {
+        if (self::$keepRecord === $table . ':' . $id) {
+            $recordWasDeleted = true;
         }
     }
 }

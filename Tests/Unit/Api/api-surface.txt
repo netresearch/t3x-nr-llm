@@ -374,6 +374,15 @@ Netresearch\NrLlm\Domain\Enum\TrustZone (enum)
   property readonly name: string
   property readonly value: string
 
+Netresearch\NrLlm\Domain\Enum\WriteCompleteness (enum)
+  case COMPLETE = "complete"
+  case PARTIAL = "partial"
+  method static cases(): array
+  method static from(int|string $value): static
+  method static tryFrom(int|string $value): ?static
+  property readonly name: string
+  property readonly value: string
+
 Netresearch\NrLlm\Domain\Enum\WriteKind (enum)
   case CREATED = "created"
   case DELETED = "deleted"
@@ -1117,11 +1126,14 @@ Netresearch\NrLlm\Domain\ValueObject\ToolResult (class)
   method static error(string $content): self
   method static text(string $content, Netresearch\NrLlm\Domain\ValueObject\ToolArtifact ...$artifacts = …): self
   method withBoundedChannels(string $content, array $artifacts): self
-  method withWriteTarget(Netresearch\NrLlm\Domain\ValueObject\RecordReference $target, Netresearch\NrLlm\Domain\Enum\WriteKind $kind): self
+  method withHookFailedAfterWrite(): self
+  method withWriteTarget(Netresearch\NrLlm\Domain\ValueObject\RecordReference $target, Netresearch\NrLlm\Domain\Enum\WriteKind $kind, ?Netresearch\NrLlm\Domain\Enum\WriteCompleteness $completeness = …): self
   property readonly artifacts: array
   property readonly content: string
+  property readonly hookFailedAfterWrite: bool
   property readonly isError: bool
   property readonly outcome: Netresearch\NrLlm\Domain\Enum\ToolOutcome
+  property readonly writeCompleteness: ?Netresearch\NrLlm\Domain\Enum\WriteCompleteness
   property readonly writeKind: ?Netresearch\NrLlm\Domain\Enum\WriteKind
   property readonly writeTarget: ?Netresearch\NrLlm\Domain\ValueObject\RecordReference
 

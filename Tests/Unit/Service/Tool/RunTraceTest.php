@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
 use Netresearch\NrLlm\Domain\Enum\ArtifactType;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -244,5 +245,39 @@ final class RunTraceTest extends TestCase
 
         $kinds = array_map(static fn(RunStep $step): string => $step->kind, $trace->getSteps());
         self::assertSame([RunStep::KIND_TOOL], $kinds);
+    }
+
+    /**
+     * The write step carries what the tool stated about its plan and whether a
+     * hook failed after the write, so a consumer reads "applied" from the step
+     * and from nothing else (ADR-214). Every combination, so neither field can
+     * be hard-wired.
+     */
+    #[Test]
+    public function theWriteStepCarriesTheCompletenessAndTheHookFlag(): void
+    {
+        foreach ([...WriteCompleteness::cases(), null] as $completeness) {
+            foreach ([true, false] as $hookFailed) {
+                $result = ToolResult::text('Updated.')
+                    ->withWriteTarget(new RecordReference('tt_content', 7), WriteKind::UPDATED, $completeness);
+                if ($hookFailed) {
+                    $result = $result->withHookFailedAfterWrite();
+                }
+
+                $trace = new RunTrace();
+                $trace->recordToolResult(1, 1.0, 'update_content_element', ['uid' => 7], $result);
+
+                [$tool, $write] = $trace->getSteps();
+                self::assertSame(RunStep::KIND_WRITE, $write->kind);
+                self::assertSame($completeness, $write->writeCompleteness);
+                self::assertSame($hookFailed, $write->hookFailedAfterWrite);
+                self::assertSame($completeness?->value, $write->toArray()['writeCompleteness'] ?? null);
+                self::assertSame($hookFailed, $write->toArray()['hookFailedAfterWrite']);
+
+                // The tool step states neither: they belong to the write.
+                self::assertNull($tool->writeCompleteness);
+                self::assertNull($tool->hookFailedAfterWrite);
+            }
+        }
     }
 }

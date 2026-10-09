@@ -9,10 +9,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\MovePageTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\InterferesWithAnUpdateHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheInterferingHookTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -31,6 +34,7 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 final class MovePageToolTest extends AbstractFunctionalTestCase
 {
     use AssertsPreviewHeadingTrait;
+    use RegistersTheInterferingHookTrait;
 
     /** @var non-empty-string[] */
     protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'frontend'];
@@ -103,6 +107,7 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
 
     protected function tearDown(): void
     {
+        $this->unregisterInterferingHook();
         unset($GLOBALS['LANG']);
         parent::tearDown();
     }
@@ -118,12 +123,35 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
         self::assertFalse($result->isError, $result->content);
         self::assertStringContainsString('Moved page [4] "Moved" from under page [2] to under page [3]', $result->content);
         self::assertSame(WriteKind::UPDATED, $result->writeKind);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
 
         $moved = $this->pageRow(self::MOVED);
         self::assertSame(self::SECTION_B, (int)($moved['pid'] ?? 0));
         self::assertSame('/a/moved', $moved['slug'] ?? null, 'core does not regenerate the slug on a move');
         self::assertSame(self::SECTION_B, (int)($this->pageRow(self::TRANSLATION)['pid'] ?? 0));
         self::assertSame(self::MOVED, (int)($this->pageRow(self::CHILD)['pid'] ?? 0));
+    }
+
+    /**
+     * The page landed where it was asked to go, and TYPO3 complained beside
+     * it: the answer says "Not completely", and the write is partial
+     * (ADR-214) by the same condition.
+     */
+    #[Test]
+    public function aMoveTypo3ComplainedAboutIsPartial(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$complainOnCommand = true;
+
+        $result = $this->tool->execute(
+            ['uid' => self::MOVED, 'parent' => self::SECTION_B],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('Not completely:', $result->content);
+        self::assertSame(self::SECTION_B, (int)($this->pageRow(self::MOVED)['pid'] ?? 0));
+        self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
     }
 
     #[Test]

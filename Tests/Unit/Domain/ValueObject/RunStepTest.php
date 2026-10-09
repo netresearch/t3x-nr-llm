@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Domain\ValueObject;
 
 use Netresearch\NrLlm\Domain\Enum\ArtifactType;
 use Netresearch\NrLlm\Domain\Enum\ToolOutcome;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
@@ -183,5 +184,36 @@ final class RunStepTest extends TestCase
     {
         self::assertNull((new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 1.0, toolIsError: true))->toolOutcome);
         self::assertNull((new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 1.0))->toolOutcome);
+    }
+
+    /**
+     * Completeness and the hook flag are statements about a write, and a step
+     * of any other kind refuses them, like the outcome pair (ADR-214).
+     */
+    #[Test]
+    public function onlyAWriteStepStatesACompletenessOrAHookFlag(): void
+    {
+        $write = new RunStep(
+            kind: RunStep::KIND_WRITE,
+            round: 1,
+            durationMs: 0.0,
+            writeCompleteness: WriteCompleteness::PARTIAL,
+            hookFailedAfterWrite: false,
+        );
+        self::assertSame('partial', $write->toArray()['writeCompleteness']);
+        self::assertFalse($write->toArray()['hookFailedAfterWrite']);
+
+        $refusals = [
+            'writeCompleteness'    => static fn(): RunStep => new RunStep(RunStep::KIND_TOOL, 1, 0.0, writeCompleteness: WriteCompleteness::COMPLETE),
+            'hookFailedAfterWrite' => static fn(): RunStep => new RunStep(RunStep::KIND_TOOL, 1, 0.0, hookFailedAfterWrite: false),
+        ];
+        foreach ($refusals as $field => $construct) {
+            try {
+                $construct();
+                self::fail('A tool step accepted ' . $field . '.');
+            } catch (InvalidArgumentException $e) {
+                self::assertSame(1791600001, $e->getCode());
+            }
+        }
     }
 }
