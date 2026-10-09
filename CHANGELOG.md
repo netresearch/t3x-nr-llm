@@ -19,6 +19,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Architecture and acceptance specifications for retrieval provenance,
+  per-invocation tool rules, optional delegated MCP authentication, companion
+  document-source synchronisation and worker operations (ADR-215 to ADR-219).**
+  Implementation is tracked in separate changes; this entry records decisions.
+
 - **Approved skill versions instruct (ADR-214 items 1 and 2).** An administrator approves one version of a skill in the Skills module (new "Review and approve versions" action). The approval binds to a digest over the body and the frontmatter fields the model reads, and to the skill's source; the form posts the digest it showed and a changed version is refused. A version whose approval is unrevoked and whose source is classified at or above the new setting `skills.instructionTrustLevel` (default `verified`) is composed into the system message as an instruction, behind the configuration's prompt and snippets or appended to a caller's own system message. Every other skill keeps the fenced frame in the first user message. Revocation is per version digest. Approvals, revocations and refused approvals are recorded in the skill audit trail. A version containing characters a browser does not show but a model reads (tag characters, zero-width and direction marks, no-break spaces) cannot be approved; the review page lists each one.
 - **`Skill::getVersionDigest()`, `setVersionDigest()`, `isProcess()`, `getIsProcess()` and `setProcess()`** (`@api`). The API surface snapshot gains them.
 - **New tables and columns:** `tx_nrllm_skill_approval`; `tx_nrllm_skill.version_digest` and `.process`; `tx_nrllm_skill_audit.version_digest`.

@@ -13,6 +13,7 @@ ADR-116: Central tooling authority — nr_llm owns builtin + MCP tools
     answer — see :ref:`ADR-181 <adr-181>`)
 :Date: 2026-07-22
 :Amended: 2026-08-20 by :ref:`ADR-181 <adr-181>`
+:Amended: 2026-10-09 by :ref:`ADR-217 <adr-217>` (delegated MCP credentials)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-116-context:

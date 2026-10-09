@@ -9,8 +9,10 @@
 ADR-072: Retrieval-quality evaluation — golden questions and top-k hit rates
 ==============================================================================
 
-:Status: Accepted
+:Status: Accepted (persisted rankings and benchmark comparison require
+         provenance — see :ref:`ADR-215 <adr-215>`)
 :Date: 2026-07-17
+:Amended: 2026-10-09 by :ref:`ADR-215 <adr-215>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-072-context:

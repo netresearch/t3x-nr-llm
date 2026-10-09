@@ -609,3 +609,8 @@ Tools
    Adr212AGenericFileAttacherWhereNoNarrowWriterExists
    Adr213ApprovalPreviewLinesAreInTheActingUsersLanguage
    Adr214ApprovedSkillVersionsInstruct
+   Adr215RetrievalEvaluationProvenance
+   Adr216InvocationPoliciesSeeTheCall
+   Adr217McpDelegationKeepsTheActor
+   Adr218CompanionDocumentSourceSync
+   Adr219WorkerOperations
