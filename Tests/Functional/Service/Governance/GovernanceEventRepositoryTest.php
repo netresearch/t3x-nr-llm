@@ -9,11 +9,31 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Governance;
 
+use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
+use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
+use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision;
+use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Governance\GovernanceEventRepository;
 use Netresearch\NrLlm\Service\Governance\RecordedGovernanceEvent;
+use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Service\Tool\ToolInterface;
+use Netresearch\NrLlm\Service\Tool\ToolInvocationPolicy;
+use Netresearch\NrLlm\Service\Tool\ToolInvocationRuleInterface;
+use Netresearch\NrLlm\Service\Tool\ToolLoopService;
+use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrLlm\Widgets\DataProvider\GovernanceBlocksOverTimeDataProvider;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
@@ -193,5 +213,111 @@ final class GovernanceEventRepositoryTest extends AbstractFunctionalTestCase
             'guardrail'                => '',
             'detail'                   => '',
         ]);
+    }
+
+    #[Test]
+    #[DataProvider('invocationReasonCodes')]
+    public function actualInvocationDenialsStaySeparateFromOfferabilityReasonCounts(
+        string $reason,
+    ): void {
+        $this->insert('tool_denied', 'trustZone', 'restricted', time());
+        $tool = self::createMock(ToolInterface::class);
+        $tool
+            ->method('getSpec')
+            ->willReturn(
+                ToolSpec::function(
+                    'lookup',
+                    'Lookup',
+                    ['type' => 'object', 'properties' => []],
+                ),
+            );
+        $tool->method('isEnabledByDefault')->willReturn(true);
+        $tool->method('getGroup')->willReturn('test');
+        $tool->expects(self::never())->method('execute');
+        $registry = new ToolRegistry([$tool]);
+        $manager = self::createStub(LlmServiceManagerInterface::class);
+        $manager
+            ->method('chatWithToolsForConfiguration')
+            ->willReturn(
+                new CompletionResponse(
+                    '',
+                    'fixture',
+                    UsageStatistics::fromTokens(0, 0),
+                    toolCalls: [new ToolCall('call', 'lookup', [])],
+                ),
+                new CompletionResponse(
+                    'done',
+                    'fixture',
+                    UsageStatistics::fromTokens(0, 0),
+                ),
+            );
+        $offerability = self::createStub(ToolCallPolicyInterface::class);
+        $offerability->method('filterOfferable')->willReturn(['lookup']);
+        $offerability
+            ->method('skillAllowListForRun')
+            ->willReturn(new SkillToolAllowList(null));
+        $rule = self::createStub(ToolInvocationRuleInterface::class);
+        $rule->method('identifier')->willReturn('installation.boundary');
+        $rule->method('requiresCompleteHistory')->willReturn(false);
+        $rule
+            ->method('decide')
+            ->willReturn(ToolInvocationDecision::deny($reason));
+        $loop = new ToolLoopService(
+            $manager,
+            $registry,
+            $offerability,
+            governanceEvents: $this->repository,
+            invocationPolicy: new ToolInvocationPolicy([$rule]),
+        );
+        $result = $loop->runLoop(
+            [ChatMessage::user('lookup')],
+            new LlmConfiguration(),
+            new ToolExecutionContext(
+                AiActorContext::anonymous(),
+                run: new AgentRunReference(7, 'invocation-run'),
+            ),
+            null,
+        );
+        self::assertTrue($result->trace[0]->isError);
+        self::assertSame(
+            ['trustZone' => 1],
+            $this->repository->countToolDenialsByReason(),
+        );
+        $counts = $this->repository->countByDecision();
+        ksort($counts);
+        self::assertSame(
+            ['invocation_denied' => 1, 'tool_denied' => 1],
+            $counts,
+        );
+        $chart = GovernanceBlocksOverTimeDataProvider::shapeChartData(
+            $counts,
+            [
+                'tool_denied' => 'Tool denied',
+                'invocation_denied' => 'Invocation denied',
+            ],
+            'Events',
+        );
+        self::assertSame(['Tool denied', 'Invocation denied'], $chart['labels']);
+        self::assertSame([1, 1], $chart['datasets'][0]['data']);
+        $byName = $this->repository->countToolDecisionsByName();
+        ksort($byName);
+        self::assertSame(['lookup' => 1, 'restricted' => 1], $byName);
+        $events = $this->repository->findForRun(7, 'invocation-run');
+        self::assertCount(1, $events);
+        self::assertSame('invocation_denied', $events[0]->decision);
+        self::assertSame($reason, $events[0]->reason);
+        self::assertSame(
+            'invocationRule=installation.boundary',
+            $events[0]->detail,
+        );
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function invocationReasonCodes(): iterable
+    {
+        yield 'installation code' => ['outside_site'];
+        yield 'code matching the existing none reason' => ['none'];
     }
 }

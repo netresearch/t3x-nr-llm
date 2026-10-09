@@ -53,12 +53,13 @@ final readonly class GovernanceBlocksOverTimeDataProvider implements ChartDataPr
      * (neighbours are 1.00–1.43:1): each bar has its own axis label and a gap.
      */
     private const DECISION_COLORS = [
-        'tool_denied'       => '#7692A0',
-        'response_blocked'  => '#DF6A66',
+        'tool_denied' => '#7692A0',
+        'response_blocked' => '#DF6A66',
         'approval_required' => '#BD830F',
-        'content_filter'    => '#C84179',
-        'write_unapproved'  => '#8D5FBB',
-        'context_blocked'   => '#178277',
+        'content_filter' => '#C84179',
+        'write_unapproved' => '#8D5FBB',
+        'context_blocked' => '#178277',
+        'invocation_denied' => '#597FAB',
     ];
 
     public function __construct(

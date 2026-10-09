@@ -46,8 +46,9 @@ final readonly class ToolExecutionContext
      *                                                         the loop without a persisted run.
      * @param ?ToolInvocationHistory $initialInvocationHistory Authoritative observations before this
      *                                                         segment; a retry without prior observations
-     *                                                         carries an incomplete history. Null starts
-     *                                                         a fresh history for a bare loop consumer.
+     *                                                         carries an incomplete history. Null proves a fresh history only
+     *                                                         without continuation markers; assembled
+     *                                                         or seeded continuations remain incomplete.
      */
     public function __construct(
         public AiActorContext $actor,

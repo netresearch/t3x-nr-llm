@@ -358,7 +358,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // singleton and the queue worker outlives many runs, so a counter held
         // anywhere but a local would bound the process instead (ADR-116).
         $remoteCalls = new RemoteCallBudget();
-        $invocationHistory = $carriedInvocationHistory ?? $context->initialInvocationHistory ?? new ToolInvocationHistory();
+        $invocationHistory = $carriedInvocationHistory ?? $context->initialInvocationHistory ?? new ToolInvocationHistory(
+            complete: !$skipAssembly && $seedIterations === 0 && $seedPromptTokens === 0 && $seedCompletionTokens === 0,
+        );
 
         // Assemble the outgoing prompt once, before the loop: configuration
         // skills inject into the tool path here (the loop is the sole caller of
@@ -1868,7 +1870,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $this->governanceEvents?->record(
                 new GovernanceEvent(
                     correlationId: $environment->execution->run?->correlationId() ?? '',
-                    decision: GovernanceDecision::TOOL_DENIED->value,
+                    decision: GovernanceDecision::INVOCATION_DENIED->value,
                     reason: $decision->reason,
                     provider: $environment->configuration->getProviderType(),
                     model: $environment->configuration->getModelId(),

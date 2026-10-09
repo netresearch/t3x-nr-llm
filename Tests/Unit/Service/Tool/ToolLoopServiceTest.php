@@ -42,6 +42,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocation;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision;
+use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationTarget;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
@@ -4116,5 +4117,82 @@ final class ToolLoopServiceTest extends TestCase
         self::assertFalse(
             $result->trace[RemoteCallBudget::DEFAULT_LIMIT + 1]->isError,
         );
+    }
+
+    #[Test]
+    #[DataProvider('publicContinuationHistoryCases')]
+    public function publicContinuationsRequireAuthoritativeInvocationHistory(
+        bool $skipAssembly,
+        int $seedIterations,
+        int $seedPromptTokens,
+        int $seedCompletionTokens,
+        ?bool $providedComplete,
+        bool $expectedAllowed,
+    ): void {
+        $registry = new ToolRegistry([new FakeTool('lookup')]);
+        $manager = self::createStub(LlmServiceManagerInterface::class);
+        $manager
+            ->method('chatWithToolsForConfiguration')
+            ->willReturn(
+                $this->response('', [new ToolCall('lookup', 'lookup', [])]),
+                $this->response('done'),
+            );
+        $rule = self::createStub(ToolInvocationRuleInterface::class);
+        $rule->method('identifier')->willReturn('sequence.required');
+        $rule->method('requiresCompleteHistory')->willReturn(true);
+        $rule->method('decide')->willReturn(ToolInvocationDecision::allow());
+        $service = new ToolLoopService(
+            $manager,
+            $registry,
+            $this->realPolicy(
+                $registry,
+                new FakeToolAvailability($registry->names()),
+            ),
+            invocationPolicy: new ToolInvocationPolicy([$rule]),
+        );
+        $context = new ToolExecutionContext(
+            AiActorContext::anonymous(),
+            initialInvocationHistory: $providedComplete === null ? null : new ToolInvocationHistory(complete: $providedComplete),
+        );
+        $executed = [];
+        $trace = new RunTrace(
+            onBeforeTool: static function (string $tool) use (&$executed): void {
+                $executed[] = $tool;
+            },
+        );
+        $result = $service->runLoop(
+            [$this->userTurn('continue')],
+            $this->localConfiguration(),
+            $context,
+            null,
+            runTrace: $trace,
+            skipAssembly: $skipAssembly,
+            seedIterations: $seedIterations,
+            seedPromptTokens: $seedPromptTokens,
+            seedCompletionTokens: $seedCompletionTokens,
+        );
+        self::assertSame(!$expectedAllowed, $result->trace[0]->isError);
+        self::assertSame($expectedAllowed ? ['lookup'] : [], $executed);
+        if (!$expectedAllowed) {
+            self::assertStringContainsString(
+                'history_incomplete',
+                $result->trace[0]->result,
+            );
+        }
+    }
+
+    /**
+     * @return iterable<string, array{bool, int, int, int, ?bool, bool}>
+     */
+    public static function publicContinuationHistoryCases(): iterable
+    {
+        yield 'fresh run' => [false, 0, 0, 0, null, true];
+        yield 'assembled continuation' => [true, 0, 0, 0, null, false];
+        yield 'iteration seed alone' => [false, 1, 0, 0, null, false];
+        yield 'prompt token seed alone' => [false, 0, 7, 0, null, false];
+        yield 'completion token seed alone' => [false, 0, 0, 7, null, false];
+        yield 'all continuation markers' => [true, 1, 7, 7, null, false];
+        yield 'authoritative complete history wins' => [true, 1, 7, 7, true, true];
+        yield 'authoritative incomplete history stays incomplete' => [false, 0, 0, 0, false, false];
     }
 }

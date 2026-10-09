@@ -40,6 +40,13 @@ never credentials or document content.
 observation contains the tool, outcome and optional target reference. Suspensions
 persist it and both resume paths carry it forward. A rule whose
 :php:`requiresCompleteHistory()` returns :php:`true` is refused when a legacy or
-damaged state cannot prove its history. A rule exception refuses execution as
+damaged state cannot prove its history. A bare :php:`runLoop()` call starts a
+complete empty history only when it assembles a fresh prompt and all three seed
+counters are zero. A call with :php:`skipAssembly` or any nonzero seed counter
+must supply authoritative :php:`ToolExecutionContext::$initialInvocationHistory`
+to prove its prior observations; otherwise the history remains incomplete.
+A rule exception refuses execution as
 :php:`rule_failed`. Denials retain the rule identifier and stable reason in the
-governance event without arguments or result content.
+``invocation_denied`` governance event without arguments or result content. The
+event's reason is the bounded rule code, separate from the :php:`ToolDenialReason`
+used for ``tool_denied`` events.

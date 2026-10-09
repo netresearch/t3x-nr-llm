@@ -80,6 +80,10 @@ enum GovernanceDecision: string
      * with the other governance telemetry.
      */
     case WRITE_UNAPPROVED = 'write_unapproved';
+    /**
+     * Installation-specific invocation rules refused a currently offerable call (ADR-216).
+     */
+    case INVOCATION_DENIED = 'invocation_denied';
 
     /**
      * @return list<string>
