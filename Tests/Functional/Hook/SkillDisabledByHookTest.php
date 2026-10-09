@@ -128,6 +128,31 @@ final class SkillDisabledByHookTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A refused change never reaches the record history: an editor's save of
+     * the description together with the enable flag records the description
+     * only.
+     */
+    #[Test]
+    public function aRefusedChangeIsNotRecordedInTheHistory(): void
+    {
+        $this->actAs(self::EDITOR_UID);
+
+        self::assertNotSame([], $this->write(['description' => 'Edited', 'enabled' => 1]));
+        self::assertSame('Edited', $this->column('description'));
+        self::assertSame('0', $this->column('enabled'));
+
+        $rows = $this->getConnectionPool()->getConnectionForTable('sys_history')
+            ->select(['history_data'], 'sys_history', ['tablename' => 'tx_nrllm_skill', 'recuid' => self::SKILL_UID])->fetchFirstColumn();
+        self::assertNotSame([], $rows, 'the description change is recorded');
+        foreach ($rows as $data) {
+            self::assertIsString($data);
+            $history = json_decode($data, true);
+            self::assertIsArray($history);
+            self::assertArrayNotHasKey('enabled', is_array($history['newRecord'] ?? null) ? $history['newRecord'] : []);
+        }
+    }
+
+    /**
      * A write the hook refuses entirely leaves the record untouched, its
      * timestamp included.
      */
