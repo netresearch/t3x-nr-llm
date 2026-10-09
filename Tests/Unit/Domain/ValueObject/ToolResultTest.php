@@ -353,18 +353,20 @@ final class ToolResultTest extends TestCase
     }
 
     /**
-     * An error result keeps both side channels empty, and keeps the flag: a
-     * hook can fail after a write the tool then reported as refused.
+     * An error result names no write, so it carries no hook flag either —
+     * set on it or carried through bounding — like the target and the
+     * artifacts it refuses.
      */
     #[Test]
-    public function anErrorResultKeepsTheHookFlagThroughBounding(): void
+    public function anErrorResultCarriesNoHookFlag(): void
     {
-        $bounded = ToolResult::error('refused')->withHookFailedAfterWrite()->withBoundedChannels('bounded', []);
+        $flagged = ToolResult::error('refused')->withHookFailedAfterWrite();
+        self::assertFalse($flagged->hookFailedAfterWrite);
 
+        $bounded = $flagged->withBoundedChannels('bounded', []);
         self::assertTrue($bounded->isError);
-        self::assertTrue($bounded->hookFailedAfterWrite);
+        self::assertFalse($bounded->hookFailedAfterWrite);
         self::assertNull($bounded->writeTarget);
         self::assertNull($bounded->writeCompleteness);
-        self::assertFalse(ToolResult::error('refused')->withBoundedChannels('bounded', [])->hookFailedAfterWrite);
     }
 }

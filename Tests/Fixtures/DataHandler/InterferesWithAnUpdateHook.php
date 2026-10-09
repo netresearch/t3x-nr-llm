@@ -31,11 +31,15 @@ use TYPO3\CMS\Core\DataHandling\DataHandler;
  *   delete) of the cmdmap, which still runs;
  * - `$keepRecord` names one `table:uid` whose delete the hook takes over and
  *   does not carry out, as an installation's hook that vetoes a delete can —
- *   the record stays live while the rest of the command runs.
+ *   the record stays live while the rest of the command runs;
+ * - `$keepInPlace` names one `table:uid` whose move the hook takes over and
+ *   does not carry out, so a page translation stays where it was while its
+ *   default-language page moves.
  *
  * Registered per test under
  * `$GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processDatamapClass']`
- * and `processCmdmapClass`, and removed again in the test's tearDown.
+ * , `processCmdmapClass` and `moveRecordClass`, and removed again in the
+ * test's tearDown.
  */
 final class InterferesWithAnUpdateHook
 {
@@ -49,6 +53,8 @@ final class InterferesWithAnUpdateHook
 
     public static ?string $keepRecord = null;
 
+    public static ?string $keepInPlace = null;
+
     public static function reset(): void
     {
         self::$keepVisible       = false;
@@ -56,6 +62,7 @@ final class InterferesWithAnUpdateHook
         self::$complain          = false;
         self::$complainOnCommand = false;
         self::$keepRecord        = null;
+        self::$keepInPlace       = null;
     }
 
     /**
@@ -101,6 +108,17 @@ final class InterferesWithAnUpdateHook
     {
         if (self::$keepRecord === $table . ':' . $id) {
             $recordWasDeleted = true;
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $propArr
+     * @param array<string, mixed> $moveRec
+     */
+    public function moveRecord(string $table, string|int $uid, mixed $destPid, array $propArr, array $moveRec, mixed $resolvedPid, bool &$recordWasMoved, DataHandler $dataHandler): void
+    {
+        if (self::$keepInPlace === $table . ':' . $uid) {
+            $recordWasMoved = true;
         }
     }
 }

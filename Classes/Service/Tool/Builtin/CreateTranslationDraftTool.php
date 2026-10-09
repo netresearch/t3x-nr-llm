@@ -314,10 +314,13 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
      * The completeness is decided beside each sentence (ADR-214): the call
      * is PARTIAL whenever a text field of the draft still holds the copied
      * source text — not translated, only partly translated, or withheld
-     * because the acting user may not edit it. A source with no text, and a
-     * draft whose every field holds its translation, are COMPLETE; the latter
-     * also when a hook failed after the fields were stored, because the
-     * fields are what the call planned and they are read back as written.
+     * because the acting user may not edit it — and when the text write
+     * failed although every field reads back translated. That failure is
+     * rethrown by the ToolDataHandler and caught here, so the tool loop never
+     * sees it and cannot flag it; what the failing code was meant to do is
+     * part of the write and did not happen. A source with no text, and a
+     * draft whose every field holds its translation after a write that did
+     * not fail, are COMPLETE.
      *
      * @param Plan $plan
      *
@@ -466,8 +469,12 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         );
 
         // Every field the call could translate holds its translation; fields
-        // withheld from the acting user still hold the source text.
-        return ['sentence' => $sentence, 'completeness' => $withheld === '' ? WriteCompleteness::COMPLETE : WriteCompleteness::PARTIAL];
+        // withheld from the acting user still hold the source text, and a
+        // write that failed did not finish what it started.
+        return [
+            'sentence'     => $sentence,
+            'completeness' => $withheld === '' && $writeFailure === null ? WriteCompleteness::COMPLETE : WriteCompleteness::PARTIAL,
+        ];
     }
 
     /**

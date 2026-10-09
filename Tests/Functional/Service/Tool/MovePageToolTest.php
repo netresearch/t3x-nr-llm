@@ -133,12 +133,12 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * The page landed where it was asked to go, and TYPO3 complained beside
-     * it: the answer says "Not completely", and the write is partial
-     * (ADR-214) by the same condition.
+     * The page landed where it was asked to go and TYPO3 complained beside
+     * it: the answer names the complaint, but nothing the call planned is
+     * missing, so the write is complete (ADR-214).
      */
     #[Test]
-    public function aMoveTypo3ComplainedAboutIsPartial(): void
+    public function aMoveTypo3OnlyComplainedAboutIsComplete(): void
     {
         $this->registerInterferingHook();
         InterferesWithAnUpdateHook::$complainOnCommand = true;
@@ -150,7 +150,30 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
 
         self::assertFalse($result->isError, $result->content);
         self::assertStringContainsString('Not completely:', $result->content);
+        self::assertStringContainsString('TYPO3 reported:', $result->content);
+        self::assertSame(self::SECTION_B, (int)($this->pageRow(self::TRANSLATION)['pid'] ?? 0));
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
+    }
+
+    /**
+     * The page moved and its translation stayed behind: the move is partial,
+     * by the read-back (ADR-214).
+     */
+    #[Test]
+    public function aTranslationThatStaysBehindMakesTheMovePartial(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$keepInPlace = 'pages:' . self::TRANSLATION;
+
+        $result = $this->tool->execute(
+            ['uid' => self::MOVED, 'parent' => self::SECTION_B],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('translation(s) ' . self::TRANSLATION . ' stayed behind.', $result->content);
         self::assertSame(self::SECTION_B, (int)($this->pageRow(self::MOVED)['pid'] ?? 0));
+        self::assertSame(self::SECTION_A, (int)($this->pageRow(self::TRANSLATION)['pid'] ?? 0));
         self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
     }
 

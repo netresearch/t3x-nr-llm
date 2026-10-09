@@ -18,7 +18,7 @@ trait RegistersTheInterferingHookTrait
     private function registerInterferingHook(): void
     {
         InterferesWithAnUpdateHook::reset();
-        foreach (['processDatamapClass', 'processCmdmapClass'] as $list) {
+        foreach (['processDatamapClass', 'processCmdmapClass', 'moveRecordClass'] as $list) {
             $hooks   = $this->interferingHookList($list);
             $hooks[] = InterferesWithAnUpdateHook::class;
             $this->storeInterferingHookList($list, $hooks);
@@ -28,7 +28,7 @@ trait RegistersTheInterferingHookTrait
     private function unregisterInterferingHook(): void
     {
         InterferesWithAnUpdateHook::reset();
-        foreach (['processDatamapClass', 'processCmdmapClass'] as $list) {
+        foreach (['processDatamapClass', 'processCmdmapClass', 'moveRecordClass'] as $list) {
             $this->storeInterferingHookList($list, array_values(array_filter(
                 $this->interferingHookList($list),
                 static fn(mixed $className): bool => $className !== InterferesWithAnUpdateHook::class,

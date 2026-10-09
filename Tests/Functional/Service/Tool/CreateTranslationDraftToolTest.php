@@ -780,7 +780,9 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
 
         self::assertFalse($result->isError, $result->content);
         self::assertSame(WriteKind::CREATED, $result->writeKind);
-        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
+        // ADR-214: the failure was caught by the tool, so no hook flag can
+        // report it; the tool states the write did not finish.
+        self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
         self::assertStringContainsString('Machine-translated 2 text field(s)', $result->content);
         self::assertStringContainsString(
             'Every field holds its translation, but the write failed: A test hook fails after the row is stored',

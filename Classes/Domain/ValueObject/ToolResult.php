@@ -139,6 +139,12 @@ final readonly class ToolResult
      */
     public function withHookFailedAfterWrite(): self
     {
+        // An error result names no write, so there is no write step to carry
+        // the flag; fail-closed like the target and the artifacts.
+        if ($this->isError) {
+            return $this;
+        }
+
         return new self(
             $this->content,
             $this->isError,
@@ -184,10 +190,7 @@ final readonly class ToolResult
             // the one member that says WHY the channels are empty, and
             // rebuilding it as FAILED would relabel an operator's cancel as a
             // fault on the one path every tool result passes through.
-            // The hook flag travels too: it is a fact about the call, not a
-            // side channel, and a hook can fail after a write the tool then
-            // refused on.
-            return new self($content, true, [], $this->outcome, hookFailedAfterWrite: $this->hookFailedAfterWrite);
+            return new self($content, true, [], $this->outcome);
         }
 
         return new self(

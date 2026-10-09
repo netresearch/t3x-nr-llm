@@ -196,7 +196,9 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
 
         if ($survivors !== [] || $complaints !== '') {
             // The record IS deleted, so the answer names it as written even
-            // though part of what should have gone with it did not.
+            // though part of what should have gone with it did not. Partial
+            // only by the read-back (ADR-214): a complaint of TYPO3 about a
+            // delete whose every record is gone leaves nothing undone.
             return ToolResult::text(sprintf(
                 'Deleted %s [%d] "%s", but not completely:%s%s It is flagged deleted and can be restored from the recycler.',
                 $plan['table'],
@@ -204,7 +206,11 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
                 $this->excerpt($plan['label']),
                 $survivors === [] ? '' : ' ' . implode(', ', array_slice($survivors, 0, 10)) . ' ' . (count($survivors) === 1 ? 'is' : 'are') . ' still there.',
                 $complaints,
-            ))->withWriteTarget(new RecordReference($plan['table'], $plan['uid']), WriteKind::DELETED, WriteCompleteness::PARTIAL);
+            ))->withWriteTarget(
+                new RecordReference($plan['table'], $plan['uid']),
+                WriteKind::DELETED,
+                $survivors === [] ? WriteCompleteness::COMPLETE : WriteCompleteness::PARTIAL,
+            );
         }
 
         return ToolResult::text(sprintf(

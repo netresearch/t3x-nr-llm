@@ -11,9 +11,12 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use PhpParser\Node;
+use PhpParser\Node\Expr\BinaryOp\Coalesce;
 use PhpParser\Node\Expr\ConstFetch;
+use PhpParser\Node\Expr\Match_;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\NullsafeMethodCall;
+use PhpParser\Node\Expr\Ternary;
 use PhpParser\Node\Identifier;
 use PhpParser\NodeFinder;
 use PhpParser\ParserFactory;
@@ -31,11 +34,18 @@ use SplFileInfo;
  * A list of partial branches cannot be complete: a test can only find the
  * flags that are set, and a branch that forgets one looks like success. So
  * the rule is put on the call instead — every `withWriteTarget(` call under
- * `Classes/` passes a completeness argument, positionally or by name, and that
- * argument is not the literal `null`. Any other expression is accepted,
- * because a tool may decide in a helper (`ReplaceFileReferenceTool` decides in
- * `settleTranslations()`); the parameter type makes sure it is a
- * {@see \Netresearch\NrLlm\Domain\Enum\WriteCompleteness}.
+ * `Classes/` passes a completeness argument, positionally or by name, never
+ * through a spread, and no branch of it is the literal `null`: not the
+ * argument itself, not a branch of a ternary, the right side of `??` or an
+ * arm of a `match`. Any other expression is accepted, because a tool may
+ * decide in a helper (`ReplaceFileReferenceTool` decides in
+ * `settleTranslations()`).
+ *
+ * What this cannot see: a variable or a helper whose value is null at run
+ * time. The parameter is `?WriteCompleteness` (it must be, ADR-182 freezes the
+ * signature), so neither PHP nor this test refuses that; a helper that
+ * decides returns the non-nullable enum, and that return type is what holds
+ * it, under PHPStan level 10.
  *
  * Read from the syntax tree, not from the text: the method's own declaration
  * and its docblock in ToolResult.php are not calls and never match, and a
@@ -101,6 +111,13 @@ final class WriteCompletenessCoverageTest extends TestCase
             '$r->withWriteTarget(kind: WriteKind::UPDATED, target: $t);'                           => 'omits the completeness',
             '$r->withWriteTarget(kind: WriteKind::UPDATED, target: $t, completeness: null);'       => 'passes null as the completeness',
             '$r?->withWriteTarget($t, WriteKind::UPDATED);'                                        => 'omits the completeness',
+            '$r->withWriteTarget($t, WriteKind::UPDATED, $ok ? WriteCompleteness::COMPLETE : null);' => 'passes null as the completeness',
+            '$r->withWriteTarget($t, WriteKind::UPDATED, $ok ? null : WriteCompleteness::PARTIAL);' => 'passes null as the completeness',
+            '$r->withWriteTarget($t, WriteKind::UPDATED, $c ?? null);'                             => 'passes null as the completeness',
+            '$r->withWriteTarget($t, WriteKind::UPDATED, match ($x) { 1 => WriteCompleteness::COMPLETE, default => null });' => 'passes null as the completeness',
+            '$r->withWriteTarget(...$args);'                                                       => 'spreads its arguments, so the completeness cannot be read',
+            '$r->withWriteTarget($t, ...$rest);'                                                   => 'spreads its arguments, so the completeness cannot be read',
+            '$r->withWriteTarget($t, WriteKind::UPDATED, $c ?? WriteCompleteness::PARTIAL);'       => null,
             '$r->withWriteTarget($t, WriteKind::UPDATED, WriteCompleteness::PARTIAL);'             => null,
             '$r->withWriteTarget($t, WriteKind::UPDATED, $settled[\'completeness\']);'             => null,
             '$r->withWriteTarget($t, WriteKind::UPDATED, $ok ? WriteCompleteness::COMPLETE : WriteCompleteness::PARTIAL);' => null,
@@ -127,6 +144,10 @@ final class WriteCompletenessCoverageTest extends TestCase
     {
         $argument = null;
         foreach ($call->getArgs() as $position => $arg) {
+            if ($arg->unpack) {
+                return 'spreads its arguments, so the completeness cannot be read';
+            }
+
             if ($arg->name instanceof Identifier ? $arg->name->toString() === self::PARAMETER : $position === self::POSITION) {
                 $argument = $arg->value;
             }
@@ -136,11 +157,36 @@ final class WriteCompletenessCoverageTest extends TestCase
             return 'omits the completeness';
         }
 
-        if ($argument instanceof ConstFetch && $argument->name->toLowerString() === 'null') {
-            return 'passes null as the completeness';
+        return $this->canBeNull($argument) ? 'passes null as the completeness' : null;
+    }
+
+    /**
+     * Whether a literal `null` is one of the values the expression can take.
+     */
+    private function canBeNull(Node $expression): bool
+    {
+        if ($expression instanceof ConstFetch) {
+            return $expression->name->toLowerString() === 'null';
         }
 
-        return null;
+        if ($expression instanceof Ternary) {
+            return ($expression->if instanceof Node ? $this->canBeNull($expression->if) : $this->canBeNull($expression->cond))
+                || $this->canBeNull($expression->else);
+        }
+
+        if ($expression instanceof Coalesce) {
+            return $this->canBeNull($expression->right);
+        }
+
+        if ($expression instanceof Match_) {
+            foreach ($expression->arms as $arm) {
+                if ($this->canBeNull($arm->body)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

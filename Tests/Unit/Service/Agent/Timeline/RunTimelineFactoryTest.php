@@ -118,6 +118,42 @@ final class RunTimelineFactoryTest extends TestCase
     }
 
     /**
+     * ADR-214: an operator reading the timeline sees whether a write did all
+     * it planned and whether a hook failed after it, beside the record it
+     * names.
+     */
+    #[Test]
+    public function aWriteStepShowsItsCompletenessAndHookFlag(): void
+    {
+        $factory = new RunTimelineFactory(new InMemoryTelemetryRepository(), new InMemoryGovernanceEventRepository());
+
+        $timeline = $factory->build($this->agentRun(), [
+            new AgentRunEvent(
+                uid: 6,
+                run: 7,
+                sequence: 1,
+                kind: 'tool_write',
+                round: 1,
+                durationMs: 0.0,
+                payload: [
+                    'kind'                 => 'tool_write',
+                    'toolName'             => 'update_content_element',
+                    'writeTargetTable'     => 'tt_content',
+                    'writeTargetUid'       => 12,
+                    'writeCompleteness'    => 'partial',
+                    'hookFailedAfterWrite' => true,
+                ],
+                crdate: 1_700_000_011,
+            ),
+        ]);
+
+        $detail = $timeline[0]->detail;
+        self::assertStringContainsString('writeTargetTable=tt_content', $detail);
+        self::assertStringContainsString('writeCompleteness=partial', $detail);
+        self::assertStringContainsString('hookFailedAfterWrite=1', $detail);
+    }
+
+    /**
      * Also the pre-ADR-191 case: `toolEvent()` writes `toolIsError` and no
      * `toolOutcome`, exactly as every row written before that record does, so
      * these two assertions are what says such a row keeps the outcome it had

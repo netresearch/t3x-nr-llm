@@ -157,10 +157,11 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
             }
         }
 
-        // The page is where it was asked to go. Translations left behind, or a
-        // complaint of TYPO3 beside it, make the move partial (ADR-214) — the
-        // same condition that makes the answer say "Not completely".
-        $complete = $strayTranslations === [] && $complaints === '';
+        // The page is where it was asked to go. Translations left behind make
+        // the move partial (ADR-214); a complaint of TYPO3 beside a move that
+        // the read-back shows complete does not, because nothing the call
+        // planned is missing. The answer still names the complaint.
+        $complete = $strayTranslations === [];
 
         return ToolResult::text(sprintf(
             'Moved page [%d] "%s" from under page [%d] to under page [%d]%s.%s Its URL path is unchanged: %s',
@@ -169,7 +170,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
             $plan['formerParent'],
             $plan['parent'],
             $plan['afterUid'] > 0 ? sprintf(', after page [%d]', $plan['afterUid']) : '',
-            $complete
+            $complete && $complaints === ''
                 ? ''
                 : sprintf(
                     ' Not completely:%s%s',

@@ -246,6 +246,25 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * The replace branch decides through the same step: the reference is
+     * replaced, its translated overlay is kept by a hook, and the write is
+     * partial (ADR-214).
+     */
+    #[Test]
+    public function aTranslatedOverlayAHookKeepsMakesTheReplacementPartial(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$keepRecord = 'sys_file_reference:' . self::OVERLAY_OF_FIRST;
+
+        $result = $this->change(['reference' => self::FIRST, 'action' => 'replace', 'file' => self::FILE_THREE]);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('The translations are not settled: translated reference [112] is still there', $result->content);
+        self::assertSame(WriteKind::CREATED, $result->writeKind);
+        self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
+    }
+
+    /**
      * The reference is removed, and its translated overlay, which should have
      * gone with it, is kept by a hook: the translations are not settled, and
      * the write is partial (ADR-214) — decided in settleTranslations().

@@ -185,6 +185,28 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
         self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
     }
 
+    /**
+     * Every record is gone and TYPO3 complained beside it: the answer names
+     * the complaint, but nothing the call planned is undone, so the delete is
+     * complete (ADR-214).
+     */
+    #[Test]
+    public function aDeleteTypo3OnlyComplainedAboutIsComplete(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$complainOnCommand = true;
+
+        $result = $this->tool->execute(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('TYPO3 reported:', $result->content);
+        self::assertSame(1, $this->deletedOf('tt_content', self::TRANSLATION));
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
+    }
+
     #[Test]
     public function anEditorMayNotDeleteAnElementWhoseTranslationIsInALanguageTheyMayNotEdit(): void
     {

@@ -1060,10 +1060,10 @@ renders them and owns the open points.
   :php:`ToolLoopService`: it rebuilds the result by constructor position, so
   the docblock's earlier claim that a property added later is carried by
   default did not hold, and the completeness and the hook flag would have
-  been dropped there. The rebuild passes both on
-  (``Classes/Domain/ValueObject/ToolResult.php#hookFailedAfterWrite: $this->hookFailedAfterWrite``
-  on the error branch, the full member list on the other), and
-  ``ToolResultTest`` asserts that every member survives.
+  been dropped there. The rebuild of a successful result passes both on
+  (``Classes/Domain/ValueObject/ToolResult.php#$this->writeCompleteness,``),
+  an error result carries neither, and ``ToolResultTest`` asserts that every
+  member survives.
 
   Nothing is inferred from persisted events, and no other path marks a point
   applied.
