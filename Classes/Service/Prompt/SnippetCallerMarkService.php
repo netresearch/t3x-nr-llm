@@ -1,0 +1,112 @@
+<?php
+
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
+
+namespace Netresearch\NrLlm\Service\Prompt;
+
+use Netresearch\NrLlm\Domain\Model\PromptSnippet;
+use Netresearch\NrLlm\Service\Skill\SkillInvisibleCharacters;
+use TYPO3\CMS\Core\Database\Connection;
+use TYPO3\CMS\Core\Database\ConnectionPool;
+
+/**
+ * Marks and unmarks a snippet for a caller's system message (ADR-214 item 8).
+ *
+ * The marking form shows the composed block and posts the digest of the block
+ * it rendered. The mark is refused when that digest is not the digest of the
+ * block as stored now — the rule item 2 applies to skill approvals — and when
+ * the block holds characters a browser does not show but a model reads, which
+ * the administrator could not have reviewed.
+ *
+ * Written through a plain update: the column is excluded and not part of any
+ * form, so FormEngine cannot write it, and this service is the only writer.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
+ */
+final readonly class SnippetCallerMarkService
+{
+    public const MARKED = 'marked';
+
+    public const REFUSED_STALE = 'stale';
+
+    public const REFUSED_EMPTY = 'empty';
+
+    public const REFUSED_INVISIBLE = 'invisible';
+
+    private const TABLE = 'tx_nrllm_promptsnippet';
+
+    public function __construct(
+        private ConnectionPool $connectionPool,
+        private SnippetCallerMark $mark = new SnippetCallerMark(),
+    ) {}
+
+    /**
+     * What the review page shows: the block, its digest, whether that block
+     * is marked, and the characters that keep it from being marked.
+     *
+     * @return array{block: string, digest: string, marked: bool, staleMark: bool, invisible: list<string>}
+     */
+    public function review(PromptSnippet $snippet): array
+    {
+        $block = $this->mark->blockOf($snippet);
+
+        return [
+            'block'     => $block,
+            'digest'    => $this->mark->digestOf($snippet),
+            'marked'    => $this->mark->isMarked($snippet),
+            'staleMark' => $snippet->getCallerSystemDigest() !== '' && !$this->mark->isMarked($snippet),
+            'invisible' => SkillInvisibleCharacters::findIn(['name' => $snippet->getName(), 'text' => $snippet->getSnippet()]),
+        ];
+    }
+
+    /**
+     * @param string $postedDigest the digest of the block the form rendered
+     *
+     * @return self::MARKED|self::REFUSED_*
+     */
+    public function mark(PromptSnippet $snippet, string $postedDigest): string
+    {
+        $current = $this->mark->digestOf($snippet);
+        if ($current === '') {
+            return self::REFUSED_EMPTY;
+        }
+
+        if (!hash_equals($current, $postedDigest)) {
+            return self::REFUSED_STALE;
+        }
+
+        if (SkillInvisibleCharacters::findIn(['name' => $snippet->getName(), 'text' => $snippet->getSnippet()]) !== []) {
+            return self::REFUSED_INVISIBLE;
+        }
+
+        $this->write($snippet, $current);
+
+        return self::MARKED;
+    }
+
+    public function unmark(PromptSnippet $snippet): void
+    {
+        $this->write($snippet, '');
+    }
+
+    private function write(PromptSnippet $snippet, string $digest): void
+    {
+        $uid = (int)$snippet->getUid();
+        if ($uid <= 0) {
+            return;
+        }
+
+        $this->connectionPool->getConnectionForTable(self::TABLE)->update(
+            self::TABLE,
+            ['caller_system_digest' => $digest],
+            ['uid' => $uid],
+            ['caller_system_digest' => Connection::PARAM_STR],
+        );
+        $snippet->setCallerSystemDigest($digest);
+    }
+}

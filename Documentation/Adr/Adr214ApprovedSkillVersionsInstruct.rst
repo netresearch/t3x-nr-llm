@@ -767,7 +767,11 @@ of 10 % of the budget (working value). That is the floor ``fit()`` reaches by
 dropping older turns (:ref:`ADR-107 <adr-107>`), so a section that passes can
 always be sent. Otherwise nothing is appended: a load returns an error result
 naming the skill, and a start fails before the first provider call with a
-message naming the skill.
+message naming the skill. The implementing change applies the check at the
+start of an agent run and at a load; a single call through the manager's
+configuration paths (completion, translation, a chat without the loop) is
+charged but not refused, because it carries no older turns the fit could
+drop instead (``specs/012-approved-skill-versions/spec.md``, section (d)).
 
 **A section the conversation already holds at the same digest is not
 re-admitted.** A pin derived from the predecessor run is composed without a

@@ -40,6 +40,7 @@ use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\ContextTruncatedException;
 use Netresearch\NrLlm\Exception\LogicException;
 use Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException;
+use Netresearch\NrLlm\Exception\SkillSectionNotAdmittedException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
@@ -394,7 +395,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // (ADR-214 item 6): composed at assembly, or carried in by a resume,
         // which skips assembly. Every suspension stores them, so a run that
         // suspends again keeps them for the next resume's check.
-        $skillPins = $carriedPins;
+        $skillPins      = $carriedPins;
+        $instructionIds = [];
         if ($skipAssembly) {
             $dryRun = false;
         } else {
@@ -411,7 +413,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $runTrace?->recordDroppedSources($augmentation->droppedSources);
             }
 
-            [$messages, $dryRun, $skillPins] = $this->assemble($messages, $configuration, $options, $augmentation);
+            [$messages, $dryRun, $skillPins, $instructionIds] = $this->assemble($messages, $configuration, $options, $augmentation);
         }
 
         if ($dryRun) {
@@ -437,6 +439,25 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // load tool is offered, and with which description.
         $catalogue = $this->skillLoad?->catalogue($configuration) ?? new SkillCatalogue();
         $specs     = $this->withSkillCatalogue($specs, $catalogue);
+
+        // ADR-214 item 7: the sections composed at this start must fit with
+        // headroom before the first provider call; a resume composed nothing
+        // and re-admits nothing. A window manager that cannot admit refuses,
+        // as at a load; only a loop without any window manager starts
+        // unmeasured.
+        if ($instructionIds !== [] && $this->contextWindow instanceof ContextWindowManagerInterface && (
+            !$this->contextWindow instanceof SectionAdmissionInterface
+            || !$this->contextWindow->admitsSection(
+                $messages,
+                '',
+                $configuration,
+                $options,
+                array_map(static fn(ToolSpec $s): array => $s->toArray(), $specs),
+                $this->effectiveSystemPrompt($configuration, $options),
+            )
+        )) {
+            throw new SkillSectionNotAdmittedException($instructionIds, 2497035577);
+        }
 
         // No tools offered (an empty allow-list, or nothing registered): a tools
         // request with an empty `tools` array makes some providers (OpenAI) 400.
@@ -1656,7 +1677,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      *
-     * @return array{0: list<ChatMessage|array<string, mixed>>, 1: bool, 2: list<SkillPin>} [assembled messages, dryRun, instruction pins]
+     * @return array{0: list<ChatMessage|array<string, mixed>>, 1: bool, 2: list<SkillPin>, 3: list<string>} [assembled messages, dryRun, instruction pins, instruction skill identifiers]
      */
     private function assemble(
         array $messages,
@@ -1664,6 +1685,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         ?ToolOptions $options,
         ?RunAugmentation $augmentation,
     ): array {
+        // Marked snippets join a caller's own system message when the
+        // configuration opts in (ADR-214 item 8) — before anything this
+        // method bakes, so only a system message the caller sent receives
+        // them, and before the instruction sections, which follow them.
+        $messages = $this->snippetResolver?->appendToCallerSystemMessage($messages, $configuration) ?? $messages;
+
         $configSkills = SkillInjectionService::toList($configuration->getSkills());
         $forcedSkills = $augmentation instanceof RunAugmentation ? $augmentation->forcedSkills : [];
         // Approved instruction sections (ADR-214 item 2) are written into the
@@ -1674,11 +1701,13 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // baked below, behind the effective system prompt.
         $instructions = '';
         $pins         = [];
+        $instructionIds = [];
         if ($this->skillInjection instanceof SkillInjectionService) {
             $injected     = $this->skillInjection->composeIntoMessages($messages, $configSkills, $forcedSkills);
             $messages     = $injected['messages'];
             $instructions = $injected['instructions'];
             $pins         = $injected['pins'];
+            $instructionIds = $injected['instructionIds'];
         }
 
         if (!$augmentation instanceof RunAugmentation) {
@@ -1692,7 +1721,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 ));
             }
 
-            return [$messages, false, $pins];
+            return [$messages, false, $pins, $instructionIds];
         }
 
         $lead = [];
@@ -1733,7 +1762,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $messages = array_values(array_merge($lead, $messages));
         }
 
-        return [$messages, $augmentation->dryRun, $pins];
+        return [$messages, $augmentation->dryRun, $pins, $instructionIds];
     }
 
     /**

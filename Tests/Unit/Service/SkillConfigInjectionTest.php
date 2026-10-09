@@ -15,10 +15,12 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
@@ -33,6 +35,9 @@ use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
+use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
+use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
+use Netresearch\NrLlm\Service\Prompt\SnippetCallerMark;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Netresearch\NrLlm\Service\Skill\SkillInstructionPolicy;
@@ -265,6 +270,65 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
         self::assertCount(2, $capturedMessages);
         self::assertStringStartsWith("Caller identity.\n\n## Approved skills", $this->content($this->messageAt($capturedMessages, 0)));
         self::assertStringNotContainsString(self::SYSTEM_PROMPT, $this->content($this->messageAt($capturedMessages, 0)));
+    }
+
+    /**
+     * ADR-214 item 8 on the manager path: a marked snippet joins the caller's
+     * system message, ahead of the instruction sections, when the
+     * configuration opts in; without the opt-in the caller message is sent
+     * as before.
+     */
+    #[Test]
+    public function chatAppendsMarkedSnippetsToTheCallersSystemMessageWhenTheConfigurationOptsIn(): void
+    {
+        foreach ([true, false] as $optIn) {
+            $capturedMessages = [];
+            $adapter          = $this->createMock(ProviderInterface::class);
+            $adapter->method('chatCompletion')->willReturnCallback(
+                function (array $messages) use (&$capturedMessages): CompletionResponse {
+                    $capturedMessages = $messages;
+                    return $this->completionResponse();
+                },
+            );
+
+            $configuration = $this->configurationWithApprovedSkill();
+            $configuration->setSnippetTags('style');
+            $configuration->setSnippetsInCallerSystemMessage($optIn);
+
+            $snippet = new PromptSnippet();
+            $snippet->setIdentifier('tone');
+            $snippet->setName('Tone');
+            $snippet->setSnippet('Use the formal register.');
+            $snippet->setCallerSystemDigest((new SnippetCallerMark())->digestOf($snippet));
+            $snippets = self::createStub(PromptSnippetRepository::class);
+            $snippets->method('findActiveByTag')->willReturn([$snippet]);
+
+            $registry = self::createStub(ProviderAdapterRegistryInterface::class);
+            $registry->method('createAdapterFromModel')->willReturn($adapter);
+            $manager = $this->createLlmServiceManager(
+                $this->extensionConfigStub(),
+                self::createStub(LoggerInterface::class),
+                $registry,
+                $this->emptyMiddlewarePipeline(),
+                self::createStub(CacheManagerInterface::class),
+                $this->configRepo($configuration),
+                $this->instructingInjection(),
+                snippetResolver: new ConfigurationSnippetResolver($snippets, new PromptSnippetComposer()),
+            );
+
+            $manager->chat([
+                ['role' => 'system', 'content' => 'Caller identity.'],
+                ['role' => 'user', 'content' => 'Translate this.'],
+            ]);
+
+            $system = $this->content($this->messageAt($capturedMessages, 0));
+            if ($optIn) {
+                self::assertStringStartsWith("Caller identity.\n\nTone:\nUse the formal register.\n\n## Approved skills", $system);
+            } else {
+                self::assertStringStartsWith("Caller identity.\n\n## Approved skills", $system);
+                self::assertStringNotContainsString('formal register', $system);
+            }
+        }
     }
 
     #[Test]

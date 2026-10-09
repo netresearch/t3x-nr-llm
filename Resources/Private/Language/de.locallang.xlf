@@ -1455,6 +1455,94 @@
                 <source>Review and approve versions</source>
                 <target>Versionen prüfen und freigeben</target>
             </trans-unit>
+            <trans-unit id="snippet.mark.action">
+                <source>Mark for a caller's system message</source>
+                <target>Für die System-Nachricht eines Aufrufers markieren</target>
+            </trans-unit>
+            <trans-unit id="snippet.mark.title">
+                <source>Mark snippet for a caller's system message</source>
+                <target>Snippet für die System-Nachricht eines Aufrufers markieren</target>
+            </trans-unit>
+            <trans-unit id="snippet.mark.back">
+                <source>Back to snippets</source>
+                <target>Zurück zu den Snippets</target>
+            </trans-unit>
+            <trans-unit id="snippet.mark.intro">
+                <source>When a caller such as the chat sends its own system message, a configuration's system prompt and snippets are not sent. A marked snippet is appended to that system message for configurations that opt in. The mark names exactly the block shown on this page; any later change to the name or the text takes the snippet out until it is marked again.</source>
+                <target>Wenn ein Aufrufer wie der Chat eine eigene System-Nachricht sendet, werden System-Prompt und Snippets einer Konfiguration nicht gesendet. Ein markiertes Snippet wird bei Konfigurationen, die das zulassen, an diese System-Nachricht angehängt. Die Markierung gilt genau für den Block auf dieser Seite; jede spätere Änderung von Name oder Text nimmt das Snippet heraus, bis es erneut markiert wird.</target>
+            </trans-unit>
+            <trans-unit id="snippet.mark.state.marked.title">
+                <source>Marked</source>
+                <target>Markiert</target>
+            </trans-unit>
+            <trans-unit id="snippet.mark.state.marked">
+                <source>The block below is marked. Configurations that opt in append it to a caller's system message.</source>
+                <target>Der Block unten ist markiert. Konfigurationen, die das zulassen, hängen ihn an die System-Nachricht eines Aufrufers an.</target>
+            </trans-unit>
+            <trans-unit id="snippet.mark.state.stale.title">
+                <source>Changed since it was marked</source>
+                <target>Seit der Markierung geändert</target>
+            </trans-unit>
+            <trans-unit id="snippet.mark.state.stale">
+                <source>The name or the text changed after the snippet was marked. It does not reach a caller's system message until the block below is marked.</source>
+                <target>Name oder Text wurden nach der Markierung geändert. Das Snippet erreicht die System-Nachricht eines Aufrufers erst, wenn der Block unten markiert ist.</target>
+            </trans-unit>
+            <trans-unit id="snippet.mark.state.unmarked.title">
+                <source>Not marked</source>
+                <target>Nicht markiert</target>
+            </trans-unit>
+            <trans-unit id="snippet.mark.state.unmarked">
+                <source>The snippet reaches a configuration's own system prompt only.</source>
+                <target>Das Snippet erreicht nur den System-Prompt einer Konfiguration.</target>
+            </trans-unit>
+            <trans-unit id="snippet.mark.state.invisible.title">
+                <source>Contains characters this page cannot show</source>
+                <target>Enthält Zeichen, die diese Seite nicht anzeigen kann</target>
+            </trans-unit>
+            <trans-unit id="snippet.mark.state.invisible">
+                <source>The model reads these characters, but a browser renders them as nothing, so the block below is not all the model would be told. It cannot be marked. Remove the characters from the snippet.</source>
+                <target>Das Modell liest diese Zeichen, ein Browser stellt sie aber nicht dar; der Block unten ist also nicht alles, was das Modell erhielte. Er kann nicht markiert werden. Entfernen Sie die Zeichen aus dem Snippet.</target>
+            </trans-unit>
+            <trans-unit id="snippet.mark.block">
+                <source>Block appended to a caller's system message</source>
+                <target>Block, der an die System-Nachricht eines Aufrufers angehängt wird</target>
+            </trans-unit>
+            <trans-unit id="snippet.mark.digest">
+                <source>Block digest</source>
+                <target>Prüfsumme des Blocks</target>
+            </trans-unit>
+            <trans-unit id="snippet.mark.mark">
+                <source>Mark this block</source>
+                <target>Diesen Block markieren</target>
+            </trans-unit>
+            <trans-unit id="snippet.mark.unmark">
+                <source>Remove the mark</source>
+                <target>Markierung entfernen</target>
+            </trans-unit>
+            <trans-unit id="snippet.mark.flash.marked">
+                <source>The snippet is marked.</source>
+                <target>Das Snippet ist markiert.</target>
+            </trans-unit>
+            <trans-unit id="snippet.mark.flash.stale">
+                <source>Not marked: the snippet changed after this page was shown. Review the block again.</source>
+                <target>Nicht markiert: Das Snippet wurde geändert, nachdem diese Seite angezeigt wurde. Prüfen Sie den Block erneut.</target>
+            </trans-unit>
+            <trans-unit id="snippet.mark.flash.empty">
+                <source>Not marked: the snippet has no text.</source>
+                <target>Nicht markiert: Das Snippet hat keinen Text.</target>
+            </trans-unit>
+            <trans-unit id="snippet.mark.flash.invisible">
+                <source>Not marked: the snippet contains characters this page cannot show.</source>
+                <target>Nicht markiert: Das Snippet enthält Zeichen, die diese Seite nicht anzeigen kann.</target>
+            </trans-unit>
+            <trans-unit id="snippet.mark.flash.unmarked">
+                <source>The mark was removed.</source>
+                <target>Die Markierung wurde entfernt.</target>
+            </trans-unit>
+            <trans-unit id="snippet.mark.flash.unknownSnippet">
+                <source>The snippet was not found.</source>
+                <target>Das Snippet wurde nicht gefunden.</target>
+            </trans-unit>
             <trans-unit id="skill.approval.title">
                 <source>Review skill version</source>
                 <target>Skill-Version prüfen</target>

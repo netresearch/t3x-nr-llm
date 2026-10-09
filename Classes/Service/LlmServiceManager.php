@@ -169,6 +169,12 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      */
     private function injectConfigSkillsIntoMessages(array $messages, LlmConfiguration $configuration, array $optionOverrides): array
     {
+        // Marked snippets join a caller's own system message when the
+        // configuration opts in (ADR-214 item 8). First, so the instruction
+        // sections placed below follow them, as they follow the snippets of
+        // the configuration prompt.
+        $messages = $this->snippetResolver?->appendToCallerSystemMessage($messages, $configuration) ?? $messages;
+
         if (!$this->skillInjection instanceof SkillInjectionService) {
             return [$messages, $optionOverrides];
         }
