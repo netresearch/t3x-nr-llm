@@ -33,8 +33,9 @@ use TYPO3\CMS\Core\Versioning\VersionState;
  * a delete command, a delete staged in a workspace, and a workspace publish
  * that applies a delete placeholder to live. A publish refused there has
  * already swapped the placeholder's fields onto the live row, so a publish
- * of a page delete placeholder is also taken out of the command map before
- * it starts (processCmdmap_beforeStart, after EXT:workspaces resolved its
+ * request that contains a page delete placeholder over attached skills is
+ * refused as a whole before it starts — every workspace action in it is
+ * dropped (processCmdmap_beforeStart, after EXT:workspaces resolved its
  * dependencies); the delete-action check stays as the backstop.
  *
  * Registered under `processCmdmapClass` in `ext_localconf.php`. A public
@@ -76,8 +77,10 @@ final readonly class SkillDeletionGuardHook
                 continue;
             }
 
-            $placeholder = $version['swapWith'] ?? null;
-            if (!is_numeric($liveUid) || !is_numeric($placeholder) || !$this->isDeletePlaceholder((int)$placeholder)) {
+            // Read as EXT:workspaces reads it, which casts to int.
+            $placeholder = $version['swapWith'] ?? 0;
+            $placeholder = is_scalar($placeholder) ? (int)$placeholder : 0;
+            if (!is_numeric($liveUid) || $placeholder <= 0 || !$this->isDeletePlaceholder($placeholder)) {
                 continue;
             }
 
@@ -104,8 +107,8 @@ final readonly class SkillDeletionGuardHook
     }
 
     /**
-     * Remove every publish or swap from the command map, leaving other
-     * commands as they are.
+     * Remove every workspace action (`version`: publish, swap, stage
+     * changes) from the command map, leaving other commands as they are.
      */
     private function dropVersionCommands(DataHandler $dataHandler): void
     {

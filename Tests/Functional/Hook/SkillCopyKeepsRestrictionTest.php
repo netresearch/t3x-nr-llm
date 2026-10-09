@@ -119,4 +119,26 @@ final class SkillCopyKeepsRestrictionTest extends AbstractFunctionalTestCase
         self::assertSame('admin', $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill')
             ->select(['disabled_by'], 'tx_nrllm_skill', ['uid' => $skillCopy])->fetchOne());
     }
+
+    /**
+     * A copy of an orphan stays an orphan, so it keeps restricting.
+     */
+    #[Test]
+    public function aCopyOfAnOrphanStaysAnOrphan(): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill')
+            ->update('tx_nrllm_skill', ['orphaned' => 1], ['uid' => 7]);
+        $backendUser     = $this->setUpBackendUser(1);
+        $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
+
+        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler->start([], ['tx_nrllm_skill' => [7 => ['copy' => 11]]]);
+        $dataHandler->process_cmdmap();
+
+        $skills    = $dataHandler->copyMappingArray_merged['tx_nrllm_skill'] ?? [];
+        $skillCopy = is_array($skills) && is_numeric($skills[7] ?? null) ? (int)$skills[7] : 0;
+        self::assertGreaterThan(0, $skillCopy);
+        self::assertSame(1, (int)$this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill')
+            ->select(['orphaned'], 'tx_nrllm_skill', ['uid' => $skillCopy])->fetchOne());
+    }
 }

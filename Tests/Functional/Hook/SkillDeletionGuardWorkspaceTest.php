@@ -87,6 +87,20 @@ final class SkillDeletionGuardWorkspaceTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * EXT:workspaces reads swapWith with an int cast; the guard reads it the
+     * same way, so a value with trailing characters is refused too.
+     */
+    #[Test]
+    public function aSwapWithValueWithTrailingCharactersIsRefusedToo(): void
+    {
+        $placeholder = $this->stageDeleteThenAttach();
+
+        $this->commands(['pages' => [10 => ['version' => ['action' => 'publish', 'swapWith' => $placeholder . 'x']]]]);
+
+        self::assertSame($placeholder, $this->placeholderOf(10), 'the staged delete stays in the workspace');
+    }
+
+    /**
      * The auto-publish path sends 'swap' instead of 'publish'.
      */
     #[Test]
