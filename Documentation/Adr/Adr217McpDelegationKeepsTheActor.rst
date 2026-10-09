@@ -24,7 +24,9 @@ one Vault credential configured on its server record. That is appropriate for
 a shared service identity. It cannot let a ticket, document or calendar service
 enforce the individual caller's rights.
 
-F13 exchanges the caller's token for a token addressed to the selected service.
+`F13 <https://f13-os.de/>`__, an open source AI system for public
+administration, exchanges the caller's token for a token addressed to the
+selected service.
 TYPO3's backend actor is not itself an OAuth token. Delegation therefore needs
 an explicit actor-to-identity-provider mapping and a credential resolver, not
 an assumption that the current HTTP request contains a portable identity.

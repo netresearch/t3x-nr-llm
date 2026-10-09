@@ -14,7 +14,9 @@ it keeps the runtime's initiating actor through the downstream auth boundary.
   are Vault identifiers; configuration holds no plaintext token.
 - Supply an installation-extensible subject resolver keyed by the explicit
   initiating actor and exchange profile. Missing, revoked or invalid mappings
-  deny. Do not substitute the approver, `$GLOBALS['BE_USER']` or an HTTP header.
+  and disabled grants deny. Requested audience and scopes must satisfy both
+  the profile and that actor's grant. Do not substitute the approver,
+  `$GLOBALS['BE_USER']` or an HTTP header.
 - Send RFC8693 `grant_type`, `subject_token_type`, `requested_token_type`,
   audience and scope. Inject `subject_token` through nr-vault BodyField.
   Support Vault-backed confidential client authentication when configured;
@@ -78,8 +80,8 @@ unreleased version constraint or bypass Vault to emulate missing capability.
 | Requirement | Suite and intended contract |
 |---|---|
 | Old records/callers keep static or anonymous auth | unit MCP client/transport tests; functional schema default test |
-| Profile/audience/scopes validation; explicit unknown mode refused | unit auth configuration tests; fuzzy bounds twins |
-| Original actor resolves subject; absent/revoked mapping denies | unit delegated credential resolver tests |
+| Audience/scope bounds apply to both profile and individual actor grant; overreach and explicit unknown mode deny | unit auth configuration and actor-grant tests; fuzzy bounds twins |
+| Original actor resolves subject; absent/revoked mapping and disabled grant deny | unit delegated credential resolver tests |
 | RFC8693 wire and Vault-injected subject/client fields | integration delegated exchange contract with recording Vault fixture |
 | Original token never sent to MCP | integration actor×server auth matrix |
 | Two actors and two recipients cannot reuse credentials | unit delegated credential-session tests; integration auth matrix |

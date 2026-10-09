@@ -55,8 +55,15 @@ Decision
 5. Revocation and deletion make the document unavailable before vector
    cleanup. Retrieval checks the currently published generation, so a
    failed cleanup cannot expose an old revision or a revoked document.
-   The guard runs before reranking egress and also validates directory
-   citations in cached answers before cached prose is returned.
+   The guard runs before reranking egress. Answer-cache dependencies bind
+   source identifiers and generations for every document supplied to any
+   model attempt, including uncited documents from earlier attempts whose
+   assistant drafts remain in later messages.
+   Revalidate their union before every later model leg, after the model
+   returns before answer/cache publication, and before cached prose reuse.
+   Revoked dependencies stop the attempt; a restart must use a fresh,
+   untainted transcript. Legacy or unknown dependencies cause a cache miss.
+   Visible citations alone cannot establish the complete dependency set.
 6. Queue messages refer to configured sources, not user-supplied paths.
    Synchronisation uses a source-level lock and revalidates bytes and access
    markers before provider egress. Symlinks and paths escaping a root are
@@ -70,9 +77,14 @@ Decision
 Consequences
 ============
 
-Directory source sync requires stable effective embedding provenance. This
-connector rejects embedding configurations with fallback until responses expose
-the actual provider/configuration identity. Existing companion indexing stays
+Directory source sync requires stable effective embedding provenance. Until
+embedding responses expose the actual provider/configuration/model identity,
+this connector admits only fixed-model configurations without fallback or model
+overrides. Criteria selection and model overrides, including stored
+:php:`LlmConfiguration::getOptionsObject()` values, are refused before staging
+or provider egress. Identity must bind the fixed provider, endpoint, model and
+effective configuration/chunking values used by the call, not a preliminary
+selection that the pipeline may replace. Existing companion indexing stays
 available; it cannot reuse a cache entry whose provenance is unknown.
 
 The dependency stays ``nr_ai_search -> nr_llm``. Installing nr-llm alone

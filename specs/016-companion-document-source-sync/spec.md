@@ -36,8 +36,14 @@ nr-llm services only and attributes indexing calls as `nr_ai_search`.
 4. A changed file stages a separate generation using existing ingestion
    services. The manifest publishes the new generation only after success;
    failures keep the prior published generation readable. Retrieval
-   excludes staging and obsolete generations before reranker egress;
-   cached grounded answers recheck directory citations before reuse.
+   excludes staging and obsolete generations before reranker egress.
+   Answer-cache dependencies retain source identifiers and generations of
+   every document sent to any model attempt, including uncited documents and
+   sources used in an earlier assistant draft. Revalidate their union before
+   each later model leg, after a leg before answer/cache publication, and
+   before cached prose reuse. A revoked dependency stops that attempt; only
+   a fresh, untainted transcript may restart it. Legacy or unknown cache
+   dependencies cause a miss. Final visible citations are not this union.
 5. A successful inventory removes absent documents. Failed traversal/read
    never infers deletion from missing items. Explicit ACL withdrawal is
    independently enforced before content is embedded or retrieved.
@@ -52,10 +58,15 @@ nr-llm services only and attributes indexing calls as `nr_ai_search`.
 ## Boundaries
 
 - Keep persistent source state and generation publication in nr-ai-search.
-- Directory sync requires stable effective embedding provenance and rejects
-  embedding fallback configurations before staging until embedding responses
-  expose the actual provider/configuration identity. This restriction applies
-  to the new connector; existing companion indexing remains available.
+- Directory sync requires stable effective embedding provenance. Until public
+  embedding responses identify the actual provider/configuration/model,
+  admit only fixed-model configurations without fallback or model overrides.
+  Reject criteria selection and all model overrides, including stored
+  `LlmConfiguration::getOptionsObject()` values, before staging or provider
+  egress. Bind the fixed provider, endpoint, model and effective configuration
+  and chunking values actually used, not a preliminary selection which the
+  pipeline can replace. This restriction applies to the new connector;
+  existing companion indexing remains available.
 - Reuse nr-ai-search chunking/indexing and nr-llm public embedding services.
 - Refuse symlinks, root escapes, malformed UTF-8 and oversized files before
   provider egress. A read failure makes that inventory incomplete.
@@ -73,6 +84,8 @@ nr-llm services only and attributes indexing calls as `nr_ai_search`.
 | Update/no-op/deletion/failed-scan and generation lifecycle | companion `DirectorySourceSyncTest` functional tests |
 | Partial store failure, late or duplicate work, revoked/staged vectors | companion publication and retry unit/functional tests |
 | Provider identity/chunking change invalidates revision; denied text never reaches reranker or cached-answer reuse | companion revision, retrieval and cache unit/functional tests |
+| Criteria/fallback/model-override configurations are refused before staging and provider egress; fixed effective identity matches the embedding call | companion embedding identity unit/functional tests |
+| Uncited or earlier-attempt source revocation denies cache reuse; guards stop later chat legs and final publication; unknown legacy dependencies miss | companion multi-attempt cache/retrieval functional tests and cache unit tests |
 | Actual scan → chunks → embeddings → retrieval → update → delete | companion `DirectorySourceSyncTest` functional fixture |
 | Real CLI and Messenger routing, safe status | companion command unit and DI/routing functional tests |
 
