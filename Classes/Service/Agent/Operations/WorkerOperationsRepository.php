@@ -82,7 +82,7 @@ final readonly class WorkerOperationsRepository implements WorkerOperationsReade
         $dead = self::toInt(
             $connection
                 ->executeQuery(
-                    'SELECT COUNT(*) FROM ' . self::RUN . ' WHERE status = ? AND termination_reason IN (?, ?)',
+                    self::COUNT_QUERY_PREFIX . self::RUN . ' WHERE status = ? AND termination_reason IN (?, ?)',
                     ['failed', 'retries_exhausted', 'not_retryable'],
                 )
                 ->fetchOne(),
@@ -90,7 +90,7 @@ final readonly class WorkerOperationsRepository implements WorkerOperationsReade
         $expired = self::toInt(
             $connection
                 ->executeQuery(
-                    'SELECT COUNT(*) FROM ' . self::RUN . ' WHERE status = ? AND lease_expires > 0 AND lease_expires < ?',
+                    self::COUNT_QUERY_PREFIX . self::RUN . ' WHERE status = ? AND lease_expires > 0 AND lease_expires < ?',
                     ['running', $now],
                 )
                 ->fetchOne(),
@@ -105,7 +105,7 @@ final readonly class WorkerOperationsRepository implements WorkerOperationsReade
         $unknown = self::toInt(
             $connection
                 ->executeQuery(
-                    'SELECT COUNT(*) FROM ' . self::RUN . ' WHERE status = ? AND (queued_at <= 0 OR queued_at > ?)',
+                    self::COUNT_QUERY_PREFIX . self::RUN . ' WHERE status = ? AND (queued_at <= 0 OR queued_at > ?)',
                     ['queued', $now],
                 )
                 ->fetchOne(),
@@ -114,7 +114,7 @@ final readonly class WorkerOperationsRepository implements WorkerOperationsReade
         $workers = self::toInt(
             $workerConnection
                 ->executeQuery(
-                    'SELECT COUNT(*) FROM ' . self::WORKER . ' WHERE transport = ? AND last_seen >= ? AND last_seen <= ?',
+                    self::COUNT_QUERY_PREFIX . self::WORKER . ' WHERE transport = ? AND last_seen >= ? AND last_seen <= ?',
                     [$transport, max(0, $now - $workerMaxAge), $now],
                 )
                 ->fetchOne(),
@@ -129,4 +129,6 @@ final readonly class WorkerOperationsRepository implements WorkerOperationsReade
             $workers,
         );
     }
+
+    private const COUNT_QUERY_PREFIX = 'SELECT COUNT(*) FROM ';
 }

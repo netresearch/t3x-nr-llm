@@ -7,6 +7,7 @@ declare (strict_types=1);
 namespace Netresearch\NrLlm\Command;
 
 use Netresearch\NrLlm\Service\Agent\Operations\WorkerOperationsReaderInterface;
+use Netresearch\NrLlm\Service\Agent\Operations\WorkerOperationsSnapshot;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -83,7 +84,7 @@ final class AgentStatusCommand extends Command
         }
 
         $snapshot = $this->repository->snapshot(time(), $age, $transport);
-        $healthy = $snapshot->expiredLeases === 0 && $snapshot->unknownQueueWait === 0 && ($snapshot->oldestQueueWaitSeconds === null || $snapshot->oldestQueueWaitSeconds <= $wait) && $snapshot->liveWorkers >= $minimum;
+        $healthy = $this->isHealthy($snapshot, $wait, $minimum);
         $data = $snapshot->toArray() + ['healthy' => $healthy];
         if ($input->getOption('json') === true) {
             $output->writeln(
@@ -92,10 +93,7 @@ final class AgentStatusCommand extends Command
         } else {
             $rows = [];
             foreach ($data as $key => $value) {
-                $rows[] = [
-                    $key,
-                    $value === null ? 'unknown' : (is_bool($value) ? $value ? 'yes' : 'no' : (string)$value),
-                ];
+                $rows[] = [$key, $this->displayValue($value)];
             }
 
             (new SymfonyStyle($input, $output))->table(
@@ -119,5 +117,26 @@ final class AgentStatusCommand extends Command
             ['options' => ['min_range' => 0]],
         );
         return is_int($parsed) ? $parsed : null;
+    }
+
+    private function isHealthy(
+        WorkerOperationsSnapshot $snapshot,
+        int $wait,
+        int $minimum,
+    ): bool {
+        return $snapshot->expiredLeases === 0 && $snapshot->unknownQueueWait === 0 && ($snapshot->oldestQueueWaitSeconds === null || $snapshot->oldestQueueWaitSeconds <= $wait) && $snapshot->liveWorkers >= $minimum;
+    }
+
+    private function displayValue(int|bool|null $value): string
+    {
+        if ($value === null) {
+            return 'unknown';
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'yes' : 'no';
+        }
+
+        return (string)$value;
     }
 }

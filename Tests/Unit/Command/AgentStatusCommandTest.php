@@ -103,4 +103,30 @@ final class AgentStatusCommandTest extends TestCase
             self::assertSame(Command::INVALID, $tester->execute($options));
         }
     }
+
+    #[Test]
+    public function readableStatusDisplaysUnknownTimingAndBooleanHealth(): void
+    {
+        foreach ([0, 1] as $expired) {
+            $repository = self::createStub(WorkerOperationsReaderInterface::class);
+            $repository
+                ->method('snapshot')
+                ->willReturn(new WorkerOperationsSnapshot(0, 1, 0, $expired, null, 0, 1));
+            $tester = new CommandTester(new AgentStatusCommand($repository));
+            self::assertSame(
+                $expired === 0 ? Command::SUCCESS : Command::FAILURE,
+                $tester->execute([]),
+            );
+            $display = $tester->getDisplay();
+            self::assertMatchesRegularExpression(
+                '/\boldest_queue_wait_seconds\s+unknown\b/',
+                $display,
+            );
+            $expected = $expired === 0 ? 'yes' : 'no';
+            self::assertMatchesRegularExpression(
+                '/\bhealthy\s+' . $expected . '\b/',
+                $display,
+            );
+        }
+    }
 }
