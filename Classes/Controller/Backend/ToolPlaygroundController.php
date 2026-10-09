@@ -35,6 +35,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunDecidedInChatException;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunNeedsSecondApproverException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessVerdictUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
@@ -386,6 +387,8 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             return $this->decidedInTheChat();
         } catch (ProcessRunNeedsSecondApproverException) {
             return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.processStopped', 'This run was stopped: it is a guided process, and its configuration requires a second approver, under which nobody could apply its proposals.')], 409);
+        } catch (ProcessVerdictUnavailableException) {
+            return $this->verdictUnavailable();
         }
 
         return $this->respondToResult($result, false);
@@ -470,6 +473,8 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             return $this->decidedInTheChat();
         } catch (ProcessRunNeedsSecondApproverException) {
             return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.processStopped', 'This run was stopped: it is a guided process, and its configuration requires a second approver, under which nobody could apply its proposals.')], 409);
+        } catch (ProcessVerdictUnavailableException) {
+            return $this->verdictUnavailable();
         }
 
         return $this->respondToResult($result, false);
@@ -497,7 +502,24 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.unreadable', "This run's state could not be read; no action is available.")], 400);
         }
 
-        return $this->processPins->holdsProcessPin($run) ? $this->decidedInTheChat() : null;
+        return match ($this->processPins->processPinOf($run)) {
+            true  => $this->decidedInTheChat(),
+            null  => $this->verdictUnavailable(),
+            false => null,
+        };
+    }
+
+    /**
+     * 503 and no status to re-signal: whether the run is a guided process
+     * could not be checked, nothing was decided, and the same request can be
+     * sent again.
+     */
+    private function verdictUnavailable(): ResponseInterface
+    {
+        return $this->respondJson([
+            'success' => false,
+            'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.processVerdictUnavailable', 'Whether this run is a guided process could not be checked, so nothing was decided. Please try again.'),
+        ], 503);
     }
 
     /**

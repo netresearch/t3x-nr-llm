@@ -30,6 +30,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunDecidedInChatException;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunNeedsSecondApproverException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessVerdictUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAccessDeniedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
@@ -226,9 +227,17 @@ final readonly class ResumeCoordinator
         // A guided process is decided in the chat by its initiator (ADR-214
         // item 6), and this is the first of its checks: nobody else may
         // decide it, an administrator and the approve grant included.
-        $processRun = $this->holdsProcessPin($run);
+        //
+        // One answer for the whole decision, asked once: a second lookup could
+        // come out differently, and the stop below has to act on the answer
+        // this check used. An answer that rests on a failed approval lookup
+        // turns nobody away and stops nothing; it is refused as retryable.
+        $verdict    = $this->processVerdict($run);
+        $processRun = $verdict ?? true;
         if ($processRun && !$actor->isInitiatorOf($run)) {
-            throw ProcessRunDecidedInChatException::forActor($actor, $runUuid);
+            throw $verdict === null
+                ? ProcessVerdictUnavailableException::forRun($runUuid)
+                : ProcessRunDecidedInChatException::forActor($actor, $runUuid);
         }
 
         $configuration = $this->configurationRepository->findByUid($run->configurationUid);
@@ -251,7 +260,7 @@ final readonly class ResumeCoordinator
         // ever. The order is the ADR's: initiator, unreadable state, four-eyes.
         if ($processRun) {
             $this->preClaimState($run);
-            $this->stopOnFourEyes($run, $configuration, AgentRunStatus::WAITING_FOR_APPROVAL);
+            $this->stopOnFourEyes($run, $configuration, AgentRunStatus::WAITING_FOR_APPROVAL, $verdict);
         }
 
         // Four-eyes (ADR-172). Refused here, before anything is claimed, so the
@@ -388,12 +397,13 @@ final readonly class ResumeCoordinator
     }
 
     /**
-     * Whether the run holds a process pin (ADR-214 item 6). Without a probe —
-     * the positional test wiring only — no run does.
+     * Whether the run holds a process pin (ADR-214 item 6), or null when that
+     * rests on an approval lookup that failed. Without a probe — the
+     * positional test wiring only — no run does.
      */
-    private function holdsProcessPin(AgentRun $run): bool
+    private function processVerdict(AgentRun $run): ?bool
     {
-        return $this->processPinProbe?->holdsProcessPin($run) === true;
+        return $this->processPinProbe instanceof ProcessPinProbe ? $this->processPinProbe->processPinOf($run) : false;
     }
 
     /**
@@ -407,18 +417,19 @@ final readonly class ResumeCoordinator
      * that left that state meanwhile is not touched, and the caller learns
      * that it no longer waits. The run records the refusal's class.
      *
-     * The stop cannot be undone, so it waits for an answer that rests on
-     * approvals that were read: when the lookup failed, the run is refused
-     * as unavailable and keeps waiting, and the next attempt asks again.
+     * The stop cannot be undone, so it acts only on an answer that rests on
+     * approvals that were read — the one the initiator check used: when the
+     * lookup failed, the decision is refused as retryable and the run keeps
+     * waiting.
      */
-    private function stopOnFourEyes(AgentRun $run, LlmConfiguration $configuration, AgentRunStatus $waitingIn): void
+    private function stopOnFourEyes(AgentRun $run, LlmConfiguration $configuration, AgentRunStatus $waitingIn, ?bool $verdict): void
     {
         if (!$configuration->requiresSecondApprover()) {
             return;
         }
 
-        if (!$this->processPinProbe instanceof ProcessPinProbe || $this->processPinProbe->processPinOf($run) === null) {
-            throw RunStateUnavailableException::forRun($run->uuid);
+        if ($verdict === null) {
+            throw ProcessVerdictUnavailableException::forRun($run->uuid);
         }
 
         $stopped = $this->persister->settleIfWaiting(
@@ -746,9 +757,17 @@ final readonly class ResumeCoordinator
 
         // approve()'s first process check (ADR-214 item 6): an answer to a
         // guided process comes from its initiator, in the chat.
-        $processRun = $this->holdsProcessPin($run);
+        //
+        // One answer for the whole decision, asked once: a second lookup could
+        // come out differently, and the stop below has to act on the answer
+        // this check used. An answer that rests on a failed approval lookup
+        // turns nobody away and stops nothing; it is refused as retryable.
+        $verdict    = $this->processVerdict($run);
+        $processRun = $verdict ?? true;
         if ($processRun && !$actor->isInitiatorOf($run)) {
-            throw ProcessRunDecidedInChatException::forActor($actor, $runUuid);
+            throw $verdict === null
+                ? ProcessVerdictUnavailableException::forRun($runUuid)
+                : ProcessRunDecidedInChatException::forActor($actor, $runUuid);
         }
 
         $configuration = $this->configurationRepository->findByUid($run->configurationUid);
@@ -770,7 +789,7 @@ final readonly class ResumeCoordinator
         // item 6), an answer to a choice included: a later proposal could
         // never be applied either.
         if ($processRun) {
-            $this->stopOnFourEyes($run, $configuration, AgentRunStatus::WAITING_FOR_INPUT);
+            $this->stopOnFourEyes($run, $configuration, AgentRunStatus::WAITING_FOR_INPUT, $verdict);
         }
 
         // Well-formedness gate (ADR-105 M2): an input suspension with no target

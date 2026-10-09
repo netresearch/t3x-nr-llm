@@ -3859,6 +3859,10 @@
                 <source>This run was stopped: it is a guided process, and its configuration requires a second approver, under which nobody could apply its proposals.</source>
                 <target>Dieser Lauf wurde beendet: Er ist ein geführter Ablauf, und seine Konfiguration verlangt eine zweite freigebende Person. Unter dieser Einstellung könnte niemand seine Vorschläge anwenden.</target>
             </trans-unit>
+            <trans-unit id="error.tool.processVerdictUnavailable">
+                <source>Whether this run is a guided process could not be checked, so nothing was decided. Please try again.</source>
+                <target>Ob dieser Lauf ein geführter Ablauf ist, ließ sich nicht prüfen; deshalb wurde nichts entschieden. Bitte erneut versuchen.</target>
+            </trans-unit>
             <trans-unit id="error.tool.selfApproval">
                 <source>You started this run and its configuration requires a second approver. Someone else has to release it.</source>
                 <target>Sie haben diesen Lauf gestartet, und seine Konfiguration verlangt eine zweite freigebende Person. Die Freigabe muss jemand anderes erteilen.</target>
@@ -4307,6 +4311,10 @@
             <trans-unit id="runs.error.processStopped">
                 <source>This run was stopped: it is a guided process, and its configuration requires a second approver, under which nobody could apply its proposals.</source>
                 <target>Dieser Lauf wurde beendet: Er ist ein geführter Ablauf, und seine Konfiguration verlangt eine zweite freigebende Person. Unter dieser Einstellung könnte niemand seine Vorschläge anwenden.</target>
+            </trans-unit>
+            <trans-unit id="runs.error.processVerdictUnavailable">
+                <source>Whether this run is a guided process could not be checked, so nothing was decided. Please try again.</source>
+                <target>Ob dieser Lauf ein geführter Ablauf ist, ließ sich nicht prüfen; deshalb wurde nichts entschieden. Bitte erneut versuchen.</target>
             </trans-unit>
             <trans-unit id="runs.decidedInChat">
                 <source>A guided process: decided in the chat by the person who started it. It is listed here read-only.</source>

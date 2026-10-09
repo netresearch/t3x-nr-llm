@@ -34,8 +34,8 @@ use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunDecidedInChatException;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunNeedsSecondApproverException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessVerdictUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
-use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Exception\SelfApprovalDeniedException;
 use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
@@ -184,31 +184,87 @@ final class ResumeCoordinatorProcessRunTest extends AbstractFunctionalTestCase
 
     /**
      * The stop cannot be undone, so an answer that rests on a failed approval
-     * lookup does not stop the run: it is refused as unavailable and keeps
-     * waiting, on an approval and on an answer.
+     * lookup does not stop the run, and it is asked once per decision: the
+     * probe here fails its first lookup and answers "no process" to every
+     * later one, so a second lookup before the stop would end an ordinary
+     * run. The decision is refused as retryable and the run keeps waiting —
+     * on an approval, a denial and an answer.
      */
     #[Test]
-    public function aProcessPinThatCannotBeConfirmedDoesNotStopTheRun(): void
+    public function anAnswerThatCannotBeCheckedNeitherStopsTheRunNorIsAskedTwice(): void
+    {
+        foreach (['approval' => true, 'denial' => false] as $case => $approved) {
+            $uuid = $this->suspendOn('touch_thing');
+            try {
+                $this->coordinator(true, $this->probeThatFailsOnce())->approve($this->initiator(), $uuid, $this->decision($approved, 'touch_thing'));
+                self::fail('Expected ProcessVerdictUnavailableException on the ' . $case);
+            } catch (ProcessVerdictUnavailableException) {
+                $this->assertStillWaiting($uuid, AgentRunStatus::WAITING_FOR_APPROVAL);
+            }
+        }
+
+        $uuid = $this->suspendForChoice();
+        try {
+            $this->coordinator(true, $this->probeThatFailsOnce())->submitInput($this->initiator(), $uuid, $this->answer('Home'));
+            self::fail('Expected ProcessVerdictUnavailableException on the answer');
+        } catch (ProcessVerdictUnavailableException) {
+            $this->assertStillWaiting($uuid, AgentRunStatus::WAITING_FOR_INPUT);
+        }
+
+        self::assertFalse($this->resumed);
+    }
+
+    /**
+     * A failed lookup turns nobody away as if the run were a guided process:
+     * somebody other than the initiator is refused as retryable, not as
+     * "decided in the chat".
+     */
+    #[Test]
+    public function aDeciderIsNotTurnedAwayOnAnAnswerThatCannotBeChecked(): void
     {
         $probe = new ProcessPinProbeStub(everyRun: true, unknown: true);
+        $admin = AiActorContext::backendUser(1, isAdmin: true);
 
         $uuid = $this->suspendOn('touch_thing');
         try {
-            $this->coordinator(true, $probe)->approve($this->initiator(), $uuid, $this->decision(true, 'touch_thing'));
-            self::fail('Expected RunStateUnavailableException on the approval');
-        } catch (RunStateUnavailableException) {
+            $this->coordinator(false, $probe)->approve($admin, $uuid, $this->decision(true, 'touch_thing'));
+            self::fail('Expected ProcessVerdictUnavailableException on the approval');
+        } catch (ProcessVerdictUnavailableException) {
             $this->assertStillWaiting($uuid, AgentRunStatus::WAITING_FOR_APPROVAL);
         }
 
         $uuid = $this->suspendForChoice();
         try {
-            $this->coordinator(true, $probe)->submitInput($this->initiator(), $uuid, $this->answer('Home'));
-            self::fail('Expected RunStateUnavailableException on the answer');
-        } catch (RunStateUnavailableException) {
+            $this->coordinator(false, $probe)->submitInput($admin, $uuid, $this->answer('Home'));
+            self::fail('Expected ProcessVerdictUnavailableException on the answer');
+        } catch (ProcessVerdictUnavailableException) {
             $this->assertStillWaiting($uuid, AgentRunStatus::WAITING_FOR_INPUT);
         }
+    }
 
-        self::assertFalse($this->resumed);
+    /**
+     * Fails its first lookup, then answers that the run holds no process pin.
+     */
+    private function probeThatFailsOnce(): ProcessPinProbe
+    {
+        return new class implements ProcessPinProbe {
+            private int $asked = 0;
+
+            public function holdsProcessPin(AgentRun $run): bool
+            {
+                return $this->processPinOf($run) ?? true;
+            }
+
+            public function processPinOf(AgentRun $run): ?bool
+            {
+                return $this->asked++ === 0 ? null : false;
+            }
+
+            public function anyProcessPin(array $pins): bool
+            {
+                return false;
+            }
+        };
     }
 
     /**
@@ -270,13 +326,13 @@ final class ResumeCoordinatorProcessRunTest extends AbstractFunctionalTestCase
 
             public function holdsProcessPin(AgentRun $run): bool
             {
-                ($this->meanwhile)();
-
-                return true;
+                return $this->processPinOf($run);
             }
 
             public function processPinOf(AgentRun $run): bool
             {
+                ($this->meanwhile)();
+
                 return true;
             }
 
