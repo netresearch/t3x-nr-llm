@@ -1030,6 +1030,9 @@
             <trans-unit id="tx_nrllm_skill.attachment.disabled">
                 <source>disabled</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_skill.attachment.process">
+                <source>process skill, composed only when invoked</source>
+            </trans-unit>
             <trans-unit id="tx_nrllm_skill.enabled">
                 <source>Enabled</source>
             </trans-unit>

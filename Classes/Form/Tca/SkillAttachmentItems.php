@@ -16,7 +16,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 /**
  * The skill choice of a configuration or a task (ADR-214 item 3).
  *
- * A new attachment may pick only an enabled skill the sync has not orphaned.
+ * A new attachment may pick only an enabled skill the sync has not orphaned;
+ * attached with the load mode 'always' it may not pick a process skill
+ * either, which reaches a run only through an invocation (ADR-214 item 6).
  * A skill that is already attached stays in the list whatever its state, so
  * saving the form keeps the attachment — and with it the restriction such a
  * skill still imposes — and its label says why it no longer instructs.
@@ -28,6 +30,13 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 final class SkillAttachmentItems
 {
     private const LABELS = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:';
+
+    /** The English labels, for a call without a language service. */
+    private const FALLBACKS = [
+        'orphaned' => 'orphaned',
+        'disabled' => 'disabled',
+        'process'  => 'process skill, composed only when invoked',
+    ];
 
     /**
      * @param array{items: array<int, mixed>, row?: array<string, mixed>, config?: array<string, mixed>} $params
@@ -49,6 +58,8 @@ final class SkillAttachmentItems
 
         $states   = $this->states($uids);
         $attached = array_flip($this->attached($params));
+        $match    = $params['config']['MM_match_fields'] ?? null;
+        $always   = is_array($match) && ($match['load_mode'] ?? null) === 'always';
         $kept     = [];
         foreach ($items as $item) {
             $value = $this->valueOf($item);
@@ -59,6 +70,10 @@ final class SkillAttachmentItems
             }
 
             $suffix = $state['orphaned'] ? 'orphaned' : ($state['enabled'] ? null : 'disabled');
+            if ($suffix === null && $always && $state['process']) {
+                $suffix = 'process';
+            }
+
             if ($suffix === null) {
                 $kept[] = $item;
                 continue;
@@ -69,7 +84,7 @@ final class SkillAttachmentItems
             }
 
             $label         = is_string($item['label'] ?? null) ? $item['label'] : (string)$value;
-            $item['label'] = $label . ' (' . $this->translate(self::LABELS . 'tx_nrllm_skill.attachment.' . $suffix, $suffix) . ')';
+            $item['label'] = $label . ' (' . $this->translate(self::LABELS . 'tx_nrllm_skill.attachment.' . $suffix, self::FALLBACKS[$suffix]) . ')';
             $kept[]        = $item;
         }
 
@@ -86,14 +101,14 @@ final class SkillAttachmentItems
     /**
      * @param list<int> $uids
      *
-     * @return array<int, array{enabled: bool, orphaned: bool}>
+     * @return array<int, array{enabled: bool, orphaned: bool, process: bool}>
      */
     private function states(array $uids): array
     {
         $queryBuilder = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable('tx_nrllm_skill');
         $queryBuilder->getRestrictions()->removeAll();
         $rows = $queryBuilder
-            ->select('uid', 'enabled', 'orphaned')
+            ->select('uid', 'enabled', 'orphaned', 'process')
             ->from('tx_nrllm_skill')
             ->where($queryBuilder->expr()->in('uid', $queryBuilder->createNamedParameter($uids, Connection::PARAM_INT_ARRAY)))
             ->executeQuery()
@@ -108,6 +123,7 @@ final class SkillAttachmentItems
             $states[(int)$row['uid']] = [
                 'enabled'  => is_numeric($row['enabled'] ?? null) && (int)$row['enabled'] === 1,
                 'orphaned' => is_numeric($row['orphaned'] ?? null) && (int)$row['orphaned'] === 1,
+                'process'  => is_numeric($row['process'] ?? null) && (int)$row['process'] === 1,
             ];
         }
 

@@ -63,6 +63,37 @@ final class SkillAttachmentItemsTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * Attached 'always', a process skill is not offered for a new attachment
+     * (ADR-214 item 6) and kept, labelled, where it is attached; attached
+     * on demand it is offered as any skill.
+     */
+    #[Test]
+    public function aProcessSkillIsNotOfferedForANewAlwaysAttachment(): void
+    {
+        $skills = $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill');
+        $skills->insert('tx_nrllm_skill', ['uid' => 6, 'pid' => 0, 'name' => 'Tour', 'enabled' => 1, 'orphaned' => 0, 'process' => 1]);
+        $skills->insert('tx_nrllm_skill', ['uid' => 7, 'pid' => 0, 'name' => 'Old tour', 'enabled' => 1, 'orphaned' => 0, 'process' => 1]);
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_configuration_skill_mm')
+            ->insert('tx_nrllm_configuration_skill_mm', ['uid_local' => 9, 'uid_foreign' => 7, 'load_mode' => 'always']);
+
+        $always                              = $this->params(9);
+        $always['items'][]                   = ['label' => 'Tour', 'value' => 6];
+        $always['items'][]                   = ['label' => 'Old tour', 'value' => 7];
+        $always['config']['MM_match_fields'] = ['load_mode' => 'always'];
+        (new SkillAttachmentItems())->filterAndLabel($always);
+
+        self::assertNotContains('Tour', array_column($always['items'], 'label'));
+        self::assertContains('Old tour (process skill, composed only when invoked)', array_column($always['items'], 'label'));
+
+        $onDemand                              = $this->params('NEW1');
+        $onDemand['items'][]                   = ['label' => 'Tour', 'value' => 6];
+        $onDemand['config']['MM_match_fields'] = ['load_mode' => 'on_demand'];
+        (new SkillAttachmentItems())->filterAndLabel($onDemand);
+
+        self::assertContains('Tour', array_column($onDemand['items'], 'label'));
+    }
+
+    /**
      * @return array{items: list<array{label: string, value: int}>, row: array<string, mixed>, config: array<string, mixed>}
      */
     private function params(int|string $uid): array

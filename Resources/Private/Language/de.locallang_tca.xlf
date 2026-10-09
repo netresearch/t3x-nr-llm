@@ -1363,6 +1363,10 @@
                 <source>disabled</source>
                 <target>deaktiviert</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_skill.attachment.process">
+                <source>process skill, composed only when invoked</source>
+                <target>Prozess-Skill, wird nur beim Aufruf eingesetzt</target>
+            </trans-unit>
             <trans-unit id="tx_nrllm_skill.enabled">
                 <source>Enabled</source>
                 <target>Aktiviert</target>
