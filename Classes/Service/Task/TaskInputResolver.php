@@ -26,16 +26,12 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
  * reader services so the resolver itself stays free of
  * `ConnectionPool` / filesystem coupling.
  *
- * Behaviour matches the pre-13b `TaskController::getInputData()`
- * private helper exactly with one deliberate exception: REC #11b
- * (audit 2026-04-30) replaced the `$e->getMessage()` interpolation
- * in the two read-error arms with a generic "see system log"
- * message and a `LoggerInterface::warning()` call carrying the full
- * exception. The previous behaviour leaked DBAL error text (table
- * names, column hints, sometimes SQL fragments) into the LLM input
- * string and onward to the model and the user-visible task output;
- * the new behaviour preserves the operational signal in `sys_log`
- * where it belongs.
+ * Read failures preserve the interface's best-effort contract. REC #11b
+ * (audit 2026-04-30) replaced raw DBAL exception text in the input with
+ * generic localized placeholders. The original cause and task context
+ * are passed to diagnostic logging rather than sent to the LLM. Reader
+ * and diagnostic failures remain contained, including deprecation-log
+ * reads; a failing logger cannot replace the input fallback.
  */
 final readonly class TaskInputResolver implements TaskInputResolverInterface
 {
@@ -54,7 +50,7 @@ final readonly class TaskInputResolver implements TaskInputResolverInterface
     {
         return match ($task->getInputType()) {
             Task::INPUT_SYSLOG          => $this->resolveSyslog($task),
-            Task::INPUT_DEPRECATION_LOG => $this->deprecationLogReader->readTail(),
+            Task::INPUT_DEPRECATION_LOG => $this->resolveDeprecationLog($task),
             Task::INPUT_TABLE           => $this->resolveTable($task),
             default                     => '',
         };
@@ -69,12 +65,16 @@ final readonly class TaskInputResolver implements TaskInputResolverInterface
         try {
             $rows = $this->systemLogReader->readRecent($limit, $errorOnly);
         } catch (Throwable $e) {
-            $this->logger->warning('Task syslog input: sys_log read failed', [
-                'exception' => $e,
-                'taskUid'   => $task->getUid(),
-                'limit'     => $limit,
-                'errorOnly' => $errorOnly,
-            ]);
+            $this->logInputFailure(
+                'warning',
+                'Task syslog input: sys_log read failed',
+                [
+                    'exception' => $e,
+                    'taskUid' => $task->getUid(),
+                    'limit' => $limit,
+                    'errorOnly' => $errorOnly,
+                ],
+            );
 
             return $this->translate(
                 'task.syslog.readError',
@@ -174,30 +174,28 @@ final readonly class TaskInputResolver implements TaskInputResolverInterface
         try {
             return $this->recordTableReader->fetchAll($table, $limit);
         } catch (InvalidArgumentException $e) {
-            // Table on the picker exclusion list — a policy rejection,
-            // not a runtime error, so route through `info` rather than
-            // `warning`. The user-facing return value is the same generic
-            // "see system log" string the broad arm below produces; the
-            // specific policy reason ("Table 'xyz' is not allowed for
-            // record selection") stays in the log for the admin and is
-            // deliberately NOT surfaced to the LLM input — the REC #11b
-            // contract is that error-arm output never carries
-            // `$e->getMessage()` regardless of the underlying exception
-            // type.
-            $this->logger->info('Task table input: table rejected by record-picker policy', [
-                'exception' => $e,
-                'taskUid'   => $task->getUid(),
-                'table'     => $table,
-            ]);
+            $this->logInputFailure(
+                'info',
+                'Task table input: table rejected by record-picker policy',
+                [
+                    'exception' => $e,
+                    'taskUid' => $task->getUid(),
+                    'table' => $table,
+                ],
+            );
 
             return null;
         } catch (Throwable $e) {
-            $this->logger->warning('Task table input: table read failed', [
-                'exception' => $e,
-                'taskUid'   => $task->getUid(),
-                'table'     => $table,
-                'limit'     => $limit,
-            ]);
+            $this->logInputFailure(
+                'warning',
+                'Task table input: table read failed',
+                [
+                    'exception' => $e,
+                    'taskUid' => $task->getUid(),
+                    'table' => $table,
+                    'limit' => $limit,
+                ],
+            );
 
             return null;
         }
@@ -224,5 +222,44 @@ final readonly class TaskInputResolver implements TaskInputResolverInterface
         }
 
         return $translated ?? $fallback;
+    }
+
+    private function resolveDeprecationLog(Task $task): string
+    {
+        try {
+            return $this->deprecationLogReader->readTail();
+        } catch (Throwable $e) {
+            $this->logInputFailure(
+                'warning',
+                'Task deprecation input: log read failed',
+                ['exception' => $e, 'taskUid' => $task->getUid()],
+            );
+            return $this->translate(
+                'task.deprecationLog.readError',
+                'Could not read deprecation log.',
+            );
+        }
+    }
+
+    /**
+     * Attempt diagnostics without replacing the best-effort input result.
+     *
+     * @param 'info'|'warning'     $level
+     * @param array<string, mixed> $context
+     */
+    private function logInputFailure(
+        string $level,
+        string $message,
+        array $context,
+    ): void {
+        try {
+            if ($level === 'info') {
+                $this->logger->info($message, $context);
+            } else {
+                $this->logger->warning($message, $context);
+            }
+        } catch (Throwable) {
+            // Diagnostics cannot turn an input read failure into an execution failure.
+        }
     }
 }
