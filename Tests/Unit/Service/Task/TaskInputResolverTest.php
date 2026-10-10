@@ -425,4 +425,18 @@ final class TaskInputResolverTest extends AbstractUnitTestCase
 
         self::assertSame('Error reading table. See system log for details.', $output);
     }
+
+    #[Test]
+    public function reservedFileSourceKeepsEmptyInputWithoutDelegatingReads(): void
+    {
+        $this->systemLogReader->expects(self::never())->method('readRecent');
+        $this->deprecationLogReader->expects(self::never())->method('readTail');
+        $this->recordTableReader->expects(self::never())->method('fetchAll');
+        $this->logger->expects(self::never())->method(self::anything());
+        $task = $this->makeTask(
+            Task::INPUT_FILE,
+            '{"fileUid":71,"path":"/private/file.txt","url":"https://example.test/file.txt"}',
+        );
+        self::assertSame('', $this->subject->resolve($task));
+    }
 }
