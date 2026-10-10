@@ -246,9 +246,13 @@ after the upgrade and read the row:
 Telling whether it works
 ========================
 
-The gate records every denial — and every observe-mode flag — as a
-governance event carrying the tool name, the reason, the trust zone and the
-ceiling. Two places show them:
+The gate attempts to record every denial — and every observe-mode flag — as
+a governance event carrying the tool name, the reason, the trust zone and
+the ceiling. Recording is best effort: an unavailable audit database must
+preserve the original denial or observation, and the affected event may be
+missing. The recorder attempts a warning containing only the bounded
+exception class; even a failing logger cannot replace the policy decision.
+Two places show recorded events:
 
 - The :guilabel:`Tool denials by reason` dashboard widget. The
   :guilabel:`Trust zone ceiling` bar is the data-class axis. It counts a
