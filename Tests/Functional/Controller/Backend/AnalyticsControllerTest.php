@@ -21,6 +21,7 @@ use ReflectionClass;
 use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
+use TYPO3\CMS\Core\Configuration\ConfigurationManager;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\NormalizedParams;
@@ -39,10 +40,29 @@ use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
 #[CoversClass(AnalyticsController::class)]
 final class AnalyticsControllerTest extends AbstractFunctionalTestCase
 {
+    /** @var array<string, mixed>|null */
+    private ?array $originalStoredConfiguration = null;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->originalStoredConfiguration = $this->getService(ConfigurationManager::class)->getLocalConfiguration();
+    }
+
     protected function tearDown(): void
     {
-        unset($GLOBALS['BE_USER'], $GLOBALS['TYPO3_REQUEST'], $GLOBALS['LANG']);
-        parent::tearDown();
+        try {
+            if ($this->originalStoredConfiguration !== null) {
+                self::assertTrue(
+                    $this
+                        ->getService(ConfigurationManager::class)
+                        ->writeLocalConfiguration($this->originalStoredConfiguration),
+                );
+            }
+        } finally {
+            unset($GLOBALS['BE_USER'], $GLOBALS['TYPO3_REQUEST'], $GLOBALS['LANG']);
+            parent::tearDown();
+        }
     }
 
     #[Test]
@@ -146,8 +166,8 @@ final class AnalyticsControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function indexActionSaysTheFallbackReorderSwitchIsOn(): void
     {
-        // The instance-level switch ExtensionConfiguration reads. Each
-        // functional test re-bootstraps TYPO3_CONF_VARS, so this does not leak.
+        // Core may persist missing extension defaults during rendering.
+        // tearDown restores the instance configuration before the next test bootstraps.
         $this->storeNrLlmConfig(['health' => ['reorderFallback' => '1']]);
 
         $body = (string)$this->dispatchIndex([])->getBody();
