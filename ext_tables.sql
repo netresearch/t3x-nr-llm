@@ -477,6 +477,8 @@ CREATE TABLE tx_nrllm_skill_source (
 
     -- Sync state
     sync_status varchar(20) DEFAULT 'never_synced' NOT NULL,
+    sync_lock_token varchar(64) DEFAULT '' NOT NULL,
+    sync_lock_version int(11) unsigned DEFAULT '0' NOT NULL,
     sync_error text,
     last_synced int(11) unsigned DEFAULT '0' NOT NULL,
 

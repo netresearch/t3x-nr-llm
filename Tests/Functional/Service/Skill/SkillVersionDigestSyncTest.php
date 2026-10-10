@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SyncResult;
 use Netresearch\NrLlm\Service\Skill\MarketplaceParser;
 use Netresearch\NrLlm\Service\Skill\SkillDiscovery;
 use Netresearch\NrLlm\Service\Skill\SkillMarkdownParser;
+use Netresearch\NrLlm\Service\Skill\SkillSyncLeaseRepository;
 use Netresearch\NrLlm\Service\Skill\SkillSyncService;
 use Netresearch\NrLlm\Service\Skill\SkillVersionDigest;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -25,6 +26,7 @@ use Netresearch\NrLlm\Tests\Functional\Service\Skill\Fixtures\FakeGitHubClient;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
 /**
@@ -114,11 +116,23 @@ final class SkillVersionDigestSyncTest extends AbstractFunctionalTestCase
 
     private function sync(string $markdown, string $sha = 'sha1'): SyncResult
     {
-        $source = new SkillSource();
-        $source->_setProperty('uid', 10);
-        $source->setType(SkillSourceType::REPO->value);
-        $source->setUrl('https://github.com/acme/skills');
-        $source->setRef('main');
+        $connection = $this
+            ->getConnectionPool()
+            ->getConnectionForTable('tx_nrllm_skill_source');
+        if ($connection->count('*', 'tx_nrllm_skill_source', ['uid' => 10]) === 0) {
+            $connection->insert(
+                'tx_nrllm_skill_source',
+                [
+                    'uid' => 10,
+                    'type' => SkillSourceType::REPO->value,
+                    'url' => 'https://github.com/acme/skills',
+                    'ref' => 'main',
+                ],
+            );
+        }
+
+        $source = $this->get(SkillSourceRepository::class)->findByUid(10);
+        self::assertInstanceOf(SkillSource::class, $source);
 
         $service = new SkillSyncService(
             new FakeGitHubClient($sha, [self::PATH], [self::PATH => $markdown]),
@@ -126,9 +140,11 @@ final class SkillVersionDigestSyncTest extends AbstractFunctionalTestCase
             new MarketplaceParser(),
             new SkillDiscovery(),
             $this->get(SkillRepository::class),
-            $this->get(SkillSourceRepository::class),
             $this->get(PersistenceManagerInterface::class),
             new NullLogger(),
+            new SkillSyncLeaseRepository(
+                $this->get(ConnectionPool::class),
+            ),
         );
 
         return $service->sync($source);
