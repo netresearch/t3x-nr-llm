@@ -82,6 +82,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Decision preflight failures follow the public contract (ADR-211).** Both
+  `evaluate()` and `assertAvailable()` wrap infrastructure failures during
+  configuration lookup and routing in `DecisionException`, retaining their
+  cause and configuration context. Budget-subject lookup is covered during
+  evaluation; policy denials keep their identity and engine errors propagate.
+
 - **Invalid retrieval provenance follows the public exception contract (ADR-053).** Constructor validation implements `NrLlmExceptionInterface` while preserving native `InvalidArgumentException` catch compatibility, reason codes and messages.
 
 - **Retrieval details preserve legacy byte ids at full privacy (ADR-215).** Invalid UTF-8 question ids, hard classes and measured document ids use a versioned lossless field representation after filtering their original bytes. Ordinary UTF-8 and prompt snapshots remain compatible; redacted and metadata policies cannot be bypassed through encoding.
