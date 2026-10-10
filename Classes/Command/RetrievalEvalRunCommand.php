@@ -8,6 +8,7 @@ declare (strict_types=1);
 
 namespace Netresearch\NrLlm\Command;
 
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Evaluation\EvaluatableRetrieverInterface;
 use Netresearch\NrLlm\Service\Evaluation\EvaluatableRetrieverRegistry;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepositoryInterface;
@@ -86,8 +87,10 @@ final class RetrievalEvalRunCommand extends Command
             );
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output): int
-    {
+    protected function execute(
+        InputInterface $input,
+        OutputInterface $output,
+    ): int {
         $io = new SymfonyStyle($input, $output);
         $set = $this->findSet($input, $io);
         if (!$set instanceof GoldenQuestionSet) {
@@ -99,9 +102,23 @@ final class RetrievalEvalRunCommand extends Command
             return Command::FAILURE;
         }
 
+        try {
+            $thresholds = new RegressionThresholds(
+                $this->floatOption($input, 'max-top1-drop'),
+                $this->floatOption($input, 'max-top3-drop'),
+            );
+        } catch (InvalidArgumentException $exception) {
+            $io->error($exception->getMessage());
+            return Command::FAILURE;
+        }
+
         $result = $this->evaluationService->run($set, $retriever);
         $io->title(
-            sprintf('Retrieval evaluation: %s vs %s', $set->identifier, $retriever->getIdentifier()),
+            sprintf(
+                'Retrieval evaluation: %s vs %s',
+                $set->identifier,
+                $retriever->getIdentifier(),
+            ),
         );
         $this->renderEvaluations($io, $result);
 
@@ -113,7 +130,13 @@ final class RetrievalEvalRunCommand extends Command
         );
         $this->repository->save($persistable);
 
-        return $this->renderComparison($input, $io, $persistable->toSummary(), $previous);
+        return $this->renderComparison(
+            $input,
+            $io,
+            $persistable->toSummary(),
+            $previous,
+            $thresholds,
+        );
     }
 
     private function renderEvaluations(SymfonyStyle $io, RetrievalSetEvaluationResult $result): void
@@ -177,11 +200,17 @@ final class RetrievalEvalRunCommand extends Command
         $io->table(['Class', 'Questions', 'Top-1', 'Top-3'], $rows);
     }
 
-    private function floatOption(InputInterface $input, string $name, float $default): float
+    private function floatOption(InputInterface $input, string $name): float
     {
         $value = $input->getOption($name);
+        if (!is_numeric($value) || !is_finite((float)$value) || (float)$value < 0.0 || (float)$value > 1.0) {
+            throw new InvalidArgumentException(
+                sprintf('Option "--%s" must be a finite number in 0..1.', $name),
+                1794000041,
+            );
+        }
 
-        return is_numeric($value) ? (float)$value : $default;
+        return (float)$value;
     }
 
     /**
@@ -254,6 +283,7 @@ final class RetrievalEvalRunCommand extends Command
         SymfonyStyle $io,
         EvaluationResultSummary $current,
         ?EvaluationResultSummary $previous,
+        RegressionThresholds $thresholds,
     ): int {
         $baselineState = $this->baselineState($current, $previous);
         $this->renderProvenance($io, $current, $baselineState);
@@ -271,18 +301,15 @@ final class RetrievalEvalRunCommand extends Command
             );
         }
 
-        $report = $this->regressionDetector->compare(
-            $current,
-            $previous,
-            new RegressionThresholds(
-                $this->floatOption($input, 'max-top1-drop', 0.1),
-                $this->floatOption($input, 'max-top3-drop', 0.1),
-            ),
+        $report = $this->regressionDetector->compare($current, $previous, $thresholds);
+        $io->section(
+            'Regression check (pass rate = top-1 hit rate, mean score = top-3 hit rate)',
         );
-        $io->section('Regression check (pass rate = top-1 hit rate, mean score = top-3 hit rate)');
         $io->writeln($report->summary);
         if ($report->isRegression) {
-            $io->warning('Retrieval regression detected against the previous run.');
+            $io->warning(
+                'Retrieval regression detected against the previous run.',
+            );
         }
 
         return $report->isRegression && $failOnRegression ? Command::FAILURE : Command::SUCCESS;

@@ -172,6 +172,12 @@ regressed against the previous run for the same set and model. The regression
 tolerance is configurable with ``--max-pass-rate-drop`` and
 ``--max-mean-score-drop`` (both default to ``0.1``).
 
+Both tolerances must be finite numeric values in the inclusive interval
+``0..1``. Zero (including ``-0.0``) permits no drop; one permits the full
+scale. A drop equal to the tolerance is accepted. Decimal and scientific
+notation are supported. Empty, nonnumeric, nonfinite and out-of-range values
+fail before any model call or result is stored.
+
 nr_llm ships an example set, ``nr_llm.smoke``, so the command is runnable out
 of the box.
 
@@ -279,6 +285,10 @@ by-form and by-hard-class breakdowns, stores the run in
 rate is the top-1 hit rate and the stored mean score the top-3 hit rate),
 and compares the run with the previous one for the same set and retriever
 when the benchmark provenance is known and equal.
+
+The ``--max-top1-drop`` and ``--max-top3-drop`` options follow the same
+finite ``0..1`` rules. Invalid values fail before retrieval or persistence,
+including when benchmark provenance is unknown and no comparison could run.
 
 
 Benchmark provenance and legacy baselines

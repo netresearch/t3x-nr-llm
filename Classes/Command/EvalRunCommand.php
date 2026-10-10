@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Command;
 
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Decision\DecisionException;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepositoryInterface;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationService;
@@ -67,15 +68,19 @@ final class EvalRunCommand extends Command
             ->addOption('fail-on-regression', null, InputOption::VALUE_NONE, 'Exit with a non-zero status when a regression is detected');
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output): int
-    {
+    protected function execute(
+        InputInterface $input,
+        OutputInterface $output,
+    ): int {
         $io = new SymfonyStyle($input, $output);
 
         $setArgument = $input->getArgument('set');
         $setIdentifier = is_string($setArgument) ? $setArgument : '';
         $set = $this->registry->findByIdentifier($setIdentifier);
         if (!$set instanceof GoldenPromptSet) {
-            $io->error(sprintf('Unknown golden prompt set "%s".', $setIdentifier));
+            $io->error(
+                sprintf('Unknown golden prompt set "%s".', $setIdentifier),
+            );
             $available = $this->registry->identifiers();
             if ($available !== []) {
                 $io->writeln('Available sets: ' . implode(', ', $available));
@@ -89,16 +94,38 @@ final class EvalRunCommand extends Command
         $availableGraders = $this->evaluationService->availableGraders();
         if (!in_array($graderId, $availableGraders, true)) {
             $io->error(sprintf('Unknown grader "%s".', $graderId));
-            $io->writeln('Available graders: ' . implode(', ', $availableGraders));
+            $io->writeln(
+                'Available graders: ' . implode(', ', $availableGraders),
+            );
 
             return Command::FAILURE;
         }
 
         try {
-            $result = $this->evaluationService->run($set, $graderId, $this->buildBaseOptions($input));
+            $thresholds = new RegressionThresholds(
+                $this->floatOption($input, 'max-pass-rate-drop'),
+                $this->floatOption($input, 'max-mean-score-drop'),
+            );
+        } catch (InvalidArgumentException $exception) {
+            $io->error($exception->getMessage());
+            return Command::FAILURE;
+        }
+
+        try {
+            $result = $this->evaluationService->run(
+                $set,
+                $graderId,
+                $this->buildBaseOptions($input),
+            );
         } catch (DecisionException $e) {
             // The decision grader cannot grade this run at all; nothing was spent.
-            $io->error(sprintf('The "%s" grader cannot run: %s', $graderId, $e->getMessage()));
+            $io->error(
+                sprintf(
+                    'The "%s" grader cannot run: %s',
+                    $graderId,
+                    $e->getMessage(),
+                ),
+            );
 
             return Command::FAILURE;
         }
@@ -112,10 +139,7 @@ final class EvalRunCommand extends Command
         if (!$result->sharesOneYardstick() || $result->grader === DecisionGrader::FAILED_SERIES) {
             $this->repository->save($result);
             $io->section('Regression check');
-            $reason = $result->grader === DecisionGrader::FAILED_SERIES
-                ? 'Not compared: no decision of this run could be made (stored as "%s").'
-                : 'Not compared: the gradings of this run do not share one yardstick (stored as "%s"). '
-                    . 'A decision failed for some prompts, or the model changed during the run.';
+            $reason = $result->grader === DecisionGrader::FAILED_SERIES ? 'Not compared: no decision of this run could be made (stored as "%s").' : 'Not compared: the gradings of this run do not share one yardstick (stored as "%s"). ' . 'A decision failed for some prompts, or the model changed during the run.';
             if ($input->getOption('fail-on-regression') === true) {
                 $io->error(sprintf($reason, $result->grader));
 
@@ -127,23 +151,26 @@ final class EvalRunCommand extends Command
             return Command::SUCCESS;
         }
 
-        $previous = $this->repository->findLatest($result->setIdentifier, $result->model, $result->grader);
+        $previous = $this->repository->findLatest(
+            $result->setIdentifier,
+            $result->model,
+            $result->grader,
+        );
         $this->repository->save($result);
 
         $report = $this->regressionDetector->compare(
             $result->toSummary(),
             $previous,
-            new RegressionThresholds(
-                $this->floatOption($input, 'max-pass-rate-drop', 0.1),
-                $this->floatOption($input, 'max-mean-score-drop', 0.1),
-            ),
+            $thresholds,
         );
 
         $io->section('Regression check');
         $io->writeln($report->summary);
 
         if ($report->isRegression) {
-            $io->warning('Quality regression detected against the previous run.');
+            $io->warning(
+                'Quality regression detected against the previous run.',
+            );
             if ($input->getOption('fail-on-regression') === true) {
                 return Command::FAILURE;
             }
@@ -193,10 +220,16 @@ final class EvalRunCommand extends Command
         return $options;
     }
 
-    private function floatOption(InputInterface $input, string $name, float $default): float
+    private function floatOption(InputInterface $input, string $name): float
     {
         $value = $input->getOption($name);
+        if (!is_numeric($value) || !is_finite((float)$value) || (float)$value < 0.0 || (float)$value > 1.0) {
+            throw new InvalidArgumentException(
+                sprintf('Option "--%s" must be a finite number in 0..1.', $name),
+                1794000041,
+            );
+        }
 
-        return is_numeric($value) ? (float)$value : $default;
+        return (float)$value;
     }
 }
