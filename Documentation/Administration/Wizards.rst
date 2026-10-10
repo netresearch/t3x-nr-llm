@@ -25,12 +25,12 @@ five steps:
 1. **Connect** — enter your provider endpoint and
    API key.
 2. **Verify** — test the connection.
-3. **Models** — fetch available models from the
-   provider API.
-4. **Configure** — create an initial configuration
-   with system prompt and parameters.
-5. **Save** — run a test prompt to confirm
-   everything works.
+3. **Models** — fetch and select models from the
+   provider catalogue.
+4. **Configure** — generate and select configuration proposals
+   for the chosen models.
+5. **Review & Save** — review the provider, selected models and
+   configurations, then save their records.
 
 .. figure:: /Images/backend-setup-wizard.png
    :alt: Five-step setup wizard with progress
@@ -40,8 +40,8 @@ five steps:
    :zoom: lightbox
 
    The setup wizard walks through provider creation,
-   connection testing, model fetching, configuration,
-   and a test prompt in five steps.
+   connection testing, model selection, configuration proposals,
+   and reviewing and saving the records in five steps.
 
 Access it from the :guilabel:`Dashboard` when no
 providers are configured, or via the setup wizard
