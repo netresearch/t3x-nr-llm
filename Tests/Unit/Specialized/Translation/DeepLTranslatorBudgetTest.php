@@ -9,7 +9,10 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Specialized\Translation;
 
+use GuzzleHttp\Psr7\Response;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
@@ -19,6 +22,7 @@ use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\DeepLTranslator;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Client\ClientInterface;
@@ -27,8 +31,6 @@ use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
 use Psr\Log\NullLogger;
-use RuntimeException;
-use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
@@ -65,35 +67,69 @@ final class DeepLTranslatorBudgetTest extends TestCase
     }
 
     #[Test]
-    public function theConfiguredIdentifierIsPassedToTheBudgetCheckSoPerConfigurationCapsApply(): void
-    {
+    #[DataProvider('translationShapes')]
+    public function theConfiguredIdentifierIsPassedToTheBudgetCheckSoPerConfigurationCapsApply(
+        bool $batch,
+    ): void {
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('editorial');
+        $configuration->setIsActive(true);
+
+        $looked = [];
+        $configurations = $this->createMock(LlmConfigurationRepository::class);
+        $configurations
+            ->method('findOneByIdentifier')
+            ->willReturnCallback(
+                static function (
+                    string $identifier,
+                ) use (&$looked, $configuration): ?LlmConfiguration {
+                    $looked[] = $identifier;
+                    return $identifier === 'editorial' ? $configuration : null;
+                },
+            );
+        $checked = [];
         $budget = $this->createMock(BudgetServiceInterface::class);
-        $budget->expects(self::once())
+        $budget
             ->method('check')
-            ->with(7, 0.5, self::anything())
-            ->willReturn(BudgetCheckResult::allowed());
-
+            ->willReturnCallback(
+                static function (
+                    int $userUid,
+                    float $plannedCost,
+                    ?LlmConfiguration $resolved,
+                ) use (&$checked): BudgetCheckResult {
+                    $checked[] = [$userUid, $plannedCost, $resolved];
+                    return BudgetCheckResult::allowed();
+                },
+            );
         $httpClient = $this->createMock(ClientInterface::class);
-        $httpClient->method('sendRequest')->willThrowException(new RuntimeException('stop here', 1784600500));
-
-        $translator = $this->translator($httpClient, budgetService: $budget);
-
-        try {
-            $translator->translate('Guten Tag', 'en', null, [
-                'beUserUid'     => 7,
-                'plannedCost'   => 0.5,
-                'configuration' => 'editorial',
-            ]);
-        } catch (Throwable) {
-            // The dispatch is stubbed to fail; the budget expectation above is
-            // what this test asserts.
-        }
+        $httpClient
+            ->expects(self::once())
+            ->method('sendRequest')
+            ->willReturn(
+                new Response(
+                    200,
+                    [],
+                    '{"translations":[{"text":"Hello","detected_source_language":"DE"}]}',
+                ),
+            );
+        $translator = $this->translator(
+            $httpClient,
+            budgetService: $budget,
+            configurationRepository: $configurations,
+        );
+        $options = ['beUserUid' => 7, 'plannedCost' => 0.5, 'configuration' => 'editorial'];
+        $results = $batch ? $translator->translateBatch(['Guten Tag'], 'en', null, $options) : [$translator->translate('Guten Tag', 'en', null, $options)];
+        self::assertSame(['editorial'], $looked);
+        self::assertSame([[7, 0.5, $configuration]], $checked);
+        self::assertCount(1, $results);
+        self::assertSame('Hello', $results[0]->translatedText);
     }
 
     private function translator(
         ClientInterface $httpClient,
         bool $allowed = true,
         ?BudgetServiceInterface $budgetService = null,
+        ?LlmConfigurationRepository $configurationRepository = null,
     ): DeepLTranslator {
         if (!$budgetService instanceof BudgetServiceInterface) {
             $budgetService = $this->createMock(BudgetServiceInterface::class);
@@ -124,6 +160,7 @@ final class DeepLTranslatorBudgetTest extends TestCase
             $budgetService,
             new MiddlewarePipeline([]),
             new InputGuardrailScreener([]),
+            configurationRepository: $configurationRepository,
         );
         $translator->setHttpClient($httpClient);
 
@@ -148,5 +185,14 @@ final class DeepLTranslatorBudgetTest extends TestCase
         $factory->method('createStream')->willReturn(self::createStub(StreamInterface::class));
 
         return $factory;
+    }
+
+    /**
+     * @return iterable<string,array{bool}>
+     */
+    public static function translationShapes(): iterable
+    {
+        yield 'single' => [false];
+        yield 'batch' => [true];
     }
 }
