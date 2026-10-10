@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Service\Governance;
 
 use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use Psr\Log\LoggerInterface;
+use Throwable;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\SingletonInterface;
@@ -34,25 +36,42 @@ final readonly class GovernanceEventRepository implements GovernanceEventReposit
 
     public function __construct(
         private ConnectionPool $connectionPool,
+        private ?LoggerInterface $logger = null,
     ) {}
 
     public function record(GovernanceEvent $event): void
     {
-        $this->connectionPool->getConnectionForTable(self::TABLE)->insert(self::TABLE, [
-            'pid'                      => 0,
-            'correlation_id'           => $event->correlationId,
-            'decision'                 => $event->decision,
-            'reason'                   => $event->reason,
-            'provider'                 => $event->provider,
-            'model'                    => $event->model,
-            'configuration_identifier' => $event->configurationIdentifier,
-            'be_user'                  => $event->beUser,
-            'tool_name'                => $event->toolName,
-            'agentrun_uid'             => $event->agentrunUid,
-            'guardrail'                => $event->guardrail,
-            'detail'                   => $event->detail,
-            'crdate'                   => time(),
-        ]);
+        try {
+            $this->connectionPool
+                ->getConnectionForTable(self::TABLE)
+                ->insert(
+                    self::TABLE,
+                    [
+                        'pid' => 0,
+                        'correlation_id' => $event->correlationId,
+                        'decision' => $event->decision,
+                        'reason' => $event->reason,
+                        'provider' => $event->provider,
+                        'model' => $event->model,
+                        'configuration_identifier' => $event->configurationIdentifier,
+                        'be_user' => $event->beUser,
+                        'tool_name' => $event->toolName,
+                        'agentrun_uid' => $event->agentrunUid,
+                        'guardrail' => $event->guardrail,
+                        'detail' => $event->detail,
+                        'crdate' => time(),
+                    ],
+                );
+        } catch (Throwable $failure) {
+            try {
+                $this->logger?->warning(
+                    'Could not record governance event.',
+                    ['exceptionClass' => substr($failure::class, 0, 200)],
+                );
+            } catch (Throwable) {
+                // Diagnostics must not replace the governance decision either.
+            }
+        }
     }
 
     public function purgeOlderThan(int $timestamp): int
