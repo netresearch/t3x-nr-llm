@@ -172,6 +172,9 @@ preserves its existing skills and pinned SHA. For a ``marketplace`` source,
 the affected child repository reports a partial sync; its existing skills
 remain unchanged, and other reachable child repositories can still sync.
 
+Malformed GitHub JSON responses are refused with the client's typed response
+error. Diagnostic logging is best effort and cannot replace that refusal.
+
 Deleting a source cascade-deletes its skills.
 
 .. _administration-skills-support-status:
