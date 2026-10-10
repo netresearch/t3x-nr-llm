@@ -45,12 +45,20 @@ final readonly class McpHealthRecorder implements McpHealthRecorderInterface
         }
 
         try {
-            $this->servers->recordSuccessfulContact($server->uid, $this->now(), max(0, $latencyMs));
+            $this->servers->recordSuccessfulContact(
+                $server->uid,
+                $this->now(),
+                max(0, $latencyMs),
+            );
         } catch (Throwable $e) {
-            $this->logger->warning('An MCP liveness observation could not be stored', [
-                'server'    => $server->identifier,
-                'exception' => $e,
-            ]);
+            try {
+                $this->logger->warning(
+                    'An MCP liveness observation could not be stored',
+                    ['server' => $server->identifier, 'exception' => $e],
+                );
+            } catch (Throwable) {
+                // Optional diagnostics cannot invalidate a completed MCP operation.
+            }
         }
     }
 
