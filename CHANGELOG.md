@@ -82,6 +82,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Governance documentation now describes effective retention override rows, the publisher-trust floor and reported-zero cost precedence. Typed and cache-codec usage tests preserve measured zero against positive model pricing.
+
 - **Provider registration documentation matches container behavior (ADR-022).**
   Attribute discovery keeps providers private, scans only the NrLlm namespace
   and orders registrations without resolving duplicate identifiers. The API
