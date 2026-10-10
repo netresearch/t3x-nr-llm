@@ -25,7 +25,10 @@ final class RegressionThresholdsTest extends TestCase
         float $meanScore,
     ): void {
         $this->expectException(InvalidArgumentException::class);
-        new RegressionThresholds($passRate, $meanScore);
+        $thresholds = new RegressionThresholds($passRate, $meanScore);
+        self::fail(
+            'Accepted invalid thresholds: ' . $thresholds->maxPassRateDrop . '/' . $thresholds->maxMeanScoreDrop,
+        );
     }
 
     /**

@@ -102,41 +102,7 @@ final class RetrievalEvalRunCommand extends Command
             return Command::FAILURE;
         }
 
-        try {
-            $thresholds = new RegressionThresholds(
-                $this->floatOption($input, 'max-top1-drop'),
-                $this->floatOption($input, 'max-top3-drop'),
-            );
-        } catch (InvalidArgumentException $exception) {
-            $io->error($exception->getMessage());
-            return Command::FAILURE;
-        }
-
-        $result = $this->evaluationService->run($set, $retriever);
-        $io->title(
-            sprintf(
-                'Retrieval evaluation: %s vs %s',
-                $set->identifier,
-                $retriever->getIdentifier(),
-            ),
-        );
-        $this->renderEvaluations($io, $result);
-
-        $persistable = $result->toSetEvaluationResult();
-        $previous = $this->repository->findLatest(
-            $persistable->setIdentifier,
-            $persistable->model,
-            $persistable->grader,
-        );
-        $this->repository->save($persistable);
-
-        return $this->renderComparison(
-            $input,
-            $io,
-            $persistable->toSummary(),
-            $previous,
-            $thresholds,
-        );
+        return $this->evaluate($input, $io, $set, $retriever);
     }
 
     private function renderEvaluations(SymfonyStyle $io, RetrievalSetEvaluationResult $result): void
@@ -313,5 +279,48 @@ final class RetrievalEvalRunCommand extends Command
         }
 
         return $report->isRegression && $failOnRegression ? Command::FAILURE : Command::SUCCESS;
+    }
+
+    private function evaluate(
+        InputInterface $input,
+        SymfonyStyle $io,
+        GoldenQuestionSet $set,
+        EvaluatableRetrieverInterface $retriever,
+    ): int {
+        try {
+            $thresholds = new RegressionThresholds(
+                $this->floatOption($input, 'max-top1-drop'),
+                $this->floatOption($input, 'max-top3-drop'),
+            );
+        } catch (InvalidArgumentException $exception) {
+            $io->error($exception->getMessage());
+            return Command::FAILURE;
+        }
+
+        $result = $this->evaluationService->run($set, $retriever);
+        $io->title(
+            sprintf(
+                'Retrieval evaluation: %s vs %s',
+                $set->identifier,
+                $retriever->getIdentifier(),
+            ),
+        );
+        $this->renderEvaluations($io, $result);
+
+        $persistable = $result->toSetEvaluationResult();
+        $previous = $this->repository->findLatest(
+            $persistable->setIdentifier,
+            $persistable->model,
+            $persistable->grader,
+        );
+        $this->repository->save($persistable);
+
+        return $this->renderComparison(
+            $input,
+            $io,
+            $persistable->toSummary(),
+            $previous,
+            $thresholds,
+        );
     }
 }
