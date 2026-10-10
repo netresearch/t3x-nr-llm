@@ -145,7 +145,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
     {
         if ($configurationUid !== null && $configurationUid > 0) {
             $config = $this->configurationRepository->findByUid($configurationUid);
-            if ($config instanceof LlmConfiguration && $config->getLlmModel() instanceof Model) {
+            if ($config instanceof LlmConfiguration && $this->hasModelSelection($config)) {
                 return $config;
             }
         }
@@ -302,8 +302,9 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
     public function findBestExistingConfiguration(string $description): ?LlmConfiguration
     {
         foreach ($this->configurationRepository->findActive() as $config) {
-            // Simple heuristic: config with a system prompt and a model is usable
-            if ($config->getSystemPrompt() !== '' && $config->getLlmModel() !== null) {
+            // Simple heuristic: a configuration with a system prompt and
+            // model selection is usable.
+            if ($config->getSystemPrompt() !== '' && $this->hasModelSelection($config)) {
                 return $config;
             }
         }
@@ -314,13 +315,13 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
     private function getDefaultConfiguration(): ?LlmConfiguration
     {
         $config = $this->configurationRepository->findDefault();
-        if ($config instanceof LlmConfiguration && $config->getLlmModel() instanceof Model) {
+        if ($config instanceof LlmConfiguration && $this->hasModelSelection($config)) {
             return $config;
         }
 
         // Try first active config
         foreach ($this->configurationRepository->findAll() as $c) {
-            if ($c instanceof LlmConfiguration && $c->isActive() && $c->getLlmModel() instanceof Model) {
+            if ($c instanceof LlmConfiguration && $c->isActive() && $this->hasModelSelection($c)) {
                 return $c;
             }
         }
@@ -744,5 +745,10 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
     private function clampInt(int $value, int $min, int $max): int
     {
         return max($min, min($max, $value));
+    }
+
+    private function hasModelSelection(LlmConfiguration $configuration): bool
+    {
+        return $configuration->usesCriteriaSelection() || $configuration->getLlmModel() instanceof Model;
     }
 }
