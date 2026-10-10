@@ -194,7 +194,14 @@ vendor: classification, selection and rubric scoring are one operation.
    keys — all throw :php:`DecisionException` with a named code. Budget,
    guardrail and input-context trust-zone denials keep their own types, as
    policy a caller may handle. No code path turns "the model could not be
-   asked" into an answer. A fallback configuration whose model cannot serve
+   asked" into an answer. This boundary includes reading the default
+   configuration, repository access, model routing and budget-subject
+   resolution. ``assertAvailable()`` applies the same failure mapping to
+   its preflight checks without making a provider call. Infrastructure
+   failures retain their previous exception; before a configuration is
+   resolved, the diagnostic names the requested identifier or
+   ``decision.configuration``. Engine ``\Error`` defects propagate.
+   A fallback configuration whose model cannot serve
    the operation at all is skipped rather than reported in place of the
    primary's failure — for every operation, since the same holds for a
    sibling that lacks embeddings or vision.

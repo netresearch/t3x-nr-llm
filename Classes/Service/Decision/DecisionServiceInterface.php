@@ -26,24 +26,27 @@ use Netresearch\NrLlm\Exception\InputContextTrustZoneException;
 interface DecisionServiceInterface
 {
     /**
-     * @throws DecisionException                  the decision could not be made, for any reason but the ones below
+     * Operational failures include configuration lookup, routing and budget-subject resolution.
+     * Engine Errors propagate without wrapping.
+     *
+     * @throws DecisionException                  the decision could not be made, except for policy denials below
      * @throws BudgetExceededException            the call would exceed a budget
      * @throws GuardrailViolationException        a guardrail refused the subject or, for a chat model, its answer
      * @throws GuardrailApprovalRequiredException a guardrail requires an approval first
-     * @throws InputContextTrustZoneException     the configuration's injected context may not reach the serving provider
+     * @throws InputContextTrustZoneException     the injected context may not reach the serving provider
      */
     public function evaluate(DecisionRequest $request): DecisionResult;
 
     /**
-     * Whether a decision by this profile can be asked on this configuration
-     * (the request's, else `decision.configuration`) — without asking it.
+     * Check the profile, configuration, model and trust zone without a provider call.
+     * Uses the request's configuration or decision.configuration. Policy denials
+     * preserve their types; engine Errors propagate as in evaluate().
      *
-     * Checks what needs no subject: the profile, the configuration, a model
-     * that can answer, and the trust zone against the profile's data class.
-     * Spends nothing; a caller about to run many paid calls whose results
-     * only a decision can judge checks this first.
-     *
-     * @throws DecisionException with the code evaluate() would fail with
+     * @throws DecisionException                  with the code evaluate() would fail with
+     * @throws BudgetExceededException
+     * @throws GuardrailViolationException
+     * @throws GuardrailApprovalRequiredException
+     * @throws InputContextTrustZoneException
      */
     public function assertAvailable(string $profile, ?string $configuration = null): void;
 }

@@ -40,17 +40,14 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 /**
  * Typed decisions on a configuration's model (ADR-211).
  *
- * Resolves the profile and the configuration, checks the subject against the
- * profile and the trust zone of every provider the configuration can reach,
- * then asks: a model that declares `decision` natively through the manager,
- * any other chat-capable model through structured output. The answers are
- * verified against the questions before a caller sees them, whichever model
- * produced them.
+ * Resolves the profile and configuration, checks subject fields and every
+ * reachable provider's trust zone, then asks a native decision model through
+ * the manager or a chat model through structured output. Answers are verified
+ * against the questions before a caller sees them.
  *
- * Every failure throws. Budget, guardrail and input-context trust-zone
- * denials keep their types, because a caller may handle them as policy; everything else becomes a
- * {@see DecisionException}, so "the model could not be asked" can never be
- * read as an answer.
+ * Operational failures, including preflight, become DecisionException.
+ * Budget, guardrail and input-context trust-zone denials preserve their types;
+ * engine Errors propagate as programming defects.
  */
 final readonly class DecisionService implements DecisionServiceInterface
 {
@@ -67,51 +64,60 @@ final readonly class DecisionService implements DecisionServiceInterface
 
     public function evaluate(DecisionRequest $request): DecisionResult
     {
-        $profile = $this->profile($request->profile);
-
-        foreach ($profile->requires as $field) {
-            if (!$request->subject->has($field)) {
-                throw DecisionException::missingSubjectField($profile->identifier, $field);
-            }
-        }
-
-        [$configuration, $resolution, $native] = $this->route($profile, $request->configuration);
-
-        $request = $this->withBudgetSubject($request);
-
+        $context = trim($request->configuration ?? '') ?: 'decision.configuration';
         try {
-            $response = $native
-                ? $this->llmManager->decideForConfiguration($request->subject, $profile->questions, $configuration, $this->options($request), $resolution)
-                : $this->structured->ask($profile, $request, $configuration, $resolution);
+            $profile = $this->profile($request->profile);
+            foreach ($profile->requires as $field) {
+                if (!$request->subject->has($field)) {
+                    throw DecisionException::missingSubjectField(
+                        $profile->identifier,
+                        $field,
+                    );
+                }
+            }
+
+            $configuration = $this->resolveConfiguration($request->configuration);
+            $context = $configuration->getIdentifier();
+            [$resolution, $native] = $this->route($profile, $configuration);
+            $request = $this->withBudgetSubject($request);
+            $response = $native ? $this->llmManager->decideForConfiguration(
+                $request->subject,
+                $profile->questions,
+                $configuration,
+                $this->options($request),
+                $resolution,
+            ) : $this->structured->ask(
+                $profile,
+                $request,
+                $configuration,
+                $resolution,
+            );
+            $this->assertAnswersMatch($profile, $context, $response);
+            return $this->result($profile, $configuration, $response);
         } catch (DecisionException|BudgetExceededException|GuardrailPolicyException|InputContextTrustZoneException $e) {
             // Policy refusals keep their types: a caller may handle them as policy.
             throw $e;
-        } catch (UnsupportedFeatureException $e) {
-            // A model that declares `decision` on a provider that cannot make any.
-            throw DecisionException::modelCannotDecide($configuration->getIdentifier(), $e->getMessage(), $e);
-        } catch (InvalidDecisionResponseException $e) {
-            throw DecisionException::invalidAnswer($configuration->getIdentifier(), '*', $e->getMessage(), $e);
-        } catch (ProviderResponseException $e) {
-            // A refused request — a bad key, a subject over the limit, a
-            // question the provider cannot take — fails the same way again;
-            // only a rate limit is worth retrying.
-            throw $e->httpStatus >= 400 && $e->httpStatus < 500 && $e->httpStatus !== 429
-                ? DecisionException::rejected($configuration->getIdentifier(), $e)
-                : DecisionException::failed($configuration->getIdentifier(), $e);
         } catch (Exception $e) {
-            // Outages, timeouts, an exhausted fallback chain. An \Error is a
-            // defect in the code, not a failed decision, and propagates as such.
-            throw DecisionException::failed($configuration->getIdentifier(), $e);
+            // Engine Errors remain programming defects and propagate.
+            throw $this->mapFailure($context, $e);
         }
-
-        $this->assertAnswersMatch($profile, $configuration->getIdentifier(), $response);
-
-        return $this->result($profile, $configuration, $response);
     }
 
-    public function assertAvailable(string $profile, ?string $configuration = null): void
-    {
-        $this->route($this->profile($profile), $configuration);
+    public function assertAvailable(
+        string $profile,
+        ?string $configuration = null,
+    ): void {
+        $context = trim($configuration ?? '') ?: 'decision.configuration';
+        try {
+            $resolvedProfile = $this->profile($profile);
+            $resolvedConfiguration = $this->resolveConfiguration($configuration);
+            $context = $resolvedConfiguration->getIdentifier();
+            $this->route($resolvedProfile, $resolvedConfiguration);
+        } catch (DecisionException|BudgetExceededException|GuardrailPolicyException|InputContextTrustZoneException $e) {
+            throw $e;
+        } catch (Exception $e) {
+            throw $this->mapFailure($context, $e);
+        }
     }
 
     private function profile(string $identifier): DecisionProfile
@@ -121,26 +127,29 @@ final readonly class DecisionService implements DecisionServiceInterface
     }
 
     /**
-     * The configuration, the one routing decision for it, and whether its
-     * model answers natively — refused where the profile's data may not go.
+     * The one routing decision and whether its model answers natively —
+     * refused where the profile's data may not go.
      *
-     * @return array{LlmConfiguration, ModelResolution, bool}
+     * @return array{ModelResolution, bool}
      */
-    private function route(DecisionProfile $profile, ?string $identifier): array
-    {
-        $configuration = $this->resolveConfiguration($identifier);
+    private function route(
+        DecisionProfile $profile,
+        LlmConfiguration $configuration,
+    ): array {
         [$resolution, $native] = $this->resolveModel($configuration);
-
-        // The zone of every provider the call can reach, fallbacks included:
-        // a fallback sends the subject wherever it points. The resolution is
-        // handed to the call, so the model checked here is the model that
-        // serves — a second routing pass could pick another (#922).
+        // Check every reachable provider, including fallbacks. The same
+        // resolution is handed to the call, avoiding a second routing pass (#922).
         $zone = $this->trustZones->zoneFor($configuration, $resolution->model);
         if (!$zone->permits($profile->dataClass)) {
-            throw DecisionException::dataClassNotPermitted($profile->identifier, $profile->dataClass, $configuration->getIdentifier(), $zone);
+            throw DecisionException::dataClassNotPermitted(
+                $profile->identifier,
+                $profile->dataClass,
+                $configuration->getIdentifier(),
+                $zone,
+            );
         }
 
-        return [$configuration, $resolution, $native];
+        return [$resolution, $native];
     }
 
     private function resolveConfiguration(?string $identifier): LlmConfiguration
@@ -310,5 +319,34 @@ final readonly class DecisionService implements DecisionServiceInterface
                 throw DecisionException::invalidAnswer($configuration, $key, sprintf('a probability for "%s", which the question does not offer', $name));
             }
         }
+    }
+
+    private function mapFailure(
+        string $configuration,
+        Exception $failure,
+    ): DecisionException {
+        if ($failure instanceof UnsupportedFeatureException) {
+            return DecisionException::modelCannotDecide(
+                $configuration,
+                $failure->getMessage(),
+                $failure,
+            );
+        }
+
+        if ($failure instanceof InvalidDecisionResponseException) {
+            return DecisionException::invalidAnswer(
+                $configuration,
+                '*',
+                $failure->getMessage(),
+                $failure,
+            );
+        }
+
+        // Permanent provider refusals differ from retryable outages/rate limits.
+        if ($failure instanceof ProviderResponseException && $failure->httpStatus >= 400 && $failure->httpStatus < 500 && $failure->httpStatus !== 429) {
+            return DecisionException::rejected($configuration, $failure);
+        }
+
+        return DecisionException::failed($configuration, $failure);
     }
 }
