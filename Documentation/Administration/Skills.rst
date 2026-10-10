@@ -79,6 +79,11 @@ Adding a source
 The ``pinned_sha``, ``sync_status``, ``sync_error`` and ``last_synced``
 fields are managed by the sync run and shown read-only.
 
+Sync errors shown by the module and stored on the source mask credential
+query parameters and URL userinfo passwords. Fatal-error diagnostics retain
+the exception class, source uid and sanitized message and source URL; they
+do not retain the raw exception object.
+
 .. _administration-skills-token:
 
 GitHub token and rate limits
