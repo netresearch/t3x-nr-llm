@@ -50,6 +50,16 @@ A source has one of three types:
    further repositories. Each entry is expanded with the ``repo`` flow.
    All discovered skills arrive **disabled**.
 
+   The parser accepts a ``plugins`` array. A plugin source can be an
+   ``owner/repository`` string, an object with a string ``repo`` of that
+   form, or an object with a GitHub ``url``. A string ``repo`` takes
+   precedence over ``url``. GitHub URL host matching is case-insensitive;
+   the first two path segments identify the repository and a trailing
+   ``.git`` suffix is removed. Unsupported entries are skipped while
+   later supported entries are still processed. A plugin's string ``ref``
+   is passed to its repository sync; an absent or non-string ``ref`` uses
+   ``HEAD``. An empty string is normalized to ``HEAD`` by that sync.
+
 .. _administration-skills-add:
 
 Adding a source
@@ -67,12 +77,22 @@ Adding a source
 
    :guilabel:`URL`
       The GitHub URL the type expects (the ``SKILL.md`` URL, the
-      repository URL, or the ``marketplace.json`` URL).
+      repository URL, or the ``marketplace.json`` URL). For a marketplace,
+      a plain repository URL uses ``.claude-plugin/marketplace.json``
+      at ``HEAD``; a raw or blob index URL specifies its own path and ref.
 
    :guilabel:`Ref`
-      A branch or tag (for example ``main`` or ``v1.2.0``). It is
-      resolved **once** to an immutable commit SHA at sync time; all
-      bodies are then fetched by that SHA, never by the moving branch.
+      For ``single_file`` and ``repo``, a branch, tag or commit (for
+      example ``main`` or ``v1.2.0``); an empty value uses ``HEAD``.
+      It is resolved once to an immutable commit SHA, and the skill
+      bodies are fetched by that SHA.
+
+      A ``marketplace`` source does not use this field. A raw or blob
+      index URL is fetched at the URL's ref. A plain repository URL
+      instead resolves ``HEAD`` and fetches the conventional index path
+      by that commit. Each plugin repository is resolved separately from
+      that plugin's ``ref`` or ``HEAD``, and its skill bodies use the
+      resulting commit.
 
 4. Click :guilabel:`Save`.
 

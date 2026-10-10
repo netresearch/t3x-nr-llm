@@ -19,6 +19,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Marketplace parser contract tests verify supported repository identities, optional plugin refs, continuation after unsupported entries and precise invalid-catalogue diagnostics. The Skills manual distinguishes repository commit pinning from marketplace index URL selection and per-plugin refs.
+
 - **Worker operations (ADR-219).** `nrllm:agent:status` reports queue wait,
   unknown timings, expired run leases and transport-scoped consumer heartbeats,
   with JSON output and explicit health thresholds. Queue-entry time is recorded
