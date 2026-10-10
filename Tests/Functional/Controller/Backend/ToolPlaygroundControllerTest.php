@@ -1570,4 +1570,97 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $reflection = new ReflectionClass($object);
         $reflection->getProperty($property)->setValue($object, $value);
     }
+
+    #[Test]
+    public function runActionHonorsAnExplicitEmptyToolSelection(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('empty-tools');
+
+        $provider = new Provider();
+        $provider->setIdentifier('literal-provider');
+        $provider->setAdapterType('openai');
+        $provider->setTrustZoneEnum(TrustZone::LOCAL);
+
+        $model = new Model();
+        $model->setModelId('literal-model');
+        $model->setProvider($provider);
+
+        $configuration->setLlmModel($model);
+        $repository = $this->createMock(LlmConfigurationRepository::class);
+        $repository->method('findByUid')->willReturn($configuration);
+        $manager = $this->createMock(LlmServiceManagerInterface::class);
+        $answer = new CompletionResponse(
+            'Plain answer without tools.',
+            'literal-model',
+            new UsageStatistics(2, 3, 5),
+            'stop',
+            'literal-provider',
+        );
+        /** @var list<list<mixed>> $plainCalls */
+        $plainCalls = [];
+        /** @var list<list<mixed>> $toolCalls */
+        $toolCalls = [];
+        $manager
+            ->method('chatWithConfiguration')
+            ->willReturnCallback(
+                static function (
+                    mixed ...$arguments,
+                ) use (&$plainCalls, $answer): CompletionResponse {
+                    $plainCalls[] = $arguments;
+                    return $answer;
+                },
+            );
+        $manager
+            ->method('chatWithToolsForConfiguration')
+            ->willReturnCallback(
+                static function (
+                    mixed ...$arguments,
+                ) use (&$toolCalls, $answer): CompletionResponse {
+                    $toolCalls[] = $arguments;
+                    return $answer;
+                },
+            );
+        $registry = new ToolRegistry([new FakeTool('fetch_logs')]);
+        $controller = $this->makeController(
+            $repository,
+            $registry,
+            $this->loopFor($manager, $registry, new NullLogger()),
+        );
+        $response = $controller->runAction(
+            (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))->withParsedBody(
+                [
+                    'configuration' => 1,
+                    'prompt' => 'Answer without using tools.',
+                    'tools' => [''],
+                ],
+            ),
+        );
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame([], $toolCalls);
+        self::assertCount(1, $plainCalls);
+        self::assertSame($configuration, $plainCalls[0][1]);
+        $payload = json_decode(
+            (string)$response->getBody(),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+        self::assertIsArray($payload);
+        self::assertTrue($payload['success']);
+        self::assertSame(
+            'Plain answer without tools.',
+            $payload['finalContent'],
+        );
+        self::assertSame(1, $payload['iterations']);
+        self::assertIsArray($payload['steps']);
+        self::assertSame(
+            ['request', 'llm'],
+            array_column($payload['steps'], 'kind'),
+        );
+        self::assertIsArray($payload['steps'][0]);
+        self::assertSame([], $payload['steps'][0]['toolSpecs']);
+    }
 }

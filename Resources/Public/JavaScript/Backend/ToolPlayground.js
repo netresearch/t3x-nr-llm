@@ -171,6 +171,10 @@ class ToolPlayground {
         this.appendIfSet(formData, 'nrllm-pg-maxtokens', 'maxTokens');
         this.appendIfSet(formData, 'nrllm-pg-temperature', 'temperature');
         this.appendIfSet(formData, 'nrllm-pg-think', 'think');
+        // An explicit empty selection must reach PHP as an array too. The
+        // controller ignores this blank member; omitting the key restores the
+        // globally enabled tools for older clients that send no selection.
+        formData.append('tools[]', '');
         this.appendChecked(formData, '.js-tool-select', 'tools[]');
         this.appendChecked(formData, '.js-skill-select', 'forcedSkills[]');
         this.appendChecked(formData, '.js-snippet-select', 'forcedSnippets[]');

@@ -1319,7 +1319,8 @@ loop, while the Tools module governs *which* tools exist and are enabled.
    whose result is fed back so round 2 can answer.
 
 The :guilabel:`Tools available to this run` list lets you narrow a single run
-to a subset of the globally-enabled tools (the full list and the global
+to a subset of the globally-enabled tools. Unticking every tool sends a plain
+completion with no tools offered (the full list and the global
 enable/disable controls live in the :ref:`Tools
 <administration-tools-manage>` module). Raw-response capture is off unless you
 tick it, so ordinary runs never retain the provider's raw payload. Every
