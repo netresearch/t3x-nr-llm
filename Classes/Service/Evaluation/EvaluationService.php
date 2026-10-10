@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Evaluation;
 
+use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
 use Netresearch\NrLlm\Service\Evaluation\Grader\DeterministicGrader;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -43,24 +44,18 @@ final readonly class EvaluationService
     }
 
     /**
-     * Execute the set and return the aggregated result.
+     * Execute the set and retain grading separately from verified serving identity.
      *
      * @param string           $graderId    Grader identifier (default: deterministic; decision is opt-in)
-     * @param ChatOptions|null $baseOptions Options applied to every call (e.g. the model/provider to evaluate);
-     *                                      a prompt's own system prompt overrides the base system prompt
+     * @param ChatOptions|null $baseOptions Options applied to every call; a prompt overrides the system prompt
      */
     public function run(
         GoldenPromptSet $set,
         string $graderId = DeterministicGrader::IDENTIFIER,
         ?ChatOptions $baseOptions = null,
     ): SetEvaluationResult {
-        // Before the first paid completion: a grader that cannot grade at
-        // all would otherwise fail every prompt after paying for it.
         $this->gradingService->assertReady($graderId);
-
         $evaluations = [];
-        $model = $baseOptions?->getModel() ?? '';
-
         foreach ($set->prompts as $prompt) {
             $options = $baseOptions ?? new ChatOptions();
             if ($prompt->systemPrompt !== null) {
@@ -70,24 +65,39 @@ final readonly class EvaluationService
             $startedAt = microtime(true);
             $response = $this->completionService->complete($prompt->prompt, $options);
             $latencyMs = (int)round((microtime(true) - $startedAt) * 1000);
-
-            if ($response->model !== '') {
-                $model = $response->model;
+            $provenance = GeneratorProvenance::fromArray(
+                $response->metadata[GeneratorProvenance::METADATA_KEY] ?? null,
+            );
+            if ($provenance?->reportedModelId !== $response->model) {
+                $provenance = null;
             }
 
-            // Graded against the system prompt the call actually ran with —
-            // the prompt's own or the run's base one — so a response that
-            // ignored an instruction there is judged as having ignored it.
+            // Grade the system prompt used by the actual call, independent of generator attribution.
             $effectiveSystemPrompt = $options->getSystemPrompt();
-            $gradedPrompt = $effectiveSystemPrompt === $prompt->systemPrompt
-                ? $prompt
-                : $prompt->withSystemPrompt($effectiveSystemPrompt);
-
-            $grading = $this->gradingService->grade($response->content, $gradedPrompt, $graderId);
-            $evaluations[] = new PromptEvaluation($prompt->id, $grading, $latencyMs);
+            $gradedPrompt = $effectiveSystemPrompt === $prompt->systemPrompt ? $prompt : $prompt->withSystemPrompt($effectiveSystemPrompt);
+            $grading = $this->gradingService->grade(
+                $response->content,
+                $gradedPrompt,
+                $graderId,
+            );
+            $evaluations[] = new PromptEvaluation(
+                $prompt->id,
+                $grading,
+                $latencyMs,
+                $provenance,
+                $response->provider,
+            );
         }
 
-        return new SetEvaluationResult($set->identifier, $model, $this->series($graderId, $evaluations), $evaluations, time());
+        $generator = $this->singleGenerator($evaluations);
+        return new SetEvaluationResult(
+            $set->identifier,
+            $generator->modelId ?? '',
+            $this->series($graderId, $evaluations),
+            $evaluations,
+            time(),
+            generatorProvenance: $generator,
+        );
     }
 
     /**
@@ -110,5 +120,24 @@ final readonly class EvaluationService
         )));
 
         return count($graders) === 1 ? $graders[0] : $graderId;
+    }
+
+    /**
+     * @param list<PromptEvaluation> $evaluations
+     */
+    private function singleGenerator(array $evaluations): ?GeneratorProvenance
+    {
+        $first = $evaluations[0]->generatorProvenance ?? null;
+        if (!$first instanceof GeneratorProvenance) {
+            return null;
+        }
+
+        foreach ($evaluations as $evaluation) {
+            if (!$evaluation->generatorProvenance instanceof GeneratorProvenance || !$first->sameGenerator($evaluation->generatorProvenance)) {
+                return null;
+            }
+        }
+
+        return $first;
     }
 }

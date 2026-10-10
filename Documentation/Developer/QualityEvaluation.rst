@@ -12,13 +12,16 @@ Quality evaluation
 nr_llm can measure the quality of the answers a model produces against
 **golden prompt sets** and detect regressions between runs. Evaluation is an
 explicitly triggered, out-of-request operation — it never runs in the request
-pipeline and, with the default grader, spends no tokens. See
+pipeline. Generation calls the configured completion service once per prompt
+and follows that provider's billing. The default deterministic grader makes
+no additional model call and spends no grading tokens. See
 :ref:`ADR-060 <adr-060>` for the design rationale.
 
 A golden set is a collection of prompts, each with the expectations it should
 satisfy. A run executes the set against a model, grades every response,
 aggregates the results to a pass rate and mean score, stores the run, and
-compares it against the previous run for the same set and model.
+compares it against the previous verified run with the same set, serving
+provider instance, outbound model alias, reported model and grading yardstick.
 
 .. _developer-quality-evaluation-declaring:
 
@@ -140,7 +143,8 @@ reports its yardstick — ``decision:<provider>:<model>:v<profile version>``,
 for example ``decision:typesafe:jev-1.13.0:v1`` — so a TypeSafe run and a
 chat-model run of the same set, or runs on two model versions, are separate
 series and never each other's regression baseline. A run in which some
-decisions failed, or in which the model changed, has no single yardstick: it
+decisions failed, or in which the grading model changed, has no single
+yardstick: it
 is stored as plain ``decision`` and never compared. A run in which every
 decision failed is ``decision:failed``. Neither can pass a gate: with
 ``--fail-on-regression`` both exit non-zero, without it they are reported as
@@ -168,21 +172,82 @@ Use the ``nrllm:eval:run`` command:
 
 The command prints the per-prompt gradings and the aggregate (pass rate, mean
 score), stores the run in ``tx_nrllm_eval_result``, and reports whether the run
-regressed against the previous run for the same set and model. The regression
+regressed against the previous verified run of the same generator and grading
+yardstick. The regression
 tolerance is configurable with ``--max-pass-rate-drop`` and
 ``--max-mean-score-drop`` (both default to ``0.1``).
 
 nr_llm ships an example set, ``nr_llm.smoke``, so the command is runnable out
 of the box.
 
+.. _developer-quality-evaluation-generator-identity:
+
+Serving generator identity
+==========================
+
+A grading protocol and the model that generated an answer are separate
+identities (:ref:`ADR-220 <adr-220>`). Responses from different models can
+share deterministic grading. Their combined score does not measure either
+model against the complete set.
+
+After a successful configuration-driven chat or completion terminal, reserved
+response metadata ``nr_llm_serving_generator`` records version one, the
+configured DB provider-instance identifier, the model alias actually sent to
+the adapter and the response's reported model. A fallback records its own
+resolved instance; a per-call override records the alias actually sent.
+``CompletionResponse.provider`` remains the adapter key, such as ``openai``.
+It does not identify one configured endpoint. A requested model option or an
+adapter-only call without a resolved DB instance supplies no serving proof.
+
+Every prompt must report the same verified provider instance, alias and
+reported model for its aggregate to become a generator-specific score.
+Mixed, missing or invalid evidence keeps all grades but leaves the run's model
+unknown. The command stores those measurements and prints an explicit
+skipped-comparison warning. ``--fail-on-regression`` fails in that state.
+Grader failures retain their separate yardstick checks.
+
+The ``generator_provenance`` result column stores the content-free proof
+separately from details. The default metadata privacy level drops details but
+retains that proof; full privacy also records each prompt's serving identity
+and adapter key. Existing retention removes the whole result row.
+Idempotency cache replay and output redaction preserve the original serving
+record, including when today's configuration points at another model.
+
+Run the database schema update after upgrading, then re-evaluate the golden
+sets used for routing. Legacy aggregates remain readable through ordinary
+history reads. Missing, malformed, unsupported-version and row-inconsistent
+proof cannot contribute to core routing or generator baselines, and no
+identity is assigned retroactively. A first verified run creates its own
+baseline. Baselines additionally scope the reported model: a newer different
+snapshot cannot hide an older eligible baseline.
+
+Existing repository and quality-provider interfaces keep their members.
+The optional ``GeneratorEvaluationResultRepositoryInterface`` adds verified
+provider/model score reads and a baseline read scoped to set, provider,
+alias, reported model and grader. The optional
+``ProviderModelQualityScoreProviderInterface`` adds a provider/model quality
+read. Core implementations expose both capabilities on the same objects.
+An old custom quality provider keeps its explicit model-ID contract; an old
+custom repository without serving-proof reads supplies no quality to the
+core evaluation adapter and no generator-specific comparison to the command.
+
 .. _developer-quality-evaluation-quality-routing:
 
 Quality-aware routing (opt-in)
 ==============================
 
-Stored evaluation results feed an **opt-in** routing hook. The existing
-cost/latency selection modes of :php:`ModelSelectionService` are unchanged;
-nothing routes by quality unless you call the hook explicitly:
+Verified evaluation results already feed measured ranking in
+:php:`ModelSelectionService` (:ref:`ADR-142 <adr-142>`). The extension setting
+``routing.policyMode`` defaults to ``providerPriority``; ``balanced``,
+``quality`` and ``economy`` opt into measured quality and health. Provider
+priority remains the first ordering rule. Quality is scoped to the configured
+provider instance and outbound model alias, using the latest eligible run per
+set with the deterministic grader. Unknown quality supplies no ranking signal;
+a measured zero remains zero. The legacy unscoped score is unknown when an
+alias has verified results from more than one provider instance.
+
+A consumer can additionally use :php:`QualityAwareModelSelector` to rank by
+quality alone and impose its ``minQuality`` filter:
 
 .. code-block:: php
 
@@ -198,8 +263,8 @@ nothing routes by quality unless you call the hook explicitly:
 return for the criteria and re-ranks them by measured quality score (latest run
 per set, averaged). Candidates without evaluation data keep their base order
 behind the scored ones; with ``minQuality`` set, candidates below it (or
-without data) are excluded. Making quality a first-class sort key inside
-:php:`ModelSelectionService` is a planned follow-up (see :ref:`ADR-060 <adr-060>`).
+without data) are excluded. This filter belongs to the explicit selector;
+core measured ranking does not impose a minimum quality constraint.
 
 .. _developer-quality-evaluation-retrieval:
 

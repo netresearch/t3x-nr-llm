@@ -10,6 +10,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Evaluation;
 
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Enum\QuestionForm;
+use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepository;
 use Netresearch\NrLlm\Service\Evaluation\GoldenQuestion;
 use Netresearch\NrLlm\Service\Evaluation\GoldenQuestionSet;
@@ -74,6 +75,14 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
         string $model = self::MODEL,
         string $grader = self::GRADER,
     ): SetEvaluationResult {
+        $generator = GeneratorProvenance::fromArray(
+            [
+                'version' => 1,
+                'providerIdentifier' => 'functional-fixture',
+                'modelId' => $model,
+                'reportedModelId' => $model,
+            ],
+        );
         $evaluations = [];
         for ($i = 0; $i < $total; ++$i) {
             $didPass = $i < $passed;
@@ -81,10 +90,18 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
                 'p' . $i,
                 new GradingResult($didPass, $didPass ? 1.0 : 0.0, $grader),
                 5,
+                $generator,
             );
         }
 
-        return new SetEvaluationResult(self::SET, $model, $grader, $evaluations, $runTimestamp);
+        return new SetEvaluationResult(
+            self::SET,
+            $model,
+            $grader,
+            $evaluations,
+            $runTimestamp,
+            generatorProvenance: $generator,
+        );
     }
 
     #[Test]

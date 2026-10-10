@@ -10,6 +10,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Upgrading from 0.40
 
+- **Update the database schema and re-evaluate quality-routing golden sets (ADR-220).** The new content-free `tx_nrllm_eval_result.generator_provenance` column identifies the actual serving provider instance, outbound alias and reported model. Legacy aggregates remain readable, but unverified scores no longer contribute to core quality routing or generator regression baselines. Mixed/unknown runs are stored and fail `--fail-on-regression` as an unverified comparison.
 - **Run the upgrade wizard "Write the version digest onto existing skills" (`nrllmAdr214SkillVersionDigest`).** It writes the new version digest onto every synced skill. A row whose stored name, description, support status, allowed tools or body no longer match what the sync wrote is disabled, recorded in the skill audit trail as `version_digest_unverified` and left without a digest until its next sync. Rows without a digest keep the body-only integrity check and cannot be approved.
 - **After the upgrade a frontmatter-only change upstream disables an enabled skill** on the next sync, as a body change already did. Expect more re-reviews for sources that change their frontmatter.
 - **The name, description and body of a synced skill are read-only in FormEngine.** An edit of any of them fails the integrity check, as a body edit already did.
@@ -19,6 +20,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Verified evaluation generator identity (ADR-220).** Configuration-driven completion/chat terminals add reserved serving provenance from the actual successful model resolution, including fallback and call overrides. Optional provider/model quality and verified-generator repository capabilities retain the existing interfaces and response API. Per-prompt details gain additive serving metadata; default metadata privacy keeps content-free aggregate eligibility.
 - **Worker operations (ADR-219).** `nrllm:agent:status` reports queue wait,
   unknown timings, expired run leases and transport-scoped consumer heartbeats,
   with JSON output and explicit health thresholds. Queue-entry time is recorded
@@ -82,6 +84,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Evaluation quality is attributed to its actual generator (ADR-220).** Mixed or unverified runs retain their grades without crediting the last response model. Core quality reads and ranking distinguish configured provider instances sharing one adapter/model alias; baselines additionally filter the reported snapshot before selecting the latest eligible row.
 - **Invalid retrieval provenance follows the public exception contract (ADR-053).** Constructor validation implements `NrLlmExceptionInterface` while preserving native `InvalidArgumentException` catch compatibility, reason codes and messages.
 
 - **Retrieval details preserve legacy byte ids at full privacy (ADR-215).** Invalid UTF-8 question ids, hard classes and measured document ids use a versioned lossless field representation after filtering their original bytes. Ordinary UTF-8 and prompt snapshots remain compatible; redacted and metadata policies cannot be bypassed through encoding.

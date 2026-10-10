@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Evaluation;
 
 use Netresearch\NrLlm\Service\Evaluation\EvaluationQualityScoreProvider;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepositoryInterface;
+use Netresearch\NrLlm\Service\Evaluation\GeneratorEvaluationResultRepositoryInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -21,7 +22,7 @@ final class EvaluationQualityScoreProviderTest extends TestCase
     #[Test]
     public function delegatesToRepositoryForKnownModel(): void
     {
-        $repository = $this->createMock(EvaluationResultRepositoryInterface::class);
+        $repository = $this->createMock(GeneratorEvaluationResultRepositoryInterface::class);
         $repository->expects(self::once())
             ->method('meanQualityScoreForModel')
             ->with('gpt-test', 'deterministic')
@@ -46,11 +47,66 @@ final class EvaluationQualityScoreProviderTest extends TestCase
     #[Test]
     public function returnsNullWhenModelHasNoResults(): void
     {
+        $repository = $this->createMock(GeneratorEvaluationResultRepositoryInterface::class);
+        $repository
+            ->expects(self::once())
+            ->method('meanQualityScoreForModel')
+            ->with('unknown-model', 'deterministic')
+            ->willReturn(null);
+        self::assertNull(
+            (new EvaluationQualityScoreProvider($repository))->getQualityScore(
+                'unknown-model',
+            ),
+        );
+    }
+
+    #[Test]
+    public function legacyRepositoryCannotSupplyUnverifiedRoutingScores(): void
+    {
         $repository = $this->createMock(EvaluationResultRepositoryInterface::class);
-        $repository->method('meanQualityScoreForModel')->willReturn(null);
-
+        $repository->expects(self::never())->method('meanQualityScoreForModel');
         $provider = new EvaluationQualityScoreProvider($repository);
+        self::assertNull($provider->getQualityScore('shared-alias'));
+        self::assertNull(
+            $provider->getQualityScoreForProviderModel(
+                'instance-a',
+                'shared-alias',
+            ),
+        );
+    }
 
-        self::assertNull($provider->getQualityScore('unknown-model'));
+    #[Test]
+    public function scopedCapabilityUsesTheConfiguredProviderInstanceAndPreservesZero(): void
+    {
+        $repository = $this->createMock(GeneratorEvaluationResultRepositoryInterface::class);
+        $repository->expects(self::never())->method('meanQualityScoreForModel');
+        $repository
+            ->expects(self::once())
+            ->method('meanQualityScoreForProviderModel')
+            ->with('custom-instance', 'shared-alias', 'deterministic')
+            ->willReturn(0.0);
+        self::assertSame(
+            0.0,
+            (new EvaluationQualityScoreProvider($repository))->getQualityScoreForProviderModel(
+                'custom-instance',
+                'shared-alias',
+            ),
+        );
+    }
+
+    #[Test]
+    public function emptyScopedIdentifiersDoNotQueryTheRepository(): void
+    {
+        $repository = $this->createMock(GeneratorEvaluationResultRepositoryInterface::class);
+        $repository
+            ->expects(self::never())
+            ->method('meanQualityScoreForProviderModel');
+        $provider = new EvaluationQualityScoreProvider($repository);
+        self::assertNull(
+            $provider->getQualityScoreForProviderModel('', 'shared-alias'),
+        );
+        self::assertNull(
+            $provider->getQualityScoreForProviderModel('instance-a', ''),
+        );
     }
 }

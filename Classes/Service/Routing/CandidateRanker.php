@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\RoutingPolicyMode;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingCandidate;
 use Netresearch\NrLlm\Service\Evaluation\ModelQualityScoreProviderInterface;
+use Netresearch\NrLlm\Service\Evaluation\ProviderModelQualityScoreProviderInterface;
 use Netresearch\NrLlm\Service\Health\ProviderHealthScore;
 use Netresearch\NrLlm\Service\Health\ProviderHealthServiceInterface;
 
@@ -103,7 +104,7 @@ final readonly class CandidateRanker
         }
 
         $signals = [
-            'quality' => $this->qualityScoreProvider?->getQualityScore($model->getModelId()),
+            'quality' => $this->qualitySignal($model),
             'health'  => $this->healthSignal($model),
         ];
 
@@ -250,5 +251,17 @@ final readonly class CandidateRanker
         }
 
         return $a->getSorting() <=> $b->getSorting();
+    }
+
+    private function qualitySignal(Model $model): ?float
+    {
+        if ($this->qualityScoreProvider instanceof ProviderModelQualityScoreProviderInterface) {
+            return $this->qualityScoreProvider->getQualityScoreForProviderModel(
+                $model->getProvider()?->getIdentifier() ?? '',
+                $model->getModelId(),
+            );
+        }
+
+        return $this->qualityScoreProvider?->getQualityScore($model->getModelId());
     }
 }

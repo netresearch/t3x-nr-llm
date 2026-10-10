@@ -912,6 +912,8 @@ CREATE TABLE tx_nrllm_eval_result (
     -- Run identity
     set_identifier varchar(190) DEFAULT '' NOT NULL,
     model_id varchar(150) DEFAULT '' NOT NULL,
+    -- Versioned, content-free serving evidence (ADR-220); NULL/empty legacy rows are ineligible.
+    generator_provenance text,
     -- The decision grader names its backend, model and profile version here
     -- ("decision:typesafe:jev-1.13.0:v1", ADR-211), hence the width.
     grader varchar(190) DEFAULT '' NOT NULL,

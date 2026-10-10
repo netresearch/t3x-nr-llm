@@ -364,6 +364,14 @@ services:
     alias: Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepository
     public: false
 
+  Netresearch\NrLlm\Service\Evaluation\GeneratorEvaluationResultRepositoryInterface:
+    alias: Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepository
+    public: false
+
+  Netresearch\NrLlm\Service\Evaluation\ProviderModelQualityScoreProviderInterface:
+    alias: Netresearch\NrLlm\Service\Evaluation\EvaluationQualityScoreProvider
+    public: false
+
   Netresearch\NrLlm\Service\Evaluation\ModelQualityScoreProviderInterface:
     alias: Netresearch\NrLlm\Service\Evaluation\EvaluationQualityScoreProvider
     public: false
