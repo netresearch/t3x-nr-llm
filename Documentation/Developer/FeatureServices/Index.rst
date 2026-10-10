@@ -98,17 +98,18 @@ Example
    :caption: Example: Using CompletionService
 
    use Netresearch\NrLlm\Service\Feature\CompletionService;
+   use Netresearch\NrLlm\Service\Option\ChatOptions;
 
    $completion = $completionService->complete(
        prompt: 'Explain TYPO3 in simple terms',
-       options: [
-           'temperature' => 0.3,
-           'max_tokens' => 200,
-           'response_format' => 'markdown',
-       ]
+       options: new ChatOptions(
+           temperature: 0.3,
+           maxTokens: 200,
+           responseFormat: 'markdown',
+       ),
    );
 
-   echo $completion->text;
+   echo $completion->content;
 
 .. _feature-services-completion-methods:
 
@@ -166,9 +167,9 @@ Use cases
 Key features
 ------------
 
-- WCAG 2.1 compliant alt text.
-- SEO-optimized titles.
-- Batch processing.
+- Prompts for accessible alt text, which needs review in its page context.
+- Prompts for concise image titles.
+- Sequential processing of image arrays.
 - Base64 and URL support.
 
 .. _feature-services-vision-example:
@@ -200,11 +201,11 @@ Methods
 .. code-block:: php
    :caption: VisionService methods
 
-   // Generate WCAG-compliant alt text
+   // Generate an alt-text suggestion for review
    $altText = $visionService->generateAltText('https://example.com/image.jpg');
 
-   // Generate SEO-optimized title
-   $title = $visionService->generateTitle('/path/to/local/image.png');
+   // Request a concise title
+   $title = $visionService->generateTitle('https://example.com/image.png');
 
    // Generate detailed description
    $description = $visionService->generateDescription($imageUrl);
@@ -328,15 +329,16 @@ Example
    :caption: Example: Using TranslationService
 
    use Netresearch\NrLlm\Service\Feature\TranslationService;
+   use Netresearch\NrLlm\Service\Option\TranslationOptions;
 
    $result = $translationService->translate(
        text: 'The TYPO3 extension is great',
        targetLanguage: 'de',
-       options: [
-           'glossary' => ['TYPO3' => 'TYPO3'],
-           'formality' => 'formal',
-           'domain' => 'technical',
-       ]
+       options: new TranslationOptions(
+           glossary: ['TYPO3' => 'TYPO3'],
+           formality: 'formal',
+           domain: 'technical',
+       ),
    );
 
    echo $result->translation;
@@ -350,6 +352,8 @@ Methods
 .. code-block:: php
    :caption: TranslationService methods
 
+   use Netresearch\NrLlm\Service\Option\TranslationOptions;
+
    // Basic translation
    $result = $translationService->translate('Hello, world!', 'de');
 
@@ -358,15 +362,15 @@ Methods
        $text,
        targetLanguage: 'de',
        sourceLanguage: 'en',
-       options: [
-           'formality' => 'formal',
-           'domain' => 'technical',
-           'glossary' => [
+       options: new TranslationOptions(
+           formality: 'formal',
+           domain: 'technical',
+           glossary: [
                'TYPO3' => 'TYPO3',
                'extension' => 'Erweiterung',
            ],
-           'preserve_formatting' => true,
-       ]
+           preserveFormatting: true,
+       ),
    );
 
    // TranslationResult properties
@@ -419,12 +423,12 @@ Usage in your extension
 
    namespace Your\Extension\Service;
 
-   use Netresearch\NrLlm\Service\Feature\VisionService;
+   use Netresearch\NrLlm\Service\Feature\VisionServiceInterface;
 
    class YourService
    {
        public function __construct(
-           private readonly VisionService $visionService
+           private readonly VisionServiceInterface $visionService
        ) {}
 
        public function enhanceImage(string $imageUrl): array
@@ -442,14 +446,17 @@ Usage in your extension
 Default prompts
 ===============
 
-The extension includes 10 default prompts optimized for common use cases:
+:file:`Resources/Private/Data/DefaultPrompts.php` contains a reference catalog
+of ten prompt templates. The runtime does not load that catalog. Feature
+services use their own built-in prompts; applications can use the catalog
+as a starting point for their own prompt snippets or custom analysis.
 
 .. _feature-services-prompts-vision:
 
 Vision
 ------
 
-- ``vision.alt_text`` - WCAG 2.1 compliant alt text.
+- ``vision.alt_text`` - Alt-text suggestions for accessibility review.
 - ``vision.seo_title`` - SEO-optimized titles.
 - ``vision.description`` - Detailed descriptions.
 
@@ -505,19 +512,19 @@ Mocking services
 .. code-block:: php
    :caption: Example: Mocking feature services in tests
 
-   use Netresearch\NrLlm\Service\Feature\VisionService;
+   use Netresearch\NrLlm\Service\Feature\VisionServiceInterface;
    use PHPUnit\Framework\TestCase;
 
    class YourServiceTest extends TestCase
    {
        public function testImageEnhancement(): void
        {
-           $visionMock = $this->createMock(VisionService::class);
+           $visionMock = $this->createMock(VisionServiceInterface::class);
            $visionMock->method('generateAltText')
                ->willReturn('Test alt text');
 
            $service = new YourService($visionMock);
-           $result = $service->enhanceImage('test.jpg');
+           $result = $service->enhanceImage('https://example.com/test.jpg');
 
            $this->assertEquals('Test alt text', $result['alt']);
        }
@@ -534,27 +541,23 @@ Caching
 -------
 
 - **Embeddings**: 24h cache (deterministic).
-- **Vision**: Short cache (subjective).
-- **Translation**: Medium cache (context-dependent).
-- **Completion**: Case-by-case basis.
+- **Vision and completion**: No response cache is enabled by these services.
+- **Translation**: Opt in with a positive ``TranslationOptions::cacheTtl``;
+  caching also requires a resolvable configuration and the cache service.
 
 .. _feature-services-batch:
 
 Batch processing
 ----------------
 
-Use batch methods for better performance:
+Image arrays provide a convenient batch interface. Each image makes its own
+provider request, in order; batching does not reduce the number of requests.
 
 .. code-block:: php
    :caption: Batch processing example
 
-   // Good: Single request for multiple images
+   // One provider request per image, with results in the same order
    $altTexts = $visionService->generateAltText($imageUrls);
-
-   // Bad: Multiple individual requests
-   foreach ($imageUrls as $url) {
-       $altText = $visionService->generateAltText($url);
-   }
 
 .. _feature-services-configuration:
 
@@ -566,53 +569,44 @@ Configuration
 Custom prompts
 --------------
 
-Override default prompts via database or configuration:
+Pass a custom analysis prompt to the vision service:
 
-.. code-block:: sql
-   :caption: Custom prompt template in database
+.. code-block:: php
+   :caption: Custom image analysis prompt
 
-   INSERT INTO tx_nrllm_prompts (
-       identifier,
-       title,
-       feature,
-       system_prompt,
-       user_prompt_template,
-       temperature,
-       max_tokens,
-       is_active
-   ) VALUES (
-       'custom.vision.alt_text',
-       'Custom Alt Text',
-       'vision',
-       'Custom system prompt...',
-       'Custom user prompt with {{image_url}}',
-       0.5,
-       100,
-       1
+   $analysis = $visionService->analyzeImage(
+       $imageUrl,
+       'Describe the visible objects for this product catalog.',
    );
+
+For configuration-owned prompts, use the backend's LLM configurations and
+prompt snippets. The API documentation describes those records and their
+composition; they do not replace the feature service's built-in prompt constants.
 
 .. _feature-services-service-options:
 
 Service options
 ---------------
 
-All services accept configuration options:
+Services accept the options object for their operation:
 
 .. code-block:: php
    :caption: Service options example
 
+   use Netresearch\NrLlm\Service\Option\ChatOptions;
+
    $result = $completionService->complete(
        prompt: 'Generate text',
-       options: [
-           'temperature' => 0.7,
-           'max_tokens' => 1000,
-           'top_p' => 0.9,
-           'frequency_penalty' => 0.0,
-           'presence_penalty' => 0.0,
-           'response_format' => 'json',
-           'system_prompt' => 'Custom instructions',
-           'stop_sequences' => ['\n\n', 'END'],
-       ]
+       options: new ChatOptions(
+           temperature: 0.7,
+           maxTokens: 1000,
+           topP: 0.9,
+           frequencyPenalty: 0.0,
+           presencePenalty: 0.0,
+           responseFormat: 'json',
+           systemPrompt: 'Custom instructions',
+           stopSequences: ["\n\n", 'END'],
+       ),
    );
 
 .. _feature-services-extension-integration:
@@ -636,15 +630,17 @@ rte-ckeditor-image
            private readonly VisionService $visionService
        ) {}
 
-       public function enhanceImage(FileReference $file): array
+       public function enhanceImage(string $absoluteImageUrl): array
        {
-           $url = $file->getPublicUrl();
            return [
-               'alt' => $this->visionService->generateAltText($url),
-               'title' => $this->visionService->generateTitle($url),
+               'alt' => $this->visionService->generateAltText($absoluteImageUrl),
+               'title' => $this->visionService->generateTitle($absoluteImageUrl),
            ];
        }
    }
+
+Resolve a FAL file's public URL to an absolute HTTPS URL before calling this
+service, or read the file and supply a base64 data URL.
 
 .. _feature-services-integration-textdb:
 
@@ -664,11 +660,19 @@ textdb
            private readonly EmbeddingService $embeddingService
        ) {}
 
-       public function suggestTranslation(string $text, string $lang): array
+       public function suggestTranslation(
+           string $text,
+           string $lang,
+           array $candidateVectors,
+       ): array
        {
+           $vector = $this->embeddingService->embed($text);
            return [
                'translation' => $this->translationService->translate($text, $lang),
-               'similar' => $this->findSimilar($text),
+               'similar' => $this->embeddingService->findMostSimilar(
+                   $vector,
+                   $candidateVectors,
+               ),
            ];
        }
    }
@@ -682,6 +686,7 @@ contexts
    :caption: Example: Contexts rule generation
 
    use Netresearch\NrLlm\Service\Feature\CompletionService;
+   use Netresearch\NrLlm\Service\Option\ChatOptions;
 
    class RuleGeneratorService
    {
@@ -693,7 +698,7 @@ contexts
        {
            return $this->completionService->completeJson(
                "Generate TYPO3 context rule: $description",
-               ['temperature' => 0.2]
+               new ChatOptions(temperature: 0.2),
            );
        }
    }

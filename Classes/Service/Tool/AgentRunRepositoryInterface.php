@@ -160,8 +160,11 @@ interface AgentRunRepositoryInterface
     public function requeue(int $runUid, string $claimedBy): bool;
 
     /**
-     * Running runs whose lease has expired at $now (ADR-104 reaper). Excludes
-     * interactive runs, which never take a lease.
+     * Running runs with a positive lease that expired before $now.
+     *
+     * The scan includes synchronous starts and resumed segments. The reaper
+     * dead-letters stale runs without a saved queued request; only retryable
+     * runs with a request can be requeued.
      *
      * @return list<AgentRun>
      */

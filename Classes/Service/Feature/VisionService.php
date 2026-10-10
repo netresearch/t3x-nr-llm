@@ -44,10 +44,11 @@ final readonly class VisionService implements VisionServiceInterface
     ) {}
 
     /**
-     * Generate accessibility-focused alt text for image.
+     * Request accessibility-focused alt text for an image.
      *
-     * Optimized for screen readers and WCAG 2.1 Level AA compliance.
-     * Output is concise (under 125 characters) and focuses on essential information.
+     * The fixed prompt asks for essential screen-reader information under
+     * 125 characters. Responses are returned verbatim; length and accessibility
+     * compliance are not validated.
      *
      * @param string|array<int, string> $imageUrl Single URL or array of URLs
      *
@@ -72,10 +73,11 @@ final readonly class VisionService implements VisionServiceInterface
     }
 
     /**
-     * Generate SEO-optimized title for image.
+     * Request a concise title for an image.
      *
-     * Creates compelling, keyword-rich titles under 60 characters
-     * for improved search rankings.
+     * The fixed prompt asks for a keyword-rich title under 60 characters.
+     * Responses are returned verbatim; length and search-ranking effects
+     * are not validated.
      *
      * @param string|array<int, string> $imageUrl Single URL or array of URLs
      *

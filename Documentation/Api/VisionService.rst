@@ -15,36 +15,36 @@ VisionService
 
    Image analysis with specialized prompts.
 
-   .. php:method:: generateAltText(string|array $imageUrl, ?VisionOptions $options = null): string|array
+   .. php:method:: generateAltText($imageUrl, ?VisionOptions $options = null)
 
-      Generate WCAG-compliant alt text.
+      Request concise alt text intended for screen readers.
 
-      Optimized for screen readers and WCAG 2.1 Level AA
-      compliance. Output is concise (under 125 characters)
-      and focuses on essential information.
+      The prompt asks for essential information in under 125 characters.
+      Provider output is returned verbatim: length and accessibility
+      suitability require review by the caller.
 
-      :param string|array $imageUrl: URL, local path,
-         or array of URLs for batch processing
+      :param string|array $imageUrl: URL, base64 image data URI,
+         or an array of these for sequential per-image requests
       :param VisionOptions|null $options: Vision options
          (defaults: maxTokens=100, temperature=0.5)
       :returns: string|array Alt text or array of alt
          texts for batch input
 
-   .. php:method:: generateTitle(string|array $imageUrl, ?VisionOptions $options = null): string|array
+   .. php:method:: generateTitle($imageUrl, ?VisionOptions $options = null)
 
-      Generate SEO-optimized image title.
+      Request an image title.
 
-      Creates compelling, keyword-rich titles under 60
-      characters for improved search rankings.
+      The prompt asks for a title under 60 characters. This is a prompt
+      constraint; the service does not validate or truncate provider output.
 
-      :param string|array $imageUrl: URL, local path,
-         or array of URLs for batch processing
+      :param string|array $imageUrl: URL, base64 image data URI,
+         or an array of these for sequential per-image requests
       :param VisionOptions|null $options: Vision options
          (defaults: maxTokens=50, temperature=0.7)
       :returns: string|array Title or array of titles
          for batch input
 
-   .. php:method:: generateDescription(string|array $imageUrl, ?VisionOptions $options = null): string|array
+   .. php:method:: generateDescription($imageUrl, ?VisionOptions $options = null)
 
       Generate detailed image description.
 
@@ -52,19 +52,19 @@ VisionService
       setting, colors, mood, composition, and notable
       details.
 
-      :param string|array $imageUrl: URL, local path,
-         or array of URLs for batch processing
+      :param string|array $imageUrl: URL, base64 image data URI,
+         or an array of these for sequential per-image requests
       :param VisionOptions|null $options: Vision options
          (defaults: maxTokens=500, temperature=0.7)
       :returns: string|array Description or array of
          descriptions for batch input
 
-   .. php:method:: analyzeImage(string|array $imageUrl, string $customPrompt, ?VisionOptions $options = null): string|array
+   .. php:method:: analyzeImage($imageUrl, string $customPrompt, ?VisionOptions $options = null)
 
       Custom image analysis with specific prompt.
 
-      :param string|array $imageUrl: URL, local path,
-         or array of URLs for batch processing
+      :param string|array $imageUrl: URL, base64 image data URI,
+         or an array of these for sequential per-image requests
       :param string $customPrompt: Custom analysis prompt
       :param VisionOptions|null $options: Vision options
       :returns: string|array Analysis result or array of

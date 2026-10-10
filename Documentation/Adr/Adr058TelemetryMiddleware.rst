@@ -70,6 +70,17 @@ survives the unwind is a mutable object reachable from the shared context:
 :php:`CacheMiddleware` calls ``recordCacheHit()`` on a hit; the outer
 :php:`TelemetryMiddleware` reads it.
 
+.. note::
+
+   **Clarification, 2026-10-10.** Point 3 describes the original pipeline
+   signature. :ref:`adr-096` subsequently moved the configuration onto
+   :php:`ProviderCallContext`; ``$next`` now receives the context.
+   :php:`FallbackMiddleware` forwards a copy from ``withConfiguration()``
+   to inner layers. Outer layers retain their earlier context, and all copies
+   within this run share the same :php:`TelemetrySignals` instance. The
+   mutable scratchpad therefore still carries cache-hit and fallback signals
+   back to the outer :php:`TelemetryMiddleware`.
+
 **4. Fallback count.** :php:`FallbackMiddleware` calls
 ``recordFallbackAttempt()`` on :php:`TelemetrySignals` once per fallback
 configuration it actually dispatches (the primary attempt is not counted); the
