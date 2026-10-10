@@ -13,10 +13,10 @@ Exceptions
 
 .. php:interface:: NrLlmExceptionInterface
 
-   Marker interface implemented by every exception this extension
-   throws on its public API surface — including the ``fromArray()``
+   Marker interface implemented by the exceptions defined by this extension
+   for its public API surface — including the ``fromArray()``
    normalisation errors of ``ChatMessage`` / ``ToolSpec`` /
-   ``ToolCall``. Catch this when any nr_llm failure should take the
+   ``ToolCall``. Catch this when an nr_llm-defined failure should take the
    same error path (:ref:`ADR-053 <adr-053>`)::
 
       try {
@@ -24,6 +24,12 @@ Exceptions
       } catch (NrLlmExceptionInterface $e) {
           throw new MyDomainException($e->getMessage(), 0, $e);
       }
+
+   Exceptions propagated from dependencies do not acquire this marker.
+   For example, the bundled streaming adapters propagate their original
+   PSR-18 network exception without an adapter retry loop. Callers can
+   handle :php:`Psr\\Http\\Client\\NetworkExceptionInterface` separately;
+   see :ref:`developer-streaming` for the fallback boundary.
 
 .. php:namespace:: Netresearch\NrLlm\Provider\Exception
 
@@ -86,8 +92,6 @@ Exceptions
    inactive from not-found; the user-aware
    ``LlmConfigurationServiceInterface::getConfiguration()`` signals the
    inactive case as ``ConfigurationNotFoundException`` (code ``2690936773``).
-
-.. _api-events:
 
 Events
 ======

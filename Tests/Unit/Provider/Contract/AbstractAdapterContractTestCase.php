@@ -9,10 +9,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Provider\Contract;
 
+use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Psr7\HttpFactory;
+use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Exception\NrLlmExceptionInterface;
 use Netresearch\NrLlm\Provider\AbstractProvider;
 use Netresearch\NrLlm\Provider\Contract\DocumentCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
@@ -27,11 +30,13 @@ use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Http\Client\ClientInterface;
+use Psr\Http\Client\NetworkExceptionInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use RuntimeException;
+use Throwable;
 
 /**
  * The contract every provider adapter answers to (ADR-160).
@@ -63,9 +68,10 @@ use RuntimeException;
  * 3. **No live calls.** Every adapter is driven through an injected PSR-18
  *    double, the same way the integration tests do it.
  *
- * Streaming is covered by the declaration contract only. An SSE fixture is
- * dialect-specific enough that a shared one would assert the fixture rather
- * than the adapter, and each adapter's own test already carries one.
+ * Streaming SSE fixtures remain dialect-specific and are covered by each
+ * adapter's own tests. This shared suite additionally checks original PSR-18
+ * network-failure propagation and a single transport attempt for every
+ * streaming adapter.
  */
 abstract class AbstractAdapterContractTestCase extends AbstractUnitTestCase
 {
@@ -785,5 +791,40 @@ abstract class AbstractAdapterContractTestCase extends AbstractUnitTestCase
 
         /** @var array<string, mixed> $decoded */
         return $decoded;
+    }
+
+    #[Test]
+    public function streamingPreservesTheOriginalPsr18NetworkFailureWithoutAdapterRetries(): void
+    {
+        $failure = new ConnectException(
+            'stream transport failed',
+            new Request('POST', 'https://provider.invalid/stream'),
+        );
+        $client = $this->createMock(ClientInterface::class);
+        $client
+            ->expects(self::once())
+            ->method('sendRequest')
+            ->willThrowException($failure);
+        $adapter = $this->adapterWithClient($client, ['maxRetries' => 3]);
+        if (!$adapter instanceof StreamingCapableInterface) {
+            self::markTestSkipped(
+                'This adapter does not declare streaming support.',
+            );
+        }
+
+        $caught = null;
+        try {
+            iterator_to_array(
+                $adapter->streamChatCompletion(
+                    [['role' => 'user', 'content' => 'ping']],
+                ),
+            );
+        } catch (Throwable $error) {
+            $caught = $error;
+        }
+
+        self::assertSame($failure, $caught);
+        self::assertInstanceOf(NetworkExceptionInterface::class, $caught);
+        self::assertNotInstanceOf(NrLlmExceptionInterface::class, $caught);
     }
 }

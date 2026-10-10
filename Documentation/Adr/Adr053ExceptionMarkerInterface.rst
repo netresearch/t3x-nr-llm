@@ -45,7 +45,7 @@ Decision
 ========
 
 - ``Netresearch\NrLlm\Exception\NrLlmExceptionInterface`` (extending
-  ``\Throwable``) marks every exception this extension throws on its
+  ``\Throwable``) marks exceptions defined by nr_llm for its
   public API surface. The five core exceptions and ``ProviderException``
   (which its five subtypes inherit from) implement it.
 - ``ChatMessage`` / ``ToolSpec`` / ``ToolCall`` normalisation errors now
@@ -55,8 +55,9 @@ Decision
 - A reflection test sweeps both exception directories so a future
   exception class cannot ship without the marker.
 
-Consumers can now write ``catch (NrLlmExceptionInterface $e)`` — one
-arm, future-proof.
+Consumers can write ``catch (NrLlmExceptionInterface $e)`` for nr_llm-defined
+exceptions. Propagated dependency exceptions still need their own catch arm
+when the consumer wants to handle them.
 
 .. _adr-053-consequences:
 
@@ -77,3 +78,13 @@ Consequences
 - Catch-all remains opt-in: consumers that want to handle budget
   exhaustion differently from provider outages keep catching the
   concrete classes.
+
+Scope clarification (2026-10-10)
+===============================
+
+The marker covers exception classes defined by nr_llm. Dependency exceptions
+that propagate through a public call retain their original class. The bundled
+streaming adapters, for example, propagate PSR-18 network failures directly.
+Seven executable adapter contract cases preserve that behavior; they do not
+claim that the marker catches every dependency failure or every PHP error.
+See :ref:`developer-streaming` for the pre-first-chunk fallback boundary.
