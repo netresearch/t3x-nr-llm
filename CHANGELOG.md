@@ -19,6 +19,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Behavioral tests cover reciprocal rank fusion's weighting, CLI outcome derivation windows and Poppler subprocess arguments, pipe drainage, page ordering, failures and cleanup. The stderr flood regression has a bounded assertion failure.
+
 - **Worker operations (ADR-219).** `nrllm:agent:status` reports queue wait,
   unknown timings, expired run leases and transport-scoped consumer heartbeats,
   with JSON output and explicit health thresholds. Queue-entry time is recorded
