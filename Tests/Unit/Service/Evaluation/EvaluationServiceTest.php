@@ -55,7 +55,11 @@ final class EvaluationServiceTest extends TestCase
         $result = $this->evaluationService($completion)->run($this->set());
 
         self::assertSame('nr_llm.smoke', $result->setIdentifier);
-        self::assertSame('gpt-test', $result->model);
+        self::assertSame(
+            '',
+            $result->model,
+            'An adapter-reported name alone is not serving-instance evidence.',
+        );
         self::assertSame('deterministic', $result->grader);
         self::assertSame(2, $result->promptCount());
         self::assertSame(1, $result->passedCount());

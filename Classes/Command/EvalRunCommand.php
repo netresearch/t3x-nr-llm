@@ -9,9 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Command;
 
+use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
 use Netresearch\NrLlm\Service\Decision\DecisionException;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepositoryInterface;
+use Netresearch\NrLlm\Service\Evaluation\EvaluationResultSummary;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationService;
+use Netresearch\NrLlm\Service\Evaluation\GeneratorEvaluationResultRepositoryInterface;
 use Netresearch\NrLlm\Service\Evaluation\GoldenPromptSet;
 use Netresearch\NrLlm\Service\Evaluation\GoldenPromptSetRegistry;
 use Netresearch\NrLlm\Service\Evaluation\Grader\DecisionGrader;
@@ -67,89 +70,22 @@ final class EvalRunCommand extends Command
             ->addOption('fail-on-regression', null, InputOption::VALUE_NONE, 'Exit with a non-zero status when a regression is detected');
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output): int
-    {
+    protected function execute(
+        InputInterface $input,
+        OutputInterface $output,
+    ): int {
         $io = new SymfonyStyle($input, $output);
-
-        $setArgument = $input->getArgument('set');
-        $setIdentifier = is_string($setArgument) ? $setArgument : '';
-        $set = $this->registry->findByIdentifier($setIdentifier);
+        $set = $this->findSet($input, $io);
         if (!$set instanceof GoldenPromptSet) {
-            $io->error(sprintf('Unknown golden prompt set "%s".', $setIdentifier));
-            $available = $this->registry->identifiers();
-            if ($available !== []) {
-                $io->writeln('Available sets: ' . implode(', ', $available));
-            }
-
             return Command::FAILURE;
         }
 
-        $graderOption = $input->getOption('grader');
-        $graderId = is_string($graderOption) ? $graderOption : DeterministicGrader::IDENTIFIER;
-        $availableGraders = $this->evaluationService->availableGraders();
-        if (!in_array($graderId, $availableGraders, true)) {
-            $io->error(sprintf('Unknown grader "%s".', $graderId));
-            $io->writeln('Available graders: ' . implode(', ', $availableGraders));
-
+        $graderId = $this->findGrader($input, $io);
+        if ($graderId === null) {
             return Command::FAILURE;
         }
 
-        try {
-            $result = $this->evaluationService->run($set, $graderId, $this->buildBaseOptions($input));
-        } catch (DecisionException $e) {
-            // The decision grader cannot grade this run at all; nothing was spent.
-            $io->error(sprintf('The "%s" grader cannot run: %s', $graderId, $e->getMessage()));
-
-            return Command::FAILURE;
-        }
-
-        $io->title(sprintf('Evaluation: %s', $set->identifier));
-        $this->renderEvaluations($io, $result);
-
-        // A run without one yardstick, or one in which no model answered at
-        // all, cannot be compared — and a gate must not read "could not
-        // judge" as "no regression" (ADR-211).
-        if (!$result->sharesOneYardstick() || $result->grader === DecisionGrader::FAILED_SERIES) {
-            $this->repository->save($result);
-            $io->section('Regression check');
-            $reason = $result->grader === DecisionGrader::FAILED_SERIES
-                ? 'Not compared: no decision of this run could be made (stored as "%s").'
-                : 'Not compared: the gradings of this run do not share one yardstick (stored as "%s"). '
-                    . 'A decision failed for some prompts, or the model changed during the run.';
-            if ($input->getOption('fail-on-regression') === true) {
-                $io->error(sprintf($reason, $result->grader));
-
-                return Command::FAILURE;
-            }
-
-            $io->warning(sprintf($reason, $result->grader));
-
-            return Command::SUCCESS;
-        }
-
-        $previous = $this->repository->findLatest($result->setIdentifier, $result->model, $result->grader);
-        $this->repository->save($result);
-
-        $report = $this->regressionDetector->compare(
-            $result->toSummary(),
-            $previous,
-            new RegressionThresholds(
-                $this->floatOption($input, 'max-pass-rate-drop', 0.1),
-                $this->floatOption($input, 'max-mean-score-drop', 0.1),
-            ),
-        );
-
-        $io->section('Regression check');
-        $io->writeln($report->summary);
-
-        if ($report->isRegression) {
-            $io->warning('Quality regression detected against the previous run.');
-            if ($input->getOption('fail-on-regression') === true) {
-                return Command::FAILURE;
-            }
-        }
-
-        return Command::SUCCESS;
+        return $this->evaluate($input, $io, $set, $graderId);
     }
 
     private function renderEvaluations(SymfonyStyle $io, SetEvaluationResult $result): void
@@ -198,5 +134,143 @@ final class EvalRunCommand extends Command
         $value = $input->getOption($name);
 
         return is_numeric($value) ? (float)$value : $default;
+    }
+
+    private function findSet(
+        InputInterface $input,
+        SymfonyStyle $io,
+    ): ?GoldenPromptSet {
+        $argument = $input->getArgument('set');
+        $identifier = is_string($argument) ? $argument : '';
+        $set = $this->registry->findByIdentifier($identifier);
+        if (!$set instanceof GoldenPromptSet) {
+            $io->error(sprintf('Unknown golden prompt set "%s".', $identifier));
+            $available = $this->registry->identifiers();
+            if ($available !== []) {
+                $io->writeln('Available sets: ' . implode(', ', $available));
+            }
+        }
+
+        return $set;
+    }
+
+    private function findGrader(
+        InputInterface $input,
+        SymfonyStyle $io,
+    ): ?string {
+        $option = $input->getOption('grader');
+        $identifier = is_string($option) ? $option : DeterministicGrader::IDENTIFIER;
+        $available = $this->evaluationService->availableGraders();
+        if (!in_array($identifier, $available, true)) {
+            $io->error(sprintf('Unknown grader "%s".', $identifier));
+            $io->writeln('Available graders: ' . implode(', ', $available));
+            return null;
+        }
+
+        return $identifier;
+    }
+
+    private function evaluate(
+        InputInterface $input,
+        SymfonyStyle $io,
+        GoldenPromptSet $set,
+        string $graderId,
+    ): int {
+        try {
+            $result = $this->evaluationService->run(
+                $set,
+                $graderId,
+                $this->buildBaseOptions($input),
+            );
+        } catch (DecisionException $e) {
+            $io->error(
+                sprintf(
+                    'The "%s" grader cannot run: %s',
+                    $graderId,
+                    $e->getMessage(),
+                ),
+            );
+            return Command::FAILURE;
+        }
+
+        $io->title(sprintf('Evaluation: %s', $set->identifier));
+        $this->renderEvaluations($io, $result);
+        return $this->renderComparison($input, $io, $result);
+    }
+
+    private function notComparedReason(SetEvaluationResult $result): ?string
+    {
+        $reason = null;
+        if (!$result->sharesOneYardstick() || $result->grader === DecisionGrader::FAILED_SERIES) {
+            $reason = $result->grader === DecisionGrader::FAILED_SERIES ? sprintf(
+                'Not compared: no decision of this run could be made (stored as "%s").',
+                $result->grader,
+            ) : sprintf(
+                'Not compared: the gradings of this run do not share one yardstick (stored as "%s"). A decision failed for some prompts, or the grading model changed during the run.',
+                $result->grader,
+            );
+        } elseif (!$result->verifiedGeneratorProvenance() instanceof GeneratorProvenance) {
+            $reason = 'Not compared: no single verified serving generator for this run. Aggregate grades remain stored.';
+        } elseif (!$this->repository instanceof GeneratorEvaluationResultRepositoryInterface) {
+            $reason = 'Not compared: configured evaluation repository has no verified-generator capability.';
+        }
+
+        return $reason;
+    }
+
+    private function findGeneratorBaseline(
+        SetEvaluationResult $result,
+    ): ?EvaluationResultSummary {
+        $record = $result->verifiedGeneratorProvenance();
+        if (!$record instanceof GeneratorProvenance || !$this->repository instanceof GeneratorEvaluationResultRepositoryInterface) {
+            return null;
+        }
+
+        return $this->repository->findLatestForGenerator(
+            $result->setIdentifier,
+            $record->providerIdentifier,
+            $record->modelId,
+            $record->reportedModelId,
+            $result->grader,
+        );
+    }
+
+    private function renderComparison(
+        InputInterface $input,
+        SymfonyStyle $io,
+        SetEvaluationResult $result,
+    ): int {
+        $reason = $this->notComparedReason($result);
+        if ($reason !== null) {
+            $this->repository->save($result);
+            $io->section('Regression check');
+            if ($input->getOption('fail-on-regression') === true) {
+                $io->error($reason);
+            } else {
+                $io->warning($reason);
+            }
+
+            return $input->getOption('fail-on-regression') === true ? Command::FAILURE : Command::SUCCESS;
+        }
+
+        $previous = $this->findGeneratorBaseline($result);
+        $this->repository->save($result);
+        $report = $this->regressionDetector->compare(
+            $result->toSummary(),
+            $previous,
+            new RegressionThresholds(
+                $this->floatOption($input, 'max-pass-rate-drop', 0.1),
+                $this->floatOption($input, 'max-mean-score-drop', 0.1),
+            ),
+        );
+        $io->section('Regression check');
+        $io->writeln($report->summary);
+        if ($report->isRegression) {
+            $io->warning(
+                'Quality regression detected against the previous run.',
+            );
+        }
+
+        return $report->isRegression && $input->getOption('fail-on-regression') === true ? Command::FAILURE : Command::SUCCESS;
     }
 }

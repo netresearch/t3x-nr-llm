@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Evaluation;
 
+use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
+
 /**
  * The persisted, aggregate-only view of a set evaluation run (ADR-060).
  *
@@ -32,5 +34,6 @@ final readonly class EvaluationResultSummary
         public string $benchmarkFingerprint = '',
         public string $variantFingerprint = '',
         public ?RetrievalProvenance $retrievalProvenance = null,
+        public ?GeneratorProvenance $generatorProvenance = null,
     ) {}
 }

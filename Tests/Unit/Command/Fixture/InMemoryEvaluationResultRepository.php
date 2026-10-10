@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Command\Fixture;
 
-use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepositoryInterface;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultSummary;
+use Netresearch\NrLlm\Service\Evaluation\GeneratorEvaluationResultRepositoryInterface;
 use Netresearch\NrLlm\Service\Evaluation\SetEvaluationResult;
 
 /**
@@ -18,7 +18,7 @@ use Netresearch\NrLlm\Service\Evaluation\SetEvaluationResult;
  * saved and returns pre-seeded baselines, so the command's persistence and
  * regression flow can be exercised without a database.
  */
-final class InMemoryEvaluationResultRepository implements EvaluationResultRepositoryInterface
+final class InMemoryEvaluationResultRepository implements GeneratorEvaluationResultRepositoryInterface
 {
     /** @var list<SetEvaluationResult> */
     public array $saved = [];
@@ -64,5 +64,25 @@ final class InMemoryEvaluationResultRepository implements EvaluationResultReposi
         $this->purgeCutoff = $timestamp;
 
         return $this->purgeReturns;
+    }
+
+    public function findLatestForGenerator(
+        string $setIdentifier,
+        string $providerId,
+        string $modelId,
+        string $reportedModelId,
+        string $grader,
+    ): ?EvaluationResultSummary {
+        $summary = $this->findLatest($setIdentifier, $modelId, $grader);
+        $record = $summary?->generatorProvenance;
+        return $record?->providerIdentifier === $providerId && $record?->modelId === $modelId && $record?->reportedModelId === $reportedModelId ? $summary : null;
+    }
+
+    public function meanQualityScoreForProviderModel(
+        string $providerId,
+        string $modelId,
+        string $grader,
+    ): ?float {
+        return null;
     }
 }

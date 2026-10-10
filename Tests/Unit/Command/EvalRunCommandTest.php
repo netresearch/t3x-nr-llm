@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Command;
 use Netresearch\NrLlm\Command\EvalRunCommand;
 use Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionAnswer;
 use Netresearch\NrLlm\Domain\ValueObject\Decision\ProbabilityKind;
+use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
 use Netresearch\NrLlm\Service\Decision\DecisionException;
 use Netresearch\NrLlm\Service\Decision\DecisionResult;
 use Netresearch\NrLlm\Service\Evaluation\Assertion;
@@ -69,6 +70,7 @@ final class EvalRunCommandTest extends TestCase
 
     private function command(StaticCompletionService $completion, InMemoryEvaluationResultRepository $repository, ?FakeDecisionService $decisions = null): EvalRunCommand
     {
+        $completion->generatorProvenance = $this->generator();
         $evaluationService = new EvaluationService(
             $completion,
             new GradingService(new DeterministicGrader(), new DecisionGrader($decisions ?? new FakeDecisionService())),
@@ -79,7 +81,17 @@ final class EvalRunCommandTest extends TestCase
 
     private function perfectBaseline(): EvaluationResultSummary
     {
-        return new EvaluationResultSummary(self::SET_IDENTIFIER, 'test-model', 'deterministic', 1, 1, 1.0, 1.0, 1_700_000_000);
+        return new EvaluationResultSummary(
+            self::SET_IDENTIFIER,
+            'test-model',
+            'deterministic',
+            1,
+            1,
+            1.0,
+            1.0,
+            1700000000,
+            generatorProvenance: $this->generator(),
+        );
     }
 
     #[Test]
@@ -181,8 +193,28 @@ final class EvalRunCommandTest extends TestCase
         $series = 'decision:typesafe:jev-1.13.0:v1';
         $repository = new InMemoryEvaluationResultRepository();
         // A perfect run of the same yardstick, and a worse one under another.
-        $repository->seed(new EvaluationResultSummary(self::REFERENCE_SET, 'test-model', $series, 2, 2, 1.0, 1.0, 1_700_000_000));
-        $repository->seed(new EvaluationResultSummary(self::REFERENCE_SET, 'test-model', 'decision:openai:gpt-4o:v1', 2, 0, 0.0, 0.0, 1_700_000_100));
+        $repository->seed(new EvaluationResultSummary(
+            self::REFERENCE_SET,
+            'test-model',
+            $series,
+            2,
+            2,
+            1.0,
+            1.0,
+            1700000000,
+            generatorProvenance: $this->generator(),
+        ));
+        $repository->seed(new EvaluationResultSummary(
+            self::REFERENCE_SET,
+            'test-model',
+            'decision:openai:gpt-4o:v1',
+            2,
+            0,
+            0.0,
+            0.0,
+            1700000100,
+            generatorProvenance: $this->generator(),
+        ));
 
         $decisions = new FakeDecisionService();
         $decisions->results = [$this->fulfilment(1.0), $this->fulfilment(1.0)];
@@ -273,5 +305,19 @@ final class EvalRunCommandTest extends TestCase
         self::assertStringContainsString('no decision of this run could be made', $tester->getDisplay());
         self::assertCount(1, $repository->saved);
         self::assertSame(DecisionGrader::FAILED_SERIES, $repository->saved[0]->grader);
+    }
+
+    private function generator(): GeneratorProvenance
+    {
+        $record = GeneratorProvenance::fromArray(
+            [
+                'version' => 1,
+                'providerIdentifier' => 'fixture-provider',
+                'modelId' => 'test-model',
+                'reportedModelId' => 'test-model',
+            ],
+        );
+        self::assertInstanceOf(GeneratorProvenance::class, $record);
+        return $record;
     }
 }
