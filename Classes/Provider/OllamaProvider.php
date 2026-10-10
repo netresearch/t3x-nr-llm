@@ -116,17 +116,24 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
             // (`https://user:pass@host`) and query / fragment are stripped
             // before the URL hits the log so credentials accidentally embedded
             // in a misconfigured baseUrl don't leak into sys_log.
-            $this->logger->warning('Ollama: getAvailableModels failed, returning hardcoded defaults', [
-                'exception' => $e,
-                'baseUrl'   => $this->sanitizeUrlForLog($this->baseUrl),
-            ]);
+            try {
+                $this->logger->warning(
+                    'Ollama: getAvailableModels failed, returning hardcoded defaults',
+                    [
+                        'exception' => $e,
+                        'baseUrl' => $this->sanitizeUrlForLog($this->baseUrl),
+                    ],
+                );
+            } catch (Throwable) {
+                // Warning delivery is best effort: preserve the model-picker defaults.
+            }
 
             return [
-                'llama3.2'     => 'Llama 3.2',
+                'llama3.2' => 'Llama 3.2',
                 'llama3.2:70b' => 'Llama 3.2 70B',
-                'mistral'      => 'Mistral',
-                'codellama'    => 'Code Llama',
-                'phi3'         => 'Phi-3',
+                'mistral' => 'Mistral',
+                'codellama' => 'Code Llama',
+                'phi3' => 'Phi-3',
             ];
         }
     }
