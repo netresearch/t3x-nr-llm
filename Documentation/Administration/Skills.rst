@@ -90,9 +90,9 @@ personal access token (a read-only, public-repo token is enough) to raise
 the limit and to read private repositories.
 
 - The token is set through the :guilabel:`Set token` action on a source,
-  **not** typed into a FormEngine field. It is stored as an nr-vault UUID
-  (envelope-encrypted), mirroring provider API-key storage — never as
-  plaintext in TCA, YAML or the database.
+  **not** typed into a FormEngine field. The source stores a vault reference;
+  nr-vault stores the token with envelope encryption. The plaintext token
+  is never stored in the source record.
 - When a sync hits the rate limit (HTTP 403 with no remaining quota), the
   source is set to ``sync_status = error`` carrying the reset time; state
   is not partially corrupted. Add a token and re-sync.
@@ -183,9 +183,10 @@ Enabled, non-orphaned skills can be attached to a **Task** and/or an
 **LLM configuration** via the :guilabel:`Skills` field on those records
 (only enabled skills are offered). At execution time, for text-generation
 operations only — completion, translation and task execution; **never**
-embeddings, vision or speech — nr-llm composes the attached skills into a
-delimited block and prepends it to the *user* prompt. The configuration
-``system_prompt`` is never modified.
+embeddings, vision or speech — nr-llm composes unapproved attached skills into a
+delimited block and prepends it to the *user* prompt. Approved instruction
+versions use the system-message channel described below; the stored
+configuration ``system_prompt`` is never modified.
 
 .. note::
 
@@ -212,9 +213,11 @@ Composition rules:
   additive; the set is the union deduped by source + identifier (the
   configuration wins on a duplicate). The configuration block renders
   first.
-- **Budget.** The block is bounded by a conservative character budget;
+- **Budget.** The untrusted user-message block is bounded by a byte budget;
   when it is exceeded, task-additive skills are dropped before
-  configuration-baseline skills and each drop is logged.
+  configuration-baseline skills and each drop is logged. Approved instruction
+  sections are kept in full; the request's context-window check can refuse a
+  request that cannot fit them rather than silently dropping an instruction.
 - **Integrity.** Each skill's version digest — over the body and the
   frontmatter fields the model reads — is recomputed from the stored fields at
   injection time; a mismatch (tampering or a stale row) drops that skill — it
@@ -362,6 +365,8 @@ recorded on the skill (``Injection scan findings``) for review without blocking.
 
 **Immutable audit trail.** Every ingest, enable, disable and fail-closed
 rejection is written to ``tx_nrllm_skill_audit`` with who / when / source / SHA /
-checksum / trust level / scan result. The trail is append-only — the application
-never updates or deletes a row — so the provenance of any skill that can reach a
-prompt is reconstructable after the fact.
+checksum / trust level / scan result. Normal ingest and approval operations
+never update or delete existing audit rows. The explicit
+``nrllm:privacy:purge`` command removes rows older than
+``privacy.retention.skillAudit``; provenance remains reconstructable within
+that configured retention window. See :ref:`administration-data-retention`.

@@ -17,7 +17,7 @@ review runs that have finished.
 
 The admin inbox lives in :guilabel:`AI > Operation > Agent Runs`;
 the same actions are also reachable through the editor module
-:guilabel:`Web > AI Tasks` (:ref:`ADR-131 <adr-131>`). Visibility is
+:guilabel:`AI > AI Tasks` (:ref:`ADR-131 <adr-131>`). Visibility is
 actor-scoped: an administrator or a holder of the *Approve suspended AI
 runs* grant sees every run, everyone else only the runs they started.
 Approving continues the run under its owner's identity; the deciding
@@ -126,7 +126,8 @@ and, in a collapsible :guilabel:`Arguments` block, the exact arguments the
 model proposed. A call whose tool is no longer registered is flagged.
 
 One :guilabel:`Approve` or :guilabel:`Deny` covers the **whole** pending turn,
-not a single call. Denying ends the run.
+not a single call. Denying refuses the pending calls and continues the model
+conversation with that refusal; the model may answer or propose another turn.
 
 After a denial nothing is executed. The model is told that the approval was
 declined and by whom — the user who started the run, or another backend
@@ -268,13 +269,12 @@ occupying the running set:
 
 ``--limit`` (default ``50``) bounds how many stale runs one invocation handles.
 Schedule it from cron or the scheduler's :guilabel:`Execute console commands`
-task. It only concerns asynchronous runs — interactive runs hold no lease — and
-does nothing useful without a running consumer.
-
-.. note::
-
-   Interactive runs abandoned by a dying client are not reaped here; they are
-   cleaned up by age through the retention purge below.
+task. The scan includes every ``RUNNING`` run whose positive lease expired,
+including interactive starts and resumed segments. Runs without a saved queued
+request, runs abandoned during a non-idempotent write and runs whose retry
+budget is exhausted are dead-lettered. Retryable runs with a saved request are
+requeued and need a running consumer to execute again. Each mutation rechecks
+staleness, so a renewed lease wins over the reaper's earlier snapshot.
 
 .. _administration-agent-runs-retention:
 

@@ -73,7 +73,7 @@ Full test matrix in root `AGENTS.md` Commands section.
 
 <!-- AGENTS-GENERATED:START architecture -->
 ## Architecture Rules (PHPat enforced)
-1. Controllers must NOT depend on Repositories directly
+1. Backend controllers must NOT depend on concrete provider adapters; Extbase repository dependencies are permitted
 2. Domain\Model must NOT depend on Domain\Repository
 3. Domain\Model must NOT depend on Controller
 4. DTOs must be readonly with typed properties only

@@ -461,7 +461,9 @@ Added
     embeddings, vision, streaming, tools, json_mode, audio). New
     :php:`CapabilityPermissionService` resolves checks against the
     current BE user with admin short-circuit and CLI / frontend
-    bypass. See :ref:`adr-023` and :ref:`developer-capability-permissions`.
+    bypass. See :ref:`adr-023`. These registrations and the check service
+    were later removed (:ref:`adr-117`); current backend access uses
+    :ref:`administration-permissions`.
 
 -   **Dashboard widgets.** Two TYPO3 dashboard widgets sourced from
     :sql:`tx_nrllm_service_usage`: *AI cost this month*

@@ -19,15 +19,13 @@ use Netresearch\NrLlm\Domain\ValueObject\RoutingSummary;
  * Mutable scratchpad an inner middleware uses to signal an outer one within a
  * single pipeline run.
  *
- * The pipeline threads ONE immutable ProviderCallContext through every layer
- * and the `$next` callable only forwards the LlmConfiguration -- never a
- * context. An inner middleware therefore cannot hand a modified context back
- * out to a middleware that already captured the original. The one channel that
- * survives the unwind is a mutable object reachable from the shared context:
- * this class. ProviderCallContext carries exactly one instance (default-
- * constructed per call, see ProviderCallContext), so CacheMiddleware and
- * FallbackMiddleware can annotate it on the way in and TelemetryMiddleware --
- * the outermost layer -- reads the result on the way out.
+ * The pipeline forwards ProviderCallContext to each layer and to the terminal
+ * (ADR-096). FallbackMiddleware can pass a copy from withConfiguration() to
+ * inner layers, while an outer middleware still holds its original context.
+ * Context copies retain the same TelemetrySignals instance, so cache and
+ * fallback observations remain visible when those outer layers unwind.
+ * A fresh context default-constructs a new instance for its pipeline run.
+ * TelemetryMiddleware reads the observations after the inner layers return.
  *
  * Deliberately NOT readonly: recording a signal is the whole point. It holds
  * only cross-cutting observability state, never payload, so it does not

@@ -79,10 +79,11 @@ Scope limits
 
 v1 is deliberately narrow:
 
--   **No streaming.** :php:`streamChatWithConfiguration()` does not
-    wrap the call. Once the first chunk has been yielded to the
-    caller, mid-stream provider-switching would be detectable and
-    surprising.
+-   **Streaming retries before delivery.**
+    :php:`streamChatWithConfiguration()` tries the fallback chain when a
+    retryable failure occurs before the first chunk. Once a chunk has been
+    yielded, the failure is propagated without switching providers or replaying
+    content.
 -   **No recursion.** A fallback configuration's own chain is
     ignored. This avoids cycles (``a -> b -> a``) and unbounded
     attempt trees.

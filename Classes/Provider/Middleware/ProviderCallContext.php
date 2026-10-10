@@ -37,7 +37,7 @@ final readonly class ProviderCallContext
      * @param string               $model                   model identifier for telemetry when no configuration entity is present
      * @param string               $configurationIdentifier configuration identifier for telemetry when no configuration entity is present
      * @param array<string, mixed> $metadata                additional cross-cutting data (user id for budget checks, cache-key inputs, trace tags)
-     * @param TelemetrySignals     $telemetrySignals        mutable scratchpad an inner middleware uses to signal the outer TelemetryMiddleware within this run (cache hit, fallback attempts). Default-constructed per call, never shared across contexts.
+     * @param TelemetrySignals     $telemetrySignals        mutable scratchpad an inner middleware uses to signal the outer TelemetryMiddleware within this run (cache hit, fallback attempts). Default-constructed for a fresh run; context copies share it within that run.
      */
     public function __construct(
         public ProviderOperation $operation,

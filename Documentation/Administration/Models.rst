@@ -58,21 +58,19 @@ Adding a model manually
 Fetching models from a provider
 ===============================
 
-Instead of adding models manually, use the
-:guilabel:`Fetch Models` action to query the
-provider API and auto-populate the model list:
+Use :guilabel:`Fetch Models` beside the :guilabel:`Model ID` field
+in a model edit form to browse the selected provider's catalogue:
 
-1. Ensure the provider is saved and the connection
-   test passes.
-2. On the model list or model edit form, click
-   :guilabel:`Fetch Models`.
-3. The extension queries the provider API and
-   creates model records with capabilities and
-   metadata pre-filled.
+1. Save the provider and select it in the model form.
+2. Click :guilabel:`Fetch Models` and choose an entry from the dropdown.
+   The choice sets the API model identifier and applies capability,
+   token-limit and pricing suggestions where available.
+3. Review the fields in the current form, then click :guilabel:`Save`
+   to persist the model record.
 
-This is the recommended approach — it ensures model
-IDs match the provider exactly and keeps your
-catalogue current as providers release new models.
+If live discovery fails and a built-in catalogue is available, the dropdown
+shows that catalogue with a warning. Review those suggestions against the
+provider before relying on them.
 
 .. _administration-models-provenance:
 

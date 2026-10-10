@@ -36,11 +36,18 @@ Running E2E tests
 .. code-block:: bash
    :caption: Run E2E tests
 
-   # PHP-based E2E tests (mocked HTTP, in unit suite)
-   Build/Scripts/runTests.sh -s unit -- Tests/E2E/
+   # Workflow tests with mocked HTTP, included in the unit suite
+   Build/Scripts/runTests.sh -s unit -- \
+       Tests/E2E/ChatCompletionWorkflowTest.php \
+       Tests/E2E/EmbeddingWorkflowTest.php
+
+   # Backend workflows and TCA contracts use the functional configuration
+   Build/Scripts/runTests.sh -s functional -d sqlite -- \
+       --testsuite=e2e-backend,e2e-tca
 
    # Playwright browser E2E tests
-   Build/Scripts/runTests.sh -s e2e
+   TYPO3_BASE_URL=https://your-test-instance.example \
+       Build/Scripts/runTests.sh -s e2e
 
 .. _testing-e2e-example:
 
@@ -54,14 +61,19 @@ E2E test example
 
    use Netresearch\NrLlm\Domain\Model\CompletionResponse;
    use Netresearch\NrLlm\Provider\OpenAiProvider;
-   use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
+   use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
+   use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
+   use Netresearch\NrLlm\Service\CacheManagerInterface;
    use Netresearch\NrLlm\Service\Feature\CompletionService;
-   use Netresearch\NrLlm\Service\LlmServiceManager;
+   use Netresearch\NrLlm\Service\Option\ChatOptions;
+   use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
    use Psr\Log\NullLogger;
    use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
    class ChatWorkflowTest extends AbstractE2ETestCase
    {
+       use LlmServiceManagerTestFactory;
+
        public function testCompleteWorkflow(): void
        {
            $responseData = $this->createOpenAiChatResponse(
@@ -88,18 +100,23 @@ E2E test example
            ]);
 
            $registry = self::createStub(
-               ProviderAdapterRegistry::class
+               ProviderAdapterRegistryInterface::class
            );
-           $manager = new LlmServiceManager(
+           $manager = $this->createLlmServiceManager(
                $extConfig,
                new NullLogger(),
                $registry,
+               new MiddlewarePipeline([]),
+               self::createStub(CacheManagerInterface::class),
            );
            $manager->registerProvider($provider);
            $provider->setHttpClient($httpClient);
 
            $service = new CompletionService($manager);
-           $result = $service->complete('Hello!');
+           $result = $service->complete(
+               'Hello!',
+               new ChatOptions(provider: 'openai'),
+           );
 
            self::assertInstanceOf(
                CompletionResponse::class,

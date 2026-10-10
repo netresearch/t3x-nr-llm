@@ -87,13 +87,15 @@ Exceptions
    ``LlmConfigurationServiceInterface::getConfiguration()`` signals the
    inactive case as ``ConfigurationNotFoundException`` (code ``2690936773``).
 
-.. _api-events:
+.. _api-exceptions-planned-request-events:
 
-Events
-======
+Planned request events
+======================
 
 .. note::
 
    PSR-14 events (``BeforeRequestEvent``, ``AfterResponseEvent``) are planned
    for a future release. The event classes do not exist yet in the current
    codebase.
+
+   The existing editorial write event is documented in :ref:`api-events`.

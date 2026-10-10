@@ -89,6 +89,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   document/decision capability interfaces. Priority regressions assert the
   actual registration order.
 
+- **The feature, agent and testing guides match the current contracts.**
+  Examples use typed options, response content and mockable interfaces. The
+  guides describe sequential vision batches, opt-in translation caching,
+  streaming fallback before the first delivered chunk, deletion events and
+  budget ceilings. Agent approval/input, lease/reaper, MCP cancellation/read
+  caps and skill instruction/audit retention descriptions match their current
+  implementation. Provider tables and testing commands name existing features
+  and suites.
+
+- **Editor module guides use the current AI section (ADR-183).** The task,
+  approval and editor action guides name `AI > AI Tasks`. ADR-131 marks its
+  original Web placement as historical and retains the unchanged bookmark route.
+  Task prompt examples use the implemented `{{input}}` placeholder syntax.
+
 - **Invalid retrieval provenance follows the public exception contract (ADR-053).** Constructor validation implements `NrLlmExceptionInterface` while preserving native `InvalidArgumentException` catch compatibility, reason codes and messages.
 
 - **Retrieval details preserve legacy byte ids at full privacy (ADR-215).** Invalid UTF-8 question ids, hard classes and measured document ids use a versioned lossless field representation after filtering their original bytes. Ordinary UTF-8 and prompt snapshots remain compatible; redacted and metadata policies cannot be bypassed through encoding.

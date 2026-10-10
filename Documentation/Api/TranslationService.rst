@@ -77,7 +77,7 @@ TranslationService
       Translate with a stored ``LlmConfiguration``'s
       persona/tone.
 
-      Unlike :php:meth:`translate`, this routes through
+      Unlike ``translate()``, this routes through
       ``LlmServiceManager::chatWithConfiguration()`` so the
       configuration's stored ``system_prompt``, model,
       provider and skills apply. ``translate()`` supplies
@@ -151,7 +151,7 @@ Editor localization menu: translate with a chosen configuration
 An editor localization menu that lets the user pick between
 configurations with different tones/prompts resolves the chosen
 ``LlmConfiguration`` and hands it to
-:php:meth:`TranslationService::translateForConfiguration` — the
+``TranslationService::translateForConfiguration()`` — the
 configuration's ``system_prompt`` (persona/tone) and model then drive
 the call, while the translation task itself is layered in automatically.
 

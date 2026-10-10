@@ -46,6 +46,8 @@ Required
 
    Reference to the model to use.
 
+.. _confval-config-system-prompt:
+
 .. confval:: system_prompt
    :name: confval-config-system-prompt
    :type: text
@@ -64,6 +66,8 @@ Optional
    :Default: 0.7
 
    Creativity (0.0 = deterministic, 2.0 = creative).
+
+.. _confval-config-max-tokens:
 
 .. confval:: max_tokens (config)
    :name: confval-config-max-tokens
