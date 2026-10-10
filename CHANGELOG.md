@@ -17,7 +17,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Ten skill fields and nine skill source fields are now `exclude` fields (ADR-214 item 3):** on `tx_nrllm_skill` the source, trust level, body checksum, version digest, enabled and hidden flags, allowed tools, support status, orphan flag and stored frontmatter; on `tx_nrllm_skill_source` the type, trust level, hidden and enabled flags, URL, ref, pinned SHA, expected fingerprint and access token. A backend group that edited any of them needs the field granted explicitly under "Allowed excludefields"; the name, description and body stay outside the list.
 - **A hidden or disabled skill source no longer vouches for its skills' provenance.** Their approved versions fall back to the fenced frame until the source is active again.
 
+- **Handle tool-loop suspensions before the common exception catch.**
+  `ToolApprovalRequiredException` and `ToolInputRequiredException` now also
+  implement the common marker. Direct tool-loop consumers must catch these
+  specific signals first to preserve their resumable state.
+
 ### Added
+
+- **Compatible common-marker runtime and logic exceptions (ADR-053).**
+  `Exception\RuntimeException` and `Exception\LogicException` retain their
+  native parent hierarchy and provide marker types for internally generated
+  failures. The public API snapshot gains these two types.
 
 - **Worker operations (ADR-219).** `nrllm:agent:status` reports queue wait,
   unknown timings, expired run leases and transport-scoped consumer heartbeats,
@@ -81,6 +91,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **BREAKING for implementations of `ToolCallPolicyInterface` and `ToolLoopServiceInterface` (ADR-038 item 5).** `ToolCallPolicyInterface::decide()`, `explain()` and `filterOfferable()` take an optional `?SkillToolAllowList $runAllowList` last, and the interface gains `skillAllowListForRun()`, which resolves the list over the configuration's skills and the run's forced skills; without the argument the policy keeps the configuration-only resolution. `ToolLoopServiceInterface::runLoop()` takes an optional `?SkillToolAllowList $skillAllowList` last, the list a queued run was enqueued under. Callers are unaffected; a class outside nr-llm that implements either interface has to add the parameters and the method.
 
 ### Fixed
+
+- **The common exception marker covers all extension failure families
+  (ADR-053).** Agent, specialized, skill and tool errors, delegated credential
+  validation, editor-action validation and internally generated runtime or
+  configuration failures are catchable through `NrLlmExceptionInterface`.
+  Existing native parent catches, messages, codes and exception chaining stay
+  compatible. Full-source discovery and consumer-boundary tests prevent the
+  former two-directory check from overlooking new families.
 
 - **Invalid retrieval provenance follows the public exception contract (ADR-053).** Constructor validation implements `NrLlmExceptionInterface` while preserving native `InvalidArgumentException` catch compatibility, reason codes and messages.
 

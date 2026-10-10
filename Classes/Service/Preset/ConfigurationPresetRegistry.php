@@ -9,9 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Preset;
 
-use LogicException;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Exception\LogicException;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 /**

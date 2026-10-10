@@ -6,7 +6,7 @@ declare (strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Mcp\Auth;
 
-use InvalidArgumentException;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Symfony\Component\Uid\Uuid;
 
 /**
