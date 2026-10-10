@@ -9,7 +9,9 @@
 ADR-016: Thinking/Reasoning Block Extraction
 ==============================================
 
-:Status: Accepted
+:Status: Accepted (Gemini integration amended by
+    :ref:`ADR-223 <adr-223>`)
+:Amended: 2026-10-10 by :ref:`ADR-223 <adr-223>`
 :Date: 2025-12
 :Authors: Netresearch DTT GmbH
 
@@ -131,3 +133,12 @@ Files changed
 - :file:`Classes/Provider/GeminiProvider.php` --
   Regex-based thinking extraction.
 - :file:`Classes/Provider/OpenRouterProvider.php` -- Inherits OpenAI behavior.
+
+2026-10-10 clarification
+========================
+
+:ref:`ADR-223 <adr-223>` replaces the historical first-part Gemini integration
+above. Synchronous Gemini chat and tool chat share ordered visible/native text
+classification. Native thinking is separate from content, and native plus
+inline thinking has an explicit combination rule. The original two-tier
+strategy and other providers remain unchanged.
