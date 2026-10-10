@@ -9,6 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
+use DOMDocument;
+use DOMElement;
+use DOMXPath;
 use GuzzleHttp\Psr7\ServerRequest as GuzzleServerRequest;
 use Netresearch\NrLlm\Controller\Backend\ToolPlaygroundController;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
@@ -68,6 +71,7 @@ use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\PreviewingApprovalTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\RecordingAgentRunRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
 use ReflectionClass;
@@ -1569,5 +1573,132 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
     {
         $reflection = new ReflectionClass($object);
         $reflection->getProperty($property)->setValue($object, $value);
+    }
+
+    /**
+     * @param array<string,string> $expectedLabels
+     */
+    #[Test]
+    #[DataProvider('terminalLabelLocales')]
+    public function listActionSuppliesLocalizedTerminalLabels(
+        string $locale,
+        array $expectedLabels,
+    ): void {
+        $this->importFixture('LlmConfigurations.csv');
+        $this->importFixture('BeUsers.csv');
+        $backendUser = $this->setUpBackendUser(1);
+        $backendUser->user['lang'] = $locale;
+        // uid 1 is an admin (admin=1)
+        $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->create($locale);
+
+        $moduleTemplateFactory = $this->get(ModuleTemplateFactory::class);
+        self::assertInstanceOf(
+            ModuleTemplateFactory::class,
+            $moduleTemplateFactory,
+        );
+        $configurationRepository = $this->get(LlmConfigurationRepository::class);
+        self::assertInstanceOf(
+            LlmConfigurationRepository::class,
+            $configurationRepository,
+        );
+        $pageRenderer = $this->get(PageRenderer::class);
+        self::assertInstanceOf(PageRenderer::class, $pageRenderer);
+
+        $toolRegistry = new ToolRegistry([new FakeTool('fetch_logs')]);
+        $availability = $this->availabilityFor($toolRegistry);
+
+        $skillRepository = $this->get(SkillRepository::class);
+        self::assertInstanceOf(SkillRepository::class, $skillRepository);
+        $promptSnippetRepository = $this->get(PromptSnippetRepository::class);
+        self::assertInstanceOf(
+            PromptSnippetRepository::class,
+            $promptSnippetRepository,
+        );
+
+        $controller = $this->makeController(
+            $configurationRepository,
+            $toolRegistry,
+            $this->loopFor(
+                self::createStub(LlmServiceManagerInterface::class),
+                new ToolRegistry([]),
+                null,
+                $availability,
+            ),
+        );
+        $this->setPrivateProperty(
+            $controller,
+            'request',
+            $this->createBackendRequest(),
+        );
+
+        $response = $controller->listAction();
+
+        self::assertSame(200, $response->getStatusCode());
+        $body = (string)$response->getBody();
+
+        // Config picker over the persisted configurations.
+        self::assertStringContainsString('id="nrllm-tool-config"', $body);
+        self::assertStringContainsString('Default Configuration', $body);
+        // Prompt box, run button and output pane.
+        self::assertStringContainsString('id="nrllm-tool-prompt"', $body);
+        self::assertStringContainsString('id="nrllm-tool-run"', $body);
+        self::assertStringContainsString('id="nrllm-tool-output"', $body);
+        // The per-run tool selection lists the registered tool by name (the
+        // enable/disable management list — with descriptions — now lives in the
+        // separate Tools module, {@see ToolControllerTest}).
+        self::assertStringContainsString('fetch_logs', $body);
+        self::assertStringContainsString('js-tool-select', $body);
+        // Grouped: the group checkbox and the child's group attribution render.
+        self::assertStringContainsString('js-toolgroup-select', $body);
+        self::assertStringContainsString('data-group="test"', $body);
+        $document = new DOMDocument();
+        $previous = libxml_use_internal_errors(true);
+        try {
+            $loaded = $document->loadHTML($body);
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previous);
+        }
+
+        self::assertTrue($loaded);
+        $nodes = (new DOMXPath($document))->query('//*[@id="nrllm-tool-playground"]');
+        self::assertNotFalse($nodes);
+        self::assertSame(1, $nodes->length);
+        $root = $nodes->item(0);
+        self::assertInstanceOf(DOMElement::class, $root);
+        foreach ($expectedLabels as $attribute => $expected) {
+            self::assertSame($expected, $root->getAttribute($attribute));
+        }
+    }
+
+    /**
+     * @return iterable<string,array{string,array<string,string>}>
+     */
+    public static function terminalLabelLocales(): iterable
+    {
+        yield 'en' => [
+            'en',
+            [
+                'data-msg-awaitingapproval' => 'Awaiting approval',
+                'data-msg-awaitinginput' => 'Awaiting input',
+                'data-msg-guardrailblocked' => 'Blocked by a guardrail',
+                'data-msg-guardrailapproval' => 'Guardrail approval required',
+                'data-msg-cancelled' => 'Cancelled',
+                'data-msg-incomplete' => 'Incomplete',
+                'data-msg-continuerun' => 'Continue in AI > Operation > Agent Runs.',
+            ],
+        ];
+        yield 'de' => [
+            'de',
+            [
+                'data-msg-awaitingapproval' => 'Warten auf Freigabe',
+                'data-msg-awaitinginput' => 'Warten auf Eingabe',
+                'data-msg-guardrailblocked' => 'Durch Schutzregel blockiert',
+                'data-msg-guardrailapproval' => 'Freigabe für Schutzregel erforderlich',
+                'data-msg-cancelled' => 'Abgebrochen',
+                'data-msg-incomplete' => 'Unvollständig',
+                'data-msg-continuerun' => 'Im Modul „Agent-Läufe“ fortsetzen.',
+            ],
+        ];
     }
 }

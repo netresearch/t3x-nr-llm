@@ -41,6 +41,13 @@ class ToolPlayground {
         this.route = this.root.dataset.ajaxRoute || '';
         this.msgTruncated = this.root.dataset.msgTruncated || 'Response truncated — the model hit the max-tokens limit. Raise Max tokens in Advanced and run again.';
         this.msgRunning = this.root.dataset.msgRunning || 'Running…';
+        this.msgAwaitingApproval = this.root.dataset.msgAwaitingapproval || 'Awaiting approval';
+        this.msgAwaitingInput = this.root.dataset.msgAwaitinginput || 'Awaiting input';
+        this.msgGuardrailBlocked = this.root.dataset.msgGuardrailblocked || 'Blocked by a guardrail';
+        this.msgGuardrailApproval = this.root.dataset.msgGuardrailapproval || 'Guardrail approval required';
+        this.msgCancelled = this.root.dataset.msgCancelled || 'Cancelled';
+        this.msgIncomplete = this.root.dataset.msgIncomplete || 'Incomplete';
+        this.msgContinueRun = this.root.dataset.msgContinuerun || 'Continue in AI > Operation > Agent Runs.';
         this.msgWaiting = this.root.dataset.msgWaiting || 'Waiting for model…';
         this.msgRequest = this.root.dataset.msgRequest || 'Request';
         this.msgToolSpecs = this.root.dataset.msgToolspecs || 'Tools offered';
@@ -235,6 +242,7 @@ class ToolPlayground {
                     live.contextClassification = event.contextClassification || null;
                 } else if (event.event === 'done') {
                     live.running = false;
+                    live.status = 'completed';
                     live.finalContent = event.finalContent || '';
                     live.iterations = event.iterations;
                     live.truncated = !!event.truncated;
@@ -242,6 +250,14 @@ class ToolPlayground {
                     live.usage = event.usage || {};
                     sawTerminal = true;
                     this.safeRender(live);
+                } else if (this.isPausedOrStopped(event.event)) {
+                    live.running = false;
+                    live.status = event.event;
+                    live.runUuid = event.runUuid;
+                    live.error = event.error;
+                    sawTerminal = true;
+                    this.safeRender(live);
+                    return;
                 } else if (event.event === 'error') {
                     sawTerminal = true;
                     const message = event.error || 'Run failed';
@@ -253,8 +269,9 @@ class ToolPlayground {
         }
 
         if (!sawTerminal) {
-            // Stream ended without a done/error line — show whatever arrived.
+            // Keep the trace, but a missing settled event cannot prove completion.
             live.running = false;
+            live.status = 'incomplete';
             this.safeRender(live);
         }
     }
@@ -323,7 +340,7 @@ class ToolPlayground {
      */
     renderResult(data) {
         this.clearOutput();
-        if (!data || data.success === false) {
+        if (!data || (data.success === false && !this.isPausedOrStopped(data.status))) {
             this.renderError(data && data.error ? data.error : 'Unknown error');
             return;
         }
@@ -334,6 +351,10 @@ class ToolPlayground {
         const steps = Array.isArray(data.steps) ? data.steps : [];
 
         this.output.appendChild(this.buildSummary(data, steps));
+        const outcomeNotice = this.buildOutcomeNotice(data);
+        if (outcomeNotice) {
+            this.output.appendChild(outcomeNotice);
+        }
 
         // A model round that stopped on the token limit was cut off mid-answer;
         // say so plainly rather than showing a silent half-sentence.
@@ -412,6 +433,17 @@ class ToolPlayground {
         if (data.running) {
             status.classList.add('is-run');
             status.textContent = `● ${this.msgRunning}`;
+        } else if (this.isPausedOrStopped(data.status) || data.status === 'incomplete') {
+            status.classList.add('is-warn');
+            const labels = {
+                awaiting_approval: this.msgAwaitingApproval,
+                awaiting_input: this.msgAwaitingInput,
+                guardrail_blocked: this.msgGuardrailBlocked,
+                guardrail_approval_required: this.msgGuardrailApproval,
+                cancelled: this.msgCancelled,
+                incomplete: this.msgIncomplete,
+            };
+            status.textContent = labels[data.status];
         } else if (data.dryRun) {
             status.classList.add('is-dry');
             status.textContent = '⧉ Dry run — assembled, not sent';
@@ -428,6 +460,30 @@ class ToolPlayground {
         strip.appendChild(wrap);
 
         return strip;
+    }
+
+    isPausedOrStopped(status) {
+        return ['awaiting_approval', 'awaiting_input', 'guardrail_blocked', 'guardrail_approval_required', 'cancelled'].includes(status);
+    }
+
+    buildOutcomeNotice(data) {
+        if (data.status === 'awaiting_approval' || data.status === 'awaiting_input') {
+            const notice = document.createElement('div');
+            notice.className = 'nrllm-pg-note';
+            const guidance = document.createElement('p');
+            guidance.textContent = this.msgContinueRun;
+            notice.appendChild(guidance);
+            if (typeof data.runUuid === 'string' && data.runUuid !== '') {
+                const reference = document.createElement('p');
+                reference.textContent = data.runUuid;
+                notice.appendChild(reference);
+            }
+            return notice;
+        }
+        if (this.isPausedOrStopped(data.status) && typeof data.error === 'string' && data.error !== '') {
+            return this.note(data.error);
+        }
+        return null;
     }
 
     cell(key, value) {
