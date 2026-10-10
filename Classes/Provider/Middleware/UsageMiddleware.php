@@ -149,10 +149,17 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
         try {
             $this->track($context, $result);
         } catch (Throwable $e) {
-            $this->logger->warning(
-                'Usage tracking failed after a successful provider call; the call result is unaffected.',
-                ['exception' => $e, 'operation' => $context->operation->value],
-            );
+            try {
+                $this->logger->warning(
+                    'Usage tracking failed after a successful provider call; the call result is unaffected.',
+                    [
+                        'exception' => $e,
+                        'operation' => $context->operation->value,
+                    ],
+                );
+            } catch (Throwable) {
+                // Logging is best-effort too: preserve the successful provider answer.
+            }
         }
 
         return $result;
