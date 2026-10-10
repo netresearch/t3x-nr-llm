@@ -82,6 +82,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Gemini synchronous chat and tool responses now preserve every visible text part and separate native `thought: true` parts into `thinking`. Existing inline `<think>` extraction is applied once to joined visible text; native and inline contributions are combined with one newline. Native parts, tool calls and other response fields remain unchanged (ADR-223).
+
 - **Gemini tool conversations retain native thought signatures (ADR-222).** The existing response/transcript carrier preserves complete native parts through tool steps and stored resume. Gemini and OpenAI Responses distinguish ownership, keep foreign visible text and ordinary calls, and refuse ambiguous recognized replay state before contact.
 
 - **Invalid retrieval provenance follows the public exception contract (ADR-053).** Constructor validation implements `NrLlmExceptionInterface` while preserving native `InvalidArgumentException` catch compatibility, reason codes and messages.

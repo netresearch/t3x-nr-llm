@@ -375,7 +375,7 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
             [ChatMessage::user('Check.')],
             ['_capture_raw' => $captureRaw],
         );
-        self::assertSame('Visible.', $response->content);
+        self::assertSame('Visible.Later.', $response->content);
         self::assertSame('Private.', $response->thinking);
         self::assertSame('gemini', $response->provider);
         self::assertSame(7, $response->usage->promptTokens);
@@ -403,7 +403,7 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
         self::assertSame(
             [
                 'role' => 'model',
-                'parts' => $signed ? $parts : [['text' => 'Visible.']],
+                'parts' => $signed ? $parts : [['text' => 'Visible.Later.']],
             ],
             $this->payload($body)['contents'][1],
         );

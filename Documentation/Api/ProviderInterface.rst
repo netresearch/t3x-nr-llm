@@ -68,6 +68,24 @@ Provider interface
       :returns: array{success, message, models?}
       :throws: ProviderConnectionException
 
+Synchronous Gemini text and thinking
+====================================
+
+For Gemini ``chatCompletion()`` and ``chatCompletionWithTools()``, all string
+text parts of the first candidate contribute in their original order. Native
+parts with ``thought: true`` populate ``CompletionResponse::$thinking``;
+other text parts populate ``$content``. Neither sequence gains an invented
+separator, and native text keeps its whitespace.
+
+The joined visible text then uses the existing ``<think>...</think>`` extraction
+once, including a delimiter split across parts. Inline blocks keep their
+existing trimming and whitespace normalization. If native and inline thinking
+both contribute, ``$thinking`` contains native text, one newline and inline
+thinking. With neither contribution, it is ``null``. Native-only responses
+have empty visible content. This does not change streaming or vision parsing,
+and preserves tool calls, response fields and the unmodified native parts used
+by the existing response capture or replay behavior. See :ref:`adr-223`.
+
 .. php:interface:: VisionCapableInterface
 
    Contract for providers supporting vision/image
