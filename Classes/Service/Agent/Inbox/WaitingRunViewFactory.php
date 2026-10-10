@@ -300,7 +300,11 @@ final readonly class WaitingRunViewFactory
             return false;
         }
 
-        return $tool->mayViewerReadPreview($arguments, $viewer);
+        try {
+            return $tool->mayViewerReadPreview($arguments, $viewer);
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     private function buildInput(AgentRun $run, SuspendedRunState $state): WaitingRunView

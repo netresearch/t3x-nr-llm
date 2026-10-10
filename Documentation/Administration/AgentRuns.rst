@@ -139,6 +139,12 @@ element of that type with the proposed header, so a second copy is not
 approved by accident. The preview lines are in the language of the backend
 user the run acts as (:ref:`ADR-213 <adr-213>`).
 
+If the tool cannot determine whether another approver may read the record,
+the stored preview is withheld. A failed read check keeps that approval card
+and other waiting runs available, without exposing the stored preview or
+the failure details. The user who started the run may still read the preview
+captured under their own permissions.
+
 .. warning::
 
    The decision is bound to the exact turn you are looking at. If the run has
