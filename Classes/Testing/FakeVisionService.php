@@ -123,6 +123,9 @@ final class FakeVisionService implements VisionServiceInterface
         return $this->echoArity($imageUrl, $this->analyzeImageResult);
     }
 
+    /**
+     * @throws Throwable the configured one-shot failure, when set
+     */
     public function analyzeImageFull(string $imageUrl, string $prompt, ?VisionOptions $options = null): VisionResponse
     {
         $this->analyzeImageFullCalls[] = ['imageUrl' => $imageUrl, 'prompt' => $prompt, 'options' => $options];

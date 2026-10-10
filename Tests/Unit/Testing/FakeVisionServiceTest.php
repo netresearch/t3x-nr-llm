@@ -110,16 +110,27 @@ final class FakeVisionServiceTest extends TestCase
     {
         $subject = new FakeVisionService();
         $subject->altTextResult = 'after';
-        $subject->throwable = new RuntimeException('boom');
 
+        $expected = new RuntimeException('boom');
+        $subject->throwable = $expected;
+
+        $caught = null;
         try {
             $subject->generateAltText('https://example.test/a.png');
-            self::fail('Expected RuntimeException was not thrown.');
-        } catch (RuntimeException) {
-            // one-shot: cleared before throwing
+        } catch (RuntimeException $failure) {
+            $caught = $failure;
         }
 
+        self::assertSame(
+            $expected,
+            $caught,
+            'The first call must throw the exact configured failure.',
+        );
+
         self::assertNull($subject->throwable);
-        self::assertSame('after', $subject->generateAltText('https://example.test/a.png'));
+        self::assertSame(
+            'after',
+            $subject->generateAltText('https://example.test/a.png'),
+        );
     }
 }

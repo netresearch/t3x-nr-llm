@@ -120,14 +120,22 @@ final class FakeCompletionServiceTest extends TestCase
     {
         $subject = new FakeCompletionService();
         $subject->jsonResult = ['ok' => true];
-        $subject->throwable = new RuntimeException('boom');
 
+        $expected = new RuntimeException('boom');
+        $subject->throwable = $expected;
+
+        $caught = null;
         try {
             $subject->completeJson('a');
-            self::fail('Expected RuntimeException was not thrown.');
-        } catch (RuntimeException) {
-            // one-shot: cleared before throwing
+        } catch (RuntimeException $failure) {
+            $caught = $failure;
         }
+
+        self::assertSame(
+            $expected,
+            $caught,
+            'The first call must throw the exact configured failure.',
+        );
 
         self::assertNull($subject->throwable);
         self::assertSame(['ok' => true], $subject->completeJson('a'));
