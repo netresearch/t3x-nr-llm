@@ -19,6 +19,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Add database-backed skill provenance oracles for exact source identity, immediate reclassification and missing, deleted, hidden or disabled sources; keep unknown publisher trust untrusted.
+
 - **Worker operations (ADR-219).** `nrllm:agent:status` reports queue wait,
   unknown timings, expired run leases and transport-scoped consumer heartbeats,
   with JSON output and explicit health thresholds. Queue-entry time is recorded
