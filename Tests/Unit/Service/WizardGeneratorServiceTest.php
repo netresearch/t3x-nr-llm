@@ -20,12 +20,15 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
+use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Service\WizardGeneratorService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Log\LoggerInterface;
@@ -158,11 +161,13 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     }
 
     /**
-     * Create a QueryResultInterface stub that iterates over the given items.
+     * Create an iterating result for models or configurations.
      *
-     * @param array<object> $items
+     * @template T of object
      *
-     * @return QueryResultInterface<int, Model>
+     * @param array<T> $items
+     *
+     * @return QueryResultInterface<int, T>
      */
     private function createQueryResultStub(array $items): QueryResultInterface
     {
@@ -2549,5 +2554,307 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
 
         self::assertTrue($result['generated']);
         self::assertSame('wrapped', $result['identifier']);
+    }
+
+    private function createCriteriaConfiguration(): LlmConfiguration
+    {
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('criteria_wizard');
+        $configuration->setModelSelectionMode('criteria');
+        $configuration->setModelSelectionCriteria('{"capabilities":["chat"]}');
+        $configuration->setIsActive(true);
+        $configuration->setSystemPrompt('You produce wizard suggestions.');
+        return $configuration;
+    }
+
+    #[Test]
+    public function resolveConfigurationPreservesAnExplicitCriteriaRecord(): void
+    {
+        $configuration = $this->createCriteriaConfiguration();
+        self::assertNull($configuration->getLlmModel());
+        $this->configurationRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(42)
+            ->willReturn($configuration);
+        $this->configurationRepository
+            ->expects(self::never())
+            ->method('findDefault');
+        self::assertSame(
+            $configuration,
+            $this->subject->resolveConfiguration(42),
+        );
+    }
+
+    #[Test]
+    public function resolveConfigurationPreservesTheDefaultCriteriaRecord(): void
+    {
+        $this->configurationRepository->method('findAll')->willReturn([]);
+        $configuration = $this->createCriteriaConfiguration();
+        self::assertNull($configuration->getLlmModel());
+        $this->stubDefaultConfig($configuration);
+        self::assertSame($configuration, $this->subject->resolveConfiguration());
+    }
+
+    #[Test]
+    public function resolveConfigurationCanUseTheFirstActiveCriteriaRecord(): void
+    {
+        $configuration = $this->createCriteriaConfiguration();
+        self::assertNull($configuration->getLlmModel());
+        $this->configurationRepository->method('findDefault')->willReturn(null);
+        $this->configurationRepository
+            ->method('findAll')
+            ->willReturn([$configuration]);
+        self::assertSame($configuration, $this->subject->resolveConfiguration());
+    }
+
+    #[Test]
+    public function findBestExistingConfigurationCanUseCriteriaWithoutAPinnedModel(): void
+    {
+        $this->stubNoDefaultConfig();
+        $configuration = $this->createCriteriaConfiguration();
+        self::assertNull($configuration->getLlmModel());
+        $this->configurationRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResultStub([$configuration]));
+        self::assertSame(
+            $configuration,
+            $this->subject->findBestExistingConfiguration('summarize articles'),
+        );
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function criteriaWizardGenerators(): iterable
+    {
+        yield 'configuration' => ['generateConfiguration'];
+        yield 'task' => ['generateTask'];
+        yield 'complete task chain' => ['generateTaskWithChain'];
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    #[Test]
+    #[DataProvider('criteriaSuccessfulWizardGenerators')]
+    public function criteriaDefaultPowersEveryWizardGenerator(
+        string $method,
+        array $data,
+    ): void {
+        $configuration = $this->createCriteriaConfiguration();
+        $this->stubDefaultConfig($configuration);
+        $this->configurationRepository->method('findAll')->willReturn([]);
+        $this->configurationRepository->expects(self::never())->method('add');
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResultStub([]));
+        $this->modelRepository->expects(self::never())->method('add');
+        $sentSchema = null;
+        $response = $this->structured($data);
+        $this->completionService
+            ->expects(self::once())
+            ->method('completeStructuredForConfiguration')
+            ->with(self::anything(), $configuration, self::anything(), self::anything())
+            ->willReturnCallback(
+                static function (
+                    string $prompt,
+                    LlmConfiguration $config,
+                    array $schema,
+                    ?ChatOptions $options,
+                ) use (&$sentSchema, $response): StructuredCompletionResponse {
+                    $sentSchema = $schema;
+                    return $response;
+                },
+            );
+
+        $result = $this->subject->{$method}('summarize articles');
+
+        self::assertIsArray($sentSchema);
+        self::assertTrue(
+            (new JsonSchemaValidator())->validateStrict($data, $sentSchema),
+            'The positive fixture must satisfy the actual structured-completion schema.',
+        );
+        self::assertTrue($result['generated']);
+        if ($method === 'generateTaskWithChain') {
+            self::assertSame($data['task'], $result['task']);
+            self::assertSame($data['configuration'], $result['configuration']);
+            self::assertSame(
+                $data['recommended_model_id'],
+                $result['recommended_model_id'],
+            );
+            self::assertSame(
+                $data['suggested_model'],
+                $result['suggested_model'],
+            );
+        } else {
+            foreach ($data as $field => $value) {
+                self::assertSame($value, $result[$field]);
+            }
+        }
+
+        self::assertNull($configuration->getLlmModel());
+        self::assertTrue($configuration->usesCriteriaSelection());
+    }
+
+    #[Test]
+    #[DataProvider('criteriaWizardGenerators')]
+    public function criteriaWithoutAMatchingModelKeepsTheGenericFallback(
+        string $method,
+    ): void {
+        $configuration = $this->createCriteriaConfiguration();
+        $this->stubDefaultConfig($configuration);
+        $this->configurationRepository->method('findAll')->willReturn([]);
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResultStub([]));
+        $this->completionService
+            ->expects(self::once())
+            ->method('completeStructuredForConfiguration')
+            ->with(self::anything(), $configuration, self::anything(), self::anything())
+            ->willThrowException(
+                new ProviderException(
+                    'Configuration "criteria_wizard" has no model assigned',
+                    1735300100,
+                ),
+            );
+        $result = $this->subject->{$method}('summarize articles');
+        self::assertFalse($result['generated']);
+        $suggestion = $method === 'generateTaskWithChain' ? $result['task'] : $result;
+        self::assertSame(
+            $method === 'generateConfiguration' ? 'New Configuration' : 'New Task',
+            $suggestion['name'],
+        );
+        self::assertSame('summarize articles', $suggestion['description']);
+        self::assertNull($configuration->getLlmModel());
+    }
+
+    #[Test]
+    #[DataProvider('criteriaWizardGenerators')]
+    public function criteriaBudgetDenialIsPropagatedWithoutFallback(
+        string $method,
+    ): void {
+        $configuration = $this->createCriteriaConfiguration();
+        $this->stubDefaultConfig($configuration);
+        $this->configurationRepository->method('findAll')->willReturn([]);
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResultStub([]));
+        $denial = $this->createBudgetExceededException();
+        $this->completionService
+            ->expects(self::once())
+            ->method('completeStructuredForConfiguration')
+            ->with(self::anything(), $configuration, self::anything(), self::anything())
+            ->willThrowException($denial);
+        $caught = null;
+        try {
+            $this->subject->{$method}('summarize articles');
+        } catch (BudgetExceededException $exception) {
+            $caught = $exception;
+        }
+
+        self::assertSame($denial, $caught);
+        self::assertNull($configuration->getLlmModel());
+    }
+
+    #[Test]
+    public function inactiveCriteriaRecordDoesNotBecomeAnAutomaticFallback(): void
+    {
+        $configuration = $this->createCriteriaConfiguration();
+        $configuration->setIsActive(false);
+        $this->configurationRepository->method('findDefault')->willReturn(null);
+        $this->configurationRepository
+            ->method('findAll')
+            ->willReturn([$configuration]);
+        $this->completionService
+            ->expects(self::never())
+            ->method('completeStructuredForConfiguration');
+        self::assertNull($this->subject->resolveConfiguration());
+        $result = $this->subject->generateConfiguration('inactive criteria');
+        self::assertFalse($result['generated']);
+        self::assertSame('inactive criteria', $result['description']);
+    }
+
+    #[Test]
+    public function explicitFixedRecordWithoutAModelKeepsDefaultFallback(): void
+    {
+        $invalidFixed = new LlmConfiguration();
+        self::assertFalse($invalidFixed->usesCriteriaSelection());
+        self::assertNull($invalidFixed->getLlmModel());
+        $default = $this->createConfigurationWithModel();
+        $this->configurationRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(42)
+            ->willReturn($invalidFixed);
+        $this->configurationRepository
+            ->expects(self::once())
+            ->method('findDefault')
+            ->willReturn($default);
+        self::assertSame($default, $this->subject->resolveConfiguration(42));
+    }
+
+    /**
+     * @return iterable<string, array{string, array<string, mixed>}>
+     */
+    public static function criteriaSuccessfulWizardGenerators(): iterable
+    {
+        yield 'schema-valid configuration' => [
+            'generateConfiguration',
+            [
+                'identifier' => 'criteria-config',
+                'name' => 'Criteria Configuration',
+                'description' => 'A configuration suggestion served through criteria routing.',
+                'system_prompt' => 'Summarize articles clearly.',
+                'temperature' => 0.5,
+                'max_tokens' => 2048,
+                'top_p' => 0.9,
+                'frequency_penalty' => 0.1,
+                'presence_penalty' => 0.2,
+                'recommended_model' => 'suggested-alias',
+            ],
+        ];
+        yield 'schema-valid task' => [
+            'generateTask',
+            [
+                'identifier' => 'criteria-task',
+                'name' => 'Criteria Task',
+                'description' => 'A task suggestion served through criteria routing.',
+                'category' => 'content',
+                'prompt_template' => 'Summarize this article: {{input}}',
+                'output_format' => 'markdown',
+            ],
+        ];
+        yield 'schema-valid complete chain' => [
+            'generateTaskWithChain',
+            [
+                'task' => [
+                    'identifier' => 'criteria-chain-task',
+                    'name' => 'Criteria Chain Task',
+                    'description' => 'A complete task-chain suggestion.',
+                    'category' => 'content',
+                    'prompt_template' => 'Summarize this article: {{input}}',
+                    'output_format' => 'markdown',
+                ],
+                'configuration' => [
+                    'identifier' => 'criteria-chain-config',
+                    'name' => 'Criteria Chain Configuration',
+                    'description' => 'A dedicated configuration suggestion.',
+                    'system_prompt' => 'Summarize articles clearly.',
+                    'temperature' => 0.5,
+                    'max_tokens' => 2048,
+                    'top_p' => 0.9,
+                    'frequency_penalty' => 0.1,
+                    'presence_penalty' => 0.2,
+                ],
+                'recommended_model_id' => 'suggested-alias',
+                'suggested_model' => [
+                    'name' => 'Suggested Model',
+                    'model_id' => 'suggested-alias',
+                    'description' => 'A model suitable for summarizing articles.',
+                    'capabilities' => 'chat',
+                ],
+            ],
+        ];
     }
 }
