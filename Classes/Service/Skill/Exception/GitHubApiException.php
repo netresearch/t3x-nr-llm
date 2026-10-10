@@ -47,4 +47,20 @@ final class GitHubApiException extends RuntimeException
     {
         return new self(sprintf('GitHub API rate limit exceeded; resets at %d', $resetEpoch), 1719500102, true, 429);
     }
+
+    /**
+     * A recursive tree prefix cannot establish the absence of omitted skills.
+     */
+    public static function forTruncatedTree(string $url): self
+    {
+        return new self(
+            sprintf(
+                'GitHub API response from "%s" contained a truncated repository tree',
+                $url,
+            ),
+            1751280202,
+            false,
+            0,
+        );
+    }
 }

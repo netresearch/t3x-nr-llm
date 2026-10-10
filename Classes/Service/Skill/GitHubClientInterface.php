@@ -24,8 +24,9 @@ interface GitHubClientInterface
     public function resolveSha(string $owner, string $repo, string $ref, ?string $tokenUuid): string;
 
     /**
-     * List the blob paths of a repository tree at the given immutable SHA.
-     *
+     * List blob paths from a complete repository tree at the immutable SHA.
+     * An explicitly truncated upstream listing is refused, preserving skills
+     * whose paths might be absent only because the response was incomplete.
      *
      * @throws HostNotAllowedException
      * @throws GitHubApiException

@@ -73,6 +73,10 @@ final class GitHubClient implements GitHubClientInterface
             throw GitHubApiException::forMalformedResponse($url);
         }
 
+        if (($data['truncated'] ?? false) === true) {
+            throw GitHubApiException::forTruncatedTree($url);
+        }
+
         $tree = $data['tree'];
         $paths = [];
         foreach ($tree as $node) {
