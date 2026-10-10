@@ -10,18 +10,12 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Provider\OpenAi;
 
 /**
- * The keys this adapter writes into `CompletionResponse::$metadata`
- * (ADR-203, ADR-204).
- *
- * They live on the existing metadata slot rather than as new fields because
- * `CompletionResponse` is frozen in `api-surface.txt`, and because
- * `GuardrailMiddleware` already carries `metadata` across the response it
- * rebuilds after screening — a new constructor field would be dropped there.
- *
- * Every key is optional and **an absent key is a statement**: no transport key
- * means the response predates this change or came from another adapter, and no
- * effort key means no reasoning effort was applied, which is different from an
- * effort of `none` having been applied.
+ * OpenAI response metadata keys and the shared opaque replay slot.
+ * Existing CompletionResponse metadata carries these values through
+ * GuardrailMiddleware reconstruction without a new public field.
+ * Transport and effort keys belong to OpenAI. KEY_PROVIDER_ITEMS also carries
+ * the explicitly owned Gemini replay capsule (ADR-203/204/222).
+ * Keys remain optional: absence means no state was supplied for that key.
  */
 final class OpenAiCallMetadata
 {
