@@ -8,6 +8,7 @@ declare (strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Skill;
 
+use Error;
 use Netresearch\NrLlm\Service\Skill\Exception\GitHubApiException;
 use Netresearch\NrLlm\Service\Skill\Exception\HostNotAllowedException;
 use Netresearch\NrLlm\Service\Skill\GitHubClient;
@@ -22,6 +23,7 @@ use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use RuntimeException;
 use Throwable;
 use TYPO3\CMS\Core\Http\Client\GuzzleClientFactory;
 use TYPO3\CMS\Core\Http\RequestFactory;
@@ -427,5 +429,64 @@ final class GitHubClientRequestContractTest extends TestCase
         }
 
         return $response;
+    }
+
+    /**
+     * @param class-string<Throwable> $loggerFailureClass
+     */
+    #[Test]
+    #[DataProvider('malformedDiagnosticFailures')]
+    public function loggerFailureDoesNotReplaceTheMalformedResponseError(
+        string $body,
+        string $loggerFailureClass,
+    ): void {
+        $failure = new $loggerFailureClass('synthetic diagnostic failure');
+        $warnings = [];
+        $logger = self::createStub(LoggerInterface::class);
+        $logger
+            ->method('warning')
+            ->willReturnCallback(
+                static function (
+                    string $message,
+                    array $context,
+                ) use (&$warnings, $failure): never {
+                    $warnings[] = ['message' => $message, 'context' => $context];
+                    throw $failure;
+                },
+            );
+        $client = $this->clientReturning(self::response($body), null, $logger);
+        $caught = null;
+        try {
+            $client->resolveSha('owner', 'repository', 'main', null);
+        } catch (Throwable $error) {
+            $caught = $error;
+        }
+
+        self::assertInstanceOf(GitHubApiException::class, $caught);
+        self::assertSame(1751280201, $caught->getCode());
+        self::assertSame(
+            'GitHub API response from "https://api.github.com/repos/owner/repository/commits/main" was not valid JSON',
+            $caught->getMessage(),
+        );
+        self::assertFalse($caught->isRateLimit);
+        self::assertSame(0, $caught->status);
+        self::assertCount(1, $this->requests);
+        self::assertCount(1, $warnings);
+        self::assertSame($body, $warnings[0]['context']['sample']);
+        self::assertSame(
+            'https://api.github.com/repos/owner/repository/commits/main',
+            $warnings[0]['context']['url'],
+        );
+    }
+
+    /**
+     * @return iterable<string, array{string, class-string<Throwable>}>
+     */
+    public static function malformedDiagnosticFailures(): iterable
+    {
+        yield 'malformed JSON / RuntimeException' => ['{', RuntimeException::class];
+        yield 'malformed JSON / Error' => ['{', Error::class];
+        yield 'non-object JSON / RuntimeException' => ['null', RuntimeException::class];
+        yield 'non-object JSON / Error' => ['null', Error::class];
     }
 }

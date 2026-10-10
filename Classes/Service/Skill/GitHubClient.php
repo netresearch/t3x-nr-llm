@@ -18,6 +18,7 @@ use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * Minimal GitHub fetch client for skill ingestion.
@@ -112,20 +113,23 @@ final class GitHubClient implements GitHubClientInterface
         try {
             $decoded = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException $e) {
-            $this->logger->warning('GitHub API response was not valid JSON', [
-                'url' => $url,
-                'message' => $e->getMessage(),
-                'sample' => substr($body, 0, 200),
-            ]);
+            $this->warnMalformedResponse(
+                'GitHub API response was not valid JSON',
+                [
+                    'url' => $url,
+                    'message' => $e->getMessage(),
+                    'sample' => substr($body, 0, 200),
+                ],
+            );
 
             throw GitHubApiException::forMalformedResponse($url);
         }
 
         if (!is_array($decoded)) {
-            $this->logger->warning('GitHub API response was not a JSON object', [
-                'url' => $url,
-                'sample' => substr($body, 0, 200),
-            ]);
+            $this->warnMalformedResponse(
+                'GitHub API response was not a JSON object',
+                ['url' => $url, 'sample' => substr($body, 0, 200)],
+            );
 
             throw GitHubApiException::forMalformedResponse($url);
         }
@@ -200,6 +204,20 @@ final class GitHubClient implements GitHubClientInterface
         $host = is_array($parts) ? ($parts['host'] ?? '') : '';
         if ($scheme !== 'https' || !in_array($host, self::ALLOWED_HOSTS, true)) {
             throw HostNotAllowedException::forUrl($url);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     */
+    private function warnMalformedResponse(
+        string $message,
+        array $context,
+    ): void {
+        try {
+            $this->logger->warning($message, $context);
+        } catch (Throwable) {
+            // Diagnostics must not replace the typed malformed-response failure.
         }
     }
 }
