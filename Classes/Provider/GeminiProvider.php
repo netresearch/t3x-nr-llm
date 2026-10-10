@@ -622,14 +622,14 @@ final class GeminiProvider extends AbstractProvider implements
 
             if ($role === 'system') {
                 $content = $msgArray['content'] ?? '';
-                $systemInstruction = [
-                    'parts' => [['text' => is_string($content) ? $content : '']],
-                ];
+                $systemInstruction = ['parts' => [['text' => is_string($content) ? $content : '']]];
 
                 continue;
             }
 
-            $contents[] = $this->convertMessage($role, $msgArray, $toolCallIdToName);
+            $converted = $this->convertMessage($role, $msgArray, $toolCallIdToName);
+            $converted['parts'] = $this->encodeKnownStructRoots($this->getList($converted, 'parts'));
+            $contents[] = $converted;
         }
 
         $result = ['contents' => $contents];
@@ -988,5 +988,32 @@ final class GeminiProvider extends AbstractProvider implements
             },
             $messages,
         );
+    }
+
+    /**
+     * Restore only the API-known Struct roots in the final request copy (ADR-224).
+     * Carrier arrays and arbitrary nested values retain their current shape.
+     *
+     * @param array<int,mixed> $parts
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function encodeKnownStructRoots(array $parts): array
+    {
+        $encoded = [];
+        foreach ($parts as $index => $part) {
+            $partArray = $this->asArray($part);
+            foreach (['functionCall' => 'args', 'functionResponse' => 'response'] as $function => $member) {
+                $functionData = $partArray[$function] ?? null;
+                if (is_array($functionData) && is_array($functionData[$member] ?? null)) {
+                    $functionData[$member] = (object)$functionData[$member];
+                    $partArray[$function] = $functionData;
+                }
+            }
+
+            $encoded[$index] = $partArray;
+        }
+
+        return $encoded;
     }
 }
