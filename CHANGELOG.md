@@ -75,6 +75,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Cache regression oracles now distinguish raw keys that share a sanitized or truncated prefix.** Idempotency tests verify separate answers and correct replay, bypass for unusable keys, and successful provider answers despite cache failures. Failed provider calls must propagate their original exception on every retry; the assertion is outside the expected-exception catch. Functional circuit-store tests verify independent state for colliding readable prefixes; selected faults must fail behavioral assertions.
+
 - **Retrieval regression checks require comparable benchmark provenance (ADR-215).** Corpus or scoring-label changes and unknown legacy provenance skip numeric comparison; `--fail-on-regression` now fails in those states. A changed model, chunker or pipeline on the same benchmark remains comparable and is reported as a treatment change. The first known run establishes a baseline. Existing retrievers still run without the optional capability.
 - **The sync's change test and the compose-time integrity check compare the version digest (ADR-214 item 1)** instead of the body checksum. `body_checksum` keeps its body-only meaning for the signed manifest and for rows without a digest.
 - **A skill whose frontmatter sets `process: true` is not composed from an attachment or a forced skill**; it is skipped with a warning. Process skills reach a run only through an explicit invocation, which a later change adds (ADR-214 item 6).
