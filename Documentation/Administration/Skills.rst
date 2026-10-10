@@ -361,9 +361,16 @@ instructions", role reset, chat-template control tokens) force-disables the
 skill at import — even a single-file source that would otherwise default
 enabled — and must be re-reviewed before enabling. Lower-confidence findings are
 recorded on the skill (``Injection scan findings``) for review without blocking.
+The scanner matches a fixed set of heuristic signatures, including control
+markers and long encoded blobs. It can also flag quoted examples; an absence
+of findings does not establish that a skill is trustworthy.
 
-**Immutable audit trail.** Every ingest, enable, disable and fail-closed
+**Audit trail and retention.** Every ingest, enable, disable and fail-closed
 rejection is written to ``tx_nrllm_skill_audit`` with who / when / source / SHA /
-checksum / trust level / scan result. The trail is append-only — the application
-never updates or deletes a row — so the provenance of any skill that can reach a
-prompt is reconstructable after the fact.
+checksum / trust level. Scan output and free-form details follow the central
+privacy policy. Ordinary writes append rows and there is no update path.
+The explicit retention exception is :bash:`nrllm:privacy:purge`: it deletes
+rows created strictly before the cutoff for the skill-audit category. Retained
+rows support provenance reconstruction; purged rows are no longer available.
+See :ref:`ADR-064 <adr-064>` and
+:ref:`Data retention <administration-data-retention>`.
