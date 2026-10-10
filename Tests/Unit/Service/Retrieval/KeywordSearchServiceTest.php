@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Service\Retrieval\EvidenceSource;
 use Netresearch\NrLlm\Service\Retrieval\KeywordHit;
 use Netresearch\NrLlm\Service\Retrieval\KeywordSearchService;
 use Netresearch\NrLlm\Service\Retrieval\RetrievalQuery;
+use Netresearch\NrLlm\Service\Retrieval\SearchBackendInterface;
 use Netresearch\NrLlm\Tests\Unit\Service\Retrieval\Fixtures\FakeSearchBackend;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -20,6 +21,9 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Throwable;
 
+/**
+ * Verifies keyword routing and availability across backend discovery failures.
+ */
 #[CoversClass(KeywordSearchService::class)]
 #[CoversClass(KeywordHit::class)]
 final class KeywordSearchServiceTest extends TestCase
@@ -189,10 +193,11 @@ final class KeywordSearchServiceTest extends TestCase
         self::assertCount(2, $hits);
         self::assertSame(['a:1', 'a:3'], array_map(static fn(KeywordHit $hit): string => $hit->sourceId, $hits));
     }
+
     #[Test]
     public function indexBackedAvailabilitySurvivesAThrowingPriority(): void
     {
-        $broken = $this->createMock(\Netresearch\NrLlm\Service\Retrieval\SearchBackendInterface::class);
+        $broken = $this->createMock(SearchBackendInterface::class);
         $broken->expects(self::once())->method('getPriority')->willThrowException(new RuntimeException('Broken backend priority'));
         $broken->expects(self::never())->method('isAvailable');
         $service = new KeywordSearchService([$broken], indexBackedOnly: true);
@@ -201,12 +206,14 @@ final class KeywordSearchServiceTest extends TestCase
         } catch (Throwable $e) {
             self::fail('Availability must degrade to false, but escaped ' . $e::class . ': ' . $e->getMessage());
         }
+
         self::assertSame([], $service->search('term', 5));
     }
+
     #[Test]
     public function aThrowingPriorityDoesNotHideAUsableIndexSibling(): void
     {
-        $broken = $this->createMock(\Netresearch\NrLlm\Service\Retrieval\SearchBackendInterface::class);
+        $broken = $this->createMock(SearchBackendInterface::class);
         $broken->expects(self::once())->method('getPriority')->willThrowException(new RuntimeException('Broken backend priority'));
         $broken->expects(self::never())->method('isAvailable');
         $healthy = new FakeSearchBackend('solr', 30, sources: [FakeSearchBackend::source('solr:1')]);
@@ -216,9 +223,11 @@ final class KeywordSearchServiceTest extends TestCase
         } catch (Throwable $e) {
             self::fail('A usable index sibling must stay available, but escaped ' . $e::class . ': ' . $e->getMessage());
         }
+
         self::assertSame(['solr:1'], array_map(static fn(KeywordHit $hit): string => $hit->sourceId, $service->search('term', 5)));
         self::assertSame(1, $healthy->searchCalls);
     }
+
     #[Test]
     public function availabilitySurvivesAThrowingBackendIterator(): void
     {
