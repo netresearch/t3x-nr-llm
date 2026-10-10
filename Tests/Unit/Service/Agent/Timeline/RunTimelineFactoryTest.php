@@ -21,8 +21,10 @@ use Netresearch\NrLlm\Service\Tool\RunTrace;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryGovernanceEventRepository;
 use Netresearch\NrLlm\Tests\Unit\Fixture\InMemoryTelemetryRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 #[CoversClass(RunTimelineFactory::class)]
 final class RunTimelineFactoryTest extends TestCase
@@ -156,38 +158,43 @@ final class RunTimelineFactoryTest extends TestCase
         self::assertStringNotContainsString('root:x', $detail);
     }
 
-    /**
-     * ADR-214: an operator reading the timeline sees whether a write did all
-     * it planned and whether a hook failed after it, beside the record it
-     * names.
-     */
     #[Test]
     public function aWriteStepShowsItsCompletenessAndHookFlag(): void
     {
-        $factory = new RunTimelineFactory(new InMemoryTelemetryRepository(), new InMemoryGovernanceEventRepository());
+        $factory = new RunTimelineFactory(
+            new InMemoryTelemetryRepository(),
+            new InMemoryGovernanceEventRepository(),
+        );
 
-        $timeline = $factory->build($this->agentRun(), [
-            new AgentRunEvent(
-                uid: 6,
-                run: 7,
-                sequence: 1,
-                kind: 'tool_write',
-                round: 1,
-                durationMs: 0.0,
-                payload: [
-                    'kind'                 => 'tool_write',
-                    'toolName'             => 'update_content_element',
-                    'writeTargetTable'     => 'tt_content',
-                    'writeTargetUid'       => 12,
-                    'writeCompleteness'    => 'partial',
-                    'hookFailedAfterWrite' => true,
-                ],
-                crdate: 1_700_000_011,
-            ),
-        ]);
+        $timeline = $factory->build(
+            $this->agentRun(),
+            [
+                new AgentRunEvent(
+                    uid: 6,
+                    run: 7,
+                    sequence: 1,
+                    kind: 'tool_write',
+                    round: 1,
+                    durationMs: 0.0,
+                    payload: [
+                        'kind' => 'tool_write',
+                        'toolName' => 'update_content_element',
+                        'writeTargetTable' => 'tt_content',
+                        'writeTargetUid' => 12,
+                        'writeCompleteness' => 'partial',
+                        'hookFailedAfterWrite' => true,
+                    ],
+                    crdate: 1700000011,
+                ),
+            ],
+        );
 
         $detail = $timeline[0]->detail;
         self::assertStringContainsString('writeTargetTable=tt_content', $detail);
+        self::assertMatchesRegularExpression(
+            '/(?:^|; )writeTargetUid=12(?:; |$)/',
+            $detail,
+        );
         self::assertStringContainsString('writeCompleteness=partial', $detail);
         self::assertStringContainsString('hookFailedAfterWrite=1', $detail);
     }
@@ -499,5 +506,195 @@ final class RunTimelineFactoryTest extends TestCase
             detail: 'zone=external_global;ceiling=editor_content;observedOnly=0',
             crdate: $crdate,
         );
+    }
+
+    /**
+     * @param array<string, string> $expectedFacts
+     */
+    #[Test]
+    #[DataProvider('providerCallMetadata')]
+    public function providerCallMetadataPreservesMeasuredFactsWithoutInventingAServingPair(
+        TelemetryCall $call,
+        array $expectedFacts,
+        string $expectedOutcome,
+    ): void {
+        $telemetry = new InMemoryTelemetryRepository();
+        $telemetry->callsByCorrelation[self::RUN_UUID] = [$call];
+        $factory = new RunTimelineFactory(
+            $telemetry,
+            new InMemoryGovernanceEventRepository(),
+        );
+        $entries = $factory->build($this->agentRun(), []);
+        self::assertCount(1, $entries);
+        $entry = $entries[0];
+        self::assertSame(RunTimelineEntry::SOURCE_CALL, $entry->source);
+        self::assertSame('tools', $entry->kind);
+        self::assertSame(1700000020, $entry->occurredAt);
+        self::assertSame(-1, $entry->sequence);
+        self::assertSame(0, $entry->round);
+        self::assertSame((float)$call->latencyMs, $entry->durationMs);
+        self::assertSame($expectedOutcome, $entry->outcome);
+        self::assertSame('', $entry->approvalAttribution);
+        $actualFacts = [];
+        foreach (explode('; ', $entry->detail) as $part) {
+            $pair = explode('=', $part, 2);
+            self::assertCount(
+                2,
+                $pair,
+                'Timeline display metadata must retain both its key and value.',
+            );
+            [$key, $value] = $pair;
+            self::assertArrayNotHasKey($key, $actualFacts);
+            $actualFacts[$key] = $value;
+        }
+
+        ksort($expectedFacts);
+        ksort($actualFacts);
+        self::assertSame($expectedFacts, $actualFacts);
+    }
+
+    /**
+     * @return iterable<string, array{TelemetryCall, array<string,string>, string}>
+     */
+    public static function providerCallMetadata(): iterable
+    {
+        yield 'stable call omits absent measurements and a repeated serving pair' => [
+            new TelemetryCall(
+                'tools',
+                'primary',
+                'model-a',
+                'primary',
+                'model-a',
+                true,
+                '',
+                1200,
+                false,
+                0,
+                null,
+                1700000020,
+            ),
+            [
+                'provider' => 'primary',
+                'model' => 'model-a',
+                'latencyMs' => '1200',
+            ],
+            'ok',
+        ];
+        yield 'cache hit is visible without invented fallback or first-token data' => [
+            new TelemetryCall(
+                'tools',
+                'primary',
+                'model-a',
+                'primary',
+                'model-a',
+                true,
+                '',
+                7,
+                true,
+                0,
+                null,
+                1700000020,
+            ),
+            [
+                'provider' => 'primary',
+                'model' => 'model-a',
+                'latencyMs' => '7',
+                'cacheHit' => '1',
+            ],
+            'ok',
+        ];
+        yield 'same provider different model remains a serving swap' => [
+            new TelemetryCall(
+                'tools',
+                'primary',
+                'model-a',
+                'primary',
+                'model-b',
+                true,
+                '',
+                1200,
+                false,
+                3,
+                17,
+                1700000020,
+            ),
+            [
+                'provider' => 'primary',
+                'model' => 'model-a',
+                'servedProvider' => 'primary',
+                'servedModel' => 'model-b',
+                'latencyMs' => '1200',
+                'fallbackAttempts' => '3',
+                'ttftMs' => '17',
+            ],
+            'ok',
+        ];
+        yield 'same model alias different provider and measured zero first-token latency' => [
+            new TelemetryCall(
+                'tools',
+                'primary',
+                'model-a',
+                'secondary',
+                'model-a',
+                true,
+                '',
+                12,
+                false,
+                1,
+                0,
+                1700000020,
+            ),
+            [
+                'provider' => 'primary',
+                'model' => 'model-a',
+                'servedProvider' => 'secondary',
+                'servedModel' => 'model-a',
+                'latencyMs' => '12',
+                'fallbackAttempts' => '1',
+                'ttftMs' => '0',
+            ],
+            'ok',
+        ];
+        yield 'failed provider call exposes error class without exception content' => [
+            new TelemetryCall(
+                'tools',
+                'primary',
+                'model-a',
+                '',
+                '',
+                false,
+                RuntimeException::class,
+                3,
+                false,
+                0,
+                null,
+                1700000020,
+            ),
+            [
+                'provider' => 'primary',
+                'model' => 'model-a',
+                'latencyMs' => '3',
+                'errorClass' => RuntimeException::class,
+            ],
+            'failed',
+        ];
+        yield 'reported model without a serving provider is not attributed as a swap' => [
+            new TelemetryCall(
+                'tools',
+                'primary',
+                'model-a',
+                '',
+                'model-b',
+                true,
+                '',
+                4,
+                false,
+                0,
+                null,
+                1700000020,
+            ),
+            ['provider' => 'primary', 'model' => 'model-a', 'latencyMs' => '4'],
+            'ok',
+        ];
     }
 }
