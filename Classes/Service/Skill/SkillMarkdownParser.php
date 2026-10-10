@@ -42,7 +42,7 @@ final readonly class SkillMarkdownParser
         }
 
         // Front-matter must be a leading `---\n ... \n---` block.
-        if (!preg_match('/^---\R(.*?)\R---\R?(.*)$/s', $content, $m)) {
+        if (!preg_match('/^---\R(.*?)\R---[ \t]*(?=\R|\z)\R?(.*)$/s', $content, $m)) {
             throw SkillParseException::forReason($path, 'missing YAML front-matter');
         }
 
