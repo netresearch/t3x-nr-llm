@@ -86,6 +86,10 @@ It is deliberately not the same as :guilabel:`Last import`: a server that has
 been answering tool calls all month can still show an import from six weeks
 ago, and previously there was no way to see the difference.
 
+A failed status write loses only that observation. Even if its optional
+diagnostic logger also throws, a completed connection test, catalogue walk or
+tool call keeps its successful result; the original warning is attempted once.
+
 A failed connection test replaces the report on the card with its reason, and
 is stored nowhere. Only a success moves the contact date.
 
