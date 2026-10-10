@@ -253,7 +253,15 @@ final class AgentRunController extends ActionController
             // The ONE render-not-redirect branch: the run is untouched and still
             // WAITING_FOR_INPUT. Re-render in place with a focusable error
             // summary and the operator's raw entries preserved, HTTP 422.
-            return $this->renderList($runUuid, $input, $this->localize(self::LL . 'runs.error.schemaMismatch', 'The submitted input did not match the required schema.'))
+            return $this->renderList(
+                $runUuid,
+                $input,
+                $this->localize(
+                    self::LL . 'runs.error.schemaMismatch',
+                    'The submitted input did not match the required schema.',
+                ),
+                $data,
+            )
                 ->withStatus(422);
         } catch (RunNotAwaitingInputException) {
             // Same fact as the approval path above, about the other pause: the
@@ -287,8 +295,9 @@ final class AgentRunController extends ActionController
 
     /**
      * @param array<string, mixed> $rawInput
+     * @param array<string, mixed> $coercedInput checkbox states already normalized by the current input schema
      */
-    private function renderList(string $errorRunUuid, array $rawInput, string $errorSummary): ResponseInterface
+    private function renderList(string $errorRunUuid, array $rawInput, string $errorSummary, array $coercedInput = []): ResponseInterface
     {
         // Actor-scoped viewport (ADR-131): admins and approval-grant holders
         // see every run, everyone else only their own. The write side stays
@@ -319,6 +328,7 @@ final class AgentRunController extends ActionController
             'rawInput'       => $rawInput,
             'errorSummary'   => $errorSummary,
             'restrictedView' => $restrictTo !== null,
+            'coercedInput' => $coercedInput,
         ]);
 
         return $this->moduleTemplate->renderResponse('Backend/AgentRun/List');
