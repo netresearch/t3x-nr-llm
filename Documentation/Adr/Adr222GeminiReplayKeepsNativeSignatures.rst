@@ -9,7 +9,8 @@
 ADR-222: Gemini replay keeps native thought signatures
 ======================================================
 
-:Status: Accepted
+:Status: Accepted (known Struct roots amended by :ref:`ADR-224 <adr-224>`)
+:Amended: 2026-10-10 by :ref:`ADR-224 <adr-224>`
 :Date: 2026-10-10
 :Authors: Netresearch DTT GmbH
 :Amends: :ref:`ADR-203 <adr-203>` (provider ownership of opaque replay items)
@@ -68,3 +69,13 @@ implementation are separate PRs with an actual dependency branch.
 
 New streamed-response replay state, the Interactions API and other Gemini
 parsing/capability changes remain separate work.
+
+Clarification on 2026-10-10
+===========================
+
+:ref:`ADR-224 <adr-224>` qualifies final transport encoding of the API-known
+``FunctionCall.args`` and ``FunctionResponse.response`` JSON-object roots.
+Native order, signatures and stored carrier arrays retain this decision's
+contract. Neither record promises restoration of arbitrary nested object/list
+kinds after associative decoding has lost that information; that finding
+remains open.

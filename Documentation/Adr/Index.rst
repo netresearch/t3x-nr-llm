@@ -615,3 +615,4 @@ Tools
    Adr218CompanionDocumentSourceSync
    Adr219WorkerOperations
    Adr222GeminiReplayKeepsNativeSignatures
+   Adr224GeminiKeepsKnownStructRootsAsObjects
