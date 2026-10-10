@@ -195,9 +195,14 @@ final class SkillSourceController extends ActionController
             $this->sourceRepository->update($source);
             $this->persistenceManager->persistAll();
         } catch (Throwable $e) {
-            // A vault/encryption or persistence failure must surface as a JSON
-            // error the backend module can render, not a raw HTML 500.
-            $this->logger?->error('Skill source: failed to store GitHub token', ['exception' => $e]);
+            try {
+                $this->logger?->error(
+                    'Skill source: failed to store GitHub token',
+                    ['exception' => $e],
+                );
+            } catch (Throwable) {
+                // Diagnostics must not replace the generic JSON failure response.
+            }
 
             return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.skill.tokenStoreFailed', 'Failed to store the token securely. See the system log for details.')], 500);
         }

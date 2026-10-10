@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
+use Error;
 use Netresearch\NrLlm\Controller\Backend\FormEngineUrlBuilder;
 use Netresearch\NrLlm\Controller\Backend\SkillSourceController;
 use Netresearch\NrLlm\Domain\Enum\SkillSourceType;
@@ -23,9 +24,13 @@ use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Functional\Service\Skill\Fixtures\FakeGitHubClient;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use RuntimeException;
+use Throwable;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Http\ServerRequest;
@@ -47,11 +52,13 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * Build the controller with an injected (mock) vault. setTokenAction touches only the source
-     * repository, the vault and the persistence manager, so the sync service is a never-used stub.
+     * Build the controller with an injected vault and optional diagnostic logger.
+     * The sync service is unused by token actions.
      */
-    private function controllerWithVault(VaultServiceInterface $vault): SkillSourceController
-    {
+    private function controllerWithVault(
+        VaultServiceInterface $vault,
+        ?LoggerInterface $logger = null,
+    ): SkillSourceController {
         $syncService = new SkillSyncService(
             new FakeGitHubClient(),
             new SkillMarkdownParser(),
@@ -72,6 +79,7 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
             $this->get(PageRenderer::class),
             $this->get(IconFactory::class),
             $this->get(FormEngineUrlBuilder::class),
+            logger: $logger,
         );
     }
 
@@ -198,22 +206,34 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
     {
         $source = $this->persistedSource();
         $this->importFixture('BeUsers.csv');
-        $this->setUpBackendUser(1); // admin
+        $this->setUpBackendUser(1);
+        // admin
         $this->setUpBackendRequest();
 
         $capturedId = '';
         $capturedSecret = '';
         $vault = $this->createMock(VaultServiceInterface::class);
-        $vault->expects(self::once())->method('store')
-            ->willReturnCallback(function (string $id, string $secret) use (&$capturedId, &$capturedSecret): void {
-                $capturedId = $id;
-                $capturedSecret = $secret;
-            });
-        $controller = $this->controllerWithVault($vault);
+        $vault
+            ->expects(self::once())
+            ->method('store')
+            ->willReturnCallback(
+                function (
+                    string $id,
+                    string $secret,
+                ) use (&$capturedId, &$capturedSecret): void {
+                    $capturedId = $id;
+                    $capturedSecret = $secret;
+                },
+            );
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::never())->method('error');
+        $controller = $this->controllerWithVault($vault, $logger);
 
         $uid = $source->getUid();
         self::assertNotNull($uid);
-        $request = (new ServerRequest())->withParsedBody(['source' => $uid, 'token' => 'ghp_plaintext_secret']);
+        $request = (new ServerRequest())->withParsedBody(
+            ['source' => $uid, 'token' => 'ghp_plaintext_secret'],
+        );
         $response = $controller->setTokenAction($request);
 
         self::assertSame(200, $response->getStatusCode());
@@ -221,13 +241,17 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
         self::assertIsArray($payload);
         self::assertTrue($payload['success']);
 
-        // The plaintext token is handed to the vault; the source stores only the vault UUID.
+        // The plaintext token is handed to the vault; the source stores only the vault reference.
         self::assertSame('ghp_plaintext_secret', $capturedSecret);
         $this->get(PersistenceManagerInterface::class)->persistAll();
         $reloaded = $this->get(SkillSourceRepository::class)->findByUid($uid);
         self::assertNotNull($reloaded);
         self::assertNotSame('', $reloaded->getGithubToken());
-        self::assertNotSame('ghp_plaintext_secret', $reloaded->getGithubToken(), 'the column holds a vault UUID, not the plaintext token');
+        self::assertNotSame(
+            'ghp_plaintext_secret',
+            $reloaded->getGithubToken(),
+            'the column holds a vault reference, not the plaintext token',
+        );
         self::assertSame($capturedId, $reloaded->getGithubToken());
         self::assertStringStartsWith('ghtoken_', $reloaded->getGithubToken());
     }
@@ -256,5 +280,123 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
         self::assertArrayHasKey('error', $payload);
+    }
+
+    #[Test]
+    #[DataProvider('tokenDiagnosticCases')]
+    public function tokenFailureRemainsGenericJsonWhenDiagnosticsFail(
+        bool $nativeError,
+        string $diagnosticMode,
+    ): void {
+        $source = $this->persistedSource();
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+        $this->setUpBackendRequest();
+        $cause = $nativeError ? new Error('private vault failure ghp_secret', 1770611095) : new RuntimeException('private vault failure ghp_secret', 1770611095);
+        $diagnosticFailure = $diagnosticMode === 'error' ? new Error('private diagnostic failure ghp_secret', 1770611096) : new RuntimeException(
+            'private diagnostic failure ghp_secret',
+            1770611096,
+        );
+        $capturedId = '';
+        $capturedSecret = '';
+        $vault = $this->createMock(VaultServiceInterface::class);
+        $vault
+            ->method('store')
+            ->willReturnCallback(
+                static function (
+                    string $id,
+                    string $secret,
+                ) use ($cause, &$capturedId, &$capturedSecret): never {
+                    $capturedId = $id;
+                    $capturedSecret = $secret;
+                    throw $cause;
+                },
+            );
+        $messages = [];
+        $contexts = [];
+        $logger = null;
+        if ($diagnosticMode !== 'absent') {
+            $logger = $this->createMock(LoggerInterface::class);
+            $logger
+                ->method('error')
+                ->willReturnCallback(
+                    static function (
+                        string $message,
+                        array $context,
+                    ) use ($diagnosticMode, $diagnosticFailure, &$messages, &$contexts): void {
+                        $messages[] = $message;
+                        $contexts[] = $context;
+                        if ($diagnosticMode !== 'healthy') {
+                            throw $diagnosticFailure;
+                        }
+                    },
+                );
+        }
+
+        $controller = $this->controllerWithVault($vault, $logger);
+        $uid = $source->getUid();
+        self::assertNotNull($uid);
+        $request = (new ServerRequest())->withParsedBody(
+            ['source' => $uid, 'token' => 'ghp_secret'],
+        );
+        $response = null;
+        $escaped = null;
+        try {
+            $response = $controller->setTokenAction($request);
+        } catch (Throwable $failure) {
+            $escaped = $failure;
+        }
+
+        self::assertNull(
+            $escaped,
+            'A diagnostic failure must not replace the generic token-store JSON response.',
+        );
+        self::assertInstanceOf(ResponseInterface::class, $response);
+        self::assertSame(500, $response->getStatusCode());
+        $body = (string)$response->getBody();
+        $payload = json_decode($body, true);
+        self::assertSame(
+            [
+                'success' => false,
+                'error' => 'Failed to store the token securely. See the system log for details.',
+            ],
+            $payload,
+        );
+        self::assertStringNotContainsString('ghp_secret', $body);
+        self::assertStringNotContainsString($cause->getMessage(), $body);
+        self::assertStringNotContainsString(
+            $diagnosticFailure->getMessage(),
+            $body,
+        );
+        self::assertSame('ghp_secret', $capturedSecret);
+        self::assertStringStartsWith('ghtoken_', $capturedId);
+        self::assertSame('', $source->getGithubToken());
+        $stored = $this->get(SkillSourceRepository::class)->findByUid($uid);
+        self::assertNotNull($stored);
+        self::assertSame('', $stored->getGithubToken());
+        if ($diagnosticMode === 'absent') {
+            self::assertSame([], $messages);
+            self::assertSame([], $contexts);
+        } else {
+            self::assertSame(
+                ['Skill source: failed to store GitHub token'],
+                $messages,
+            );
+            self::assertCount(1, $contexts);
+            self::assertArrayHasKey('exception', $contexts[0]);
+            self::assertSame($cause, $contexts[0]['exception']);
+        }
+    }
+
+    /**
+     * @return iterable<string, array{bool, string}>
+     */
+    public static function tokenDiagnosticCases(): iterable
+    {
+        foreach ([false, true] as $nativeError) {
+            foreach (['runtime', 'error', 'healthy', 'absent'] as $mode) {
+                yield ($nativeError ? 'vault Error' : 'vault RuntimeException') . ' / logger ' . $mode => [$nativeError, $mode];
+            }
+        }
     }
 }
