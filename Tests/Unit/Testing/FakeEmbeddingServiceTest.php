@@ -117,14 +117,22 @@ final class FakeEmbeddingServiceTest extends TestCase
     {
         $subject = new FakeEmbeddingService();
         $subject->embedResult = [0.5, 0.6];
-        $subject->throwable   = new RuntimeException('embed failed');
 
+        $expected = new RuntimeException('embed failed');
+        $subject->throwable = $expected;
+
+        $caught = null;
         try {
             $subject->embed('text');
-            self::fail('Expected RuntimeException was not thrown.');
-        } catch (RuntimeException) {
-            // one-shot: cleared before throwing
+        } catch (RuntimeException $failure) {
+            $caught = $failure;
         }
+
+        self::assertSame(
+            $expected,
+            $caught,
+            'The first call must throw the exact configured failure.',
+        );
 
         self::assertNull($subject->throwable);
         self::assertSame([0.5, 0.6], $subject->embed('text'));

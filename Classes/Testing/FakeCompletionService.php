@@ -117,6 +117,9 @@ final class FakeCompletionService implements CompletionServiceInterface
     /** @var list<array{prompt: string, configuration: LlmConfiguration, schema: array<string, mixed>, options: ?ChatOptions, resolution: ?ModelResolution}> */
     public array $completeStructuredForConfigurationCalls = [];
 
+    /**
+     * @throws Throwable the configured one-shot failure, when set
+     */
     public function complete(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
         $this->completeCalls[] = ['prompt' => $prompt, 'options' => $options];
@@ -124,6 +127,9 @@ final class FakeCompletionService implements CompletionServiceInterface
         return $this->nextResponse(__FUNCTION__);
     }
 
+    /**
+     * @throws Throwable the configured one-shot failure, when set
+     */
     public function completeJson(string $prompt, ?ChatOptions $options = null): array
     {
         $this->completeJsonCalls[] = ['prompt' => $prompt, 'options' => $options];
@@ -132,6 +138,9 @@ final class FakeCompletionService implements CompletionServiceInterface
         return $this->jsonResult;
     }
 
+    /**
+     * @throws Throwable the configured one-shot failure, when set
+     */
     public function completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): StructuredCompletionResponse
     {
         $this->completeStructuredCalls[] = ['prompt' => $prompt, 'schema' => $schema, 'options' => $options];
@@ -162,6 +171,9 @@ final class FakeCompletionService implements CompletionServiceInterface
         return $this->nextResponse(__FUNCTION__);
     }
 
+    /**
+     * @throws Throwable the configured one-shot failure, when set
+     */
     public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null, ?ModelResolution $resolution = null): CompletionResponse
     {
         $this->completeForConfigurationCalls[] = ['prompt' => $prompt, 'configuration' => $configuration, 'options' => $options, 'resolution' => $resolution];
@@ -169,6 +181,9 @@ final class FakeCompletionService implements CompletionServiceInterface
         return $this->nextResponse(__FUNCTION__);
     }
 
+    /**
+     * @throws Throwable the configured one-shot failure, when set
+     */
     public function completeJsonForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): array
     {
         $this->completeJsonForConfigurationCalls[] = ['prompt' => $prompt, 'configuration' => $configuration, 'options' => $options];
@@ -177,6 +192,9 @@ final class FakeCompletionService implements CompletionServiceInterface
         return $this->jsonResult;
     }
 
+    /**
+     * @throws Throwable the configured one-shot failure, when set
+     */
     public function completeStructuredForConfiguration(string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null, ?ModelResolution $resolution = null): StructuredCompletionResponse
     {
         $this->completeStructuredForConfigurationCalls[] = ['prompt' => $prompt, 'configuration' => $configuration, 'schema' => $schema, 'options' => $options, 'resolution' => $resolution];
