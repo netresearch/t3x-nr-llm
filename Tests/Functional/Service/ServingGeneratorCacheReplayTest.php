@@ -120,12 +120,21 @@ final class ServingGeneratorCacheReplayTest extends AbstractFunctionalTestCase
                 ->expects(self::once())
                 ->method('createAdapterFromModel')
                 ->willReturn($adapter);
-            $cache = new VariableFrontend(
-                'generator_fixture',
-                new FileBackend(['cacheDirectory' => $directory]),
+            $cacheManager = new Typo3CacheManager();
+            $cacheManager->setCacheConfigurations(
+                [
+                    'nrllm_idempotency' => [
+                        'frontend' => VariableFrontend::class,
+                        'backend' => FileBackend::class,
+                        'options' => ['cacheDirectory' => $directory],
+                    ],
+                ],
             );
-            $cacheManager = self::createStub(Typo3CacheManager::class);
-            $cacheManager->method('getCache')->willReturn($cache);
+            self::assertInstanceOf(
+                VariableFrontend::class,
+                $cacheManager->getCache('nrllm_idempotency'),
+            );
+            self::assertDirectoryExists($directory);
             $guardrail = $this->createMock(GuardrailInterface::class);
             $guardrail->method('getIdentifier')->willReturn('generator-fixture');
             $guardrail->method('isMandatory')->willReturn(false);
