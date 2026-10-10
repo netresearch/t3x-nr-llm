@@ -19,6 +19,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Document the existing skill manifest fingerprint's canonical identifier/body-checksum format and distinguish it from frontmatter-aware version approval.
+
 - **Worker operations (ADR-219).** `nrllm:agent:status` reports queue wait,
   unknown timings, expired run leases and transport-scoped consumer heartbeats,
   with JSON output and explicit health thresholds. Queue-entry time is recorded

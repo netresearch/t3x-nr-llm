@@ -345,7 +345,14 @@ Watch the drop warnings when lowering the value: they name every skill whose
 prose stopped shipping while its tools kept being offered.
 
 **Manifest fingerprint (optional).** A source may declare an
-``expected_fingerprint``: the sha256 its whole skill set must hash to. When set,
+``expected_fingerprint`` over its collected identifiers and body checksums.
+Sort the identifiers, encode each as ``identifier:body-checksum``, join the
+lines with LF without a final LF, then hash those UTF-8 bytes with SHA-256.
+Body checksums are SHA-256 hashes of the parsed markdown bodies. This
+fingerprint does not include frontmatter, trust labels or approval state;
+the version digest used for approval is a separate control.
+
+When an expected fingerprint is set,
 the digest is recomputed at sync and verified before anything is materialised; a
 mismatch fails closed (no skill is imported, the source goes to ``error``) and
 leaves the last known-good skills untouched. Leave it empty to rely on the
