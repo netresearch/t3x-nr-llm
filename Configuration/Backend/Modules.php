@@ -412,10 +412,9 @@ return [
             ],
         ],
     ],
-    // Editor-facing task/approvals module (ADR-131). Deliberately OUTSIDE the
-    // admin-only 'nrllm' tree: the menu filters out every top-level module
-    // whose own access check fails, so a child of 'nrllm' would be invisible
-    // to non-admins. Lives in the 'web' group where editors work.
+    // Editor-facing task/approvals module (ADR-131). It shares the AI section
+    // with the admin surfaces (ADR-183), outside their admin-only containers.
+    // The section has no access check of its own; this module checks its user.
     //
     // access => 'user' (NOT 'user,group': v14 resolves access strings through
     // a gate registry that only knows user/admin/systemMaintainer — anything
@@ -430,10 +429,7 @@ return [
         'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_aitasks.xlf',
         'extensionName' => 'NrLlm',
         'controllerActions' => [
-            AiTaskController::class => [
-                'list',
-                'executeForm',
-            ],
+            AiTaskController::class => ['list', 'executeForm'],
             // The Editor Action Center (ADR-158). Here rather than in a module
             // of its own: it is the same audience, the same grant and the same
             // inbox as the two entries below, and ADR-119 already calls the

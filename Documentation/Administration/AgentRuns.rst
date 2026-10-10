@@ -17,7 +17,7 @@ review runs that have finished.
 
 The admin inbox lives in :guilabel:`AI > Operation > Agent Runs`;
 the same actions are also reachable through the editor module
-:guilabel:`Web > AI Tasks` (:ref:`ADR-131 <adr-131>`). Visibility is
+:guilabel:`AI > AI Tasks` (:ref:`ADR-131 <adr-131>`). Visibility is
 actor-scoped: an administrator or a holder of the *Approve suspended AI
 runs* grant sees every run, everyone else only the runs they started.
 Approving continues the run under its owner's identity; the deciding
