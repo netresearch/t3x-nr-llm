@@ -19,8 +19,7 @@ Preferred: the ``#[AsLlmProvider]`` attribute
 
 Add the attribute to any provider class that lives under the
 ``Netresearch\NrLlm\`` namespace. The compiler pass auto-tags the
-service, sets it public (so backend diagnostics can resolve it by
-class name), and registers it with
+service, keeps its visibility unchanged, and registers it with
 :php:`LlmServiceManager` in priority order:
 
 ..  code-block:: php
@@ -46,8 +45,9 @@ class name), and registers it with
     }
 
 Priority is an ordering hint only. Providers are still resolved by
-their ``getIdentifier()`` at runtime. Higher priority wins when two
-providers otherwise tie.
+their ``getIdentifier()`` at runtime. Use distinct identifiers: priority does
+not select a winner for duplicate identifiers. The registry replaces an
+existing entry when another provider is registered under the same identifier.
 
 ..  note::
     The attribute scan is scoped to the ``Netresearch\NrLlm\``
@@ -69,7 +69,7 @@ still work via the original mechanism — declare a service with the
 
     services:
       Acme\MyExt\Provider\AcmeProvider:
-        public: true
+        autowire: true
         tags:
           - name: nr_llm.provider
             priority: 85
@@ -92,6 +92,7 @@ the relevant interface from :php:`Netresearch\NrLlm\Provider\Contract`:
 -   :php:`StreamingCapableInterface` — SSE streaming
 -   :php:`ToolCapableInterface` — function / tool calling
 -   :php:`DocumentCapableInterface` — PDF / structured document input
+-   :php:`DecisionCapableInterface` — typed subject/question decisions
 
 :php:`LlmServiceManager` dispatches to a provider only when the
 caller's requested operation matches a capability the provider

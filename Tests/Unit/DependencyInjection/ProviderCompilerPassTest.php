@@ -110,6 +110,9 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
         self::assertInstanceOf(Reference::class, $registrationOrder[0]);
         self::assertInstanceOf(Reference::class, $registrationOrder[1]);
         self::assertInstanceOf(Reference::class, $registrationOrder[2]);
+        self::assertSame('provider.high', (string)$registrationOrder[0]);
+        self::assertSame('provider.medium', (string)$registrationOrder[1]);
+        self::assertSame('provider.low', (string)$registrationOrder[2]);
     }
 
     #[Test]
