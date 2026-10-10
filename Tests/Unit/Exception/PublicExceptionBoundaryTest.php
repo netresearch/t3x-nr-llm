@@ -88,9 +88,7 @@ final class PublicExceptionBoundaryTest extends TestCase
     public function delegatedCredentialValidationUsesTheCommonMarker(): void
     {
         $error = $this->capture(
-            static function (): void {
-                new McpSubjectCredential('bad:identifier', ['api'], ['read']);
-            },
+            static fn(): McpSubjectCredential => new McpSubjectCredential('bad:identifier', ['api'], ['read']),
         );
         self::assertInstanceOf(InvalidArgumentException::class, $error);
         self::assertSame(6331797530, $error->getCode());
@@ -100,9 +98,7 @@ final class PublicExceptionBoundaryTest extends TestCase
     public function editorActionValidationUsesTheCommonMarker(): void
     {
         $error = $this->capture(
-            static function (): void {
-                new EditorAction('', 'description', 'icon', ['pages']);
-            },
+            static fn(): EditorAction => new EditorAction('', 'description', 'icon', ['pages']),
         );
         self::assertInstanceOf(InvalidArgumentException::class, $error);
         self::assertSame(1786406401, $error->getCode());
@@ -132,7 +128,7 @@ final class PublicExceptionBoundaryTest extends TestCase
     }
 
     /**
-     * @param callable(): void $operation
+     * @param callable(): mixed $operation
      */
     private function capture(callable $operation): Throwable
     {
