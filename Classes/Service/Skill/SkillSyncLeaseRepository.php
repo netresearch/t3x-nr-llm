@@ -10,8 +10,8 @@ namespace Netresearch\NrLlm\Service\Skill;
 
 use Closure;
 use Netresearch\NrLlm\Domain\Enum\SyncStatus;
+use Netresearch\NrLlm\Service\Skill\Exception\SkillSyncLeaseLostException;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
-use RuntimeException;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
@@ -23,6 +23,8 @@ final readonly class SkillSyncLeaseRepository
     use SafeCastTrait;
 
     private const TABLE = 'tx_nrllm_skill_source';
+
+    private const UPDATE_PREFIX = 'UPDATE ';
 
     private const STALE_SECONDS = 180;
 
@@ -49,7 +51,7 @@ final readonly class SkillSyncLeaseRepository
         return $this
             ->connection()
             ->executeStatement(
-                'UPDATE ' . self::TABLE . ' SET sync_status = :syncing, last_synced = :now, sync_lock_token = :owner, sync_lock_version = 0' . ' WHERE uid = :uid AND deleted = 0 AND (sync_status <> :syncing OR last_synced = 0 OR last_synced < :earliest OR last_synced > :latest)',
+                self::UPDATE_PREFIX . self::TABLE . ' SET sync_status = :syncing, last_synced = :now, sync_lock_token = :owner, sync_lock_version = 0' . ' WHERE uid = :uid AND deleted = 0 AND (sync_status <> :syncing OR last_synced = 0 OR last_synced < :earliest OR last_synced > :latest)',
                 [
                     'syncing' => SyncStatus::SYNCING->value,
                     'now' => $now,
@@ -68,7 +70,7 @@ final readonly class SkillSyncLeaseRepository
         return $this
             ->connection()
             ->executeStatement(
-                'UPDATE ' . self::TABLE . ' SET last_synced = :now, sync_lock_version = sync_lock_version + 1' . ' WHERE uid = :uid AND deleted = 0 AND sync_status = :syncing AND sync_lock_token = :owner' . ' AND last_synced <> 0 AND last_synced >= :earliest AND last_synced <= :latest',
+                self::UPDATE_PREFIX . self::TABLE . ' SET last_synced = :now, sync_lock_version = sync_lock_version + 1' . ' WHERE uid = :uid AND deleted = 0 AND sync_status = :syncing AND sync_lock_token = :owner' . ' AND last_synced <> 0 AND last_synced >= :earliest AND last_synced <= :latest',
                 [
                     'now' => $now,
                     'uid' => $uid,
@@ -85,7 +87,7 @@ final readonly class SkillSyncLeaseRepository
         return $this
             ->connection()
             ->executeStatement(
-                'UPDATE ' . self::TABLE . ' SET sync_status = :error, sync_error = :message, sync_lock_token = :empty' . ' WHERE uid = :uid AND deleted = 0 AND sync_status = :syncing' . ' AND (last_synced = 0 OR last_synced < :earliest OR last_synced > :latest)',
+                self::UPDATE_PREFIX . self::TABLE . ' SET sync_status = :error, sync_error = :message, sync_lock_token = :empty' . ' WHERE uid = :uid AND deleted = 0 AND sync_status = :syncing' . ' AND (last_synced = 0 OR last_synced < :earliest OR last_synced > :latest)',
                 [
                     'error' => SyncStatus::ERROR->value,
                     'message' => 'The previous sync was interrupted before it finished. Trigger a new sync to retry.',
@@ -122,7 +124,7 @@ final readonly class SkillSyncLeaseRepository
         return $this
             ->connection()
             ->executeStatement(
-                'UPDATE ' . self::TABLE . ' SET sync_status = :status, last_synced = :now, sync_error = :error, sync_lock_token = :empty' . ($pinnedSha === null ? '' : ', pinned_sha = :sha') . ' WHERE uid = :uid AND deleted = 0 AND sync_status = :syncing AND sync_lock_token = :owner',
+                self::UPDATE_PREFIX . self::TABLE . ' SET sync_status = :status, last_synced = :now, sync_error = :error, sync_lock_token = :empty' . ($pinnedSha === null ? '' : ', pinned_sha = :sha') . ' WHERE uid = :uid AND deleted = 0 AND sync_status = :syncing AND sync_lock_token = :owner',
                 $parameters,
             ) === 1;
     }
@@ -145,10 +147,7 @@ final readonly class SkillSyncLeaseRepository
             ->transactional(
                 function () use ($uid, $owner, $now, $publish): mixed {
                     if (!$this->renew($uid, $owner, $now)) {
-                        throw new RuntimeException(
-                            'Skill synchronization lease was lost; collected data was not published.',
-                            1781650221,
-                        );
+                        throw new SkillSyncLeaseLostException();
                     }
 
                     return $publish();

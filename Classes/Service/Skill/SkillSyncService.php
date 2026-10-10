@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SyncResult;
 use Netresearch\NrLlm\Service\Skill\Exception\GitHubApiException;
 use Netresearch\NrLlm\Service\Skill\Exception\HostNotAllowedException;
 use Netresearch\NrLlm\Service\Skill\Exception\SkillParseException;
+use Netresearch\NrLlm\Service\Skill\Exception\SkillSyncLeaseLostException;
 use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -34,6 +35,8 @@ final class SkillSyncService
 
     /** Claude Code convention path of a marketplace index inside a repository. */
     private const MARKETPLACE_INDEX_PATH = '.claude-plugin/marketplace.json';
+
+    private const PERSISTED_SOURCE_REQUIRED = 'A persisted, non-deleted skill source is required.';
 
     private int $syncDeadline = 0;
 
@@ -79,79 +82,14 @@ final class SkillSyncService
         if ($uid === null || $uid <= 0) {
             return new SyncResult(
                 SyncStatus::ERROR,
-                errors: ['A persisted, non-deleted skill source is required.'],
+                errors: [self::PERSISTED_SOURCE_REQUIRED],
             );
         }
 
         $owner = '';
         $publishing = false;
         try {
-            if (!$this->leases->hasOnePublicationConnection()) {
-                return new SyncResult(
-                    SyncStatus::ERROR,
-                    errors: [
-                        'Skill source, skill and audit tables must use the same database connection.',
-                    ],
-                );
-            }
-
-            if (!$this->leases->exists($uid)) {
-                return new SyncResult(
-                    SyncStatus::ERROR,
-                    errors: ['A persisted, non-deleted skill source is required.'],
-                );
-            }
-
-            $now = time();
-            $candidateOwner = bin2hex(random_bytes(32));
-            if (!$this->leases->claim($uid, $candidateOwner, $now)) {
-                return $this->leases->exists($uid) ? new SyncResult(
-                    SyncStatus::SYNCING,
-                    errors: ['A sync is already running for this source.'],
-                ) : new SyncResult(
-                    SyncStatus::ERROR,
-                    errors: ['A persisted, non-deleted skill source is required.'],
-                );
-            }
-
-            $owner = $candidateOwner;
-            $this->leaseOwner = $owner;
-            $this->lastHeartbeat = $now;
-            $this->syncDeadline = $now + $this->maxSeconds;
-            $this->filesProcessed = 0;
-            $this->boundsExceeded = false;
-            $this->refreshSourceBookkeeping($source);
-            $errors = [];
-            $collected = $this->collect($source, $errors);
-            return $this->leases->publication(
-                $uid,
-                $owner,
-                time(),
-                function () use ($uid, $owner, $source, $collected, $errors, &$publishing): SyncResult {
-                    $publishing = true;
-                    $result = $this->materializeCollected($source, $collected, $errors);
-                    // These fields are written only by the fenced database release,
-                    // even when this entity is already tracked by an Extbase caller.
-                    $this->memorizeSourceBookkeeping($source);
-                    $this->persistenceManager->persistAll();
-                    if (!$this->leases->release(
-                        $uid,
-                        $owner,
-                        $result->status,
-                        time(),
-                        $source->getSyncError(),
-                        $source->getPinnedSha(),
-                    )) {
-                        throw new RuntimeException(
-                            'Skill synchronization lease was lost; collected data was not published.',
-                            1781650221,
-                        );
-                    }
-
-                    $this->refreshSourceBookkeeping($source);
-                    return $result;
-                },
-            );
+            return $this->syncPersistedSource($source, $uid, $owner, $publishing);
         } catch (Throwable $e) {
             if ($publishing) {
                 $this->persistenceManager->clearState();
@@ -171,6 +109,7 @@ final class SkillSyncService
                     ],
                 );
             } catch (Throwable) {
+                // A diagnostic failure must not prevent conditional error release.
             }
 
             if ($owner !== '') {
@@ -460,10 +399,7 @@ final class SkillSyncService
         }
 
         if (!$this->leases->renew($source->getUid() ?? 0, $this->leaseOwner, $now)) {
-            throw new RuntimeException(
-                'Skill synchronization lease was lost; collected data was not published.',
-                1781650221,
-            );
+            throw new SkillSyncLeaseLostException();
         }
 
         $this->lastHeartbeat = $now;
@@ -825,47 +761,27 @@ final class SkillSyncService
         array $collected,
         array $errors,
     ): SyncResult {
-        $seen = [];
         $created = 0;
         $updated = 0;
         $disabledOnChange = 0;
         $injectionBlocked = 0;
         $orphaned = 0;
         $sourcePrefix = $source->getUid() . ':';
-
-        // Fail-closed manifest fingerprint gate (ADR-061): when the source
-        // declares an expected fingerprint, the whole discovered set must
-        // verify BEFORE any skill is materialized. A mismatch blocks the
-        // ingest entirely — no upsert, no orphaning — leaving the last
-        // known-good skills untouched, and is audited.
+        // Verify the complete manifest before upsert or orphaning (ADR-061).
         if ($this->fingerprintRejected($source, $collected['parsed'], $sourcePrefix)) {
             $errors[] = 'Manifest fingerprint verification failed; ingest blocked (no skills were materialized).';
             $status = SyncStatus::ERROR;
-            $orphaned = 0;
             $source->setSyncError(
                 $this->sanitizeErrorMessage(implode("\n", $errors)),
             );
         } else {
-            foreach ($collected['parsed'] as [$sha, $parsed]) {
-                $identifier = $sourcePrefix . $parsed->path;
-                // Keyed set: O(1) dedup instead of in_array() over a growing list.
-                if (isset($seen[$identifier])) {
-                    $errors[] = sprintf(
-                        'duplicate identifier "%s", first wins',
-                        $identifier,
-                    );
-                    continue;
-                }
-
-                $seen[$identifier] = true;
-                [$outcome, $blocked] = $this->upsert($source, $identifier, $sha, $parsed);
-                $created += $outcome === 'created' ? 1 : 0;
-                $updated += $outcome === 'updated' ? 1 : 0;
-                $disabledOnChange += $outcome === 'changed' ? 1 : 0;
-                $injectionBlocked += $blocked ? 1 : 0;
-            }
-
-            // Orphan by upstream PRESENCE (discovered identifiers), not by parse success.
+            [$created, $updated, $disabledOnChange, $injectionBlocked] = $this->upsertCollectedSkills(
+                $source,
+                $collected['parsed'],
+                $errors,
+                $sourcePrefix,
+            );
+            // Orphan by upstream presence, including files that failed parsing.
             $discoveredIds = array_map(
                 static fn(string $path): string => $sourcePrefix . $path,
                 $collected['discovered'],
@@ -882,9 +798,8 @@ final class SkillSyncService
                     $sourcePrefix,
                 ),
             );
-
             $status = $errors === [] ? SyncStatus::OK : SyncStatus::PARTIAL;
-            // Only single_file/repo pin the source SHA; marketplace child-repo SHAs must not overwrite it.
+            // Marketplace child-repo SHAs must not overwrite the source SHA.
             if ($collected['rootSha'] !== null) {
                 $source->setPinnedSha($collected['rootSha']);
             }
@@ -924,5 +839,121 @@ final class SkillSyncService
         foreach (['syncStatus', 'syncError', 'lastSynced', 'pinnedSha'] as $property) {
             $source->_memorizeCleanState($property);
         }
+    }
+
+    private function sourceReadinessFailure(int $uid): ?SyncResult
+    {
+        if (!$this->leases->hasOnePublicationConnection()) {
+            return new SyncResult(
+                SyncStatus::ERROR,
+                errors: [
+                    'Skill source, skill and audit tables must use the same database connection.',
+                ],
+            );
+        }
+
+        if (!$this->leases->exists($uid)) {
+            return new SyncResult(
+                SyncStatus::ERROR,
+                errors: [self::PERSISTED_SOURCE_REQUIRED],
+            );
+        }
+
+        return null;
+    }
+
+    private function syncPersistedSource(
+        SkillSource $source,
+        int $uid,
+        string &$owner,
+        bool &$publishing,
+    ): SyncResult {
+        $failure = $this->sourceReadinessFailure($uid);
+        if ($failure instanceof SyncResult) {
+            return $failure;
+        }
+
+        $now = time();
+        $candidateOwner = bin2hex(random_bytes(32));
+        if (!$this->leases->claim($uid, $candidateOwner, $now)) {
+            return $this->leases->exists($uid) ? new SyncResult(
+                SyncStatus::SYNCING,
+                errors: ['A sync is already running for this source.'],
+            ) : new SyncResult(
+                SyncStatus::ERROR,
+                errors: [self::PERSISTED_SOURCE_REQUIRED],
+            );
+        }
+
+        $owner = $candidateOwner;
+        $this->leaseOwner = $owner;
+        $this->lastHeartbeat = $now;
+        $this->syncDeadline = $now + $this->maxSeconds;
+        $this->filesProcessed = 0;
+        $this->boundsExceeded = false;
+        $this->refreshSourceBookkeeping($source);
+        $errors = [];
+        $collected = $this->collect($source, $errors);
+        return $this->leases->publication(
+            $uid,
+            $owner,
+            time(),
+            function () use ($uid, $owner, $source, $collected, $errors, &$publishing): SyncResult {
+                $publishing = true;
+                $result = $this->materializeCollected($source, $collected, $errors);
+                // These fields are written only by the fenced database release,
+                // even when this entity is already tracked by an Extbase caller.
+                $this->memorizeSourceBookkeeping($source);
+                $this->persistenceManager->persistAll();
+                if (!$this->leases->release(
+                    $uid,
+                    $owner,
+                    $result->status,
+                    time(),
+                    $source->getSyncError(),
+                    $source->getPinnedSha(),
+                )) {
+                    throw new SkillSyncLeaseLostException();
+                }
+
+                $this->refreshSourceBookkeeping($source);
+                return $result;
+            },
+        );
+    }
+
+    /**
+     * @param list<array{0:string,1:ParsedSkill}> $parsedSkills
+     * @param list<string>                        $errors
+     *
+     * @return array{int,int,int,int} Created, updated, disabled and injection counts.
+     */
+    private function upsertCollectedSkills(
+        SkillSource $source,
+        array $parsedSkills,
+        array &$errors,
+        string $sourcePrefix,
+    ): array {
+        $seen = [];
+        $created = 0;
+        $updated = 0;
+        $disabledOnChange = 0;
+        $injectionBlocked = 0;
+        foreach ($parsedSkills as [$sha, $parsed]) {
+            $identifier = $sourcePrefix . $parsed->path;
+            if (isset($seen[$identifier])) {
+                $errors[] = sprintf('duplicate identifier "%s", first wins', $identifier);
+                continue;
+            }
+
+            $seen[$identifier] = true;
+            [$outcome, $blocked] = $this->upsert($source, $identifier, $sha, $parsed);
+            $created += $outcome === 'created' ? 1 : 0;
+            $updated += $outcome === 'updated' ? 1 : 0;
+            $disabledOnChange += $outcome === 'changed' ? 1 : 0;
+            $injectionBlocked += $blocked ? 1 : 0;
+        }
+
+        return [$created, $updated, $disabledOnChange, $injectionBlocked];
     }
 }

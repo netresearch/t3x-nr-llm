@@ -22,6 +22,8 @@ final class SkillSyncLeaseRepositoryTest extends AbstractFunctionalTestCase
 {
     private const NOW = 1700000000;
 
+    private const PUBLICATION_SKILL_ID = '10:one';
+
     private const TABLE = 'tx_nrllm_skill_source';
 
     private const OLD_OWNER = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
@@ -289,7 +291,7 @@ final class SkillSyncLeaseRepositoryTest extends AbstractFunctionalTestCase
                         'tx_nrllm_skill',
                         [
                             'source' => 10,
-                            'identifier' => '10:one',
+                            'identifier' => self::PUBLICATION_SKILL_ID,
                             'body' => 'literal',
                         ],
                     );
@@ -317,7 +319,7 @@ final class SkillSyncLeaseRepositoryTest extends AbstractFunctionalTestCase
             'literal',
             $this
                 ->connection()
-                ->select(['body'], 'tx_nrllm_skill', ['identifier' => '10:one'])
+                ->select(['body'], 'tx_nrllm_skill', ['identifier' => self::PUBLICATION_SKILL_ID])
                 ->fetchOne(),
         );
         self::assertSame(
@@ -349,7 +351,7 @@ final class SkillSyncLeaseRepositoryTest extends AbstractFunctionalTestCase
                     function () use ($expected): never {
                         $this->connection()->insert(
                             'tx_nrllm_skill',
-                            ['source' => 10, 'identifier' => '10:one'],
+                            ['source' => 10, 'identifier' => self::PUBLICATION_SKILL_ID],
                         );
                         $this->connection()->insert(
                             'tx_nrllm_skill_audit',

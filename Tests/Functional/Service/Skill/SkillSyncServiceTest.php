@@ -22,12 +22,12 @@ use Netresearch\NrLlm\Service\Skill\SkillMarkdownParser;
 use Netresearch\NrLlm\Service\Skill\SkillSyncLeaseRepository;
 use Netresearch\NrLlm\Service\Skill\SkillSyncService;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrLlm\Tests\Functional\Service\Skill\Fixtures\ControlledPublicationFailure;
 use Netresearch\NrLlm\Tests\Functional\Service\Skill\Fixtures\FakeGitHubClient;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
-use RuntimeException;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
@@ -41,6 +41,10 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
     private const MARKET_URL = 'https://raw.githubusercontent.com/acme/market/main/marketplace.json';
 
     private const SKILL_A_PATH = 'skills/a/SKILL.md';
+
+    private const SKILL_C_PATH = 'skills/c/SKILL.md';
+
+    private const CHANGED_A_BODY = 'changed A';
 
     private const SKILL_B_PATH = 'skills/b/SKILL.md';
 
@@ -258,10 +262,10 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
     {
         // Absent front-matter key → '' (no opinion); a present declaration → its JSON,
         // including '[]' for a declared-empty fail-closed list.
-        $gitHub = new FakeGitHubClient('sha1', [self::SKILL_A_PATH, self::SKILL_B_PATH, 'skills/c/SKILL.md'], [
+        $gitHub = new FakeGitHubClient('sha1', [self::SKILL_A_PATH, self::SKILL_B_PATH, self::SKILL_C_PATH], [
             self::SKILL_A_PATH    => $this->md('A', 'body a'),
             self::SKILL_B_PATH    => $this->mdWithTools('B', '[]', 'body b'),
-            'skills/c/SKILL.md'   => $this->mdWithTools('C', '[x]', 'body c'),
+            self::SKILL_C_PATH   => $this->mdWithTools('C', '[x]', 'body c'),
         ]);
         $this->service($gitHub)->sync($this->repoSource());
 
@@ -614,10 +618,10 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
     #[Test]
     public function perSyncFileBoundStopsCollectionEarlyAsPartial(): void
     {
-        $gitHub = new FakeGitHubClient('sha1', [self::SKILL_A_PATH, self::SKILL_B_PATH, 'skills/c/SKILL.md'], [
+        $gitHub = new FakeGitHubClient('sha1', [self::SKILL_A_PATH, self::SKILL_B_PATH, self::SKILL_C_PATH], [
             self::SKILL_A_PATH => $this->md('A', 'a'),
             self::SKILL_B_PATH => $this->md('B', 'b'),
-            'skills/c/SKILL.md' => $this->md('C', 'c'),
+            self::SKILL_C_PATH => $this->md('C', 'c'),
         ]);
         $result = $this->service($gitHub, maxFiles: 1)->sync($this->repoSource());
 
@@ -1086,7 +1090,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
                         'The controlled fault occurs after an actual new row was written.',
                     );
                     self::assertSame(
-                        'changed A',
+                        self::CHANGED_A_BODY,
                         $connection->select(
                             ['body'],
                             'tx_nrllm_skill',
@@ -1101,7 +1105,10 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
                             ['identifier' => self::SKILL_B_ID],
                         )->fetchOne(),
                     );
-                    throw new RuntimeException('controlled publication failure', 221);
+                    throw new ControlledPublicationFailure(
+                        'controlled publication failure',
+                        221,
+                    );
                 },
             );
         $failure
@@ -1114,10 +1121,10 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
             );
         $github = new FakeGitHubClient(
             'attempt',
-            [self::SKILL_A_PATH, 'skills/c/SKILL.md'],
+            [self::SKILL_A_PATH, self::SKILL_C_PATH],
             [
-                self::SKILL_A_PATH => $this->md('A', 'changed A'),
-                'skills/c/SKILL.md' => $this->md('C', 'new C'),
+                self::SKILL_A_PATH => $this->md('A', self::CHANGED_A_BODY),
+                self::SKILL_C_PATH => $this->md('C', 'new C'),
             ],
         );
         $result = $this->service($github, persistence: $failure)->sync($source);
@@ -1160,7 +1167,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         self::assertSame(1, $retry->disabledOnChange);
         self::assertSame(1, $retry->orphaned);
         self::assertSame(
-            'changed A',
+            self::CHANGED_A_BODY,
             $connection
                 ->select(['body'], 'tx_nrllm_skill', ['identifier' => self::SKILL_A_ID])
                 ->fetchOne(),
