@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\Exception;
 
-use RuntimeException;
+use Netresearch\NrLlm\Exception\RuntimeException;
 
 /**
  * A WRITING tool executed but its audit step could not be persisted (ADR-111).

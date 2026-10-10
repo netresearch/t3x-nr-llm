@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Evaluation;
 
-use LogicException;
+use Netresearch\NrLlm\Exception\LogicException;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 /**

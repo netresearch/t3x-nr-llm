@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\Exception;
 
-use RuntimeException;
+use Netresearch\NrLlm\Exception\RuntimeException;
 
 /**
  * Internal control-flow signal that a queue worker has lost its lease (ADR-104).

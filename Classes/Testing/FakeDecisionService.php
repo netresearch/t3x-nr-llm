@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Testing;
 
-use LogicException;
+use Netresearch\NrLlm\Exception\LogicException;
 use Netresearch\NrLlm\Service\Decision\DecisionRequest;
 use Netresearch\NrLlm\Service\Decision\DecisionResult;
 use Netresearch\NrLlm\Service\Decision\DecisionServiceInterface;

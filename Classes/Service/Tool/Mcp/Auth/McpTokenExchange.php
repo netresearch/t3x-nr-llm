@@ -7,9 +7,9 @@ declare (strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Mcp\Auth;
 
 use GuzzleHttp\Psr7\Request;
-use InvalidArgumentException;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Tool\Mcp\Exception\McpTransportException;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpClockInterface;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpOperationDeadline;

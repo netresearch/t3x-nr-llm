@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Exception;
 
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
-use RuntimeException;
+use Netresearch\NrLlm\Exception\RuntimeException;
 
 /**
  * Thrown by {@see \Netresearch\NrLlm\Service\Tool\ToolLoopService::runLoop()}

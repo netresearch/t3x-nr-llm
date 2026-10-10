@@ -8,7 +8,7 @@ declare (strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\ValueObject;
 
-use InvalidArgumentException;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 
 /**
  * An authoritative target reference supplied by a tool-specific resolver.

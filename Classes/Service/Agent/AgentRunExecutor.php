@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
+use Netresearch\NrLlm\Exception\RuntimeException;
 use Netresearch\NrLlm\Service\Agent\Exception\AuditPersistenceFailedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunCancellationRequestedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunLeaseLostException;
@@ -36,7 +37,6 @@ use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
 use Psr\Log\LoggerInterface;
-use RuntimeException;
 use Throwable;
 
 /**

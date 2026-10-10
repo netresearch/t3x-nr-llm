@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Specialized\Exception;
 
-use RuntimeException;
+use Netresearch\NrLlm\Exception\RuntimeException;
 use Throwable;
 
 /**
