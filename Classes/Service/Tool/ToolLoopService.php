@@ -541,10 +541,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     );
                 }
 
-                // The provider's own items for this turn travel with it
-                // (ADR-203). On the OpenAI Responses transport they carry the
-                // reasoning the model must see again on the next step; every
-                // other adapter reports none and the turn is unchanged.
+                // Provider-owned OpenAI reasoning items and Gemini signed parts travel
+                // with their assistant turn; the loop keeps this context opaque (ADR-203/222).
                 $messages[] = ChatMessage::assistantToolCalls(
                     $resp->toolCalls ?? [],
                     $resp->content,
@@ -1388,12 +1386,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     }
 
     /**
-     * The provider's own items for the turn just answered, or null (ADR-203).
-     *
-     * The loop treats them as opaque and does exactly one thing with them:
-     * hand them to the assistant turn, so the next request replays them. The
-     * key is written by the OpenAI adapter on its Responses transport; every
-     * other adapter writes none, and null is what that means.
+     * Opaque context for the just-answered provider turn (ADR-203/222).
+     * The loop hands the shared metadata slot to the assistant turn. OpenAI
+     * Responses carries native items; Gemini carries its owned native parts.
+     * Adapters without replay state omit the key, represented here as null.
      *
      * @return list<array<string, mixed>>|null
      */

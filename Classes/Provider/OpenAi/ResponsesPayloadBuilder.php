@@ -16,27 +16,15 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 
+use Netresearch\NrLlm\Provider\Gemini\GeminiReplayMetadata;
 use stdClass;
 
 /**
- * Builds a `POST /v1/responses` payload out of nr_llm's own shapes (ADR-203).
- *
- * The Responses API is not Chat Completions with a different path. Four things
- * move, and each of them is a place this extension previously had no code for:
- *
- * - `messages` becomes `input`, and a system message becomes `instructions`.
- * - A tool definition is flat — `{type, name, description, parameters}` —
- *   where Chat Completions nests it under `function`.
- * - `max_completion_tokens` becomes `max_output_tokens`.
- * - `response_format` becomes `text.format`, with the `json_schema`
- *   configuration flattened into it rather than nested one level deeper.
- *
- * The fifth thing does not move, it is new: an assistant turn that carries the
- * provider's own items replays those items **verbatim** instead of being
- * re-described. That is what keeps a reasoning model's thinking alive across
- * the steps of one tool run, and it is why this builder reads
- * {@see ChatMessage} objects rather than the wire arrays
- * {@see ChatMessage::toArray()} produces.
+ * Builds a POST /v1/responses payload from nr_llm messages (ADR-203/222).
+ * System prompts become instructions; tool definitions and structured-output
+ * settings use Responses vocabulary. Historical native OpenAI items replay
+ * verbatim. Gemini-owned turns reconstruct their visible text and ordinary
+ * calls, never forwarding foreign native parts or the internal wrapper.
  */
 final class ResponsesPayloadBuilder
 {
@@ -166,6 +154,10 @@ final class ResponsesPayloadBuilder
         $input        = [];
 
         foreach ($messages as $message) {
+            if (is_array($message) && array_key_exists('provider_items', $message)) {
+                $message = ChatMessage::fromArray($message);
+            }
+
             $role = $message instanceof ChatMessage ? $message->role : ($message['role'] ?? null);
 
             if ($role === MessageRole::SYSTEM->value) {
@@ -283,28 +275,27 @@ final class ResponsesPayloadBuilder
     private function itemsFor(ChatMessage $message): array
     {
         if ($message->getRole() === MessageRole::TOOL) {
-            return [[
-                'type' => 'function_call_output',
-                'call_id' => $message->toolCallId ?? '',
-                'output' => $message->content,
-            ]];
+            return [
+                [
+                    'type' => 'function_call_output',
+                    'call_id' => $message->toolCallId ?? '',
+                    'output' => $message->content,
+                ],
+            ];
         }
 
         if ($message->getRole() !== MessageRole::ASSISTANT) {
             return [['role' => $message->role, 'content' => $message->content]];
         }
 
-        // The provider's own items are the whole turn — the reasoning item,
-        // the function calls and the visible message. Replaying them verbatim
-        // is what the reasoning guide requires, and it is also more faithful
-        // than anything this extension could rebuild, so nothing is added
-        // beside them.
-        if ($message->providerItems !== null && \count($message->providerItems) > 0) {
+        $geminiParts = GeminiReplayMetadata::nativeParts($message->providerItems);
+        // Untagged historical OpenAI-native items still occupy the entire turn.
+        if ($geminiParts === null && $message->providerItems !== null && count($message->providerItems) > 0) {
             return $message->providerItems;
         }
 
         if ($message->toolCalls !== null) {
-            return array_map(
+            $items = array_map(
                 static fn(ToolCall $call): array => [
                     'type' => 'function_call',
                     'call_id' => $call->id,
@@ -316,6 +307,16 @@ final class ResponsesPayloadBuilder
                 ],
                 $message->toolCalls,
             );
+            // Foreign reconstruction must retain visible text as well as calls.
+            // Never forward Gemini native parts or its internal ownership wrapper.
+            if ($geminiParts !== null && $message->content !== '') {
+                array_unshift(
+                    $items,
+                    ['role' => $message->role, 'content' => $message->content],
+                );
+            }
+
+            return $items;
         }
 
         return [['role' => $message->role, 'content' => $message->content]];
