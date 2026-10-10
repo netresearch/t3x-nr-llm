@@ -82,6 +82,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **MCP imports report tool names reserved by another server.** Different
+  identifier/name pairs that map to the same local name are skipped with a
+  reason, including names retained by orphaned tools of inactive servers.
+  Other valid proposals remain importable and existing catalogues keep their
+  ownership.
+
 - **Invalid retrieval provenance follows the public exception contract (ADR-053).** Constructor validation implements `NrLlmExceptionInterface` while preserving native `InvalidArgumentException` catch compatibility, reason codes and messages.
 
 - **Retrieval details preserve legacy byte ids at full privacy (ADR-215).** Invalid UTF-8 question ids, hard classes and measured document ids use a versioned lossless field representation after filtering their original bytes. Ordinary UTF-8 and prompt snapshots remain compatible; redacted and metadata policies cannot be bypassed through encoding.
