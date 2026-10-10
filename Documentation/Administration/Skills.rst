@@ -15,6 +15,12 @@ ingest, review, and (from Plan 1b) inject into prompts. You add a **skill
 source** that points at GitHub, sync it, and then enable the individual
 skills you want.
 
+The YAML metadata starts with a line containing only ``---`` and ends with
+another standalone ``---`` line, including at the end of the file.
+The closing line may have trailing spaces or tabs.
+A metadata key that starts with dashes does not close the block.
+The remaining Markdown, including later separator lines, forms the skill body.
+
 Skill management is **admin-only**. It lives in
 :guilabel:`AI > Authoring > Skills` and is not delegated to other
 backend groups: a skill body becomes prompt context, so the two skill
