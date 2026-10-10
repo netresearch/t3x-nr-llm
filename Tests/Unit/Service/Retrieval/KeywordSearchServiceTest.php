@@ -233,7 +233,7 @@ final class KeywordSearchServiceTest extends TestCase
     {
         $backends = (static function (): Generator {
             yield from [];
-            throw new RuntimeException('Backend discovery failed');
+            throw new RuntimeException('Backend discovery failed', 1770581041);
         })();
         $service = new KeywordSearchService($backends);
         try {
