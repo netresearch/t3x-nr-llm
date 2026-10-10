@@ -51,6 +51,15 @@ Client errors (other 4xx), misconfiguration and unsupported-feature errors mean
 the provider *answered*; they are not a health signal and neither trip nor reset
 the circuit.
 
+.. note::
+
+   **Clarification, 2026-10-10.** :ref:`adr-095` subsequently made
+   :php:`FailureClassifier` the shared definition of retryable and tripping
+   failures. Server-side ``5xx`` response exceptions now trip the circuit too.
+   :ref:`adr-096` changed the pipeline callback to receive
+   :php:`ProviderCallContext`; references to ``$next($configuration)`` below
+   describe the original callback shape.
+
 **Pipeline placement — innermost, priority 20.** This is the load-bearing design
 choice, so it is spelled out:
 
@@ -177,6 +186,14 @@ Consequences
 * **Circuit state is cluster-wide but forgettable.** On a shared cache backend
   every worker sees the same circuit; a cache flush resets all circuits to
   closed (a conservative retry), which is acceptable.
+  State lifetimes double the positive cooldown, with a 60-second minimum,
+  and saturate at ``PHP_INT_MAX`` before multiplication can overflow.
+  Retry hints also saturate at that limit when a future cached open time
+  would make the remaining wait larger. Ordinary cooldowns retain their
+  exact lifetime and retry hint. Accepted cached failure counters saturate
+  at the same integer limit; another failure still opens the circuit when
+  it reaches the configured threshold. Storage remains best-effort and subject
+  to the configured backend's supported lifetime range.
 * **Health is advisory only.** With ``health.reorderFallback`` off (default),
   provider selection is byte-for-byte unchanged. The reorder, when enabled,
   re-loads each candidate configuration once to resolve its provider — a cost
