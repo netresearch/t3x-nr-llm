@@ -4,8 +4,7 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-
-declare(strict_types=1);
+declare (strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Mcp;
 
@@ -49,7 +48,10 @@ final readonly class McpToolRepository
             ->select('*')
             ->from(self::TABLE)
             ->where(
-                $queryBuilder->expr()->eq('server', $queryBuilder->createNamedParameter($serverUid, ParameterType::INTEGER)),
+                $queryBuilder->expr()->eq(
+                    'server',
+                    $queryBuilder->createNamedParameter($serverUid, ParameterType::INTEGER),
+                ),
                 $queryBuilder->expr()->eq('orphaned', $queryBuilder->createNamedParameter(0, ParameterType::INTEGER)),
             )
             ->orderBy('tool_name', 'ASC')
@@ -95,7 +97,7 @@ final readonly class McpToolRepository
     public function reconcile(int $serverUid, int $pid, array $tools, int $timestamp): int
     {
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $existing   = [];
+        $existing = [];
 
         foreach ($this->findAllByServer($serverUid) as $record) {
             $existing[$record->toolName] = $record;
@@ -106,15 +108,15 @@ final readonly class McpToolRepository
             $seen[$tool['toolName']] = true;
 
             $values = [
-                'server'             => $serverUid,
-                'pid'                => $pid,
-                'tool_name'          => $tool['toolName'],
-                'remote_name'        => $tool['remoteName'],
-                'description'        => $tool['description'],
-                'input_schema'       => $tool['inputSchema'],
+                'server' => $serverUid,
+                'pid' => $pid,
+                'tool_name' => $tool['toolName'],
+                'remote_name' => $tool['remoteName'],
+                'description' => $tool['description'],
+                'input_schema' => $tool['inputSchema'],
                 'remote_annotations' => $tool['remoteAnnotations'],
-                'orphaned'           => 0,
-                'tstamp'             => $timestamp,
+                'orphaned' => 0,
+                'tstamp' => $timestamp,
             ];
 
             if (isset($existing[$tool['toolName']])) {
@@ -172,5 +174,27 @@ final readonly class McpToolRepository
             tstamp: self::toInt($row['tstamp'] ?? 0),
             crdate: self::toInt($row['crdate'] ?? 0),
         );
+    }
+
+    /**
+     * Names held by any other catalogue stay reserved, including orphaned tools and inactive servers.
+     * The database comparison follows the unique index collation.
+     */
+    public function isNameReservedByAnotherServer(string $toolName, int $serverUid): bool
+    {
+        $queryBuilder = $this->queryBuilder();
+        return $queryBuilder
+            ->select('uid')
+            ->from(self::TABLE)
+            ->where(
+                $queryBuilder->expr()->eq('tool_name', $queryBuilder->createNamedParameter($toolName)),
+                $queryBuilder->expr()->neq(
+                    'server',
+                    $queryBuilder->createNamedParameter($serverUid, ParameterType::INTEGER),
+                ),
+            )
+            ->setMaxResults(1)
+            ->executeQuery()
+            ->fetchOne() !== false;
     }
 }
