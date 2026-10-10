@@ -56,8 +56,10 @@ Trade-offs
 
 * **+ Single source of truth.** The priority lives next to the class, not in
   a sibling yaml file.
-* **+ Third-party DX.** External providers drop in without editing yaml:
-  :code:`#[AsLlmProvider(priority: 100)]` on an autowired class is enough.
+* **+ In-namespace registration.** An autowired provider under
+  ``Netresearch\NrLlm\`` needs only
+  :code:`#[AsLlmProvider(priority: 100)]`. Providers outside that namespace
+  use an explicit yaml tag; the attribute alone does not register them.
 * **+ Backward-compatible.** Existing yaml-tagged providers keep working.
 * **- Reflection at compile time.** The compiler pass reflects service
   definitions in the ``Netresearch\NrLlm\`` namespace; other definitions

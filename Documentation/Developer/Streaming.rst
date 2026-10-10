@@ -42,7 +42,7 @@ The ``streamChat`` method returns a ``Generator`` that yields string chunks
 as the provider generates them. Each chunk contains a portion of the response
 text.
 
-Providers that implement :php:interface:`StreamingCapableInterface` support
+Providers that implement :ref:`StreamingCapableInterface <api-provider-streaming>` support
 streaming. Check provider capabilities before using:
 
 .. code-block:: php
