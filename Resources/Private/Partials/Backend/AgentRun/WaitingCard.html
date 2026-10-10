@@ -16,7 +16,7 @@
 
         <f:switch expression="{run.mode}">
             <f:case value="approval"><f:render partial="Backend/AgentRun/ApprovalControls" arguments="{run: run}" /></f:case>
-            <f:case value="input"><f:render partial="Backend/AgentRun/InputForm" arguments="{run: run, errorRunUuid: errorRunUuid, rawInput: rawInput, errorSummary: errorSummary}" /></f:case>
+            <f:case value="input"><f:render partial="Backend/AgentRun/InputForm" arguments="{run: run, errorRunUuid: errorRunUuid, rawInput: rawInput, coercedInput: coercedInput, errorSummary: errorSummary}" /></f:case>
             <f:defaultCase>
                 <f:be.infobox state="1">
                     <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.unreadable" default="This run's state could not be read; no action is available." /></p>

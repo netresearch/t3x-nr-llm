@@ -156,8 +156,9 @@ A run pauses for input (status ``WAITING_FOR_INPUT``) when the agent asks for
 typed data against a declared schema. The card renders a form with one field
 per schema property (text, number, integer or checkbox, with the field
 description shown). Submitting validates and coerces the values against the
-current schema; invalid input re-renders the form in place, keeping what you
-typed and pointing at the error, rather than losing the run.
+current schema; invalid input re-renders the form in place, keeping the text
+and checkbox states on that run's card and pointing at the error. Other
+waiting cards retain their own empty form. The run remains waiting for input.
 
 .. _administration-agent-runs-async:
 

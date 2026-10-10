@@ -2,6 +2,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
 -->
+<f:variable name="cardInput" value="{f:if(condition: '{errorRunUuid} == {run.runUuid}', then: rawInput)}" />
+<f:variable name="cardValues" value="{f:if(condition: '{errorRunUuid} == {run.runUuid}', then: coercedInput)}" />
 <f:if condition="{errorRunUuid} == {run.runUuid}">
     <div id="input-errors-{run.runUuid}" tabindex="-1" autofocus="autofocus" class="callout callout-danger mb-3">
         <h4 class="h6"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.error.summaryHeading" default="Your input could not be submitted" /></h4>
@@ -21,7 +23,7 @@
             <div class="form-group mb-3">
                 <f:if condition="{field.controlType} == 'checkbox'">
                     <f:then>
-                        <f:render partial="Backend/AgentRun/FieldCheckbox" arguments="{field: field, fid: fid, did: did}" />
+                        <f:render partial="Backend/AgentRun/FieldCheckbox" arguments="{field: field, fid: fid, did: did, cardValues: cardValues}" />
                     </f:then>
                     <f:else>
                         <f:if condition="{field.controlType} == 'unsupported'">
@@ -31,7 +33,7 @@
                             </f:then>
                             <f:else>
                                 <label class="form-label" for="{fid}">{field.label}<f:if condition="{field.required}"><span aria-hidden="true"> *</span></f:if></label>
-                                <f:form.textfield class="form-control" id="{fid}" name="input[{field.name}]" type="{field.htmlType}" required="{field.required}" value="{rawInput.{field.name}}" additionalAttributes="{step: '{field.step}', inputmode: '{field.inputMode}', aria-describedby: '{did}'}" />
+                                <f:form.textfield class="form-control" id="{fid}" name="input[{field.name}]" type="{field.htmlType}" required="{field.required}" value="{cardInput.{field.name}}" additionalAttributes="{step: '{field.step}', inputmode: '{field.inputMode}', aria-describedby: '{did}'}" />
                                 <small id="{did}" class="form-text text-variant">{field.description}</small>
                             </f:else>
                         </f:if>

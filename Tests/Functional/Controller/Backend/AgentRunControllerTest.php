@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
+use DOMDocument;
+use DOMElement;
 use Netresearch\NrLlm\Controller\Backend\AgentRunController;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -46,6 +48,7 @@ use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\PreviewingApprovalTool;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
 use ReflectionClass;
@@ -842,5 +845,194 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         $extensionService = $this->get(ExtensionService::class);
         self::assertInstanceOf(ExtensionService::class, $extensionService);
         (new ReflectionProperty(ActionController::class, 'internalExtensionService'))->setValue($controller, $extensionService);
+    }
+
+    #[Test]
+    #[DataProvider('retainedBooleanValues')]
+    public function invalidInputRetainsTheOperatorsCheckedBooleanAndEscapedText(
+        mixed $postedBoolean,
+        bool $expectedChecked,
+    ): void {
+        $this->suspendInput(
+            'ask',
+            [
+                'type' => 'object',
+                'properties' => [
+                    'reason' => ['type' => 'string'],
+                    'confirm' => ['type' => 'boolean'],
+                ],
+                'required' => ['reason', 'confirm'],
+            ],
+        );
+        $uuid = $this->lastUuid();
+        $submitted = null;
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime
+            ->expects(self::once())
+            ->method('submitInput')
+            ->willReturnCallback(
+                static function (
+                    AiActorContext $actor,
+                    string $runUuid,
+                    InputSubmission $submission,
+                ) use (&$submitted, $uuid): AgentRunResult {
+                    $submitted = $submission;
+                    throw InvalidInputSubmissionException::forRun($uuid);
+                },
+            );
+        $controller = $this->makeController(new ToolRegistry([new FakeTool('ask')]), $runtime);
+        $this->setRequest($controller, 'submitInput');
+        $rawInput = ['reason' => 'preserve " autofocus onfocus="alert(1)" <my input>'];
+        if ($postedBoolean !== null) {
+            $rawInput['confirm'] = $postedBoolean;
+        }
+
+        $response = $controller->submitInputAction($uuid, $rawInput);
+
+        self::assertSame(422, $response->getStatusCode());
+        self::assertInstanceOf(InputSubmission::class, $submitted);
+        self::assertSame($expectedChecked, $submitted->data['confirm']);
+        $document = new DOMDocument();
+        self::assertTrue(
+            $document->loadHTML(
+                (string)$response->getBody(),
+                LIBXML_NOERROR | LIBXML_NOWARNING,
+            ),
+        );
+        $text = $document->getElementById('f-' . $uuid . '-reason');
+        self::assertInstanceOf(DOMElement::class, $text);
+        self::assertSame(
+            'preserve " autofocus onfocus="alert(1)" <my input>',
+            $text->getAttribute('value'),
+        );
+        self::assertFalse($text->hasAttribute('onfocus'));
+        self::assertFalse($text->hasAttribute('autofocus'));
+        $checkbox = $document->getElementById('f-' . $uuid . '-confirm');
+        self::assertInstanceOf(DOMElement::class, $checkbox);
+        self::assertSame(
+            $expectedChecked,
+            $checkbox->hasAttribute('checked'),
+            "A validation refusal must preserve the operator's checkbox state.",
+        );
+    }
+
+    #[Test]
+    public function invalidInputIsRetainedOnlyOnItsOwnRunCard(): void
+    {
+        $schema = [
+            'type' => 'object',
+            'properties' => [
+                'reason' => ['type' => 'string'],
+                'confirm' => ['type' => 'boolean'],
+            ],
+            'required' => ['reason', 'confirm'],
+        ];
+        $this->suspendInput('ask', $schema);
+        $failedUuid = $this->lastUuid();
+        $this->suspendInput('ask', $schema);
+        $otherUuid = $this->lastUuid();
+        self::assertNotSame($failedUuid, $otherUuid);
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime
+            ->method('submitInput')
+            ->willThrowException(InvalidInputSubmissionException::forRun($failedUuid));
+        $controller = $this->makeController(new ToolRegistry([new FakeTool('ask')]), $runtime);
+        $this->setRequest($controller, 'submitInput');
+
+        $response = $controller->submitInputAction(
+            $failedUuid,
+            ['reason' => 'this card only', 'confirm' => '1'],
+        );
+
+        self::assertSame(422, $response->getStatusCode());
+        $document = new DOMDocument();
+        self::assertTrue(
+            $document->loadHTML(
+                (string)$response->getBody(),
+                LIBXML_NOERROR | LIBXML_NOWARNING,
+            ),
+        );
+        $own = $document->getElementById('f-' . $failedUuid . '-reason');
+        $other = $document->getElementById('f-' . $otherUuid . '-reason');
+        $ownCheckbox = $document->getElementById('f-' . $failedUuid . '-confirm');
+        $otherCheckbox = $document->getElementById('f-' . $otherUuid . '-confirm');
+        self::assertInstanceOf(DOMElement::class, $own);
+        self::assertInstanceOf(DOMElement::class, $other);
+        self::assertInstanceOf(DOMElement::class, $ownCheckbox);
+        self::assertInstanceOf(DOMElement::class, $otherCheckbox);
+        self::assertSame('this card only', $own->getAttribute('value'));
+        self::assertTrue($ownCheckbox->hasAttribute('checked'));
+        self::assertSame(
+            '',
+            $other->getAttribute('value'),
+            "The other run's untouched form must not receive this submission.",
+        );
+        self::assertFalse($otherCheckbox->hasAttribute('checked'));
+        self::assertNull(
+            $document->getElementById('input-errors-' . $otherUuid),
+        );
+    }
+
+    /**
+     * @return iterable<string, array{mixed, bool}>
+     */
+    public static function retainedBooleanValues(): iterable
+    {
+        yield 'native checked value' => ['1', true];
+        yield 'native unchecked hidden value' => ['0', false];
+        yield 'missing unchecked field' => [null, false];
+        yield 'boolean true' => [true, true];
+        yield 'boolean false' => [false, false];
+        yield 'integer one' => [1, true];
+        yield 'integer zero' => [0, false];
+        yield 'on' => ['on', true];
+        yield 'true string' => ['true', true];
+        yield 'yes' => ['yes', true];
+        yield 'uppercase true' => ['TRUE', true];
+        yield 'uppercase yes' => ['YES', true];
+        yield 'false string is unchecked' => ['false', false];
+        yield 'empty hidden value' => ['', false];
+        yield 'unknown text is unchecked' => ['not-a-checkbox', false];
+        yield 'integer two is unchecked' => [2, false];
+        yield 'numeric string two is unchecked' => ['2', false];
+    }
+
+    #[Test]
+    public function initialInputFormHasEmptyTextAndAnUncheckedBoolean(): void
+    {
+        $this->suspendInput(
+            'ask',
+            [
+                'type' => 'object',
+                'properties' => [
+                    'reason' => ['type' => 'string'],
+                    'confirm' => ['type' => 'boolean'],
+                ],
+                'required' => ['reason', 'confirm'],
+            ],
+        );
+        $uuid = $this->lastUuid();
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->expects(self::never())->method('submitInput');
+        $controller = $this->makeController(new ToolRegistry([new FakeTool('ask')]), $runtime);
+        $this->setRequest($controller, 'list');
+
+        $response = $controller->listAction();
+
+        self::assertSame(200, $response->getStatusCode());
+        $document = new DOMDocument();
+        self::assertTrue(
+            $document->loadHTML(
+                (string)$response->getBody(),
+                LIBXML_NOERROR | LIBXML_NOWARNING,
+            ),
+        );
+        $text = $document->getElementById('f-' . $uuid . '-reason');
+        $checkbox = $document->getElementById('f-' . $uuid . '-confirm');
+        self::assertInstanceOf(DOMElement::class, $text);
+        self::assertInstanceOf(DOMElement::class, $checkbox);
+        self::assertSame('', $text->getAttribute('value'));
+        self::assertFalse($checkbox->hasAttribute('checked'));
+        self::assertNull($document->getElementById('input-errors-' . $uuid));
     }
 }
