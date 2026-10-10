@@ -15,15 +15,20 @@ use Netresearch\NrLlm\Domain\Model\SkillSource;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillSourceRepository;
 use Netresearch\NrLlm\Service\Skill\Exception\GitHubApiException;
+use Netresearch\NrLlm\Service\Skill\GitHubClientInterface;
 use Netresearch\NrLlm\Service\Skill\MarketplaceParser;
 use Netresearch\NrLlm\Service\Skill\SkillDiscovery;
 use Netresearch\NrLlm\Service\Skill\SkillMarkdownParser;
+use Netresearch\NrLlm\Service\Skill\SkillSyncLeaseRepository;
 use Netresearch\NrLlm\Service\Skill\SkillSyncService;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrLlm\Tests\Functional\Service\Skill\Fixtures\ControlledPublicationFailure;
 use Netresearch\NrLlm\Tests\Functional\Service\Skill\Fixtures\FakeGitHubClient;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
 #[CoversClass(SkillSyncService::class)]
@@ -36,6 +41,10 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
     private const MARKET_URL = 'https://raw.githubusercontent.com/acme/market/main/marketplace.json';
 
     private const SKILL_A_PATH = 'skills/a/SKILL.md';
+
+    private const SKILL_C_PATH = 'skills/c/SKILL.md';
+
+    private const CHANGED_A_BODY = 'changed A';
 
     private const SKILL_B_PATH = 'skills/b/SKILL.md';
 
@@ -51,17 +60,24 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
 
     private const MARKET_B_ID = '30:' . self::PLUGIN_B . '/' . self::SKILL_A_PATH;
 
-    private function service(FakeGitHubClient $gitHub, int $maxFiles = 500, int $maxSeconds = 120, int $heartbeatSeconds = 30): SkillSyncService
-    {
+    private function service(
+        GitHubClientInterface $gitHub,
+        int $maxFiles = 500,
+        int $maxSeconds = 120,
+        int $heartbeatSeconds = 30,
+        ?PersistenceManagerInterface $persistence = null,
+    ): SkillSyncService {
         return new SkillSyncService(
             $gitHub,
             new SkillMarkdownParser(),
             new MarketplaceParser(),
             new SkillDiscovery(),
             $this->get(SkillRepository::class),
-            $this->get(SkillSourceRepository::class),
-            $this->get(PersistenceManagerInterface::class),
+            $persistence ?? $this->get(PersistenceManagerInterface::class),
             new NullLogger(),
+            new SkillSyncLeaseRepository(
+                $this->getConnectionPool(),
+            ),
             $maxFiles,
             $maxSeconds,
             $heartbeatSeconds,
@@ -71,46 +87,42 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
     #[Test]
     public function unknownStoredTypeYieldsErrorStatus(): void
     {
-        // A malformed/unsupported type column must fail closed (clear ERROR), not be
-        // silently treated as a repo — the point of the defensive getTypeEnum() pattern.
-        $source = new SkillSource();
-        $source->_setProperty('uid', 40);
-        $source->setType('bogus-type');
-        $source->setUrl(self::REPO_URL);
-
+        $source = $this->persistedSource(40, 'bogus-type', self::REPO_URL);
         $result = $this->service($this->marketGitHub([]))->sync($source);
-
         self::assertSame(SyncStatus::ERROR, $result->status);
-        self::assertNotSame([], $result->errors);
+        self::assertStringContainsString(
+            'Unknown skill source type',
+            implode("\n", $result->errors),
+        );
     }
 
     private function repoSource(int $uid = 10): SkillSource
     {
-        $source = new SkillSource();
-        $source->_setProperty('uid', $uid);
-        $source->setType(SkillSourceType::REPO->value);
-        $source->setUrl(self::REPO_URL);
-        $source->setRef('main');
-        return $source;
+        return $this->persistedSource(
+            $uid,
+            SkillSourceType::REPO->value,
+            self::REPO_URL,
+            'main',
+        );
     }
 
     private function singleFileSource(int $uid = 20): SkillSource
     {
-        $source = new SkillSource();
-        $source->_setProperty('uid', $uid);
-        $source->setType(SkillSourceType::SINGLE_FILE->value);
-        $source->setUrl(self::SINGLE_FILE_URL);
-        $source->setRef('main');
-        return $source;
+        return $this->persistedSource(
+            $uid,
+            SkillSourceType::SINGLE_FILE->value,
+            self::SINGLE_FILE_URL,
+            'main',
+        );
     }
 
     private function marketplaceSource(int $uid = 30): SkillSource
     {
-        $source = new SkillSource();
-        $source->_setProperty('uid', $uid);
-        $source->setType(SkillSourceType::MARKETPLACE->value);
-        $source->setUrl(self::MARKET_URL);
-        return $source;
+        return $this->persistedSource(
+            $uid,
+            SkillSourceType::MARKETPLACE->value,
+            self::MARKET_URL,
+        );
     }
 
     private function md(string $name, string $body, string $description = 'd'): string
@@ -250,10 +262,10 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
     {
         // Absent front-matter key → '' (no opinion); a present declaration → its JSON,
         // including '[]' for a declared-empty fail-closed list.
-        $gitHub = new FakeGitHubClient('sha1', [self::SKILL_A_PATH, self::SKILL_B_PATH, 'skills/c/SKILL.md'], [
+        $gitHub = new FakeGitHubClient('sha1', [self::SKILL_A_PATH, self::SKILL_B_PATH, self::SKILL_C_PATH], [
             self::SKILL_A_PATH    => $this->md('A', 'body a'),
             self::SKILL_B_PATH    => $this->mdWithTools('B', '[]', 'body b'),
-            'skills/c/SKILL.md'   => $this->mdWithTools('C', '[x]', 'body c'),
+            self::SKILL_C_PATH   => $this->mdWithTools('C', '[x]', 'body c'),
         ]);
         $this->service($gitHub)->sync($this->repoSource());
 
@@ -352,7 +364,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
     {
         $source = $this->repoSource();
         $source->setSyncStatus(SyncStatus::SYNCING->value);
-        $source->setLastSynced(time());
+        $this->persistSourceHeartbeat($source, time());
         // fresh heartbeat → lock is considered active
         $result = $this->service(new FakeGitHubClient('sha1', [], []))->sync($source);
         self::assertSame(SyncStatus::SYNCING, $result->status);
@@ -364,7 +376,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
     {
         $source = $this->repoSource();
         $source->setSyncStatus(SyncStatus::SYNCING->value);
-        $source->setLastSynced(time() - 3600);
+        $this->persistSourceHeartbeat($source, time() - 3600);
         // older than STALE_LOCK_SECONDS → stale, proceed
         $gitHub = new FakeGitHubClient('sha1', [self::SKILL_A_PATH], [
             self::SKILL_A_PATH => $this->md('A', 'body'),
@@ -382,7 +394,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         // is unblocked.
         $source = $this->repoSource();
         $source->setSyncStatus(SyncStatus::SYNCING->value);
-        $source->setLastSynced(time() - 3600);
+        $this->persistSourceHeartbeat($source, time() - 3600);
 
         $reclaimed = $this->service(new FakeGitHubClient())->reclaimStaleLock($source);
 
@@ -397,7 +409,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         // A fresh heartbeat means a sync is actually in progress; reclaim must not steal its lock.
         $source = $this->repoSource();
         $source->setSyncStatus(SyncStatus::SYNCING->value);
-        $source->setLastSynced(time());
+        $this->persistSourceHeartbeat($source, time());
 
         $reclaimed = $this->service(new FakeGitHubClient())->reclaimStaleLock($source);
 
@@ -412,7 +424,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         // flipped to ERROR just because its last-synced timestamp is old.
         $source = $this->repoSource();
         $source->setSyncStatus(SyncStatus::OK->value);
-        $source->setLastSynced(time() - 3600);
+        $this->persistSourceHeartbeat($source, time() - 3600);
 
         $reclaimed = $this->service(new FakeGitHubClient())->reclaimStaleLock($source);
 
@@ -606,15 +618,613 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
     #[Test]
     public function perSyncFileBoundStopsCollectionEarlyAsPartial(): void
     {
-        $gitHub = new FakeGitHubClient('sha1', [self::SKILL_A_PATH, self::SKILL_B_PATH, 'skills/c/SKILL.md'], [
+        $gitHub = new FakeGitHubClient('sha1', [self::SKILL_A_PATH, self::SKILL_B_PATH, self::SKILL_C_PATH], [
             self::SKILL_A_PATH => $this->md('A', 'a'),
             self::SKILL_B_PATH => $this->md('B', 'b'),
-            'skills/c/SKILL.md' => $this->md('C', 'c'),
+            self::SKILL_C_PATH => $this->md('C', 'c'),
         ]);
         $result = $this->service($gitHub, maxFiles: 1)->sync($this->repoSource());
 
         self::assertSame(SyncStatus::PARTIAL, $result->status);
         self::assertSame(1, $result->created, 'collection must stop after the file bound is hit');
         self::assertStringContainsString('Per-sync limit reached', implode("\n", $result->errors));
+    }
+
+    #[Test]
+    public function aStaleSourceSnapshotCannotStartWhileThePersistedSourceIsSyncing(): void
+    {
+        $source = $this->repoSource();
+        self::assertNotNull($source->getUid());
+        $staleSnapshot = clone $source;
+        $second = $this->service(new FakeGitHubClient('second', [], []));
+        $secondResult = null;
+        $firstGitHub = $this->createMock(GitHubClientInterface::class);
+        $firstGitHub
+            ->expects(self::once())
+            ->method('resolveSha')
+            ->willReturnCallback(
+                function () use ($source, $staleSnapshot, $second, &$secondResult): string {
+                    $connection = $this->getConnectionPool()->getConnectionForTable(
+                        'tx_nrllm_skill_source',
+                    );
+                    self::assertSame(
+                        SyncStatus::SYNCING->value,
+                        $connection->select(
+                            ['sync_status'],
+                            'tx_nrllm_skill_source',
+                            ['uid' => $source->getUid()],
+                        )->fetchOne(),
+                    );
+                    self::assertNotSame(
+                        SyncStatus::SYNCING,
+                        $staleSnapshot->getSyncStatusEnum(),
+                    );
+                    $secondResult = $second->sync($staleSnapshot);
+                    return 'first';
+                },
+            );
+        $firstGitHub->expects(self::once())->method('listTree')->willReturn([]);
+        $first = new SkillSyncService(
+            $firstGitHub,
+            new SkillMarkdownParser(),
+            new MarketplaceParser(),
+            new SkillDiscovery(),
+            $this->get(SkillRepository::class),
+            $this->get(PersistenceManagerInterface::class),
+            new NullLogger(),
+            new SkillSyncLeaseRepository(
+                $this->get(ConnectionPool::class),
+            ),
+        );
+        $firstResult = $first->sync($source);
+        self::assertSame(SyncStatus::OK, $firstResult->status);
+        self::assertNotNull($secondResult);
+        self::assertSame(
+            SyncStatus::SYNCING,
+            $secondResult->status,
+            'The second caller must observe the persisted live lock, not its stale entity snapshot.',
+        );
+        self::assertSame(0, $secondResult->created);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function absentSourceCases(): iterable
+    {
+        yield 'unsaved' => ['unsaved'];
+        yield 'zero uid' => ['zero'];
+        yield 'negative uid' => ['negative'];
+        yield 'missing uid' => ['missing'];
+        yield 'physically deleted' => ['physical'];
+        yield 'TYPO3 soft deleted' => ['soft'];
+    }
+
+    #[Test]
+    #[DataProvider('absentSourceCases')]
+    public function absentSourcesDoNotContactGitHubOrInsertRows(
+        string $kind,
+    ): void {
+        $source = new SkillSource();
+        $source->setType(SkillSourceType::REPO->value);
+        $source->setUrl(self::REPO_URL);
+
+        $connection = $this
+            ->get(ConnectionPool::class)
+            ->getConnectionForTable('tx_nrllm_skill_source');
+        if ($kind === 'physical' || $kind === 'soft') {
+            $repository = $this->get(SkillSourceRepository::class);
+            $repository->add($source);
+            $this->get(PersistenceManagerInterface::class)->persistAll();
+            if ($kind === 'physical') {
+                $connection->delete(
+                    'tx_nrllm_skill_source',
+                    ['uid' => $source->getUid()],
+                );
+            } else {
+                $connection->update(
+                    'tx_nrllm_skill_source',
+                    ['deleted' => 1],
+                    ['uid' => $source->getUid()],
+                );
+            }
+        } elseif ($kind !== 'unsaved') {
+            $source->_setProperty(
+                'uid',
+                match ($kind) {
+                    'zero' => 0,
+                    'negative' => -1,
+                    default => 1337,
+                },
+            );
+        }
+
+        $sourcesBefore = $connection->count('*', 'tx_nrllm_skill_source', []);
+        $contacts = 0;
+        $github = self::createMock(GitHubClientInterface::class);
+        $github
+            ->method('resolveSha')
+            ->willReturnCallback(
+                static function () use (&$contacts): string {
+                    ++$contacts;
+                    return 'sha';
+                },
+            );
+        $github->method('listTree')->willReturn([]);
+        $service = new SkillSyncService(
+            $github,
+            new SkillMarkdownParser(),
+            new MarketplaceParser(),
+            new SkillDiscovery(),
+            $this->get(SkillRepository::class),
+            $this->get(PersistenceManagerInterface::class),
+            new NullLogger(),
+            new SkillSyncLeaseRepository(
+                $this->get(ConnectionPool::class),
+            ),
+        );
+        $result = $service->sync($source);
+        self::assertSame(
+            0,
+            $contacts,
+            'A missing or deleted persisted source cannot authorize remote contact.',
+        );
+        self::assertSame(SyncStatus::ERROR, $result->status);
+        self::assertSame(
+            $sourcesBefore,
+            $connection->count('*', 'tx_nrllm_skill_source', []),
+        );
+        self::assertSame(
+            0,
+            $this
+                ->get(ConnectionPool::class)
+                ->getConnectionForTable('tx_nrllm_skill')
+                ->count('*', 'tx_nrllm_skill', []),
+        );
+        self::assertSame(
+            [0, 0, 0, 0, 0],
+            [
+                $result->created,
+                $result->updated,
+                $result->disabledOnChange,
+                $result->orphaned,
+                $result->injectionBlocked,
+            ],
+        );
+    }
+
+    private function persistedSource(
+        int $uid,
+        string $type,
+        string $url,
+        string $ref = '',
+    ): SkillSource {
+        $connection = $this
+            ->getConnectionPool()
+            ->getConnectionForTable('tx_nrllm_skill_source');
+        if ($connection->count('*', 'tx_nrllm_skill_source', ['uid' => $uid]) === 0) {
+            $connection->insert(
+                'tx_nrllm_skill_source',
+                ['uid' => $uid, 'type' => $type, 'url' => $url, 'ref' => $ref],
+            );
+        }
+
+        $source = $this->get(SkillSourceRepository::class)->findByUid($uid);
+        self::assertInstanceOf(SkillSource::class, $source);
+        return $source;
+    }
+
+    private function persistSourceHeartbeat(
+        SkillSource $source,
+        int $timestamp,
+    ): void {
+        $source->setLastSynced($timestamp);
+        $this
+            ->getConnectionPool()
+            ->getConnectionForTable('tx_nrllm_skill_source')
+            ->update(
+                'tx_nrllm_skill_source',
+                [
+                    'sync_status' => $source->getSyncStatus(),
+                    'last_synced' => $timestamp,
+                ],
+                ['uid' => $source->getUid()],
+            );
+    }
+
+    /**
+     * @return iterable<string,array{string,int}>
+     */
+    public static function lossDuringFetchCases(): iterable
+    {
+        yield 'same second successor; throttled heartbeat' => ['successor', 30];
+        yield 'same second successor; immediate heartbeat' => ['successor', 0];
+        yield 'expired lease after slow fetch' => ['expired', 30];
+        yield 'source physically deleted during fetch' => ['physical', 30];
+        yield 'source soft deleted during fetch' => ['soft', 30];
+    }
+
+    #[Test]
+    #[DataProvider('lossDuringFetchCases')]
+    public function lostLeaseAfterRemoteFetchCannotPublishChangesOrOrphans(
+        string $loss,
+        int $heartbeatSeconds,
+    ): void {
+        $source = $this->repoSource();
+        $seed = $this
+            ->service(
+                new FakeGitHubClient(
+                    'seed',
+                    [self::SKILL_A_PATH, self::SKILL_B_PATH],
+                    [
+                        self::SKILL_A_PATH => $this->md('A', 'old A'),
+                        self::SKILL_B_PATH => $this->md('B', 'old B'),
+                    ],
+                ),
+            )
+            ->sync($source);
+        self::assertSame(SyncStatus::OK, $seed->status);
+        $skills = $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill');
+        $skills->update('tx_nrllm_skill', ['enabled' => 1], ['source' => 10]);
+        $this->get(PersistenceManagerInterface::class)->clearState();
+        $source = $this->repoSource();
+        $before = $skills
+            ->select(['*'], 'tx_nrllm_skill', ['source' => 10], [], ['uid' => 'ASC'])
+            ->fetchAllAssociative();
+        $sourceConnection = $this
+            ->getConnectionPool()
+            ->getConnectionForTable('tx_nrllm_skill_source');
+        $stateAtLoss = null;
+        $github = $this->createMock(GitHubClientInterface::class);
+        $github
+            ->expects(self::once())
+            ->method('resolveSha')
+            ->willReturnCallback(
+                function () use ($sourceConnection): string {
+                    self::assertSame(
+                        0,
+                        $sourceConnection->getTransactionNestingLevel(),
+                        'Remote collection must happen outside the publication transaction.',
+                    );
+                    return 'attempt';
+                },
+            );
+        $github->method('listTree')->willReturn([self::SKILL_A_PATH]);
+        $github
+            ->expects(self::once())
+            ->method('fetchRawBySha')
+            ->willReturnCallback(
+                function () use ($loss, $sourceConnection, &$stateAtLoss): string {
+                    if ($loss === 'physical') {
+                        $sourceConnection->delete(
+                            'tx_nrllm_skill_source',
+                            ['uid' => 10],
+                        );
+                    } elseif ($loss === 'soft') {
+                        $sourceConnection->update(
+                            'tx_nrllm_skill_source',
+                            ['deleted' => 1],
+                            ['uid' => 10],
+                        );
+                    } elseif ($loss === 'expired') {
+                        $sourceConnection->update(
+                            'tx_nrllm_skill_source',
+                            ['last_synced' => time() - 181],
+                            ['uid' => 10],
+                        );
+                    } else {
+                        $sourceConnection->update(
+                            'tx_nrllm_skill_source',
+                            [
+                                'sync_lock_token' => str_repeat('b', 64),
+                                'sync_error' => 'successor diagnostic',
+                                'pinned_sha' => 'successor-sha',
+                            ],
+                            ['uid' => 10],
+                        );
+                    }
+
+                    $stateAtLoss = $sourceConnection->select(
+                        ['*'],
+                        'tx_nrllm_skill_source',
+                        ['uid' => 10],
+                    )->fetchAssociative();
+                    return $this->md('A', 'unpublished replacement');
+                },
+            );
+        $result = $this
+            ->service($github, heartbeatSeconds: $heartbeatSeconds)
+            ->sync($source);
+        self::assertSame(SyncStatus::ERROR, $result->status);
+        self::assertStringContainsString(
+            'lease was lost',
+            implode("\n", $result->errors),
+        );
+        self::assertSame(
+            [0, 0, 0, 0, 0],
+            [
+                $result->created,
+                $result->updated,
+                $result->disabledOnChange,
+                $result->orphaned,
+                $result->injectionBlocked,
+            ],
+        );
+        self::assertSame(
+            $before,
+            $skills
+                ->select(['*'], 'tx_nrllm_skill', ['source' => 10], [], ['uid' => 'ASC'])
+                ->fetchAllAssociative(),
+            'Collected changes and missing upstream paths must not alter the prior published skills.',
+        );
+        if ($loss !== 'expired') {
+            self::assertSame(
+                $stateAtLoss,
+                $sourceConnection
+                    ->select(['*'], 'tx_nrllm_skill_source', ['uid' => 10])
+                    ->fetchAssociative(),
+                'An old worker cannot change or recreate its successor/deleted source.',
+            );
+        } else {
+            self::assertSame(
+                SyncStatus::ERROR->value,
+                $sourceConnection
+                    ->select(['sync_status'], 'tx_nrllm_skill_source', ['uid' => 10])
+                    ->fetchOne(),
+            );
+        }
+
+        $this->get(PersistenceManagerInterface::class)->persistAll();
+        if ($loss === 'successor') {
+            self::assertSame(
+                $stateAtLoss,
+                $sourceConnection
+                    ->select(['*'], 'tx_nrllm_skill_source', ['uid' => 10])
+                    ->fetchAssociative(),
+                'An ordinary later Extbase flush must not overwrite successor bookkeeping.',
+            );
+        }
+    }
+
+    #[Test]
+    public function staleLoadedSourceCannotReclaimPersistedRenewalOrCompletion(): void
+    {
+        $source = $this->repoSource();
+        $source->setSyncStatus(SyncStatus::SYNCING->value);
+        $source->setLastSynced(time() - 3600);
+
+        $connection = $this
+            ->getConnectionPool()
+            ->getConnectionForTable('tx_nrllm_skill_source');
+        $service = $this->service(new FakeGitHubClient());
+        $connection->update(
+            'tx_nrllm_skill_source',
+            [
+                'sync_status' => SyncStatus::SYNCING->value,
+                'last_synced' => time(),
+                'sync_lock_token' => str_repeat('b', 64),
+            ],
+            ['uid' => 10],
+        );
+        $renewed = $connection
+            ->select(['*'], 'tx_nrllm_skill_source', ['uid' => 10])
+            ->fetchAssociative();
+        self::assertFalse($service->reclaimStaleLock($source));
+        self::assertSame(
+            $renewed,
+            $connection
+                ->select(['*'], 'tx_nrllm_skill_source', ['uid' => 10])
+                ->fetchAssociative(),
+        );
+        self::assertSame(SyncStatus::SYNCING, $source->getSyncStatusEnum());
+        $source->setLastSynced(time() - 3600);
+        $connection->update(
+            'tx_nrllm_skill_source',
+            [
+                'sync_status' => SyncStatus::OK->value,
+                'last_synced' => time() - 3600,
+                'sync_lock_token' => '',
+            ],
+            ['uid' => 10],
+        );
+        $completed = $connection
+            ->select(['*'], 'tx_nrllm_skill_source', ['uid' => 10])
+            ->fetchAssociative();
+        self::assertFalse($service->reclaimStaleLock($source));
+        self::assertSame(
+            $completed,
+            $connection
+                ->select(['*'], 'tx_nrllm_skill_source', ['uid' => 10])
+                ->fetchAssociative(),
+        );
+        self::assertSame(SyncStatus::OK, $source->getSyncStatusEnum());
+    }
+
+    #[Test]
+    public function failedPublicationRollsBackAttemptedWritesAndReportsZeroCounters(): void
+    {
+        $source = $this->repoSource();
+        $this
+            ->service(
+                new FakeGitHubClient(
+                    'seed',
+                    [self::SKILL_A_PATH, self::SKILL_B_PATH],
+                    [
+                        self::SKILL_A_PATH => $this->md('A', 'old A'),
+                        self::SKILL_B_PATH => $this->md('B', 'old B'),
+                    ],
+                ),
+            )
+            ->sync($source);
+        $connection = $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill');
+        $connection->update(
+            'tx_nrllm_skill',
+            ['enabled' => 1],
+            ['source' => 10],
+        );
+        $realPersistence = $this->get(PersistenceManagerInterface::class);
+        $realPersistence->clearState();
+
+        $source = $this->repoSource();
+        $before = $connection
+            ->select(['*'], 'tx_nrllm_skill', ['source' => 10], [], ['uid' => 'ASC'])
+            ->fetchAllAssociative();
+        $failure = $this->createMock(PersistenceManagerInterface::class);
+        $failure
+            ->expects(self::once())
+            ->method('persistAll')
+            ->willReturnCallback(
+                function () use ($realPersistence, $connection): never {
+                    $realPersistence->persistAll();
+                    self::assertGreaterThan(
+                        0,
+                        $connection->getTransactionNestingLevel(),
+                    );
+                    self::assertSame(
+                        3,
+                        $connection->count(
+                            '*',
+                            'tx_nrllm_skill',
+                            ['source' => 10],
+                        ),
+                        'The controlled fault occurs after an actual new row was written.',
+                    );
+                    self::assertSame(
+                        self::CHANGED_A_BODY,
+                        $connection->select(
+                            ['body'],
+                            'tx_nrllm_skill',
+                            ['identifier' => self::SKILL_A_ID],
+                        )->fetchOne(),
+                    );
+                    self::assertSame(
+                        1,
+                        (int)$connection->select(
+                            ['orphaned'],
+                            'tx_nrllm_skill',
+                            ['identifier' => self::SKILL_B_ID],
+                        )->fetchOne(),
+                    );
+                    throw new ControlledPublicationFailure(
+                        'controlled publication failure',
+                        221,
+                    );
+                },
+            );
+        $failure
+            ->expects(self::once())
+            ->method('clearState')
+            ->willReturnCallback(
+                static function () use ($realPersistence): void {
+                    $realPersistence->clearState();
+                },
+            );
+        $github = new FakeGitHubClient(
+            'attempt',
+            [self::SKILL_A_PATH, self::SKILL_C_PATH],
+            [
+                self::SKILL_A_PATH => $this->md('A', self::CHANGED_A_BODY),
+                self::SKILL_C_PATH => $this->md('C', 'new C'),
+            ],
+        );
+        $result = $this->service($github, persistence: $failure)->sync($source);
+        self::assertSame(SyncStatus::ERROR, $result->status);
+        self::assertSame(['controlled publication failure'], $result->errors);
+        self::assertSame(
+            [0, 0, 0, 0, 0],
+            [
+                $result->created,
+                $result->updated,
+                $result->disabledOnChange,
+                $result->orphaned,
+                $result->injectionBlocked,
+            ],
+        );
+        self::assertSame(
+            $before,
+            $connection
+                ->select(['*'], 'tx_nrllm_skill', ['source' => 10], [], ['uid' => 'ASC'])
+                ->fetchAllAssociative(),
+        );
+        $sourceState = $connection
+            ->select(
+                ['sync_status', 'sync_lock_token', 'pinned_sha'],
+                'tx_nrllm_skill_source',
+                ['uid' => 10],
+            )
+            ->fetchAssociative();
+        self::assertSame(
+            [
+                'sync_status' => SyncStatus::ERROR->value,
+                'sync_lock_token' => '',
+                'pinned_sha' => 'seed',
+            ],
+            $sourceState,
+        );
+        $retry = $this->service($github)->sync($this->repoSource());
+        self::assertSame(SyncStatus::OK, $retry->status);
+        self::assertSame(1, $retry->created);
+        self::assertSame(1, $retry->disabledOnChange);
+        self::assertSame(1, $retry->orphaned);
+        self::assertSame(
+            self::CHANGED_A_BODY,
+            $connection
+                ->select(['body'], 'tx_nrllm_skill', ['identifier' => self::SKILL_A_ID])
+                ->fetchOne(),
+        );
+    }
+
+    #[Test]
+    public function splitDatabaseMappingFailsBeforeRemoteContact(): void
+    {
+        $source = $this->repoSource();
+        $oldConfiguration = $GLOBALS['TYPO3_CONF_VARS'];
+        self::assertIsArray($oldConfiguration);
+        $db = $oldConfiguration['DB'];
+        self::assertIsArray($db);
+        $connections = $db['Connections'];
+        self::assertIsArray($connections);
+        $mapping = $db['TableMapping'] ?? [];
+        self::assertIsArray($mapping);
+        $connection = $this
+            ->getConnectionPool()
+            ->getConnectionForTable('tx_nrllm_skill_source');
+        $before = $connection
+            ->select(['*'], 'tx_nrllm_skill_source', ['uid' => 10])
+            ->fetchAssociative();
+        $github = $this->createMock(GitHubClientInterface::class);
+        $github->expects(self::never())->method('resolveSha');
+        try {
+            $configuration = $oldConfiguration;
+            $configuration['DB'] = array_replace(
+                $db,
+                [
+                    'Connections' => array_replace(
+                        $connections,
+                        ['AuditLeaseSplit' => $connections['Default']],
+                    ),
+                    'TableMapping' => array_replace(
+                        $mapping,
+                        ['tx_nrllm_skill_audit' => 'AuditLeaseSplit'],
+                    ),
+                ],
+            );
+            $GLOBALS['TYPO3_CONF_VARS'] = $configuration;
+            $result = $this->service($github)->sync($source);
+            self::assertSame(SyncStatus::ERROR, $result->status);
+            self::assertStringContainsString(
+                'same database connection',
+                implode("\n", $result->errors),
+            );
+            self::assertSame(
+                $before,
+                $connection
+                    ->select(['*'], 'tx_nrllm_skill_source', ['uid' => 10])
+                    ->fetchAssociative(),
+            );
+            self::assertSame(0, $connection->count('*', 'tx_nrllm_skill', []));
+        } finally {
+            $GLOBALS['TYPO3_CONF_VARS'] = $oldConfiguration;
+        }
     }
 }

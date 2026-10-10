@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\Repository\SkillSourceRepository;
 use Netresearch\NrLlm\Service\Skill\MarketplaceParser;
 use Netresearch\NrLlm\Service\Skill\SkillDiscovery;
 use Netresearch\NrLlm\Service\Skill\SkillMarkdownParser;
+use Netresearch\NrLlm\Service\Skill\SkillSyncLeaseRepository;
 use Netresearch\NrLlm\Service\Skill\SkillSyncService;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Functional\Service\Skill\Fixtures\FakeGitHubClient;
@@ -28,6 +29,7 @@ use Psr\Log\NullLogger;
 use RuntimeException;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Imaging\IconFactory;
 use TYPO3\CMS\Core\Page\PageRenderer;
@@ -58,9 +60,11 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
             new MarketplaceParser(),
             new SkillDiscovery(),
             $this->get(SkillRepository::class),
-            $this->get(SkillSourceRepository::class),
             $this->get(PersistenceManagerInterface::class),
             new NullLogger(),
+            new SkillSyncLeaseRepository(
+                $this->get(ConnectionPool::class),
+            ),
         );
         return new SkillSourceController(
             $this->get(ModuleTemplateFactory::class),
@@ -256,5 +260,54 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
         self::assertArrayHasKey('error', $payload);
+    }
+
+    #[Test]
+    public function syncResponseDoesNotExposeInternalLeaseMetadata(): void
+    {
+        $source = $this->persistedSource();
+        $uid = $source->getUid();
+        self::assertNotNull($uid);
+        $owner = str_repeat('c', 64);
+        $this
+            ->getConnectionPool()
+            ->getConnectionForTable('tx_nrllm_skill_source')
+            ->update(
+                'tx_nrllm_skill_source',
+                [
+                    'sync_status' => 'syncing',
+                    'last_synced' => time(),
+                    'sync_lock_token' => $owner,
+                    'sync_lock_version' => 7,
+                ],
+                ['uid' => $uid],
+            );
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+        $this->setUpBackendRequest();
+        $vault = self::createStub(VaultServiceInterface::class);
+        $response = $this
+            ->controllerWithVault($vault)
+            ->syncAction((new ServerRequest())->withParsedBody(['source' => $uid]));
+        self::assertSame(200, $response->getStatusCode());
+        $body = (string)$response->getBody();
+        $payload = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
+        self::assertSame('syncing', $payload['status']);
+        self::assertSame(
+            [
+                'success',
+                'status',
+                'created',
+                'updated',
+                'disabledOnChange',
+                'injectionBlocked',
+                'orphaned',
+                'errors',
+            ],
+            array_keys($payload),
+        );
+        self::assertStringNotContainsString($owner, $body);
+        self::assertStringNotContainsString('sync_lock', $body);
     }
 }

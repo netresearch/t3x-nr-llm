@@ -130,8 +130,10 @@ Syncing and the review flow
 
 1. On a source, click :guilabel:`Sync`. The source moves through
    ``never_synced`` → ``syncing`` → ``ok`` / ``partial`` / ``error``.
-   The ``syncing`` state also acts as a lock: a second concurrent sync on
-   the same source is refused.
+   Synchronization requires a saved, non-deleted source. The database row
+   carries an opaque lease owner, so a second caller is refused even when its
+   loaded source still has an older status. A missing or soft-deleted source
+   returns ``error`` before remote requests or skill writes.
 2. ``partial`` means the per-sync file-count or wall-time bound was
    reached (large marketplaces); the skills fetched so far are stored.
 3. Discovered skills from ``repo`` and ``marketplace`` sources are
@@ -146,6 +148,22 @@ Syncing and the review flow
    disables the skill as well (:ref:`ADR-214 <adr-214>`).
 5. A skill that disappeared upstream is marked **orphaned and disabled**,
    never silently dropped, so attachments (Plan 1b) do not vanish.
+
+The source, skill and skill-audit tables must use the same database connection.
+Remote collection runs outside the publication transaction. A conditional
+ownership check then fences skill changes, orphaning, audit writes and source
+completion in one short transaction. Losing the lease during a slow remote
+fetch returns ``error`` and publishes none of the collected changes; an older
+worker cannot clear a replacement owner's lease. A publication failure rolls
+back its changes and reports zero change counters.
+
+A ``syncing`` row is interrupted when its heartbeat is zero or differs from
+the current time by more than 180 seconds, including excessive future clock
+skew. The exact 180-second boundary is still live. Opening the source list
+rechecks the persisted row and changes an interrupted lease to retryable
+``error``; a renewed or completed row is preserved. Trigger :guilabel:`Sync`
+again to retry. Lease ownership fields stay internal and are not editable in
+FormEngine (:ref:`ADR-221 <adr-221>`).
 
 Deleting a source cascade-deletes its skills.
 

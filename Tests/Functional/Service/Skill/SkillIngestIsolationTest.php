@@ -27,6 +27,7 @@ use Netresearch\NrLlm\Service\Skill\SkillAuditService;
 use Netresearch\NrLlm\Service\Skill\SkillDiscovery;
 use Netresearch\NrLlm\Service\Skill\SkillManifestVerifier;
 use Netresearch\NrLlm\Service\Skill\SkillMarkdownParser;
+use Netresearch\NrLlm\Service\Skill\SkillSyncLeaseRepository;
 use Netresearch\NrLlm\Service\Skill\SkillSyncService;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Functional\Service\Skill\Fixtures\FakeGitHubClient;
@@ -171,9 +172,11 @@ final class SkillIngestIsolationTest extends AbstractFunctionalTestCase
             new MarketplaceParser(),
             new SkillDiscovery(),
             $this->get(SkillRepository::class),
-            $this->get(SkillSourceRepository::class),
             $this->persistenceManager(),
             new NullLogger(),
+            new SkillSyncLeaseRepository(
+                $this->get(ConnectionPool::class),
+            ),
             500,
             120,
             30,
