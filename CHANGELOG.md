@@ -19,6 +19,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- GitHub skill-client contract tests verify encoded commit/file requests, resolved Vault credentials, denial before credential reads or transport, the default audited-client route, HTTP status/rate-limit boundaries and malformed-response diagnostics.
+
 - **Worker operations (ADR-219).** `nrllm:agent:status` reports queue wait,
   unknown timings, expired run leases and transport-scoped consumer heartbeats,
   with JSON output and explicit health thresholds. Queue-entry time is recorded
