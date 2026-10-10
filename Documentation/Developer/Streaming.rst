@@ -42,6 +42,18 @@ The ``streamChat`` method returns a ``Generator`` that yields string chunks
 as the provider generates them. Each chunk contains a portion of the response
 text.
 
+Audit and accounting
+====================
+
+After a successful stream, the dispatcher screens at most the first 50,000
+raw response bytes for its guardrail audit. A large provider chunk cannot
+extend this audit buffer. The audit cannot retract text already delivered;
+live redaction uses its separate sliding window.
+
+The audit limit does not truncate delivered chunks or consumption accounting.
+Streaming token estimates count the complete raw output, including bytes
+beyond that prefix and bytes masked by live redaction.
+
 Providers that implement :php:interface:`StreamingCapableInterface` support
 streaming. Check provider capabilities before using:
 

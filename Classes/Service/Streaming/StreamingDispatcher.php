@@ -231,7 +231,11 @@ final readonly class StreamingDispatcher
                 // window is buffered raw for the end-of-stream audit (ADR-086).
                 $completionBytes += \strlen($chunk);
                 if (\strlen($completion) < self::MAX_GUARDRAIL_BUFFER_BYTES) {
-                    $completion .= $chunk;
+                    $completion .= substr(
+                        $chunk,
+                        0,
+                        self::MAX_GUARDRAIL_BUFFER_BYTES - strlen($completion),
+                    );
                 }
 
                 if (!$window instanceof StreamRedactionWindow) {
@@ -507,22 +511,13 @@ final readonly class StreamingDispatcher
     }
 
     /**
-     * End-of-stream guardrail audit (ADR-086).
+     * Audit at most the first 50,000 raw output bytes after successful streaming
+     * (ADR-086/088). This audit cannot retract chunks already delivered; live
+     * redaction is handled separately by StreamRedactionWindow.
      *
-     * The pipeline's {@see \Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware}
-     * never runs on a streamed response — a lazy generator cannot be the pipeline
-     * terminal (see the class doc block) — so streamed output would otherwise be
-     * a guardrail blind spot. This screens the assembled completion once the
-     * stream finishes and records any non-ALLOW verdict.
+     * Non-ALLOW verdicts are recorded. Guardrail or diagnostic failures are
+     * contained so they cannot invalidate an already delivered response.
      *
-     * It is an AUDIT, not enforcement: the chunks have already been yielded to
-     * the caller, so a DENY / REDACT cannot retract or live-redact them. Catching
-     * a secret mid-stream would need a delta-oriented guardrail contract, a
-     * deliberate ADR-086 follow-up. Fail-soft — the stream already succeeded, so
-     * this never throws (a broken guardrail must not turn a delivered response
-     * into an error).
-     */
-    /**
      * @param list<GuardrailInterface> $guardrails the config-filtered audit guardrails
      */
     private function screenStreamedOutput(
@@ -573,18 +568,14 @@ final readonly class StreamingDispatcher
     }
 
     /**
-     * Apply the output guardrails' REDACT verdicts to a text fragment (ADR-088).
+     * Apply live redactors in order to one bounded window fragment (ADR-088).
      *
-     * Always called on the RAW accumulated completion (never on already-redacted
-     * output), so a secret is re-matched in full on every chunk regardless of how
-     * it was split — this is what lets {@see self::drain()} mask a boundary-split
-     * secret without an earlier marker orphaning its tail. Only REDACT is applied;
-     * DENY / REQUIRE_APPROVAL cannot retract a sent stream and are left to the
-     * end-of-stream audit ({@see self::screenStreamedOutput()}). Fail-soft: a
-     * guardrail that throws leaves the fragment unchanged rather than breaking the
-     * stream.
-     */
-    /**
+     * The first redactor receives raw text; each later redactor receives the
+     * preceding redactor's output. Only REDACT changes the fragment. Other
+     * verdicts cannot retract delivered output and are recorded by the separate
+     * end-of-stream prefix audit. A failing redactor leaves the current fragment
+     * unchanged and does not prevent subsequent redactors from running.
+     *
      * @param list<GuardrailInterface&StreamRedactableInterface> $redactors the config-filtered live redactors
      */
     private function redactStream(array $redactors, string $text): string
