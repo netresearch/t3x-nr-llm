@@ -86,6 +86,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Reject explicitly truncated GitHub repository trees before skill materialization or orphaning; preserve the last known-good skills for repository and marketplace sources.
+
 - **Skill synchronization owns a persisted lease (ADR-221).** Missing and deleted sources fail before remote contact. Claims, heartbeat renewal, interrupted-sync recovery and completion use the current database row and an opaque owner token. Publication fences skill, orphan and audit changes in a short transaction; lost ownership or a rollback reports no published changes. Source, skill and audit tables must share one database connection.
 
 - **Invalid retrieval provenance follows the public exception contract (ADR-053).** Constructor validation implements `NrLlmExceptionInterface` while preserving native `InvalidArgumentException` catch compatibility, reason codes and messages.
