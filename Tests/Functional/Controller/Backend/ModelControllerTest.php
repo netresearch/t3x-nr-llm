@@ -482,6 +482,25 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         self::assertTrue($body['success']);
         self::assertArrayHasKey('models', $body);
         self::assertIsArray($body['models']);
+        self::assertSame([1, 3], array_column($body['models'], 'uid'));
+        self::assertSame(
+            ['gpt-5', 'llama3.3:70b'],
+            array_column($body['models'], 'modelId'),
+        );
+        $otherRequest = (new ServerRequest('POST', self::AJAX_NRLLM_MODEL_GET_BY_PROVIDER))->withParsedBody(
+            ['providerUid' => 2],
+        );
+        $otherResponse = $this->controller->getByProviderAction($otherRequest);
+        self::assertSame(200, $otherResponse->getStatusCode());
+        $otherBody = json_decode((string)$otherResponse->getBody(), true);
+        self::assertIsArray($otherBody);
+        self::assertTrue($otherBody['success']);
+        self::assertIsArray($otherBody['models']);
+        self::assertSame([2], array_column($otherBody['models'], 'uid'));
+        self::assertSame(
+            ['o4-mini'],
+            array_column($otherBody['models'], 'modelId'),
+        );
     }
 
     #[Test]
@@ -518,6 +537,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertIsArray($body['models']);
+        self::assertSame([], $body['models']);
     }
 
     // -------------------------------------------------------------------------

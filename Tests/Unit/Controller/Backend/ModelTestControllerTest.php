@@ -214,6 +214,7 @@ final class ModelTestControllerTest extends TestCase
         $adapter
             ->expects(self::once())
             ->method('complete')
+            ->with('Hello, test prompt', ['model' => 'gpt-4', 'max_tokens' => 100])
             ->willReturn($completionResponse);
 
         $this->providerAdapterRegistry

@@ -699,45 +699,139 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function saveActionCreatesProviderWithConfigurations(): void
     {
-        // The admin backend user (required by both the admin guard and the
-        // nr-vault store() call) is set up in setUp().
         $request = new ServerRequest('POST', self::AJAX_NRLLM_WIZARD_SAVE);
         $request = $request->withHeader('Content-Type', self::APPLICATION_JSON);
-        $request = $request->withBody(Utils::streamFor(json_encode([
-            'provider' => [
-                'suggestedName' => 'OpenAI With Config',
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-test',
-            ],
-            'models' => [
-                [
-                    'modelId' => 'o4-mini',
-                    'name' => 'O4 Mini',
-                    'capabilities' => ['chat'],
-                    'selected' => true,
-                ],
-            ],
-            'configurations' => [
-                [
-                    'name' => 'Fast Chat',
-                    'modelId' => 'o4-mini',
-                    'temperature' => 0.7,
-                    'maxTokens' => 1000,
-                    'systemPrompt' => 'You are a helpful assistant.',
-                ],
-            ],
-            'pid' => 0,
-        ])));
+        $request = $request->withBody(
+            Utils::streamFor(
+                json_encode(
+                    [
+                        'provider' => [
+                            'suggestedName' => 'Wizard Persistence Oracle',
+                            'adapterType' => 'openai',
+                            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
+                            'apiKey' => '',
+                        ],
+                        'models' => [
+                            [
+                                'modelId' => 'gpt-5',
+                                'name' => 'GPT-5',
+                                'capabilities' => ['chat'],
+                                'selected' => true,
+                            ],
+                            [
+                                'modelId' => 'o4-mini',
+                                'name' => 'O4 Mini',
+                                'capabilities' => ['chat'],
+                                'selected' => true,
+                            ],
+                            [
+                                'modelId' => 'whisper-1',
+                                'name' => 'Ignored Model',
+                                'capabilities' => ['transcription'],
+                                'selected' => false,
+                            ],
+                        ],
+                        'configurations' => [
+                            [
+                                'identifier' => 'audit_wizard_selected',
+                                'name' => 'Selected Configuration',
+                                'recommendedModelId' => 'o4-mini',
+                                'temperature' => 0.25,
+                                'maxTokens' => 42,
+                                'systemPrompt' => 'Only the selected model should serve this configuration.',
+                                'selected' => true,
+                            ],
+                            [
+                                'identifier' => 'audit_wizard_ignored',
+                                'name' => 'Ignored Configuration',
+                                'selected' => false,
+                            ],
+                        ],
+                        'pid' => 0,
+                    ],
+                ),
+            ),
+        );
 
-        // Act
         $response = $this->controller->saveAction($request);
 
-        // Assert
         self::assertSame(200, $response->getStatusCode());
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
-        self::assertArrayHasKey('configurationsCount', $body);
+        self::assertIsArray($body['provider']);
+        self::assertIsInt($body['provider']['uid']);
+        self::assertGreaterThan(0, $body['provider']['uid']);
+        self::assertSame(2, $body['modelsCount']);
+        self::assertSame(1, $body['configurationsCount']);
+
+        $modelQuery = $this->getConnectionPool()->getQueryBuilderForTable('tx_nrllm_model');
+        $models = $modelQuery
+            ->select('uid', 'model_id')
+            ->from('tx_nrllm_model')
+            ->where(
+                $modelQuery->expr()->eq(
+                    'provider_uid',
+                    $modelQuery->createNamedParameter($body['provider']['uid']),
+                ),
+            )
+            ->orderBy('uid')
+            ->executeQuery()
+            ->fetchAllAssociative();
+        self::assertSame(
+            ['gpt-5', 'o4-mini'],
+            array_column($models, 'model_id'),
+        );
+
+        $configQuery = $this
+            ->getConnectionPool()
+            ->getQueryBuilderForTable('tx_nrllm_configuration');
+        $configurations = $configQuery
+            ->select(
+                'identifier',
+                'model_uid',
+                'system_prompt',
+                'temperature',
+                'max_tokens',
+                'is_active',
+                'pid',
+            )
+            ->from('tx_nrllm_configuration')
+            ->where(
+                $configQuery->expr()->or(
+                    $configQuery->expr()->eq(
+                        'identifier',
+                        $configQuery->createNamedParameter(
+                            'audit_wizard_selected',
+                        ),
+                    ),
+                    $configQuery->expr()->eq(
+                        'identifier',
+                        $configQuery->createNamedParameter(
+                            'audit_wizard_ignored',
+                        ),
+                    ),
+                ),
+            )
+            ->executeQuery()
+            ->fetchAllAssociative();
+        self::assertCount(1, $configurations);
+        self::assertSame(
+            'audit_wizard_selected',
+            $configurations[0]['identifier'],
+        );
+        self::assertSame(
+            (int)$models[1]['uid'],
+            (int)$configurations[0]['model_uid'],
+        );
+        self::assertSame(
+            'Only the selected model should serve this configuration.',
+            $configurations[0]['system_prompt'],
+        );
+        self::assertIsNumeric($configurations[0]['temperature']);
+        self::assertSame(0.25, (float)$configurations[0]['temperature']);
+        self::assertSame(42, (int)$configurations[0]['max_tokens']);
+        self::assertSame(1, (int)$configurations[0]['is_active']);
+        self::assertSame(0, (int)$configurations[0]['pid']);
     }
 }
