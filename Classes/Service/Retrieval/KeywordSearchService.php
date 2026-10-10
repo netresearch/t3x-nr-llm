@@ -109,7 +109,8 @@ final class KeywordSearchService implements KeywordSearchInterface
             $selected = [];
             foreach ($this->backends as $backend) {
                 try {
-                    if ($this->indexBackedOnly && $backend->getPriority() <= 0) {
+                    $priority = $backend->getPriority();
+                    if ($this->indexBackedOnly && $priority <= 0) {
                         continue;
                     }
                 } catch (Throwable) {

@@ -8,6 +8,7 @@ declare (strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Retrieval;
 
+use Error;
 use Generator;
 use Netresearch\NrLlm\Service\Retrieval\EvidenceSource;
 use Netresearch\NrLlm\Service\Retrieval\KeywordHit;
@@ -16,6 +17,7 @@ use Netresearch\NrLlm\Service\Retrieval\RetrievalQuery;
 use Netresearch\NrLlm\Service\Retrieval\SearchBackendInterface;
 use Netresearch\NrLlm\Tests\Unit\Service\Retrieval\Fixtures\FakeSearchBackend;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -241,5 +243,44 @@ final class KeywordSearchServiceTest extends TestCase
         } catch (Throwable $e) {
             self::fail('Failed backend discovery must degrade to false, but escaped ' . $e::class . ': ' . $e->getMessage());
         }
+    }
+
+    #[Test]
+    #[DataProvider('fullCascadePriorityFailures')]
+    public function fullCascadePriorityFailureKeepsHealthyDatabaseFallback(
+        Throwable $failure,
+    ): void {
+        $broken = $this->createMock(SearchBackendInterface::class);
+        $broken
+            ->expects(self::once())
+            ->method('getPriority')
+            ->willThrowException($failure);
+        $broken->expects(self::never())->method('isAvailable');
+        $broken->expects(self::never())->method('search');
+        $healthy = new FakeSearchBackend(
+            'database',
+            0,
+            sources: [FakeSearchBackend::source('database:1:0')],
+        );
+        $service = new KeywordSearchService([$broken, $healthy]);
+
+        self::assertSame(
+            ['database:1:0'],
+            array_map(
+                static fn(KeywordHit $hit): string => $hit->sourceId,
+                $service->search('term', 5),
+            ),
+        );
+        self::assertSame(1, $healthy->searchCalls);
+        self::assertTrue($service->isAvailable());
+    }
+
+    /**
+     * @return iterable<string, array{Throwable}>
+     */
+    public static function fullCascadePriorityFailures(): iterable
+    {
+        yield 'backend exception' => [new RuntimeException('Broken backend priority', 1770581101)];
+        yield 'backend engine error' => [new Error('Broken backend priority', 1770581102)];
     }
 }
