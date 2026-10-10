@@ -55,6 +55,23 @@ How it works
    switched on one by one, exactly like the builtin tools in the
    :ref:`Tools module <administration-tools>`.
 
+Authentication readout
+======================
+
+Each card describes the configured authentication mode. In legacy mode it
+shows the Vault reference placement, or that requests are unauthenticated
+only when the reference is the empty string. Delegated mode uses a separate
+discovery
+credential for imports and connection tests; tool calls require a session
+bound to the initiating actor (:ref:`ADR-217 <adr-217>`). The legacy
+credential and placement do not describe those delegated sessions.
+
+This readout does not validate credentials or report a successful exchange.
+Missing delegated configuration and unsupported authentication modes are
+refused before an outbound MCP request; neither falls back to anonymous
+requests. Credential references and delegation profile details are not
+printed on the card.
+
 What the client speaks
 ======================
 

@@ -65,20 +65,26 @@
 
                                 <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication" default="Authentication" /></dt>
                                 <dd class="col-sm-9">
-                                    <f:if condition="{entry.record.authCredential}">
-                                        <f:then>
-                                            <!-- As configured, not as resolved (ADR-154). The two placements
-                                                 TCA offers get their label; anything else is printed verbatim,
-                                                 because the transport's fallback would read as "the
-                                                 configuration is fine" for a value nobody typed on purpose. -->
-                                            <f:switch expression="{entry.record.authPlacement}">
-                                                <f:case value="header"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.header" default="Vault secret in header" /> <code class="text-break">{entry.record.authHeaderName}</code></f:case>
-                                                <f:case value="bearer"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.bearer" default="Bearer token from the vault" /></f:case>
-                                                <f:defaultCase><span class="text-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.other" default="Stored placement, not one this module offers" /></span> <code class="text-break">{entry.record.authPlacement}</code></f:defaultCase>
-                                            </f:switch>
-                                        </f:then>
-                                        <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.none" default="None — requests are sent unauthenticated" /></f:else>
-                                    </f:if>
+                                    <f:switch expression="{entry.record.authMode}">
+                                        <f:case value="delegated"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.delegated" default="Delegated — discovery uses a separate credential; tool calls require an actor-bound session" /></f:case>
+                                        <f:case value="legacy">
+                                            <f:if condition="{entry.record.authCredential} != ''">
+                                                <f:then>
+                                                    <!-- As configured, not as resolved (ADR-154). The two placements
+                                                         TCA offers get their label; anything else is printed verbatim,
+                                                         because the transport's fallback would read as "the
+                                                         configuration is fine" for a value nobody typed on purpose. -->
+                                                    <f:switch expression="{entry.record.authPlacement}">
+                                                        <f:case value="header"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.header" default="Vault secret in header" /> <code class="text-break">{entry.record.authHeaderName}</code></f:case>
+                                                        <f:case value="bearer"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.bearer" default="Bearer token from the vault" /></f:case>
+                                                        <f:defaultCase><span class="text-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.other" default="Stored placement, not one this module offers" /></span> <code class="text-break">{entry.record.authPlacement}</code></f:defaultCase>
+                                                    </f:switch>
+                                                </f:then>
+                                                <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.none" default="None — requests are sent unauthenticated" /></f:else>
+                                            </f:if>
+                                        </f:case>
+                                        <f:defaultCase><span class="text-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.unsupported" default="Unsupported authentication mode — requests are refused" /></span></f:defaultCase>
+                                    </f:switch>
                                 </dd>
 
                                 <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.dataClass" default="Data class" /></dt>

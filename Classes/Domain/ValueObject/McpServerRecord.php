@@ -30,7 +30,8 @@ final readonly class McpServerRecord
         public string $name,
         public string $description,
         public string $url,
-        // nr-vault UUID, never a plaintext secret; '' = unauthenticated server.
+        // Legacy-mode Vault reference, never a plaintext secret. An empty legacy
+        // reference means unauthenticated; delegated mode uses its own sessions.
         public string $authCredential,
         public string $authPlacement,
         public string $authHeaderName,
