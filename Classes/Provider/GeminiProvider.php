@@ -25,6 +25,8 @@ use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
+use Netresearch\NrLlm\Provider\Gemini\GeminiReplayMetadata;
+use Netresearch\NrLlm\Provider\OpenAi\OpenAiCallMetadata;
 use Netresearch\NrVault\Http\SecretPlacement;
 
 #[AsLlmProvider(priority: 80)]
@@ -133,11 +135,7 @@ final class GeminiProvider extends AbstractProvider implements
      */
     public function chatCompletion(array $messages, array $options = []): CompletionResponse
     {
-        $messages = array_map(
-            static fn(ChatMessage|array $m): array
-                => $m instanceof ChatMessage ? $m->toArray() : $m,
-            $messages,
-        );
+        $messages = $this->normaliseReplayMessages($messages);
 
         $model = $this->getString($options, 'model', $this->getDefaultModel());
         $this->assertValidModelId($model);
@@ -184,14 +182,24 @@ final class GeminiProvider extends AbstractProvider implements
         [$content, $thinking] = $this->extractThinkingBlocks($rawContent);
         $usage = $this->getArray($response, 'usageMetadata');
 
-        return $this->createCompletionResponse(
+        return new CompletionResponse(
             content: $content,
             model: $model,
             usage: $this->createUsageStatistics(
                 promptTokens: $this->getInt($usage, 'promptTokenCount'),
                 completionTokens: $this->getInt($usage, 'candidatesTokenCount'),
             ),
-            finishReason: $this->mapFinishReason($this->getString($candidate, 'finishReason', 'STOP')),
+            finishReason: $this->mapFinishReason(
+                $this->getString($candidate, 'finishReason', 'STOP'),
+            ),
+            provider: $this->getIdentifier(),
+            metadata: GeminiReplayMetadata::hasSignature($parts) ? $this->rawResponseMetadata(
+                $options,
+                $response,
+                [
+                    OpenAiCallMetadata::KEY_PROVIDER_ITEMS => GeminiReplayMetadata::itemsFromParts($parts),
+                ],
+            ) : null,
             thinking: $thinking,
         );
     }
@@ -203,11 +211,7 @@ final class GeminiProvider extends AbstractProvider implements
      */
     public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
     {
-        $messages = array_map(
-            static fn(ChatMessage|array $m): array
-                => $m instanceof ChatMessage ? $m->toArray() : $m,
-            $messages,
-        );
+        $messages = $this->normaliseReplayMessages($messages);
 
         $model = $this->getString($options, 'model', $this->getDefaultModel());
         $this->assertValidModelId($model);
@@ -289,7 +293,13 @@ final class GeminiProvider extends AbstractProvider implements
             finishReason: $this->mapFinishReason($this->getString($candidate, 'finishReason', 'STOP')),
             provider: $this->getIdentifier(),
             toolCalls: $toolCalls !== [] ? $toolCalls : null,
-            metadata: $this->rawResponseMetadata($options, $response),
+            metadata: $this->rawResponseMetadata(
+                $options,
+                $response,
+                $toolCalls !== [] || GeminiReplayMetadata::hasSignature($parts) ? [
+                    OpenAiCallMetadata::KEY_PROVIDER_ITEMS => GeminiReplayMetadata::itemsFromParts($parts),
+                ] : null,
+            ),
             thinking: $thinking,
         );
     }
@@ -481,11 +491,7 @@ final class GeminiProvider extends AbstractProvider implements
         // typed ProviderConfigurationException instead of a cryptic stream error.
         $this->validateConfiguration();
 
-        $messages = array_map(
-            static fn(ChatMessage|array $m): array
-                => $m instanceof ChatMessage ? $m->toArray() : $m,
-            $messages,
-        );
+        $messages = $this->normaliseReplayMessages($messages);
 
         $model = $this->getString($options, 'model', $this->getDefaultModel());
         $this->assertValidModelId($model);
@@ -676,9 +682,16 @@ final class GeminiProvider extends AbstractProvider implements
             return $this->convertToolMessage($msgArray, $toolCallIdToName);
         }
 
-        // Assistant with tool_calls: convert to Gemini functionCall format
-        if ($role === 'assistant' && isset($msgArray['tool_calls']) && is_array($msgArray['tool_calls'])) {
-            return $this->convertAssistantToolCalls($msgArray);
+        if ($role === 'assistant') {
+            $items = $msgArray['provider_items'] ?? null;
+            $nativeParts = GeminiReplayMetadata::nativeParts(is_array($items) ? $items : null);
+            if ($nativeParts !== null) {
+                return ['role' => 'model', 'parts' => $nativeParts];
+            }
+
+            if (isset($msgArray['tool_calls']) && is_array($msgArray['tool_calls'])) {
+                return $this->convertAssistantToolCalls($msgArray);
+            }
         }
 
         $content = $msgArray['content'] ?? '';
@@ -953,5 +966,27 @@ final class GeminiProvider extends AbstractProvider implements
                 1751280000,
             );
         }
+    }
+
+    /**
+     * Wire arrays omit replay state; stored arrays restore the existing carrier.
+     * Multimodal arrays without that carrier keep their established conversion.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function normaliseReplayMessages(array $messages): array
+    {
+        return array_map(
+            static function (ChatMessage|array $message): array {
+                if (is_array($message) && array_key_exists('provider_items', $message)) {
+                    $message = ChatMessage::fromArray($message);
+                }
+
+                return $message instanceof ChatMessage ? $message->toTranscriptArray() : $message;
+            },
+            $messages,
+        );
     }
 }

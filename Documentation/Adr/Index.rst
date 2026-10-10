@@ -614,4 +614,5 @@ Tools
    Adr217McpDelegationKeepsTheActor
    Adr218CompanionDocumentSourceSync
    Adr219WorkerOperations
+   Adr222GeminiReplayKeepsNativeSignatures
    Adr223GeminiSeparatesNativeThoughtsFromText

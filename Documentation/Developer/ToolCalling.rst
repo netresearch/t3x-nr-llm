@@ -75,7 +75,11 @@ call by its id.
 
    if ($response->hasToolCalls()) {
        // Echo the assistant turn (with all its tool calls) back first
-       $messages[] = ChatMessage::assistantToolCalls($response->toolCalls, $response->content);
+       $messages[] = ChatMessage::assistantToolCalls(
+           $response->toolCalls,
+           $response->content,
+           $response->metadata['nrllm_provider_items'] ?? null,
+       );
 
        foreach ($response->toolCalls as $toolCall) {
            // Execute your function — $toolCall->arguments is a decoded array
@@ -94,6 +98,25 @@ call by its id.
 
 Providers that implement :php:interface:`ToolCapableInterface` support
 tool calling.
+
+Provider-owned conversation context
+===================================
+
+Gemini generateContent and OpenAI Responses need native assistant context
+between tool steps. The built-in tool loop carries it automatically, including
+through stored suspension and resume (:ref:`ADR-222 <adr-222>`). Manual loops
+pass the response's ``nrllm_provider_items`` metadata to the assistant factory
+as shown above. Store ``ChatMessage::toTranscriptArray()`` and restore it with
+``ChatMessage::fromArray()``; the ordinary wire array and JSON serialization
+omit this internal context.
+
+Gemini preserves the original native parts and thought signatures. It uses an
+explicit ownership marker so a fallback to OpenAI Responses reconstructs
+ordinary visible text and tool calls. Historical OpenAI items keep their own
+replay semantics. A malformed or ambiguous recognized Gemini capsule is
+refused before provider contact. Switching providers cannot guarantee native
+reasoning continuity on a provider or model that cannot consume that context.
+New streamed-response replay state is outside this contract.
 
 Running the tool loop without an approval step
 ==============================================
