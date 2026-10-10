@@ -294,6 +294,10 @@ before the upgrade, and not yet migrated) cannot be approved: run the upgrade
 wizard :guilabel:`Write the version digest onto existing skills` or sync its
 source first.
 
+An approval snapshot keeps an omitted tool declaration distinct from a
+declared empty list. A malformed or non-list JSON declaration in a stored
+snapshot is read as an empty list, so object values cannot become tool names.
+
 .. warning::
 
    An approved skill is an instruction with the acting user's reach: it can
