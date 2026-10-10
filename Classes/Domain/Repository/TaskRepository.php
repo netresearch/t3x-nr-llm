@@ -184,17 +184,11 @@ class TaskRepository extends Repository
     }
 
     /**
-     * Count all non-deleted tasks.
+     * Count the same active, non-deleted tasks that findActive() exposes.
      */
     public function countActive(): int
     {
-        $query = $this->createQuery();
-        $querySettings = $query->getQuerySettings();
-        $querySettings->setRespectStoragePage(false);
-        $querySettings->setIgnoreEnableFields(false);
-        $querySettings->setEnableFieldsToBeIgnored(['hidden']);
-
-        return $query->count();
+        return $this->findActive()->count();
     }
 
     /**

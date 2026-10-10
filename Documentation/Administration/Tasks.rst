@@ -52,6 +52,10 @@ Adding a task manually
 Executing a task
 ================
 
+Inactive tasks stay visible in the administrator catalogue. If none of its
+non-deleted tasks are active, the catalogue displays an activation warning.
+
+
 Click :guilabel:`Run` on any task to open the
 execution form. It shows the configuration, model,
 parameters, input field, and prompt template.
