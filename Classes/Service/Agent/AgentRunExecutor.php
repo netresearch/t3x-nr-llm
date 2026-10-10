@@ -96,9 +96,6 @@ final readonly class AgentRunExecutor
             : null;
 
         $trace = $this->trace($handle, $onStep, $request->captureRaw, $leaseOwner);
-        // Resolve the run's explicit actor to a live acting backend user ONCE,
-        // identically whether this runs synchronously or in a worker (ADR-083).
-        $context = $this->toolContext($request->actor, $handle, $initialInvocationHistory);
 
         return $this->execute(
             $handle,
@@ -106,7 +103,11 @@ final readonly class AgentRunExecutor
             fn(): ToolLoopResult => $this->toolLoop->runLoop(
                 $request->messages,
                 $request->configuration,
-                $context,
+                $this->toolContext(
+                    $request->actor,
+                    $handle,
+                    $initialInvocationHistory,
+                ),
                 $request->allowedToolNames,
                 $request->options,
                 $maxIterations,
@@ -149,9 +150,8 @@ final readonly class AgentRunExecutor
         ?string $leaseOwner = null,
     ): AgentRunResult {
         $trace   = $this->trace($handle, $onStep, false, $leaseOwner);
-        $context = $this->toolContext($owner, $handle);
 
-        return $this->execute($handle, $trace, fn(): ToolLoopResult => $loopCall($context, $trace), null, $leaseOwner);
+        return $this->execute($handle, $trace, fn(): ToolLoopResult => $loopCall($this->toolContext($owner, $handle), $trace), null, $leaseOwner);
     }
 
     /**
