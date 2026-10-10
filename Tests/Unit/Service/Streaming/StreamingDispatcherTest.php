@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Streaming;
 
+use Error;
 use Generator;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\DTO\FallbackChain;
@@ -28,6 +29,7 @@ use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Service\Guardrail\SecretRedactionGuardrail;
+use Netresearch\NrLlm\Service\Guardrail\StreamRedactableInterface;
 use Netresearch\NrLlm\Service\Streaming\StreamingDispatcher;
 use Netresearch\NrLlm\Service\Telemetry\ProviderRetryCounter;
 use Netresearch\NrLlm\Tests\Fixture\GuardrailIdentityDoubleTrait;
@@ -36,9 +38,11 @@ use Netresearch\NrLlm\Tests\Unit\Fixture\InMemoryTelemetryRepository;
 use Netresearch\NrLlm\Tests\Unit\Fixture\RecordingLogger;
 use Netresearch\NrLlm\Tests\Unit\Fixture\RecordingUsageTracker;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use RuntimeException;
+use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Context\AspectInterface;
 use TYPO3\CMS\Core\Context\Context;
@@ -1239,5 +1243,343 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
         $context->method('getAspect')->willReturn($aspect);
 
         return $context;
+    }
+
+    #[Test]
+    public function firstTokenTimingExcludesLaterProviderGeneration(): void
+    {
+        $open = static function (): Generator {
+            yield 'First';
+            usleep(200000);
+            yield 'Last';
+        };
+        $chunks = iterator_to_array(
+            $this
+                ->dispatcher()
+                ->stream($this->context(), $this->configuration('primary'), $open),
+        );
+        self::assertSame(['First', 'Last'], $chunks);
+        self::assertCount(1, $this->telemetry->records);
+        $record = $this->telemetry->records[0];
+        self::assertNotNull($record->timeToFirstTokenMs);
+        self::assertGreaterThanOrEqual(
+            150,
+            $record->latencyMs - $record->timeToFirstTokenMs,
+        );
+    }
+
+    #[Test]
+    public function redactionPushesAndFlushExcludeConsumerRetries(): void
+    {
+        $counter = new ProviderRetryCounter();
+        $open = static function () use ($counter): Generator {
+            $counter->recordRetry();
+            yield str_repeat('a', 4096);
+            $counter->recordRetry();
+            yield str_repeat('b', 4096);
+        };
+        $chunks = [];
+        foreach ($this
+            ->dispatcher(guardrails: [new SecretRedactionGuardrail()], retryCounter: $counter)
+            ->stream($this->context(), $this->configuration('primary'), $open) as $chunk) {
+            $chunks[] = $chunk;
+            $counter->recordRetry();
+            $counter->recordRetry();
+            $counter->recordRetry();
+        }
+
+        self::assertGreaterThanOrEqual(
+            3,
+            count($chunks),
+            'Two pushes exceed the holdback and the remainder flushes.',
+        );
+        self::assertSame(
+            str_repeat('a', 4096) . str_repeat('b', 4096),
+            implode('', $chunks),
+        );
+        self::assertCount(1, $this->telemetry->records);
+        self::assertSame(2, $this->telemetry->records[0]->providerRetries);
+        self::assertSame(2 + 3 * count($chunks), $counter->total());
+    }
+
+    #[Test]
+    #[DataProvider('finalRetryOutcomes')]
+    public function retriesAfterTheLastChunkSettleOnCompletionAndFailure(
+        bool $fail,
+    ): void {
+        $counter = new ProviderRetryCounter();
+        $failure = new ProviderConnectionException('Failure after delivered output');
+        $open = static function () use ($counter, $fail, $failure): Generator {
+            $counter->recordRetry();
+            yield 'Delivered';
+            $counter->recordRetry();
+            if ($fail) {
+                throw $failure;
+            }
+        };
+        $chunks = [];
+        $caught = null;
+        try {
+            foreach ($this
+                ->dispatcher(retryCounter: $counter)
+                ->stream($this->context(), $this->configuration('primary'), $open) as $chunk) {
+                $chunks[] = $chunk;
+                $counter->recordRetry();
+            }
+        } catch (Throwable $error) {
+            $caught = $error;
+        }
+
+        self::assertSame($fail ? $failure : null, $caught);
+        self::assertSame(['Delivered'], $chunks);
+        self::assertCount(1, $this->telemetry->records);
+        $record = $this->telemetry->records[0];
+        self::assertSame(2, $record->providerRetries);
+        self::assertSame(3, $counter->total());
+        self::assertSame(!$fail, $record->success);
+        self::assertSame(
+            $fail ? ProviderConnectionException::class : '',
+            $record->errorClass,
+        );
+        self::assertCount(1, $this->usage->calls);
+    }
+
+    /**
+     * @return iterable<string, array{bool}>
+     */
+    public static function finalRetryOutcomes(): iterable
+    {
+        yield 'normal completion' => [false];
+        yield 'provider failure after output' => [true];
+    }
+
+    #[Test]
+    public function aTraversableGuardrailListAuditsDenialsAfterAnAllow(): void
+    {
+        $allow = new class implements GuardrailInterface {
+            use GuardrailIdentityDoubleTrait;
+
+            public int $checks = 0;
+
+            public function checkOutput(
+                CompletionResponse $response,
+            ): GuardrailResult {
+                ++$this->checks;
+                return GuardrailResult::allow();
+            }
+        };
+        $deny = new class implements GuardrailInterface {
+            use GuardrailIdentityDoubleTrait;
+
+            public int $checks = 0;
+
+            public function checkOutput(
+                CompletionResponse $response,
+            ): GuardrailResult {
+                ++$this->checks;
+                return GuardrailResult::deny('Second policy denied');
+            }
+        };
+        $guardrails = static function () use ($allow, $deny): Generator {
+            yield 'allow' => $allow;
+            yield 'deny' => $deny;
+        };
+        $caught = null;
+        $chunks = [];
+        try {
+            $dispatcher = $this->dispatcher(guardrails: $guardrails());
+            $chunks = iterator_to_array(
+                $dispatcher->stream(
+                    $this->context(),
+                    $this->configuration('primary'),
+                    $this->staticStream(['Audited output']),
+                ),
+            );
+        } catch (Throwable $error) {
+            $caught = $error;
+        }
+
+        self::assertNull(
+            $caught,
+            'Tagged traversables must materialize without an exception.',
+        );
+        self::assertSame(['Audited output'], $chunks);
+        self::assertSame(1, $allow->checks);
+        self::assertSame(1, $deny->checks);
+        $record = $this->logger->firstMatching('warning', 'matched a guardrail');
+        self::assertNotNull($record);
+        self::assertSame($deny::class, $record['context']['guardrail'] ?? null);
+        self::assertSame('deny', $record['context']['verdict'] ?? null);
+        self::assertSame(
+            'Second policy denied',
+            $record['context']['reason'] ?? null,
+        );
+    }
+
+    #[Test]
+    #[DataProvider('redactorFailures')]
+    public function aFailingLiveRedactorDoesNotSkipTheFollowingSecretMask(
+        Throwable $failure,
+    ): void {
+        $failing = new class (
+            $failure,
+        ) implements GuardrailInterface, StreamRedactableInterface {
+            use GuardrailIdentityDoubleTrait;
+
+            public int $checks = 0;
+
+            public function __construct(private readonly Throwable $failure) {}
+
+            public function checkOutput(
+                CompletionResponse $response,
+            ): GuardrailResult {
+                ++$this->checks;
+                throw $this->failure;
+            }
+        };
+        $caught = null;
+        $chunks = [];
+        try {
+            $chunks = iterator_to_array(
+                $this
+                    ->dispatcher(guardrails: [$failing, new SecretRedactionGuardrail()])
+                    ->stream(
+                        $this->context(),
+                        $this->configuration('primary'),
+                        $this->staticStream(['Token: sk-', 'abcdefghijklmnop']),
+                    ),
+            );
+        } catch (Throwable $error) {
+            $caught = $error;
+        }
+
+        self::assertNull($caught);
+        self::assertGreaterThan(0, $failing->checks);
+        self::assertSame('Token: sk-***', implode('', $chunks));
+    }
+
+    /**
+     * @return iterable<string, array{Throwable}>
+     */
+    public static function redactorFailures(): iterable
+    {
+        yield 'runtime exception' => [new RuntimeException('Failed redactor')];
+        yield 'engine error' => [new Error('Failed redactor')];
+    }
+
+    #[Test]
+    #[DataProvider('plannedCostMetadata')]
+    public function budgetPreflightPreservesNumericCostsAndRejectsOtherMetadata(
+        mixed $metadata,
+        float $expected,
+    ): void {
+        $calls = [];
+        $configuration = $this->configuration('primary');
+        $budget = self::createStub(BudgetServiceInterface::class);
+        $budget
+            ->method('check')
+            ->willReturnCallback(
+                static function (
+                    int $actor,
+                    float $cost,
+                    ?LlmConfiguration $actual,
+                ) use (&$calls): BudgetCheckResult {
+                    $calls[] = [$actor, $cost, $actual];
+                    return BudgetCheckResult::allowed();
+                },
+            );
+        $caught = null;
+        $chunks = [];
+        try {
+            $chunks = iterator_to_array(
+                $this
+                    ->dispatcher(budget: $budget)
+                    ->stream(
+                        $this->context(
+                            [
+                                BudgetMiddleware::METADATA_BE_USER_UID => 7,
+                                BudgetMiddleware::METADATA_PLANNED_COST => $metadata,
+                            ],
+                        ),
+                        $configuration,
+                        $this->staticStream(['Within budget']),
+                    ),
+            );
+        } catch (Throwable $error) {
+            $caught = $error;
+        }
+
+        self::assertNull($caught);
+        self::assertSame(['Within budget'], $chunks);
+        self::assertSame([[7, $expected, $configuration]], $calls);
+    }
+
+    /**
+     * @return iterable<string, array{mixed, float}>
+     */
+    public static function plannedCostMetadata(): iterable
+    {
+        yield 'integer' => [2, 2.0];
+        yield 'float' => [2.5, 2.5];
+        yield 'numeric string' => ['2.5', 0.0];
+        yield 'true' => [true, 0.0];
+        yield 'false' => [false, 0.0];
+        yield 'absent' => [null, 0.0];
+    }
+
+    #[Test]
+    #[DataProvider('unavailableFallbacks')]
+    public function skippedFallbackDiagnosticsPreserveTheOriginalErrorAndConfigurationIdentity(
+        bool $inactive,
+    ): void {
+        $unavailable = $inactive ? $this->configuration('unavailable', active: false) : null;
+        $repository = self::createStub(LlmConfigurationRepository::class);
+        $repository->method('findOneByIdentifier')->willReturn($unavailable);
+        $primary = $this->configuration(
+            'primary',
+            fallbackChain: new FallbackChain(['primary', 'unavailable']),
+        );
+        $failure = new ProviderConnectionException('Primary is unreachable');
+        $opened = [];
+        $open = static function (
+            LlmConfiguration $configuration,
+        ) use ($failure, &$opened): Generator {
+            $opened[] = $configuration;
+            yield from [];
+            throw $failure;
+        };
+        $caught = null;
+        try {
+            iterator_to_array(
+                $this
+                    ->dispatcher(repository: $repository)
+                    ->stream($this->context(), $primary, $open),
+            );
+        } catch (Throwable $error) {
+            $caught = $error;
+        }
+
+        self::assertSame($failure, $caught);
+        self::assertSame([$primary], $opened);
+        $record = $this->logger->firstMatching('warning', 'missing or inactive, skipping');
+        self::assertNotNull($record);
+        self::assertSame(
+            'unavailable',
+            $record['context']['configuration'] ?? null,
+        );
+        self::assertSame('corr-1', $record['context']['correlationId'] ?? null);
+        self::assertSame('stream', $record['context']['operation'] ?? null);
+        self::assertCount(1, $this->telemetry->records);
+        self::assertFalse($this->telemetry->records[0]->success);
+        self::assertSame(0, $this->telemetry->records[0]->fallbackAttempts);
+    }
+
+    /**
+     * @return iterable<string, array{bool}>
+     */
+    public static function unavailableFallbacks(): iterable
+    {
+        yield 'missing configuration' => [false];
+        yield 'inactive configuration' => [true];
     }
 }
