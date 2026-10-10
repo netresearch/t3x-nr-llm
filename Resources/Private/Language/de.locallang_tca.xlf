@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
-<xliff
-    xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
+<xliff xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
     <file source-language="en" target-language="de" datatype="plaintext" original="messages">
         <body>
             <!-- Table title -->
@@ -972,8 +971,8 @@
                 <target>Datenbanktabelle</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_task.input_type.file">
-                <source>File</source>
-                <target>Datei</target>
+                <source>File (reserved; no automatic input)</source>
+                <target>Datei (reserviert; keine automatische Eingabe)</target>
             </trans-unit>
             <!-- Task output_format select items -->
             <trans-unit id="tx_nrllm_task.output_format.markdown">
