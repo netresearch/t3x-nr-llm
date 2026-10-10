@@ -135,8 +135,10 @@ and reports:
       $GLOBALS['TYPO3_CONF_VARS']['HTTP']['allowed_hosts'][] = 'ollama';
 
    The request-time allowlist is honored by nr-vault 0.6.1 and later.
-   Endpoints given as an IP literal (for example
-   ``http://127.0.0.1:11434``) are not affected.
+   Private and loopback IP literals are checked too. For an endpoint such
+   as ``http://127.0.0.1:11434``, allowlist the literal host ``127.0.0.1``.
+   Only an exact hostname or IP entry overrides the private-address block;
+   a wildcard does not.
 
 .. _administration-providers-edit:
 
