@@ -163,7 +163,10 @@ final class SkillInjectionBoundaryTest extends TestCase
             'Always cite sources.',
             $target['content'],
         );
-        self::assertStringEndsWith("\n\nQuestion.", $target['content']);
+        self::assertSame(
+            (new SkillComposer())->composeBlock([$this->skill()], [])->block . "\n\nQuestion.",
+            $target['content'],
+        );
     }
 
     /**
@@ -225,8 +228,8 @@ final class SkillInjectionBoundaryTest extends TestCase
             'Always cite sources.',
             $actual['messages'][0]->content,
         );
-        self::assertStringEndsWith(
-            "\n\nQuestion.",
+        self::assertSame(
+            (new SkillComposer())->composeBlock([$this->skill()], [])->block . "\n\nQuestion.",
             $actual['messages'][0]->content,
         );
         self::assertSame(
