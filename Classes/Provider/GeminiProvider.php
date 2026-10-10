@@ -133,8 +133,10 @@ final class GeminiProvider extends AbstractProvider implements
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param array<string, mixed>                   $options
      */
-    public function chatCompletion(array $messages, array $options = []): CompletionResponse
-    {
+    public function chatCompletion(
+        array $messages,
+        array $options = [],
+    ): CompletionResponse {
         $messages = $this->normaliseReplayMessages($messages);
 
         $model = $this->getString($options, 'model', $this->getDefaultModel());
@@ -177,9 +179,7 @@ final class GeminiProvider extends AbstractProvider implements
         $candidate = $this->asArray($candidates[0] ?? []);
         $contentObj = $this->getArray($candidate, 'content');
         $parts = $this->getList($contentObj, 'parts');
-        $firstPart = $this->asArray($parts[0] ?? []);
-        $rawContent = $this->getString($firstPart, 'text');
-        [$content, $thinking] = $this->extractThinkingBlocks($rawContent);
+        [$content, $thinking] = $this->extractCandidateText($parts);
         $usage = $this->getArray($response, 'usageMetadata');
 
         return new CompletionResponse(
@@ -209,8 +209,11 @@ final class GeminiProvider extends AbstractProvider implements
      * @param list<ToolSpec>                         $tools
      * @param array<string, mixed>                   $options
      */
-    public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
-    {
+    public function chatCompletionWithTools(
+        array $messages,
+        array $tools,
+        array $options = [],
+    ): CompletionResponse {
         $messages = $this->normaliseReplayMessages($messages);
 
         $model = $this->getString($options, 'model', $this->getDefaultModel());
@@ -219,11 +222,14 @@ final class GeminiProvider extends AbstractProvider implements
 
         // Convert OpenAI-shaped ToolSpec into Gemini's `functionDeclarations` format.
         $geminiTools = [
-            'functionDeclarations' => array_map(static fn(ToolSpec $spec): array => [
-                'name'        => $spec->name,
-                'description' => $spec->description,
-                'parameters'  => $spec->parameters,
-            ], $tools),
+            'functionDeclarations' => array_map(
+                static fn(ToolSpec $spec): array => [
+                    'name' => $spec->name,
+                    'description' => $spec->description,
+                    'parameters' => $spec->parameters,
+                ],
+                $tools,
+            ),
         ];
 
         $payload = [
@@ -250,16 +256,10 @@ final class GeminiProvider extends AbstractProvider implements
         $contentObj = $this->getArray($candidate, 'content');
         $parts = $this->getList($contentObj, 'parts');
 
-        $rawContent = '';
         $toolCalls = [];
 
         foreach ($parts as $part) {
             $partArray = $this->asArray($part);
-            $text = $this->getNullableString($partArray, 'text');
-            if ($text !== null) {
-                $rawContent .= $text;
-            }
-
             $functionCall = $this->getArray($partArray, 'functionCall');
             if ($functionCall !== []) {
                 // Gemini does not return tool-call IDs; synthesise a
@@ -280,7 +280,7 @@ final class GeminiProvider extends AbstractProvider implements
             }
         }
 
-        [$content, $thinking] = $this->extractThinkingBlocks($rawContent);
+        [$content, $thinking] = $this->extractCandidateText($parts);
         $usage = $this->getArray($response, 'usageMetadata');
 
         return new CompletionResponse(
@@ -290,7 +290,9 @@ final class GeminiProvider extends AbstractProvider implements
                 promptTokens: $this->getInt($usage, 'promptTokenCount'),
                 completionTokens: $this->getInt($usage, 'candidatesTokenCount'),
             ),
-            finishReason: $this->mapFinishReason($this->getString($candidate, 'finishReason', 'STOP')),
+            finishReason: $this->mapFinishReason(
+                $this->getString($candidate, 'finishReason', 'STOP'),
+            ),
             provider: $this->getIdentifier(),
             toolCalls: $toolCalls !== [] ? $toolCalls : null,
             metadata: $this->rawResponseMetadata(
@@ -988,5 +990,42 @@ final class GeminiProvider extends AbstractProvider implements
             },
             $messages,
         );
+    }
+
+    /**
+     * Separate Gemini-native thought parts before applying legacy inline blocks.
+     * The native response parts remain untouched for capture and replay.
+     *
+     * @param array<int, mixed> $parts
+     *
+     * @return array{string, ?string}
+     */
+    private function extractCandidateText(array $parts): array
+    {
+        $visible = '';
+        $nativeThinking = '';
+        foreach ($parts as $part) {
+            $partArray = $this->asArray($part);
+            $text = $partArray['text'] ?? null;
+            if (!is_string($text)) {
+                continue;
+            }
+
+            if (($partArray['thought'] ?? false) === true) {
+                $nativeThinking .= $text;
+            } else {
+                $visible .= $text;
+            }
+        }
+
+        [$content, $inlineThinking] = $this->extractThinkingBlocks($visible);
+        if ($nativeThinking === '') {
+            return [$content, $inlineThinking];
+        }
+
+        return [
+            $content,
+            $inlineThinking === null ? $nativeThinking : $nativeThinking . "\n" . $inlineThinking,
+        ];
     }
 }
