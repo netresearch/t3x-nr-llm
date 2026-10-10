@@ -13,6 +13,8 @@ use Netresearch\NrLlm\Service\Skill\SkillInvisibleCharacters;
 use Netresearch\NrLlm\Service\Tool\Builtin\CopyRecordTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\PreserveGlobalState;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClassConstant;
@@ -93,5 +95,92 @@ final class SkillInvisibleCharactersTest extends TestCase
         self::assertIsString($toolPattern);
 
         self::assertSame(str_replace('\x{E01EF}]', '\x{E01EF}\x{2800}]', $toolPattern), SkillInvisibleCharacters::PATTERN);
+    }
+
+    #[Test]
+    public function invalidUtf8CannotExceedTheSharedDetailLimit(): void
+    {
+        $expected = array_fill(0, 20, 'name, line 1: U+200B');
+        $expected[] = '… and 6 more';
+        self::assertSame(
+            $expected,
+            SkillInvisibleCharacters::findIn(
+                [
+                    'name' => str_repeat('x' . mb_chr(0x200b, 'UTF-8'), 25),
+                    'description' => "a\xc3b",
+                    'body' => 'Clean.',
+                ],
+            ),
+        );
+    }
+
+    #[Test]
+    public function invalidFieldsAreCountedWithinTheSameLimit(): void
+    {
+        $texts = [];
+        $expected = [];
+        for ($index = 1; $index <= 25; ++$index) {
+            $texts['field-' . $index] = "a\xc3b";
+            if ($index <= 20) {
+                $expected[] = 'field-' . $index . ': not valid UTF-8';
+            }
+        }
+
+        $expected[] = '… and 5 more';
+        self::assertSame($expected, SkillInvisibleCharacters::findIn($texts));
+    }
+
+    #[Test]
+    public function anInvalidFieldDoesNotPreventCheckingFollowingFields(): void
+    {
+        self::assertSame(
+            [
+                'name: not valid UTF-8',
+                'description, line 3: U+200B',
+                'body, line 2: U+202E',
+            ],
+            SkillInvisibleCharacters::findIn(
+                [
+                    'name' => "a\xc3b",
+                    'description' => "\n漢字\r\nText\t" . mb_chr(0x200b, 'UTF-8'),
+                    'body' => "\n" . mb_chr(0x202e, 'UTF-8'),
+                ],
+            ),
+        );
+    }
+
+    #[Test]
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function failedRegexChecksAreAlsoBoundedAndCounted(): void
+    {
+        $previousJit = ini_get('pcre.jit');
+        $previousLimit = ini_get('pcre.backtrack_limit');
+        self::assertIsString($previousJit);
+        self::assertIsString($previousLimit);
+        $texts = [];
+        $expected = [];
+        for ($index = 1; $index <= 25; ++$index) {
+            $texts['field-' . $index] = 'a';
+            if ($index <= 20) {
+                $expected[] = 'field-' . $index . ': could not be checked';
+            }
+        }
+
+        $expected[] = '… and 5 more';
+        try {
+            ini_set('pcre.jit', '0');
+            ini_set('pcre.backtrack_limit', '0');
+            $actual = SkillInvisibleCharacters::findIn($texts);
+            $error = preg_last_error();
+        } finally {
+            ini_set('pcre.jit', $previousJit);
+            ini_set('pcre.backtrack_limit', $previousLimit);
+        }
+
+        self::assertSame(PREG_BACKTRACK_LIMIT_ERROR, $error);
+        self::assertSame($expected, $actual);
+        self::assertSame($previousJit, ini_get('pcre.jit'));
+        self::assertSame($previousLimit, ini_get('pcre.backtrack_limit'));
     }
 }
