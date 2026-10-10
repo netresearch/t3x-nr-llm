@@ -90,9 +90,9 @@ personal access token (a read-only, public-repo token is enough) to raise
 the limit and to read private repositories.
 
 - The token is set through the :guilabel:`Set token` action on a source,
-  **not** typed into a FormEngine field. It is stored as an nr-vault UUID
-  (envelope-encrypted), mirroring provider API-key storage — never as
-  plaintext in TCA, YAML or the database.
+  **not** typed into a FormEngine field. The source stores a vault reference;
+  nr-vault stores the token with envelope encryption. The plaintext token
+  is never stored in the source record.
 - When a sync hits the rate limit (HTTP 403 with no remaining quota), the
   source is set to ``sync_status = error`` carrying the reset time; state
   is not partially corrupted. Add a token and re-sync.
