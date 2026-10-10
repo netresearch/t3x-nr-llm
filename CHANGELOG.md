@@ -10,6 +10,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Upgrading from 0.40
 
+- **Evaluation regression tolerances are validated before a run.** All four CLI drop options and `RegressionThresholds` require finite values in the inclusive `0..1` interval. Invalid strings, infinity, NAN and out-of-range values fail without starting evaluation or storing a measurement; zero and negative zero remain valid.
 - **Run the upgrade wizard "Write the version digest onto existing skills" (`nrllmAdr214SkillVersionDigest`).** It writes the new version digest onto every synced skill. A row whose stored name, description, support status, allowed tools or body no longer match what the sync wrote is disabled, recorded in the skill audit trail as `version_digest_unverified` and left without a digest until its next sync. Rows without a digest keep the body-only integrity check and cannot be approved.
 - **After the upgrade a frontmatter-only change upstream disables an enabled skill** on the next sync, as a body change already did. Expect more re-reviews for sources that change their frontmatter.
 - **The name, description and body of a synced skill are read-only in FormEngine.** An edit of any of them fails the integrity check, as a body edit already did.
