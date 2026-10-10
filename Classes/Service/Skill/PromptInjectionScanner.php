@@ -16,19 +16,17 @@ use Netresearch\NrLlm\Domain\ValueObject\InjectionScanResult;
 /**
  * Scans a skill body for known prompt-injection signatures at ingest (ADR-061).
  *
- * The detection rules are pure *data* ({@see PATTERNS}) so they are auditable
- * and unit-testable in isolation, one assertion per signature. The tiering is
- * deliberately conservative to avoid over-blocking legitimate prose:
+ * The detection rules are pure data ({@see PATTERNS}) and return one finding
+ * for each matched rule. They are heuristics: a match can also occur in quoted
+ * examples, and a clean result does not establish that the body is trustworthy.
  *
- * - {@see InjectionSeverity::HIGH} is reserved for unambiguous jailbreak
- *   markers (instruction override, role reset, DAN/developer-mode personas,
- *   chat-template control tokens) that essentially never occur in a genuine
- *   ``SKILL.md``. A HIGH finding force-disables the skill at import.
- * - {@see InjectionSeverity::MEDIUM} / {@see InjectionSeverity::LOW} cover
- *   weaker signals (secret-exposure verbs, guardrail-bypass wording, covert
- *   behaviour, long encoded blobs). They only *flag* the record for review —
- *   they never block, because the repo/marketplace skills they most often
- *   appear on already arrive disabled.
+ * - {@see InjectionSeverity::HIGH} marks instruction overrides, role resets,
+ *   jailbreak personas and chat-template control tokens. The ingest path
+ *   force-disables a skill with a HIGH finding.
+ * - {@see InjectionSeverity::MEDIUM} / {@see InjectionSeverity::LOW} mark
+ *   weaker signatures such as secret-exposure wording, guardrail bypass,
+ *   covert behaviour and long encoded blobs. They flag the record for review
+ *   without independently blocking its import.
  *
  * The scanner reads and returns; it never mutates a skill. The ingest path
  * ({@see SkillSyncService}) applies the force-disable and records the result.
@@ -40,9 +38,9 @@ final class PromptInjectionScanner
     /**
      * Ordered detection rules: label, severity, PCRE pattern.
      *
-     * Every pattern is case-insensitive and anchored on an imperative verb +
-     * object so that descriptive prose ("follow these instructions",
-     * "the system prompt is configured elsewhere") does not match.
+     * Wording and chat-template rules use case-insensitive matching. Several
+     * wording rules combine a verb with a target; template control tokens and
+     * long encoded blobs are detected independently of imperative wording.
      *
      * @var list<array{label: string, severity: InjectionSeverity, pattern: string}>
      */

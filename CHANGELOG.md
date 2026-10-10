@@ -75,6 +75,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Skills documentation states the scanner's heuristic limits
+  and the explicit audit-row retention exception. Source comments now match
+  the existing detection and purge paths.
+
 - **Retrieval regression checks require comparable benchmark provenance (ADR-215).** Corpus or scoring-label changes and unknown legacy provenance skip numeric comparison; `--fail-on-regression` now fails in those states. A changed model, chunker or pipeline on the same benchmark remains comparable and is reported as a treatment change. The first known run establishes a baseline. Existing retrievers still run without the optional capability.
 - **The sync's change test and the compose-time integrity check compare the version digest (ADR-214 item 1)** instead of the body checksum. `body_checksum` keeps its body-only meaning for the signed manifest and for rows without a digest.
 - **A skill whose frontmatter sets `process: true` is not composed from an attachment or a forced skill**; it is skipped with a warning. Process skills reach a run only through an explicit invocation, which a later change adds (ADR-214 item 6).
