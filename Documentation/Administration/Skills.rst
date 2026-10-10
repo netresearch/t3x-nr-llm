@@ -284,8 +284,10 @@ when an administrator grants them under :guilabel:`Allowed excludefields`.
 A version that contains characters a browser renders as nothing but a model
 reads — Unicode tag characters, zero-width and direction marks, no-break
 spaces and similar — cannot be approved: the approval would bind to text the
-approver did not see. The review page lists each such character with its field,
-line and code point. Remove them at the source and sync again.
+approver did not see.
+The review page lists the first 20 findings with their field, line and code point,
+or identifies a field whose text is not valid UTF-8, and counts further findings.
+Remove them at the source and sync again.
 
 Approving and revoking is restricted to administrators. Every approval,
 revocation and refused approval is written to the skill audit trail with the
