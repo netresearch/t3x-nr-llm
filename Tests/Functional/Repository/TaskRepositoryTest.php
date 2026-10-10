@@ -240,18 +240,6 @@ final class TaskRepositoryTest extends AbstractFunctionalTestCase
     }
 
     // =========================================================================
-    // Count Operations
-    // =========================================================================
-
-    #[Test]
-    public function countActiveReturnsNonDeletedCount(): void
-    {
-        $count = $this->repository->countActive();
-
-        self::assertGreaterThan(0, $count);
-    }
-
-    // =========================================================================
     // CRUD Operations (Pathway 5.5: Create Custom Task)
     // =========================================================================
 
@@ -335,5 +323,20 @@ final class TaskRepositoryTest extends AbstractFunctionalTestCase
 
         $inputSource = $task->getInputSource();
         self::assertNotEmpty($inputSource);
+    }
+
+    #[Test]
+    public function countActiveRequiresActivationAndRetainsHiddenRecordPolicy(): void
+    {
+        self::assertSame(2, $this->repository->countActive());
+        $connection = $this->getConnectionPool()->getConnectionForTable('tx_nrllm_task');
+        $connection->update('tx_nrllm_task', ['hidden' => 1], ['uid' => 1]);
+        self::assertSame(2, $this->repository->countActive());
+        $connection->update(
+            'tx_nrllm_task',
+            ['is_active' => 0],
+            ['deleted' => 0],
+        );
+        self::assertSame(0, $this->repository->countActive());
     }
 }

@@ -20,6 +20,7 @@ use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\NormalizedParams;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Imaging\IconFactory;
@@ -69,6 +70,7 @@ final class TaskListControllerTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('Test Syslog Task', $body);
         // Deep links into FormEngine (the record/edit backend route) exist.
         self::assertStringContainsString('record/edit', $body);
+        self::assertStringNotContainsString('No active tasks.', $body);
     }
 
     private function createBackendRequest(): ExtbaseRequest
@@ -92,5 +94,41 @@ final class TaskListControllerTest extends AbstractFunctionalTestCase
     {
         $reflection = new ReflectionClass($object);
         $reflection->getProperty($property)->setValue($object, $value);
+    }
+
+    #[Test]
+    public function listWithOnlyInactiveTasksDisplaysTheActivationWarning(): void
+    {
+        $this->importFixture('Tasks.csv');
+        $this->importFixture('LlmConfigurations.csv');
+        $this->importFixture('BeUsers.csv');
+        $this
+            ->getService(ConnectionPool::class)
+            ->getConnectionForTable('tx_nrllm_task')
+            ->update('tx_nrllm_task', ['is_active' => 0], ['deleted' => 0]);
+        $backendUser = $this->setUpBackendUser(1);
+        $GLOBALS['LANG'] = $this
+            ->getService(LanguageServiceFactory::class)
+            ->createFromUserPreferences($backendUser);
+        $repository = $this->getService(TaskRepository::class);
+        self::assertCount(0, $repository->findActive());
+        self::assertCount(3, $repository->findAll());
+        $controller = new TaskListController(
+            $this->getService(ModuleTemplateFactory::class),
+            $this->getService(IconFactory::class),
+            $repository,
+            $this->getService(BackendUriBuilder::class),
+            $this->getService(UsageAnalyticsServiceInterface::class),
+        );
+        $this->setPrivateProperty(
+            $controller,
+            'request',
+            $this->createBackendRequest(),
+        );
+        $response = $controller->listAction();
+        self::assertSame(200, $response->getStatusCode());
+        $body = (string)$response->getBody();
+        self::assertStringContainsString('Test Manual Task', $body);
+        self::assertStringContainsString('No active tasks.', $body);
     }
 }
