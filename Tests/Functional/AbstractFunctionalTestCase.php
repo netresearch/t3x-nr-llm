@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional;
 
-use Throwable;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
@@ -55,38 +54,27 @@ abstract class AbstractFunctionalTestCase extends FunctionalTestCase
     /** Initialize the test database with schema */
     protected bool $initializeDatabase = true;
 
-    private bool $skipped = false;
+    private bool $setupCompleted = false;
 
     protected function setUp(): void
     {
-        // Check if we can run functional tests
         if (!$this->canRunFunctionalTests()) {
-            $this->skipped = true;
             self::markTestSkipped(
-                'Functional tests require database configuration. '
-                . 'Set typo3DatabaseDriver environment variable (e.g., pdo_sqlite) to enable.',
+                'Functional tests require database configuration. ' . 'Set typo3DatabaseDriver environment variable (e.g., pdo_sqlite) to enable.',
             );
         }
 
-        try {
-            parent::setUp();
-        } catch (Throwable $e) {
-            $this->skipped = true;
-            self::markTestSkipped('Failed to initialize functional test: ' . $e->getMessage());
-        }
+        parent::setUp();
+        $this->setupCompleted = true;
     }
 
     protected function tearDown(): void
     {
-        if ($this->skipped) {
+        if (!$this->setupCompleted) {
             return;
         }
 
-        try {
-            parent::tearDown();
-        } catch (Throwable) {
-            // Ignore teardown errors when setup failed
-        }
+        parent::tearDown();
     }
 
     /**
