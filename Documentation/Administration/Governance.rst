@@ -66,8 +66,8 @@ The four keys
     Whether a tool whose data class exceeds the trust zone of the provider a
     run can reach is removed from that run (``enforce``) or still offered
     and merely recorded (``observe``). Read by
-    :php:`Service\\Tool\\DataClassEnforcementResolver` — the same object the
-    gate itself asks. Only a literal ``observe`` observes; leading and
+    :php:`Service\\Governance\\DataClassEnforcementResolver` — the same
+    object the gate itself asks. Only a literal ``observe`` observes; leading and
     trailing whitespace and letter case are ignored, everything else
     enforces (:ref:`ADR-113 <adr-113>`).
 
@@ -77,7 +77,8 @@ The four keys
     ``verified`` or ``first_party``. Read by
     :php:`Service\\Skill\\SkillComposerFactory`, which builds every skill
     composer. A missing, unreadable or unrecognised value resolves to
-    ``untrusted`` — the lowest floor, at which every enabled skill passes.
+    ``untrusted`` — the lowest floor, which excludes no skill by publisher
+    trust. Enabled state, orphan status and the composition checks still apply.
     See :ref:`administration-skills-isolation`.
 
 .. _administration-governance-asymmetry:
@@ -99,9 +100,9 @@ Both fall towards the outcome that cannot cause damage, but "safe" points
 the other way in each case. A broken *enforcement* value must not switch a
 security control off, so it enforces. A broken *trust* value must not raise
 a bar nobody set, because that would silently hide working skills from
-prompts with no error anywhere — so it drops to the floor at which nothing
-is hidden. Raising enforcement never grants a tool; raising the trust floor
-only ever removes skills.
+prompts with no error anywhere — so it drops to the floor that removes no
+skill by publisher trust. Raising enforcement never grants a tool; raising the
+trust floor only ever removes skills.
 
 For an operator this has one practical consequence: **do not infer one key
 from the other.** A typo in either key leaves the tab showing a plausible
@@ -110,7 +111,7 @@ value, but a different one in each case:
 - The tab reads ``enforce`` although you set ``observe`` — the stored value
   is mistyped, and the gate is removing tools.
 - The tab reads ``untrusted`` although you set ``verified`` — the stored
-  value is mistyped, and every enabled skill is passing.
+  value is mistyped, and the publisher-trust floor excludes no skill.
 
 In both cases the tab is right and the Install Tool field is wrong. Fix the
 field; the tab follows on the next request.
@@ -123,9 +124,11 @@ The seven retention overrides
 ``privacy.retentionDays`` has seven per-category overrides
 (``privacy.retention.conversation``, ``.agentRun``, ``.approval``,
 ``.telemetry``, ``.evaluation``, ``.skillAudit``, ``.governance``). They are
-**not** on the tab: all seven ship as ``0``, which means "no override", so
-on an untouched installation eleven rows would repeat the global window
-eight times.
+omitted from the tab when their effective window equals the global window.
+All seven ship as ``0``, which means "no override". A configured category
+whose known effective window differs from the known global window gets its
+own row. An unknown category window is omitted; if the global window is
+unknown, no category override rows appear.
 
 ``0`` never means "delete immediately" — neither does a negative or
 non-numeric value. Each category simply uses ``privacy.retentionDays``
@@ -610,10 +613,12 @@ both columns it is already inside the transcript by the time the fact group is
 measured, so both figures carry it. Subtract the three above before reading
 anything into the gap.
 
-**NULL means nobody measured, and is never a zero.** A model priced at zero
-records real tokens and no cost, which is what separates "this arm was free"
-from "nobody priced this arm" — the distinction any cheap-model comparison rests
-on. Token counts are NULL where the provider reported no usage block. The fact
+**NULL means no available measurement, and is never a measured zero.** A
+provider-reported cost takes precedence over model pricing, including a
+reported ``0.0``. Without a reported cost, the token-shaped usage path derives
+cost only when at least one model price field is positive. Two zero price
+fields alone leave cost NULL; they do not establish a measured free call.
+Token counts are NULL where the provider reported no usage block. The fact
 group is NULL across the board with ``facts_shape = ''`` on the paths that
 measure nothing, exactly as ``complexity_shape`` flags the complexity group.
 ``provider_retries`` is the one column that is always written — ``0`` there is a
@@ -638,9 +643,10 @@ Cost per request shape over the last thirty days, for example:
       AND facts_shape <> ''
     GROUP BY facts_shape;
 
-``AVG`` skips NULLs, so an installation running free local models reports a NULL
-mean cost for those rows instead of pulling the average toward zero. Filter on
-``actual_cost IS NOT NULL`` when you want the priced population only.
+``AVG`` skips unknown NULL costs and includes reported ``0.0`` costs. A model
+with two zero price fields and no reported cost contributes no cost value to
+the average. Filter on ``actual_cost IS NOT NULL`` when you want only calls
+with an available cost.
 
 **Nothing routes on any of it**, exactly as for the complexity group above. The
 criteria in :ref:`ADR-156 <adr-156>` still decide, and these columns exist so
