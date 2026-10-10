@@ -9,21 +9,33 @@
 Creating custom providers
 =========================
 
-Implement a custom provider by extending :php:`AbstractProvider`:
+Implement a custom provider by extending :php:`AbstractProvider`. This
+example implements chat and single-prompt completion. It inherits vault
+authentication and request handling, discovers models through a real HTTP
+request, and explicitly rejects embeddings. Optional capabilities such as
+streaming require their own interfaces and implementations.
 
 .. code-block:: php
    :caption: Example: Custom provider implementation
 
    <?php
 
+   declare(strict_types=1);
+
    namespace MyVendor\MyExtension\Provider;
 
+   use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+   use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
    use Netresearch\NrLlm\Provider\AbstractProvider;
-   use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
+   use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 
-   class MyCustomProvider extends AbstractProvider implements ProviderInterface
+   final class MyCustomProvider extends AbstractProvider
    {
-       protected string $baseUrl = 'https://api.example.com/v1';
+       /** @var array<string> */
+       protected array $supportedFeatures = [
+           self::FEATURE_CHAT,
+           self::FEATURE_COMPLETION,
+       ];
 
        public function getName(): string
        {
@@ -32,29 +44,81 @@ Implement a custom provider by extending :php:`AbstractProvider`:
 
        public function getIdentifier(): string
        {
-           return 'custom';
+           return 'my-custom';
        }
 
-       public function isConfigured(): bool
+       protected function getDefaultBaseUrl(): string
        {
-           return !empty($this->apiKey);
+           return 'https://api.example.com/v1';
        }
 
-       public function chatCompletion(array $messages, array $options = []): CompletionResponse
+       public function getDefaultModel(): string
        {
-           $payload = $this->buildChatPayload($messages, $options);
-           $response = $this->sendRequest('chat', $payload);
+           return $this->defaultModel !== ''
+               ? $this->defaultModel : 'example-chat';
+       }
 
-           return new CompletionResponse(
-               content: $response['choices'][0]['message']['content'],
-               model: $response['model'],
-               usage: $this->parseUsage($response['usage']),
-               finishReason: $response['choices'][0]['finish_reason'],
-               provider: $this->getIdentifier(),
+       /**
+        * @param list<ChatMessage|array<string, mixed>> $messages
+        * @param array<string, mixed> $options
+        */
+       public function chatCompletion(
+           array $messages,
+           array $options = [],
+       ): CompletionResponse {
+           $model = $this->getString(
+               $options, 'model', $this->getDefaultModel(),
+           );
+           $response = $this->sendRequest(
+               'chat/completions',
+               [
+                   'model' => $model,
+                   'messages' => array_map(
+                       static fn(ChatMessage|array $message): array =>
+                           $message instanceof ChatMessage
+                               ? $message->toArray() : $message,
+                       $messages,
+                   ),
+               ],
+               timeout: $this->resolveRequestTimeout($options),
+           );
+           $choices = $this->getList($response, 'choices');
+           $choice = $this->asArray($choices[0] ?? []);
+           $message = $this->getArray($choice, 'message');
+           $usage = $this->getArray($response, 'usage');
+
+           return $this->createCompletionResponse(
+               content: $this->getString($message, 'content'),
+               model: $this->getString($response, 'model', $model),
+               usage: $this->createUsageStatistics(
+                   $this->getInt($usage, 'prompt_tokens'),
+                   $this->getInt($usage, 'completion_tokens'),
+               ),
+               finishReason: $this->getString(
+                   $choice, 'finish_reason', 'stop',
+               ),
            );
        }
 
-       // Implement other required methods...
+       /** @return array<string, string> */
+       public function getAvailableModels(): array
+       {
+           return $this->testConnectionViaModelsList()['models'];
+       }
+
+       /**
+        * @param string|array<int, string> $input
+        * @param array<string, mixed> $options
+        */
+       public function embeddings(
+           string|array $input,
+           array $options = [],
+       ): never {
+           throw new UnsupportedFeatureException(
+               'This adapter does not support embeddings.',
+               1770581100,
+           );
+       }
    }
 
 Registering your provider
@@ -65,15 +129,28 @@ Register your provider in :file:`Services.yaml`:
 .. code-block:: yaml
    :caption: Configuration/Services.yaml
 
-   MyVendor\MyExtension\Provider\MyCustomProvider:
-     arguments:
-       $httpClient: '@Psr\Http\Client\ClientInterface'
-       $requestFactory: '@Psr\Http\Message\RequestFactoryInterface'
-       $streamFactory: '@Psr\Http\Message\StreamFactoryInterface'
-       $logger: '@Psr\Log\LoggerInterface'
-     tags:
-       - name: nr_llm.provider
-         priority: 50
+   services:
+     _defaults:
+       autowire: true
+       autoconfigure: true
+       public: false
+
+     MyVendor\MyExtension\Provider\MyCustomProvider:
+       tags:
+         - name: nr_llm.provider
+           priority: 50
+
+The inherited constructor receives the PSR request and stream factories,
+logger, :php:`VaultServiceInterface`, and :php:`SecureHttpClientFactory`
+through autowiring. The adapter is private; the provider registry holds
+the tagged service. An external namespace requires this explicit tag
+(:ref:`developer-provider-registration`). Configure its credentials using
+``apiKeyIdentifier``, a vault identifier, rather than a raw key.
+
+:php:`CustomProviderExampleTest` executes these exact PHP and YAML blocks
+in bounded child processes. It checks construction, registration,
+typed/array messages, the request and response, inherited completion,
+model discovery, connectivity, and the unsupported embedding contract.
 
 .. _developer-custom-providers-contract:
 
