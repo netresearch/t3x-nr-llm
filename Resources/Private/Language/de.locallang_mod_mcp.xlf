@@ -89,6 +89,14 @@
                 <source>None — requests are sent unauthenticated</source>
                 <target>Keine — Anfragen gehen unauthentifiziert raus</target>
             </trans-unit>
+            <trans-unit id="server.authentication.delegated">
+                <source>Delegated — discovery uses a separate credential; tool calls require an actor-bound session</source>
+                <target>Delegiert — Katalogabfragen verwenden separate Zugangsdaten; Werkzeugaufrufe erfordern eine an den Aufrufer gebundene Sitzung</target>
+            </trans-unit>
+            <trans-unit id="server.authentication.unsupported">
+                <source>Unsupported authentication mode — requests are refused</source>
+                <target>Unbekannter Authentifizierungsmodus — Anfragen werden abgelehnt</target>
+            </trans-unit>
             <trans-unit id="server.authentication.bearer">
                 <source>Bearer token from the vault</source>
                 <target>Bearer-Token aus dem Vault</target>
