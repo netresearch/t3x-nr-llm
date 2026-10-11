@@ -83,6 +83,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Rejected MCP credentials retain the original failure when cleanup fails.** A failing rejection-cleanup attempt no longer changes cancellation or an exhausted deadline into an exchange failure, or a metadata failure into cancellation. Normal Vault deletion is still attempted once; unsuccessful cleanup can leave the temporary credential until expiry. Explicit session-close failures still report `cleanup_failed`.
+
 - **Discard partially persisted delegated MCP credentials.** If Vault storage throws after creating a temporary token, the exchange checks the locally allocated reference's actor and purpose metadata before attempting normal ACL- and audit-controlled deletion. Cleanup failures retain the original sanitized authentication failure; configured references are preserved. Native SQL and recorded-boundary tests cover post-persist RuntimeException/Error, unavailable or mismatched metadata and failing cleanup.
 
 - **Keyword search availability tolerates broken backend discovery.** A backend
