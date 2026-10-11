@@ -17,15 +17,16 @@ ticket system, any MCP-speaking backend.
 How it works
 ============
 
-1. **Configure a server** — endpoint, authentication, the class of data
-   its tools may see, and whether its tools need human approval. A server
+1. **Configure a server** — endpoint, authentication, the declared data
+   class of tool output, and whether its tools need human approval. A server
    that declares no data class supplies **nothing**: there is no default
    anybody silently inherits (fail-closed, :ref:`ADR-113 <adr-113>`).
 2. **Import its catalogue** — an explicit action that fetches the tools
-   the server advertises. Import is the only network call that happens
-   outside an agent run; nothing talks to the server just because a page
-   rendered. Tool input schemas are normalised into the supported subset
-   on import; a tool whose schema cannot be expressed is skipped rather
+   the server advertises. The administration contacts the server on an
+   explicit import or connection test; rendering a page or building the
+   tool registry makes no server request. Tool input schemas are normalised
+   into the supported subset on import; a tool whose schema cannot be
+   expressed is skipped rather
    than silently weakened.
 
    The same import runs from the CLI, which is what a deploy needs: a
@@ -126,10 +127,10 @@ image itself, the tool is not usable from here yet.
 
 A call that fails does not fail the run. It comes back as a failed tool
 result naming the server, the model is told, and the run carries on. A
-cancelled call is the one exception, and it is not a failure: it comes back
-as a failed tool result too, but the run has already been cancelled, so the
-step is recorded and the run settles as cancelled without another model
-call — see below.
+cancelled call comes back with a distinct cancelled outcome
+(:ref:`ADR-191 <adr-191>`). The run has already been cancelled, so the step
+is recorded and the run settles as cancelled without another model call
+— see below.
 This covers both ways a call fails: the server not answering usefully —
 it is down, it refuses the credential, it sends something that is not
 JSON-RPC — and the server answering that the tool itself failed, which
@@ -153,9 +154,9 @@ slow to *open*: a handshake costing more than five seconds leaves the work
 request less than the fifteen a single request used to have, so a server
 that is slow at both ends can be refused where it previously succeeded.
 
-When the budget runs out
-the operation stops with a message naming the number and the server, and
-saying plainly that nothing was asked of the server — that is this
+When the budget runs out before a request starts, the next request is
+refused with a message naming the budget and the server. Earlier handshake
+or catalogue requests may already have completed. The message reports this
 installation's budget, not a server that failed to answer.
 
 Cancelling a run stops the call it has on the wire. The run stops at the

@@ -83,6 +83,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Clarify MCP administration contacts, output classification and
+  operation-budget refusals; document the existing in-flight cancellation
+  path.
+
 - **Keyword search availability tolerates broken backend discovery.** A backend
   whose priority lookup throws no longer hides a usable index sibling. A failed
   backend iterator makes the availability check return `false` instead of
