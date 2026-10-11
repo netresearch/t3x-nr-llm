@@ -78,18 +78,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Retrieval regression checks require comparable benchmark provenance (ADR-215).** Corpus or scoring-label changes and unknown legacy provenance skip numeric comparison; `--fail-on-regression` now fails in those states. A changed model, chunker or pipeline on the same benchmark remains comparable and is reported as a treatment change. The first known run establishes a baseline. Existing retrievers still run without the optional capability.
 - **The sync's change test and the compose-time integrity check compare the version digest (ADR-214 item 1)** instead of the body checksum. `body_checksum` keeps its body-only meaning for the signed manifest and for rows without a digest.
 - **A skill whose frontmatter sets `process: true` is not composed from an attachment or a forced skill**; it is skipped with a warning. Process skills reach a run only through an explicit invocation, which a later change adds (ADR-214 item 6).
-- **BREAKING for implementations of `ToolCallPolicyInterface` and `ToolLoopServiceInterface` (ADR-038 item 5).** `ToolCallPolicyInterface::decide()`, `explain()` and `filterOfferable()` take an optional `?SkillToolAllowList $runAllowList` last, and the interface gains `skillAllowListForRun()`, which resolves the list over the configuration's skills and the run's forced skills; without the argument the policy keeps the configuration-only resolution. `ToolLoopServiceInterface::runLoop()` takes an optional `?SkillToolAllowList $skillAllowList` last, the list a queued run was enqueued under. Callers are unaffected; a class outside nr-llm that implements either interface has to add the parameters and the method.
-
-### Fixed
-
-- Governance documentation now describes effective retention override rows, the publisher-trust floor and reported-zero cost precedence. Typed and cache-codec usage tests preserve measured zero against positive model pricing.
-
 - **Provider registration documentation matches container behavior (ADR-022).**
   Attribute discovery keeps providers private, scans only the NrLlm namespace
   and orders registrations without resolving duplicate identifiers. The API
   reference describes typed messages, vision content, tools and the optional
   document/decision capability interfaces. Priority regressions assert the
   actual registration order.
+
+- **BREAKING for implementations of `ToolCallPolicyInterface` and `ToolLoopServiceInterface` (ADR-038 item 5).** `ToolCallPolicyInterface::decide()`, `explain()` and `filterOfferable()` take an optional `?SkillToolAllowList $runAllowList` last, and the interface gains `skillAllowListForRun()`, which resolves the list over the configuration's skills and the run's forced skills; without the argument the policy keeps the configuration-only resolution. `ToolLoopServiceInterface::runLoop()` takes an optional `?SkillToolAllowList $skillAllowList` last, the list a queued run was enqueued under. Callers are unaffected; a class outside nr-llm that implements either interface has to add the parameters and the method.
+
+### Fixed
+
+- Governance documentation now describes effective retention override rows, the publisher-trust floor and reported-zero cost precedence. Typed and cache-codec usage tests preserve measured zero against positive model pricing.
 
 - **The feature, agent and testing guides match the current contracts.**
   Examples use typed options, response content and mockable interfaces. The
