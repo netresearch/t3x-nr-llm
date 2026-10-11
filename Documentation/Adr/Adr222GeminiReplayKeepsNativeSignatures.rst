@@ -9,8 +9,8 @@
 ADR-222: Gemini replay keeps native thought signatures
 ======================================================
 
-:Status: Accepted (known Struct roots amended by :ref:`ADR-224 <adr-224>`)
-:Amended: 2026-10-10 by :ref:`ADR-224 <adr-224>`
+:Status: Accepted (Struct roots and private correlation amended)
+:Amended: 2026-10-10 by :ref:`ADR-224 <adr-224>` and :ref:`ADR-226 <adr-226>`
 :Date: 2026-10-10
 :Authors: Netresearch DTT GmbH
 :Amends: :ref:`ADR-203 <adr-203>` (provider ownership of opaque replay items)
@@ -79,3 +79,10 @@ Native order, signatures and stored carrier arrays retain this decision's
 contract. Neither record promises restoration of arbitrary nested object/list
 kinds after associative decoding has lost that information; that finding
 remains open.
+
+:ref:`ADR-226 <adr-226>` adds optional private ``tool_call_bindings`` to the
+owned capsule so a populated native function-call ID reaches its result without
+replacing public synthesized IDs. Native parts remain unchanged. Older state
+without bindings is accepted only where populated ID correlation is
+unambiguous; position alone cannot establish an association for identical
+parallel calls. This amendment changes no public signature or database schema.
