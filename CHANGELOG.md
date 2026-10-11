@@ -83,6 +83,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **MCP source comments describe the implemented boundaries.** Clarify legacy and delegated credentials, explicit collision checks, the vault allowlist policy, discarded catalogue entries and locally named omitted content types. Runtime behavior and public signatures are unchanged.
+
 - **Keyword search availability tolerates broken backend discovery.** A backend
   whose priority lookup throws no longer hides a usable index sibling. A failed
   backend iterator makes the availability check return `false` instead of

@@ -44,10 +44,11 @@ use Throwable;
  *   would send the first server's token to the second — a credential leak
  *   between two operator-configured third parties, which is exactly the kind
  *   of mistake that never shows up in a test that uses one server.
- * - **The host is gated before the credential goes on.** A disallowed or
- *   private-range target is rejected while the request is still anonymous, so a
- *   misconfigured URL cannot be used to post a token at an internal address.
- *   The vault client re-checks the host as defence in depth; this mirrors
+ * - **The host is gated before the credential goes on.** Production calls
+ *   consult the vault host policy before resolving or configuring credentials.
+ *   An exact operator allowlist entry may permit an internal target; wildcard
+ *   entries do not override the private-address check. The vault client
+ *   re-checks the host as defence in depth; this mirrors
  *   {@see \Netresearch\NrLlm\Service\SetupWizard\SecureHttpDispatchTrait},
  *   which cannot be reused here because it can neither authenticate per server
  *   nor set a timeout.
