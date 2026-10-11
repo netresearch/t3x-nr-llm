@@ -71,14 +71,9 @@ final readonly class AgentRunExecutor
     ) {}
 
     /**
-     * The shared execution path behind {@see AgentRuntime::run()} and {@see AgentRuntime::runQueued()}:
-     * clamp the round cap, build the trace, drive the ladder.
-     *
-     * A queued run passes its worker identity as $leaseOwner (so each step
-     * boundary renews the lease and detects a reaper reclaim, ADR-104) and a
-     * $recover closure that decides retry-vs-dead-letter for a failure. An
-     * interactive run() passes neither: it holds no lease and surfaces failures
-     * to its caller unchanged.
+     * Execute an interactive or queued request under its lease ownership guard.
+     * Queued execution supplies a recovery callback to classify failures and
+     * decide retries. Interactive execution returns a settled failed result.
      *
      * @param (Closure(RunStep): void)|null                             $onStep
      * @param (Closure(Throwable, list<RunStep>): ?AgentRunResult)|null $recover

@@ -18,7 +18,7 @@ iteration cap is reached. The v1 consumer is the interactive
 
 The :ref:`Tool Playground <administration-tools-playground>` — the only
 surface that runs the agent TOOL loop — is **admin-only** (editors run
-one-shot tasks and decide approvals in :guilabel:`Web > AI Tasks`, which
+one-shot tasks and decide approvals in :guilabel:`AI > AI Tasks`, which
 never executes tools directly). The runtime itself
 applies a two-tier gate: each tool declares ``requiresAdmin()``, and
 :php:`ToolLoopService` drops admin-only tools when the acting backend user is
@@ -962,7 +962,7 @@ What editors see
 
 The declaration is what the **Editor Action Center**
 (:ref:`ADR-158 <adr-158>`) renders. It lives in the editor module
-:guilabel:`Web > AI tasks` and appears in two places: as an :guilabel:`AI
+:guilabel:`AI > AI Tasks` and appears in two places: as an :guilabel:`AI
 actions` catalogue reachable from that module, and as an :guilabel:`AI actions`
 entry in the context menu of a record — a page or a content element — which
 opens the catalogue narrowed to the actions that address that record.

@@ -466,10 +466,11 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
     }
 
     /**
-     * Running runs whose lease has expired (ADR-104 stale-run reaper). The
-     * lease_expires > 0 predicate excludes interactive run()/approve() runs,
-     * which never take a lease (claimed_by/lease stay empty) — the reaper only
-     * reclaims abandoned queue workers, never a live foreground call.
+     * Running runs whose positive lease expired before $now.
+     *
+     * All execution modes can hold leases. No queued-request predicate is
+     * applied here; the reaper dead-letters unretryable runs and runs without
+     * a saved request instead of requeuing them.
      *
      * @return list<AgentRun>
      */
@@ -549,10 +550,9 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
     }
 
     /**
-     * The WHERE guard both reaper mutations share (ADR-104): a specific run that
-     * is RUNNING and whose lease has expired (lease_expires > 0 excludes
-     * interactive runs, < now is the staleness re-check). Returned as an
-     * expression list so the caller spreads it into ->where().
+     * Shared reaper mutation guard: this UID must still be RUNNING with a
+     * positive lease that expired before $now. A renewed lease defeats the
+     * mutation. The predicate does not exclude foreground execution modes.
      *
      * @return list<string>
      */

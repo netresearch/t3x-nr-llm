@@ -50,9 +50,8 @@ Integration tests
 .. code-block:: bash
    :caption: Run integration tests
 
-   # Run integration tests (requires API keys)
-   OPENAI_API_KEY=your-api-key-here \
-       Build/Scripts/runTests.sh -s functional
+   # Integration tests use mocked HTTP and need no provider credentials
+   Build/Scripts/runTests.sh -s integration
 
 .. _testing-all:
 
@@ -62,13 +61,24 @@ All tests
 .. code-block:: bash
    :caption: Run complete test suite
 
-   # Run all test suites via runTests.sh
+   # Run the PHP test suites and architecture rules
    Build/Scripts/runTests.sh -s unit
-   Build/Scripts/runTests.sh -s functional
+   Build/Scripts/runTests.sh -s integration
+   Build/Scripts/runTests.sh -s fuzzy
+   Build/Scripts/runTests.sh -s architecture
+   Build/Scripts/runTests.sh -s functional -d sqlite
 
    # Run code quality checks
-   Build/Scripts/runTests.sh -s cgl
+   Build/Scripts/runTests.sh -s cgl -n
    Build/Scripts/runTests.sh -s phpstan
+   Build/Scripts/runTests.sh -s rector -n -p 8.2
+
+The functional suite also discovers backend workflow and TCA suites from
+:file:`Build/FunctionalTests.xml`. Some functional provider smoke tests make
+network requests; inspect their prerequisites before running the whole suite.
+Browser workflows require a running TYPO3 test instance; see
+:ref:`testing-e2e`. The Python sidecars have separate unittest suites under
+:file:`Build/decision` and :file:`Build/reranker`.
 
 .. _testing-structure:
 
@@ -123,61 +133,45 @@ Unit test example
 .. code-block:: php
    :caption: Example: Unit test
 
-   namespace Netresearch\NrLlm\Tests\Unit\Service;
+   namespace Your\Extension\Tests\Unit;
 
    use Netresearch\NrLlm\Domain\Model\CompletionResponse;
    use Netresearch\NrLlm\Domain\Model\UsageStatistics;
-   use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
-   use Netresearch\NrLlm\Service\LlmServiceManager;
+   use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
+   use Netresearch\NrLlm\Testing\FakeCompletionService;
+   use PHPUnit\Framework\Attributes\Test;
    use PHPUnit\Framework\TestCase;
 
-   class LlmServiceManagerTest extends TestCase
+   final class SummaryService
    {
-       private LlmServiceManager $subject;
+       public function __construct(
+           private readonly CompletionServiceInterface $completion,
+       ) {}
 
-       protected function setUp(): void
+       public function summarize(string $text): string
        {
-           parent::setUp();
+           return $this->completion->complete('Summarize: ' . $text)->content;
+       }
+   }
 
-           $mockProvider = $this->createMock(ProviderInterface::class);
-           $mockProvider->method('getIdentifier')->willReturn('test');
-           $mockProvider->method('isConfigured')->willReturn(true);
-
-           $this->subject = new LlmServiceManager(
-               providers: [$mockProvider]
+   final class SummaryServiceTest extends TestCase
+   {
+       #[Test]
+       public function returnsTheSummaryAndSendsTheInput(): void
+       {
+           $completion = new FakeCompletionService();
+           $completion->responses[] = new CompletionResponse(
+               content: 'A short summary.',
+               model: 'test-model',
+               usage: new UsageStatistics(10, 5, 15),
            );
-       }
+           $subject = new SummaryService($completion);
 
-       public function testChatReturnsCompletionResponse(): void
-       {
-           $provider = $this->createMock(ProviderInterface::class);
-           $provider->method('chatCompletion')->willReturn(
-               new CompletionResponse(
-                   content: 'Hello!', model: 'test-model',
-                   usage: new UsageStatistics(10, 5, 15),
-                   finishReason: 'stop', provider: 'test'
-               )
+           self::assertSame('A short summary.', $subject->summarize('Long text'));
+           self::assertSame(
+               [['prompt' => 'Summarize: Long text', 'options' => null]],
+               $completion->completeCalls,
            );
-           // ... test implementation
-       }
-
-       /**
-        * @dataProvider invalidMessagesProvider
-        */
-       public function testChatThrowsOnInvalidMessages(array $messages): void
-       {
-           $this->expectException(\InvalidArgumentException::class);
-           $this->subject->chat($messages);
-       }
-
-       public static function invalidMessagesProvider(): array
-       {
-           return [
-               'empty messages' => [[]],
-               'missing role' => [[['content' => 'test']]],
-               'missing content' => [[['role' => 'user']]],
-               'invalid role' => [[['role' => 'invalid', 'content' => 'test']]],
-           ];
        }
    }
 
@@ -243,7 +237,6 @@ Using HTTP mock
    $handlerStack = HandlerStack::create($mock);
    $client = new Client(['handler' => $handlerStack]);
 
-   $provider = new OpenAiProvider(
-       httpClient: $client,
-       // ...
-   );
+   // On an adapter constructed with its normal dependencies and configured
+   // by the manager, replace the transport after registerProvider():
+   $provider->setHttpClient($client);

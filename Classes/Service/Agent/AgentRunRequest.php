@@ -17,12 +17,9 @@ use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 
 /**
- * Everything the AgentRuntime needs to execute one agent run (ADR-101).
- *
- * Built by a UI adapter (the playground controller), a CLI command, or — once
- * the queue epic lands — a worker rehydrating a queued request. Deliberately a
- * plain value object so it can later be serialised for queued execution without
- * changing the runtime interface.
+ * Everything AgentRuntime needs to execute one run (ADR-101).
+ * Built by UI and CLI adapters or rehydrated by a worker from the queued
+ * request. AgentRunRequestCodec serializes this value for queue execution.
  *
  * @api
  */

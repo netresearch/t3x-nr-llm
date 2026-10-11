@@ -167,7 +167,7 @@ The admin-only Playground runs the bounded agent loop against any configuration 
 ### Resilience
 
 - **Structured outputs** — Schema-validated JSON on all seven providers: a named strict JSON-schema subset, provider-native enforcement, strict local validation and one repair round-trip. See [ADR-126](Documentation/Adr/Adr126StrictSchemaSubset.rst) and [ADR-128](Documentation/Adr/Adr128ProviderNativeStructuredOutput.rst).
-- **Fallback chain** — Each configuration can list other configurations to retry against on a connection error, HTTP 5xx, or rate-limit. Streaming requests are excluded (chunks can't be replayed). See [ADR-021](Documentation/Adr/Adr021ProviderFallbackChain.rst).
+- **Fallback chain** — Each configuration can list other configurations to retry against on a connection error, HTTP 5xx, or rate-limit. Streaming retries stop once the first chunk is delivered. See [ADR-021](Documentation/Adr/Adr021ProviderFallbackChain.rst).
 - **Capability grants for editors** — Two explicit TYPO3 group permissions open the editor surface: *Execute AI tasks* (budget-bounded task runs) and *Approve suspended AI runs*. Nothing is granted by default; admins hold every grant implicitly. See [ADR-130](Documentation/Adr/Adr130BackendUserGrants.rst) and [Permissions](Documentation/Administration/Permissions.rst).
 - **Dashboard widgets** — When `typo3/cms-dashboard` is installed, "AI cost this month" and "AI requests by provider (7d)" show on the dashboard sourced from the existing usage table. See [ADR-024](Documentation/Adr/Adr024DashboardWidgets.rst).
 
@@ -196,10 +196,10 @@ available models, and generates a ready-to-use configuration. Paste your API key
 | OpenAI | `openai` | Chat, Embeddings, Vision, Streaming, Tools |
 | Anthropic Claude | `anthropic` | Chat, Vision, Streaming, Tools |
 | Google Gemini | `gemini` | Chat, Embeddings, Vision, Streaming, Tools |
-| Ollama | `ollama` | Chat, Embeddings, Streaming (local, no API key) |
+| Ollama | `ollama` | Chat, Embeddings, Streaming, Tools (local, no API key) |
 | OpenRouter | `openrouter` | Chat, Embeddings, Vision, Streaming, Tools |
-| Mistral | `mistral` | Chat, Embeddings, Streaming |
-| Groq | `groq` | Chat, Streaming (fast inference) |
+| Mistral | `mistral` | Chat, Embeddings, Streaming, Tools |
+| Groq | `groq` | Chat, Streaming, Tools (fast inference) |
 | Azure OpenAI | `azure_openai` | Same as OpenAI |
 | Any OpenAI-compatible | `custom` | Varies (vLLM, LocalAI, LiteLLM, …) |
 | TypeSafe | `typesafe` | Decisions (typed yes/no, choice and score answers) |
