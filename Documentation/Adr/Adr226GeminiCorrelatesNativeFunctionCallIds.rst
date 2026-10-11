@@ -29,6 +29,13 @@ join to native parts cannot preserve association when two identical parallel
 calls have different native IDs and the generic list is reordered. Rejecting
 those fresh parallel calls would reject a supported response.
 
+A repeated actual HTTP capture-to-next-request probe also shows three valid
+numeric replies refused by strict PHP integer/float equality: ``1.0``, ``-3.0``
+and negative zero normalize to integers in generic argument serialization,
+while their freshly captured native parts retain floats. A fractional-float
+control stays accepted. These are three assertion failures with zero framework
+errors on the proposed implementation, not live API failures.
+
 Decision
 ========
 
@@ -40,6 +47,14 @@ turn, one-to-one IDs, complete coverage and matching decoded call
 names/arguments before consuming the association. The existing private
 transcript prescan can carry name and native ID together; an additional public
 scanner is unnecessary.
+
+Compare existing decoded argument maps without inventing lost JSON kinds.
+Treat integer/float pairs as the same numeric value only when their conversion
+is exact and reversible; preserve strict separation from strings, booleans and
+other scalar kinds. This permits the inherited ``1.0`` to ``1`` and negative-zero
+to zero normalization without accepting rounded large-integer mismatches. Apply
+that comparison recursively to decoded arguments for captured and legacy
+associations.
 
 Echo only that native ID in the matching Gemini result. An absent native ID
 stays absent; a present ID on an accepted named call must be a nonempty string.

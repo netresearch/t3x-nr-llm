@@ -64,6 +64,15 @@ captured before it is lost.
    IDs, and no extra bindings. Each entry must reference an actual generic call
    and native call whose name and decoded argument map agree. Matching uses the
    current associative representation, not a promise of lossless nested JSON.
+   Generic argument serialization may change a whole-valued float to an
+   integer (`1.0` to `1`, including negative zero to zero). Accept integer/float
+   pairs only when their numeric value is exactly equal and the conversion is
+   reversible without rounding an integer. Other scalar kinds remain distinct:
+   numbers never match strings or booleans through coercion. This rule applies
+   recursively in the existing decoded argument maps. Actual HTTP capture-to-
+   next-request controls include whole positive/negative floats, negative zero
+   and a fractional float for both captured and unambiguous legacy state;
+   mismatched types and rounded large integers are refused before contact.
    Always validate a present binding field structurally. Native-parts-only and
    entirely ID-less turns may carry only a valid empty binding list; nonempty
    or malformed fields are refused with a typed exception before contact. Extra
@@ -117,7 +126,8 @@ captured before it is lost.
 7. **Tests of tests and publication.** Selected faults dropping capture,
    dropping the result ID, swapping identical parallel associations, admitting
    malformed or ambiguous legacy state, losing persisted bindings and leaking
-   foreign binding state must fail genuine assertions with zero framework
+   foreign binding state, or reverting numeric compatibility to strict PHP
+   integer/float type equality must fail genuine assertions with zero framework
    errors. Independently verify exact source restoration and positive controls.
    Final complete make gate, independent whole-diff review, truthful
    documentation baseline comparison and exact frozen source hashes are
