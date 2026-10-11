@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeEditorActionTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeMalformedEditorActionTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionClass;
 use TYPO3\CMS\Backend\Routing\Route;
@@ -42,6 +43,9 @@ use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
  * unknown-tool tests below.
  */
 #[CoversClass(ToolController::class)]
+#[CoversClass(ToolStateRepository::class)]
+#[CoversClass(ToolGroupStateRepository::class)]
+#[CoversClass(ToolAvailabilityService::class)]
 final class ToolControllerTest extends AbstractFunctionalTestCase
 {
     protected function tearDown(): void
@@ -325,5 +329,167 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
     {
         $reflection = new ReflectionClass($object);
         $reflection->getProperty($property)->setValue($object, $value);
+    }
+
+    #[Test]
+    #[DataProvider('toggleBodyValues')]
+    public function toggleToolActionReplacesTheOppositePersistedOverride(
+        mixed $submitted,
+        bool $expected,
+    ): void {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+        $registry = new ToolRegistry(
+            [
+                new FakeTool('focus', enabledByDefault: false, group: 'alpha'),
+                new FakeTool('alpha_on', group: 'alpha'),
+                new FakeTool('beta_on', group: 'beta'),
+            ],
+        );
+        $pool = $this->toolConnectionPool();
+        (new ToolStateRepository($pool))->setEnabled('focus', !$expected);
+        $connection = $pool->getConnectionForTable('tx_nrllm_tool_state');
+        $originalUid = $connection
+            ->select(['uid'], 'tx_nrllm_tool_state', ['tool_name' => 'focus'])
+            ->fetchOne();
+        $response = $this
+            ->makeController($registry)
+            ->toggleToolAction(
+                (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/toggle'))->withParsedBody(
+                    ['tool' => 'focus', 'enabled' => $submitted],
+                ),
+            );
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(
+            ['success' => true, 'enabled' => $expected],
+            json_decode(
+                (string)$response->getBody(),
+                true,
+                512,
+                JSON_THROW_ON_ERROR,
+            ),
+        );
+        $rows = $connection
+            ->select(
+                ['uid', 'tool_name', 'enabled'],
+                'tx_nrllm_tool_state',
+                ['tool_name' => 'focus'],
+            )
+            ->fetchAllAssociative();
+        self::assertCount(
+            1,
+            $rows,
+            'Replacing an existing override must not duplicate its SQL row.',
+        );
+        self::assertSame($originalUid, $rows[0]['uid']);
+        self::assertSame('focus', $rows[0]['tool_name']);
+        self::assertIsNumeric($rows[0]['enabled']);
+        self::assertSame($expected ? 1 : 0, (int)$rows[0]['enabled']);
+        self::assertSame(
+            ['focus' => $expected],
+            (new ToolStateRepository($pool))->overrides(),
+        );
+        self::assertSame(
+            $expected ? ['focus', 'alpha_on', 'beta_on'] : ['alpha_on', 'beta_on'],
+            $this->availabilityFor($registry)->enabledNames(),
+        );
+        self::assertSame([], (new ToolGroupStateRepository($pool))->overrides());
+    }
+
+    #[Test]
+    #[DataProvider('toggleBodyValues')]
+    public function toggleToolGroupActionReplacesTheOverrideWithoutLiftingIndividualDenials(
+        mixed $submitted,
+        bool $expected,
+    ): void {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+        $registry = new ToolRegistry(
+            [
+                new FakeTool('alpha_default_on', group: 'alpha'),
+                new FakeTool(
+                    'alpha_default_off',
+                    enabledByDefault: false,
+                    group: 'alpha',
+                ),
+                new FakeTool(
+                    'alpha_override',
+                    enabledByDefault: false,
+                    group: 'alpha',
+                ),
+                new FakeTool('beta_on', group: 'beta'),
+            ],
+        );
+        $pool = $this->toolConnectionPool();
+        (new ToolGroupStateRepository($pool))->setEnabled('alpha', !$expected);
+        (new ToolStateRepository($pool))->setEnabled('alpha_override', true);
+        $connection = $pool->getConnectionForTable('tx_nrllm_tool_group_state');
+        $originalUid = $connection
+            ->select(['uid'], 'tx_nrllm_tool_group_state', ['group_name' => 'alpha'])
+            ->fetchOne();
+        $response = $this
+            ->makeController($registry)
+            ->toggleToolGroupAction(
+                (new GuzzleServerRequest('POST', '/ajax/nrllm/toolgroup/toggle'))->withParsedBody(
+                    ['group' => 'alpha', 'enabled' => $submitted],
+                ),
+            );
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(
+            ['success' => true, 'enabled' => $expected],
+            json_decode(
+                (string)$response->getBody(),
+                true,
+                512,
+                JSON_THROW_ON_ERROR,
+            ),
+        );
+        $rows = $connection
+            ->select(
+                ['uid', 'group_name', 'enabled'],
+                'tx_nrllm_tool_group_state',
+                ['group_name' => 'alpha'],
+            )
+            ->fetchAllAssociative();
+        self::assertCount(
+            1,
+            $rows,
+            'Replacing an existing group override must retain one SQL row.',
+        );
+        self::assertSame($originalUid, $rows[0]['uid']);
+        self::assertSame('alpha', $rows[0]['group_name']);
+        self::assertIsNumeric($rows[0]['enabled']);
+        self::assertSame($expected ? 1 : 0, (int)$rows[0]['enabled']);
+        self::assertSame(
+            ['alpha' => $expected],
+            (new ToolGroupStateRepository($pool))->overrides(),
+        );
+        self::assertSame(
+            ['alpha_override' => true],
+            (new ToolStateRepository($pool))->overrides(),
+        );
+        self::assertSame(
+            $expected ? ['alpha_default_on', 'alpha_override', 'beta_on'] : ['beta_on'],
+            $this->availabilityFor($registry)->enabledNames(),
+        );
+    }
+
+    /**
+     * @return iterable<string, array{mixed, bool}>
+     */
+    public static function toggleBodyValues(): iterable
+    {
+        yield 'json-true' => [true, true];
+        yield 'integer-one' => [1, true];
+        yield 'form-one' => ['1', true];
+        yield 'form-true' => ['true', true];
+        yield 'json-false' => [false, false];
+        yield 'integer-zero' => [0, false];
+        yield 'form-zero' => ['0', false];
+        yield 'form-false' => ['false', false];
+        yield 'null' => [null, false];
+        yield 'array' => [[], false];
     }
 }
