@@ -20,8 +20,10 @@ use Netresearch\NrLlm\Domain\ValueObject\SkillSourceFacts;
 interface SkillSourceLookupInterface
 {
     /**
-     * The source's current facts, or null when the source record does not
-     * exist (or is deleted). A missing source vouches for nothing.
+     * The source's current facts, or null for a nonpositive UID or a missing,
+     * deleted, hidden or disabled source. A source without an active row vouches
+     * for nothing. An unknown stored type reads as null; an unknown stored trust
+     * level reads as untrusted.
      */
     public function find(int $sourceUid): ?SkillSourceFacts;
 }
