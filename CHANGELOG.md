@@ -83,6 +83,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Optional tool declaration diagnostics preserve catalogue rendering.** A
+  logger failure while reporting a malformed editor action leaves that tool
+  under its wire name and keeps healthy sibling declarations visible. Tool
+  availability and the original warning level, message and cause stay intact.
+
 - **Keyword search availability tolerates broken backend discovery.** A backend
   whose priority lookup throws no longer hides a usable index sibling. A failed
   backend iterator makes the availability check return `false` instead of

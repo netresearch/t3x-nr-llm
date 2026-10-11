@@ -9,19 +9,26 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
+use Error;
 use GuzzleHttp\Psr7\ServerRequest as GuzzleServerRequest;
+use InvalidArgumentException;
 use Netresearch\NrLlm\Controller\Backend\ToolController;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
 use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\EditorActionDiagnosticLogger;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeEditorActionTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeMalformedEditorActionTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Http\Message\ResponseInterface;
 use ReflectionClass;
+use RuntimeException;
+use Throwable;
 use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
@@ -325,5 +332,121 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
     {
         $reflection = new ReflectionClass($object);
         $reflection->getProperty($property)->setValue($object, $value);
+    }
+
+    #[Test]
+    #[DataProvider('declarationDiagnosticModes')]
+    public function listActionKeepsRealRowsWhenOptionalDeclarationDiagnosticsFail(
+        string $mode,
+    ): void {
+        $this->importFixture('BeUsers.csv');
+        $backendUser = $this->setUpBackendUser(1);
+        $GLOBALS['LANG'] = $this
+            ->get(LanguageServiceFactory::class)
+            ->createFromUserPreferences($backendUser);
+        $diagnosticFailure = match ($mode) {
+            'runtime' => new RuntimeException('Optional diagnostic unavailable.'),
+            'error' => new Error('Optional diagnostic unavailable.'),
+            default => null,
+        };
+        $logger = $mode === 'none' ? null : new EditorActionDiagnosticLogger($diagnosticFailure);
+        $registry = new ToolRegistry(
+            [
+                new FakeMalformedEditorActionTool('broken_tool'),
+                new FakeEditorActionTool('write_tool'),
+            ],
+        );
+        $pool = $this->toolConnectionPool();
+        $moduleFactory = $this->get(ModuleTemplateFactory::class);
+        self::assertInstanceOf(ModuleTemplateFactory::class, $moduleFactory);
+        $pageRenderer = $this->get(PageRenderer::class);
+        self::assertInstanceOf(PageRenderer::class, $pageRenderer);
+        $availability = new ToolAvailabilityService(
+            $registry,
+            new ToolStateRepository($pool),
+            new ToolGroupStateRepository($pool),
+            $logger,
+        );
+        $controller = new ToolController(
+            $moduleFactory,
+            $registry,
+            $availability,
+            new ToolStateRepository($pool),
+            new ToolGroupStateRepository($pool),
+            $pageRenderer,
+        );
+        $this->setPrivateProperty(
+            $controller,
+            'request',
+            $this->createBackendRequest(),
+        );
+        $response = null;
+        $escaped = null;
+        try {
+            $response = $controller->listAction();
+        } catch (Throwable $exception) {
+            $escaped = $exception;
+        }
+
+        self::assertNull(
+            $escaped,
+            'Optional declaration diagnostics must not replace the real module response.',
+        );
+        self::assertInstanceOf(
+            ResponseInterface::class,
+            $response,
+        );
+        self::assertSame(200, $response->getStatusCode());
+        $body = (string)$response->getBody();
+        self::assertStringContainsString(
+            '<code class="text-break">broken_tool</code>',
+            $body,
+        );
+        self::assertStringContainsString(
+            'model-facing description of broken_tool',
+            $body,
+        );
+        self::assertStringContainsString('data-tool="broken_tool"', $body);
+        self::assertStringContainsString('Update page metadata', $body);
+        self::assertStringContainsString(
+            'icon-nrllm-editor-action-page-metadata',
+            $body,
+        );
+        self::assertStringContainsString('data-tool="write_tool"', $body);
+        self::assertSame(['broken_tool'], $availability->enabledNames());
+        if ($logger instanceof EditorActionDiagnosticLogger) {
+            self::assertCount(1, $logger->records);
+            self::assertSame('warning', $logger->records[0]['level']);
+            self::assertSame(
+                'Tool {tool} declares a malformed editor action; rendering it as an undeclared tool.',
+                $logger->records[0]['message'],
+            );
+            self::assertSame(
+                ['tool', 'exception'],
+                array_keys($logger->records[0]['context']),
+            );
+            self::assertSame(
+                'broken_tool',
+                $logger->records[0]['context']['tool'],
+            );
+            self::assertInstanceOf(
+                InvalidArgumentException::class,
+                $logger->records[0]['context']['exception'],
+            );
+            self::assertSame(
+                1786406402,
+                $logger->records[0]['context']['exception']->getCode(),
+            );
+        }
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function declarationDiagnosticModes(): iterable
+    {
+        foreach (['runtime', 'error', 'recording', 'none'] as $mode) {
+            yield $mode => [$mode];
+        }
     }
 }
