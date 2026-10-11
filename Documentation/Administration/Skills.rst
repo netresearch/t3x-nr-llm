@@ -165,6 +165,13 @@ rechecks the persisted row and changes an interrupted lease to retryable
 again to retry. Lease ownership fields stay internal and are not editable in
 FormEngine (:ref:`ADR-221 <adr-221>`).
 
+GitHub may mark an oversized recursive tree response as ``truncated``.
+Such a listing is rejected before any skill file is fetched: it cannot prove
+that omitted paths were removed. A ``repo`` source reports ``error`` and
+preserves its existing skills and pinned SHA. For a ``marketplace`` source,
+the affected child repository reports a partial sync; its existing skills
+remain unchanged, and other reachable child repositories can still sync.
+
 Deleting a source cascade-deletes its skills.
 
 .. _administration-skills-support-status:
