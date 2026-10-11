@@ -75,8 +75,14 @@ class Handler(BaseHTTPRequestHandler):
         self._send(404, {"error": "not found"})
 
     def do_POST(self) -> None:
-        # Read (drain) the body before branching so every exit path leaves the
-        # HTTP/1.1 keep-alive connection in sync; guard the size before reading.
+        # This sidecar reads Content-Length bodies, not transfer codings. Close
+        # before reading unsupported framing so its unread bytes cannot become
+        # another request on this HTTP/1.1 connection.
+        if "Transfer-Encoding" in self.headers:
+            self.close_connection = True
+            self._send(400, {"error": "Transfer-Encoding is not supported"})
+            return
+        # Drain supported bodies before branching; guard their size first.
         try:
             length = int(self.headers.get("Content-Length", "0"))
         except ValueError:

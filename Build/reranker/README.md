@@ -25,6 +25,11 @@ The request must be a JSON object with a nonempty string `query` and an array
 document array returns an empty score array without calling the model. Scores
 retain the input order; the consumer sorts them. Scores must be finite numbers.
 
+POST request bodies use `Content-Length`; transfer codings, including chunked
+requests, are unsupported. A POST with any `Transfer-Encoding` header returns
+HTTP 400 and closes the connection before reading or inference. The body-byte
+limit below applies to requests framed with `Content-Length`.
+
 Malformed JSON or an invalid request shape returns HTTP 400. A batch exceeding
 `RERANKER_MAX_DOCUMENTS` or a body exceeding `RERANKER_MAX_BODY_BYTES` returns
 HTTP 413. An inference failure or a non-finite model score returns HTTP 500 with

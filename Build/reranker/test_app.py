@@ -330,6 +330,66 @@ class HandlerTest(unittest.TestCase):
                 self.assertIn("error", payload)
                 self.assert_connection_still_usable()
 
+    def assert_transfer_encoding_rejected(self, headers, body):
+        import socket
+
+        # Use one real socket and its one response reader: no reconnect or
+        # separately buffered reader can hide an unread request body.
+        with socket.create_connection(
+            ("127.0.0.1", self.server.server_port), timeout=5
+        ) as connection:
+            request = (
+                "POST /rerank HTTP/1.1\r\nHost: localhost\r\n" + headers + "\r\n"
+            ).encode("ascii") + body
+            connection.sendall(
+                request + b"GET /health HTTP/1.1\r\nHost: localhost\r\n\r\n"
+            )
+            response = http.client.HTTPResponse(connection)
+            response.begin()
+            reader = response.fp
+            try:
+                self.assertEqual(400, response.status)
+                self.assertIsNotNone(response.length)
+                payload = json.loads(reader.read(response.length))
+                self.assertIn("error", payload)
+                self.assertEqual(b"", reader.read(1))
+            finally:
+                response.close()
+            self.assertEqual([], app._model.calls)
+
+    def test_transfer_encoding_without_content_length_closes_before_inference(self):
+        body = b'{"query":"q","documents":[{"id":"one","text":"passage"}]}'
+        for encoding in ("chunked", "gzip", "identity", ""):
+            with self.subTest(encoding=encoding):
+                app._model.calls.clear()
+                wire_body = (
+                    f"{len(body):x}\r\n".encode("ascii") + body + b"\r\n0\r\n\r\n"
+                    if encoding == "chunked"
+                    else body
+                )
+                self.assert_transfer_encoding_rejected(
+                    f"Transfer-Encoding: {encoding}\r\n", wire_body
+                )
+
+    def test_transfer_encoding_with_content_length_is_not_scored_as_plain_json(self):
+        body = b'{"query":"q","documents":[{"id":"one","text":"passage"}]}'
+        for encoding in ("chunked", "gzip", "identity", ""):
+            with self.subTest(encoding=encoding):
+                app._model.calls.clear()
+                self.assert_transfer_encoding_rejected(
+                    f"Transfer-Encoding: {encoding}\r\nContent-Length: {len(body)}\r\n",
+                    body,
+                )
+
+    def test_unsupported_chunked_framing_is_rejected_before_the_length_cap(self):
+        body = b'{"query":"q","documents":[]}'
+        chunked = f"{len(body):x}\r\n".encode("ascii") + body + b"\r\n0\r\n\r\n"
+        for maximum in (1, len(body)):
+            with self.subTest(maximum=maximum), patch.object(app, "MAX_BODY", maximum):
+                self.assert_transfer_encoding_rejected(
+                    "Transfer-Encoding: chunked\r\n", chunked
+                )
+
 
 if __name__ == "__main__":
     unittest.main()
