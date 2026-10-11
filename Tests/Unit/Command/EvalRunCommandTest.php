@@ -35,6 +35,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
+use Throwable;
 
 #[CoversClass(EvalRunCommand::class)]
 final class EvalRunCommandTest extends TestCase
@@ -273,5 +274,98 @@ final class EvalRunCommandTest extends TestCase
         self::assertStringContainsString('no decision of this run could be made', $tester->getDisplay());
         self::assertCount(1, $repository->saved);
         self::assertSame(DecisionGrader::FAILED_SERIES, $repository->saved[0]->grader);
+    }
+
+    #[Test]
+    #[DataProvider('invalidTolerances')]
+    public function invalidTolerancesFailBeforeAnyWork(
+        string $option,
+        string $value,
+    ): void {
+        $repository = new InMemoryEvaluationResultRepository();
+        $worker = new StaticCompletionService('ACK');
+        $tester = new CommandTester($this->command($worker, $repository));
+        $exit = null;
+        $failure = null;
+        try {
+            $exit = $tester->execute(['set' => self::SET_IDENTIFIER, $option => $value]);
+        } catch (Throwable $exception) {
+            $failure = $exception;
+        }
+
+        self::assertSame(
+            [],
+            $worker->receivedPrompts,
+            'Invalid tolerances must be rejected before external work.',
+        );
+        self::assertSame(
+            [],
+            $repository->saved,
+            'Invalid tolerances must not persist a measurement.',
+        );
+        self::assertNull(
+            $failure,
+            'The command must report invalid input as a failure status.',
+        );
+        self::assertSame(Command::FAILURE, $exit);
+        self::assertStringContainsString($option, $tester->getDisplay());
+        self::assertStringContainsString('0..1', $tester->getDisplay());
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function invalidTolerances(): iterable
+    {
+        foreach (['--max-pass-rate-drop', '--max-mean-score-drop'] as $option) {
+            foreach ([
+                'below-range' => '-0.0001',
+                'above-range' => '1.0001',
+                'overflow' => '1e309',
+                'nan' => 'NAN',
+                'infinity' => 'INF',
+                'negative-infinity' => '-INF',
+                'nonnumeric' => 'typo',
+                'empty' => '',
+            ] as $case => $value) {
+                yield $option . '-' . $case => [$option, $value];
+            }
+        }
+    }
+
+    #[Test]
+    #[DataProvider('validTolerances')]
+    public function validToleranceBoundariesControlRegression(
+        string $value,
+        int $expectedExit,
+    ): void {
+        $repository = new InMemoryEvaluationResultRepository();
+        $repository->seed($this->perfectBaseline());
+
+        $worker = new StaticCompletionService('nope');
+        $tester = new CommandTester($this->command($worker, $repository));
+        $exit = $tester->execute(
+            [
+                'set' => self::SET_IDENTIFIER,
+                '--max-pass-rate-drop' => $value,
+                '--max-mean-score-drop' => $value,
+                '--fail-on-regression' => true,
+            ],
+        );
+        self::assertSame($expectedExit, $exit);
+        self::assertCount(1, $worker->receivedPrompts);
+        self::assertCount(1, $repository->saved);
+    }
+
+    /**
+     * @return iterable<string, array{string, int}>
+     */
+    public static function validTolerances(): iterable
+    {
+        yield 'zero' => ['0', Command::FAILURE];
+        yield 'negative-zero' => ['-0.0', Command::FAILURE];
+        yield 'decimal' => ['0.5', Command::FAILURE];
+        yield 'scientific' => ['5e-1', Command::FAILURE];
+        yield 'one' => ['1', Command::SUCCESS];
     }
 }

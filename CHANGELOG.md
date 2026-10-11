@@ -10,6 +10,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Upgrading from 0.40
 
+- **Evaluation regression tolerances are validated before a run.** All four CLI drop options and `RegressionThresholds` require finite values in the inclusive `0..1` interval. Invalid strings, infinity, NAN and out-of-range values fail without starting evaluation or storing a measurement; zero and negative zero remain valid.
 - **Run the upgrade wizard "Write the version digest onto existing skills" (`nrllmAdr214SkillVersionDigest`).** It writes the new version digest onto every synced skill. A row whose stored name, description, support status, allowed tools or body no longer match what the sync wrote is disabled, recorded in the skill audit trail as `version_digest_unverified` and left without a digest until its next sync. Rows without a digest keep the body-only integrity check and cannot be approved.
 - **After the upgrade a frontmatter-only change upstream disables an enabled skill** on the next sync, as a body change already did. Expect more re-reviews for sources that change their frontmatter.
 - **The name, description and body of a synced skill are read-only in FormEngine.** An edit of any of them fails the integrity check, as a body edit already did.
@@ -91,6 +92,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **BREAKING for implementations of `ToolCallPolicyInterface` and `ToolLoopServiceInterface` (ADR-038 item 5).** `ToolCallPolicyInterface::decide()`, `explain()` and `filterOfferable()` take an optional `?SkillToolAllowList $runAllowList` last, and the interface gains `skillAllowListForRun()`, which resolves the list over the configuration's skills and the run's forced skills; without the argument the policy keeps the configuration-only resolution. `ToolLoopServiceInterface::runLoop()` takes an optional `?SkillToolAllowList $skillAllowList` last, the list a queued run was enqueued under. Callers are unaffected; a class outside nr-llm that implements either interface has to add the parameters and the method.
 
 ### Fixed
+
+- **Keyword search availability tolerates broken backend discovery.** A backend
+  whose priority lookup throws no longer hides a usable index sibling. A failed
+  backend iterator makes the availability check return `false` instead of
+  throwing.
 
 - **Invalid retrieval provenance follows the public exception contract (ADR-053).** Constructor validation implements `NrLlmExceptionInterface` while preserving native `InvalidArgumentException` catch compatibility, reason codes and messages.
 
