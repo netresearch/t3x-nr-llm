@@ -24,16 +24,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- **Compatible common-marker runtime and logic exceptions (ADR-053).**
-  `Exception\RuntimeException` and `Exception\LogicException` retain their
-  native parent hierarchy and provide marker types for internally generated
-  failures. The public API snapshot gains these two types.
-
 - **Worker operations (ADR-219).** `nrllm:agent:status` reports queue wait,
   unknown timings, expired run leases and transport-scoped consumer heartbeats,
   with JSON output and explicit health thresholds. Queue-entry time is recorded
   on enqueue and requeue; legacy rows remain unknown. Idle consumers renew
   process heartbeats independently of run leases, with bounded retention.
+
+- **Compatible common-marker runtime and logic exceptions (ADR-053).**
+  `Exception\RuntimeException` and `Exception\LogicException` retain their
+  native parent hierarchy and provide marker types for internally generated
+  failures. The public API snapshot gains these two types.
 
 - **Retrieval experiment provenance (ADR-215).** Registered retrievers can add the optional `RetrievalProvenanceProviderInterface` and readonly `RetrievalProvenance` (`@api`) to declare corpus, model, chunking, pipeline and execution revisions. The existing result row preserves benchmark/variant fingerprints and privacy-filtered measured rankings, form, hard class and latency. The API inventory is additive.
 
@@ -92,6 +92,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Invalid retrieval provenance follows the public exception contract (ADR-053).** Constructor validation implements `NrLlmExceptionInterface` while preserving native `InvalidArgumentException` catch compatibility, reason codes and messages.
+
 - **The common exception marker covers all extension failure families
   (ADR-053).** Agent, specialized, skill and tool errors, delegated credential
   validation, editor-action validation and internally generated runtime or
@@ -99,8 +101,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Existing native parent catches, messages, codes and exception chaining stay
   compatible. Full-source discovery and consumer-boundary tests prevent the
   former two-directory check from overlooking new families.
-
-- **Invalid retrieval provenance follows the public exception contract (ADR-053).** Constructor validation implements `NrLlmExceptionInterface` while preserving native `InvalidArgumentException` catch compatibility, reason codes and messages.
 
 - **Retrieval details preserve legacy byte ids at full privacy (ADR-215).** Invalid UTF-8 question ids, hard classes and measured document ids use a versioned lossless field representation after filtering their original bytes. Ordinary UTF-8 and prompt snapshots remain compatible; redacted and metadata policies cannot be bypassed through encoding.
 
