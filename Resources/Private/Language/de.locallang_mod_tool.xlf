@@ -289,6 +289,34 @@
                 <source>Response truncated — the model hit the max-tokens limit. Raise Max tokens in Advanced and run again.</source>
                 <target>Antwort abgeschnitten — das Modell hat das Token-Limit erreicht. Maximale Tokens unter „Erweitert“ erhöhen und erneut ausführen.</target>
             </trans-unit>
+            <trans-unit id="playground.outcome.awaitingApproval">
+                <source>Awaiting approval</source>
+                <target>Warten auf Freigabe</target>
+            </trans-unit>
+            <trans-unit id="playground.outcome.awaitingInput">
+                <source>Awaiting input</source>
+                <target>Warten auf Eingabe</target>
+            </trans-unit>
+            <trans-unit id="playground.outcome.guardrailBlocked">
+                <source>Blocked by a guardrail</source>
+                <target>Durch Schutzregel blockiert</target>
+            </trans-unit>
+            <trans-unit id="playground.outcome.guardrailApproval">
+                <source>Guardrail approval required</source>
+                <target>Freigabe für Schutzregel erforderlich</target>
+            </trans-unit>
+            <trans-unit id="playground.outcome.cancelled">
+                <source>Cancelled</source>
+                <target>Abgebrochen</target>
+            </trans-unit>
+            <trans-unit id="playground.outcome.incomplete">
+                <source>Incomplete</source>
+                <target>Unvollständig</target>
+            </trans-unit>
+            <trans-unit id="playground.outcome.continueRun">
+                <source>Continue in AI &gt; Operation &gt; Agent Runs.</source>
+                <target>Im Modul „Agent-Läufe“ fortsetzen.</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

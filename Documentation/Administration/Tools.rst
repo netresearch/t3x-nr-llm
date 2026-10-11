@@ -1327,6 +1327,13 @@ displayed string — tool arguments, tool results (which may include
 ``sys_log`` content), and the final answer — is rendered escaped; HTML is
 only ever shown inside a sandboxed preview, never injected into the page.
 
+The inspector distinguishes a completed run from a run waiting for approval
+or input, a guardrail outcome, or cancellation. Waiting runs show their run
+reference and direct you to :guilabel:`AI > Operation > Agent Runs` for the existing
+approval or input workflow. The playground does not add a second decision
+form. A stream that ends without a settled result keeps its received steps
+and is marked *incomplete*, rather than completed.
+
 Each run is bounded by the iteration cap (default 5) and, when the
 configuration's backend user has a budget, by the per-iteration budget
 pre-flight. If the cap is hit with tools still pending, a final tool-free
