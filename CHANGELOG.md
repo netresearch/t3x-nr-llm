@@ -83,6 +83,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Tool-provider diagnostics do not abort registration.** Logger failures
+  while reporting a colliding name or a broken provider preserve registered
+  rows and healthy providers. Diagnostics retain their original level, message
+  and cause; builtin validation and execution gates keep their behavior.
+
 - **Keyword search availability tolerates broken backend discovery.** A backend
   whose priority lookup throws no longer hides a usable index sibling. A failed
   backend iterator makes the availability check return `false` instead of

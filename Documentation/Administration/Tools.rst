@@ -916,6 +916,11 @@ tools (for example ``get_env_raw`` and ``get_php_info_raw``) ship **disabled
 by default** because they return unredacted, secret-bearing output; enable
 them only deliberately.
 
+An imported tool whose name is already registered is dropped; the existing
+tool keeps its name. A failing tool provider retains the rows it supplied
+before the failure, and healthy providers remain available. Optional logging
+failures do not change either outcome.
+
 A tool that is refused never reaches the model, so by itself the model cannot
 tell it from a tool that does not exist. An extension that runs a chat can ask
 :php:`\Netresearch\NrLlm\Service\Tool\UnavailableToolsResolverInterface` for
