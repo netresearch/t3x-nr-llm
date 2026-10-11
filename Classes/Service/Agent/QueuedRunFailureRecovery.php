@@ -42,6 +42,8 @@ use Throwable;
  */
 final readonly class QueuedRunFailureRecovery
 {
+    use OptionalAgentDiagnostics;
+
     public function __construct(
         private AgentRunPersister $persister,
         private ?LoggerInterface $logger = null,
@@ -72,12 +74,26 @@ final readonly class QueuedRunFailureRecovery
                 // no longer owns the run (reaper reclaimed it), do NOT settle —
                 // return LEASE_LOST and leave the row to its current owner.
                 if (!$this->persister->settleDeadLettered($handle, $e, AgentRunTerminationReason::NOT_RETRYABLE, $workerIdentity)) {
-                    $this->logger?->notice('Queued agent run could not be dead-lettered (ownership lost or already terminal); leaving it untouched', ['run' => $runUuid]);
+                    $this->recordDiagnostic(
+                        function () use ($runUuid): void {
+                            $this->logger?->notice(
+                                'Queued agent run could not be dead-lettered (ownership lost or already terminal); leaving it untouched',
+                                ['run' => $runUuid],
+                            );
+                        },
+                    );
 
                     return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $steps, error: $e);
                 }
 
-                $this->logger?->warning('Queued agent run failed with a non-retryable error; dead-lettered', ['run' => $runUuid, 'class' => $class->value]);
+                $this->recordDiagnostic(
+                    function () use ($runUuid, $class): void {
+                        $this->logger?->warning(
+                            'Queued agent run failed with a non-retryable error; dead-lettered',
+                            ['run' => $runUuid, 'class' => $class->value],
+                        );
+                    },
+                );
 
                 return new AgentRunResult(outcome: AgentRunOutcome::FAILED, runUuid: $runUuid, steps: $steps, error: $e);
             }
@@ -95,7 +111,14 @@ final readonly class QueuedRunFailureRecovery
                     return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $steps, error: $e);
                 }
 
-                $this->logger?->warning('Queued agent run failed mid non-idempotent write; dead-lettered instead of retried (ADR-111)', ['run' => $runUuid]);
+                $this->recordDiagnostic(
+                    function () use ($runUuid): void {
+                        $this->logger?->warning(
+                            'Queued agent run failed mid non-idempotent write; dead-lettered instead of retried (ADR-111)',
+                            ['run' => $runUuid],
+                        );
+                    },
+                );
 
                 return new AgentRunResult(outcome: AgentRunOutcome::FAILED, runUuid: $runUuid, steps: $steps, error: $e);
             }
@@ -103,12 +126,26 @@ final readonly class QueuedRunFailureRecovery
             $count = $currentRun instanceof AgentRun ? $currentRun->requeueCount : -1;
             if ($count < 0 || $count >= AgentRuntime::MAX_REQUEUES) {
                 if (!$this->persister->settleDeadLettered($handle, $e, AgentRunTerminationReason::RETRIES_EXHAUSTED, $workerIdentity)) {
-                    $this->logger?->notice('Queued agent run could not be dead-lettered (ownership lost or already terminal); leaving it untouched', ['run' => $runUuid]);
+                    $this->recordDiagnostic(
+                        function () use ($runUuid): void {
+                            $this->logger?->notice(
+                                'Queued agent run could not be dead-lettered (ownership lost or already terminal); leaving it untouched',
+                                ['run' => $runUuid],
+                            );
+                        },
+                    );
 
                     return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $steps, error: $e);
                 }
 
-                $this->logger?->warning('Queued agent run exhausted its retry budget; dead-lettered', ['run' => $runUuid, 'requeueCount' => $count]);
+                $this->recordDiagnostic(
+                    function () use ($runUuid, $count): void {
+                        $this->logger?->warning(
+                            'Queued agent run exhausted its retry budget; dead-lettered',
+                            ['run' => $runUuid, 'requeueCount' => $count],
+                        );
+                    },
+                );
 
                 return new AgentRunResult(outcome: AgentRunOutcome::FAILED, runUuid: $runUuid, steps: $steps, error: $e);
             }
@@ -118,7 +155,14 @@ final readonly class QueuedRunFailureRecovery
             // a concurrent cancel won). Do NOT settle: the row belongs to its
             // current owner and settling it would destroy that owner's state.
             if (!$this->persister->requeue($handle, $workerIdentity)) {
-                $this->logger?->notice('Queued agent run could not be requeued (ownership lost or already terminal); leaving it untouched', ['run' => $runUuid]);
+                $this->recordDiagnostic(
+                    function () use ($runUuid): void {
+                        $this->logger?->notice(
+                            'Queued agent run could not be requeued (ownership lost or already terminal); leaving it untouched',
+                            ['run' => $runUuid],
+                        );
+                    },
+                );
 
                 return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $steps, error: $e);
             }
@@ -132,7 +176,14 @@ final readonly class QueuedRunFailureRecovery
 
             return new AgentRunResult(outcome: AgentRunOutcome::REQUEUED, runUuid: $runUuid, steps: $steps, error: $e);
         } catch (Throwable $internal) {
-            $this->logger?->error('Queued agent run recovery failed; dead-lettering', ['run' => $runUuid, 'exception' => $internal]);
+            $this->recordDiagnostic(
+                function () use ($runUuid, $internal): void {
+                    $this->logger?->error(
+                        'Queued agent run recovery failed; dead-lettering',
+                        ['run' => $runUuid, 'exception' => $internal],
+                    );
+                },
+            );
             try {
                 $this->persister->settleDeadLettered($handle, $e, AgentRunTerminationReason::RETRIES_EXHAUSTED, $workerIdentity);
             } catch (Throwable) {

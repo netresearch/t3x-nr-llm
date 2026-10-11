@@ -82,6 +82,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Keep queued agent recovery decisions and original failures intact when an
+  optional diagnostic logger throws; retain write fences, guarded settlement
+  and dispatch behavior (ADR-225).
+
 - Optional run-persister diagnostics preserve the existing storage-failure fallbacks even when the logger throws; refused writes, failed claims and explicit caller validation retain their contracts (ADR-225).
 
 - Optional executor diagnostics retain cancellation, lease-loss, guardrail and suspension outcomes when logging throws; original exceptions and guarded settlement remain authoritative (ADR-225).
