@@ -83,6 +83,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Strengthen the Tools controller regression tests for persisted re-enable
+  operations, Boolean form values and the group/per-tool availability cascade.
+
 - **Keyword search availability tolerates broken backend discovery.** A backend
   whose priority lookup throws no longer hides a usable index sibling. A failed
   backend iterator makes the availability check return `false` instead of
