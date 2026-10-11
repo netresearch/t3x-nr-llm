@@ -173,6 +173,11 @@ still propagate.
 The logger is called once with the existing severity, message and context,
 without a fallback logging attempt. See :ref:`adr-225`.
 
+The executor also retains its original outcome and exception when optional
+logging fails after cancellation, lease loss, a guardrail verdict or a refused
+approval/input suspension. Ownership guards continue to protect a row reclaimed
+by another worker. Successful stored suspensions retain their resumable state.
+
 .. _administration-agent-runs-async:
 
 Running queued runs asynchronously
