@@ -357,10 +357,15 @@ final readonly class McpTokenExchange
                 );
             }
         } catch (Throwable $exception) {
-            $this->vault->delete(
-                $identifier,
-                'Discard invalid MCP delegated credential binding',
-            );
+            try {
+                $this->vault->delete(
+                    $identifier,
+                    'Discard invalid MCP delegated credential binding',
+                );
+            } catch (Throwable) {
+                /* Rejection cleanup must not replace the established sanitized failure. */
+            }
+
             throw $exception;
         }
     }
@@ -384,10 +389,15 @@ final readonly class McpTokenExchange
                 );
             }
         } catch (Throwable $exception) {
-            $this->vault->delete(
-                $credential->identifier,
-                'Discard unusable MCP delegated credential',
-            );
+            try {
+                $this->vault->delete(
+                    $credential->identifier,
+                    'Discard unusable MCP delegated credential',
+                );
+            } catch (Throwable) {
+                /* Rejection cleanup must not replace the established sanitized failure. */
+            }
+
             throw $exception;
         }
 

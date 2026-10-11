@@ -55,6 +55,14 @@ it keeps the runtime's initiating actor through the downstream auth boundary.
   anonymous mode, static machine mode or the original user token.
 - Bound exchange responses and return sanitised failure codes without echoing
   IdP response bodies, form fields, credentials or Bearer values.
+- Preserve an already-established cancellation, exhausted deadline or rejected
+  stored binding when its subordinate Vault deletion attempt throws. Keep the
+  existing public sanitiser: cancellation stays cancelled, exhausted deadline
+  stays out of budget and a stored-binding failure keeps its existing sanitised
+  classification. Attempt the existing deletion once through normal Vault
+  ACL/audit; a failed deletion
+  can leave the temporary credential until expiry. This does not suppress the
+  existing `cleanup_failed` outcome of an explicit credential-session close.
 
 ## What it explicitly does not do
 
@@ -106,6 +114,7 @@ unreleased version constraint or bypass Vault to emulate missing capability.
 | IdP/MCP host gates precede secrets; redirects refused | integration Vault-backed exchange and MCP contracts |
 | Exchange spends the operation deadline; cancellation prevents next leg | unit deadline/cancellation contracts |
 | Temporary store expiry and delete on success/error/cancel | unit credential-session lifecycle contracts |
+| Rejection cleanup cannot replace cancellation/deadline/binding failure; healthy cleanup still occurs once | unit exchange contracts with healthy, RuntimeException, Error and cancellation cleanup counterparts; exact public codes/messages/flags and attempt captures outside production catches |
 | Queue and approval/input resume resolve original actor afresh | functional `AgentRunDelegatedMcpTest` |
 | Discovery authority is explicit and never used for tool calls | unit MCP import/probe and delegated-client contracts |
 | Tokens absent from persisted run/messages/events and error strings | functional persistence contract; unit sanitisation tests |
