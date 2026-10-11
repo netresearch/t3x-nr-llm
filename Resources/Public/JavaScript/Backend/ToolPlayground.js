@@ -255,11 +255,9 @@ class ToolPlayground {
                     live.status = event.event;
                     live.runUuid = event.runUuid;
                     live.error = event.error;
-                    sawTerminal = true;
                     this.safeRender(live);
                     return;
                 } else if (event.event === 'error') {
-                    sawTerminal = true;
                     const message = event.error || 'Run failed';
                     this.renderError(message);
                     Notification.error('Error', message);
