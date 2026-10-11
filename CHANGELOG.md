@@ -83,6 +83,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Strengthen the use-case pack controller regression tests for read-only plans,
+  POST confirmation, real installation, repeat installs and operator feedback.
+
 - **Keyword search availability tolerates broken backend discovery.** A backend
   whose priority lookup throws no longer hides a usable index sibling. A failed
   backend iterator makes the availability check return `false` instead of
