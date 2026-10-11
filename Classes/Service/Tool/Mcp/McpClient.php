@@ -26,9 +26,9 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 /**
  * The MCP conversation: handshake, catalogue listing, tool invocation (ADR-116).
  *
- * Owns the protocol; {@see McpHttpTransport} owns the wire. The split exists so
- * the handshake and the pagination loop can be asserted against a fake
- * transport, without a PSR-18 double and without a live server.
+ * Owns the handshake and pagination; {@see McpHttpTransport} owns the wire.
+ * Tests exercise both real classes through a scripted PSR-18 client, including
+ * actual request encoding, without contacting a live server.
  *
  * A session is per OPERATION, not per instance. Each public method opens one,
  * uses it and drops it. That costs two extra round trips per import and per
@@ -171,9 +171,9 @@ final readonly class McpClient
      * because the result is byte-bounded before it reaches the model, and a
      * note at the end is the first thing a cut removes — on the long answers
      * that get cut, which is where being told the answer is partial matters
-     * most. The note is our sentence, not the server's: the types are stripped,
-     * clipped and enumerated only up to a bound, so a hostile server cannot
-     * write the tool result through it.
+     * most. The note is our sentence, not the server's: types are reported from
+     * a fixed local vocabulary, with unrecognised types counted as `other`, so
+     * the remote type label is not copied into the note.
      *
      * The outcome is typed rather than a string because the protocol's own
      * `isError` decides what KIND of step the run records; see
@@ -403,10 +403,9 @@ final readonly class McpClient
 
         $objects = [];
         foreach ($tools as $tool) {
-            // A non-object entry is dropped here rather than rejected: one
-            // malformed entry must not cost the operator the whole catalogue.
-            // The import counts what it could not name, so nothing vanishes
-            // silently.
+            // Non-array entries are dropped before import. Only retained
+            // array entries reach its validation and invalid-entry counters;
+            // the importer does not count the entries discarded here.
             if (\is_array($tool)) {
                 /** @var array<string, mixed> $tool */
                 $objects[] = $tool;
