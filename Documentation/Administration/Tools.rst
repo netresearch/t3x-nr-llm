@@ -955,6 +955,11 @@ The declaration is presentation only. It does not decide whether a tool writes
 — that is the tool's declared effect — and it changes nothing about how a call
 is fenced, approved or audited.
 
+A declaration that throws leaves its row under the wire name and preserves
+healthy declarations beside it. Failure to deliver its optional warning also
+preserves module rendering and the tool's availability
+(:ref:`ADR-152 <adr-152>`).
+
 .. _administration-tools-editor-actions:
 
 What editors see
