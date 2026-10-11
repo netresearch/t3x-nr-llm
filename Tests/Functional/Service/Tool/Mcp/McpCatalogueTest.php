@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool\Mcp;
 
 use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
+use Netresearch\NrLlm\Domain\ValueObject\McpToolRecord;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpServerRepository;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpToolRepository;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -229,13 +230,79 @@ final class McpCatalogueTest extends AbstractFunctionalTestCase
     public function aToolThatComesBackIsRevivedNotDuplicated(): void
     {
         $uid = $this->insertServer();
-        $this->tools->reconcile($uid, 0, $this->catalogue('read', 'write'), 1000);
+        $this->tools->reconcile(
+            $uid,
+            0,
+            $this->catalogue('read', 'write'),
+            1000,
+        );
+        $connection = $this->connectionPool->getConnectionForTable('tx_nrllm_mcp_tool');
+        $originalUidValue = $connection->fetchOne(
+            'SELECT uid FROM tx_nrllm_mcp_tool WHERE server = ? AND remote_name = ?',
+            [$uid, 'write'],
+        );
+        self::assertIsNumeric($originalUidValue);
+        $originalUid = (int)$originalUidValue;
+        self::assertGreaterThan(0, $originalUid);
+
         $this->tools->reconcile($uid, 0, $this->catalogue('read'), 2000);
+        $gone = array_values(
+            array_filter(
+                $this->tools->findAllByServer($uid),
+                static fn(
+                    McpToolRecord $tool,
+                ): bool => $tool->remoteName === 'write',
+            ),
+        );
+        self::assertCount(1, $gone);
+        self::assertSame($originalUid, $gone[0]->uid);
+        self::assertTrue($gone[0]->orphaned);
+        self::assertSame(1000, $gone[0]->crdate);
+        self::assertSame(2000, $gone[0]->tstamp);
 
-        $this->tools->reconcile($uid, 0, $this->catalogue('read', 'write'), 3000);
+        $revivedCatalogue = $this->catalogue('read', 'write');
+        self::assertCount(2, $revivedCatalogue);
+        self::assertArrayHasKey(1, $revivedCatalogue);
+        $revivedCatalogue[1]['description'] = 'revived description';
+        $revivedCatalogue[1]['inputSchema'] = '{"type":"object","properties":{"new":{"type":"string"}}}';
+        $revivedCatalogue[1]['remoteAnnotations'] = '{"readOnlyHint":true}';
+        self::assertSame(
+            0,
+            $this->tools->reconcile($uid, 0, $revivedCatalogue, 3000),
+        );
 
-        self::assertCount(2, $this->tools->findLiveByServer($uid));
+        $live = $this->tools->findLiveByServer($uid);
+        self::assertCount(2, $live);
         self::assertCount(2, $this->tools->findAllByServer($uid));
+        $returned = array_values(
+            array_filter(
+                $live,
+                static fn(
+                    McpToolRecord $tool,
+                ): bool => $tool->remoteName === 'write',
+            ),
+        );
+        self::assertCount(1, $returned);
+        $write = $returned[0];
+        self::assertSame(
+            $originalUid,
+            $write->uid,
+            'Revival must keep the original SQL row identity.',
+        );
+        self::assertSame(
+            1000,
+            $write->crdate,
+            'Revival must retain the original creation time.',
+        );
+        self::assertSame(3000, $write->tstamp);
+        self::assertFalse($write->orphaned);
+        self::assertSame('mcp_srv_write', $write->toolName);
+        self::assertSame('revived description', $write->description);
+        self::assertSame(
+            '{"type":"object","properties":{"new":{"type":"string"}}}',
+            $write->inputSchema,
+        );
+        self::assertSame('{"readOnlyHint":true}', $write->remoteAnnotations);
     }
 
     /**
