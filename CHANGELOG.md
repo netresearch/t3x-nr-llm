@@ -10,6 +10,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Upgrading from 0.40
 
+- **Evaluation regression tolerances are validated before a run.** All four CLI drop options and `RegressionThresholds` require finite values in the inclusive `0..1` interval. Invalid strings, infinity, NAN and out-of-range values fail without starting evaluation or storing a measurement; zero and negative zero remain valid.
 - **Run the upgrade wizard "Write the version digest onto existing skills" (`nrllmAdr214SkillVersionDigest`).** It writes the new version digest onto every synced skill. A row whose stored name, description, support status, allowed tools or body no longer match what the sync wrote is disabled, recorded in the skill audit trail as `version_digest_unverified` and left without a digest until its next sync. Rows without a digest keep the body-only integrity check and cannot be approved.
 - **After the upgrade a frontmatter-only change upstream disables an enabled skill** on the next sync, as a body change already did. Expect more re-reviews for sources that change their frontmatter.
 - **The name, description and body of a synced skill are read-only in FormEngine.** An edit of any of them fails the integrity check, as a body edit already did.
@@ -18,6 +19,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **A hidden or disabled skill source no longer vouches for its skills' provenance.** Their approved versions fall back to the fenced frame until the source is active again.
 
 ### Added
+
+- Behavioral tests cover reciprocal rank fusion's weighting, CLI outcome derivation windows and Poppler subprocess arguments, pipe drainage, page ordering, failures and cleanup. The stderr flood regression has a bounded assertion failure.
 
 - **Worker operations (ADR-219).** `nrllm:agent:status` reports queue wait,
   unknown timings, expired run leases and transport-scoped consumer heartbeats,
@@ -75,6 +78,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Cache regression oracles now distinguish raw keys that share a sanitized or truncated prefix.** Idempotency tests verify separate answers and correct replay, bypass for unusable keys, and successful provider answers despite cache failures. Failed provider calls must propagate their original exception on every retry; the assertion is outside the expected-exception catch. Functional circuit-store tests verify independent state for colliding readable prefixes; selected faults must fail behavioral assertions.
+
 - **Retrieval regression checks require comparable benchmark provenance (ADR-215).** Corpus or scoring-label changes and unknown legacy provenance skip numeric comparison; `--fail-on-regression` now fails in those states. A changed model, chunker or pipeline on the same benchmark remains comparable and is reported as a treatment change. The first known run establishes a baseline. Existing retrievers still run without the optional capability.
 - **The sync's change test and the compose-time integrity check compare the version digest (ADR-214 item 1)** instead of the body checksum. `body_checksum` keeps its body-only meaning for the signed manifest and for rows without a digest.
 - **A skill whose frontmatter sets `process: true` is not composed from an attachment or a forced skill**; it is skipped with a warning. Process skills reach a run only through an explicit invocation, which a later change adds (ADR-214 item 6).
@@ -87,6 +92,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   objects with numeric keys, are read as declared-empty lists. Missing
   declarations, valid lists and their existing normalization remain compatible.
 
+- **Keyword search availability tolerates broken backend discovery.** A backend
+  whose priority lookup throws no longer hides a usable index sibling. A failed
+  backend iterator makes the availability check return `false` instead of
+  throwing.
+
 - **Invalid retrieval provenance follows the public exception contract (ADR-053).** Constructor validation implements `NrLlmExceptionInterface` while preserving native `InvalidArgumentException` catch compatibility, reason codes and messages.
 
 - **Retrieval details preserve legacy byte ids at full privacy (ADR-215).** Invalid UTF-8 question ids, hard classes and measured document ids use a versioned lossless field representation after filtering their original bytes. Ordinary UTF-8 and prompt snapshots remain compatible; redacted and metadata policies cannot be bypassed through encoding.
@@ -97,6 +107,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Write tools read page TSconfig as the run's acting user (#1017).** `update_content_element`, `create_content_element_draft`, `create_record_draft` and `copy_record` built their approval preview and their permission checks from page TSconfig as core resolves it for the ambient backend user: that user's workspace overlaid the rootline, their user TSconfig `page.` overrides were merged in, and their identity fed the `[backend.user…]` conditions. A run approved by another user, or resumed in a worker without one, could therefore bounce its approval or be checked against the approver's TSconfig. They now read it for the acting user, like `get_tsconfig`, which shows the acting user's view as well.
 - **A forced skill's `allowed-tools` restricts the run (ADR-038 item 5).** The tool gate resolved the skill allow-list from the configuration's skills alone, so a skill forced on a run in the playground or through a queued run's augmentation offered and permitted every tool its declaration left out. The list is now resolved once at run start over the configuration's and the forced skills and enforced when tools are offered and when a call executes. A queued run resolves it when it is enqueued and carries it with the request; at execution it is intersected with the list as it is then.
 - **A resumed run never gains tools through the skill allow-list (ADR-165).** A resume re-derived the list from the live configuration, so a run whose only declaring skill was disabled while it waited resumed with every tool. The suspended state now stores the run's list; a resume, after an approval or an input, intersects it with the live list, so a change while the run waits can take tools away but not add any. The approver and submitter gate asks with the stored list. A run suspended or queued before this release has no stored list and uses the live one, as before.
+
+- One-shot test fakes now assert the exact first-call exception outside their exception handlers, so swallowing a configured failure cannot pass unnoticed.
 
 ## [0.40.0] - 2026-10-08
 
