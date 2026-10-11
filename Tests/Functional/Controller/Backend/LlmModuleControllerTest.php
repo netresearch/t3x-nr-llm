@@ -10,7 +10,11 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
+use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -63,23 +67,29 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * Create controller instance with only the dependencies needed for AJAX actions.
-     * Uses reflection to bypass constructor and set only required properties.
+     * Create the actual AJAX controller with its declared dependencies.
      */
     private function createControllerWithDependencies(
-        LlmServiceManager $llmServiceManager,
+        LlmServiceManagerInterface $llmServiceManager,
+        ?TestPromptResolverInterface $testPromptResolver = null,
     ): LlmModuleController {
         $reflection = new ReflectionClass(LlmModuleController::class);
         $controller = $reflection->newInstanceWithoutConstructor();
-
-        // Set only the properties needed for executeTestAction
-        $this->setPrivateProperty($controller, 'llmServiceManager', $llmServiceManager);
-
-        // executeTestAction resolves a default prompt and logs provider
-        // errors via LoggerInterface — initialise both typed properties.
-        $testPromptResolver = $this->get(TestPromptResolverInterface::class);
-        self::assertInstanceOf(TestPromptResolverInterface::class, $testPromptResolver);
-        $this->setPrivateProperty($controller, 'testPromptResolver', $testPromptResolver);
+        $this->setPrivateProperty(
+            $controller,
+            'llmServiceManager',
+            $llmServiceManager,
+        );
+        $testPromptResolver ??= $this->get(TestPromptResolverInterface::class);
+        self::assertInstanceOf(
+            TestPromptResolverInterface::class,
+            $testPromptResolver,
+        );
+        $this->setPrivateProperty(
+            $controller,
+            'testPromptResolver',
+            $testPromptResolver,
+        );
         $this->setPrivateProperty($controller, 'logger', new NullLogger());
 
         return $controller;
@@ -162,86 +172,119 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function executeTestHandlesValidProviderRequest(): void
     {
-        // Create request with valid provider
-        // Note: Without real API, this will fail with connection error
-        // but we verify the controller action flow is correct
-        $extbaseRequest = $this->createExtbaseRequest([
-            'provider' => 'openai-test',
-            'prompt' => 'Hello, please respond with a brief greeting.',
-        ]);
+        $completion = new CompletionResponse(
+            content: '  Grüße <script>test</script> "quoted"  ',
+            model: 'served-model-snapshot',
+            usage: new UsageStatistics(7, 11, 18),
+        );
+        $controller = $this->createSuccessfulTestController(
+            'Caller-supplied prompt',
+            'configured-provider-b',
+            $completion,
+        );
+        $request = $this->createExtbaseRequest(
+            [
+                'provider' => 'configured-provider-b',
+                'prompt' => 'Caller-supplied prompt',
+            ],
+        );
+        $this->setPrivateProperty($controller, 'request', $request);
 
-        // Inject the request into the controller
-        $this->setPrivateProperty($this->controller, 'request', $extbaseRequest);
+        $response = $controller->executeTestAction();
 
-        // Act
-        $response = $this->controller->executeTestAction();
-
-        // Assert - either 200 with success or 500/502 with error (no real API:
-        // 502 = upstream provider unreachable in the test env, Bad Gateway)
-        self::assertContains($response->getStatusCode(), [200, 500, 502]);
+        self::assertSame(200, $response->getStatusCode());
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
-
-        if ($response->getStatusCode() === 200) {
-            self::assertTrue($body['success']);
-            self::assertArrayHasKey('content', $body);
-            self::assertArrayHasKey('model', $body);
-            self::assertArrayHasKey('usage', $body);
-        } else {
-            self::assertFalse($body['success']);
-            self::assertArrayHasKey('error', $body);
-        }
+        self::assertTrue($body['success']);
+        self::assertSame($completion->content, $body['content']);
+        self::assertSame('served-model-snapshot', $body['model']);
     }
 
     #[Test]
     public function executeTestUsesDefaultPromptWhenNotProvided(): void
     {
-        // Create request without prompt - should use default
-        $extbaseRequest = $this->createExtbaseRequest([
-            'provider' => 'openai-test',
-        ]);
+        $completion = new CompletionResponse(
+            content: 'Default prompt response',
+            model: 'served-model-snapshot',
+            usage: new UsageStatistics(3, 5, 8),
+        );
+        $controller = $this->createSuccessfulTestController(
+            'Default audit prompt',
+            'configured-provider-default',
+            $completion,
+        );
+        $request = $this->createExtbaseRequest(
+            ['provider' => 'configured-provider-default'],
+        );
+        $this->setPrivateProperty($controller, 'request', $request);
 
-        // Inject the request into the controller
-        $this->setPrivateProperty($this->controller, 'request', $extbaseRequest);
+        $response = $controller->executeTestAction();
 
-        // Act
-        $response = $this->controller->executeTestAction();
-
-        // Assert - either 200 or 500/502, but not 400 (bad request);
-        // 502 = upstream provider unreachable in the test env (Bad Gateway)
-        self::assertContains($response->getStatusCode(), [200, 500, 502]);
+        self::assertSame(200, $response->getStatusCode());
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
-        // The action should proceed (not return bad request for missing prompt)
-        self::assertNotSame(400, $response->getStatusCode());
+        self::assertTrue($body['success']);
+        self::assertSame('Default prompt response', $body['content']);
     }
 
     #[Test]
     public function executeTestReturnsUsageStatisticsOnSuccess(): void
     {
-        // This test documents the expected response structure
-        // With a real API, it would return actual usage stats
-        $extbaseRequest = $this->createExtbaseRequest([
-            'provider' => 'openai-test',
-            'prompt' => 'Say hello',
-        ]);
+        $completion = new CompletionResponse(
+            content: 'Usage response',
+            model: 'served-model-snapshot',
+            usage: new UsageStatistics(17, 31, 48),
+        );
+        $controller = $this->createSuccessfulTestController(
+            'Usage audit prompt',
+            'configured-provider-usage',
+            $completion,
+        );
+        $request = $this->createExtbaseRequest(
+            [
+                'provider' => 'configured-provider-usage',
+                'prompt' => 'Usage audit prompt',
+            ],
+        );
+        $this->setPrivateProperty($controller, 'request', $request);
 
-        $this->setPrivateProperty($this->controller, 'request', $extbaseRequest);
+        $response = $controller->executeTestAction();
 
-        // Act
-        $response = $this->controller->executeTestAction();
-
-        // Assert response structure (if successful)
+        self::assertSame(200, $response->getStatusCode());
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
+        self::assertTrue($body['success']);
+        self::assertSame(
+            [
+                'promptTokens' => 17,
+                'completionTokens' => 31,
+                'totalTokens' => 48,
+            ],
+            $body['usage'],
+        );
+    }
 
-        if ($response->getStatusCode() === 200 && ($body['success'] ?? false)) {
-            self::assertArrayHasKey('usage', $body);
-            $usage = $body['usage'];
-            self::assertIsArray($usage);
-            self::assertArrayHasKey('promptTokens', $usage);
-            self::assertArrayHasKey('completionTokens', $usage);
-            self::assertArrayHasKey('totalTokens', $usage);
-        }
+    private function createSuccessfulTestController(
+        string $expectedPrompt,
+        string $expectedProvider,
+        CompletionResponse $completion,
+    ): LlmModuleController {
+        $manager = $this->createMock(LlmServiceManagerInterface::class);
+        $manager
+            ->expects(self::once())
+            ->method('complete')
+            ->with(
+                $expectedPrompt,
+                self::callback(
+                    static fn(
+                        ?ChatOptions $options,
+                    ): bool => $options?->getProvider() === $expectedProvider,
+                ),
+            )
+            ->willReturn($completion);
+        $resolver = self::createStub(TestPromptResolverInterface::class);
+        $resolver->method('resolve')->willReturn('Default audit prompt');
+
+        return $this->createControllerWithDependencies($manager, $resolver);
     }
 }
