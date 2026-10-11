@@ -110,6 +110,17 @@ as shown above. Store ``ChatMessage::toTranscriptArray()`` and restore it with
 ``ChatMessage::fromArray()``; the ordinary wire array and JSON serialization
 omit this internal context.
 
+Populated Gemini native function-call IDs additionally use an internal
+per-turn binding to the public tool-call ID (:ref:`ADR-226 <adr-226>`).
+Corresponding results echo the native ID; reordered identical parallel calls
+retain their own association after stored approval resume. ID-less calls keep
+the existing result shape. Older owned state with native IDs is accepted only
+when its decoded name and arguments identify a unique association; malformed
+or ambiguous owned bindings are refused before contact. Integer and decimal
+representations match only when conversion preserves the numeric value in
+both directions; strings and booleans remain distinct. These bindings stay
+inside the opaque carrier and do not become OpenAI payload fields.
+
 Gemini preserves the original native parts and thought signatures. It uses an
 explicit ownership marker so a fallback to OpenAI Responses reconstructs
 ordinary visible text and tool calls. Historical OpenAI items keep their own
