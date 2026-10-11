@@ -38,6 +38,9 @@ use Throwable;
 #[CoversClass(AgentRunPersister::class)]
 final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
 {
+    /**
+     * @param non-empty-string $repositoryMethod
+     */
     #[Test]
     #[DataProvider('storageFailureCases')]
     public function storageFailureRetainsItsExactFallbackAndDiagnostic(
@@ -101,7 +104,7 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
     }
 
     /**
-     * @return iterable<string,array{string,string,mixed,string,string}>
+     * @return iterable<string,array{string,non-empty-string,mixed,string,string}>
      */
     public static function storageFailureCases(): iterable
     {
