@@ -82,14 +82,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Invalid retrieval provenance follows the public exception contract (ADR-053).** Constructor validation implements `NrLlmExceptionInterface` while preserving native `InvalidArgumentException` catch compatibility, reason codes and messages.
+
+- **Retrieval details preserve legacy byte ids at full privacy (ADR-215).** Invalid UTF-8 question ids, hard classes and measured document ids use a versioned lossless field representation after filtering their original bytes. Ordinary UTF-8 and prompt snapshots remain compatible; redacted and metadata policies cannot be bypassed through encoding.
+
 - **Reranker sidecar validates its HTTP boundary (ADR-075).** Non-object JSON and
   documents without string IDs or text return HTTP 400. Non-finite model scores
   return HTTP 500 with valid JSON. Tests exercise the real HTTP handler, connection
   reuse and environment settings; the sidecar has its own CI check.
-
-- **Invalid retrieval provenance follows the public exception contract (ADR-053).** Constructor validation implements `NrLlmExceptionInterface` while preserving native `InvalidArgumentException` catch compatibility, reason codes and messages.
-
-- **Retrieval details preserve legacy byte ids at full privacy (ADR-215).** Invalid UTF-8 question ids, hard classes and measured document ids use a versioned lossless field representation after filtering their original bytes. Ordinary UTF-8 and prompt snapshots remain compatible; redacted and metadata policies cannot be bypassed through encoding.
 
 - **Worker telemetry failures do not stop healthy consumers (ADR-219).** Heartbeat writes, pruning and stop cleanup isolate storage and logging failures. Retries retain one process identity and wait at least 30 seconds, including after partial writes; diagnostic warnings exclude connection details. Status read failures remain errors.
 - **Public tool-loop continuations preserve uncertainty about prior calls (ADR-216).** Skipping prompt assembly or seeding any resumed counter without authoritative invocation history now marks that history incomplete, so a rule requiring complete history refuses execution. Explicitly supplied history keeps its completeness flag.
