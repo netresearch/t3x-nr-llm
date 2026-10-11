@@ -83,6 +83,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Discard partially persisted delegated MCP credentials.** If Vault storage throws after creating a temporary token, the exchange checks the locally allocated reference's actor and purpose metadata before attempting normal ACL- and audit-controlled deletion. Cleanup failures retain the original sanitized authentication failure; configured references are preserved. Native SQL and recorded-boundary tests cover post-persist RuntimeException/Error, unavailable or mismatched metadata and failing cleanup.
+
 - **Keyword search availability tolerates broken backend discovery.** A backend
   whose priority lookup throws no longer hides a usable index sibling. A failed
   backend iterator makes the availability check return `false` instead of
