@@ -314,7 +314,7 @@ Deliberately not decided here
 
 
 Request correlation amendment, 2026-10-11
-========================================
+=========================================
 
 The historical checklist above did not establish matching reply IDs, request
 non-reuse within a session or strict result/error envelopes. A native probe
