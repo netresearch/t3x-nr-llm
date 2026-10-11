@@ -159,6 +159,20 @@ description shown). Submitting validates and coerces the values against the
 current schema; invalid input re-renders the form in place, keeping what you
 typed and pointing at the error, rather than losing the run.
 
+.. _administration-agent-runs-diagnostics:
+
+Optional run diagnostics
+========================
+
+The run persister keeps its documented fallback when a repository operation
+fails, even if the optional diagnostic logger throws. Refused writes and
+failed claims retain ``false``; a failed ``begin()`` or ``findRun()``
+retains ``null``.
+Logging cannot make these operations succeed. Explicit validation exceptions
+still propagate.
+The logger is called once with the existing severity, message and context,
+without a fallback logging attempt. See :ref:`adr-225`.
+
 .. _administration-agent-runs-async:
 
 Running queued runs asynchronously
