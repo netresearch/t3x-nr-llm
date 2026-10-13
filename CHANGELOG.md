@@ -97,7 +97,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- **A failed usage warning no longer loses an already-generated answer.** Usage accounting contains failures from both its tracker and its warning logger for typed, array and specialized responses, without repeating the provider call. A failed aggregate write can still leave daily usage and budget accounting incomplete.
+- **MCP replies must belong to their actual request (ADR-227).** Requests use distinct opaque string IDs; version, matching ID, exclusive response branch, object results and exact integral remote error codes are checked. Complete bounded event streams require one matching response, and oversized or incomplete prefixes are refused before health recording or catalogue reconciliation.
 
 - **An MCP tool-operation failure survives credential cleanup.** The client
   still closes its credential session once, while retaining an already-raised
@@ -127,6 +127,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Retrieval details preserve legacy byte ids at full privacy (ADR-215).** Invalid UTF-8 question ids, hard classes and measured document ids use a versioned lossless field representation after filtering their original bytes. Ordinary UTF-8 and prompt snapshots remain compatible; redacted and metadata policies cannot be bypassed through encoding.
 
 - **Worker telemetry failures do not stop healthy consumers (ADR-219).** Heartbeat writes, pruning and stop cleanup isolate storage and logging failures. Retries retain one process identity and wait at least 30 seconds, including after partial writes; diagnostic warnings exclude connection details. Status read failures remain errors.
+
+- **A failed usage warning no longer loses an already-generated answer.** Usage accounting contains failures from both its tracker and its warning logger for typed, array and specialized responses, without repeating the provider call. A failed aggregate write can still leave daily usage and budget accounting incomplete.
 
 - **Agent runs settle when the acting backend user cannot be resolved.**
   Context construction now runs inside the executor's lifecycle error boundary.
