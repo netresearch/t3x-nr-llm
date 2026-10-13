@@ -4,8 +4,7 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-
-declare(strict_types=1);
+declare (strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Mcp;
 
@@ -24,6 +23,7 @@ use Netresearch\NrVault\Http\VaultHttpClientInterface;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
 use stdClass;
@@ -138,12 +138,7 @@ final class McpHttpTransport
         $durationMs = (int)round((hrtime(true) - $startedAt) / 1000000);
 
         return [
-            'result' => $this->decodeResult(
-                $server,
-                $response['body'],
-                $response['status'],
-                $response['contentType'],
-            ),
+            'result' => $this->decodeResult($server, $response['body'], $response['status'], $response['contentType']),
             'sessionId' => $response['sessionId'],
             'durationMs' => $durationMs,
         ];
@@ -175,11 +170,7 @@ final class McpHttpTransport
             $server,
             $this->encode(
                 $server,
-                [
-                    'jsonrpc' => '2.0',
-                    'method' => $method,
-                    'params' => $params === [] ? new stdClass() : $params,
-                ],
+                ['jsonrpc' => '2.0', 'method' => $method, 'params' => $params === [] ? new stdClass() : $params],
             ),
             $deadline,
             $sessionId,
@@ -198,7 +189,10 @@ final class McpHttpTransport
         try {
             return json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         } catch (JsonException $e) {
-            throw McpTransportException::forMalformedResponse($server->identifier, 'the request could not be encoded: ' . $e->getMessage());
+            throw McpTransportException::forMalformedResponse(
+                $server->identifier,
+                'the request could not be encoded: ' . $e->getMessage(),
+            );
         }
     }
 
@@ -221,10 +215,7 @@ final class McpHttpTransport
         // above bypasses that builder, and a bound only the production path
         // applies is a bound nothing asserts.
         if ($deadline->isExhausted()) {
-            throw McpTransportException::forExhaustedDeadline(
-                $server->identifier,
-                $deadline->totalSeconds(),
-            );
+            throw McpTransportException::forExhaustedDeadline($server->identifier, $deadline->totalSeconds());
         }
 
         $request = $this->requestFactory
@@ -240,13 +231,7 @@ final class McpHttpTransport
         $host = $request->getUri()->getHost();
 
         try {
-            $client = $this->requestClient(
-                $server,
-                $host,
-                $deadline,
-                $credentials,
-                $cancellation,
-            );
+            $client = $this->requestClient($server, $host, $deadline, $credentials, $cancellation);
 
             // Feature-detected rather than version-gated, which is the shape
             // nr-vault's interface was made for (#774): it is additive, so a
@@ -267,13 +252,7 @@ final class McpHttpTransport
             // true on entry -- so nothing is claimed about it here.
             throw McpTransportException::forCancelledCall($server->identifier);
         } catch (Throwable $e) {
-            throw $server->authenticationMode() === McpAuthenticationMode::DELEGATED ? McpTransportException::forDelegatedAuthFailure(
-                $server->identifier,
-                'credential_transport_failed',
-            ) : McpTransportException::forTransportFailure(
-                $server->identifier,
-                $e->getMessage(),
-            );
+            throw $server->authenticationMode() === McpAuthenticationMode::DELEGATED ? McpTransportException::forDelegatedAuthFailure($server->identifier, 'credential_transport_failed') : McpTransportException::forTransportFailure($server->identifier, $e->getMessage());
         }
 
         $status = $response->getStatusCode();
@@ -287,7 +266,7 @@ final class McpHttpTransport
 
         return [
             'status' => $status,
-            'body' => $this->readBounded($response->getBody()),
+            'body' => $this->readResponseBody($server, $response),
             'contentType' => $response->getHeaderLine('Content-Type'),
             'sessionId' => $returnedSession === '' ? null : $returnedSession,
         ];
@@ -338,16 +317,10 @@ final class McpHttpTransport
 
         if ($delegatedCredential !== null) {
             if (!$this->vault->exists($delegatedCredential)) {
-                throw McpTransportException::forDelegatedAuthFailure(
-                    $server->identifier,
-                    'credential_expired',
-                );
+                throw McpTransportException::forDelegatedAuthFailure($server->identifier, 'credential_expired');
             }
 
-            return $client->withAuthentication(
-                $delegatedCredential,
-                SecretPlacement::Bearer,
-            );
+            return $client->withAuthentication($delegatedCredential, SecretPlacement::Bearer);
         }
 
         return $this->legacyAuthentication($server, $client);
@@ -368,7 +341,10 @@ final class McpHttpTransport
         }
 
         if (trim($body) === '') {
-            throw McpTransportException::forMalformedResponse($server->identifier, sprintf('empty body with status %d', $status));
+            throw McpTransportException::forMalformedResponse(
+                $server->identifier,
+                sprintf('empty body with status %d', $status),
+            );
         }
 
         try {
@@ -382,7 +358,7 @@ final class McpHttpTransport
         }
 
         if (isset($decoded['error']) && \is_array($decoded['error'])) {
-            $code    = \is_int($decoded['error']['code'] ?? null) ? $decoded['error']['code'] : 0;
+            $code = \is_int($decoded['error']['code'] ?? null) ? $decoded['error']['code'] : 0;
             $message = \is_string($decoded['error']['message'] ?? null) ? $decoded['error']['message'] : 'no message';
 
             throw McpTransportException::forRpcError($server->identifier, $code, $message);
@@ -390,7 +366,10 @@ final class McpHttpTransport
 
         $result = $decoded['result'] ?? null;
         if (!\is_array($result)) {
-            throw McpTransportException::forMalformedResponse($server->identifier, 'the response carries neither a result nor an error');
+            throw McpTransportException::forMalformedResponse(
+                $server->identifier,
+                'the response carries neither a result nor an error',
+            );
         }
 
         /** @var array<string, mixed> $result */
@@ -417,13 +396,13 @@ final class McpHttpTransport
     private function unframeEventStream(McpServerRecord $server, string $body): string
     {
         $messages = [];
-        $data     = [];
+        $data = [];
 
         foreach (preg_split('/\r\n|\r|\n/', $body) ?: [] as $line) {
             if ($line === '') {
                 if ($data !== []) {
                     $messages[] = implode("\n", $data);
-                    $data       = [];
+                    $data = [];
                 }
 
                 continue;
@@ -431,7 +410,7 @@ final class McpHttpTransport
 
             if (str_starts_with($line, 'data:')) {
                 $payload = substr($line, 5);
-                $data[]  = str_starts_with($payload, ' ') ? substr($payload, 1) : $payload;
+                $data[] = str_starts_with($payload, ' ') ? substr($payload, 1) : $payload;
             }
 
             // `event:`, `id:`, `retry:` and `:` comments are not read.
@@ -464,23 +443,15 @@ final class McpHttpTransport
      * Validate the mode even through the protocol test seam. A delegated server
      * must never fall back to its legacy credential or an anonymous request.
      */
-    private function credentialFor(
-        McpServerRecord $server,
-        ?McpCredentialSessionInterface $session,
-    ): ?string {
+    private function credentialFor(McpServerRecord $server, ?McpCredentialSessionInterface $session): ?string
+    {
         $mode = $server->authenticationMode();
         if (!$mode instanceof McpAuthenticationMode || $mode === McpAuthenticationMode::DELEGATED && !$session instanceof McpCredentialSessionInterface) {
-            throw McpTransportException::forDelegatedAuthFailure(
-                $server->identifier,
-                'credential_session_missing',
-            );
+            throw McpTransportException::forDelegatedAuthFailure($server->identifier, 'credential_session_missing');
         }
 
         if ($mode === McpAuthenticationMode::LEGACY && $session instanceof McpCredentialSessionInterface) {
-            throw McpTransportException::forDelegatedAuthFailure(
-                $server->identifier,
-                'unexpected_credential_session',
-            );
+            throw McpTransportException::forDelegatedAuthFailure($server->identifier, 'unexpected_credential_session');
         }
 
         return $session?->credentialIdentifier();
@@ -512,10 +483,8 @@ final class McpHttpTransport
         return $this->configuredHttpClient instanceof ClientInterface ? $this->configuredHttpClient : $this->clientFor($server, $deadline->legTimeoutSeconds(), $credential);
     }
 
-    private function legacyAuthentication(
-        McpServerRecord $server,
-        VaultHttpClientInterface $client,
-    ): ClientInterface {
+    private function legacyAuthentication(McpServerRecord $server, VaultHttpClientInterface $client): ClientInterface
+    {
         if ($server->authCredential === '') {
             return $client;
         }
@@ -540,10 +509,19 @@ final class McpHttpTransport
 
         // The plaintext never enters this process: the vault client injects it
         // as it writes the request.
-        return $client->withAuthentication(
-            $server->authCredential,
-            $placement,
-            $options,
-        );
+        return $client->withAuthentication($server->authCredential, $placement, $options);
+    }
+
+    /**
+     * Keep failures obtaining or reading the remote body inside the typed MCP
+     * contract without repeating stream exception text or response contents.
+     */
+    private function readResponseBody(McpServerRecord $server, ResponseInterface $response): string
+    {
+        try {
+            return $this->readBounded($response->getBody());
+        } catch (Throwable) {
+            throw McpTransportException::forMalformedResponse($server->identifier, 'the response body could not be read');
+        }
     }
 }

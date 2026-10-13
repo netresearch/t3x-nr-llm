@@ -4,11 +4,11 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-
-declare(strict_types=1);
+declare (strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Mcp;
 
+use GuzzleHttp\Psr7\Response;
 use Netresearch\NrLlm\Service\Tool\Mcp\Exception\McpTransportException;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpHttpTransport;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpOperationDeadline;
@@ -24,6 +24,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\StreamInterface;
 use RuntimeException;
 use TYPO3\CMS\Core\Http\Client\GuzzleClientFactory;
 use TYPO3\CMS\Core\Http\RequestFactory;
@@ -107,12 +108,7 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
      */
     public static function failingStatuses(): array
     {
-        return [
-            'redirect'     => [302],
-            'unauthorised' => [401],
-            'not found'    => [404],
-            'server error' => [500],
-        ];
+        return ['redirect' => [302], 'unauthorised' => [401], 'not found' => [404], 'server error' => [500]];
     }
 
     /**
@@ -176,9 +172,7 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
     public function passesOverAServerNotificationOnTheStreamAndTakesTheResponse(): void
     {
         $fake = (new McpTestServer())->willReturnRaw(
-            ": keep-alive\n\n"
-            . "data: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/message\",\"params\":{\"level\":\"info\"}}\n\n"
-            . "data: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"ok\":true}}\n\n",
+            ": keep-alive\n\n" . "data: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/message\",\"params\":{\"level\":\"info\"}}\n\n" . "data: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"ok\":true}}\n\n",
             200,
             'text/event-stream',
         );
@@ -328,11 +322,11 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
     #[Test]
     public function refusesToSendAnythingOnceTheBudgetIsSpent(): void
     {
-        $clock    = new FakeMcpClock();
+        $clock = new FakeMcpClock();
         $deadline = McpOperationDeadline::start($clock, 20);
         $clock->advanceSeconds(20.0);
 
-        $fake      = (new McpTestServer())->willReturn(['tools' => []]);
+        $fake = (new McpTestServer())->willReturn(['tools' => []]);
         $transport = $this->transportFor($fake);
 
         try {
@@ -354,7 +348,6 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
     }
 
     // -- cancellation (ADR-190) ------------------------------------------
-
     /**
      * No signal, no cancellable send. The Tool Playground and any bare
      * ToolLoopServiceInterface consumer run without a persisted run, so there
@@ -382,14 +375,9 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
     {
         $client = new RecordingCancellableClient(supportsCancellation: false);
 
-        $this->transportFor($client)->call(
-            McpTestServer::server(),
-            'ping',
-            [],
-            $this->deadline(),
-            null,
-            $this->signal(false),
-        );
+        $this
+            ->transportFor($client)
+            ->call(McpTestServer::server(), 'ping', [], $this->deadline(), null, $this->signal(false));
 
         self::assertSame(['sendRequest'], $client->calls);
     }
@@ -404,14 +392,9 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
     {
         $fake = (new McpTestServer())->willReturn([]);
 
-        $answer = $this->transportFor($fake)->call(
-            McpTestServer::server(),
-            'ping',
-            [],
-            $this->deadline(),
-            null,
-            $this->signal(false),
-        );
+        $answer = $this
+            ->transportFor($fake)
+            ->call(McpTestServer::server(), 'ping', [], $this->deadline(), null, $this->signal(false));
 
         self::assertSame([], $answer['result']);
     }
@@ -421,14 +404,9 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
     {
         $client = new RecordingCancellableClient();
 
-        $answer = $this->transportFor($client)->call(
-            McpTestServer::server(),
-            'ping',
-            [],
-            $this->deadline(),
-            null,
-            $this->signal(false),
-        );
+        $answer = $this
+            ->transportFor($client)
+            ->call(McpTestServer::server(), 'ping', [], $this->deadline(), null, $this->signal(false));
 
         self::assertSame(['sendCancellable'], $client->calls);
         self::assertSame([], $answer['result']);
@@ -446,14 +424,9 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
         $client = new RecordingCancellableClient(cancelMidFlight: true);
 
         try {
-            $this->transportFor($client)->call(
-                McpTestServer::server(),
-                'ping',
-                [],
-                $this->deadline(),
-                null,
-                $this->signal(true),
-            );
+            $this
+                ->transportFor($client)
+                ->call(McpTestServer::server(), 'ping', [], $this->deadline(), null, $this->signal(true));
             self::fail('Expected the cancelled transfer to surface as a cancellation.');
         } catch (McpTransportException $e) {
             self::assertSame(1799990218, $e->getCode());
@@ -471,5 +444,74 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
                 return $this->cancelled;
             }
         };
+    }
+
+    #[Test]
+    #[DataProvider('oversizedValidReplies')]
+    public function acceptsACompleteReplyWithinTheBoundedReadPrefix(string $body, string $contentType): void
+    {
+        $fake = (new McpTestServer())->willReturnRaw($body, 200, $contentType);
+        $answer = $this->transportFor($fake)->call(McpTestServer::server(), 'ping', [], $this->deadline());
+        self::assertSame(['ok' => true], $answer['result']);
+    }
+
+    /**
+     * @return iterable<string,array{string,string}>
+     */
+    public static function oversizedValidReplies(): iterable
+    {
+        $json = '{"jsonrpc":"2.0","id":1,"result":{"ok":true}}';
+        yield 'JSON plus trailing whitespace' => [$json . str_repeat(' ', 2 * 1024 * 1024 + 1 - strlen($json)), 'application/json'];
+        $sse = 'data: ' . $json . "\n\n";
+        yield 'SSE plus a long comment' => [$sse . ':' . str_repeat('x', 2 * 1024 * 1024 - strlen($sse)), 'text/event-stream'];
+    }
+
+    #[Test]
+    public function acceptsACompleteReplyAtExactlyTheReadCap(): void
+    {
+        $json = '{"jsonrpc":"2.0","id":1,"result":{"ok":true}}';
+        $body = $json . str_repeat(' ', 2 * 1024 * 1024 - strlen($json));
+        $fake = (new McpTestServer())->willReturnRaw($body);
+        $answer = $this->transportFor($fake)->call(McpTestServer::server(), 'ping', [], $this->deadline());
+        self::assertSame(['ok' => true], $answer['result']);
+    }
+
+    #[Test]
+    public function aResponseStreamFailureBecomesATypedSanitizedMcpFailure(): void
+    {
+        $stream = $this->createMock(StreamInterface::class);
+        $stream->method('eof')->willReturn(false);
+        $stream->method('read')->willThrowException(new RuntimeException('private response contents', 1800100020));
+        $fake = $this->createMock(ClientInterface::class);
+        $fake
+            ->method('sendRequest')
+            ->willReturn(new Response(200, ['Content-Type' => 'application/json'], $stream));
+        try {
+            $this->transportFor($fake)->call(McpTestServer::server(), 'ping', [], $this->deadline());
+            self::fail('The response stream was unreadable.');
+        } catch (McpTransportException $exception) {
+            self::assertSame(1799990213, $exception->getCode());
+            self::assertStringContainsString('"srv"', $exception->getMessage());
+            self::assertStringNotContainsString('private response contents', $exception->getMessage());
+        }
+    }
+
+    #[Test]
+    public function aFailureObtainingTheResponseBodyIsAlsoTypedAndSanitized(): void
+    {
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getHeaderLine')->willReturn('');
+        $response->method('getBody')->willThrowException(new RuntimeException('private stream detail', 1800100021));
+        $fake = $this->createMock(ClientInterface::class);
+        $fake->method('sendRequest')->willReturn($response);
+        try {
+            $this->transportFor($fake)->call(McpTestServer::server(), 'ping', [], $this->deadline());
+            self::fail('The response did not provide a body.');
+        } catch (McpTransportException $exception) {
+            self::assertSame(1799990213, $exception->getCode());
+            self::assertStringContainsString('"srv"', $exception->getMessage());
+            self::assertStringNotContainsString('private stream detail', $exception->getMessage());
+        }
     }
 }

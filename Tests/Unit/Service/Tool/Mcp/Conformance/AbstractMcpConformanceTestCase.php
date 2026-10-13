@@ -698,14 +698,13 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
     }
 
     // -- oversized response ------------------------------------------------
-
     /**
-     * OVERSIZED RESPONSE. The read is capped, so the body a hostile or broken
-     * server can push into memory is bounded — and a truncated body is refused
-     * rather than parsed for whatever survived the cut.
+     * A text block cut off at the bounded read cap has no complete JSON reply.
+     * Its malformed prefix becomes a bounded error rather than response contents.
+     * A complete early reply in an SSE stream is permitted by ADR-181.
      */
     #[Test]
-    public function refusesAResponseLargerThanTheReadCap(): void
+    public function refusesAnIncompleteTextBlockAtTheReadCap(): void
     {
         $oversized = '{"jsonrpc":"2.0","id":1,"result":{"content":[{"type":"text","text":"'
             . str_repeat('a', 3 * 1024 * 1024)
