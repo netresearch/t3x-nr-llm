@@ -11,7 +11,8 @@ ADR-227: MCP replies belong to the request that accepts them
 
 :Status: Accepted
 :Date: 2026-10-11
-:Amends: :ref:`ADR-161 <adr-161>`
+:Amends: :ref:`ADR-161 <adr-161>` and :ref:`ADR-181 <adr-181>`
+    (reply selection and completeness)
 
 Context
 =======
