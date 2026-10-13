@@ -228,24 +228,36 @@ final readonly class McpTokenExchange
 
         $identifier = Uuid::v7()->toRfc4122();
         try {
-            $this->vault->store(
-                $identifier,
-                $token,
-                [
-                    'owner' => $actor->backendUserUid,
-                    'groups' => [],
-                    'context' => 'mcp_delegation',
-                    'expiresAt' => time() + $remaining,
-                    'metadata' => [
-                        'server' => $server->identifier,
-                        'profile' => $profile->identifier,
-                        'audience' => $server->delegationAudience,
-                        'scopes' => $scopes,
-                        'actorUid' => $actor->backendUserUid,
-                        'serviceAccount' => $actor->serviceAccount,
+            try {
+                $this->vault->store(
+                    $identifier,
+                    $token,
+                    [
+                        'owner' => $actor->backendUserUid,
+                        'groups' => [],
+                        'context' => 'mcp_delegation',
+                        'expiresAt' => time() + $remaining,
+                        'metadata' => [
+                            'server' => $server->identifier,
+                            'profile' => $profile->identifier,
+                            'audience' => $server->delegationAudience,
+                            'scopes' => $scopes,
+                            'actorUid' => $actor->backendUserUid,
+                            'serviceAccount' => $actor->serviceAccount,
+                        ],
                     ],
-                ],
-            );
+                );
+            } catch (Throwable $exception) {
+                $this->discardFailedStorage(
+                    $identifier,
+                    $server,
+                    $actor,
+                    $profile,
+                    $scopes,
+                );
+                throw $exception;
+            }
+
             $this->assertStoredBinding($identifier, $actor);
         } finally {
             sodium_memzero($token);
@@ -345,10 +357,15 @@ final readonly class McpTokenExchange
                 );
             }
         } catch (Throwable $exception) {
-            $this->vault->delete(
-                $identifier,
-                'Discard invalid MCP delegated credential binding',
-            );
+            try {
+                $this->vault->delete(
+                    $identifier,
+                    'Discard invalid MCP delegated credential binding',
+                );
+            } catch (Throwable) {
+                /* Rejection cleanup must not replace the established sanitized failure. */
+            }
+
             throw $exception;
         }
     }
@@ -372,13 +389,60 @@ final readonly class McpTokenExchange
                 );
             }
         } catch (Throwable $exception) {
-            $this->vault->delete(
-                $credential->identifier,
-                'Discard unusable MCP delegated credential',
-            );
+            try {
+                $this->vault->delete(
+                    $credential->identifier,
+                    'Discard unusable MCP delegated credential',
+                );
+            } catch (Throwable) {
+                /* Rejection cleanup must not replace the established sanitized failure. */
+            }
+
             throw $exception;
         }
 
         return $credential;
+    }
+
+    /**
+     * Only discard this invocation's actor- and purpose-bound temporary reference.
+     * Metadata or cleanup failure leaves the original store failure authoritative.
+     *
+     * @param list<string> $scopes
+     */
+    private function discardFailedStorage(
+        string $identifier,
+        McpServerRecord $server,
+        AiActorContext $actor,
+        McpDelegationProfile $profile,
+        array $scopes,
+    ): void {
+        try {
+            $details = $this->vault->getMetadata($identifier);
+            if ($details->identifier !== $identifier || $details->ownerUid !== $actor->backendUserUid || $details->groups !== [] || $details->frontendAccessible || $details->context !== 'mcp_delegation') {
+                return;
+            }
+
+            $expected = [
+                'server' => $server->identifier,
+                'profile' => $profile->identifier,
+                'audience' => $server->delegationAudience,
+                'scopes' => $scopes,
+                'actorUid' => $actor->backendUserUid,
+                'serviceAccount' => $actor->serviceAccount,
+            ];
+            foreach ($expected as $key => $value) {
+                if (!array_key_exists($key, $details->metadata) || $details->metadata[$key] !== $value) {
+                    return;
+                }
+            }
+
+            $this->vault->delete(
+                $identifier,
+                'Discard failed MCP delegated credential persistence',
+            );
+        } catch (Throwable) {
+            // Best-effort normal Vault cleanup cannot replace the primary sanitized outcome.
+        }
     }
 }
