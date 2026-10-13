@@ -8,7 +8,7 @@ declare (strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\ValueObject;
 
-use InvalidArgumentException;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 
 /**
  * A decision with stable codes, suitable for recording without arguments.

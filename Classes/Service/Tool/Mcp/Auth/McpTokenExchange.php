@@ -7,9 +7,9 @@ declare (strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Mcp\Auth;
 
 use GuzzleHttp\Psr7\Request;
-use InvalidArgumentException;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Tool\Mcp\Exception\McpTransportException;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpClockInterface;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpOperationDeadline;
@@ -357,10 +357,15 @@ final readonly class McpTokenExchange
                 );
             }
         } catch (Throwable $exception) {
-            $this->vault->delete(
-                $identifier,
-                'Discard invalid MCP delegated credential binding',
-            );
+            try {
+                $this->vault->delete(
+                    $identifier,
+                    'Discard invalid MCP delegated credential binding',
+                );
+            } catch (Throwable) {
+                /* Rejection cleanup must not replace the established sanitized failure. */
+            }
+
             throw $exception;
         }
     }
@@ -384,10 +389,15 @@ final readonly class McpTokenExchange
                 );
             }
         } catch (Throwable $exception) {
-            $this->vault->delete(
-                $credential->identifier,
-                'Discard unusable MCP delegated credential',
-            );
+            try {
+                $this->vault->delete(
+                    $credential->identifier,
+                    'Discard unusable MCP delegated credential',
+                );
+            } catch (Throwable) {
+                /* Rejection cleanup must not replace the established sanitized failure. */
+            }
+
             throw $exception;
         }
 
