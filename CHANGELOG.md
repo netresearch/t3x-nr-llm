@@ -97,6 +97,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **MCP replies must belong to their actual request (ADR-227).** Requests use distinct opaque string IDs; version, matching ID, exclusive response branch, object results and exact integral remote error codes are checked. Complete bounded event streams require one matching response, and oversized or incomplete prefixes are refused before health recording or catalogue reconciliation.
+
 - **An MCP tool-operation failure survives credential cleanup.** The client
   still closes its credential session once, while retaining an already-raised
   cancellation, budget, protocol or caller serialization failure if cleanup

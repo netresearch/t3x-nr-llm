@@ -66,6 +66,33 @@ client does **not** do: hold a stream open, resume one, answer a request the
 server initiates, or speak stdio (:ref:`ADR-116 <adr-116>`,
 :ref:`ADR-181 <adr-181>`).
 
+Which reply belongs to a request
+================================
+
+Each request carries an opaque string ID. The server must echo that exact ID
+and the literal JSON-RPC version ``2.0``; numeric approximations, missing IDs
+and a reply to another request are refused. Initialize, catalogue pages and
+later tool calls use distinct IDs. Notifications carry no ID and their reply
+bodies are discarded (:ref:`ADR-227 <adr-227>`).
+
+A reply contains exactly one ``result`` or ``error`` property. MCP results
+must be JSON objects: ``{}`` remains a valid empty result, while ``[]`` is
+refused. A remote error requires an integral JSON number code within the
+installation's PHP integer range and a string message; integral forms such as
+``1.0`` and ``1e0`` retain code 1 without rounding fractional values.
+
+A complete event-stream answer may contain server notifications or requests,
+which are passed over. It must carry exactly one response for the outbound
+request. An unrelated response or a second response is refused, including one
+following a valid remote error. The reply body must finish within 2 MiB;
+a valid-looking prefix of an oversized or incomplete body is refused. A
+complete body exactly at the limit remains valid.
+
+A refused reply records no successful contact and cannot replace the existing
+catalogue. Its diagnostic names the failed rule without copying raw reply
+bodies or IDs. These checks preserve existing nested PHP result shapes and
+add no live-stream routing or recursive JSON-shape guarantee.
+
 Is the server alive?
 ====================
 

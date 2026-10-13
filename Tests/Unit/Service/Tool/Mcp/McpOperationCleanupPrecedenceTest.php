@@ -144,7 +144,7 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
             ],
             'malformed' => [
                 1799990213,
-                'MCP server "close_probe" sent a response that is not a JSON-RPC result: the response carries neither a result nor an error',
+                'MCP server "close_probe" sent a response that is not a JSON-RPC result: the MCP result is not a JSON object',
                 false,
             ],
         ];
