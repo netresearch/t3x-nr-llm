@@ -18,6 +18,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Ten skill fields and nine skill source fields are now `exclude` fields (ADR-214 item 3):** on `tx_nrllm_skill` the source, trust level, body checksum, version digest, enabled and hidden flags, allowed tools, support status, orphan flag and stored frontmatter; on `tx_nrllm_skill_source` the type, trust level, hidden and enabled flags, URL, ref, pinned SHA, expected fingerprint and access token. A backend group that edited any of them needs the field granted explicitly under "Allowed excludefields"; the name, description and body stay outside the list.
 - **A hidden or disabled skill source no longer vouches for its skills' provenance.** Their approved versions fall back to the fenced frame until the source is active again.
 
+- **Handle tool-loop suspensions before the common exception catch.**
+  `ToolApprovalRequiredException` and `ToolInputRequiredException` now also
+  implement the common marker. Direct tool-loop consumers must catch these
+  specific signals first to preserve their resumable state.
+
 ### Added
 
 - Behavioral tests cover reciprocal rank fusion's weighting, CLI outcome derivation windows and Poppler subprocess arguments, pipe drainage, page ordering, failures and cleanup. The stderr flood regression has a bounded assertion failure.
@@ -27,6 +32,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   with JSON output and explicit health thresholds. Queue-entry time is recorded
   on enqueue and requeue; legacy rows remain unknown. Idle consumers renew
   process heartbeats independently of run leases, with bounded retention.
+
+- **Compatible common-marker runtime and logic exceptions (ADR-053).**
+  `Exception\RuntimeException` and `Exception\LogicException` retain their
+  native parent hierarchy and provide marker types for internally generated
+  failures. The public API snapshot gains these two types.
 
 - **Retrieval experiment provenance (ADR-215).** Registered retrievers can add the optional `RetrievalProvenanceProviderInterface` and readonly `RetrievalProvenance` (`@api`) to declare corpus, model, chunking, pipeline and execution revisions. The existing result row preserves benchmark/variant fingerprints and privacy-filtered measured rankings, form, hard class and latency. The API inventory is additive.
 
@@ -103,6 +113,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   throwing.
 
 - **Invalid retrieval provenance follows the public exception contract (ADR-053).** Constructor validation implements `NrLlmExceptionInterface` while preserving native `InvalidArgumentException` catch compatibility, reason codes and messages.
+
+- **The common exception marker covers all extension failure families
+  (ADR-053).** Agent, specialized, skill and tool errors, delegated credential
+  validation, editor-action validation and internally generated runtime or
+  configuration failures are catchable through `NrLlmExceptionInterface`.
+  Existing native parent catches, messages, codes and exception chaining stay
+  compatible. Full-source discovery and consumer-boundary tests prevent the
+  former two-directory check from overlooking new families.
 
 - **Retrieval details preserve legacy byte ids at full privacy (ADR-215).** Invalid UTF-8 question ids, hard classes and measured document ids use a versioned lossless field representation after filtering their original bytes. Ordinary UTF-8 and prompt snapshots remain compatible; redacted and metadata policies cannot be bypassed through encoding.
 
