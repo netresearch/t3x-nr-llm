@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolGroup;
+use Netresearch\NrLlm\Service\Tool\Builtin\AskChoiceTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\AttachFileToContentElementTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\AttachFileToRecordTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\BrowseFalFolderTool;
@@ -118,6 +119,7 @@ final class BuiltinToolGroupsTest extends TestCase
             'list_deprecations' => [ListDeprecationsTool::class, 'system'],
             'list_middlewares'  => [ListMiddlewaresTool::class, 'system'],
             'get_record_history' => [GetRecordHistoryTool::class, 'content'],
+            'ask_choice'        => [AskChoiceTool::class, 'content'],
             'resolve_url'       => [ResolveUrlTool::class, 'structure'],
             'validate_tca'      => [ValidateTcaTool::class, 'structure'],
             'check_typoscript'  => [CheckTypoScriptTool::class, 'configuration'],

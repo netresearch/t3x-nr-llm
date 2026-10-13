@@ -19,6 +19,9 @@ use Netresearch\NrLlm\Service\Agent\Exception\ApprovalNotAuditableException;
 use Netresearch\NrLlm\Service\Agent\Exception\ApproverNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunDecidedInChatException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunNeedsSecondApproverException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessVerdictUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
@@ -31,6 +34,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\StaleInputTurnException;
 use Netresearch\NrLlm\Service\Agent\Exception\SubmitterNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunViewFactory;
 use Netresearch\NrLlm\Service\Agent\InputSubmission;
+use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 use Netresearch\NrLlm\Service\Agent\Timeline\RunTimelineFactory;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\SchemaInputCoercer;
@@ -100,6 +104,7 @@ final class AgentRunController extends ActionController
         private readonly AgentRuntimeInterface $agentRuntime,
         private readonly PageRenderer $pageRenderer,
         private readonly RunTimelineFactory $timelineFactory,
+        private readonly ProcessPinProbe $processPins,
     ) {}
 
     protected function initializeAction(): void
@@ -164,6 +169,19 @@ final class AgentRunController extends ActionController
             return $this->redirect('list');
         }
 
+        // ADR-214: a guided process is decided on its chat card and nowhere
+        // else, by its initiator too — this inbox lists it read-only. A row
+        // that cannot be loaded is answered here: the runtime reads it again,
+        // and a second read that succeeds would get past this check.
+        $run = $this->persister->findRun($runUuid);
+        if (!$run instanceof AgentRun) {
+            return $this->flashRedirect('runs.unreadable', ContextualFeedbackSeverity::ERROR);
+        }
+
+        if (($refusal = $this->refusalOfAProcessRun($run)) instanceof ResponseInterface) {
+            return $refusal;
+        }
+
         try {
             // The stale-review guard is NOT re-implemented here (ADR-132): the
             // digest the card carried travels with the decision and is verified
@@ -207,6 +225,13 @@ final class AgentRunController extends ActionController
             return $this->flashRedirect('runs.error.notAuditable', ContextualFeedbackSeverity::ERROR);
         } catch (CorruptSuspendedStateException|RunStateUnavailableException) {
             return $this->flashRedirect('runs.unreadable', ContextualFeedbackSeverity::ERROR);
+        } catch (ProcessRunDecidedInChatException) {
+            // The runtime's own check, on its own read of the row (ADR-214).
+            return $this->flashRedirect('runs.error.decidedInChat', ContextualFeedbackSeverity::WARNING);
+        } catch (ProcessRunNeedsSecondApproverException) {
+            return $this->flashRedirect('runs.error.processStopped', ContextualFeedbackSeverity::ERROR);
+        } catch (ProcessVerdictUnavailableException) {
+            return $this->flashRedirect('runs.error.processVerdictUnavailable', ContextualFeedbackSeverity::WARNING);
         }
 
         $this->flashOutcome($result, $approve);
@@ -234,6 +259,13 @@ final class AgentRunController extends ActionController
         // Reload the CURRENT schema and coerce the all-strings POST against it,
         // so the no-JS path validates. Never coerce against a broken schema.
         $run = $this->persister->findRun($runUuid);
+
+        // ADR-214: the answer to a guided process's question belongs to the
+        // chat, as its proposals do.
+        if (($refusal = $this->refusalOfAProcessRun($run)) instanceof ResponseInterface) {
+            return $refusal;
+        }
+
         $schema = $run instanceof AgentRun ? $this->viewFactory->inputSchemaForRun($run) : null;
         if ($schema === null) {
             $this->flash('runs.unreadable', ContextualFeedbackSeverity::ERROR);
@@ -278,11 +310,60 @@ final class AgentRunController extends ActionController
             return $this->flashRedirect('runs.error.submitterNotPermitted', ContextualFeedbackSeverity::ERROR);
         } catch (CorruptSuspendedStateException|RunStateUnavailableException) {
             return $this->flashRedirect('runs.unreadable', ContextualFeedbackSeverity::ERROR);
+        } catch (ProcessRunDecidedInChatException) {
+            return $this->flashRedirect('runs.error.decidedInChat', ContextualFeedbackSeverity::WARNING);
+        } catch (ProcessRunNeedsSecondApproverException) {
+            return $this->flashRedirect('runs.error.processStopped', ContextualFeedbackSeverity::ERROR);
+        } catch (ProcessVerdictUnavailableException) {
+            return $this->flashRedirect('runs.error.processVerdictUnavailable', ContextualFeedbackSeverity::WARNING);
         }
 
         $this->flashOutcome($result, true);
 
         return $this->redirect('list');
+    }
+
+    /**
+     * The uuids of the listed runs that hold a process pin, as keys.
+     *
+     * @param list<AgentRun> $runs
+     *
+     * @return array<string, true>
+     */
+    private function decidedInChat(array $runs): array
+    {
+        $uuids = [];
+        foreach ($runs as $run) {
+            if ($this->isDecidedInTheChat($run)) {
+                $uuids[$run->uuid] = true;
+            }
+        }
+
+        return $uuids;
+    }
+
+    /**
+     * Whether the run holds a process pin, which only its chat card may decide
+     * (ADR-214). Both actions refuse a row they could not load before asking
+     * this.
+     */
+    private function isDecidedInTheChat(?AgentRun $run): bool
+    {
+        return $run instanceof AgentRun && $this->processPins->holdsProcessPin($run);
+    }
+
+    /**
+     * The answer to a decision on a run that holds a process pin, or null to
+     * hand the decision to the runtime: decided in the chat when it holds
+     * one, retryable when that could not be checked.
+     */
+    private function refusalOfAProcessRun(?AgentRun $run): ?ResponseInterface
+    {
+        return match ($run instanceof AgentRun ? $this->processPins->processPinOf($run) : false) {
+            true  => $this->flashRedirect('runs.error.decidedInChat', ContextualFeedbackSeverity::WARNING),
+            null  => $this->flashRedirect('runs.error.processVerdictUnavailable', ContextualFeedbackSeverity::WARNING),
+            false => null,
+        };
     }
 
     /**
@@ -313,6 +394,9 @@ final class AgentRunController extends ActionController
 
         $this->moduleTemplate->assignMultiple([
             'waiting'        => $this->viewFactory->buildWaiting($waitingRuns ?? [], $viewer instanceof BackendUserAuthentication ? $viewer : null),
+            // ADR-214: a guided process is listed read-only, with a note that
+            // it is decided in the chat; the actions refuse it as well.
+            'decidedInChat'  => $this->decidedInChat($waitingRuns ?? []),
             'terminal'       => $this->viewFactory->buildTerminal($terminalRuns ?? [], $actor, $this->approvalDeciders($terminalRuns ?? [])),
             'dataLoadError'  => $dataLoadError,
             'errorRunUuid'   => $errorRunUuid,

@@ -41,12 +41,12 @@ non-admin users.
 The built-in tools
 ==================
 
-nr-llm ships forty-two read-only tools and seventeen writing tools. Each is a
+nr-llm ships forty-three read-only tools and seventeen writing tools. Each is a
 reference implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
 redacted or gated behind a separate ``_raw`` variant. Thirty-eight ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
-``get_php_info_raw`` and ``list_be_users_raw``), ``fetch_external_url``
+``get_php_info_raw`` and ``list_be_users_raw``), ``ask_choice``, ``fetch_external_url``
 (see :ref:`administration-tools-external-pages`) and all seventeen writing tools
 (``update_page_metadata``, ``set_page_social_image``,
 ``set_file_alternative_text``, ``update_fal_asset_meta``,
@@ -70,6 +70,7 @@ ever sees what the backend already grants them (see
 :ref:`ADR-042 <adr-042>`). ``fetch_external_url`` is offered to non-admins
 too; it reads public web pages only, which no TYPO3 permission covers, under
 the controls in :ref:`administration-tools-external-pages`.
+``ask_choice`` is offered to non-admins as well; it reads nothing.
 
 The two tools below are the fullest illustrations of the contract:
 
@@ -303,6 +304,20 @@ The remaining tools follow the same pattern:
    One public web page from the internet as readable text: title, headings,
    main text and links, wrapped as untrusted third-party content. Ships
    disabled; see :ref:`administration-tools-external-pages`.
+
+``ask_choice``
+   Asks the person one question with 2 to 10 short answers given in the call,
+   and suspends the run until one is picked (``waiting_for_input``,
+   :ref:`ADR-105 <adr-105>`). For the choices of a guided process that write
+   nothing — which page, which finding first, whether to continue
+   (:ref:`ADR-214 <adr-214>`). The answers form the ``enum`` of the input
+   form, shown as a select, and a submission that is not one of them is
+   refused. Typographic spaces in the question and the answers become plain
+   spaces and soft hyphens are dropped; any other invisible character is
+   refused by name. Reads and writes nothing; it never stands in for the approval of
+   a write. Not admin-only. Ships disabled: enable it only where the client
+   handles a run that waits for input — a chat that cannot answer such a
+   pause ends the conversation's run as failed.
 
 .. _administration-tools-writing:
 
@@ -1055,7 +1070,7 @@ identifier alone. The built-in taxonomy:
 Group              Tools
 =================  ============================================================
 ``content``        ``search_records``, ``get_page_content``, ``read_records``,
-                   ``get_record_history``
+                   ``get_record_history``, ``ask_choice``
 ``structure``      ``get_pagetree``, ``get_tca``, ``read_fal_asset_meta``,
                    ``get_full_tca``, ``get_table_schema``, ``get_flexform_schema``,
                    ``resolve_url``, ``validate_tca``

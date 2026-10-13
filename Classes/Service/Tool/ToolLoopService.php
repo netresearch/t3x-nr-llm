@@ -9,8 +9,10 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
+use InvalidArgumentException;
 use LogicException;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
+use Netresearch\NrLlm\Domain\Enum\ApprovalDenialReason;
 use Netresearch\NrLlm\Domain\Enum\GovernanceDecision;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
@@ -40,6 +42,7 @@ use Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Provider\OpenAi\OpenAiCallMetadata;
+use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -152,6 +155,13 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // wiring.
         private ?SkillPinCheck $skillPinCheck = null,
         private ?ToolInvocationPolicyInterface $invocationPolicy = null,
+        // Answers whether a run holds a process pin (ADR-214 item 9): only
+        // then does a turn suspend on ONE approval-bound call, with the reads
+        // beside it run first. Optional like the collaborators above; absent
+        // it, which only the lean test wiring does, no run holds a pin and
+        // every turn suspends before any of its calls, as before. Production
+        // autowires the container's probe.
+        private ?ProcessPinProbe $processPinProbe = null,
     ) {}
 
     /**
@@ -551,6 +561,43 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     $this->providerItemsOf($resp),
                 );
 
+                // A guided process (ADR-214 item 9): one approval-bound call is
+                // pending, the reads beside it run first, and everything else
+                // gets an error result. Only for a run that holds a process pin
+                // and only for a turn with an approval-bound call; any other
+                // turn falls through to the scans below unchanged.
+                $proposal = $this->holdsProcessPin($skillPins) ? $this->proposalOf($resp->toolCalls ?? [], $allowedNames) : null;
+                if ($proposal instanceof ToolCall) {
+                    $besides = array_values(array_filter($resp->toolCalls ?? [], static fn(ToolCall $c): bool => $c !== $proposal));
+                    // The pending call goes LAST in the stored turn. The calls of
+                    // one turn have no order on the provider side, but Ollama
+                    // pairs a tool result with its call by position, not by id,
+                    // and the pending call's result is appended only on resume,
+                    // after the results of the calls settled here.
+                    array_pop($messages);
+                    $messages[] = ChatMessage::assistantToolCalls([...$besides, $proposal], $resp->content, $this->providerItemsOf($resp));
+                    $environment = new ToolInvocationEnvironment($configuration, $skillAllowList, $context, $runTrace);
+                    foreach ($besides as $call) {
+                        $messages[] = ChatMessage::toolResult($call->id, $this->settleBesideProposal($call, $allowedNames, $remoteCalls, $environment, $invocationHistory, $iterations));
+                    }
+
+                    throw ToolApprovalRequiredException::fromState($this->approvalSuspension(
+                        $messages,
+                        [$proposal],
+                        $iterations,
+                        $promptTokens,
+                        $completionTokens,
+                        $allowedToolNames,
+                        $options,
+                        $allowedNames,
+                        $context,
+                        $augmentation,
+                        $storedAllowList,
+                        $skillPins,
+                        $invocationHistory,
+                    ));
+                }
+
                 // Human-in-the-loop (ADR-084/134): if any call in this turn needs
                 // approval, suspend BEFORE executing any of the turn's calls so a
                 // multi-call turn stays consistent. Existing read-only tools
@@ -569,55 +616,23 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     // the Governance simulation, which reports the requirement
                     // as its own axis. Narrowing the remote exemption is one
                     // edit rather than three kept in step by a comment.
-                    if (in_array($call->name, $allowedNames, true) && ToolApprovalRule::requiresApproval(
-                        $this->registry->get($call->name),
-                    )) {
-                        throw ToolApprovalRequiredException::fromState(
-                            new SuspendedRunState(
-                                array_map(
-                                    static fn(
-                                        ChatMessage|array $m,
-                                    ): array => $m instanceof ChatMessage ? $m->toTranscriptArray() : $m,
-                                    $messages,
-                                ),
-                                array_map(
-                                    static fn(
-                                        ToolCall $c,
-                                    ): array => $c->toArray(),
-                                    $resp->toolCalls ?? [],
-                                ),
-                                $iterations,
-                                $promptTokens,
-                                $completionTokens,
-                                // Persist the run's constraints so resume re-applies the
-                                // SAME allow-list and options instead of falling back to
-                                // defaults (ADR-084).
-                                $allowedToolNames,
-                                $this->persistedRunOptions($options),
-                                // What the turn WOULD do, captured here and not at
-                                // approval time: this is the run's actor context, the
-                                // only identity allowed to read the targets (ADR-136).
-                                callPreviews: $this->previewsForTurn(
-                                    $resp->toolCalls ?? [],
-                                    $allowedNames,
-                                    $context,
-                                ),
-                                // The forced set travels with the suspend so resume
-                                // re-applies the ADR-164 ceiling to it (ADR-165).
-                                forcedSnippetUids: $this->uidsOf(
-                                    $augmentation->forcedSnippets ?? [],
-                                ),
-                                forcedSkillUids: $this->uidsOf($augmentation->forcedSkills ?? []),
-                                // The run's start-time list, never a segment's
-                                // intersection: the next resume intersects it with
-                                // the live list again (ADR-038 item 5).
-                                skillAllowList: $storedAllowList,
-                                skillPins: $skillPins,
-                                invocationHistory: $invocationHistory,
-                                initiatingActor: $context->actor,
-                                initiatingRunUuid: $context->run->uuid ?? '',
-                            ),
-                        );
+                    if (in_array($call->name, $allowedNames, true)
+                        && ToolApprovalRule::requiresApproval($this->registry->get($call->name))) {
+                        throw ToolApprovalRequiredException::fromState($this->approvalSuspension(
+                            $messages,
+                            $resp->toolCalls ?? [],
+                            $iterations,
+                            $promptTokens,
+                            $completionTokens,
+                            $allowedToolNames,
+                            $options,
+                            $allowedNames,
+                            $context,
+                            $augmentation,
+                            $storedAllowList,
+                            $skillPins,
+                            $invocationHistory,
+                        ));
                     }
                 }
 
@@ -628,8 +643,22 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 // like the approval scan: only an OFFERED input tool pauses.
                 foreach ($resp->toolCalls ?? [] as $call) {
                     $inputTool = $this->registry->get($call->name);
-                    if (in_array($call->name, $allowedNames, true) && $inputTool instanceof RequiresInputInterface) {
-                        $schema = $inputTool->getInputSchema();
+                    if (in_array($call->name, $allowedNames, true)
+                        && $inputTool instanceof RequiresInputInterface) {
+                        // A tool that builds its schema from the call's arguments
+                        // (ADR-214, the choice builtin) refuses arguments it
+                        // cannot ask with. That is the model's mistake, not a
+                        // programming error: the call is not suspended on and
+                        // runs below, where the tool refuses the same arguments
+                        // with an error result the model reads.
+                        try {
+                            $schema = $inputTool instanceof ArgumentInputSchemaInterface
+                                ? $inputTool->inputSchemaFor($call->arguments)
+                                : $inputTool->getInputSchema();
+                        } catch (InvalidArgumentException) {
+                            continue;
+                        }
+
                         // Capture-time gate (ADR-105 M2): a RequiresInputInterface
                         // tool with a degenerate schema is a programming error;
                         // never persist a suspend that would rehydrate fail-open.
@@ -796,6 +825,160 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     }
 
     /**
+     * The state an approval pause persists (ADR-084): the transcript so far,
+     * the pending calls, the counters and the run's constraints, so a resume
+     * re-applies the SAME allow-list, options and forced set.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<ToolCall>                         $pendingCalls
+     * @param list<string>|null                      $allowedToolNames
+     * @param list<string>                           $allowedNames
+     * @param list<SkillPin>                         $skillPins        the approved skill versions the transcript holds as instructions (ADR-214 item 6), re-checked at resume
+     */
+    private function approvalSuspension(
+        array $messages,
+        array $pendingCalls,
+        int $iterations,
+        int $promptTokens,
+        int $completionTokens,
+        ?array $allowedToolNames,
+        ?ToolOptions $options,
+        array $allowedNames,
+        ToolExecutionContext $context,
+        ?RunAugmentation $augmentation,
+        SkillToolAllowList $storedAllowList,
+        array $skillPins,
+        ToolInvocationHistory $invocationHistory,
+    ): SuspendedRunState {
+        return new SuspendedRunState(
+            array_map(static fn(ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toTranscriptArray() : $m, $messages),
+            array_map(static fn(ToolCall $c): array => $c->toArray(), $pendingCalls),
+            $iterations,
+            $promptTokens,
+            $completionTokens,
+            // Persist the run's constraints so resume re-applies the SAME
+            // allow-list and options instead of falling back to defaults
+            // (ADR-084).
+            $allowedToolNames,
+            $this->persistedRunOptions($options),
+            // What the turn WOULD do, captured here and not at approval time:
+            // this is the run's actor context, the only identity allowed to
+            // read the targets (ADR-136).
+            callPreviews: $this->previewsForTurn($pendingCalls, $allowedNames, $context),
+            // The forced set travels with the suspend so resume re-applies the
+            // ADR-164 ceiling to it (ADR-165).
+            forcedSnippetUids: $this->uidsOf($augmentation->forcedSnippets ?? []),
+            forcedSkillUids: $this->uidsOf($augmentation->forcedSkills ?? []),
+            // The run's start-time list, never a segment's intersection: the
+            // next resume intersects it with the live list again (ADR-038
+            // item 5).
+            skillAllowList: $storedAllowList,
+            skillPins: $skillPins,
+            invocationHistory: $invocationHistory,
+            initiatingActor: $context->actor,
+            initiatingRunUuid: $context->run->uuid ?? '',
+        );
+    }
+
+    /**
+     * Whether this run holds a process pin (ADR-214 item 9), asked of the pins
+     * the loop holds: an executing run has no stored state to read them from.
+     *
+     * @param list<SkillPin> $skillPins
+     */
+    private function holdsProcessPin(array $skillPins): bool
+    {
+        return $this->processPinProbe?->anyProcessPin($skillPins) === true;
+    }
+
+    /**
+     * The one call a process turn suspends on (ADR-214 item 9), or null when
+     * the turn holds no approval-bound call.
+     *
+     * Counted are the calls {@see ToolApprovalRule::requiresApproval()} holds
+     * for — declared writes, approval-bound reads (ADR-202), remote tools that
+     * require approval — and only offered ones, like the approval scan: a call
+     * the run was never offered is refused by {@see self::invoke()}, not
+     * proposed. The first that declares a write wins; only a turn with no such
+     * call suspends on the first approval-bound call of any kind.
+     *
+     * @param list<ToolCall> $calls
+     * @param list<string>   $allowedNames
+     */
+    private function proposalOf(array $calls, array $allowedNames): ?ToolCall
+    {
+        $bound = array_values(array_filter(
+            $calls,
+            fn(ToolCall $c): bool => in_array($c->name, $allowedNames, true)
+                && ToolApprovalRule::requiresApproval($this->registry->get($c->name)),
+        ));
+
+        foreach ($bound as $call) {
+            if ($this->effects()->effectFor($call->name)->isWrite()) {
+                return $call;
+            }
+        }
+
+        return $bound[0] ?? null;
+    }
+
+    /**
+     * The result a call gets that sits beside the pending call of a process
+     * turn (ADR-214 item 9): a non-remote read that needs no approval runs now,
+     * in turn order; nothing else runs.
+     *
+     * A call the run was not offered goes through {@see self::invoke()}, which
+     * refuses it before anything executes, so the model reads the same refusal
+     * as in any other turn.
+     *
+     * @param list<string> $allowedNames
+     */
+    private function settleBesideProposal(
+        ToolCall $call,
+        array $allowedNames,
+        RemoteCallBudget $remoteCalls,
+        ToolInvocationEnvironment $environment,
+        ToolInvocationHistory &$history,
+        int $iterations,
+    ): string {
+        $tool = $this->registry->get($call->name);
+
+        $refusal = match (true) {
+            !in_array($call->name, $allowedNames, true) => null,
+            ToolApprovalRule::requiresApproval($tool) => sprintf(
+                'Error: tool "%s" was not executed: one approval per turn in a process. Propose it again after the decision on the pending call.',
+                $call->name,
+            ),
+            $tool instanceof RequiresInputInterface => sprintf('Error: tool "%s" requires user input that was not provided.', $call->name),
+            $tool instanceof RemoteToolInterface || $this->effects()->effectFor($call->name)->isWrite() => sprintf(
+                'Error: tool "%s" was not executed while a proposal waits for approval.',
+                $call->name,
+            ),
+            default => null,
+        };
+
+        if ($refusal !== null) {
+            // Not executed, so it enters the history as denied, like a call
+            // the invocation policy refuses.
+            $history = $history->append($call->name, 'denied', null);
+            $environment->trace?->recordToolExecution($iterations, 0.0, $call->name, $call->arguments, $refusal, true);
+
+            return $refusal;
+        }
+
+        $tt0 = hrtime(true);
+        $tr  = $this->invoke($call, $allowedNames, $remoteCalls, $environment, $history);
+        $environment->trace?->recordToolResult($iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr);
+
+        return $tr->content;
+    }
+
+    private function effects(): ToolEffectResolver
+    {
+        return new ToolEffectResolver($this->registry);
+    }
+
+    /**
      * Enforce the model context window on the outgoing transcript (ADR-107). A
      * no-op when the manager is absent (unchanged from before this feature).
      * Returns the possibly-pruned messages; throws when even the floor overflows.
@@ -900,6 +1083,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         ?int $maxIterations = null,
         ?RunTrace $runTrace = null,
         ?int $beUserUid = null,
+        ?ApprovalDenialReason $denialReason = null,
     ): ToolLoopResult {
         $messages = $state->messages;
         $pendingCalls = $state->toolCalls();
@@ -936,10 +1120,14 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
 
         foreach ($pendingCalls as $call) {
             if (!$approved) {
+                // A reason belongs to a proposal, and only a write is one
+                // (ADR-214 item 9): any other pending call keeps the plain
+                // denial, whatever the caller passed.
                 $result = $this->approvalDeniedResult(
                     $call->name,
                     $beUserUid,
                     $context->actor->backendUserUid,
+                    $this->effects()->effectFor($call->name)->isWrite() ? $denialReason : null,
                 );
                 $this->recordResumedRefusal($state, $call, $result, $runTrace);
             } elseif (!in_array($call->name, $resume->offered, true)) {
@@ -1010,7 +1198,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * model does not need a uid to answer, and the conversation partner does
      * not need to learn it from the model.
      */
-    private function approvalDeniedResult(string $toolName, ?int $decidedBy, int $runOwner): string
+    private function approvalDeniedResult(string $toolName, ?int $decidedBy, int $runOwner, ?ApprovalDenialReason $reason = null): string
     {
         [$token, $who, $advice] = match (true) {
             $decidedBy === null || $decidedBy < 1 => [
@@ -1031,10 +1219,27 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             ],
         };
 
+        // The reason of a guided process's proposal (ADR-214 item 9), rendered
+        // from the case as a fixed token beside decided_by, never from text a
+        // caller supplied. It replaces the advice: the person said what they
+        // want next, so the model is not to ask.
+        [$reasonToken, $advice] = match ($reason) {
+            null => [null, $advice],
+            ApprovalDenialReason::VARIANT => [
+                self::DENIAL_REASON_VARIANT,
+                'Whoever declined asked for another variant: propose a different version of this change as a new call.',
+            ],
+            ApprovalDenialReason::SKIP => [
+                self::DENIAL_REASON_SKIP,
+                'Whoever declined chose to skip it: do not propose this change again, move on to the next point.',
+            ],
+        };
+
         return sprintf(
-            'Error: %s (decided_by: %s). The approval for tool "%s" was declined %s. Nothing was executed. %s',
+            'Error: %s (decided_by: %s%s). The approval for tool "%s" was declined %s. Nothing was executed. %s',
             self::APPROVAL_DENIED,
             $token,
+            $reasonToken !== null ? ', reason: ' . $reasonToken : '',
             $toolName,
             $who,
             $advice,
@@ -1070,11 +1275,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         ?int $beUserUid = null,
     ): ToolLoopResult {
         // Defence in depth: do not trust the caller's "already validated" claim.
-        if (!$this->schemaValidator->validate($inputData, $state->inputSchema)) {
-            throw new LogicException(
-                'resumeWithInput received input that does not match the declared schema.',
-                1784600106,
-            );
+        if (!$this->schemaValidator->validate($inputData, $state->inputSchema)
+            || !InputSchema::enumsHold($inputData, $state->inputSchema)) {
+            throw new LogicException('resumeWithInput received input that does not match the declared schema.', 1784600106);
         }
 
         $messages = $state->messages;
@@ -1615,12 +1818,20 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // tool's own return value would notice. The fail-closed emptiness of an
         // error result is the value object's rule, not a condition repeated at
         // every call site.
-        $bounded = $result->withBoundedChannels(
-            $this->bounder->content(
-                $this->hookFailureNote(ToolDataHandler::takeFailures()) . $result->content,
-            ),
+        //
+        // The failures are taken once and feed both the note and the flag
+        // (ADR-214 item 9): the note is prose for the model, the flag is what
+        // the write step carries, so the chat reads "approved, check the
+        // record" without parsing the note. The tool's completeness is left
+        // as the tool stated it.
+        $failures = ToolDataHandler::takeFailures();
+        $bounded  = $result->withBoundedChannels(
+            $this->bounder->content($this->hookFailureNote($failures) . $result->content),
             $this->bounder->artifacts($result->artifacts),
         );
+        if ($failures !== []) {
+            $bounded = $bounded->withHookFailedAfterWrite();
+        }
 
         $this->announceWrite($bounded, $context);
 

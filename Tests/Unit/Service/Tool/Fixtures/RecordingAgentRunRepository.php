@@ -135,10 +135,10 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
 
     public bool $throwOnSettleIfWaiting = false;
 
-    /** @var list<array{runUid: int, from: list<string>, to: string, reason: string}> */
+    /** @var list<array{runUid: int, from: list<string>, to: string, reason: string, errorClass: string}> */
     public array $settledIfWaiting = [];
 
-    public function settleIfWaiting(int $runUid, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason): bool
+    public function settleIfWaiting(int $runUid, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason, string $errorClass = ''): bool
     {
         if ($this->throwOnSettleIfWaiting) {
             throw new RuntimeException('settleIfWaiting failed', 1791600399);
@@ -149,6 +149,7 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
             'from'   => array_map(static fn(AgentRunStatus $status): string => $status->value, $from),
             'to'     => $to->value,
             'reason' => $reason->value,
+            'errorClass' => $errorClass,
         ];
 
         return !$this->refuseSettleIfWaiting;

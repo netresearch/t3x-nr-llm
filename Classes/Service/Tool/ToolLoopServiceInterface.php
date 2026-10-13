@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\ApprovalDenialReason;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
@@ -106,6 +107,16 @@ interface ToolLoopServiceInterface
      * a denial for each. The tool gate is re-applied at resume time (a tool
      * disabled or made admin-only meanwhile is not executed even when approved),
      * and the pre-suspend counters are folded into the returned totals.
+     *
+     * @param ApprovalDenialReason|null $denialReason why a denial was made
+     *                                                (ADR-214). Rendered as the
+     *                                                `reason` token beside
+     *                                                `decided_by` on the result of
+     *                                                a pending call that declares
+     *                                                a write; a call that is no
+     *                                                write is no proposal and keeps
+     *                                                the plain denial. Ignored on
+     *                                                an approval.
      */
     public function resume(
         SuspendedRunState $state,
@@ -115,6 +126,7 @@ interface ToolLoopServiceInterface
         ?int $maxIterations = null,
         ?RunTrace $runTrace = null,
         ?int $beUserUid = null,
+        ?ApprovalDenialReason $denialReason = null,
     ): ToolLoopResult;
 
     /**

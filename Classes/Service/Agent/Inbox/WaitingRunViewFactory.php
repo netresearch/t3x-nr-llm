@@ -366,8 +366,12 @@ final readonly class WaitingRunViewFactory
             }
 
             /** @var array<string, mixed> $propSchema */
-            $name        = (string)$name;
-            $controlType = $this->classifier->classify($propSchema);
+            $name    = (string)$name;
+            $options = $this->enumOptions($propSchema);
+            // An enumerated field is a choice, enforced on submission
+            // (ADR-214 item 9): offered as a select of its members rather than
+            // a text field that has to be typed exactly.
+            $controlType = $options !== [] ? InputFieldView::CONTROL_SELECT : $this->classifier->classify($propSchema);
             $fields[]    = new InputFieldView(
                 name: $name,
                 label: $this->fieldLabel($name, $propSchema),
@@ -384,7 +388,7 @@ final readonly class WaitingRunViewFactory
                     SchemaPropertyClassifier::NUMBER  => 'decimal',
                     default                           => '',
                 },
-                options: $this->enumOptions($propSchema),
+                options: $options,
                 description: is_string($propSchema['description'] ?? null) ? $propSchema['description'] : null,
             );
         }

@@ -129,6 +129,11 @@ services:
     alias: Netresearch\NrLlm\Service\Agent\AgentRuntime
     public: true
 
+  # Whether a run holds a process pin (ADR-214): read from the approval
+  # snapshots of the skill versions the run has pinned.
+  Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe:
+    alias: Netresearch\NrLlm\Service\Agent\Process\ApprovedProcessPinProbe
+
   # The composite tool gate (ADR-094): registered, enabled, permitted, within
   # the configuration's groups, within the provider trust zone's data-class
   # ceiling. Public because the backend module and functional tests ask it why
