@@ -90,6 +90,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **Cache regression oracles now distinguish raw keys that share a sanitized or truncated prefix.** Idempotency tests verify separate answers and correct replay, bypass for unusable keys, and successful provider answers despite cache failures. Failed provider calls must propagate their original exception on every retry; the assertion is outside the expected-exception catch. Functional circuit-store tests verify independent state for colliding readable prefixes; selected faults must fail behavioral assertions.
 
+- Strengthen the use-case pack controller regression tests for read-only plans,
+  POST confirmation, real installation, repeat installs and operator feedback.
+
 - **Retrieval regression checks require comparable benchmark provenance (ADR-215).** Corpus or scoring-label changes and unknown legacy provenance skip numeric comparison; `--fail-on-regression` now fails in those states. A changed model, chunker or pipeline on the same benchmark remains comparable and is reported as a treatment change. The first known run establishes a baseline. Existing retrievers still run without the optional capability.
 - **The sync's change test and the compose-time integrity check compare the version digest (ADR-214 item 1)** instead of the body checksum. `body_checksum` keeps its body-only meaning for the signed manifest and for rows without a digest.
 - **A skill whose frontmatter sets `process: true` is not composed from an attachment or a forced skill**; it is skipped with a warning. Process skills reach a run only through an explicit invocation, which a later change adds (ADR-214 item 6).
@@ -97,8 +100,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- Strengthen the use-case pack controller regression tests for read-only plans,
-  POST confirmation, real installation, repeat installs and operator feedback.
+- **MCP replies must belong to their actual request (ADR-227).** Requests use distinct opaque string IDs; version, matching ID, exclusive response branch, object results and exact integral remote error codes are checked. Complete bounded event streams require one matching response, and oversized or incomplete prefixes are refused before health recording or catalogue reconciliation.
 
 - **An MCP tool-operation failure survives credential cleanup.** The client
   still closes its credential session once, while retaining an already-raised
