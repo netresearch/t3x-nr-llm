@@ -91,9 +91,18 @@ prevents subsequent legs and is forwarded to the supported Vault transport.
 
 The exchanged token is stored under a random expiring Vault identifier. Every
 MCP leg checks freshness; an expired token triggers a fresh exchange with the
-original actor. The operation deletes temporary identifiers in ``finally``;
-Vault expiry bounds their lifetime after a process crash. A discovery session
-keeps its configured reference and never deletes that operator-owned secret.
+original actor. The operation attempts normal Vault deletion of temporary
+identifiers in ``finally``. If storage throws after persisting a token, the
+exchange also attempts deletion of its locally allocated identifier after
+checking the stored actor and delegation metadata. Missing, unreadable or
+mismatched metadata prevents this destructive attempt. A cleanup failure cannot
+replace the original sanitized storage failure.
+
+Deletion remains subject to Vault permissions and audit. This is best-effort
+cleanup, not atomic allocation, concurrency protection or physical erasure.
+Vault expiry bounds residual credentials after a process crash or failed
+cleanup. A discovery session keeps its configured reference and never deletes
+that operator-owned secret.
 
 Queue and resume payloads carry actor identity and server references. They
 carry no subject, access or refresh tokens. Approval and human-input resumes
