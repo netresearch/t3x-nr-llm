@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Mcp\Exception;
 
-use RuntimeException;
+use Netresearch\NrLlm\Exception\RuntimeException;
 
 /**
  * A call to an MCP server did not produce a usable result (ADR-116).
