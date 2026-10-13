@@ -105,6 +105,14 @@ outcome; an exhausted deadline retains its budget failure; a stored-binding
 failure retains its existing sanitized exchange outcome. An explicit session
 ``close()`` still reports ``cleanup_failed`` when its own deletion fails.
 
+The same precedence applies to an already-failed ``McpClient::callTool()``
+operation: closing its credential session is still attempted, but a secondary
+close failure cannot replace the original cancellation, budget, protocol or
+caller-argument serialization failure. The original throwable is retained.
+Without an escaping operation failure, close errors still propagate, including
+after a returned remote ``isError=true`` result. That flag describes a tool
+result inside a successful JSON-RPC response.
+
 Deletion remains subject to Vault permissions and audit. This is best-effort
 cleanup, not atomic allocation, concurrency protection or physical erasure.
 Vault expiry bounds residual credentials after a process crash or failed
