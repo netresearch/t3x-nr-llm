@@ -194,7 +194,7 @@ final readonly class SkillApprovalRepository implements SkillApprovalRepositoryI
             return null;
         }
 
-        $decoded = json_decode($stored, true);
+        $decoded = json_decode($stored);
 
         // A stored value that is not a list is corrupt. Reading it as "no
         // declaration" would widen the run to every tool, so it reads as the

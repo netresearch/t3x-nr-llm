@@ -614,3 +614,5 @@ Tools
    Adr217McpDelegationKeepsTheActor
    Adr218CompanionDocumentSourceSync
    Adr219WorkerOperations
+   Adr220EvaluationResultsNameTheirGenerator
+   Adr227McpRepliesBelongToTheirRequest

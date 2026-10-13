@@ -32,10 +32,10 @@ use Throwable;
 /**
  * One JSON-RPC round trip to one MCP server over HTTP (ADR-116).
  *
- * Deliberately stateless and dumb: it builds a request, sends it through the
- * SSRF-guarded vault client and hands back the `result` object. Sessions, the
- * initialize handshake and pagination live in {@see McpClient}, so this class
- * stays assertable against a fake PSR-18 client.
+ * It allocates a distinct request ID using bounded scalar state, sends through
+ * the vault client and validates the correlated `result` object (ADR-227).
+ * Sessions, the initialize handshake and pagination live in {@see McpClient},
+ * so this class stays assertable against a fake PSR-18 client.
  *
  * Two properties are load-bearing and neither is an accident:
  *
@@ -114,6 +114,7 @@ final class McpHttpTransport
         ?CancellationSignalInterface $cancellation = null,
         ?McpCredentialSessionInterface $credentials = null,
     ): array {
+        $requestId = $this->nextRequestId($server);
         $startedAt = hrtime(true);
 
         $response = $this->send(
@@ -122,9 +123,7 @@ final class McpHttpTransport
                 $server,
                 [
                     'jsonrpc' => '2.0',
-                    // A single request per connection, so the id only has to be
-                    // present and echoable, not unique across calls.
-                    'id' => 1,
+                    'id' => $requestId,
                     'method' => $method,
                     'params' => $params === [] ? new stdClass() : $params,
                 ],
@@ -143,6 +142,7 @@ final class McpHttpTransport
                 $response['body'],
                 $response['status'],
                 $response['contentType'],
+                $requestId,
             ),
             'sessionId' => $response['sessionId'],
             'durationMs' => $durationMs,
@@ -185,6 +185,7 @@ final class McpHttpTransport
             $sessionId,
             $cancellation,
             $credentials,
+            false,
         );
     }
 
@@ -214,6 +215,7 @@ final class McpHttpTransport
         ?string $sessionId,
         ?CancellationSignalInterface $cancellation = null,
         ?McpCredentialSessionInterface $credentials = null,
+        bool $replyExpected = true,
     ): array {
         // Checked before anything is built, and outside the catch below, so an
         // exhausted budget cannot be reported as a far side that failed. It is
@@ -287,30 +289,46 @@ final class McpHttpTransport
 
         return [
             'status' => $status,
-            'body' => $this->readBounded($response->getBody()),
+            'body' => $this->readBounded($server, $response->getBody(), $replyExpected),
             'contentType' => $response->getHeaderLine('Content-Type'),
             'sessionId' => $returnedSession === '' ? null : $returnedSession,
         ];
     }
 
     /**
-     * Read at most {@see self::MAX_RESPONSE_BYTES}, in chunks.
-     *
-     * A single `read()` may return fewer bytes than asked for even when more
-     * are available, so one call is not a body; and `getContents()` would let a
-     * server decide how much memory we spend.
+     * Read at most the configured body bound; reply-bearing bodies must reach EOF.
+     * An exact-limit response uses at most one extra probe byte to prove completion.
      */
-    private function readBounded(StreamInterface $stream): string
-    {
+    private function readBounded(
+        McpServerRecord $server,
+        StreamInterface $stream,
+        bool $requireComplete,
+    ): string {
         $body = '';
-
-        while (!$stream->eof() && strlen($body) < self::MAX_RESPONSE_BYTES) {
+        while (!$this->streamAtEnd($stream) && strlen($body) < self::MAX_RESPONSE_BYTES) {
             $chunk = $stream->read(min(8192, self::MAX_RESPONSE_BYTES - strlen($body)));
             if ($chunk === '') {
+                if ($requireComplete && !$this->streamAtEnd($stream)) {
+                    throw McpTransportException::forMalformedResponse(
+                        $server->identifier,
+                        'the reply body ended reading without confirmed EOF',
+                    );
+                }
+
                 break;
             }
 
             $body .= $chunk;
+        }
+
+        if ($requireComplete && !$this->streamAtEnd($stream)) {
+            $probe = $stream->read(1);
+            if ($probe !== '' || !$this->streamAtEnd($stream)) {
+                throw McpTransportException::forMalformedResponse(
+                    $server->identifier,
+                    'the reply body is oversized or incomplete',
+                );
+            }
         }
 
         return $body;
@@ -358,72 +376,70 @@ final class McpHttpTransport
      *
      * @return array<string, mixed>
      */
-    private function decodeResult(McpServerRecord $server, string $body, int $status, string $contentType): array
-    {
+    private function decodeResult(
+        McpServerRecord $server,
+        string $body,
+        int $status,
+        string $contentType,
+        string $requestId,
+    ): array {
         $mediaType = strtolower(trim(explode(';', $contentType, 2)[0]));
         if ($mediaType === 'text/event-stream') {
-            $body = $this->unframeEventStream($server, $body);
+            $body = $this->unframeEventStream($server, $body, $requestId);
         } elseif ($mediaType !== '' && $mediaType !== 'application/json') {
-            throw McpTransportException::forUnsupportedContentType($server->identifier, $mediaType);
+            throw McpTransportException::forUnsupportedContentType(
+                $server->identifier,
+                $mediaType,
+            );
         }
 
         if (trim($body) === '') {
-            throw McpTransportException::forMalformedResponse($server->identifier, sprintf('empty body with status %d', $status));
+            throw McpTransportException::forMalformedResponse(
+                $server->identifier,
+                sprintf('empty body with status %d', $status),
+            );
         }
 
-        try {
-            $decoded = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException $e) {
-            throw McpTransportException::forMalformedResponse($server->identifier, $e->getMessage());
+        $decoded = $this->validatedEnvelope($server, $body, $requestId);
+        if (property_exists($decoded, 'error')) {
+            /** @var stdClass $error */
+            $error = $decoded->error;
+            /** @var int $code */
+            $code = $error->code;
+            /** @var string $message */
+            $message = $error->message;
+            throw McpTransportException::forRpcError(
+                $server->identifier,
+                $code,
+                $message,
+            );
         }
 
-        if (!\is_array($decoded)) {
-            throw McpTransportException::forMalformedResponse($server->identifier, 'the body is not a JSON object');
-        }
-
-        if (isset($decoded['error']) && \is_array($decoded['error'])) {
-            $code    = \is_int($decoded['error']['code'] ?? null) ? $decoded['error']['code'] : 0;
-            $message = \is_string($decoded['error']['message'] ?? null) ? $decoded['error']['message'] : 'no message';
-
-            throw McpTransportException::forRpcError($server->identifier, $code, $message);
-        }
-
-        $result = $decoded['result'] ?? null;
-        if (!\is_array($result)) {
-            throw McpTransportException::forMalformedResponse($server->identifier, 'the response carries neither a result nor an error');
-        }
-
-        /** @var array<string, mixed> $result */
-        return $result;
+        /** @var array{result: array<string, mixed>} $associative */
+        $associative = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
+        return $associative['result'];
     }
 
     /**
-     * The one JSON-RPC response inside an event-stream framed answer, as the
-     * JSON text it was sent as.
+     * Select exactly one correlated response from the complete bounded SSE body.
+     * Notification/request-only frames and non-response framing retain their
+     * existing ignored behavior. Validate all response-looking frames before
+     * returning even a valid remote error, so later duplicates cannot be hidden.
      *
-     * The body is read as a whole — it has already been bounded by
-     * {@see self::readBounded()} and the server has closed it — and parsed by
-     * the SSE rules that matter for a single request/response exchange: events
-     * are separated by a blank line, the `data:` lines of one event join with a
-     * newline, `event:`, `id:`, `retry:` and comment lines carry nothing we
-     * read. A server may put its own notifications on the same stream before
-     * the response (the transport allows it); this client declared no
-     * capabilities, so anything that carries a `method` is passed over and the
-     * first message that is a response — a `result` or an `error` — is the
-     * answer. A stream with no such message is a malformed answer, named as one.
-     *
-     * @throws McpTransportException when the stream carries no response
+     * @throws McpTransportException
      */
-    private function unframeEventStream(McpServerRecord $server, string $body): string
-    {
+    private function unframeEventStream(
+        McpServerRecord $server,
+        string $body,
+        string $requestId,
+    ): string {
         $messages = [];
-        $data     = [];
-
+        $data = [];
         foreach (preg_split('/\r\n|\r|\n/', $body) ?: [] as $line) {
             if ($line === '') {
                 if ($data !== []) {
                     $messages[] = implode("\n", $data);
-                    $data       = [];
+                    $data = [];
                 }
 
                 continue;
@@ -431,33 +447,40 @@ final class McpHttpTransport
 
             if (str_starts_with($line, 'data:')) {
                 $payload = substr($line, 5);
-                $data[]  = str_starts_with($payload, ' ') ? substr($payload, 1) : $payload;
+                $data[] = str_starts_with($payload, ' ') ? substr($payload, 1) : $payload;
             }
-
-            // `event:`, `id:`, `retry:` and `:` comments are not read.
         }
 
         if ($data !== []) {
             $messages[] = implode("\n", $data);
         }
 
+        $reply = null;
         foreach ($messages as $message) {
-            $decoded = json_decode($message, true);
-            if (!\is_array($decoded) || isset($decoded['method'])) {
-                // Not JSON, or a server-initiated notification/request: neither
-                // is the answer to the request this client made.
+            $decoded = json_decode($message);
+            if (!$decoded instanceof stdClass || !property_exists($decoded, 'result') && !property_exists($decoded, 'error')) {
                 continue;
             }
 
-            if (\array_key_exists('result', $decoded) || \array_key_exists('error', $decoded)) {
-                return $message;
+            $this->validatedEnvelope($server, $message, $requestId);
+            if ($reply !== null) {
+                throw McpTransportException::forMalformedResponse(
+                    $server->identifier,
+                    'the event stream carried more than one response',
+                );
             }
+
+            $reply = $message;
         }
 
-        throw McpTransportException::forMalformedResponse(
-            $server->identifier,
-            $messages === [] ? 'the event stream carried no message' : 'the event stream carried no response to the request',
-        );
+        if ($reply === null) {
+            throw McpTransportException::forMalformedResponse(
+                $server->identifier,
+                $messages === [] ? 'the event stream carried no message' : 'the event stream carried no response to the request',
+            );
+        }
+
+        return $reply;
     }
 
     /**
@@ -545,5 +568,278 @@ final class McpHttpTransport
             $placement,
             $options,
         );
+    }
+
+    private string $requestNamespace = '';
+
+    private ?int $requestProcess = null;
+
+    private int $requestSequence = 0;
+
+    /**
+     * Validate only the MCP reply envelope; nested result shapes stay associative.
+     */
+    private function validatedEnvelope(
+        McpServerRecord $server,
+        string $body,
+        string $requestId,
+    ): stdClass {
+        try {
+            $decoded = json_decode($body, false, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            throw McpTransportException::forMalformedResponse(
+                $server->identifier,
+                'the reply is not valid JSON',
+            );
+        }
+
+        if (!$decoded instanceof stdClass) {
+            throw McpTransportException::forMalformedResponse(
+                $server->identifier,
+                'the reply root is not a JSON object',
+            );
+        }
+
+        if (($decoded->jsonrpc ?? null) !== '2.0' || ($decoded->id ?? null) !== $requestId) {
+            throw McpTransportException::forMalformedResponse(
+                $server->identifier,
+                'the reply version or request ID does not match',
+            );
+        }
+
+        $hasResult = property_exists($decoded, 'result');
+        $hasError = property_exists($decoded, 'error');
+        if ($hasResult === $hasError || property_exists($decoded, 'method')) {
+            throw McpTransportException::forMalformedResponse(
+                $server->identifier,
+                'the reply must carry exactly one response branch and no method',
+            );
+        }
+
+        if ($hasResult) {
+            if (!$decoded->result instanceof stdClass) {
+                throw McpTransportException::forMalformedResponse(
+                    $server->identifier,
+                    'the MCP result is not a JSON object',
+                );
+            }
+
+            return $decoded;
+        }
+
+        if (!$decoded->error instanceof stdClass || !is_string($decoded->error->message ?? null)) {
+            throw McpTransportException::forMalformedResponse(
+                $server->identifier,
+                'the RPC error must be an object with a string message',
+            );
+        }
+
+        $rawError = $this->rawObjectMember($body, 'error');
+        $rawCode = $rawError === null ? null : $this->rawObjectMember($rawError, 'code');
+        $code = $rawCode === null ? null : $this->integralErrorCode($rawCode);
+        if ($code === null) {
+            throw McpTransportException::forMalformedResponse(
+                $server->identifier,
+                'the RPC error code is not an exactly representable integral JSON number',
+            );
+        }
+
+        $decoded->error->code = $code;
+        return $decoded;
+    }
+
+    /**
+     * Read the last decoded-key match in an already valid JSON object. This is
+     * confined to the root error member and its code: json_decode also selects
+     * the last duplicate key, including escaped spellings. Do not inspect text
+     * inside string values or nested objects as if it were a sibling member.
+     */
+    private function rawObjectMember(string $json, string $wanted): ?string
+    {
+        $length = strlen($json);
+        $offset = strspn($json, " \t\r\n") + 1;
+        $found = null;
+        while ($offset < $length) {
+            $offset += strspn($json, " \t\r\n", $offset);
+            if ($json[$offset] === '}') {
+                break;
+            }
+
+            $keyStart = $offset;
+            $offset = $this->jsonValueEnd($json, $offset);
+            $key = json_decode(substr($json, $keyStart, $offset - $keyStart), true);
+            $offset += strspn($json, " \t\r\n", $offset);
+            ++$offset;
+            // The colon is guaranteed by the preceding JSON validation.
+            $offset += strspn($json, " \t\r\n", $offset);
+            $valueStart = $offset;
+            $offset = $this->jsonValueEnd($json, $offset);
+            if ($key === $wanted) {
+                $found = substr($json, $valueStart, $offset - $valueStart);
+            }
+
+            $offset += strspn($json, " \t\r\n", $offset);
+            if ($offset >= $length || $json[$offset] !== ',') {
+                break;
+            }
+
+            ++$offset;
+        }
+
+        return $found;
+    }
+
+    /**
+     * Skip one already validated JSON value, honoring string escapes and nesting.
+     */
+    private function jsonValueEnd(string $json, int $offset): int
+    {
+        $length = strlen($json);
+        $quoted = false;
+        $escaped = false;
+        $depth = 0;
+        $structured = $json[$offset] === '{' || $json[$offset] === '[';
+        $string = $json[$offset] === '"';
+        for ($index = $offset; $index < $length; ++$index) {
+            $character = $json[$index];
+            if ($quoted) {
+                if ($escaped) {
+                    $escaped = false;
+                } elseif ($character === '\\') {
+                    $escaped = true;
+                } elseif ($character === '"') {
+                    $quoted = false;
+                    if ($string) {
+                        return $index + 1;
+                    }
+                }
+
+                continue;
+            }
+
+            if ($character === '"') {
+                $quoted = true;
+            } elseif ($structured && ($character === '{' || $character === '[')) {
+                ++$depth;
+            } elseif ($structured && ($character === '}' || $character === ']')) {
+                --$depth;
+                if ($depth === 0) {
+                    return $index + 1;
+                }
+            } elseif (!$structured && !$string && str_contains(",}] \t\r\n", $character)) {
+                return $index;
+            }
+        }
+
+        return $length;
+    }
+
+    /**
+     * Validate only error.code against its exact decimal wire value. Exponents
+     * are bounded before expansion; casting is performed only after exact range
+     * comparison. Rounded json_decode floats never decide acceptance.
+     */
+    private function integralErrorCode(string $token): ?int
+    {
+        if (preg_match(
+            '/^(-?)(0|[1-9][0-9]*)(?:\.([0-9]+))?(?:[eE]([+-]?[0-9]+))?$/D',
+            $token,
+            $parts,
+            PREG_UNMATCHED_AS_NULL,
+        ) !== 1) {
+            return null;
+        }
+
+        $fraction = $parts[3] ?? '';
+        $digits = ltrim($parts[2] . $fraction, '0');
+        if ($digits === '') {
+            return 0;
+        }
+
+        $exponentToken = $parts[4] ?? '0';
+        $exponentDigits = ltrim(ltrim($exponentToken, '+-'), '0');
+        $maximumShift = strlen($digits) + strlen($fraction) + strlen((string)PHP_INT_MAX);
+        $bound = (string)$maximumShift;
+        if (strlen($exponentDigits) > strlen($bound) || strlen($exponentDigits) === strlen($bound) && strcmp($exponentDigits, $bound) > 0) {
+            return null;
+        }
+
+        $exponent = (int)$exponentDigits;
+        if (str_starts_with($exponentToken, '-')) {
+            $exponent = -$exponent;
+        }
+
+        $shift = $exponent - strlen($fraction);
+        if ($shift < 0) {
+            $remove = -$shift;
+            if ($remove >= strlen($digits) || strspn($digits, '0', strlen($digits) - $remove) !== $remove) {
+                return null;
+            }
+
+            $digits = substr($digits, 0, strlen($digits) - $remove);
+        }
+
+        $negative = $parts[1] === '-';
+        $limit = $negative ? substr((string)PHP_INT_MIN, 1) : (string)PHP_INT_MAX;
+        if ($shift > 0) {
+            if (strlen($digits) + $shift > strlen($limit)) {
+                return null;
+            }
+
+            $digits .= str_repeat('0', $shift);
+        }
+
+        if (strlen($digits) > strlen($limit) || strlen($digits) === strlen($limit) && strcmp($digits, $limit) > 0) {
+            return null;
+        }
+
+        return (int)(($negative ? '-' : '') . $digits);
+    }
+
+    /**
+     * Allocate before HTTP contact; a fork starts a new random namespace.
+     */
+    private function nextRequestId(McpServerRecord $server): string
+    {
+        $process = getmypid();
+        if ($process === false) {
+            throw McpTransportException::forTransportFailure(
+                $server->identifier,
+                'request ID process identity is unavailable',
+            );
+        }
+
+        if ($this->requestProcess !== $process) {
+            try {
+                $namespace = bin2hex(random_bytes(16));
+            } catch (Throwable) {
+                throw McpTransportException::forTransportFailure(
+                    $server->identifier,
+                    'request ID allocation failed',
+                );
+            }
+
+            $this->requestNamespace = $namespace;
+            $this->requestProcess = $process;
+            $this->requestSequence = 0;
+        }
+
+        if ($this->requestSequence === PHP_INT_MAX) {
+            throw McpTransportException::forTransportFailure(
+                $server->identifier,
+                'request ID sequence exhausted',
+            );
+        }
+
+        ++$this->requestSequence;
+        return 'nrllm-' . $this->requestNamespace . '-' . $this->requestSequence;
+    }
+
+    /**
+     * @phpstan-impure A read changes the stream's EOF observation.
+     */
+    private function streamAtEnd(StreamInterface $stream): bool
+    {
+        return $stream->eof();
     }
 }
