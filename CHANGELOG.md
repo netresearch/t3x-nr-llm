@@ -133,6 +133,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **Worker telemetry failures do not stop healthy consumers (ADR-219).** Heartbeat writes, pruning and stop cleanup isolate storage and logging failures. Retries retain one process identity and wait at least 30 seconds, including after partial writes; diagnostic warnings exclude connection details. Status read failures remain errors.
 
+- **A failed usage warning no longer loses an already-generated answer.** Usage accounting contains failures from both its tracker and its warning logger for typed, array and specialized responses, without repeating the provider call. A failed aggregate write can still leave daily usage and budget accounting incomplete.
+
 - **Agent runs settle when the acting backend user cannot be resolved.**
   Context construction now runs inside the executor's lifecycle error boundary.
   Synchronous, queued and resumed runs return the existing failed outcome and
