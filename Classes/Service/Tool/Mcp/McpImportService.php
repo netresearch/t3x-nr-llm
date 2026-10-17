@@ -4,8 +4,7 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-
-declare(strict_types=1);
+declare (strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Mcp;
 
@@ -74,35 +73,43 @@ final readonly class McpImportService
         // would keep a discarded server's identifier reserved for ever.
         $twin = $this->identifierTwin($server);
         if ($twin !== null) {
-            return $this->refuse($server, $now, sprintf(
-                'The identifier "%s" is also used by server "%s"; identifiers must be unique because they name the imported tools.',
-                $server->identifier,
-                $twin,
-            ));
+            return $this->refuse(
+                $server,
+                $now,
+                sprintf(
+                    'The identifier "%s" is also used by server "%s"; identifiers must be unique because they name the imported tools.',
+                    $server->identifier,
+                    $twin,
+                ),
+            );
         }
 
         try {
             $advertised = $this->client->listTools($server);
         } catch (McpTransportException $e) {
-            $this->logger->warning('An MCP catalogue import failed', [
-                'server'    => $server->identifier,
-                'exception' => $e,
-            ]);
+            $this->logger->warning(
+                'An MCP catalogue import failed',
+                ['server' => $server->identifier, 'exception' => $e],
+            );
 
             return $this->refuse($server, $now, $e->getMessage());
         }
 
         if (count($advertised) > self::MAX_TOOLS) {
-            return $this->refuse($server, $now, sprintf(
-                'The server advertises %d tools, more than the %d this extension will import.',
-                count($advertised),
-                self::MAX_TOOLS,
-            ));
+            return $this->refuse(
+                $server,
+                $now,
+                sprintf(
+                    'The server advertises %d tools, more than the %d this extension will import.',
+                    count($advertised),
+                    self::MAX_TOOLS,
+                ),
+            );
         }
 
-        $accepted    = [];
+        $accepted = [];
         $skipReasons = [];
-        $localNames  = [];
+        $localNames = [];
 
         foreach ($advertised as $tool) {
             $outcome = $this->accept($server, $tool, $localNames);
@@ -114,7 +121,7 @@ final readonly class McpImportService
             }
 
             $localNames[$outcome['toolName']] = true;
-            $accepted[]                       = $outcome;
+            $accepted[] = $outcome;
         }
 
         $orphaned = $this->catalogue->reconcile($server->uid, $server->pid, $accepted, $now);
@@ -137,13 +144,12 @@ final readonly class McpImportService
     }
 
     /**
-     * Validate one advertised tool.
+     * Validate one advertised tool, including names reserved by another server.
      *
      * @param array<string, mixed> $tool
      * @param array<string, true>  $localNames names already accepted in this run
      *
-     * @return array{toolName: string, remoteName: string, description: string, inputSchema: string, remoteAnnotations: string}|string
-     *                                                                                                                                 the catalogue row, or the reason it was rejected
+     * @return array{toolName: string, remoteName: string, description: string, inputSchema: string, remoteAnnotations: string}|string the catalogue row, or the reason it was rejected
      */
     private function accept(McpServerRecord $server, array $tool, array $localNames): array|string
     {
@@ -161,22 +167,20 @@ final readonly class McpImportService
             return sprintf('"%s" maps to a name this server already used and was skipped.', $remoteName);
         }
 
-        // Against the compile-time builtins only. A name already held by
-        // another server's imported tool is caught by the catalogue's unique
-        // index and, before that, by the identifier check in import(); using
-        // the full registry here would consult the providers and make the
-        // import depend on the very catalogue it is writing.
+        // Consult compile-time builtins without invoking catalogue-backed providers.
         if (in_array($localName, $this->registry->builtinNames(), true)) {
             return sprintf('"%s" would collide with a builtin tool of the same name and was skipped.', $remoteName);
+        }
+
+        if ($this->catalogue->isNameReservedByAnotherServer($localName, $server->uid)) {
+            return sprintf('"%s" maps to "%s", which is reserved by another server, and was skipped.', $remoteName, $localName);
         }
 
         $schema = $this->schemas->normalise($tool['inputSchema'] ?? null);
         if ($schema === null) {
             $reason = $this->schemas->rejectionReason($tool['inputSchema'] ?? null);
 
-            return $reason !== null
-                ? sprintf('"%s" was skipped: %s.', $remoteName, $reason)
-                : sprintf('"%s" has no usable parameter schema and was skipped.', $remoteName);
+            return $reason !== null ? sprintf('"%s" was skipped: %s.', $remoteName, $reason) : sprintf('"%s" has no usable parameter schema and was skipped.', $remoteName);
         }
 
         $encodedSchema = $this->encode($schema);
@@ -188,14 +192,14 @@ final readonly class McpImportService
         $annotations = $tool['annotations'] ?? null;
 
         return [
-            'toolName'          => $localName,
-            'remoteName'        => $remoteName,
-            'description'       => is_string($description) ? $description : '',
-            'inputSchema'       => $encodedSchema,
+            'toolName' => $localName,
+            'remoteName' => $remoteName,
+            'description' => is_string($description) ? $description : '',
+            'inputSchema' => $encodedSchema,
             // Kept verbatim for display. Nothing reads it to make a decision:
             // a remote server must not be able to influence authorisation by
             // what it writes here.
-            'remoteAnnotations' => is_array($annotations) ? ($this->encode($annotations) ?? '') : '',
+            'remoteAnnotations' => is_array($annotations) ? $this->encode($annotations) ?? '' : '',
         ];
     }
 
