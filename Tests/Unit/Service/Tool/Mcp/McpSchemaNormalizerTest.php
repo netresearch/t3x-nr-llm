@@ -4,8 +4,7 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-
-declare(strict_types=1);
+declare (strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Mcp;
 
@@ -54,11 +53,8 @@ final class McpSchemaNormalizerTest extends TestCase
     public function aMinimalObjectSchemaPassesThroughUnchanged(): void
     {
         $schema = [
-            'type'       => 'object',
-            'properties' => [
-                'query' => ['type' => 'string', 'description' => 'Search term'],
-                'limit' => ['type' => 'integer'],
-            ],
+            'type' => 'object',
+            'properties' => ['query' => ['type' => 'string', 'description' => 'Search term'], 'limit' => ['type' => 'integer']],
             'required' => ['query'],
         ];
 
@@ -68,23 +64,19 @@ final class McpSchemaNormalizerTest extends TestCase
     #[Test]
     public function unknownTopLevelKeysAreDropped(): void
     {
-        $result = $this->normalizer->normalise([
-            '$schema'    => 'https://json-schema.org/draft/2020-12/schema',
-            '$id'        => 'https://example.invalid/tool.json',
-            'title'      => 'Search',
-            'examples'   => [['query' => 'a']],
-            'x-vendor'   => ['internal' => true],
-            'type'       => 'object',
-            'properties' => ['query' => ['type' => 'string']],
-        ]);
-
-        self::assertSame(
+        $result = $this->normalizer->normalise(
             [
-                'type'       => 'object',
+                '$schema' => 'https://json-schema.org/draft/2020-12/schema',
+                '$id' => 'https://example.invalid/tool.json',
+                'title' => 'Search',
+                'examples' => [['query' => 'a']],
+                'x-vendor' => ['internal' => true],
+                'type' => 'object',
                 'properties' => ['query' => ['type' => 'string']],
             ],
-            $result,
         );
+
+        self::assertSame(['type' => 'object', 'properties' => ['query' => ['type' => 'string']]], $result);
     }
 
     /**
@@ -102,31 +94,29 @@ final class McpSchemaNormalizerTest extends TestCase
      */
     public static function unsupportedKeywordSchemas(): iterable
     {
-        yield 'reference into a dropped definition block' => [[
-            'type'       => 'object',
-            '$defs'      => ['Id' => ['type' => 'string']],
-            'properties' => ['id' => ['$ref' => '#/$defs/Id']],
-        ]];
+        yield 'reference into a dropped definition block' => [
+            [
+                'type' => 'object',
+                '$defs' => ['Id' => ['type' => 'string']],
+                'properties' => ['id' => ['$ref' => '#/$defs/Id']],
+            ],
+        ];
 
-        yield 'nested $ref' => [[
-            'type'       => 'object',
-            'properties' => ['id' => ['$ref' => 'https://example.invalid/Id']],
-        ]];
+        yield 'nested $ref' => [['type' => 'object', 'properties' => ['id' => ['$ref' => 'https://example.invalid/Id']]]];
 
         // The draft-2019/2020 applicators stay refused: unlike a union they
         // have no dependable support across the providers this extension talks
         // to, so carrying them would trade an import-time refusal for a
         // call-time failure with a worse message.
-        yield 'nested if/then' => [[
-            'type'       => 'object',
-            'properties' => ['id' => ['if' => ['type' => 'string'], 'then' => ['minLength' => 1]]],
-        ]];
+        yield 'nested if/then' => [['type' => 'object', 'properties' => ['id' => ['if' => ['type' => 'string'], 'then' => ['minLength' => 1]]]]];
 
-        yield 'root dependentRequired' => [[
-            'type'              => 'object',
-            'properties'        => ['a' => ['type' => 'string'], 'b' => ['type' => 'string']],
-            'dependentRequired' => ['a' => ['b']],
-        ]];
+        yield 'root dependentRequired' => [
+            [
+                'type' => 'object',
+                'properties' => ['a' => ['type' => 'string'], 'b' => ['type' => 'string']],
+                'dependentRequired' => ['a' => ['b']],
+            ],
+        ];
     }
 
     #[Test]
@@ -140,41 +130,36 @@ final class McpSchemaNormalizerTest extends TestCase
     #[Test]
     public function aSchemaBeyondTheDepthCapIsRejected(): void
     {
-        self::assertNull(
-            $this->normalizer->normalise($this->nestedObjectSchema($this->acceptableNestingLevels() + 1)),
-        );
+        self::assertNull($this->normalizer->normalise($this->nestedObjectSchema($this->acceptableNestingLevels() + 1)));
     }
 
     #[Test]
     public function aSchemaBeyondTheByteCapIsRejected(): void
     {
-        self::assertNull($this->normalizer->normalise([
-            'type'       => 'object',
-            'properties' => [
-                'query' => [
-                    'type'        => 'string',
-                    'description' => str_repeat('a', McpSchemaNormalizer::MAX_ENCODED_BYTES),
+        self::assertNull(
+            $this->normalizer->normalise(
+                [
+                    'type' => 'object',
+                    'properties' => [
+                        'query' => ['type' => 'string', 'description' => str_repeat('a', McpSchemaNormalizer::MAX_ENCODED_BYTES)],
+                    ],
                 ],
-            ],
-        ]));
+            ),
+        );
     }
 
     #[Test]
     public function anOversizedAnnotationIsDroppedBeforeTheByteCapIsMeasured(): void
     {
-        $result = $this->normalizer->normalise([
-            'type'       => 'object',
-            'properties' => ['query' => ['type' => 'string']],
-            'examples'   => [str_repeat('a', McpSchemaNormalizer::MAX_ENCODED_BYTES)],
-        ]);
-
-        self::assertSame(
+        $result = $this->normalizer->normalise(
             [
-                'type'       => 'object',
+                'type' => 'object',
                 'properties' => ['query' => ['type' => 'string']],
+                'examples' => [str_repeat('a', McpSchemaNormalizer::MAX_ENCODED_BYTES)],
             ],
-            $result,
         );
+
+        self::assertSame(['type' => 'object', 'properties' => ['query' => ['type' => 'string']]], $result);
     }
 
     /**
@@ -248,19 +233,13 @@ final class McpSchemaNormalizerTest extends TestCase
         // the one an operator sees skipped, and "no usable parameter schema"
         // gave them nothing to act on.
         $schema = [
-            'type'       => 'object',
+            'type' => 'object',
             'properties' => [
                 'repoName' => [
-                    'anyOf' => [
-                        ['type' => 'string'],
-                        ['items' => ['type' => 'string'], 'type' => 'array'],
-                    ],
+                    'anyOf' => [['type' => 'string'], ['items' => ['type' => 'string'], 'type' => 'array']],
                     'description' => 'GitHub repository or list of repositories (max 10) in owner/repo format.',
                 ],
-                'question' => [
-                    'description' => 'The question to ask about the repository.',
-                    'type'        => 'string',
-                ],
+                'question' => ['description' => 'The question to ask about the repository.', 'type' => 'string'],
             ],
             'required' => ['repoName', 'question'],
         ];
@@ -288,11 +267,8 @@ final class McpSchemaNormalizerTest extends TestCase
         $subject = new McpSchemaNormalizer();
 
         $schema = [
-            'type'  => 'object',
-            'anyOf' => [
-                ['required' => ['a']],
-                ['required' => ['b']],
-            ],
+            'type' => 'object',
+            'anyOf' => [['required' => ['a']], ['required' => ['b']]],
             'properties' => ['a' => ['type' => 'string'], 'b' => ['type' => 'string']],
         ];
 
@@ -310,9 +286,9 @@ final class McpSchemaNormalizerTest extends TestCase
         $subject = new McpSchemaNormalizer();
 
         $schema = [
-            'type'       => 'object',
+            'type' => 'object',
             'properties' => ['repoName' => ['$ref' => '#/$defs/repo']],
-            '$defs'      => ['repo' => ['type' => 'string']],
+            '$defs' => ['repo' => ['type' => 'string']],
         ];
 
         self::assertNull($subject->normalise($schema));
@@ -328,13 +304,8 @@ final class McpSchemaNormalizerTest extends TestCase
 
         // The sibling tool from the same server, which does import.
         $schema = [
-            'type'       => 'object',
-            'properties' => [
-                'repoName' => [
-                    'description' => 'GitHub repository in owner/repo format.',
-                    'type'        => 'string',
-                ],
-            ],
+            'type' => 'object',
+            'properties' => ['repoName' => ['description' => 'GitHub repository in owner/repo format.', 'type' => 'string']],
             'required' => ['repoName'],
         ];
 
@@ -352,13 +323,97 @@ final class McpSchemaNormalizerTest extends TestCase
         $subject = new McpSchemaNormalizer();
 
         $schema = [
-            'type'       => 'object',
+            'type' => 'object',
             'properties' => ['q' => ['type' => 'string']],
-            'required'   => ['q'],
-            'examples'   => [['anyOf' => [['type' => 'string']]]],
+            'required' => ['q'],
+            'examples' => [['anyOf' => [['type' => 'string']]]],
         ];
 
         self::assertNotNull($subject->normalise($schema));
         self::assertNull($subject->rejectionReason($schema));
+    }
+
+    /**
+     * @param array<string, mixed> $constraint
+     */
+    #[Test]
+    #[DataProvider('rootObjectConstraints')]
+    public function aRootConstraintThatWouldBeDroppedRefusesTheWholeTool(string $keyword, array $constraint): void
+    {
+        $schema = ['type' => 'object', 'properties' => ['q' => ['type' => 'string']]] + $constraint;
+        self::assertNull($this->normalizer->normalise($schema));
+        $reason = $this->normalizer->rejectionReason($schema);
+        self::assertIsString($reason);
+        self::assertStringContainsString($keyword, $reason);
+    }
+
+    /**
+     * @return iterable<string, array{string, array<string, mixed>}>
+     */
+    public static function rootObjectConstraints(): iterable
+    {
+        yield 'minimum property count' => ['minProperties', ['minProperties' => 1]];
+        yield 'maximum property count' => ['maxProperties', ['maxProperties' => 1]];
+        yield 'enumerated objects' => ['enum', ['enum' => [['q' => 'approved']]]];
+        yield 'constant object' => ['const', ['const' => ['q' => 'approved']]];
+    }
+
+    /**
+     * @param array<string, mixed> $constraint
+     */
+    #[Test]
+    #[DataProvider('rootObjectConstraints')]
+    public function aNestedConstraintThatIsCarriedRemainsIntact(string $keyword, array $constraint): void
+    {
+        $schema = ['type' => 'object', 'properties' => ['nested' => ['type' => 'object'] + $constraint]];
+        self::assertSame($schema, $this->normalizer->normalise($schema));
+        self::assertNull($this->normalizer->rejectionReason($schema), $keyword);
+    }
+
+    /**
+     * @param array<string, mixed> $schema
+     */
+    #[Test]
+    #[DataProvider('legacyUnsupportedSchemas')]
+    public function legacyConstraintsAndRecursiveReferencesAreRefused(string $keyword, array $schema): void
+    {
+        self::assertNull($this->normalizer->normalise($schema));
+        $reason = $this->normalizer->rejectionReason($schema);
+        self::assertIsString($reason);
+        self::assertStringContainsString($keyword, $reason);
+    }
+
+    /**
+     * @return iterable<string, array{string, array<string, mixed>}>
+     */
+    public static function legacyUnsupportedSchemas(): iterable
+    {
+        $dependencies = ['property dependency' => ['a' => ['b']], 'schema dependency' => ['a' => ['required' => ['b']]]];
+        foreach ($dependencies as $label => $constraint) {
+            yield 'root ' . $label => [
+                'dependencies',
+                [
+                    '$schema' => 'https://json-schema.org/draft-07/schema',
+                    'type' => 'object',
+                    'properties' => ['a' => ['type' => 'string'], 'b' => ['type' => 'string']],
+                    'dependencies' => $constraint,
+                ],
+            ];
+            yield 'nested ' . $label => [
+                'dependencies',
+                ['type' => 'object', 'properties' => ['nested' => ['type' => 'object', 'dependencies' => $constraint]]],
+            ];
+        }
+
+        yield 'root recursive reference' => ['$recursiveRef', ['type' => 'object', '$recursiveRef' => '#']];
+        yield 'nested recursive reference to root' => [
+            '$recursiveRef',
+            [
+                '$schema' => 'https://json-schema.org/draft/2019-09/schema',
+                '$recursiveAnchor' => true,
+                'type' => 'object',
+                'properties' => ['child' => ['$recursiveRef' => '#']],
+            ],
+        ];
     }
 }

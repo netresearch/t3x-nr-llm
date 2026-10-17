@@ -28,6 +28,14 @@ How it works
    on import; a tool whose schema cannot be expressed is skipped rather
    than silently weakened.
 
+   The root schema must have ``type: object``. Root ``minProperties``,
+   ``maxProperties``, ``enum`` and ``const`` constraints are refused because
+   the root filter would remove them; nested versions are preserved with
+   their property schema. References (including ``$recursiveRef``), legacy
+   ``dependencies`` and conditional/dependency applicators outside the
+   supported subset are refused at every retained nesting level. The import
+   report names the refused keyword so the server's schema can be corrected.
+
    The same import runs from the CLI, which is what a deploy needs: a
    seeded server has a record but no catalogue until somebody presses the
    button, and on a rebuilt instance that is a manual step after every

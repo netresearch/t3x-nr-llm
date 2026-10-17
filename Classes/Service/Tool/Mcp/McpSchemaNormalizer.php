@@ -4,8 +4,7 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-
-declare(strict_types=1);
+declare (strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Mcp;
 
@@ -46,47 +45,29 @@ final readonly class McpSchemaNormalizer
     public const MAX_ENCODED_BYTES = 16384;
 
     /**
-     * The only top-level keys carried over. Everything else is either an
-     * annotation a provider ignores (`title`, `$id`, `examples`, vendor
-     * extensions) or a constraint handled by self::UNSUPPORTED_KEYWORDS.
+     * The only top-level keys carried over. Known constraints outside this list
+     * are refused by UNSUPPORTED_KEYWORDS or DROPPED_ROOT_CONSTRAINTS; annotations
+     * such as title, $id and examples are dropped.
      *
-     * The applicators are listed so a union declared at the TOP level survives
+     * The applicators are listed so a union declared at the top level survives
      * the filter; inside a property they ride along with the property schema,
      * which is copied whole.
      */
-    private const RETAINED_KEYS = [
-        'type',
-        'description',
-        'properties',
-        'required',
-        'additionalProperties',
-        'allOf',
-        'anyOf',
-        'oneOf',
-        'not',
-    ];
+    private const RETAINED_KEYS = ['type', 'description', 'properties', 'required', 'additionalProperties', 'allOf', 'anyOf', 'oneOf', 'not'];
 
     /**
-     * Keywords this import refuses to carry, because carrying them would be a
-     * lie and dropping them would widen what the tool accepts.
-     *
-     * The distinction that decides membership is whether the keyword is
-     * SELF-CONTAINED. A union (`anyOf`) carries its alternatives inline, so
-     * handing it to the provider verbatim preserves exactly what the server
-     * said — those keywords are carried (see self::RETAINED_KEYS). A reference
-     * points into a definition block this filter does not carry, so it would
-     * arrive dangling; and the draft-2019/2020 applicators below have no
-     * dependable support across the providers this extension talks to, so
-     * carrying them trades an import-time refusal for a call-time failure with
-     * a worse error message.
+     * Keywords this import does not support. References can depend on definitions
+     * or recursive anchors the root filter drops. Conditional, dependency and
+     * unevaluated-property constraints are outside the supported import subset.
+     * Refusing the whole tool preserves its contract instead of dropping a rule.
      *
      * A property literally named after one of these keywords is rejected along
-     * with them: the walk does not distinguish a schema position from a
-     * property-name position. That costs an unusable tool, never a wrong one.
+     * with them: the recursive walk also visits property-name positions.
      */
     private const UNSUPPORTED_KEYWORDS = [
         '$ref',
         '$dynamicRef',
+        '$recursiveRef',
         '$defs',
         'definitions',
         'if',
@@ -94,6 +75,7 @@ final readonly class McpSchemaNormalizer
         'else',
         'patternProperties',
         'propertyNames',
+        'dependencies',
         'dependentSchemas',
         'dependentRequired',
         'unevaluatedProperties',
@@ -115,7 +97,7 @@ final readonly class McpSchemaNormalizer
             return null;
         }
 
-        if ($this->carriesUnsupportedKeyword($inputSchema)) {
+        if ($this->carriesUnsupportedKeyword($inputSchema) || $this->firstDroppedRootConstraint($inputSchema) !== null) {
             return null;
         }
 
@@ -149,19 +131,12 @@ final readonly class McpSchemaNormalizer
     }
 
     /**
-     * Why {@see self::normalise()} refused a schema, in words an operator can
-     * act on — or null when it did not refuse.
+     * Why normalise() refused a schema, in words an operator can act on,
+     * or null when it did not refuse.
      *
-     * The rejections are deliberate, but "no usable parameter schema" tells the
-     * person reading the import report nothing: they cannot see whether the
-     * server sent something malformed, something too large, or something well
-     * formed that this import does not carry (a `$ref`, a union). Naming the
-     * reason is the difference between a dead end and a decision.
-     *
-     * The checks below mirror {@see self::normalise()} in the same order and on
-     * the same data — in particular the keyword walk runs over the FILTERED
-     * schema, so a keyword sitting in a key that is dropped anyway is not
-     * reported as the reason it was refused.
+     * Root constraints and unsupported root keywords are checked on the original
+     * input before filtering. Recursive keyword, depth and size checks then use
+     * the retained schema; a discarded annotation does not contribute to them.
      */
     public function rejectionReason(mixed $inputSchema): ?string
     {
@@ -173,8 +148,8 @@ final readonly class McpSchemaNormalizer
             return 'its top-level type is not "object"';
         }
 
-        if ($this->carriesUnsupportedKeyword($inputSchema)) {
-            return $this->unsupportedKeywordReason($this->firstUnsupportedKeyword($inputSchema) ?? '');
+        if (($keyword = $this->firstDroppedRootConstraint($inputSchema)) !== null || $this->carriesUnsupportedKeyword($inputSchema)) {
+            return $this->unsupportedKeywordReason($keyword ?? $this->firstUnsupportedKeyword($inputSchema) ?? '');
         }
 
         $normalised = [];
@@ -191,9 +166,7 @@ final readonly class McpSchemaNormalizer
         if (!$this->isWithinDepth($normalised, 1)) {
             $keyword = $this->firstUnsupportedKeyword($normalised);
 
-            return $keyword !== null
-                ? $this->unsupportedKeywordReason($keyword)
-                : sprintf('it nests deeper than %d levels', self::MAX_DEPTH);
+            return $keyword !== null ? $this->unsupportedKeywordReason($keyword) : sprintf('it nests deeper than %d levels', self::MAX_DEPTH);
         }
 
         $encoded = json_encode($normalised);
@@ -211,8 +184,7 @@ final readonly class McpSchemaNormalizer
     private function unsupportedKeywordReason(string $keyword): string
     {
         return sprintf(
-            'it uses "%s", which this import does not carry: dropping the keyword would widen what the tool '
-            . 'accepts, letting a model produce arguments the server then rejects',
+            'it uses "%s", which this import does not carry: dropping the keyword would widen what the tool ' . 'accepts, letting a model produce arguments the server then rejects',
             $keyword,
         );
     }
@@ -328,5 +300,25 @@ final readonly class McpSchemaNormalizer
         }
 
         return true;
+    }
+
+    /**
+     * Constraints the top-level key filter would drop. Nested versions already
+     * ride along with their containing property schema and remain intact.
+     */
+    private const DROPPED_ROOT_CONSTRAINTS = ['minProperties', 'maxProperties', 'enum', 'const'];
+
+    /**
+     * @param array<array-key, mixed> $schema
+     */
+    private function firstDroppedRootConstraint(array $schema): ?string
+    {
+        foreach (self::DROPPED_ROOT_CONSTRAINTS as $keyword) {
+            if (array_key_exists($keyword, $schema)) {
+                return $keyword;
+            }
+        }
+
+        return null;
     }
 }
