@@ -9,9 +9,11 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Domain\ValueObject\FieldProposal;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
+use Netresearch\NrLlm\Service\Tool\FieldMeasurer;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\FailsLikeAFlashMessageHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheFailingHookTrait;
@@ -19,6 +21,7 @@ use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
@@ -320,6 +323,101 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * ADR-214, item 9: each field as structured values, read from the database
+     * and the TCA, never from prose. The description carries the configured
+     * range (the shipped default, 140 to 160), the title its length alone.
+     */
+    #[Test]
+    public function theStructuredPreviewCarriesStoredAndProposedValuesAndTheShippedRange(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $entries = $this->tool->structuredPreview(
+            ['uid' => self::PAGE_ADMIN_ONLY, 'title' => '  Startseite  ', 'description' => 'Über uns'],
+            $admin,
+        );
+
+        self::assertCount(2, $entries);
+        [$title, $description] = $entries;
+
+        self::assertSame('title', $title->field);
+        self::assertSame('Home', $title->current);
+        // The value the write stores, trimmed by the tool, not the raw argument.
+        self::assertSame('Startseite', $title->proposed);
+        self::assertSame(['count' => 10, 'min' => null, 'max' => null], $title->measure?->toArray());
+
+        self::assertSame('description', $description->field);
+        self::assertSame('Old description', $description->current);
+        self::assertSame('Über uns', $description->proposed);
+        // Characters, not bytes: "Ü" counts once.
+        self::assertSame(['count' => 8, 'min' => 140, 'max' => 160], $description->measure?->toArray());
+
+        // The label is the column's TCA label, not the column name.
+        foreach ($entries as $entry) {
+            self::assertNotSame('', $entry->label);
+            self::assertNotSame($entry->field, $entry->label);
+        }
+
+        // Reading is all it does.
+        self::assertSame('Home', $this->pageRow(self::PAGE_ADMIN_ONLY)['title'] ?? null);
+    }
+
+    /**
+     * The range is configuration: without an entry for the description it
+     * carries its length alone, and a configured range on another field is
+     * used for that field.
+     */
+    #[Test]
+    public function theRangeComesFromTheConfigurationAndIsAbsentWithoutAnEntry(): void
+    {
+        $tool = $this->toolWithRanges('pages.title:5-60');
+
+        $entries = $tool->structuredPreview(
+            ['uid' => self::PAGE_ADMIN_ONLY, 'title' => 'Startseite', 'description' => 'Über uns'],
+            $this->setUpBackendUser(1),
+        );
+
+        self::assertSame(['count' => 10, 'min' => 5, 'max' => 60], $entries[0]->measure?->toArray());
+        self::assertSame(['count' => 8, 'min' => null, 'max' => null], $entries[1]->measure?->toArray());
+    }
+
+    /**
+     * Never a value the reader may not see: a page they may not edit gives no
+     * entry at all, exactly like a missing one and like a call the tool would
+     * refuse.
+     */
+    #[Test]
+    public function theStructuredPreviewIsEmptyForAPageTheReaderMayNotEdit(): void
+    {
+        $editor = $this->setUpBackendUser(2);
+        $editor->groupData['non_exclude_fields'] = 'pages:description';
+
+        self::assertSame([], $this->tool->structuredPreview(['uid' => self::PAGE_ADMIN_ONLY, 'description' => 'x'], $editor));
+        self::assertSame([], $this->tool->structuredPreview(['uid' => self::PAGE_MISSING, 'description' => 'x'], $editor));
+        self::assertSame([], $this->tool->structuredPreview(['uid' => self::PAGE_OPEN, 'slug' => '/x'], $editor));
+        // The other direction: the same reader on a page they may edit.
+        self::assertCount(1, $this->tool->structuredPreview(['uid' => self::PAGE_OPEN, 'description' => 'x'], $editor));
+    }
+
+    /**
+     * A field the reader holds no field-level grant for is left out, so its
+     * stored value is not shown; the fields they may see stay.
+     */
+    #[Test]
+    public function aFieldWithoutTheReadersExcludeGrantIsLeftOut(): void
+    {
+        $editor = $this->setUpBackendUser(2);
+        $editor->groupData['non_exclude_fields'] = '';
+
+        $entries = $this->tool->structuredPreview(
+            ['uid' => self::PAGE_OPEN, 'title' => 'Open', 'description' => 'New description'],
+            $editor,
+        );
+
+        self::assertSame(['title'], array_map(static fn(FieldProposal $entry): string => $entry->field, $entries));
+    }
+
+    /**
      * ADR-136, read side: the approver is a different person from the run owner
      * and holds a tool-level grant only, so the card asks the tool whether THIS
      * viewer may see the record at all.
@@ -596,6 +694,18 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
         self::assertTrue($result->isError);
         self::assertStringContainsString('language service', $result->content);
         self::assertSame('Home', $this->pageRow(self::PAGE_ADMIN_ONLY)['title'] ?? null);
+    }
+
+    private function toolWithRanges(string $ranges): UpdatePageMetadataTool
+    {
+        $configuration = self::createStub(ExtensionConfiguration::class);
+        $configuration->method('get')->willReturn(['tools' => ['structuredPreview' => ['ranges' => $ranges]]]);
+
+        return new UpdatePageMetadataTool(
+            $this->connectionPool,
+            new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)),
+            new FieldMeasurer($configuration),
+        );
     }
 
     /**

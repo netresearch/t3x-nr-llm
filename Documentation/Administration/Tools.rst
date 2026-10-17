@@ -354,6 +354,14 @@ What holds for all of them:
   of both values — so a change past the visible part, such as an appended
   link, still shows. A character a reader cannot see, such as a zero-width
   space or a direction mark, is written as its code point.
+- ``update_page_metadata``, ``update_content_element`` and
+  ``set_page_social_image`` also give the card each field as structured
+  values: its label, the value stored now and the value proposed, read with
+  the rights of the user the card is shown to (:ref:`ADR-214 <adr-214>`,
+  item 9). A text field carries its length. The recommended range comes from
+  the extension configuration ``tools.structuredPreview.ranges``, entries
+  ``table.field:min-max``, shipped as ``pages.description:140-160``. An empty
+  value removes every range.
 
 ``update_page_metadata``
    Sets a fixed set of descriptive fields on one page. Editable: ``title``,

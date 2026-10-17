@@ -9,9 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Agent\Inbox;
 
+use FilesystemIterator;
 use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\FieldMeasure;
+use Netresearch\NrLlm\Domain\ValueObject\FieldProposal;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
@@ -25,10 +28,14 @@ use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Unit\Language\EnglishPreviewTranslatorTrait;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\PreviewingApprovalTool;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\StructuredPreviewingTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\TargetNamingWriteTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+use SplFileInfo;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 #[CoversClass(WaitingRunViewFactory::class)]
@@ -635,6 +642,119 @@ final class WaitingRunViewFactoryTest extends TestCase
         self::assertSame(WaitingRunView::MODE_APPROVAL, $view->mode);
         self::assertSame([], $view->pendingCalls[0]->previewLines);
         self::assertFalse($view->pendingCalls[0]->previewFailed);
+    }
+
+    /**
+     * ADR-214, item 9: a tool with a structured preview fills the card's
+     * entries for the viewer, next to the lines, which stay as they are.
+     */
+    #[Test]
+    public function aToolWithAStructuredPreviewFillsTheEntries(): void
+    {
+        $entry = new FieldProposal('description', 'Description', 'Old', 'New', new FieldMeasure(3, 140, 160));
+        $view  = $this->factory(new StructuredPreviewingTool('update_page_metadata', [$entry]))
+            ->buildWaiting([$this->makeRun('a', $this->previewState())], $this->viewer())[0];
+
+        self::assertSame([$entry], $view->pendingCalls[0]->structuredPreview);
+        self::assertSame(['Page [7] "Home" — 1 field(s):'], $view->pendingCalls[0]->previewLines);
+        self::assertSame(
+            [['field' => 'description', 'label' => 'Description', 'current' => 'Old', 'proposed' => 'New', 'measure' => ['count' => 3, 'min' => 140, 'max' => 160]]],
+            $view->pendingCalls[0]->structuredPreviewArray(),
+        );
+    }
+
+    /**
+     * The other direction: a tool without the interface, a tool that is gone,
+     * and a view built without the argument carry an empty list.
+     */
+    #[Test]
+    public function aToolWithoutAStructuredPreviewYieldsAnEmptyList(): void
+    {
+        $plain = $this->factory(new PreviewingApprovalTool('update_page_metadata'))
+            ->buildWaiting([$this->makeRun('a', $this->previewState())], $this->viewer())[0];
+        self::assertSame([], $plain->pendingCalls[0]->structuredPreview);
+        self::assertSame(['Page [7] "Home" — 1 field(s):'], $plain->pendingCalls[0]->previewLines);
+
+        $gone = $this->factory()->buildWaiting([$this->makeRun('a', $this->previewState())], $this->viewer())[0];
+        self::assertSame([], $gone->pendingCalls[0]->structuredPreview);
+
+        self::assertSame([], (new PendingCallView('x', '{}', true))->structuredPreview);
+    }
+
+    /**
+     * Never more than the lines: where the lines are withheld from the viewer,
+     * and where no viewer can be established, there are no entries either —
+     * even from a tool that would return some.
+     */
+    #[Test]
+    public function noEntriesWhereThePreviewIsWithheldOrNoViewerIsKnown(): void
+    {
+        $entry = new FieldProposal('description', 'Description', 'Secret current value', 'New');
+
+        $withheld = $this->factory(new StructuredPreviewingTool('update_page_metadata', [$entry], viewerMayRead: false))
+            ->buildWaiting([$this->makeRun('a', $this->previewState(), beUser: 7)], $this->viewer())[0];
+        self::assertTrue($withheld->pendingCalls[0]->previewFailed);
+        self::assertSame([], $withheld->pendingCalls[0]->structuredPreview);
+
+        $noViewer = $this->factory(new StructuredPreviewingTool('update_page_metadata', [$entry]))
+            ->buildWaiting([$this->makeRun('a', $this->previewState())])[0];
+        self::assertSame([], $noViewer->pendingCalls[0]->structuredPreview);
+    }
+
+    /**
+     * A tool that throws, or returns something that is not an entry, costs the
+     * structure and never the card.
+     */
+    #[Test]
+    public function aBrokenStructuredPreviewCostsTheEntriesNotTheCard(): void
+    {
+        $thrown = $this->factory(new StructuredPreviewingTool('update_page_metadata', [], throw: true))
+            ->buildWaiting([$this->makeRun('a', $this->previewState())], $this->viewer())[0];
+        self::assertSame(WaitingRunView::MODE_APPROVAL, $thrown->mode);
+        self::assertSame([], $thrown->pendingCalls[0]->structuredPreview);
+        self::assertSame(['Page [7] "Home" — 1 field(s):'], $thrown->pendingCalls[0]->previewLines);
+
+        $entry = new FieldProposal('title', 'Title', null, 'New');
+        $mixed = $this->factory(new StructuredPreviewingTool('update_page_metadata', ['not an entry', $entry]))
+            ->buildWaiting([$this->makeRun('a', $this->previewState())], $this->viewer())[0];
+        self::assertSame([$entry], $mixed->pendingCalls[0]->structuredPreview);
+    }
+
+    /**
+     * Values are data. A `<script>` in the proposed value reaches a consumer
+     * byte for byte — through the view, its array form and JSON — and the
+     * backend card of nr_llm does not render the entries at all, so nothing
+     * here interprets it. Escaping or sanitising is the consumer's.
+     */
+    #[Test]
+    public function aScriptInTheProposedValuePassesThroughAsData(): void
+    {
+        $html  = '<p>Hi</p><script>alert(document.cookie)</script><img src=x onerror="alert(1)">';
+        $entry = new FieldProposal('bodytext', 'Text', '<p>Old</p>', $html);
+
+        $call = $this->factory(new StructuredPreviewingTool('update_content_element', [$entry]))
+            ->buildWaiting([$this->makeRun('a', $this->approvalState('update_content_element', ['uid' => 1]))], $this->viewer())[0]
+            ->pendingCalls[0];
+
+        self::assertSame($html, $call->structuredPreview[0]->proposed);
+        self::assertSame($html, $call->structuredPreviewArray()[0]['proposed']);
+        $decoded = json_decode(json_encode($call->structuredPreviewArray(), JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($decoded);
+        self::assertSame($html, $decoded[0]['proposed'] ?? null);
+
+        $templates = dirname(__DIR__, 5) . '/Resources/Private';
+        $files     = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($templates, FilesystemIterator::SKIP_DOTS));
+        $checked   = 0;
+        foreach ($files as $file) {
+            if (!$file instanceof SplFileInfo || $file->getExtension() !== 'html') {
+                continue;
+            }
+
+            ++$checked;
+            self::assertStringNotContainsString('structuredPreview', (string)file_get_contents($file->getPathname()), $file->getPathname());
+        }
+
+        self::assertGreaterThan(0, $checked);
     }
 
     /**
