@@ -132,7 +132,10 @@ Consequences
   :ref:`ADR-206 <adr-206>`, whose ``ToolDataHandler`` every writing tool
   creates through ``makeInstance()`` — Category E, and to **39** by
   :ref:`ADR-211 <adr-211>`, whose ``DecisionServiceInterface`` consumer
-  extensions resolve by interface — Category A). This ADR supersedes ADR-094
+  extensions resolve by interface — Category A, and to **40** by
+  :ref:`ADR-214 <adr-214>`, whose ``SkillDeletionGuardHook`` the DataHandler
+  creates through ``makeInstance()`` with its connection pool — Category E).
+  This ADR supersedes ADR-094
   as the count authority. It is a
   *consumer* interface: call it, do not
   implement or decorate it outside nr_llm — methods and ``AgentRunOutcome``

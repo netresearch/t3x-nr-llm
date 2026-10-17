@@ -86,6 +86,29 @@ final readonly class SkillApprovalRepository implements SkillApprovalRepositoryI
         return is_array($row) ? $this->hydrate($row) : null;
     }
 
+    public function findLatestUnrevokedFromSource(int $skillUid, int $sourceUid): ?SkillApproval
+    {
+        if ($skillUid <= 0) {
+            return null;
+        }
+
+        $queryBuilder = $this->queryBuilder();
+        $row = $queryBuilder
+            ->select('*')
+            ->from(self::TABLE)
+            ->where(
+                $queryBuilder->expr()->eq('skill_uid', $queryBuilder->createNamedParameter($skillUid, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('source_uid', $queryBuilder->createNamedParameter($sourceUid, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('revoked', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+            )
+            ->orderBy('uid', 'DESC')
+            ->setMaxResults(1)
+            ->executeQuery()
+            ->fetchAssociative();
+
+        return is_array($row) ? $this->hydrate($row) : null;
+    }
+
     public function findBySkill(int $skillUid): array
     {
         if ($skillUid <= 0) {

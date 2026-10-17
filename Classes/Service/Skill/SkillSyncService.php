@@ -85,6 +85,13 @@ final class SkillSyncService
 
     public function sync(SkillSource $source): SyncResult
     {
+        // A backend source (ADR-214 item 3) has nothing upstream. Syncing it
+        // would discover nothing and orphan every skill authored there, so it
+        // is refused before the lock is taken and before anything is written.
+        if ($source->getTypeEnum() === SkillSourceType::BACKEND) {
+            return new SyncResult(SyncStatus::ERROR, errors: ['A backend source holds skills authored in the backend; there is nothing to sync.']);
+        }
+
         $now = time();
         if ($this->isLockActive($source, $now)) {
             return new SyncResult(SyncStatus::SYNCING, errors: ['A sync is already running for this source.']);
@@ -504,6 +511,7 @@ final class SkillSyncService
             $wouldEnable   = $source->getTypeEnum() === SkillSourceType::SINGLE_FILE;
             $forcedDisable = $highConf && $wouldEnable;
             $skill->setEnabled($wouldEnable && !$highConf);
+            $skill->setDisabledBy($skill->isEnabled() ? '' : Skill::DISABLED_BY_SYNC);
             $skill->setOrphaned(false);
             $this->skillRepository->add($skill);
             $this->audit?->recordSkillEvent(SkillAuditEvent::INGEST_CREATED, $skill);
@@ -526,6 +534,13 @@ final class SkillSyncService
         $this->apply($existing, $parsed, $sha, $checksum);
         $changed = !hash_equals($previous, $existing->getVersionDigest());
         $this->applyIsolationMetadata($existing, $source, $scan);
+        // An orphan comes back disabled. One orphaned before the mark
+        // existed carries none, but only the sync disables an orphan: mark
+        // it, so un-orphaning it does not lift its restriction.
+        if ($existing->isOrphaned() && !$existing->isEnabled() && $existing->getDisabledBy() === '') {
+            $existing->setDisabledBy(Skill::DISABLED_BY_SYNC);
+        }
+
         $existing->setOrphaned(false);
         $outcome       = 'updated';
         $forcedDisable = $highConf && $wasEnabled;
@@ -535,6 +550,7 @@ final class SkillSyncService
         // reason.
         if ($wasEnabled && ($changed || $highConf)) {
             $existing->setEnabled(false);
+            $existing->setDisabledBy(Skill::DISABLED_BY_SYNC);
             $outcome = $changed ? 'changed' : 'updated';
         }
 
@@ -654,6 +670,7 @@ final class SkillSyncService
             if (!$skill->isOrphaned()) {
                 $skill->setOrphaned(true);
                 $skill->setEnabled(false);
+                $skill->setDisabledBy(Skill::DISABLED_BY_SYNC);
                 $this->skillRepository->update($skill);
                 $count++;
             }
