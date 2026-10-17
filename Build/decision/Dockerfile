@@ -4,8 +4,9 @@
 # Local decision sidecar for nr_llm (NLI zero-shot classifier).
 # CPU image; the model is baked in at build time so the container starts offline.
 # Pinned by digest, like the packages by hash: a rebuild uses the base that
-# was reviewed. Renovate proposes digest updates.
-FROM python:3.14-slim@sha256:51dafde81dbdb6ebde285137a295cf18a47ca95234fe388a343719cb97305b3d
+# was reviewed. Renovate proposes digest updates. The Docker official image
+# through its ECR Public mirror, which serves the same digest.
+FROM public.ecr.aws/docker/library/python:3.14-slim@sha256:51dafde81dbdb6ebde285137a295cf18a47ca95234fe388a343719cb97305b3d
 
 ENV HF_HOME=/models \
     DECISION_MODEL=MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7 \
