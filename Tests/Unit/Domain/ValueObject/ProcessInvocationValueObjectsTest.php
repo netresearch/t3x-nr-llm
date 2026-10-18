@@ -47,7 +47,10 @@ final class ProcessInvocationValueObjectsTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1793500001);
-        new SubjectRecord(new RecordReference('pages', 1), -1);
+        $subject = new SubjectRecord(new RecordReference('pages', 1), -1);
+
+        // S1848: the instantiation must be used; name what was accepted.
+        self::fail('A negative language was accepted: ' . $subject->language);
     }
 
     #[Test]
@@ -81,7 +84,10 @@ final class ProcessInvocationValueObjectsTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1793500002);
-        new SkillInvocation(0);
+        $invocation = new SkillInvocation(0);
+
+        // S1848: the instantiation must be used; name what was accepted.
+        self::fail('A non-positive skill uid was accepted: ' . $invocation->skillUid);
     }
 
     /**

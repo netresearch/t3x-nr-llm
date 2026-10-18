@@ -232,6 +232,10 @@ final class RunStepTest extends TestCase
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1793500005);
-        new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 0.0, highlightTarget: new RecordReference('pages', 3));
+        $step = new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 0.0, highlightTarget: new RecordReference('pages', 3));
+
+        // S1848: the instantiation must be used; a constructor that accepted
+        // this is worth naming in the failure.
+        self::fail('A tool step named a highlight target: ' . $step->highlightTarget);
     }
 }

@@ -100,7 +100,12 @@ final class AgentRunPersisterLineageTest extends AbstractFunctionalTestCase
     {
         $persister = $this->persister(PrivacyLevel::NONE);
         $handle    = $this->begin($persister);
-        self::assertFalse($persister->sentProviderCall($this->storedRun($persister, $handle)));
+        self::assertFalse($persister->sentProviderCall($this->storedRun($persister, $handle)), 'no events');
+
+        // Events of other kinds are no provider call.
+        self::assertTrue($persister->recordLineage($handle, new RunLineage(30)));
+        self::assertTrue($persister->recordStep($handle, new RunStep(kind: RunStep::KIND_ASSEMBLED, round: 0, durationMs: 0.0)));
+        self::assertFalse($persister->sentProviderCall($this->storedRun($persister, $handle)), 'other events');
 
         self::assertTrue($persister->recordStep($handle, new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 0.0)));
         self::assertTrue($persister->sentProviderCall($this->storedRun($persister, $handle)), 'recorded at every privacy level');
