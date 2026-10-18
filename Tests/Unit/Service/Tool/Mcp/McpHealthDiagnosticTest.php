@@ -132,11 +132,11 @@ final class McpHealthDiagnosticTest extends AbstractUnitTestCase
             $actual,
         );
         self::assertSame(
-            $operation === 'ping' ? ['initialize', 'notifications/initialized'] : [
-                'initialize',
-                'notifications/initialized',
-                $operation === 'list' ? 'tools/list' : 'tools/call',
-            ],
+            match ($operation) {
+                'ping' => ['initialize', 'notifications/initialized'],
+                'list' => ['initialize', 'notifications/initialized', 'tools/list'],
+                default => ['initialize', 'notifications/initialized', 'tools/call'],
+            },
             $http->methods(),
         );
         self::assertSame(

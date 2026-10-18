@@ -201,7 +201,7 @@ the credential had gone out.
 
 See :ref:`ADR-116 <adr-116>` for the design rationale,
 :ref:`ADR-154 <adr-154>` for what liveness is measured on and why the
-connection test writes nothing, :ref:`ADR-170 <adr-170>` for the operation
+connection test writes no catalogue, :ref:`ADR-170 <adr-170>` for the operation
 budget, :ref:`ADR-190 <adr-190>` for cancellation, and
 :ref:`ADR-161 <adr-161>` for the conformance suite every supported connection
 is held to.
