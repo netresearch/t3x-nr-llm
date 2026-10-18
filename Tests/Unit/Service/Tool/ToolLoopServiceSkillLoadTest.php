@@ -22,6 +22,8 @@ use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision;
+use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationTarget;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Context\SectionAdmissionInterface;
@@ -41,6 +43,8 @@ use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Service\Tool\ToolInvocationContext;
+use Netresearch\NrLlm\Service\Tool\ToolInvocationPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\FixedSkillLoadLookup;
@@ -381,6 +385,98 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
     }
 
     /**
+     * A load passes the installation's invocation rules as every call does
+     * (#1033): a rule that refuses it leaves the system message as it was.
+     */
+    #[Test]
+    public function anInvocationRuleRefusesALoadAndNothingIsAppended(): void
+    {
+        $this->runLoad([[$this->loadCall('c1')]], invocationPolicy: $this->rules([LoadSkillTool::NAME]));
+
+        self::assertStringNotContainsString(self::BODY, $this->systemText(1));
+        self::assertStringContainsString('invocation denied (rule: no-loads', $this->toolResult(1, 'c1'));
+    }
+
+    /**
+     * The other direction: rules that refuse something else let the load run,
+     * and they are asked about it.
+     */
+    #[Test]
+    public function invocationRulesThatAllowTheLoadLetItRun(): void
+    {
+        $rules = $this->rules(['secret']);
+        $this->runLoad([[$this->loadCall('c1')]], invocationPolicy: $rules);
+
+        self::assertStringContainsString(self::BODY, $this->systemText(1));
+        self::assertArrayHasKey(LoadSkillTool::NAME, $rules->seen, 'the rules were not asked about the load');
+    }
+
+    /**
+     * A load joins the invocation history the next call is judged against:
+     * as run when it ran, as denied when a rule refused it.
+     */
+    #[Test]
+    public function aLoadIsRecordedInTheInvocationHistory(): void
+    {
+        $rules = $this->rules([]);
+        $this->runLoad([[$this->loadCall('c1')], [new ToolCall('c2', 'noop', [])]], invocationPolicy: $rules);
+
+        self::assertSame([['tool' => LoadSkillTool::NAME, 'outcome' => 'ok']], $rules->seen['noop'] ?? null);
+    }
+
+    #[Test]
+    public function aRefusedLoadIsRecordedAsDenied(): void
+    {
+        $rules = $this->rules([LoadSkillTool::NAME]);
+        $this->runLoad([[$this->loadCall('c1')], [new ToolCall('c2', 'noop', [])]], invocationPolicy: $rules);
+
+        self::assertSame([['tool' => LoadSkillTool::NAME, 'outcome' => 'denied']], $rules->seen['noop'] ?? null);
+    }
+
+    /**
+     * Both resume paths run a held load through the same rules.
+     */
+    #[Test]
+    public function anInvocationRuleRefusesALoadHeldInASuspendedTurn(): void
+    {
+        $turns = [[$this->loadCall('c1'), new ToolCall('c2', 'write', [])]];
+        [$service, $configuration] = $this->service($turns, invocationPolicy: $this->rules([LoadSkillTool::NAME]));
+
+        try {
+            $service->runLoop([ChatMessage::user('write the release note')], $configuration, ToolExecutionContext::none(), null, null, 5);
+            self::fail('The write did not suspend the run.');
+        } catch (ToolApprovalRequiredException $e) {
+            $state = $e->state;
+        }
+
+        $service->resume($state, true, $configuration, ToolExecutionContext::none());
+
+        $last = count($this->sends) - 1;
+        self::assertStringNotContainsString(self::BODY, $this->systemText($last));
+        self::assertStringContainsString('invocation denied (rule: no-loads', $this->toolResult($last, 'c1'));
+    }
+
+    #[Test]
+    public function anInvocationRuleRefusesALoadHeldInATurnSuspendedForInput(): void
+    {
+        $turns = [[$this->loadCall('c1'), new ToolCall('c2', 'ask_user', [])]];
+        [$service, $configuration] = $this->service($turns, invocationPolicy: $this->rules([LoadSkillTool::NAME]));
+
+        try {
+            $service->runLoop([ChatMessage::user('write the release note')], $configuration, ToolExecutionContext::none(), null, null, 5);
+            self::fail('The input tool did not suspend the run.');
+        } catch (ToolInputRequiredException $e) {
+            $state = $e->state;
+        }
+
+        $service->resumeWithInput($state, ['city' => 'Berlin'], $configuration, ToolExecutionContext::none());
+
+        $last = count($this->sends) - 1;
+        self::assertStringNotContainsString(self::BODY, $this->systemText($last));
+        self::assertStringContainsString('invocation denied (rule: no-loads', $this->toolResult($last, 'c1'));
+    }
+
+    /**
      * @param list<list<ToolCall>>      $turns        the tool calls of each model turn before the final answer
      * @param list<string>|null         $enabled      the globally enabled tools; null = every registered tool
      * @param bool|null                 $admits       the admission answer of a context window that admits; null = no window
@@ -396,8 +492,9 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
         ?string $onDemandAllowedTools = null,
         bool $windowWithoutAdmission = false,
         ?array $firstMessage = null,
+        ?ToolInvocationPolicyInterface $invocationPolicy = null,
     ): void {
-        [$service, $configuration] = $this->service($turns, $attachOnDemand, $approve, $enabled, $admits, $alwaysAllowedTools, $onDemandAllowedTools, $windowWithoutAdmission);
+        [$service, $configuration] = $this->service($turns, $attachOnDemand, $approve, $enabled, $admits, $alwaysAllowedTools, $onDemandAllowedTools, $windowWithoutAdmission, $invocationPolicy);
 
         $messages = [];
         if ($firstMessage !== null) {
@@ -425,6 +522,7 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
         ?string $alwaysAllowedTools = null,
         ?string $onDemandAllowedTools = null,
         bool $windowWithoutAdmission = false,
+        ?ToolInvocationPolicyInterface $invocationPolicy = null,
     ): array {
         $this->sends = [];
         $manager     = self::createStub(LlmServiceManagerInterface::class);
@@ -486,10 +584,49 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
             ),
             skillInjection: new SkillInjectionService($composer, new NullLogger()),
             contextWindow: $windowWithoutAdmission ? $this->plainWindow() : $window,
+            invocationPolicy: $invocationPolicy,
             skillLoad: new SkillLoadService($composer, $lookup),
         );
 
         return [$service, $configuration, $window];
+    }
+
+    /**
+     * An installation's invocation rules (#1033) that refuse the named tools
+     * and keep the history each decision was asked against.
+     *
+     * @param list<string> $denied
+     *
+     * @return ToolInvocationPolicyInterface&object{seen: array<string, list<array{tool: string, outcome: string}>>}
+     */
+    private function rules(array $denied): ToolInvocationPolicyInterface
+    {
+        return new class ($denied) implements ToolInvocationPolicyInterface {
+            /** @var array<string, list<array{tool: string, outcome: string}>> */
+            public array $seen = [];
+
+            /**
+             * @param list<string> $denied
+             */
+            public function __construct(private readonly array $denied) {}
+
+            public function resolveTarget(ToolCall $call, ToolExecutionContext $context): ?ToolInvocationTarget
+            {
+                return null;
+            }
+
+            public function decide(ToolInvocationContext $context): ToolInvocationDecision
+            {
+                $this->seen[$context->toolName] = array_map(
+                    static fn(array $entry): array => ['tool' => $entry['tool'], 'outcome' => $entry['outcome']],
+                    $context->history->entries,
+                );
+
+                return in_array($context->toolName, $this->denied, true)
+                    ? ToolInvocationDecision::deny('test_rule')->forRule('no-loads')
+                    : ToolInvocationDecision::allow();
+            }
+        };
     }
 
     private function plainWindow(): ContextWindowManagerInterface
