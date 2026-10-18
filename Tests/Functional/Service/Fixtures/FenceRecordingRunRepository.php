@@ -179,6 +179,11 @@ final class FenceRecordingRunRepository implements AgentRunRepositoryInterface
         return $this->inner->findEvents($runUid, $afterSequence);
     }
 
+    public function findLatestEvent(int $runUid, string $kind): ?AgentRunEvent
+    {
+        return $this->inner->findLatestEvent($runUid, $kind);
+    }
+
     public function findApprovalDeciders(array $runUids): array
     {
         return $this->inner->findApprovalDeciders($runUids);

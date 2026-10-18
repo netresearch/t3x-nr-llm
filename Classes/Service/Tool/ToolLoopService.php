@@ -388,7 +388,14 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $processVersion,
         );
 
-        return array_values(array_filter($instructionIds, static fn(string $id): bool => $id !== $continued));
+        // One entry only: the process composes one section, and a skill of
+        // another source may share its identifier and is still admitted.
+        $index = array_search($continued, $instructionIds, true);
+        if ($index !== false) {
+            unset($instructionIds[$index]);
+        }
+
+        return array_values($instructionIds);
     }
 
     /**

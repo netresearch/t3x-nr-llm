@@ -385,9 +385,68 @@ final class AgentRunExecutorProcessTest extends AbstractFunctionalTestCase
             if ($refused) {
                 self::assertInstanceOf(ProcessInvocationRefusedException::class, $result->error, $case);
                 self::assertSame(ProcessInvocationRefusal::PIN_WITHDRAWN, $result->error->reason, $case);
-                self::assertSame(AgentRunStatus::FAILED, $this->persister->findRun($result->runUuid)?->statusEnum(), $case);
+                $run = $this->persister->findRun($result->runUuid);
+                self::assertInstanceOf(AgentRun::class, $run);
+                self::assertSame(AgentRunStatus::FAILED, $run->statusEnum(), $case);
+                $lineage = $this->persister->lineageOf($run);
+                self::assertInstanceOf(RunLineage::class, $lineage, $case);
+                self::assertNull($lineage->processPin, $case . ': the next turn goes on without the process');
             } else {
                 self::assertSame($this->loopThrows, $result->error, $case);
+                $run = $this->persister->findRun($result->runUuid);
+                self::assertInstanceOf(AgentRun::class, $run);
+                self::assertEquals($own, $this->persister->lineageOf($run)?->processPin, $case . ': the process stays recorded');
+            }
+        }
+    }
+
+    /**
+     * A segment whose run was reclaimed by another worker stops as lease-lost
+     * at the next step, even when the process was ended meanwhile: it writes
+     * no step into the new owner's stream and settles nothing. A segment that
+     * still owns the run stops as process_ended.
+     */
+    #[Test]
+    public function aReclaimedSegmentOfAnEndedProcessWritesNothing(): void
+    {
+        $pin = new SkillPin(5, self::SOURCE, str_repeat('a', 64));
+
+        foreach (['reclaimed' => true, 'still owned' => false] as $case => $reclaimed) {
+            $handle = $this->persister->begin(null, 2, 'worker:a', time() + 600);
+            self::assertInstanceOf(AgentRunHandle::class, $handle);
+            self::assertTrue($this->persister->recordLineage($handle, new RunLineage(30, $pin, originRunUuid: $handle->uuid)));
+
+            $eventsBefore = 0;
+            $result       = $this->executor(true)->executeResume(
+                $handle,
+                null,
+                AiActorContext::backendUser(2),
+                function (ToolExecutionContext $context, RunTrace $trace) use ($handle, $pin, $reclaimed, &$eventsBefore): ToolLoopResult {
+                    $run = $this->persister->findRun($handle->uuid);
+                    self::assertInstanceOf(AgentRun::class, $run);
+                    self::assertTrue($this->persister->recordLineage($handle, (new RunLineage(30, $pin, originRunUuid: $handle->uuid))->withReleasedProcess()));
+                    if ($reclaimed) {
+                        $this->pool()->getConnectionForTable('tx_nrllm_agentrun')->update('tx_nrllm_agentrun', ['claimed_by' => 'worker:b'], ['uuid' => $handle->uuid]);
+                    }
+
+                    $eventsBefore = count($this->persister->findEvents($run->uid));
+                    $trace->recordRequest(1, [], []);
+
+                    return new ToolLoopResult('done', [], 1, false, UsageStatistics::fromTokens(1, 1));
+                },
+                'worker:a',
+            );
+
+            $run = $this->persister->findRun($handle->uuid);
+            self::assertInstanceOf(AgentRun::class, $run);
+            if ($reclaimed) {
+                self::assertSame(AgentRunOutcome::LEASE_LOST, $result->outcome, $case);
+                self::assertCount($eventsBefore, $this->persister->findEvents($run->uid), $case . ": no step in the new owner's stream");
+                self::assertSame(AgentRunStatus::RUNNING, $run->statusEnum(), $case);
+            } else {
+                self::assertInstanceOf(ProcessInvocationRefusedException::class, $result->error, $case);
+                self::assertSame(ProcessInvocationRefusal::PROCESS_ENDED, $result->error->reason, $case);
+                self::assertCount($eventsBefore + 1, $this->persister->findEvents($run->uid), $case . ': the step is recorded before the stop');
             }
         }
     }

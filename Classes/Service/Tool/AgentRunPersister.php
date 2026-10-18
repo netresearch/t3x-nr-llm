@@ -842,18 +842,11 @@ final readonly class AgentRunPersister
     public function lineageOf(AgentRun $run): ?RunLineage
     {
         try {
-            $events = $this->repository->findEvents($run->uid);
+            $latest = $this->repository->findLatestEvent($run->uid, AgentEventKind::LINEAGE->value);
         } catch (Throwable $exception) {
             $this->logger?->warning('AgentRun lineage could not be loaded', ['exception' => $exception]);
 
             throw RunLineageUnreadableException::forRun($run->uuid);
-        }
-
-        $latest = null;
-        foreach ($events as $event) {
-            if ($event->kind === AgentEventKind::LINEAGE->value) {
-                $latest = $event;
-            }
         }
 
         if (!$latest instanceof AgentRunEvent) {

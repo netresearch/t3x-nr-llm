@@ -135,7 +135,9 @@ Decision
    that is already running stops at its next step boundary, where the
    cancellation probe runs, and is settled failed as ``process_ended``; until
    then it may finish the step it is in. That probe fails closed: a run row
-   or lineage it cannot read stops the turn. A
+   or lineage it cannot read stops the turn. A turn that sends the
+   invocation again after the end, or was queued with it before, starts the
+   process anew as its own origin, through every start check. A
    release that fails leaves the named run holding, and a retry completes
    it. An origin that no longer exists ends the process for every turn; one
    the store cannot read refuses, as an unreadable lineage does. Applied

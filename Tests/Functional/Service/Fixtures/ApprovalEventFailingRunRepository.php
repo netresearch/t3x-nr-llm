@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Fixtures;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 use RuntimeException;
 
@@ -167,6 +168,11 @@ final readonly class ApprovalEventFailingRunRepository implements AgentRunReposi
     public function findEvents(int $runUid, int $afterSequence = -1): array
     {
         return $this->inner->findEvents($runUid, $afterSequence);
+    }
+
+    public function findLatestEvent(int $runUid, string $kind): ?AgentRunEvent
+    {
+        return $this->inner->findLatestEvent($runUid, $kind);
     }
 
     public function findApprovalDeciders(array $runUids): array

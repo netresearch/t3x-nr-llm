@@ -244,6 +244,12 @@ interface AgentRunRepositoryInterface
     public function findEvents(int $runUid, int $afterSequence = -1): array;
 
     /**
+     * The run's latest event of one kind, or null when it has none: one
+     * indexed read, for a check that runs at every step (ADR-228).
+     */
+    public function findLatestEvent(int $runUid, string $kind): ?AgentRunEvent;
+
+    /**
      * The `decidedBy` uids of the GRANTED approvals of several runs, keyed by run
      * uid and ordered by sequence (ADR-173).
      *

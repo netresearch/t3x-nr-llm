@@ -337,14 +337,20 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             return new GuardedCancelResult(false, $status);
         }
 
+        // Everything this run's own release needs is read before the origin
+        // lets go: the lineage above and the stream position here. A read
+        // that failed after it would report a process not ended that was
+        // ended for every turn a moment ago.
+        $handle = $this->persister->resumeHandle($run);
+        if (!$handle instanceof AgentRunHandle) {
+            return new GuardedCancelResult(false, $status);
+        }
+
         if ($origin instanceof AgentRun && $this->mayWithdraw($actor, $origin) && !$this->release($origin)) {
             return new GuardedCancelResult(false, $status);
         }
 
-        // release() needs the run's identity only, so the row read above
-        // serves: a second read that failed would report a process not
-        // ended that was ended for every turn a moment ago.
-        if (!$this->release($run)) {
+        if (!$this->persister->recordLineage($handle, $lineage->withReleasedProcess())) {
             return new GuardedCancelResult(false, $status);
         }
 

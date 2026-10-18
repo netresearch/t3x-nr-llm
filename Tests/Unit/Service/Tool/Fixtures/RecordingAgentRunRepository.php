@@ -320,6 +320,18 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         ));
     }
 
+    public function findLatestEvent(int $runUid, string $kind): ?AgentRunEvent
+    {
+        $latest = null;
+        foreach ($this->findEvents($runUid) as $event) {
+            if ($event->kind === $kind) {
+                $latest = $event;
+            }
+        }
+
+        return $latest;
+    }
+
     public bool $throwOnMaxSequence = false;
 
     /** Highest stored event sequence reported to resumeHandle() (-1 = none). */

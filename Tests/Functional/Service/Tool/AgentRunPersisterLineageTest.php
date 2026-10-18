@@ -49,6 +49,11 @@ final class AgentRunPersisterLineageTest extends AbstractFunctionalTestCase
             self::assertTrue($persister->recordLineage($handle, $first->withReleasedProcess()));
 
             self::assertEquals($first->withReleasedProcess(), $persister->lineageOf($this->storedRun($persister, $handle)), $level->value);
+
+            // Steps recorded after it do not hide it: the read asks for the
+            // latest lineage event, not the latest event.
+            self::assertTrue($persister->recordStep($handle, new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 0.0)));
+            self::assertEquals($first->withReleasedProcess(), $persister->lineageOf($this->storedRun($persister, $handle)), $level->value . ': after a step');
         }
     }
 

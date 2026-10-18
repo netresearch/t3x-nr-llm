@@ -144,8 +144,14 @@ final readonly class AgentRunExecutor
                 } catch (SkillInstructionWithdrawnException $withdrawn) {
                     // The process's approval went away between the start
                     // checks and the loop: a refusal like the start's, not a
-                    // failure a retry could fix (ADR-228).
+                    // failure a retry could fix (ADR-228). The run records
+                    // its lineage without the process, as a refusal at derive
+                    // time does, so the next turn goes on without it.
                     if ($prepared->pin instanceof SkillPin && $withdrawn->pin == $prepared->pin) {
+                        if ($handle instanceof AgentRunHandle) {
+                            $this->persister->recordLineage($handle, new RunLineage((int)$request->configuration->getUid(), null, $prepared->subject));
+                        }
+
                         throw ProcessInvocationRefusedException::forRun($handle->uuid ?? '', ProcessInvocationRefusal::PIN_WITHDRAWN, $withdrawn->reason);
                     }
 
@@ -271,7 +277,10 @@ final readonly class AgentRunExecutor
      *
      * $processProbe answers, at each step boundary, why a turn of a process
      * may not go on (ADR-228): ending the process from another turn reaches a
-     * turn that is already running at its next step, as a cancel does.
+     * turn that is already running at its next step, as a cancel does. It costs
+     * a turn of a process up to three indexed reads per step (its latest
+     * lineage, its origin's row and the origin's latest lineage) and any
+     * other run nothing.
      *
      * @param (Closure(RunStep): void)|null                        $onStep
      * @param (Closure(?AgentRun): ?ProcessInvocationRefusal)|null $processProbe
@@ -311,16 +320,6 @@ final readonly class AgentRunExecutor
                     throw RunCancellationRequestedException::forRun($handle->uuid);
                 }
 
-                // A turn of a process stops at the step after the process was
-                // ended, the same way (ADR-228). Unlike the cancellation probe
-                // this one fails closed: a row it cannot read stops the turn.
-                $refusal = $processProbe instanceof Closure ? $processProbe($run) : null;
-                if ($refusal instanceof ProcessInvocationRefusal) {
-                    $this->recordStepFailClosedForWrites($handle, $step);
-
-                    throw ProcessInvocationRefusedException::forRun($handle->uuid, $refusal);
-                }
-
                 // Heartbeat + lease-lost guard for a worker run (ADR-104). The
                 // renewal's ownership guard is the atomic check: 0 rows means
                 // the run was reclaimed/re-claimed/terminated — stop WITHOUT
@@ -333,6 +332,17 @@ final readonly class AgentRunExecutor
                 }
 
                 $this->recordStepFailClosedForWrites($handle, $step);
+
+                // A turn of a process stops at the step after the process was
+                // ended (ADR-228). After the lease guard, so a reclaimed
+                // segment stops as lease-lost without writing into the new
+                // owner's stream; after the step is recorded, so the stream
+                // stays complete up to the stop. Unlike the cancellation probe
+                // this one fails closed: a row it cannot read stops the turn.
+                $refusal = $processProbe instanceof Closure ? $processProbe($run) : null;
+                if ($refusal instanceof ProcessInvocationRefusal) {
+                    throw ProcessInvocationRefusedException::forRun($handle->uuid, $refusal);
+                }
             },
             onBeforeTool: function (string $toolName) use ($handle, $leaseOwner): void {
                 // Read-only tools need no fence — repeating them is always safe.

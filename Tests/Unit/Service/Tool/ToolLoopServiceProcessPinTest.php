@@ -82,6 +82,10 @@ final class ToolLoopServiceProcessPinTest extends TestCase
 
     private const GUIDE = 4;
 
+    private const NAMESAKE = 6;
+
+    private const OTHER_SOURCE = 2;
+
     private const BODY = 'Walk the editor through every heading.';
 
     private InMemorySkillApprovalRepository $approvals;
@@ -283,6 +287,23 @@ final class ToolLoopServiceProcessPinTest extends TestCase
     }
 
     /**
+     * Only the continued process is spared the admission: an instruction
+     * skill of another source that shares its identifier is still a new
+     * section and is admitted against the window.
+     */
+    #[Test]
+    public function aNamesakeOfAContinuedProcessIsStillAdmitted(): void
+    {
+        $this->expectException(SkillSectionNotAdmittedException::class);
+        try {
+            $this->service(window: $this->refusingWindow())
+                ->runLoop([ChatMessage::user('go on')], $this->configuration($this->skill, $this->namesake()), ToolExecutionContext::none(), null, augmentation: RunAugmentation::forProcess($this->pin));
+        } finally {
+            self::assertSame([], $this->offered);
+        }
+    }
+
+    /**
      * A window that fits every send and admits no new section.
      */
     private function refusingWindow(): ContextWindowManagerInterface&SectionAdmissionInterface
@@ -378,8 +399,8 @@ final class ToolLoopServiceProcessPinTest extends TestCase
             },
         );
 
-        $sources  = new FixedSkillSourceLookup([self::SOURCE => SkillTrustLevel::VERIFIED]);
-        $records  = new FixedSkillRecordLookup([self::SKILL, self::GUIDE]);
+        $sources  = new FixedSkillSourceLookup([self::SOURCE => SkillTrustLevel::VERIFIED, self::OTHER_SOURCE => SkillTrustLevel::VERIFIED]);
+        $records  = new FixedSkillRecordLookup([self::SKILL, self::GUIDE, self::NAMESAKE]);
         $composer = new SkillComposer(
             SkillComposer::DEFAULT_MAX_BYTES,
             SkillTrustLevel::UNTRUSTED,
@@ -435,6 +456,29 @@ final class ToolLoopServiceProcessPinTest extends TestCase
         }
 
         return $configuration;
+    }
+
+    /**
+     * An approved instruction skill of another source with the process's
+     * identifier.
+     */
+    private function namesake(): Skill
+    {
+        $namesake = new Skill();
+        $namesake->_setProperty('uid', self::NAMESAKE);
+        $namesake->setSource(self::OTHER_SOURCE);
+        $namesake->setIdentifier('tour');
+        $namesake->setName('Other tour');
+        $namesake->setBody('Answer in one line.');
+        $namesake->setBodyChecksum(hash('sha256', 'Answer in one line.'));
+        $namesake->setSupportStatus('full');
+        $namesake->setAllowedTools('[]');
+        $namesake->setEnabled(true);
+        $namesake->setVersionDigest(SkillVersionDigest::of($namesake));
+
+        $this->approvals->add(self::NAMESAKE, self::OTHER_SOURCE, $namesake->getVersionDigest(), SkillVersionDigest::fieldsOf($namesake), 'verified', 1);
+
+        return $namesake;
     }
 
     /**

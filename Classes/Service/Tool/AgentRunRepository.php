@@ -666,6 +666,26 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         return array_map($this->hydrateEvent(...), $rows);
     }
 
+    public function findLatestEvent(int $runUid, string $kind): ?AgentRunEvent
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_EVENT);
+        $queryBuilder->getRestrictions()->removeAll();
+
+        $row = $queryBuilder
+            ->select('*')
+            ->from(self::TABLE_EVENT)
+            ->where(
+                $queryBuilder->expr()->eq('run', $queryBuilder->createNamedParameter($runUid, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('kind', $queryBuilder->createNamedParameter($kind)),
+            )
+            ->orderBy('sequence', 'DESC')
+            ->setMaxResults(1)
+            ->executeQuery()
+            ->fetchAssociative();
+
+        return $row === false ? null : $this->hydrateEvent($row);
+    }
+
     public function findApprovalDeciders(array $runUids): array
     {
         if ($runUids === []) {
