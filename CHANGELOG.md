@@ -144,6 +144,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   settle the claimed row under its ownership guard instead of escaping with a
   run left running. Regression tests also exercise the retryable write fence
   and observer-before-persistence ordering directly.
+
+- **Agent executor documentation describes the existing interactive lease.** The request and resume comments explain the shared failure result and distinguish approval-bound write continuations from remote writes that can execute in the initial leased segment.
+
 - **Public tool-loop continuations preserve uncertainty about prior calls (ADR-216).** Skipping prompt assembly or seeding any resumed counter without authoritative invocation history now marks that history incomplete, so a rule requiring complete history refuses execution. Explicitly supplied history keeps its completeness flag.
 - **Invocation-rule denials have their own governance decision (ADR-216).** The governance chart and run timeline show `invocation_denied` with the bounded rule reason; the original tool-denial reason counts remain limited to offering-gate decisions.
 - **Write tools read page TSconfig as the run's acting user (#1017).** `update_content_element`, `create_content_element_draft`, `create_record_draft` and `copy_record` built their approval preview and their permission checks from page TSconfig as core resolves it for the ambient backend user: that user's workspace overlaid the rootline, their user TSconfig `page.` overrides were merged in, and their identity fed the `[backend.user…]` conditions. A run approved by another user, or resumed in a worker without one, could therefore bounce its approval or be checked against the approver's TSconfig. They now read it for the acting user, like `get_tsconfig`, which shows the acting user's view as well.
