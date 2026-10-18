@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Provider\Middleware;
 
 use Netresearch\NrLlm\Domain\Enum\FailureClass;
-use Netresearch\NrLlm\Exception\TransientFailureInterface;
 use Netresearch\NrLlm\Provider\Exception\CircuitOpenException;
 use Netresearch\NrLlm\Provider\Exception\FallbackChainExhaustedException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
@@ -38,9 +37,6 @@ final readonly class FailureClassifier
     {
         return match (true) {
             $e instanceof CircuitOpenException => FailureClass::CIRCUIT_OPEN,
-            // A failure outside a provider call that a retry can fix, such as
-            // an approval store that could not be read (ADR-228).
-            $e instanceof TransientFailureInterface => FailureClass::CONNECTION,
             $e instanceof FallbackChainExhaustedException => self::fromChain($e),
             $e instanceof ProviderConnectionException,
             $e instanceof NetworkExceptionInterface      => FailureClass::CONNECTION,

@@ -29,6 +29,7 @@ use Netresearch\NrLlm\Exception\SkillSectionNotAdmittedException;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessInvocationRefusedException;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunNeedsSecondApproverException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessVerdictUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Process\ApprovedProcessPinProbe;
 use Netresearch\NrLlm\Service\Agent\Process\PreparedProcess;
 use Netresearch\NrLlm\Service\Agent\Process\ProcessRunPreparer;
@@ -449,6 +450,41 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
 
         self::assertTrue($this->persister->settleCancelled($handle));
         self::assertNull($this->prepare($this->request($configuration, null, predecessor: $handle->uuid))->pin, 'the next turn goes on without it');
+    }
+
+    /**
+     * A store that cannot answer is no withdrawn approval (ADR-228): a start
+     * and a continuation whose approvals cannot be read throw the retryable
+     * refusal and record no lineage, so the run is tried again rather than
+     * stopped or left without its process.
+     */
+    #[Test]
+    public function anApprovalStoreThatCannotBeReadIsRetriedNotRefused(): void
+    {
+        $skill         = $this->processSkill();
+        $configuration = $this->configuration($skill);
+        $predecessor   = $this->finishedProcessRun($configuration);
+        $preparer      = $this->preparer();
+
+        foreach ([
+            'a start'        => $this->request($configuration, new SkillInvocation(self::PROCESS)),
+            'a continuation' => $this->request($configuration, null, predecessor: $predecessor),
+        ] as $case => $request) {
+            $handle     = $this->begin();
+            $connection = $this->pool()->getConnectionForTable('tx_nrllm_skill_approval');
+            $connection->executeStatement('ALTER TABLE tx_nrllm_skill_approval RENAME TO tx_nrllm_skill_approval_away');
+            try {
+                $preparer->prepare($request, $this->actingUser(self::OWNER), $handle);
+                self::fail($case . ': expected the retryable refusal');
+            } catch (ProcessVerdictUnavailableException) {
+                // Expected: nothing was decided.
+            } finally {
+                $connection->executeStatement('ALTER TABLE tx_nrllm_skill_approval_away RENAME TO tx_nrllm_skill_approval');
+            }
+
+            self::assertNull($this->lineage($handle->uuid), $case . ': no lineage is recorded');
+            self::assertInstanceOf(PreparedProcess::class, $preparer->prepare($request, $this->actingUser(self::OWNER), $this->begin()), $case . ': the retry goes through');
+        }
     }
 
     /**

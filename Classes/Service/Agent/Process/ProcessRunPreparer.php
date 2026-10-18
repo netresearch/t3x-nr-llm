@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\Process;
 
+use Closure;
 use Netresearch\NrLlm\Domain\Enum\DroppedSourceReason;
 use Netresearch\NrLlm\Domain\Enum\ProcessInvocationRefusal;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -24,6 +25,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SubjectRecord;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessInvocationRefusedException;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunNeedsSecondApproverException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessVerdictUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunLineageUnreadableException;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
@@ -31,6 +33,7 @@ use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Netresearch\NrLlm\Service\Skill\SkillPinCheck;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
+use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
@@ -246,11 +249,12 @@ final readonly class ProcessRunPreparer
 
         // The trust floor (ADR-061) the catalogue applies too: a skill the
         // composer does not admit is neither listed nor started.
-        if (!in_array($skill, $this->composer->admittedSkills([$skill], []), true)) {
+        $admitted = $this->readApprovals($skillUid, fn(): array => $this->composer->admittedSkills([$skill], []));
+        if (!in_array($skill, $admitted, true)) {
             throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::SKILL_NOT_ADMITTED);
         }
 
-        $version = $this->composer->approvedVersion($skill);
+        $version = $this->readApprovals($skillUid, fn(): ?SkillApproval => $this->composer->approvedVersion($skill));
         if (!$version instanceof SkillApproval) {
             throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::NOT_AN_INSTRUCTION);
         }
@@ -293,7 +297,7 @@ final readonly class ProcessRunPreparer
      */
     private function assertDerivedPinHolds(SkillPin $pin, LlmConfiguration $configuration, ?AgentRunHandle $handle, ?SubjectRecord $subject): void
     {
-        $reason = $this->pinCheck->failure($pin);
+        $reason = $this->readApprovals($pin->skillUid, fn(): ?string => $this->pinCheck->failure($pin));
         if ($reason === null && $this->processPins->processSnapshot($pin) instanceof SkillApproval) {
             return;
         }
@@ -305,6 +309,31 @@ final readonly class ProcessRunPreparer
             ProcessInvocationRefusal::PIN_WITHDRAWN,
             $reason ?? 'its approval no longer marks a process',
         );
+    }
+
+    /**
+     * A read of the approvals and the trust a process rests on. A store that
+     * cannot answer is not an answer: the read throws the retryable refusal,
+     * so the run is tried again rather than stopped as if the approval were
+     * gone (ADR-228).
+     *
+     * @template T
+     *
+     * @param Closure(): T $read
+     *
+     * @throws ProcessVerdictUnavailableException
+     *
+     * @return T
+     */
+    private function readApprovals(int $skillUid, Closure $read): mixed
+    {
+        try {
+            return $read();
+        } catch (ProcessVerdictUnavailableException $unavailable) {
+            throw $unavailable;
+        } catch (Throwable) {
+            throw ProcessVerdictUnavailableException::forPin($skillUid);
+        }
     }
 
     private function record(?AgentRunHandle $handle, RunLineage $lineage, string $runUuid): void

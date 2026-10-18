@@ -295,8 +295,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $version = $this->processPinProbe?->processSnapshot($pin);
             } catch (ProcessVerdictUnavailableException) {
                 // The run was claimed already and a stop here would be for
-                // good: the turn goes on without the process's tools, which
-                // only narrows what it may call, and the next turn's start
+                // good: the turn goes on without the process's tools, bounded
+                // by the list stored at suspension, and the next turn's start
                 // check reads the approval again.
                 continue;
             }

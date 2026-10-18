@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
+use Netresearch\NrLlm\Exception\TransientFailureInterface;
 use Netresearch\NrLlm\Provider\Middleware\FailureClassifier;
 use Netresearch\NrLlm\Service\Agent\Exception\RunEnqueueFailedException;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
@@ -66,8 +67,11 @@ final readonly class QueuedRunFailureRecovery
 
             // A class retrying cannot fix (auth, config, a 4xx client error):
             // dead-letter immediately, distinct from PROVIDER_FAILED so it never
-            // reads as retryable.
-            if (!$class->isRetryable()) {
+            // reads as retryable. A failure outside any provider call that a
+            // retry can fix (a store that could not be read, ADR-228) is
+            // retried; it is marked rather than classified, so the provider
+            // circuit and fallback never count it.
+            if (!$class->isRetryable() && !$e instanceof TransientFailureInterface) {
                 // Ownership-guarded like the requeue branch below: if this worker
                 // no longer owns the run (reaper reclaimed it), do NOT settle —
                 // return LEASE_LOST and leave the row to its current owner.
