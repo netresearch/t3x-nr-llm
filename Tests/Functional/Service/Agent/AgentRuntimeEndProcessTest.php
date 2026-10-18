@@ -162,6 +162,24 @@ final class AgentRuntimeEndProcessTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A turn whose process was already ended at its start, but which still
+     * records it as held — an earlier end that released the start and then
+     * failed on this run — is released when the end is asked again.
+     */
+    #[Test]
+    public function askingAgainCompletesAHalfFinishedEnd(): void
+    {
+        $start = $this->processRun();
+        self::assertTrue($this->persister->settleCancelled($start));
+        $turn = $this->processRun($start->uuid);
+        self::assertTrue($this->persister->settleCancelled($turn));
+        self::assertTrue($this->persister->recordLineage($start, $this->lineage($start->uuid)->withReleasedProcess()));
+
+        self::assertTrue($this->runtime()->endProcess(AiActorContext::backendUser(self::OWNER), $turn->uuid)->cancelled);
+        self::assertFalse($this->lineage($turn->uuid)->holdsProcess());
+    }
+
+    /**
      * A start that belongs to somebody the actor may not end it for is left
      * alone: the actor's own turn lets go of the process, the start keeps it.
      */

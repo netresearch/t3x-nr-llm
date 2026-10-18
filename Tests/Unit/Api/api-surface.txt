@@ -273,6 +273,7 @@ Netresearch\NrLlm\Domain\Enum\ProcessInvocationRefusal (enum)
   case PIN_WITHDRAWN = "pin_withdrawn"
   case PREDECESSOR_MISSING = "predecessor_missing"
   case PREDECESSOR_NOT_FINISHED = "predecessor_not_finished"
+  case PROCESS_ENDED = "process_ended"
   case PROCESS_HELD = "process_held"
   case SECOND_APPROVER_REQUIRED = "second_approver_required"
   case SERVICE_ACCOUNT = "service_account"

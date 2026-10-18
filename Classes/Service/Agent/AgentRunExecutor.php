@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\RunLineage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SkillInvocation;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
@@ -211,7 +212,17 @@ final readonly class AgentRunExecutor
     ): AgentRunResult {
         $trace = $this->trace($handle, $onStep, false, $leaseOwner);
 
-        return $this->execute($handle, $trace, fn(): ToolLoopResult => $loopCall($this->resumeContext($owner, $handle), $trace), null, $leaseOwner);
+        return $this->execute(
+            $handle,
+            $trace,
+            function () use ($owner, $handle, $loopCall, $trace): ToolLoopResult {
+                $this->assertProcessNotEnded($handle);
+
+                return $loopCall($this->resumeContext($owner, $handle), $trace);
+            },
+            null,
+            $leaseOwner,
+        );
     }
 
     /**
@@ -345,6 +356,38 @@ final readonly class AgentRunExecutor
             $handle instanceof AgentRunHandle ? new AgentRunReference($handle->runUid, $handle->uuid) : null,
             $initialInvocationHistory,
         );
+    }
+
+    /**
+     * A waiting turn of a process resumes only while the process still holds
+     * (ADR-228): ending it from another turn of the conversation releases
+     * the run that started it, and this turn's suspended pins would
+     * otherwise carry it on. A run without a process resumes as before; a
+     * lineage that cannot be read refuses.
+     *
+     * @throws ProcessInvocationRefusedException
+     */
+    private function assertProcessNotEnded(AgentRunHandle $handle): void
+    {
+        $run = $this->persister->findRun($handle->uuid);
+        if (!$run instanceof AgentRun) {
+            return;
+        }
+
+        try {
+            $lineage = $this->persister->lineageOf($run);
+            if (!$lineage?->processPin instanceof SkillPin) {
+                return;
+            }
+
+            $held = $this->persister->heldProcessOf($run);
+        } catch (RunLineageUnreadableException) {
+            throw ProcessInvocationRefusedException::forRun($handle->uuid, ProcessInvocationRefusal::LINEAGE_UNREADABLE);
+        }
+
+        if (!$held instanceof RunLineage) {
+            throw ProcessInvocationRefusedException::forRun($handle->uuid, ProcessInvocationRefusal::PROCESS_ENDED);
+        }
     }
 
     /**

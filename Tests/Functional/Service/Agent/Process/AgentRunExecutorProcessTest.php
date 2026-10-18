@@ -192,6 +192,51 @@ final class AgentRunExecutorProcessTest extends AbstractFunctionalTestCase
         }
     }
 
+    /**
+     * A waiting turn of a process that was ended from another turn since it
+     * suspended does not resume: the run is refused as a policy stop before
+     * the loop runs. While the process holds, and for a run without one, the
+     * resume goes on.
+     */
+    #[Test]
+    public function aWaitingTurnOfAnEndedProcessDoesNotResume(): void
+    {
+        $pin    = new SkillPin(5, self::SOURCE, str_repeat('a', 64));
+        $origin = $this->begin();
+        self::assertTrue($this->persister->recordLineage($origin, new RunLineage(30, $pin, originRunUuid: $origin->uuid)));
+
+        foreach (['process holds' => true, 'no process' => null, 'process ended' => false] as $case => $holds) {
+            $turn = $this->begin();
+            if ($holds !== null) {
+                self::assertTrue($this->persister->recordLineage($turn, new RunLineage(30, $pin, originRunUuid: $origin->uuid)));
+            }
+
+            if ($holds === false) {
+                self::assertTrue($this->persister->recordLineage($origin, (new RunLineage(30, $pin, originRunUuid: $origin->uuid))->withReleasedProcess()));
+            }
+
+            $this->looped = false;
+            $result       = $this->executor(true)->executeResume(
+                $turn,
+                null,
+                AiActorContext::backendUser(2),
+                function (): ToolLoopResult {
+                    $this->looped = true;
+
+                    return new ToolLoopResult('done', [], 1, false, UsageStatistics::fromTokens(1, 1));
+                },
+            );
+
+            if ($holds === false) {
+                self::assertFalse($this->looped, $case);
+                self::assertInstanceOf(ProcessInvocationRefusedException::class, $result->error, $case);
+                self::assertSame(ProcessInvocationRefusal::PROCESS_ENDED, $result->error->reason, $case);
+            } else {
+                self::assertTrue($this->looped, $case);
+            }
+        }
+    }
+
     private function request(LlmConfiguration $configuration, ?SkillInvocation $invocation = null, ?RunAugmentation $augmentation = null): AgentRunRequest
     {
         return new AgentRunRequest(

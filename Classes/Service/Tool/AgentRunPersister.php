@@ -888,12 +888,30 @@ final readonly class AgentRunPersister
             return $lineage;
         }
 
-        $origin = $this->findRun($lineage->originRunUuid);
+        $origin = $this->originRun($lineage);
         if (!$origin instanceof AgentRun) {
             return null;
         }
 
         return $this->lineageOf($origin)?->holdsProcess() === true ? $lineage : null;
+    }
+
+    /**
+     * The run that started a lineage's process, or null when it no longer
+     * exists (ADR-228). Unlike {@see self::findRun()} a store error is not
+     * read as "gone", which would end the process for every turn.
+     *
+     * @throws RunLineageUnreadableException when the store cannot answer
+     */
+    public function originRun(RunLineage $lineage): ?AgentRun
+    {
+        try {
+            return $this->repository->findByUuid($lineage->originRunUuid);
+        } catch (Throwable $exception) {
+            $this->logger?->warning('AgentRun origin could not be loaded', ['exception' => $exception]);
+
+            throw RunLineageUnreadableException::forRun($lineage->originRunUuid);
+        }
     }
 
     /**

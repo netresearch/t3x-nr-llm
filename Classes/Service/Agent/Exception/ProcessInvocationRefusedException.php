@@ -45,6 +45,7 @@ final class ProcessInvocationRefusedException extends AgentRuntimeException
             ProcessInvocationRefusal::LINEAGE_NOT_STORED          => 'The process could not be recorded for the next turn, so it was not started.',
             ProcessInvocationRefusal::LINEAGE_UNREADABLE          => 'What the previous turn recorded for this conversation could not be read; start a new conversation.',
             ProcessInvocationRefusal::PIN_WITHDRAWN               => 'The process this conversation runs is no longer approved as it was; it ends here.',
+            ProcessInvocationRefusal::PROCESS_ENDED               => 'The process of this conversation was ended, so this waiting turn does not go on.',
         };
 
         return new self($runUuid, $reason, $detail !== '' ? $message . ' (' . $detail . ')' : $message);

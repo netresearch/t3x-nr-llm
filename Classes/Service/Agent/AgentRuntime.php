@@ -293,13 +293,16 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             return new GuardedCancelResult(false, null);
         }
 
+        // The run's own lineage, not heldProcessOf(): a retry after the
+        // origin was released but this run's release failed must still
+        // release this run.
         try {
-            $lineage = $this->persister->heldProcessOf($run);
+            $lineage = $this->persister->lineageOf($run);
         } catch (RunLineageUnreadableException) {
             return new GuardedCancelResult(false, $run->statusEnum());
         }
 
-        if (!$lineage instanceof RunLineage) {
+        if (!$lineage instanceof RunLineage || !$lineage->holdsProcess()) {
             return new GuardedCancelResult(false, $run->statusEnum());
         }
 
@@ -326,9 +329,14 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         // this run alone lets go of the process. Then this run: a release
         // that could not be stored leaves the process with it, and the caller
         // learns it was not ended and can ask again.
-        $origin = $lineage->originRunUuid !== '' && $lineage->originRunUuid !== $runUuid
-            ? $this->persister->findRun($lineage->originRunUuid)
-            : null;
+        try {
+            $origin = $lineage->originRunUuid !== '' && $lineage->originRunUuid !== $runUuid
+                ? $this->persister->originRun($lineage)
+                : null;
+        } catch (RunLineageUnreadableException) {
+            return new GuardedCancelResult(false, $status);
+        }
+
         if ($origin instanceof AgentRun && $this->mayWithdraw($actor, $origin) && !$this->release($origin)) {
             return new GuardedCancelResult(false, $status);
         }

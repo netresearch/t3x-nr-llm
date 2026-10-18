@@ -81,6 +81,11 @@ enum ProcessInvocationRefusal: string
      */
     case PIN_WITHDRAWN = 'pin_withdrawn';
     /**
+     * A waiting turn was to resume under a process that was ended from
+     * another turn of the conversation since it suspended.
+     */
+    case PROCESS_ENDED = 'process_ended';
+    /**
      * The run could not record its process, or was not persisted at all.
      */
     case LINEAGE_NOT_STORED = 'lineage_not_stored';

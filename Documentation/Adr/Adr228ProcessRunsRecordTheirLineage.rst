@@ -130,10 +130,12 @@ Decision
    later or continued in parallel — hands the process on, and the status of
    every such turn says it holds none. The origin is released only when the
    actor may end that run as well; otherwise the named run alone lets go of
-   the process. A release that fails leaves the named run holding, and a
-   retry completes it. An origin that no longer exists ends the process for
-   every turn. Applied writes stay. Anyone else, and an unknown run, learn
-   nothing.
+   the process. A turn that already waits for a decision when the process is
+   ended does not resume: its resume is refused as ``process_ended``. A
+   release that fails leaves the named run holding, and a retry completes
+   it. An origin that no longer exists ends the process for every turn; one
+   the store cannot read refuses, as an unreadable lineage does. Applied
+   writes stay. Anyone else, and an unknown run, learn nothing.
 
    The run status (:php:`AgentRuntimeInterface::status()`) says whether the
    run holds a process (``holdsProcess``) and names the process skill's
