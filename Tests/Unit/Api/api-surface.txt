@@ -1233,7 +1233,11 @@ Netresearch\NrLlm\Exception\GuardrailViolationException (class)
 
 Netresearch\NrLlm\Exception\InvalidArgumentException (class)
 
+Netresearch\NrLlm\Exception\LogicException (class)
+
 Netresearch\NrLlm\Exception\NrLlmExceptionInterface (interface)
+
+Netresearch\NrLlm\Exception\RuntimeException (class)
 
 Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException (class)
   constructor(Netresearch\NrLlm\Domain\ValueObject\SkillPin $pin, string $skillName, string $reason)

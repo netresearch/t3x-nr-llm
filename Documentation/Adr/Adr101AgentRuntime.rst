@@ -9,7 +9,8 @@
 ADR-101: AgentRuntime — the agent-run lifecycle as a public service
 ============================================================================
 
-:Status: Accepted
+:Status: Accepted (optional diagnostics clarified by
+    :ref:`ADR-225 <adr-225>`)
 :Amended: 2026-10-10 by :ref:`ADR-225 <adr-225>` (optional diagnostics)
 :Date: 2026-07-21
 :Authors: Netresearch DTT GmbH

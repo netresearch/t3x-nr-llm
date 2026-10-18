@@ -79,4 +79,28 @@ final class CacheCircuitBreakerStoreTest extends AbstractFunctionalTestCase
 
         self::assertTrue($this->store->load('openai')->isPristine());
     }
+
+    #[Test]
+    public function providersThatSanitizeToTheSamePrefixRetainIndependentStates(): void
+    {
+        $this->store->save('private:openai', new CircuitState(2), 300);
+        $this->store->save(
+            'private?openai',
+            new CircuitState(7, 1700000500),
+            300,
+        );
+        self::assertSame(
+            2,
+            $this->store->load('private:openai')->consecutiveFailures,
+        );
+        self::assertNull($this->store->load('private:openai')->openedAt);
+        self::assertSame(
+            7,
+            $this->store->load('private?openai')->consecutiveFailures,
+        );
+        self::assertSame(
+            1700000500,
+            $this->store->load('private?openai')->openedAt,
+        );
+    }
 }

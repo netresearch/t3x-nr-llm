@@ -26,8 +26,11 @@ final readonly class RegressionThresholds
         public float $maxPassRateDrop = 0.1,
         public float $maxMeanScoreDrop = 0.1,
     ) {
-        if ($maxPassRateDrop < 0.0 || $maxMeanScoreDrop < 0.0) {
-            throw new InvalidArgumentException('Regression thresholds must be non-negative.', 1794000040);
+        if (!is_finite($maxPassRateDrop) || !is_finite($maxMeanScoreDrop) || $maxPassRateDrop < 0.0 || $maxMeanScoreDrop < 0.0 || $maxPassRateDrop > 1.0 || $maxMeanScoreDrop > 1.0) {
+            throw new InvalidArgumentException(
+                'Regression thresholds must be finite numbers in 0..1.',
+                1794000040,
+            );
         }
     }
 }
