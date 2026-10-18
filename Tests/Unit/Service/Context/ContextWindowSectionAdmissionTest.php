@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Service\Context\ContextWindowManager;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -127,6 +128,61 @@ final class ContextWindowSectionAdmissionTest extends TestCase
         $manager = new ContextWindowManager();
 
         self::assertFalse($manager->admitsSection([ChatMessage::user('x')], 'Short section.', $this->config(1000, 5000), null));
+    }
+
+    /**
+     * A window that is not known admits nothing: no fallback size stands in
+     * for it. The same section is admitted by a known window.
+     */
+    #[Test]
+    public function anUnknownWindowAdmitsNothing(): void
+    {
+        $manager  = new ContextWindowManager();
+        $messages = [ChatMessage::system('Identity.'), ChatMessage::user('Write the note.')];
+
+        self::assertTrue($manager->admitsSection($messages, 'Short section.', $this->config(10000, 1000), null));
+        self::assertFalse($manager->admitsSection($messages, 'Short section.', $this->config(0, 1000), null));
+        self::assertFalse($manager->admitsSection($messages, 'Short section.', $this->config(-5, 1000), null));
+        self::assertFalse($manager->admitsSection($messages, 'Short section.', new LlmConfiguration(), null), 'no model at all');
+    }
+
+    /**
+     * A caller's max_tokens larger than the window leaves no budget, so
+     * nothing is admitted; a smaller one admits the same section.
+     */
+    #[Test]
+    public function aCallerReserveLargerThanTheWindowAdmitsNothing(): void
+    {
+        $manager  = new ContextWindowManager();
+        $messages = [ChatMessage::system('Identity.'), ChatMessage::user('Write the note.')];
+        $config   = $this->config(10000, 1000);
+
+        self::assertTrue($manager->admitsSection($messages, 'Short section.', $config, new ChatOptions(maxTokens: 2000)));
+        self::assertFalse($manager->admitsSection($messages, 'Short section.', $config, new ChatOptions(maxTokens: 12000)));
+    }
+
+    /**
+     * The resolved model's window decides, not the configuration's: a
+     * section that fits the configuration's large window is refused against
+     * a resolved 4096, and admitted against a resolved large one.
+     */
+    #[Test]
+    public function theResolvedModelsWindowDecides(): void
+    {
+        $manager  = new ContextWindowManager();
+        $messages = [ChatMessage::system('Identity.'), ChatMessage::user('Write the note.')];
+        $section  = str_repeat('word ', 2500);
+        $small    = new Model();
+        $small->setContextLength(4096);
+        $small->setMaxOutputTokens(500);
+
+        $large = new Model();
+        $large->setContextLength(100000);
+        $large->setMaxOutputTokens(500);
+
+        self::assertTrue($manager->admitsSection($messages, $section, $this->config(100000, 500), null));
+        self::assertFalse($manager->admitsSection($messages, $section, $this->config(100000, 500), null, [], null, $small));
+        self::assertTrue($manager->admitsSection($messages, $section, $this->config(4096, 500), null, [], null, $large));
     }
 
     private function config(int $contextLength, int $maxOutputTokens): LlmConfiguration

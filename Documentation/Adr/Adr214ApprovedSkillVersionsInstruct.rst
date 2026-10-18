@@ -557,7 +557,10 @@ gate (:php:`AllowedToolsResolver::applyGroupGate()`), so a skill declaring
 ``allowed-tools: []`` blocks every other tool but not the load tool. It still
 passes the global tool state (ADR-039) — an administrator who disables it
 switches model loading off — and the trust-zone gate. It reads only approved
-skill text and has no effect outside the run's system message.
+skill text and has no effect outside the run's system message. The exemption
+does not hold in a run that invokes a process skill: there the load tool is
+offered only when the process skill's vouched declaration lists it, so an
+invoked process skill without a vouched declaration leaves the run no tool.
 
 .. _adr-214-d6:
 

@@ -235,7 +235,7 @@ final readonly class SkillComposer
                 continue;
             }
 
-            $entries[] = new SkillCatalogueEntry((int)$skill->getUid(), $skill->getName(), $skill->getDescription(), $digest);
+            $entries[] = new SkillCatalogueEntry((int)$skill->getUid(), $skill->getName(), $skill->getDescription(), $digest, $skill->getSource());
         }
 
         return new SkillCatalogue($entries);

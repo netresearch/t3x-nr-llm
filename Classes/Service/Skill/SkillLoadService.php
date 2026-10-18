@@ -22,7 +22,8 @@ use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
  * load, from stored values: the uid is in this run's catalogue, the skill is
  * still attached 'on_demand', the record is enabled, not hidden, deleted,
  * orphaned or a process skill, its stored digest is the one the catalogue
- * listed, and that version still composes as an instruction (an unrevoked
+ * listed, its stored source is the one the run's copy and the catalogue name,
+ * and that version still composes as an instruction (an unrevoked
  * approval for the digest and source, provenance at or above the threshold).
  *
  * Loading is idempotent per skill and digest: a skill whose section the run
@@ -76,14 +77,24 @@ final readonly class SkillLoadService
 
         $skill  = $this->attachedOnDemand($configuration, $skillUid);
         $stored = $this->lookup->trustLevel($skillUid);
-        if ($skill instanceof Skill && $stored !== null) {
-            // The trust floor is measured against the level stored now, not
-            // the one the run's object was read with.
-            $skill = clone $skill;
-            $skill->setTrustLevel($stored);
+        if (!$skill instanceof Skill || $stored === null) {
+            return SkillLoadOutcome::refused(sprintf('Skill "%s" is not an approved instruction right now; it cannot be loaded.', $entry->name));
         }
 
-        $composed = $skill instanceof Skill && $stored !== null ? $this->composer->composeInstruction($skill, $entry->versionDigest) : null;
+        $source = $this->lookup->storedSource($skillUid);
+        if ($source === null || $source !== $skill->getSource() || $source !== $entry->source) {
+            // An approval names a digest and a source. A record moved to
+            // another source since the run read it would otherwise be
+            // measured against the source the run's copy still names.
+            return SkillLoadOutcome::refused(sprintf('Skill "%s" changed its source since this run started; it cannot be loaded.', $entry->name));
+        }
+
+        // The trust floor is measured against the level stored now, not the
+        // one the run's object was read with.
+        $skill = clone $skill;
+        $skill->setTrustLevel($stored);
+
+        $composed = $this->composer->composeInstruction($skill, $entry->versionDigest);
         if ($composed === null) {
             return SkillLoadOutcome::refused(sprintf('Skill "%s" is not an approved instruction right now; it cannot be loaded.', $entry->name));
         }

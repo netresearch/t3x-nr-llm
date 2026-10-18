@@ -236,6 +236,49 @@ final class SkillLoadServiceTest extends TestCase
         self::assertTrue($this->service()->load(7, $catalogue, [], $configuration)->appendsSection());
     }
 
+    /**
+     * An approval names a digest and a source. A record moved to another
+     * source since the catalogue was built is refused, although the run's
+     * copy still names the approved source; before the move it loads.
+     */
+    #[Test]
+    public function aSkillMovedToAnotherSourceSinceTheCatalogueWasBuiltIsRefused(): void
+    {
+        $skill         = $this->approvedOnDemand(7);
+        $configuration = $this->configuration($skill);
+        $service       = $this->service(sources: [1 => SkillTrustLevel::VERIFIED, 2 => SkillTrustLevel::UNTRUSTED]);
+        $catalogue     = $service->catalogue($configuration);
+
+        self::assertTrue($service->load(7, $catalogue, [], $configuration)->appendsSection());
+
+        $this->lookup->sources[7] = 2;
+        $outcome                  = $service->load(7, $catalogue, [], $configuration);
+
+        self::assertTrue($outcome->isError);
+        self::assertFalse($outcome->appendsSection());
+        self::assertNull($outcome->pin, 'a refused load sets no pin');
+    }
+
+    /**
+     * The catalogue measured the approval against the source the run's copy
+     * named when it was built. A run's copy that names another source by the
+     * time of the load is refused, even where that source's approval holds.
+     */
+    #[Test]
+    public function aRunCopyWhoseSourceNoLongerMatchesTheCatalogueIsRefused(): void
+    {
+        $skill         = $this->approvedOnDemand(7);
+        $configuration = $this->configuration($skill);
+        $service       = $this->service(sources: [1 => SkillTrustLevel::VERIFIED, 2 => SkillTrustLevel::VERIFIED]);
+        $catalogue     = $service->catalogue($configuration);
+        $this->approvals->add(7, 2, $skill->getVersionDigest(), SkillVersionDigest::fieldsOf($skill), 'verified', 1);
+
+        $skill->setSource(2);
+        $this->lookup->sources[7] = 2;
+
+        self::assertTrue($service->load(7, $catalogue, [], $configuration)->isError);
+    }
+
     #[Test]
     public function aSectionJoinsTheApprovedSkillsHeadingOnceAndOtherwiseBringsIt(): void
     {
@@ -247,13 +290,16 @@ final class SkillLoadServiceTest extends TestCase
         self::assertStringEndsWith("body a\n\n### Skill: B\nbody b", $second);
     }
 
-    private function service(SkillTrustLevel $minimum = SkillTrustLevel::UNTRUSTED): SkillLoadService
+    /**
+     * @param array<int, SkillTrustLevel> $sources source uid => the source record's trust level
+     */
+    private function service(SkillTrustLevel $minimum = SkillTrustLevel::UNTRUSTED, array $sources = [1 => SkillTrustLevel::VERIFIED]): SkillLoadService
     {
         return new SkillLoadService(
             new SkillComposer(
                 SkillComposer::DEFAULT_MAX_BYTES,
                 $minimum,
-                new SkillInstructionPolicy($this->approvals, new FixedSkillSourceLookup([1 => SkillTrustLevel::VERIFIED]), SkillTrustLevel::VERIFIED),
+                new SkillInstructionPolicy($this->approvals, new FixedSkillSourceLookup($sources), SkillTrustLevel::VERIFIED),
             ),
             $this->lookup,
         );
@@ -285,6 +331,7 @@ final class SkillLoadServiceTest extends TestCase
         $this->lookup->onDemand[self::CONFIGURATION_UID][] = $uid;
         $this->lookup->digests[$uid]                       = $skill->getVersionDigest();
         $this->lookup->trustLevels[$uid]                   = $skill->getTrustLevel();
+        $this->lookup->sources[$uid]                       = $skill->getSource();
     }
 
     private function skill(int $uid): Skill

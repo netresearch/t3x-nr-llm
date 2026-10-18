@@ -59,6 +59,7 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
             $user,
             $this->availability->enabledNames(),
             $this->configurationAllowed($configuration, $runAllowList),
+            $runAllowList instanceof SkillToolAllowList && $runAllowList->processBound,
         );
     }
 
@@ -93,6 +94,7 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
      *
      * @param list<string>      $enabledNames
      * @param list<string>|null $configurationAllowed
+     * @param bool              $processBound         the run invokes a process skill: no load-tool exemption
      */
     private function decideAgainst(
         string $toolName,
@@ -100,6 +102,7 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
         ?BackendUserAuthentication $user,
         array $enabledNames,
         ?array $configurationAllowed,
+        bool $processBound = false,
     ): ToolPolicyDecision {
         $zone    = $this->trustZones->zoneFor($configuration);
         $ceiling = $zone->maxDataClass();
@@ -124,8 +127,11 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
         // gate (ADR-214 item 5): a skill declaring `allowed-tools: []` blocks
         // every other tool but not loading. Keyed on the builtin class, not the
         // name, so no other tool can claim the exemption. The global state
-        // above and the trust zone below still apply.
-        if ($configurationAllowed !== null && !$tool instanceof LoadSkillTool && !in_array($toolName, $configurationAllowed, true)) {
+        // above and the trust zone below still apply. A process-bound run
+        // gets no exemption: there the load tool is offered only where the
+        // vouched declaration lists it.
+        $exempt = $tool instanceof LoadSkillTool && !$processBound;
+        if ($configurationAllowed !== null && !$exempt && !in_array($toolName, $configurationAllowed, true)) {
             return $this->denial($toolName, $dataClass, $zone, $ceiling, ToolDenialReason::CONFIGURATION_GROUP);
         }
 
@@ -171,7 +177,7 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
         $configurationAllowed = $this->configurationAllowed($configuration, $runAllowList);
 
         return array_values(array_map(
-            fn(string $name): ToolPolicyDecision => $this->decideAgainst($name, $configuration, $user, $enabled, $configurationAllowed),
+            fn(string $name): ToolPolicyDecision => $this->decideAgainst($name, $configuration, $user, $enabled, $configurationAllowed, $runAllowList instanceof SkillToolAllowList && $runAllowList->processBound),
             $requested ?? $enabled,
         ));
     }

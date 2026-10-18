@@ -179,6 +179,41 @@ final class ToolCallPolicyTest extends TestCase
     }
 
     /**
+     * ADR-214 item 5: in a run that invokes a process skill the load tool
+     * gets no exemption. A declaration without it, `[]` included, blocks it;
+     * on both the decide and the offer path.
+     */
+    #[Test]
+    public function aProcessBoundRunHoldsTheLoadToolToItsDeclaration(): void
+    {
+        $registry = new ToolRegistry([new FakeTool('content_tool', 'ok', true, false, 'content'), new LoadSkillTool()]);
+        $config   = $this->configuration(TrustZone::LOCAL);
+        $policy   = $this->policy($registry);
+
+        $decision = $policy->decide(LoadSkillTool::NAME, $config, $this->editor(), new SkillToolAllowList([], true));
+
+        self::assertFalse($decision->allowed);
+        self::assertSame(ToolDenialReason::CONFIGURATION_GROUP, $decision->reason);
+        self::assertSame(['content_tool'], $policy->filterOfferable(null, $config, $this->editor(), new SkillToolAllowList(['content_tool'], true)));
+    }
+
+    /**
+     * The other direction: a process declaration that lists the load tool
+     * offers it.
+     */
+    #[Test]
+    public function aProcessBoundRunWhoseDeclarationListsTheLoadToolOffersIt(): void
+    {
+        $registry = new ToolRegistry([new FakeTool('content_tool', 'ok', true, false, 'content'), new LoadSkillTool()]);
+        $config   = $this->configuration(TrustZone::LOCAL);
+        $policy   = $this->policy($registry);
+        $list     = new SkillToolAllowList([LoadSkillTool::NAME], true);
+
+        self::assertTrue($policy->decide(LoadSkillTool::NAME, $config, $this->editor(), $list)->allowed);
+        self::assertSame([LoadSkillTool::NAME], $policy->filterOfferable(null, $config, $this->editor(), $list));
+    }
+
+    /**
      * The exemption is keyed on the builtin, so a tool that merely takes the
      * name gets none.
      */

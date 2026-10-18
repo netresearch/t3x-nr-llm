@@ -192,7 +192,9 @@ final class ContextWindowManager implements ContextWindowManagerInterface, Secti
         $model = $resolvedModel ?? $configuration->getLlmModel();
         $ctx   = $model?->getContextLength() ?? 0;
         if ($ctx <= 0) {
-            $ctx = self::UNKNOWN_WINDOW_FALLBACK;
+            // An unknown window admits nothing: the unknown-model fallback is
+            // a guess, and a section admitted against it may not be sendable.
+            return false;
         }
 
         $budget = $ctx - $this->reserve($options, $model, $ctx) - (int)ceil($ctx * self::SAFETY_FRACTION);

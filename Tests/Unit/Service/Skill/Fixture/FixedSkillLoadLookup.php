@@ -22,12 +22,19 @@ final class FixedSkillLoadLookup implements SkillLoadLookupInterface
      * @param array<int, list<int>> $onDemand    configuration uid => skill uids
      * @param array<int, string>    $digests     skill uid => stored digest of a loadable record
      * @param array<int, string>    $trustLevels skill uid => stored trust level
+     * @param array<int, int>       $sources     skill uid => stored source uid
      */
     public function __construct(
         public array $onDemand = [],
         public array $digests = [],
         public array $trustLevels = [],
+        public array $sources = [],
     ) {}
+
+    public function storedSource(int $skillUid): ?int
+    {
+        return $this->sources[$skillUid] ?? null;
+    }
 
     public function trustLevel(int $skillUid): ?string
     {

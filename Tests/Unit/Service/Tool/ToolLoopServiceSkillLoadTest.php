@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\ModelSelectionMode;
 use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
@@ -25,11 +26,13 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationTarget;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Context\ContextWindowManager;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Context\SectionAdmissionInterface;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
@@ -477,6 +480,109 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
     }
 
     /**
+     * A criteria-mode configuration's window is the resolved model's
+     * (ADR-143): a section that fits the configuration's own 8192-token
+     * model but not the resolved 4096 one is refused, and the same section
+     * loads against a resolved large window.
+     */
+    #[Test]
+    public function aLoadInCriteriaModeIsMeasuredAgainstTheResolvedModel(): void
+    {
+        $body = $this->sectionBetween4096And8192();
+
+        $this->runCriteriaLoad($body, $this->model(4096));
+        self::assertStringContainsString('does not fit the context window', $this->toolResult(1, 'c1'));
+        self::assertStringNotContainsString($body, $this->systemText(1));
+
+        $this->runCriteriaLoad($body, $this->model(100000));
+        self::assertStringContainsString('is loaded', $this->toolResult(1, 'c1'));
+    }
+
+    /**
+     * Without a resolvable model there is no window to admit against: the
+     * load is refused rather than measured against a fallback size.
+     */
+    #[Test]
+    public function aLoadInCriteriaModeWithoutAResolvableModelIsRefused(): void
+    {
+        $this->runCriteriaLoad('Short section.', null);
+
+        self::assertStringContainsString('cannot be checked against the context window', $this->toolResult(1, 'c1'));
+        self::assertStringNotContainsString('Short section.', $this->systemText(1));
+    }
+
+    /**
+     * The loop's own fit measures the same model the admission did.
+     */
+    #[Test]
+    public function theLoopsFitInCriteriaModeMeasuresTheResolvedModel(): void
+    {
+        $resolved = $this->model(4096);
+        $window   = new class implements ContextWindowManagerInterface {
+            /** @var list<?Model> */
+            public array $models = [];
+
+            public function fit(array $messages, LlmConfiguration $configuration, ?ChatOptions $options, ?UsageStatistics $lastUsage, array $toolSpecs = [], string $injectedText = '', ?string $effectiveSystemPrompt = null, ?Model $resolvedModel = null): ContextFitResult
+            {
+                $this->models[] = $resolvedModel;
+
+                return new ContextFitResult($messages, false, 0, 0, 10, 100, false, 1.0, ContextBudgetBreakdown::none());
+            }
+        };
+        $turns = [];
+        [$service, $configuration] = $this->service($turns, windowOverride: $window, modelSelection: $this->selecting($resolved), criteria: true);
+
+        $service->runLoop([ChatMessage::user('write the release note')], $configuration, ToolExecutionContext::none(), null, null, 5);
+
+        self::assertNotSame([], $window->models);
+        self::assertSame($resolved, $window->models[0]);
+    }
+
+    private function runCriteriaLoad(string $body, ?Model $resolved): void
+    {
+        $turns = [[$this->loadCall('c1')]];
+        [$service, $configuration] = $this->service($turns, windowOverride: new ContextWindowManager(), modelSelection: $this->selecting($resolved), criteria: true, body: $body);
+        $configuration->getLlmModel()?->setContextLength(8192);
+        $configuration->getLlmModel()?->setMaxOutputTokens(500);
+
+        $service->runLoop([ChatMessage::user('write the release note')], $configuration, ToolExecutionContext::none(), null, null, 5);
+    }
+
+    private function selecting(?Model $resolved): ModelSelectionServiceInterface
+    {
+        $selection = self::createStub(ModelSelectionServiceInterface::class);
+        $selection->method('resolveModel')->willReturn($resolved);
+
+        return $selection;
+    }
+
+    private function model(int $contextLength): Model
+    {
+        $model = new Model();
+        $model->setContextLength($contextLength);
+        $model->setMaxOutputTokens(500);
+
+        return $model;
+    }
+
+    /**
+     * A section the window manager admits against 8192 tokens and refuses
+     * against 4096, asserted so the tests above measure what they claim.
+     */
+    private function sectionBetween4096And8192(): string
+    {
+        $body     = str_repeat('word ', 3500);
+        $section  = SkillComposer::appendInstructionSection('', "### Skill: House style\n" . $body);
+        $messages = [ChatMessage::user('write the release note')];
+        $config   = new LlmConfiguration();
+
+        self::assertTrue((new ContextWindowManager())->admitsSection($messages, $section, $config, null, [], self::CONFIG_SYSTEM_PROMPT, $this->model(8192)));
+        self::assertFalse((new ContextWindowManager())->admitsSection($messages, $section, $config, null, [], self::CONFIG_SYSTEM_PROMPT, $this->model(4096)));
+
+        return $body;
+    }
+
+    /**
      * @param list<list<ToolCall>>      $turns        the tool calls of each model turn before the final answer
      * @param list<string>|null         $enabled      the globally enabled tools; null = every registered tool
      * @param bool|null                 $admits       the admission answer of a context window that admits; null = no window
@@ -523,6 +629,10 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
         ?string $onDemandAllowedTools = null,
         bool $windowWithoutAdmission = false,
         ?ToolInvocationPolicyInterface $invocationPolicy = null,
+        ?ContextWindowManagerInterface $windowOverride = null,
+        ?ModelSelectionServiceInterface $modelSelection = null,
+        bool $criteria = false,
+        string $body = self::BODY,
     ): array {
         $this->sends = [];
         $manager     = self::createStub(LlmServiceManagerInterface::class);
@@ -537,7 +647,7 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
             },
         );
 
-        $skill = $this->skill(self::SKILL_UID, 'style', $onDemandAllowedTools);
+        $skill = $this->skill(self::SKILL_UID, 'style', $onDemandAllowedTools, $body);
         $approvals = new InMemorySkillApprovalRepository();
         $this->approvals = $approvals;
 
@@ -547,11 +657,16 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
         }
 
         $configuration = $this->configuration();
+        if ($criteria) {
+            $configuration->setModelSelectionMode(ModelSelectionMode::CRITERIA->value);
+        }
+
         if ($attachOnDemand) {
             $configuration->addSkillOnDemand($skill);
             $lookup->onDemand[self::CONFIGURATION_UID] = [self::SKILL_UID];
             $lookup->digests[self::SKILL_UID]         = $skill->getVersionDigest();
             $lookup->trustLevels[self::SKILL_UID]     = $skill->getTrustLevel();
+            $lookup->sources[self::SKILL_UID]         = $skill->getSource();
         }
 
         if ($alwaysAllowedTools !== null) {
@@ -583,9 +698,10 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
                 new DataClassEnforcementResolver(),
             ),
             skillInjection: new SkillInjectionService($composer, new NullLogger()),
-            contextWindow: $windowWithoutAdmission ? $this->plainWindow() : $window,
+            contextWindow: $windowOverride ?? ($windowWithoutAdmission ? $this->plainWindow() : $window),
             invocationPolicy: $invocationPolicy,
             skillLoad: new SkillLoadService($composer, $lookup),
+            modelSelection: $modelSelection,
         );
 
         return [$service, $configuration, $window];
@@ -728,7 +844,7 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
         return $configuration;
     }
 
-    private function skill(int $uid, string $identifier, ?string $allowedTools): Skill
+    private function skill(int $uid, string $identifier, ?string $allowedTools, string $body = self::BODY): Skill
     {
         $skill = new Skill();
         $skill->_setProperty('uid', $uid);
@@ -736,7 +852,7 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
         $skill->setIdentifier($identifier);
         $skill->setName($uid === self::SKILL_UID ? 'House style' : 'Restricting');
         $skill->setDescription($uid === self::SKILL_UID ? 'How we write.' : 'Restricts tools.');
-        $skill->setBody($uid === self::SKILL_UID ? self::BODY : 'Restricting body.');
+        $skill->setBody($uid === self::SKILL_UID ? $body : 'Restricting body.');
         $skill->setBodyChecksum(hash('sha256', $skill->getBody()));
         $skill->setSupportStatus('full');
         $skill->setEnabled(true);

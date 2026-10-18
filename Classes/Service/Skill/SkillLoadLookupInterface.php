@@ -32,6 +32,14 @@ interface SkillLoadLookupInterface
     public function loadableDigest(int $skillUid): ?string;
 
     /**
+     * The source uid stored on the skill record now, or null when the record
+     * is gone. An approval names a digest AND a source, so a load refuses a
+     * skill whose stored source is not the one the run's copy and the
+     * catalogue measured.
+     */
+    public function storedSource(int $skillUid): ?int;
+
+    /**
      * The trust level stored on the skill record now, or null when the record
      * is gone. A load measures the trust floor against this value, not
      * against the object the run started with.

@@ -49,6 +49,7 @@ interface SectionAdmissionInterface
      * @param string                                 $section               the text that would be appended to the head's system message
      * @param list<array<string, mixed>>             $toolSpecs             the tool schemas on the wire for the next send
      * @param string|null                            $effectiveSystemPrompt the prompt the shaping stage prepends when the transcript carries no system message
+     * @param Model|null                             $resolvedModel         the model the send runs on; null keeps the configuration's own. A window that is not known (no model, a context length of 0 or less) admits nothing, and neither does one the output reserve fills
      */
     public function admitsSection(
         array $messages,

@@ -76,7 +76,9 @@ final readonly class AllowedToolsResolver
      * {@see self::applyGroupGateTo()}.
      *
      * An attached or forced process skill contributes nothing — no tools and
-     * no restriction — unless the run invokes it (ADR-214 items 5 and 6).
+     * no restriction — unless the run invokes it (ADR-214 items 5 and 6). A
+     * run that invokes one is process-bound: the skill load tool is held to
+     * the list like any tool.
      *
      * @param list<Skill> $runSkills
      * @param list<Skill> $invokedSkills the skills this run invokes; pinned process skills feed this on resume and continuation (ADR-214 item 10)
@@ -85,7 +87,7 @@ final readonly class AllowedToolsResolver
     {
         $taskSkills = $task instanceof Task ? $this->toList($task->getSkills()) : [];
 
-        return new SkillToolAllowList($this->declaredUnion($config, [...$taskSkills, ...$runSkills], $invokedSkills));
+        return new SkillToolAllowList($this->declaredUnion($config, [...$taskSkills, ...$runSkills], $invokedSkills), $invokedSkills !== []);
     }
 
     /**

@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequestCodec;
+use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Skill\SkillApprovalRepositoryInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposerFactory;
 use Netresearch\NrLlm\Service\Skill\SkillInstructionPolicy;
@@ -158,6 +159,20 @@ final class ToolLoopGateWiringTest extends FunctionalTestCase
         self::assertInstanceOf(ToolLoopService::class, $loop);
 
         self::assertInstanceOf(SkillLoadService::class, (new ReflectionProperty(ToolLoopService::class, 'skillLoad'))->getValue($loop));
+    }
+
+    /**
+     * Without the model selection a criteria-mode configuration resolves no
+     * model, and every load is refused for want of a window (ADR-214 item 7);
+     * pinned here.
+     */
+    #[Test]
+    public function productionWiresTheModelSelectionIntoTheLoop(): void
+    {
+        $loop = $this->get(ToolLoopService::class);
+        self::assertInstanceOf(ToolLoopService::class, $loop);
+
+        self::assertInstanceOf(ModelSelectionServiceInterface::class, (new ReflectionProperty(ToolLoopService::class, 'modelSelection'))->getValue($loop));
     }
 
     /**

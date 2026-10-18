@@ -22,5 +22,8 @@ final readonly class SkillCatalogueEntry
         public string $name,
         public string $description,
         public string $versionDigest,
+        // The source the catalogue measured the approval against; a load
+        // refuses a record that has moved to another source since.
+        public int $source = 0,
     ) {}
 }

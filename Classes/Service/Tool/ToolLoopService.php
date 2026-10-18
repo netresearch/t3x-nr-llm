@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Enum\GovernanceDecision;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -40,12 +41,14 @@ use Netresearch\NrLlm\Exception\ContextTruncatedException;
 use Netresearch\NrLlm\Exception\LogicException;
 use Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Provider\OpenAi\OpenAiCallMetadata;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Context\SectionAdmissionInterface;
 use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
@@ -162,6 +165,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // like the collaborators above: absent it no catalogue is built, so
         // the load tool is never offered.
         private ?SkillLoadService $skillLoad = null,
+        // Resolves the model a criteria-mode configuration's send runs on, so
+        // the window is measured against it (ADR-143). Absent it, only a
+        // fixed-mode configuration's own model is known.
+        private ?ModelSelectionServiceInterface $modelSelection = null,
     ) {}
 
     /**
@@ -1019,6 +1026,13 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         }
 
         $system = $this->effectiveSystemPrompt($configuration, $options);
+        // Measured against the model the send runs on; without one there is
+        // no window to admit against, and the load is refused.
+        $model = $this->windowModel($configuration);
+        if ($this->contextWindow instanceof SectionAdmissionInterface && !$model instanceof Model) {
+            return [$messages, $pins, ToolResult::error(sprintf('Skill "%s" was not loaded: its size cannot be checked against the context window.', $outcome->skillName))];
+        }
+
         if ($this->contextWindow instanceof SectionAdmissionInterface && !$this->contextWindow->admitsSection(
             $messages,
             SkillComposer::appendInstructionSection('', $outcome->section),
@@ -1026,6 +1040,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $options,
             array_map(static fn(ToolSpec $s): array => $s->toArray(), $specs),
             $system,
+            $model,
         )) {
             return [$messages, $pins, ToolResult::error(sprintf(
                 'Skill "%s" was not loaded: it does not fit the context window of this conversation.',
@@ -1126,6 +1141,27 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     }
 
     /**
+     * The model a send of this configuration runs on, for the window
+     * measurements: a fixed-mode configuration's own model, the criteria
+     * resolution for the tools operation otherwise (ADR-143). A criteria-mode
+     * configuration stores no model, and measuring it against the
+     * unknown-model fallback would admit what the send's own fit, against
+     * the resolved model, then cannot keep. Null when none resolves.
+     */
+    private function windowModel(LlmConfiguration $configuration): ?Model
+    {
+        if (!$configuration->usesCriteriaSelection()) {
+            return $configuration->getLlmModel();
+        }
+
+        try {
+            return $this->modelSelection?->resolveModel($configuration, ProviderOperation::Tools);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
      * Enforce the model context window on the outgoing transcript (ADR-107). A
      * no-op when the manager is absent (unchanged from before this feature).
      * Returns the possibly-pruned messages; throws when even the floor overflows.
@@ -1161,6 +1197,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             // block, which this path does not carry: the agent loop composes
             // its prompt itself rather than having one prepended after the fit.
             effectiveSystemPrompt: $this->effectiveSystemPrompt($configuration, $options),
+            resolvedModel: $this->windowModel($configuration),
         );
 
         // Before the overflow throw: a run that stops here is exactly the run

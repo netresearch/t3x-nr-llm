@@ -1088,10 +1088,11 @@ Netresearch\NrLlm\Domain\ValueObject\SkillPin (class)
   property readonly versionDigest: string
 
 Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList (class)
-  constructor(?array $toolNames)
+  constructor(?array $toolNames, bool $processBound = …)
   method intersect(self $other): self
   method static fromStored(mixed $raw): ?self
   method toStored(): array
+  property readonly processBound: bool
   property readonly toolNames: ?array
 
 Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
