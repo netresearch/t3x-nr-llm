@@ -115,8 +115,9 @@ jobs:
       typo3-versions: '["^14.3"]'
       run-functional-tests: true
       functional-test-db: mariadb
-      # The official ECR mirror avoids Docker Hub's anonymous pull limit.
-      db-image: 'public.ecr.aws/docker/library/mariadb:11.8'
+      # Use Docker Hub directly on GitHub-hosted runners; the ECR Public
+      # anonymous data-transfer quota blocked DB service startup.
+      db-image: 'mariadb:11.8'
       # Shard by test class here too. With the SQLite cells down to ~2.5min this
       # leg became the single longest job in CI at 6min, i.e. the whole
       # critical-path term of the wall clock.
