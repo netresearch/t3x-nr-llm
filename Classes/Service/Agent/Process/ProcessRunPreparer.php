@@ -33,6 +33,7 @@ use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Netresearch\NrLlm\Service\Skill\SkillPinCheck;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
+use Psr\Log\LoggerInterface;
 use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
@@ -72,11 +73,13 @@ final readonly class ProcessRunPreparer
         private SkillPinCheck $pinCheck,
         private ProcessPinProbe $processPins,
         private SubjectRecordAccess $subjectAccess,
+        private ?LoggerInterface $logger = null,
     ) {}
 
     /**
      * @throws ProcessInvocationRefusedException
      * @throws ProcessRunNeedsSecondApproverException a continued process on a configuration that turned on four-eyes
+     * @throws ProcessVerdictUnavailableException     a read the start rests on failed; the run is tried again
      */
     public function prepare(AgentRunRequest $request, ?BackendUserAuthentication $actingUser, ?AgentRunHandle $handle): PreparedProcess
     {
@@ -114,7 +117,7 @@ final readonly class ProcessRunPreparer
 
         if ($pin instanceof SkillPin) {
             $this->assertMayRunProcess($request, $actor, $runUuid, $derived instanceof RunLineage);
-            if ($subject instanceof SubjectRecord && !$this->subjectAccess->isReadable($actingUser, $subject)) {
+            if ($subject instanceof SubjectRecord && !$this->readApprovals($pin->skillUid, fn(): bool => $this->subjectAccess->isReadable($actingUser, $subject))) {
                 throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::SUBJECT_NOT_READABLE);
             }
 
@@ -312,10 +315,12 @@ final readonly class ProcessRunPreparer
     }
 
     /**
-     * A read of the approvals and the trust a process rests on. A store that
-     * cannot answer is not an answer: the read throws the retryable refusal,
-     * so the run is tried again rather than stopped as if the approval were
-     * gone (ADR-228).
+     * A read of what a process rests on: its approvals, the trust of their
+     * source, and the subject record. A store that cannot answer is not an
+     * answer: the read throws the retryable refusal, so the run is tried
+     * again rather than stopped as if the approval were gone or the record
+     * unreadable (ADR-228). The cause is logged, since the refusal does not
+     * carry it.
      *
      * @template T
      *
@@ -331,7 +336,9 @@ final readonly class ProcessRunPreparer
             return $read();
         } catch (ProcessVerdictUnavailableException $unavailable) {
             throw $unavailable;
-        } catch (Throwable) {
+        } catch (Throwable $exception) {
+            $this->logger?->warning('A read a process start rests on failed; the run is tried again.', ['skill' => $skillUid, 'exception' => $exception]);
+
             throw ProcessVerdictUnavailableException::forPin($skillUid);
         }
     }

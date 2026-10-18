@@ -1510,6 +1510,26 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         self::assertSame([], $this->repository->requeues);
     }
 
+    /**
+     * A failure marked transient is retried only where any retryable failure
+     * would be (ADR-111, ADR-228): with a non-idempotent write in flight it
+     * is dead-lettered too.
+     */
+    #[Test]
+    public function aTransientFailureMidNonIdempotentWriteIsDeadLetteredNotRequeued(): void
+    {
+        $this->repository->findResult = $this->queuedRun('run-uuid-q', '{"messages":[]}', pendingEffect: ToolEffect::NON_IDEMPOTENT_WRITE->value);
+
+        $result = $this->runtime(
+            $this->loopRecordingThenThrowing(ProcessVerdictUnavailableException::forPin(3)),
+            bus: $this->discardingBus(),
+        )->runQueued('run-uuid-q');
+
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::FAILED, $result->outcome, 'dead-lettered, not REQUEUED');
+        self::assertSame([], $this->repository->requeues);
+    }
+
     #[Test]
     public function aReadOnlyToolWhoseAuditCannotBePersistedLeavesTheRunUnaffected(): void
     {

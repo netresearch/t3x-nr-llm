@@ -464,26 +464,33 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
         $skill         = $this->processSkill();
         $configuration = $this->configuration($skill);
         $predecessor   = $this->finishedProcessRun($configuration);
-        $preparer      = $this->preparer();
+        $start         = $this->request($configuration, new SkillInvocation(self::PROCESS));
+        $continuation  = $this->request($configuration, null, predecessor: $predecessor);
+        $onPage        = $this->request($configuration, new SkillInvocation(self::PROCESS, new SubjectRecord(new RecordReference('pages', 1))));
 
         foreach ([
-            'a start'        => $this->request($configuration, new SkillInvocation(self::PROCESS)),
-            'a continuation' => $this->request($configuration, null, predecessor: $predecessor),
-        ] as $case => $request) {
+            'approvals, a start'        => ['tx_nrllm_skill_approval', $start],
+            'approvals, a continuation' => ['tx_nrllm_skill_approval', $continuation],
+            'sources, a start'          => ['tx_nrllm_skill_source', $start],
+            'sources, a continuation'   => ['tx_nrllm_skill_source', $continuation],
+            'the subject record'        => ['pages', $onPage],
+        ] as $case => [$table, $request]) {
             $handle     = $this->begin();
-            $connection = $this->pool()->getConnectionForTable('tx_nrllm_skill_approval');
-            $connection->executeStatement('ALTER TABLE tx_nrllm_skill_approval RENAME TO tx_nrllm_skill_approval_away');
+            $actingUser = $this->actingUser(self::OWNER);
+            $preparer   = $this->preparer();
+            $connection = $this->pool()->getConnectionForTable($table);
+            $connection->executeStatement(sprintf('ALTER TABLE %s RENAME TO %s_away', $table, $table));
             try {
-                $preparer->prepare($request, $this->actingUser(self::OWNER), $handle);
+                $preparer->prepare($request, $actingUser, $handle);
                 self::fail($case . ': expected the retryable refusal');
             } catch (ProcessVerdictUnavailableException) {
                 // Expected: nothing was decided.
             } finally {
-                $connection->executeStatement('ALTER TABLE tx_nrllm_skill_approval_away RENAME TO tx_nrllm_skill_approval');
+                $connection->executeStatement(sprintf('ALTER TABLE %s_away RENAME TO %s', $table, $table));
             }
 
             self::assertNull($this->lineage($handle->uuid), $case . ': no lineage is recorded');
-            self::assertInstanceOf(PreparedProcess::class, $preparer->prepare($request, $this->actingUser(self::OWNER), $this->begin()), $case . ': the retry goes through');
+            self::assertInstanceOf(PreparedProcess::class, $this->preparer()->prepare($request, $this->actingUser(self::OWNER), $this->begin()), $case . ': the retry goes through');
         }
     }
 
