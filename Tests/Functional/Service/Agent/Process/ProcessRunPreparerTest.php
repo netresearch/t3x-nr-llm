@@ -494,7 +494,14 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
                 $connection->executeStatement(sprintf('ALTER TABLE %s_away RENAME TO %s', $table, $table));
             }
 
-            self::assertNull($this->lineage($handle->uuid), $case . ': no lineage is recorded');
+            if ($request->predecessorRunUuid === '') {
+                self::assertNull($this->lineage($handle->uuid), $case . ': a refused start records no lineage');
+            } else {
+                $carried = $this->lineage($handle->uuid);
+                self::assertTrue($carried?->holdsProcess() ?? false, $case . ': a refused continuation keeps the process for its next turn');
+                self::assertSame($request->predecessorRunUuid, $carried?->carriedFromRunUuid, $case);
+            }
+
             $warnings = array_values(array_filter($logger->records, static fn(array $record): bool => $record['level'] === LogLevel::WARNING));
             self::assertCount(1, $warnings, $case . ': the cause is logged');
             self::assertInstanceOf(Throwable::class, $warnings[0]['context']['exception'] ?? null, $case);
@@ -646,7 +653,249 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
         self::assertNull($this->preparer()->readableSubject($this->actingUser(self::OWNER), null));
     }
 
+    /**
+     * A turn sent while the process waits is refused, and the turn after it
+     * keeps the process (ADR-228): the refused run carries the lineage on,
+     * marked with the run it came from. That run's rule still holds: while it
+     * waits, a continuation of the refused run is refused too; once it is
+     * finished, the process goes on; an explicit end still ends it.
+     */
+    #[Test]
+    public function aTurnRefusedWhileTheProcessWaitsKeepsTheProcess(): void
+    {
+        $configuration = $this->configuration($this->processSkill());
+        $waiting       = $this->begin($configuration);
+        self::assertTrue($this->persister->recordLineage($waiting, new RunLineage(self::CONFIGURATION, $this->pinOf(self::PROCESS), originRunUuid: $waiting->uuid)));
+        self::assertTrue($this->persister->recordStep($waiting, new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 0.0)));
+
+        $refused = $this->refusedRun($this->request($configuration, null, predecessor: $waiting->uuid), ProcessInvocationRefusal::PREDECESSOR_NOT_FINISHED);
+        $carried = $this->lineage($refused);
+        self::assertInstanceOf(RunLineage::class, $carried);
+        self::assertTrue($carried->holdsProcess(), 'the refused run carries the process');
+        self::assertSame($waiting->uuid, $carried->carriedFromRunUuid);
+        self::assertSame($waiting->uuid, $carried->originRunUuid);
+
+        $this->assertRefused(ProcessInvocationRefusal::PREDECESSOR_NOT_FINISHED, $this->request($configuration, null, predecessor: $refused));
+
+        self::assertTrue($this->persister->settleCancelled($waiting));
+        $next = $this->begin();
+        $prepared = $this->preparer()->prepare($this->request($configuration, null, predecessor: $refused), $this->actingUser(self::OWNER), $next);
+        self::assertSame(self::PROCESS, $prepared->pin?->skillUid, 'the turn after the refused one keeps the process');
+        self::assertFalse($prepared->newStart, 'admitted by the run that ran, not again');
+        self::assertSame($waiting->uuid, $this->lineage($next->uuid)?->originRunUuid);
+
+        $this->releaseProcess($waiting->uuid);
+        self::assertNull($this->prepare($this->request($configuration, null, predecessor: $refused))->pin, 'an explicit end still ends it');
+    }
+
+    /**
+     * Every refusal of a continuation keeps the process for the next turn,
+     * once the reason is gone, and an explicit end still releases it
+     * (ADR-228). A refusal that read the process records it; one that came
+     * before, or could not read the predecessor's lineage, names the
+     * predecessor and its next turn reads it there.
+     */
+    #[Test]
+    public function aRefusedContinuationKeepsTheProcessForTheNextTurn(): void
+    {
+        $other = $this->skill(self::OTHER_PROCESS, process: true);
+
+        foreach ([
+            'another process invoked' => 'held',
+            'four-eyes turned on'     => 'four-eyes',
+            'subject not readable'    => 'subject',
+            'approvals unreadable'    => 'store',
+            'configuration refused'   => 'configuration',
+            'lineage unreadable'      => 'lineage',
+        ] as $case => $kind) {
+            $configuration = $this->configuration($this->processSkill(), $other);
+            $subject       = $kind === 'subject' ? new SubjectRecord(new RecordReference('pages', 1)) : null;
+            $origin        = $this->finishedProcessRun($configuration, $subject);
+            $refusedHandle = $this->begin();
+            $request       = $this->request($configuration, $kind === 'held' ? new SkillInvocation(self::OTHER_PROCESS) : null, predecessor: $origin);
+            $actingUser    = $kind === 'subject' ? null : $this->actingUser(self::OWNER);
+            $preparer      = $this->preparer();
+
+            if ($kind === 'four-eyes') {
+                $configuration->setRequireSecondApprover(true);
+            }
+
+            if ($kind === 'configuration') {
+                $configuration->setBeGroups($this->beGroups(8));
+            }
+
+            if ($kind === 'lineage') {
+                $this->appendRawLineage($origin, '{}');
+            }
+
+            $connection = $this->pool()->getConnectionForTable('tx_nrllm_skill_approval');
+            if ($kind === 'store') {
+                $connection->executeStatement('ALTER TABLE tx_nrllm_skill_approval RENAME TO tx_nrllm_skill_approval_away');
+            }
+
+            try {
+                $preparer->prepare($request, $actingUser, $refusedHandle);
+                self::fail($case . ': expected a refusal');
+            } catch (ProcessInvocationRefusedException|ProcessRunNeedsSecondApproverException|ProcessVerdictUnavailableException) {
+                // Expected.
+            } finally {
+                if ($kind === 'store') {
+                    $connection->executeStatement('ALTER TABLE tx_nrllm_skill_approval_away RENAME TO tx_nrllm_skill_approval');
+                }
+            }
+
+            self::assertTrue($this->persister->settleCancelled($refusedHandle), $case);
+            self::assertSame($origin, $this->lineage($refusedHandle->uuid)?->carriedFromRunUuid, $case . ': the refused run names where it came from');
+
+            $configuration->setRequireSecondApprover(false);
+            $configuration->setBeGroups($this->beGroups(7));
+            if ($kind === 'lineage') {
+                $this->appendRawLineage($origin, (string)json_encode((new RunLineage(self::CONFIGURATION, $this->pinOf(self::PROCESS), originRunUuid: $origin))->toArray()));
+            }
+
+            $next = $this->prepare($this->request($configuration, null, predecessor: $refusedHandle->uuid));
+            self::assertSame(self::PROCESS, $next->pin?->skillUid, $case . ': the next turn keeps the process');
+
+            $this->releaseProcess($origin);
+            self::assertNull($this->prepare($this->request($configuration, null, predecessor: $refusedHandle->uuid))->pin, $case . ': an explicit end still ends it');
+        }
+    }
+
+    /**
+     * A refused continuation whose predecessor is missing names it, so the
+     * turn after it is refused for the same reason instead of starting
+     * empty: a refusal never drops a process silently (ADR-228).
+     */
+    #[Test]
+    public function aTurnAfterAMissingPredecessorIsRefusedAgain(): void
+    {
+        $configuration = $this->configuration($this->processSkill());
+        $refused       = $this->refusedRun($this->request($configuration, null, predecessor: '00000000-0000-4000-8000-000000000000'), ProcessInvocationRefusal::PREDECESSOR_MISSING);
+
+        $marker = $this->lineage($refused);
+        self::assertInstanceOf(RunLineage::class, $marker);
+        self::assertFalse($marker->holdsProcess());
+        self::assertSame('00000000-0000-4000-8000-000000000000', $marker->carriedFromRunUuid);
+
+        $this->assertRefused(ProcessInvocationRefusal::PREDECESSOR_MISSING, $this->request($configuration, null, predecessor: $refused));
+    }
+
+    /**
+     * A refusal of a run whose predecessor held no process records nothing,
+     * and a withdrawn pin keeps its lineage without the process: neither
+     * hands a process on.
+     */
+    #[Test]
+    public function aRefusalWithoutAProcessCarriesNothing(): void
+    {
+        $configuration = $this->configuration($this->processSkill());
+        $plain         = $this->begin($configuration);
+        self::assertTrue($this->persister->settleCancelled($plain));
+        $configuration->setRequireSecondApprover(true);
+
+        $refused = $this->refusedRun(
+            $this->request($configuration, new SkillInvocation(self::PROCESS), predecessor: $plain->uuid),
+            ProcessInvocationRefusal::SECOND_APPROVER_REQUIRED,
+        );
+
+        self::assertNull($this->lineage($refused));
+    }
+
+    /**
+     * A refused run that let go of the process it carried — ended through it
+     * by an actor who may not end the run that started it — hands nothing
+     * on: the continuation stops at its release instead of following it back.
+     */
+    #[Test]
+    public function aRefusedRunThatLetGoHandsNothingOn(): void
+    {
+        $configuration = $this->configuration($this->processSkill(), $this->skill(self::OTHER_PROCESS, process: true));
+        $origin        = $this->finishedProcessRun($configuration);
+        $refused       = $this->refusedRun($this->request($configuration, new SkillInvocation(self::OTHER_PROCESS), predecessor: $origin), ProcessInvocationRefusal::PROCESS_HELD);
+
+        self::assertSame(self::PROCESS, $this->prepare($this->request($configuration, null, predecessor: $refused))->pin?->skillUid);
+
+        $this->releaseProcess($refused);
+        self::assertNull($this->prepare($this->request($configuration, null, predecessor: $refused))->pin);
+    }
+
+    /**
+     * A refusal after the process was dropped — here on another
+     * configuration — records no process, only the run it came from, so the
+     * turn after it reports the drop again.
+     */
+    #[Test]
+    public function aRefusalAfterADroppedProcessReportsTheDropAgain(): void
+    {
+        $predecessor = $this->finishedProcessRun($this->configuration($this->processSkill()));
+        $elsewhere   = $this->configuration($this->processSkill());
+        $elsewhere->_setProperty('uid', self::CONFIGURATION + 1);
+        $elsewhere->setRequireSecondApprover(true);
+
+        $refused = $this->refusedRun(
+            $this->request($elsewhere, new SkillInvocation(self::PROCESS), predecessor: $predecessor),
+            ProcessInvocationRefusal::SECOND_APPROVER_REQUIRED,
+        );
+
+        $marker = $this->lineage($refused);
+        self::assertInstanceOf(RunLineage::class, $marker);
+        self::assertFalse($marker->holdsProcess(), 'a dropped process is not held by the refused run');
+        self::assertSame($predecessor, $marker->carriedFromRunUuid);
+
+        $elsewhere->setRequireSecondApprover(false);
+        $next = $this->prepare($this->request($elsewhere, null, predecessor: $refused));
+        self::assertNull($next->pin);
+        self::assertCount(1, $next->dropped);
+        self::assertSame(DroppedSourceReason::CONFIGURATION_CHANGED, $next->dropped[0]->reason);
+    }
+
     // --- helpers -----------------------------------------------------------
+
+    /**
+     * A run whose preparation is refused for `$reason`, settled cancelled.
+     */
+    private function refusedRun(AgentRunRequest $request, ProcessInvocationRefusal $reason): string
+    {
+        $handle = $this->begin();
+        try {
+            $this->preparer()->prepare($request, $this->actingUser(self::OWNER), $handle);
+            self::fail('Expected a refusal: ' . $reason->name);
+        } catch (ProcessInvocationRefusedException $exception) {
+            self::assertSame($reason, $exception->reason);
+        }
+
+        self::assertTrue($this->persister->settleCancelled($handle));
+
+        return $handle->uuid;
+    }
+
+    /**
+     * End the process at the run that started it, as endProcess() does.
+     */
+    private function releaseProcess(string $origin): void
+    {
+        $originRun = $this->persister->findRun($origin);
+        self::assertInstanceOf(AgentRun::class, $originRun);
+        $handle = $this->persister->resumeHandle($originRun);
+        self::assertInstanceOf(AgentRunHandle::class, $handle);
+        $lineage = $this->persister->lineageOf($originRun);
+        self::assertInstanceOf(RunLineage::class, $lineage);
+        self::assertTrue($this->persister->recordLineage($handle, $lineage->withReleasedProcess()));
+    }
+
+    /**
+     * Append a lineage event with a raw payload, as the latest of the run.
+     */
+    private function appendRawLineage(string $uuid, string $payload): void
+    {
+        $run = $this->persister->findRun($uuid);
+        self::assertInstanceOf(AgentRun::class, $run);
+        $handle = $this->persister->resumeHandle($run);
+        self::assertInstanceOf(AgentRunHandle::class, $handle);
+        $this->pool()->getConnectionForTable('tx_nrllm_agentrun_event')->insert('tx_nrllm_agentrun_event', [
+            'pid' => 0, 'run' => $run->uid, 'sequence' => $handle->sequence, 'kind' => 'lineage', 'payload' => $payload, 'crdate' => time(),
+        ]);
+    }
 
     private function assertRefused(ProcessInvocationRefusal $reason, AgentRunRequest $request): void
     {

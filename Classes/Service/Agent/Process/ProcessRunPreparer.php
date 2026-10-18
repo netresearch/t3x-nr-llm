@@ -62,10 +62,24 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * a run that cannot record it is refused, because its next turn would lose
  * the process.
  *
+ * A refused continuation does not lose the process either: it records the
+ * lineage it would have carried on, or, when it could not read one, a
+ * lineage that names the run it continued. A continuation of the refused run
+ * follows that name back to the last run that ran, and is held to that run's
+ * rules: a process it carries on, a predecessor that must be finished, a
+ * predecessor that must exist. Only a withdrawn pin and an explicit end let
+ * the process go.
+ *
  * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final readonly class ProcessRunPreparer
 {
+    /**
+     * How many refused turns in a row a continuation follows back before it
+     * refuses the chain as unreadable.
+     */
+    private const MAX_CARRIED = 32;
+
     public function __construct(
         private AgentRunPersister $persister,
         private ConfigurationResolver $configurations,
@@ -89,6 +103,37 @@ final readonly class ProcessRunPreparer
 
         $runUuid       = $handle->uuid ?? '';
         $configuration = $request->configuration;
+        $carry         = null;
+        $nothingHeld   = false;
+
+        try {
+            return $this->prepareChecked($request, $actingUser, $handle, $runUuid, $configuration, $carry, $nothingHeld);
+        } catch (ProcessInvocationRefusedException|ProcessRunNeedsSecondApproverException|ProcessVerdictUnavailableException $refused) {
+            $this->carryOn($request, $handle, $refused, $carry, $nothingHeld);
+
+            throw $refused;
+        }
+    }
+
+    /**
+     * The checks of {@see self::prepare()}. $carry receives the lineage the
+     * run would carry on as soon as it is known, and $nothingHeld whether the
+     * predecessor held no process at all, so a refusal after that point
+     * records what it has.
+     *
+     * @throws ProcessInvocationRefusedException
+     * @throws ProcessRunNeedsSecondApproverException
+     * @throws ProcessVerdictUnavailableException
+     */
+    private function prepareChecked(
+        AgentRunRequest $request,
+        ?BackendUserAuthentication $actingUser,
+        ?AgentRunHandle $handle,
+        string $runUuid,
+        LlmConfiguration $configuration,
+        ?RunLineage &$carry,
+        bool &$nothingHeld,
+    ): PreparedProcess {
         // The checks read the actor as the acting user is now, not as the
         // request froze it: a queued run is checked at pickup, and an
         // administrator demoted in between is no longer one.
@@ -97,9 +142,10 @@ final readonly class ProcessRunPreparer
             throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::CONFIGURATION_NOT_PERMITTED);
         }
 
-        [$derived, $dropped, $readmit] = $request->predecessorRunUuid !== ''
-            ? $this->derive($request, $actor, $runUuid)
-            : [null, [], false];
+        [$derived, $dropped, $readmit, $tipUuid] = $request->predecessorRunUuid !== ''
+            ? $this->derive($request, $actor, $runUuid, $carry)
+            : [null, [], false, ''];
+        $nothingHeld = $request->predecessorRunUuid !== '' && !$derived instanceof RunLineage && $dropped === [];
 
         $pin      = $derived?->processPin;
         $subject  = $derived?->subject;
@@ -138,7 +184,7 @@ final readonly class ProcessRunPreparer
                 $subject,
                 processSkill: $this->attachedSkill($configuration, $pin->skillUid)?->getIdentifier() ?? '',
                 originRunUuid: $derived instanceof RunLineage
-                    ? ($derived->originRunUuid !== '' ? $derived->originRunUuid : $request->predecessorRunUuid)
+                    ? ($derived->originRunUuid !== '' ? $derived->originRunUuid : $tipUuid)
                     : $runUuid,
             ),
             $runUuid,
@@ -162,19 +208,28 @@ final readonly class ProcessRunPreparer
      * the notices for a pin it drops, and whether the predecessor's process
      * section was never admitted against the window, so this run admits it.
      *
-     * @return array{0: RunLineage|null, 1: list<DroppedSource>, 2: bool}
+     * The predecessor is the last run that ran: a refused turn the request
+     * names is followed back through the runs it was carried from.
+     *
+     * @param RunLineage|null $carry receives the lineage a refusal of this run records
+     *
+     * @return array{0: RunLineage|null, 1: list<DroppedSource>, 2: bool, 3: string}
      */
-    private function derive(AgentRunRequest $request, AiActorContext $actor, string $runUuid): array
+    private function derive(AgentRunRequest $request, AiActorContext $actor, string $runUuid, ?RunLineage &$carry): array
     {
-        // Not mayActOnRun(): what that admits depends on the scope, and a
-        // continuation derives another run's instructions and subject record,
-        // which is more than reading or deciding it (ADR-214 item 6). A run
-        // that does not exist and one the actor may not continue are refused
-        // alike, so the refusal does not tell another user's run uuids apart.
-        $predecessor = $this->persister->findRun($request->predecessorRunUuid);
-        if (!$predecessor instanceof AgentRun
-            || (!$actor->isInitiatorOf($predecessor) && (!$actor->isAdmin || $actor->isServiceAccount()))) {
-            throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::PREDECESSOR_MISSING);
+        $predecessor = $this->continuable($request->predecessorRunUuid, $actor, $runUuid);
+        for ($hops = 0;; ++$hops) {
+            $own = $this->lineageOrRefuse($predecessor, $runUuid);
+            $ended = $own?->processPin instanceof SkillPin && $own->released;
+            if (!$own instanceof RunLineage || $own->carriedFromRunUuid === '' || $ended) {
+                break;
+            }
+
+            if ($hops >= self::MAX_CARRIED) {
+                throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::LINEAGE_UNREADABLE);
+            }
+
+            $predecessor = $this->continuable($own->carriedFromRunUuid, $actor, $runUuid);
         }
 
         // A process the predecessor released, or whose start was released
@@ -187,8 +242,17 @@ final readonly class ProcessRunPreparer
         }
 
         if (!$lineage instanceof RunLineage || !$lineage->processPin instanceof SkillPin) {
-            return [null, [], false];
+            return [null, [], false, $predecessor->uuid];
         }
+
+        $carry = new RunLineage(
+            $lineage->configurationUid,
+            $lineage->processPin,
+            $lineage->subject,
+            processSkill: $lineage->processSkill,
+            originRunUuid: $lineage->originRunUuid !== '' ? $lineage->originRunUuid : $predecessor->uuid,
+            carriedFromRunUuid: $predecessor->uuid,
+        );
 
         // nr_llm only checks; getting the predecessor to a terminal state is
         // the chat's job, through the guarded cancel (ADR-214 item 9).
@@ -197,18 +261,83 @@ final readonly class ProcessRunPreparer
         }
 
         if ($lineage->configurationUid !== (int)$request->configuration->getUid()) {
-            return [null, [new DroppedSource('process', $lineage->processPin->skillUid, DroppedSourceReason::CONFIGURATION_CHANGED)], false];
+            // A refusal of this run names the predecessor instead, so its next
+            // turn reports the drop again rather than holding the process.
+            $carry = null;
+
+            return [null, [new DroppedSource('process', $lineage->processPin->skillUid, DroppedSourceReason::CONFIGURATION_CHANGED)], false, $predecessor->uuid];
         }
 
         if (!$this->attachedSkill($request->configuration, $lineage->processPin->skillUid) instanceof Skill) {
-            return [null, [new DroppedSource('process', $lineage->processPin->skillUid, DroppedSourceReason::DETACHED)], false];
+            $carry = null;
+
+            return [null, [new DroppedSource('process', $lineage->processPin->skillUid, DroppedSourceReason::DETACHED)], false, $predecessor->uuid];
         }
 
         // A predecessor that never sent a provider call never got its
         // sections past the window — refused there, a dry run, cancelled or
         // failed before the send — so the conversation does not hold the
         // process yet: this run admits it (ADR-214 item 7).
-        return [$lineage, [], !$this->persister->sentProviderCall($predecessor)];
+        return [$lineage, [], !$this->persister->sentProviderCall($predecessor), $predecessor->uuid];
+    }
+
+    /**
+     * A run this actor may continue. Not mayActOnRun(): what that admits
+     * depends on the scope, and a continuation derives another run's
+     * instructions and subject record, which is more than reading or
+     * deciding it (ADR-214 item 6). A run that does not exist and one the
+     * actor may not continue are refused alike, so the refusal does not tell
+     * another user's run uuids apart.
+     *
+     * @throws ProcessInvocationRefusedException
+     */
+    private function continuable(string $uuid, AiActorContext $actor, string $runUuid): AgentRun
+    {
+        $run = $this->persister->findRun($uuid);
+        if (!$run instanceof AgentRun
+            || (!$actor->isInitiatorOf($run) && (!$actor->isAdmin || $actor->isServiceAccount()))) {
+            throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::PREDECESSOR_MISSING);
+        }
+
+        return $run;
+    }
+
+    /**
+     * @throws ProcessInvocationRefusedException
+     */
+    private function lineageOrRefuse(AgentRun $run, string $runUuid): ?RunLineage
+    {
+        try {
+            return $this->persister->lineageOf($run);
+        } catch (RunLineageUnreadableException) {
+            throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::LINEAGE_UNREADABLE);
+        }
+    }
+
+    /**
+     * What a refused continuation records, so that its next turn neither
+     * loses the process nor escapes the checks (ADR-228): the lineage it
+     * would have carried on, or, when it could not read one, a lineage naming
+     * the run it continued. Nothing for a run that continues no process, for
+     * a withdrawn pin, which recorded its lineage without the process on
+     * purpose, and for a lineage the store refused. Best effort: a carry that
+     * cannot be stored leaves the refused run without a lineage, as before.
+     */
+    private function carryOn(AgentRunRequest $request, ?AgentRunHandle $handle, Throwable $refused, ?RunLineage $carry, bool $nothingHeld): void
+    {
+        if (!$handle instanceof AgentRunHandle || $request->predecessorRunUuid === '' || $nothingHeld) {
+            return;
+        }
+
+        if ($refused instanceof ProcessInvocationRefusedException
+            && in_array($refused->reason, [ProcessInvocationRefusal::PIN_WITHDRAWN, ProcessInvocationRefusal::LINEAGE_NOT_STORED], true)) {
+            return;
+        }
+
+        $lineage = $carry ?? new RunLineage((int)$request->configuration->getUid(), carriedFromRunUuid: $request->predecessorRunUuid);
+        if (!$this->persister->recordLineage($handle, $lineage)) {
+            $this->logger?->warning('A refused continuation could not record the process it carries; its next turn may go on without it.', ['run' => $handle->uuid]);
+        }
     }
 
     /**

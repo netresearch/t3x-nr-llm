@@ -126,6 +126,12 @@ final class ProcessInvocationValueObjectsTest extends TestCase
         self::assertEquals($released, RunLineage::fromArray($released->toArray()));
 
         self::assertFalse((new RunLineage(30))->holdsProcess());
+
+        $carried = $lineage->carriedFrom('run-before');
+        self::assertSame('run-before', $carried->carriedFromRunUuid);
+        self::assertTrue($carried->holdsProcess(), 'a carried lineage still holds its process');
+        self::assertEquals($carried, RunLineage::fromArray($carried->toArray()));
+        self::assertSame('run-before', $carried->withReleasedProcess()->carriedFromRunUuid);
     }
 
     #[Test]
@@ -141,6 +147,8 @@ final class ProcessInvocationValueObjectsTest extends TestCase
             'a malformed subject'    => ['subject' => ['table' => 'pages']] + $valid,
             'a non-string skill'     => ['processSkill' => 5] + $valid,
             'no skill'               => array_diff_key($valid, ['processSkill' => true]),
+            'no carried-from run'    => array_diff_key($valid, ['carriedFrom' => true]),
+            'a non-string carry'     => ['carriedFrom' => 5] + $valid,
         ] as $case => $data) {
             self::assertNull(RunLineage::fromArray($data), $case);
         }

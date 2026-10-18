@@ -23,6 +23,12 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  * A released lineage still names its pin and subject, so the record says what
  * was ended; a continuation derives nothing from it.
  *
+ * A run whose continuation was refused records the lineage it would have
+ * carried on, or, when it could not read one, a lineage without a pin; both
+ * name in `carriedFrom` the run it continued. A continuation of the refused
+ * run follows that name back, so a refusal neither ends the process nor
+ * skips the checks the run it came from is held to (ADR-228).
+ *
  * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final readonly class RunLineage
@@ -40,6 +46,8 @@ final readonly class RunLineage
         // too, and a turn whose origin no longer holds the process holds
         // nothing, so no earlier or parallel turn can hand it on again.
         public string $originRunUuid = '',
+        // The run a refused continuation came from; '' for a run that ran.
+        public string $carriedFromRunUuid = '',
     ) {}
 
     /**
@@ -55,11 +63,20 @@ final readonly class RunLineage
      */
     public function withReleasedProcess(): self
     {
-        return new self($this->configurationUid, $this->processPin, $this->subject, true, $this->processSkill, $this->originRunUuid);
+        return new self($this->configurationUid, $this->processPin, $this->subject, true, $this->processSkill, $this->originRunUuid, $this->carriedFromRunUuid);
     }
 
     /**
-     * @return array{configuration: int, processPin: array{skill: int, source: int, digest: string}|null, subject: array{table: string, uid: int, language: int}|null, released: bool, processSkill: string, origin: string}
+     * The lineage a refused continuation records: this one, carried from the
+     * run it was derived from (ADR-228).
+     */
+    public function carriedFrom(string $runUuid): self
+    {
+        return new self($this->configurationUid, $this->processPin, $this->subject, $this->released, $this->processSkill, $this->originRunUuid, $runUuid);
+    }
+
+    /**
+     * @return array{configuration: int, processPin: array{skill: int, source: int, digest: string}|null, subject: array{table: string, uid: int, language: int}|null, released: bool, processSkill: string, origin: string, carriedFrom: string}
      */
     public function toArray(): array
     {
@@ -70,6 +87,7 @@ final readonly class RunLineage
             'released'      => $this->released,
             'processSkill'  => $this->processSkill,
             'origin'        => $this->originRunUuid,
+            'carriedFrom'   => $this->carriedFromRunUuid,
         ];
     }
 
@@ -89,7 +107,8 @@ final readonly class RunLineage
         $released      = $data['released'] ?? null;
         $processSkill  = $data['processSkill'] ?? null;
         $origin        = $data['origin'] ?? null;
-        if (!is_int($configuration) || $configuration < 0 || !is_bool($released) || !is_string($processSkill) || !is_string($origin)) {
+        $carriedFrom   = $data['carriedFrom'] ?? null;
+        if (!is_int($configuration) || $configuration < 0 || !is_bool($released) || !is_string($processSkill) || !is_string($origin) || !is_string($carriedFrom)) {
             return null;
         }
 
@@ -109,6 +128,6 @@ final readonly class RunLineage
             }
         }
 
-        return new self($configuration, $pin, $subject, $released, $processSkill, $origin);
+        return new self($configuration, $pin, $subject, $released, $processSkill, $origin, $carriedFrom);
     }
 }

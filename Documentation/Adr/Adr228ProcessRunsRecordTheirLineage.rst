@@ -96,6 +96,19 @@ Decision
    predecessor's lineage cannot be read is refused rather than continued
    without the process.
 
+   A refusal does not end the process. A refused continuation records the
+   lineage it would have carried on, marked with the run it was carried from
+   (``carriedFrom``); when it could not read one — the predecessor is missing,
+   foreign or unreadable, or the refusal came before the predecessor was
+   read — it records a lineage without a pin that names its predecessor. A
+   continuation of a refused run follows these names back to the last run
+   that ran and applies its checks there, so a turn sent while the process
+   waits is refused again until that run is finished, and a missing
+   predecessor stays a refusal instead of an empty start. A store error that
+   is retried keeps the process the same way. Only a withdrawn pin (item 6)
+   and an explicit end (item 7) let the process go; a predecessor that held
+   no process leaves the refused run without a lineage.
+
 5. **The runtime sets the pin.** The executor puts the prepared pin on the
    run's :php:`RunAugmentation` and replaces any pin a caller put there. A
    run whose caller sent no augmentation gets one that only carries the
@@ -214,6 +227,11 @@ Consequences
   process's declared tools, bounded by the tool list stored when it
   suspended. Its claim is already won, so a stop at that point would be
   final.
+- The status of a refused run that could not read its predecessor's
+  lineage says it holds no process, and ending the process through that run
+  answers "not ended"; its next turn still finds the process through the run
+  it names. A refused run that carried the lineage on shows and ends the
+  process like any of its turns.
 - A fault inside a guarded read that a retry cannot fix, such as a type
   error, is retried like a store error until the requeue budget is spent,
   and is then dead-lettered as retries exhausted.
