@@ -615,4 +615,5 @@ Tools
    Adr218CompanionDocumentSourceSync
    Adr219WorkerOperations
    Adr220EvaluationResultsNameTheirGenerator
+   Adr225AgentOutcomesSurviveOptionalDiagnosticFailures
    Adr227McpRepliesBelongToTheirRequest
