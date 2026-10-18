@@ -53,6 +53,7 @@ use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
+use Netresearch\NrLlm\Service\Prompt\SnippetCallerMark;
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
@@ -1757,6 +1758,13 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         }
 
         foreach ($augmentation->forcedSnippets as $snippet) {
+            // A forced snippet can come from an editor (playground, queued
+            // runs). Into a caller's own system message it goes only as a
+            // tag-selected one would: marked by an administrator.
+            if ($callerSystem && !(new SnippetCallerMark())->isMarked($snippet)) {
+                continue;
+            }
+
             $text = $this->snippetComposer?->composeSections([$snippet->getName() => $snippet]) ?? '';
             if ($text === '') {
                 continue;

@@ -174,8 +174,8 @@ carries the snippets as before.
 A run started with forced snippets (the playground, a
 queued run) follows the same rule: when the caller
 sent its own system message, only marked snippets
-reach it, each once, and the configuration's prompt
-is not added.
+reach it, each once — forced snippets included — and
+the configuration's prompt is not added.
 
 Unmarking or editing a snippet takes it out of every
 run composed afterwards; a run that waits for a

@@ -81,6 +81,8 @@ final class ToolLoopServiceSectionAdmissionTest extends TestCase
 
     private const UNMARKED_BLOCK = "Draft notes:\nNot reviewed by an administrator.";
 
+    private const FORCED_BLOCK = "Legal:\nCite the imprint.";
+
     private int $providerCalls = 0;
 
     private string $body = self::BODY;
@@ -347,6 +349,7 @@ final class ToolLoopServiceSectionAdmissionTest extends TestCase
         $forced->setIdentifier('tone');
         $forced->setName('Tone');
         $forced->setSnippet('Use the formal register.');
+        $forced->setCallerSystemDigest((new SnippetCallerMark())->digestOf($forced));
 
         $this->service(admits: true, approve: false)->runLoop(
             [ChatMessage::system('Chat identity.'), ChatMessage::user('go')],
@@ -360,6 +363,72 @@ final class ToolLoopServiceSectionAdmissionTest extends TestCase
         );
 
         self::assertSame(1, substr_count($this->wire(), self::BLOCK));
+    }
+
+    /**
+     * A forced snippet nobody marked does not reach a caller's own system
+     * message, as an unmarked tag-selected one does not; marked, it does.
+     */
+    #[Test]
+    public function aForcedUnmarkedSnippetDoesNotReachTheCallersSystemMessage(): void
+    {
+        $forced = $this->forcedSnippet();
+
+        $this->service(admits: true, approve: false)->runLoop(
+            [ChatMessage::system('Chat identity.'), ChatMessage::user('go')],
+            $this->configuration(),
+            ToolExecutionContext::none(),
+            null,
+            null,
+            null,
+            null,
+            new RunAugmentation(forcedSnippets: [$forced]),
+        );
+        self::assertStringNotContainsString(self::FORCED_BLOCK, $this->wire());
+
+        $forced->setCallerSystemDigest((new SnippetCallerMark())->digestOf($forced));
+        $this->service(admits: true, approve: false)->runLoop(
+            [ChatMessage::system('Chat identity.'), ChatMessage::user('go')],
+            $this->configuration(),
+            ToolExecutionContext::none(),
+            null,
+            null,
+            null,
+            null,
+            new RunAugmentation(forcedSnippets: [$forced]),
+        );
+        self::assertSame(1, substr_count($this->wire(), self::FORCED_BLOCK));
+    }
+
+    /**
+     * Without a caller system message a forced snippet is sent whether or
+     * not it is marked, as before.
+     */
+    #[Test]
+    public function aForcedUnmarkedSnippetIsSentWithoutACallerSystemMessage(): void
+    {
+        $this->service(admits: true, approve: false)->runLoop(
+            [ChatMessage::user('go')],
+            $this->configuration(),
+            ToolExecutionContext::none(),
+            null,
+            null,
+            null,
+            null,
+            new RunAugmentation(forcedSnippets: [$this->forcedSnippet()]),
+        );
+
+        self::assertSame(1, substr_count($this->wire(), self::FORCED_BLOCK));
+    }
+
+    private function forcedSnippet(): PromptSnippet
+    {
+        $forced = new PromptSnippet();
+        $forced->setIdentifier('legal');
+        $forced->setName('Legal');
+        $forced->setSnippet('Cite the imprint.');
+
+        return $forced;
     }
 
     /**
