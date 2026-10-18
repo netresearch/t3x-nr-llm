@@ -169,10 +169,20 @@ final class SkillSourceController extends ActionController
         }
 
         assert($skill instanceof Skill);
-        $skill->setEnabled($this->boolFromBody($body, 'enabled'));
+        $enabled = $this->boolFromBody($body, 'enabled');
+        if ($enabled === $skill->isEnabled()) {
+            // Nothing changes, the mark included: a repeated disable of a
+            // skill the sync disabled must not turn the sync's mark into an
+            // administrator's, which would lift its restriction (the rule
+            // SkillDisabledByHook enforces: the mark follows a change of
+            // `enabled` only).
+            return new JsonResponse(['success' => true, 'enabled' => $enabled]);
+        }
+
+        $skill->setEnabled($enabled);
         // An administrator's decision: a disable drops the skill out of the
         // runs it is attached to, a re-enable clears the sync's mark.
-        $skill->setDisabledBy($skill->isEnabled() ? '' : Skill::DISABLED_BY_ADMIN);
+        $skill->setDisabledBy($enabled ? '' : Skill::DISABLED_BY_ADMIN);
 
         $this->skillRepository->update($skill);
         $this->persistenceManager->persistAll();

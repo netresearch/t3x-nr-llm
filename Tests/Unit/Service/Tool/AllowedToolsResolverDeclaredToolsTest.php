@@ -139,6 +139,25 @@ final class AllowedToolsResolverDeclaredToolsTest extends TestCase
     }
 
     /**
+     * A run that invokes a skill is process-bound, so the load tool is held
+     * to the list there (ADR-214 item 5); without an invocation it is not.
+     * An unvouched invoked process skill therefore leaves the run no tool at
+     * all, the load tool included.
+     */
+    #[Test]
+    public function aRunThatInvokesASkillIsProcessBound(): void
+    {
+        $edited = $this->processSkill('["update_content_element"]');
+        $edited->setAllowedTools('["update_content_element","delete_record"]');
+
+        $invoked = $this->resolver()->resolveForRun($this->configuration($edited), [], null, [$edited]);
+
+        self::assertSame([], $invoked->toolNames);
+        self::assertTrue($invoked->processBound);
+        self::assertFalse($this->resolver()->resolveForRun($this->configuration($edited), [])->processBound);
+    }
+
+    /**
      * The process marker of a backend skill is read from the approved
      * version, like its tools: switching it on in the form does not turn an
      * approved restriction into "no opinion".

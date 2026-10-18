@@ -42,6 +42,7 @@ return [
                     system_prompt,
                     system_prompt_data_class,
                     snippet_tags,
+                    skills_on_demand,
                     skills,
                     options,
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.limits,
@@ -483,11 +484,31 @@ return [
                 'renderType' => 'selectMultipleSideBySide',
                 'foreign_table' => 'tx_nrllm_skill',
                 // Every skill; SkillAttachmentItems offers only enabled,
-                // non-orphaned ones for a new attachment and keeps an attached
-                // one whatever its state, labelled (ADR-214 item 3).
+                // non-orphaned ones — and, attached 'always', no process skill
+                // (ADR-214 item 6) — for a new attachment, and keeps an
+                // attached one whatever its state, labelled (ADR-214 item 3).
                 'foreign_table_where' => 'ORDER BY tx_nrllm_skill.name',
                 'itemsProcFunc' => SkillAttachmentItems::class . '->filterAndLabel',
                 'MM' => 'tx_nrllm_configuration_skill_mm',
+                // Both fields share the MM table; the load mode tells their rows
+                // apart (ADR-214 item 4). Reads filter on it, writes set it.
+                'MM_match_fields' => ['load_mode' => 'always'],
+                'size' => 5,
+                'minitems' => 0,
+                'maxitems' => 100,
+            ],
+        ],
+        'skills_on_demand' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.skills_on_demand',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.skills_on_demand.description',
+            'config' => [
+                'type' => 'select',
+                'renderType' => 'selectMultipleSideBySide',
+                'foreign_table' => 'tx_nrllm_skill',
+                'foreign_table_where' => 'ORDER BY tx_nrllm_skill.name',
+                'itemsProcFunc' => SkillAttachmentItems::class . '->filterAndLabel',
+                'MM' => 'tx_nrllm_configuration_skill_mm',
+                'MM_match_fields' => ['load_mode' => 'on_demand'],
                 'size' => 5,
                 'minitems' => 0,
                 'maxitems' => 100,

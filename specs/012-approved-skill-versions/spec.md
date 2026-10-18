@@ -80,6 +80,39 @@ ADR-214 is the decision. This specification states what each implementing change
 | Field rights per type | unit | `SkillFieldExclusionTest` |
 | Backend source TCA, sync refusal, FormEngine defaults | functional | `BackendSkillSourceTest` |
 
-## (c), (d)
+## (c) Load modes, the catalogue and the load tool — items 4, 5 and the load part of 7
 
-Specified in the change that implements each, in this file.
+### What it must do
+
+1. **Two load modes on the configuration's attachments.** `tx_nrllm_configuration_skill_mm.load_mode` is `always` or `on_demand`; the field `skills` holds the `always` rows and the new field `skills_on_demand` the `on_demand` rows of the same MM table (`MM_match_fields`). A row that existed before the column is `always` by the column default, so existing configurations compose exactly what they composed before. FormEngine does not offer a process skill for a new `always` attachment and keeps, labelled, one attached before; a process skill attached `always` by other means (a DataHandler or import write) is skipped at composition and has no opinion in the allow-list (items 5 and 6 of (a) and (b)).
+2. **Only `always` attachments are composed at run start.** Every composition site reads `getSkills()`, which holds the `always` rows only.
+3. **Attachment grants tools in both modes (item 5).** The run allow-list and the input-context classification read `getAttachedSkills()`, both modes; a load grants nothing.
+4. **The catalogue.** Per loop segment, the `on_demand` attachments that are effective, pass the integrity check, are not process skills and whose current version is an approved instruction, as uid, name and description (`SkillComposer::catalogue()`).
+5. **The load tool `load_skill`** is offered only when the catalogue is not empty, with the catalogue in its description and the uids as its only values. It is exempt from the skill allow-list and the group gate (keyed on the builtin class), not from the global tool state or the trust zone. A process-bound run (`SkillToolAllowList::$processBound`, set by `resolveForRun()` when it is given invoked skills, and kept through storage and intersection) gets no exemption: there the tool is offered only when the vouched declaration lists it. No production caller passes invoked skills yet; the binding takes effect when the process wiring (items 6 and 10) passes the invoked or pinned process skills to `resolveForRun()` at start, on both resume paths and in the queued-run codec. The loop already honours a bound list it is handed.
+6. **The load re-checks at load time:** the uid is in the segment's catalogue, the skill is still attached `on_demand` (DBAL), the stored record is enabled, not hidden, deleted, orphaned or a process skill and still carries the catalogue's digest (DBAL), its stored source is the one the run's copy and the catalogue entry name (DBAL; an approval names a digest and a source), and that version still composes as an instruction, with the trust floor measured against the trust level stored now (DBAL). It is idempotent per skill and digest: a held pin at the same digest returns "already loaded" and appends nothing; another digest is refused. A load held in a declined turn is not run and says so. Before a resumed segment admits a load, the window manager's measurement starts afresh (`SectionAdmissionInterface::beginRun()`), so another run's calibration on the shared instance does not decide it. Admission measures the window of the model the send runs on: a criteria-mode configuration's resolved model (`ModelSelectionServiceInterface::resolveModel()` for the tools operation), never the unknown-model fallback; without a resolved model, or with an unknown context length, nothing is admitted.
+7. **Admission (item 7, load part).** The section is appended only when head + section + newest turn stays at or below the budget minus 10 % of it (`SectionAdmissionInterface::admitsSection()`); otherwise the result is an error naming the skill and nothing is appended.
+8. **The loop writes the section** into the head system message (behind the approved-skills heading, or baked behind the effective system prompt when the head has no system message) before the next call, records the pin, and answers with a confirmation that never carries the body.
+
+### What it must NOT do
+
+- Compose an `on_demand` attachment at run start, or offer the load tool to a configuration without one.
+- Let a load widen the offered tools, or let any other tool take the load tool's exemption.
+- Put a skill body in a tool result.
+
+### Which suite proves what
+
+| Requirement | Suite | Test |
+|---|---|---|
+| Catalogue contents, every load re-check, idempotency, heading placement | unit | `SkillLoadServiceTest` |
+| Offer only with a catalogue, placement, idempotency in the loop, admission refusal, pins on suspension, no widening, exemption and global state | unit | `ToolLoopServiceSkillLoadTest` |
+| Gate-4 exemption only for the builtin, global state still applies | unit | `ToolCallPolicyTest` |
+| Process-bound run: no exemption, the declaration decides; binding across storage and intersection; the loop honours a bound list | unit | `ToolCallPolicyTest`, `SkillToolAllowListTest`, `AllowedToolsResolverDeclaredToolsTest`, `ToolLoopServiceSkillLoadTest` |
+| Admission floor, headroom, newest turn counted, older turns not | unit | `ContextWindowSectionAdmissionTest` |
+| Both modes grant tools; an on-demand declaration restricts | unit | `AllowedToolsResolverTest` |
+| On-demand skills are classified | unit | `InputContextClassifierTest` |
+| Column default, per-field reads and writes through Extbase and DataHandler, load lookup | functional | `SkillLoadModeTest` |
+| Production wiring of the load service | functional | `ToolLoopGateWiringTest` |
+
+## (d)
+
+Specified in the change that implements it, in this file.

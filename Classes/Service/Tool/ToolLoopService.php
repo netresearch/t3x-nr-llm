@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Enum\GovernanceDecision;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -22,6 +23,7 @@ use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
+use Netresearch\NrLlm\Domain\ValueObject\SkillCatalogue;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
@@ -29,6 +31,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocation;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory;
+use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationTarget;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
@@ -38,17 +41,23 @@ use Netresearch\NrLlm\Exception\ContextTruncatedException;
 use Netresearch\NrLlm\Exception\LogicException;
 use Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Provider\OpenAi\OpenAiCallMetadata;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
+use Netresearch\NrLlm\Service\Context\SectionAdmissionInterface;
 use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
+use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
+use Netresearch\NrLlm\Service\Skill\SkillLoadService;
 use Netresearch\NrLlm\Service\Skill\SkillPinCheck;
+use Netresearch\NrLlm\Service\Tool\Builtin\LoadSkillTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
@@ -152,6 +161,14 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // wiring.
         private ?SkillPinCheck $skillPinCheck = null,
         private ?ToolInvocationPolicyInterface $invocationPolicy = null,
+        // The skill catalogue and the load decision (ADR-214 item 4). Optional
+        // like the collaborators above: absent it no catalogue is built, so
+        // the load tool is never offered.
+        private ?SkillLoadService $skillLoad = null,
+        // Resolves the model a criteria-mode configuration's send runs on, so
+        // the window is measured against it (ADR-143). Absent it, only a
+        // fixed-mode configuration's own model is known.
+        private ?ModelSelectionServiceInterface $modelSelection = null,
     ) {}
 
     /**
@@ -416,6 +433,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $skillAllowList,
         );
         $specs = $this->registry->specs($effective);
+        // ADR-214 item 4: this segment's skill catalogue decides whether the
+        // load tool is offered, and with which description.
+        $catalogue = $this->skillLoad?->catalogue($configuration) ?? new SkillCatalogue();
+        $specs     = $this->withSkillCatalogue($specs, $catalogue);
 
         // No tools offered (an empty allow-list, or nothing registered): a tools
         // request with an empty `tools` array makes some providers (OpenAI) 400.
@@ -683,18 +704,27 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
 
                 foreach ($resp->toolCalls ?? [] as $call) {
                     $tt0 = hrtime(true);
-                    $tr = $this->invoke(
-                        $call,
-                        $allowedNames,
-                        $remoteCalls,
-                        new ToolInvocationEnvironment(
-                            $configuration,
-                            $skillAllowList,
-                            $context,
-                            $runTrace,
-                        ),
-                        $invocationHistory,
+                    $environment = new ToolInvocationEnvironment(
+                        $configuration,
+                        $skillAllowList,
+                        $context,
+                        $runTrace,
                     );
+                    if ($call->name === LoadSkillTool::NAME && in_array($call->name, $allowedNames, true)) {
+                        // ADR-214 item 4: the loop handles a load itself, because
+                        // its effect is on this transcript's system message. It
+                        // passes the same gates and invocation rules first.
+                        [$messages, $skillPins, $tr] = $this->dispatchLoad($call, $allowedNames, $environment, $invocationHistory, $catalogue, $skillPins, $messages, $configuration, $options, $specs);
+                    } else {
+                        $tr = $this->invoke(
+                            $call,
+                            $allowedNames,
+                            $remoteCalls,
+                            $environment,
+                            $invocationHistory,
+                        );
+                    }
+
                     // WIRE: content ONLY — artifacts are run-scoped and never egress to the provider.
                     $messages[] = ChatMessage::toolResult($call->id, $tr->content);
                     $trace[] = new ToolInvocation(
@@ -795,6 +825,349 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         }
     }
 
+    // ------------------------------------------------------------------
+    // ADR-214 item 4: the skill load seam. Everything the loop does for a
+    // load lives in the methods below, up to enforceContextWindow(); the
+    // loop and both resume paths call them at the offer and at the per-call
+    // dispatch only.
+    // ------------------------------------------------------------------
+
+    /**
+     * Run a load after the gates every invocation passes (the offered set,
+     * the tool policy, the installation's invocation rules), and record its
+     * outcome in the invocation history as any call's is.
+     *
+     * @param list<string>                           $allowedNames
+     * @param list<SkillPin>                         $pins
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<ToolSpec>                         $specs
+     *
+     * @return array{0: list<ChatMessage|array<string, mixed>>, 1: list<SkillPin>, 2: ToolResult}
+     */
+    private function dispatchLoad(
+        ToolCall $call,
+        array $allowedNames,
+        ToolInvocationEnvironment $environment,
+        ToolInvocationHistory &$history,
+        SkillCatalogue $catalogue,
+        array $pins,
+        array $messages,
+        LlmConfiguration $configuration,
+        ?ToolOptions $options,
+        array $specs,
+    ): array {
+        $target = null;
+        $denied = $this->admitInvocation($call, $allowedNames, $environment, $history, $target);
+        if ($denied instanceof ToolResult) {
+            return [$messages, $pins, $denied];
+        }
+
+        $environment->trace?->beforeToolExecution($call->name);
+        [$messages, $pins, $result] = $this->loadSkill($call, $catalogue, $pins, $messages, $configuration, $options, $specs);
+        $history = $history->append($call->name, $result->outcome->value, $target);
+
+        return [$messages, $pins, $result];
+    }
+
+    /**
+     * A resumed segment's offer with the load tool fitted to its catalogue:
+     * the resumption with `load_skill` dropped from the offered names when the
+     * catalogue is empty, the catalogue, and the specs a load's admission
+     * measures.
+     *
+     * @return array{0: ToolResumption, 1: SkillCatalogue, 2: list<ToolSpec>}
+     */
+    private function offerWithCatalogue(ToolResumption $resume, LlmConfiguration $configuration): array
+    {
+        $catalogue = $this->skillLoad?->catalogue($configuration) ?? new SkillCatalogue();
+        $offered = $resume->offered;
+        if ($catalogue->isEmpty()) {
+            $offered = array_values(array_filter($offered, static fn(string $name): bool => $name !== LoadSkillTool::NAME));
+        }
+
+        return [
+            new ToolResumption(
+                $resume->options,
+                $resume->augmentation,
+                $resume->skillAllowList,
+                $resume->storedAllowList,
+                $offered,
+            ),
+            $catalogue,
+            $this->withSkillCatalogue($this->registry->specs($offered), $catalogue),
+        ];
+    }
+
+    /**
+     * A call the suspended turn holds, run on resume: a load through
+     * dispatchLoad(), any other call through invokeResumed(). Both pass the
+     * same gates and record their outcome in the invocation history.
+     *
+     * @param list<SkillPin>                         $pins
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<ToolSpec>                         $specs
+     *
+     * @return array{0: list<ChatMessage|array<string, mixed>>, 1: list<SkillPin>, 2: ToolResult}
+     */
+    private function dispatchResumed(
+        ToolCall $call,
+        ToolResumption $resume,
+        RemoteCallBudget $remoteCalls,
+        ToolInvocationEnvironment $environment,
+        ToolInvocationHistory &$history,
+        int $iteration,
+        SkillCatalogue $catalogue,
+        array $pins,
+        array $messages,
+        array $specs,
+    ): array {
+        if ($call->name !== LoadSkillTool::NAME) {
+            return [
+                $messages,
+                $pins,
+                $this->invokeResumed($call, $call, $resume->offered, $remoteCalls, $environment, $history, $iteration),
+            ];
+        }
+
+        $startedAt = hrtime(true);
+        [$messages, $pins, $result] = $this->dispatchLoad(
+            $call,
+            $resume->offered,
+            $environment,
+            $history,
+            $catalogue,
+            $pins,
+            $messages,
+            $environment->configuration,
+            $resume->options,
+            $specs,
+        );
+        $environment->trace?->recordToolResult(
+            $iteration,
+            $this->elapsedMs($startedAt),
+            $call->name,
+            $call->arguments,
+            $result,
+        );
+
+        return [$messages, $pins, $result];
+    }
+
+    /**
+     * The offered specs with the load tool fitted to this segment's catalogue:
+     * dropped when the catalogue is empty — every configuration without an
+     * 'on_demand' attachment sends what it sent before — and otherwise
+     * described with the catalogue and limited to its uids.
+     *
+     * @param list<ToolSpec> $specs
+     *
+     * @return list<ToolSpec>
+     */
+    private function withSkillCatalogue(array $specs, SkillCatalogue $catalogue): array
+    {
+        $out = [];
+        foreach ($specs as $spec) {
+            if ($spec->name !== LoadSkillTool::NAME) {
+                $out[] = $spec;
+                continue;
+            }
+
+            $tool = $this->registry->get(LoadSkillTool::NAME);
+            if (!$catalogue->isEmpty() && $tool instanceof LoadSkillTool) {
+                $out[] = $tool->specFor($catalogue);
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Load one skill into the transcript's system message (ADR-214 items 4
+     * and 7). The section is appended only when the load service admits it
+     * and it fits the context window with headroom; otherwise the tool result
+     * is a refusal and nothing changes. The result never carries the body.
+     * A load grants no tools: the offered set is fixed for the segment.
+     *
+     * @param list<SkillPin>                         $pins
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<ToolSpec>                         $specs
+     *
+     * @return array{0: list<ChatMessage|array<string, mixed>>, 1: list<SkillPin>, 2: ToolResult}
+     */
+    private function loadSkill(
+        ToolCall $call,
+        SkillCatalogue $catalogue,
+        array $pins,
+        array $messages,
+        LlmConfiguration $configuration,
+        ?ToolOptions $options,
+        array $specs,
+    ): array {
+        $raw = $call->arguments['skill_uid'] ?? null;
+        $uid = is_int($raw) ? $raw : (is_string($raw) && ctype_digit($raw) ? (int)$raw : 0);
+        if ($uid <= 0 || !$this->skillLoad instanceof SkillLoadService) {
+            return [$messages, $pins, ToolResult::error('load_skill needs the uid of a skill in the catalogue.')];
+        }
+
+        $outcome = $this->skillLoad->load($uid, $catalogue, $pins, $configuration);
+        if (!$outcome->appendsSection() || !$outcome->pin instanceof SkillPin) {
+            return [$messages, $pins, $outcome->isError ? ToolResult::error($outcome->message) : ToolResult::text($outcome->message)];
+        }
+
+        // A window manager that cannot admit refuses rather than skips the
+        // check (item 7); only a loop without any window manager — the lean
+        // wiring, which bounds nothing — appends unmeasured.
+        if ($this->contextWindow instanceof ContextWindowManagerInterface && !$this->contextWindow instanceof SectionAdmissionInterface) {
+            return [$messages, $pins, ToolResult::error(sprintf('Skill "%s" was not loaded: its size cannot be checked against the context window.', $outcome->skillName))];
+        }
+
+        if ($this->headSystemIsPartList($messages)) {
+            return [$messages, $pins, ToolResult::error(sprintf('Skill "%s" was not loaded: the system message of this conversation cannot be extended.', $outcome->skillName))];
+        }
+
+        $system = $this->effectiveSystemPrompt($configuration, $options);
+        // Measured against the model the send runs on; without one there is
+        // no window to admit against, and the load is refused.
+        $model = $this->windowModel($configuration);
+        if ($this->contextWindow instanceof SectionAdmissionInterface && !$model instanceof Model) {
+            return [$messages, $pins, ToolResult::error(sprintf('Skill "%s" was not loaded: its size cannot be checked against the context window.', $outcome->skillName))];
+        }
+
+        if ($this->contextWindow instanceof SectionAdmissionInterface && !$this->contextWindow->admitsSection(
+            $messages,
+            SkillComposer::appendInstructionSection('', $outcome->section),
+            $configuration,
+            $options,
+            array_map(static fn(ToolSpec $s): array => $s->toArray(), $specs),
+            $system,
+            $model,
+        )) {
+            return [$messages, $pins, ToolResult::error(sprintf(
+                'Skill "%s" was not loaded: it does not fit the context window of this conversation.',
+                $outcome->skillName,
+            ))];
+        }
+
+        $placed = $this->appendToHeadSystemMessage($messages, $outcome->section);
+        // No system message in the head: the shaping stage would prepend
+        // the configuration prompt only while none exists, so the prompt
+        // is baked in front of the section, as assemble() does.
+        $placed ??= array_values(array_merge(
+            [ChatMessage::system(SkillComposer::appendInstructionSection($system, $outcome->section))],
+            $messages,
+        ));
+
+        return [$placed, [...$pins, $outcome->pin], ToolResult::text($outcome->message)];
+    }
+
+    /**
+     * A resumed segment admits loads before its first send: start the window
+     * manager's measurement afresh, so another run's calibration on the
+     * shared instance does not decide them (ADR-214 item 7).
+     */
+    private function beginSegment(): void
+    {
+        if ($this->contextWindow instanceof SectionAdmissionInterface) {
+            $this->contextWindow->beginRun();
+        }
+    }
+
+    /**
+     * Whether the head's first system message is a part list, which a
+     * section cannot join without changing its shape.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     */
+    private function headSystemIsPartList(array $messages): bool
+    {
+        foreach ($messages as $message) {
+            if ($message instanceof ChatMessage) {
+                if ($message->role === 'user') {
+                    return false;
+                }
+
+                if ($message->role === 'system') {
+                    return false;
+                }
+
+                continue;
+            }
+
+            $role = $message['role'] ?? null;
+            if ($role === 'user') {
+                return false;
+            }
+
+            if ($role === 'system') {
+                return !is_string($message['content'] ?? null);
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Append a loaded section to the first system message of the head, or
+     * null when the head holds none.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     *
+     * @return list<ChatMessage|array<string, mixed>>|null
+     */
+    private function appendToHeadSystemMessage(array $messages, string $section): ?array
+    {
+        foreach ($messages as $index => $message) {
+            $role = $message instanceof ChatMessage ? $message->role : (is_string($message['role'] ?? null) ? $message['role'] : '');
+            if ($role === 'user') {
+                return null;
+            }
+
+            if ($role !== 'system') {
+                continue;
+            }
+
+            $content = $message instanceof ChatMessage ? $message->content : ($message['content'] ?? null);
+            if (!is_string($content)) {
+                return null;
+            }
+
+            $joined           = SkillComposer::appendInstructionSection($content, $section);
+            $messages[$index] = $message instanceof ChatMessage ? ChatMessage::system($joined) : ['content' => $joined] + $message;
+
+            return $messages;
+        }
+
+        return null;
+    }
+
+    /**
+     * The model a send of this configuration runs on, for the window
+     * measurements: a fixed-mode configuration's own model, the criteria
+     * resolution for the tools operation otherwise (ADR-143). A criteria-mode
+     * configuration stores no model, and measuring it against the
+     * unknown-model fallback would admit what the send's own fit, against
+     * the resolved model, then cannot keep. Null when none resolves.
+     *
+     * The send resolves the model a second time inside
+     * {@see LlmServiceManagerInterface::chatWithToolsForConfiguration()},
+     * which takes no resolution (#922 hands one over on the conversation
+     * path). Handing it over here would change that @api signature; the two
+     * evaluations read the same stored criteria and models and differ only
+     * when a model record changes between them.
+     */
+    private function windowModel(LlmConfiguration $configuration): ?Model
+    {
+        if (!$configuration->usesCriteriaSelection()) {
+            return $configuration->getLlmModel();
+        }
+
+        try {
+            return $this->modelSelection?->resolveModel($configuration, ProviderOperation::Tools);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
     /**
      * Enforce the model context window on the outgoing transcript (ADR-107). A
      * no-op when the manager is absent (unchanged from before this feature).
@@ -831,6 +1204,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             // block, which this path does not carry: the agent loop composes
             // its prompt itself rather than having one prepended after the fit.
             effectiveSystemPrompt: $this->effectiveSystemPrompt($configuration, $options),
+            resolvedModel: $this->windowModel($configuration),
         );
 
         // Before the overflow throw: a run that stops here is exactly the run
@@ -912,6 +1286,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         );
         $remoteCalls = new RemoteCallBudget();
         $invocationHistory = $state->invocationHistory ?? new ToolInvocationHistory([], false);
+        // ADR-214 item 4: a load the suspended turn holds runs through the
+        // same seam as in the loop, against this segment's catalogue.
+        [$resume, $catalogue, $resumeSpecs] = $this->offerWithCatalogue($resume, $configuration);
+        $pins = $state->skillPins;
+        $this->beginSegment();
 
         // ADR-214 item 6: the transcript carries approved skill versions as
         // system instructions. If one of them no longer holds — revoked, its
@@ -935,7 +1314,15 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         }
 
         foreach ($pendingCalls as $call) {
-            if (!$approved) {
+            if (!$approved && $call->name === LoadSkillTool::NAME) {
+                // A load is never approval-bound; it shares the declined
+                // turn's fate, and the model may simply ask again.
+                $result = sprintf(
+                    'Error: tool "%s" was not executed because the turn it was requested in was declined; call it again if the skill is still needed.',
+                    $call->name,
+                );
+                $this->recordResumedRefusal($state, $call, $result, $runTrace);
+            } elseif (!$approved) {
                 $result = $this->approvalDeniedResult(
                     $call->name,
                     $beUserUid,
@@ -962,15 +1349,19 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 );
                 $this->recordResumedRefusal($state, $call, $result, $runTrace);
             } else {
-                $tr = $this->invokeResumed(
+                [$messages, $pins, $tr] = $this->dispatchResumed(
                     $call,
-                    $call,
-                    $resume->offered,
+                    $resume,
                     $remoteCalls,
                     $environment,
                     $invocationHistory,
                     $state->iterations,
+                    $catalogue,
+                    $pins,
+                    $messages,
+                    $resumeSpecs,
                 );
+
                 $result = $tr->content;
             }
 
@@ -992,6 +1383,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $resume,
             $maxIterations,
             $invocationHistory,
+            // The pins the transcript holds stay the run's on a re-suspend,
+            // with any section this resume loaded.
+            $pins,
         );
     }
 
@@ -1088,6 +1482,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         );
         $remoteCalls = new RemoteCallBudget();
         $invocationHistory = $state->invocationHistory ?? new ToolInvocationHistory([], false);
+        // ADR-214 item 4: a load the suspended turn holds runs through the
+        // same seam as in the loop, against this segment's catalogue.
+        [$resume, $catalogue, $resumeSpecs] = $this->offerWithCatalogue($resume, $configuration);
+        $pins = $state->skillPins;
+        $this->beginSegment();
 
         // ADR-214 item 6, as in resume(): stop before the input reaches a tool.
         $this->assertPinsHeld($state);
@@ -1166,15 +1565,19 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     ),
                 );
             } else {
-                $tr = $this->invokeResumed(
+                [$messages, $pins, $tr] = $this->dispatchResumed(
                     $call,
-                    $call,
-                    $resume->offered,
+                    $resume,
                     $remoteCalls,
                     $environment,
                     $invocationHistory,
                     $state->iterations,
+                    $catalogue,
+                    $pins,
+                    $messages,
+                    $resumeSpecs,
                 );
+
                 $result = $tr->content;
             }
 
@@ -1193,6 +1596,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $resume,
             $maxIterations,
             $invocationHistory,
+            $pins,
         );
     }
 
@@ -1826,15 +2230,20 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     }
 
     /**
+     * The gates every invocation passes before it runs: the offered set, the
+     * tool policy and the installation's invocation rules (#1033). Null when
+     * the call may run; otherwise the refusal, with the denial recorded in the
+     * history.
+     *
      * @param list<string> $allowedNames
      */
-    private function invoke(
+    private function admitInvocation(
         ToolCall $call,
         array $allowedNames,
-        RemoteCallBudget $remoteCalls,
         ToolInvocationEnvironment $environment,
         ToolInvocationHistory &$history,
-    ): ToolResult {
+        ?ToolInvocationTarget &$target,
+    ): ?ToolResult {
         $tool = $this->registry->get($call->name);
         if (!$tool instanceof ToolInterface || !in_array($call->name, $allowedNames, true) || !in_array(
             $call->name,
@@ -1893,6 +2302,26 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     $decision->reason,
                 ),
             );
+        }
+
+        return null;
+    }
+
+    /**
+     * @param list<string> $allowedNames
+     */
+    private function invoke(
+        ToolCall $call,
+        array $allowedNames,
+        RemoteCallBudget $remoteCalls,
+        ToolInvocationEnvironment $environment,
+        ToolInvocationHistory &$history,
+    ): ToolResult {
+        $tool   = $this->registry->get($call->name);
+        $target = null;
+        $denied = $this->admitInvocation($call, $allowedNames, $environment, $history, $target);
+        if ($denied instanceof ToolResult || !$tool instanceof ToolInterface) {
+            return $denied ?? ToolResult::error(sprintf('Error: unknown tool "%s"', $call->name));
         }
 
         $executed = false;
@@ -1987,6 +2416,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * Continue with the original counters, live gates and authoritative history.
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<SkillPin>                         $pins     the transcript's pins, with any section this resume loaded
      */
     private function continueResumed(
         SuspendedRunState $state,
@@ -1995,6 +2425,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         ToolResumption $resume,
         ?int $maxIterations,
         ToolInvocationHistory $history,
+        array $pins,
     ): ToolLoopResult {
         return $this->loop(
             $messages,
@@ -2011,7 +2442,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $state->completionTokens,
             $resume->skillAllowList,
             $resume->storedAllowList,
-            $state->skillPins,
+            $pins,
             $history,
         );
     }

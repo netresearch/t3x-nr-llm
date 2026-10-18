@@ -14,6 +14,8 @@ use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
 use Netresearch\NrLlm\Domain\Enum\SupportStatus;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
+use Netresearch\NrLlm\Domain\ValueObject\SkillCatalogue;
+use Netresearch\NrLlm\Domain\ValueObject\SkillCatalogueEntry;
 use Netresearch\NrLlm\Domain\ValueObject\SkillCompositionResult;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SkillSourceFacts;
@@ -212,6 +214,84 @@ final readonly class SkillComposer
             array_column($instructions, 'id'),
             array_column($instructions, 'pin'),
         );
+    }
+
+    /**
+     * The run's catalogue of loadable skills (ADR-214 item 4): of the given
+     * 'on_demand' attachments, the effective ones whose stored fields pass the
+     * integrity check, which are not process skills and whose current version
+     * is an approved instruction. The name and description come from the
+     * record, whose fields the verified digest covers — the same text the
+     * approver saw.
+     *
+     * @param list<Skill> $onDemandSkills
+     */
+    public function catalogue(array $onDemandSkills): SkillCatalogue
+    {
+        $entries = [];
+        foreach ($this->effectiveSkills($onDemandSkills, []) as $skill) {
+            $digest = $this->instructionDigest($skill);
+            if ($digest === null) {
+                continue;
+            }
+
+            $entries[] = new SkillCatalogueEntry((int)$skill->getUid(), $skill->getName(), $skill->getDescription(), $digest, $skill->getSource());
+        }
+
+        return new SkillCatalogue($entries);
+    }
+
+    /**
+     * The instruction section of one skill and its pin, composed for a load
+     * (ADR-214 item 4), or null when the skill does not compose as an
+     * instruction at the given digest right now: not effective (disabled,
+     * orphaned, below the trust floor), fields edited since the digest, a
+     * process skill, or no unrevoked approval for the digest and source.
+     *
+     * @return array{section: string, pin: SkillPin}|null
+     */
+    public function composeInstruction(Skill $skill, string $versionDigest): ?array
+    {
+        if ($this->effectiveSkills([$skill], []) === [] || $this->instructionDigest($skill) !== $versionDigest) {
+            return null;
+        }
+
+        return [
+            'section' => $this->renderSection($skill),
+            'pin'     => new SkillPin((int)$skill->getUid(), $skill->getSource(), $versionDigest),
+        ];
+    }
+
+    /**
+     * Append one loaded instruction section to the text of a system message:
+     * under the existing approved-skills heading when the text carries it,
+     * otherwise with the heading and preamble composition writes.
+     */
+    public static function appendInstructionSection(string $systemText, string $section): string
+    {
+        if (str_contains($systemText, self::INSTRUCTION_HEADING . "\n" . self::INSTRUCTION_PREAMBLE)) {
+            return rtrim($systemText) . "\n\n" . rtrim($section);
+        }
+
+        return SkillInjectionService::join(
+            $systemText,
+            self::INSTRUCTION_HEADING . "\n" . self::INSTRUCTION_PREAMBLE . "\n\n" . rtrim($section),
+        );
+    }
+
+    /**
+     * The verified digest of a version that composes as an instruction, or
+     * null: a legacy row, an integrity failure, a process skill or no
+     * approval.
+     */
+    private function instructionDigest(Skill $skill): ?string
+    {
+        $digest = SkillVersionDigest::verified($skill, !$this->isBackendAuthored($skill));
+        if ($digest === null || $digest === '' || $skill->isProcess()) {
+            return null;
+        }
+
+        return $this->instructionPolicy?->isInstruction($skill, $digest) === true ? $digest : null;
     }
 
     /**

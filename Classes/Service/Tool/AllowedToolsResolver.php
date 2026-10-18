@@ -76,7 +76,9 @@ final readonly class AllowedToolsResolver
      * {@see self::applyGroupGateTo()}.
      *
      * An attached or forced process skill contributes nothing — no tools and
-     * no restriction — unless the run invokes it (ADR-214 items 5 and 6).
+     * no restriction — unless the run invokes it (ADR-214 items 5 and 6). A
+     * run that invokes one is process-bound: the skill load tool is held to
+     * the list like any tool.
      *
      * @param list<Skill> $runSkills
      * @param list<Skill> $invokedSkills the skills this run invokes; pinned process skills feed this on resume and continuation (ADR-214 item 10)
@@ -85,7 +87,7 @@ final readonly class AllowedToolsResolver
     {
         $taskSkills = $task instanceof Task ? $this->toList($task->getSkills()) : [];
 
-        return new SkillToolAllowList($this->declaredUnion($config, [...$taskSkills, ...$runSkills], $invokedSkills));
+        return new SkillToolAllowList($this->declaredUnion($config, [...$taskSkills, ...$runSkills], $invokedSkills), $invokedSkills !== []);
     }
 
     /**
@@ -115,7 +117,12 @@ final readonly class AllowedToolsResolver
         $declared = [];
         // Every admitted record, not only the one a (source, identifier) twin
         // leaves in effect: a twin cannot drop a restriction.
-        $admitted = $this->composer->admittedSkills([...$invokedSkills, ...$this->toList($config->getSkills())], $additionalSkills);
+        // Both load modes (ADR-214 item 5): attachment grants tools, whether
+        // the body is composed at run start or loaded later; a load grants
+        // nothing on top. Invoked skills come first so their objects win the
+        // dedupe and keep their invocation.
+        $attached = $config->getAttachedSkills();
+        $admitted = $this->composer->admittedSkills([...$invokedSkills, ...$attached], $additionalSkills);
         // An invoked skill that is not admitted (disabled, below the trust
         // floor) grants nothing, and the run is not left unrestricted because
         // of that: fail closed.
@@ -127,7 +134,7 @@ final readonly class AllowedToolsResolver
         // without a declaration, and a process skill. Only an administrator's
         // disable drops a skill out; detaching it does too. An invoked skill
         // that is not admitted already restricts above.
-        foreach ([...$this->toList($config->getSkills()), ...$additionalSkills] as $skill) {
+        foreach ([...$attached, ...$additionalSkills] as $skill) {
             if ($skill->isOrphaned() || $skill->isDisabledBySync()) {
                 $any = true;
             }
