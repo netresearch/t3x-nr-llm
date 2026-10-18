@@ -135,9 +135,11 @@ Decision
    that is already running stops before its next provider call or tool call,
    and is settled failed as ``process_ended``; until then it may finish the
    call it is in, and a tool that ran keeps its whole audit record, its
-   write step included. The check runs after the lease guard, so a segment
-   that lost its run writes nothing, and it fails closed: a run row or
-   lineage it cannot read stops the turn. A turn that sends the
+   write step included. A segment that lost its run writes nothing: at a
+   step boundary the check runs after the lease guard, and before a tool
+   call the check runs before the write fence and the stop is settled under
+   the owner guard. The check fails closed: a run row or lineage it cannot
+   read stops the turn. A turn that sends the
    invocation again after the end, or was queued with it before, starts the
    process anew as its own origin, through every start check. A
    release that fails leaves the named run holding, and a retry completes

@@ -50,8 +50,10 @@ use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
+use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
+use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -475,7 +477,7 @@ final class AgentRunExecutorProcessTest extends AbstractFunctionalTestCase
             function (ToolExecutionContext $context, RunTrace $trace) use ($handle, $pin): ToolLoopResult {
                 $trace->beforeToolExecution('update_record');
                 self::assertTrue($this->persister->recordLineage($handle, (new RunLineage(30, $pin, originRunUuid: $handle->uuid))->withReleasedProcess()));
-                $trace->recordToolResult(1, 0.0, 'update_record', [], ToolResult::text('saved')->withWriteTarget(new RecordReference('pages', 1), WriteKind::UPDATED));
+                $trace->recordToolResult(1, 0.0, 'update_record', [], ToolResult::text('saved')->withHighlightTarget(new RecordReference('pages', 1))->withWriteTarget(new RecordReference('pages', 1), WriteKind::UPDATED));
                 $this->rounds = 1;
                 $trace->recordRequest(2, [], []);
                 $this->rounds = 2;
@@ -491,7 +493,57 @@ final class AgentRunExecutorProcessTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(AgentRun::class, $run);
         $kinds = array_map(static fn(AgentRunEvent $event): string => $event->kind, $this->persister->findEvents($run->uid));
         self::assertContains(RunStep::KIND_TOOL, $kinds);
+        self::assertContains(RunStep::KIND_HIGHLIGHT, $kinds, 'the highlight step is kept too');
         self::assertContains(RunStep::KIND_WRITE, $kinds, 'the write keeps its audit step');
+    }
+
+    /**
+     * A write refused because its process was ended leaves no write fence on
+     * the run: the check runs before the fence is set. While the process
+     * holds, the same call is fenced.
+     */
+    #[Test]
+    public function aWriteRefusedAfterTheEndLeavesNoFence(): void
+    {
+        $pin     = new SkillPin(5, self::SOURCE, str_repeat('a', 64));
+        $effects = new ToolEffectResolver(new ToolRegistry([]));
+
+        foreach (['process ended' => true, 'process holds' => false] as $case => $end) {
+            $handle = $this->persister->begin(null, 2, 'worker:a', time() + 600);
+            self::assertInstanceOf(AgentRunHandle::class, $handle);
+            self::assertTrue($this->persister->recordLineage($handle, new RunLineage(30, $pin, originRunUuid: $handle->uuid)));
+
+            $fence  = 'unset';
+            $result = $this->executor(true, $effects)->executeResume(
+                $handle,
+                null,
+                AiActorContext::backendUser(2),
+                function (ToolExecutionContext $context, RunTrace $trace) use ($handle, $pin, $end, &$fence): ToolLoopResult {
+                    if ($end) {
+                        self::assertTrue($this->persister->recordLineage($handle, (new RunLineage(30, $pin, originRunUuid: $handle->uuid))->withReleasedProcess()));
+                    }
+
+                    try {
+                        $trace->beforeToolExecution('update_record');
+                    } finally {
+                        $value = $this->pool()->getConnectionForTable('tx_nrllm_agentrun')
+                            ->select(['pending_effect'], 'tx_nrllm_agentrun', ['uuid' => $handle->uuid])->fetchOne();
+                        $fence = is_string($value) ? $value : 'unreadable';
+                    }
+
+                    return new ToolLoopResult('done', [], 1, false, UsageStatistics::fromTokens(1, 1));
+                },
+                'worker:a',
+            );
+
+            if ($end) {
+                self::assertSame('', $fence, $case);
+                self::assertInstanceOf(ProcessInvocationRefusedException::class, $result->error, $case);
+                self::assertSame(ProcessInvocationRefusal::PROCESS_ENDED, $result->error->reason, $case);
+            } else {
+                self::assertNotSame('', $fence, $case . ': the write is fenced');
+            }
+        }
     }
 
     /**
@@ -611,7 +663,7 @@ final class AgentRunExecutorProcessTest extends AbstractFunctionalTestCase
         return $configuration;
     }
 
-    private function executor(bool $withPreparer): AgentRunExecutor
+    private function executor(bool $withPreparer, ?ToolEffectResolver $effects = null): AgentRunExecutor
     {
         $loop = self::createStub(ToolLoopServiceInterface::class);
         $loop->method('runLoop')->willReturnCallback(function (mixed ...$arguments): ToolLoopResult {
@@ -650,6 +702,6 @@ final class AgentRunExecutorProcessTest extends AbstractFunctionalTestCase
             );
         }
 
-        return new AgentRunExecutor($loop, $this->persister, new NullLogger(), $resolver, processPreparer: $preparer);
+        return new AgentRunExecutor($loop, $this->persister, new NullLogger(), $resolver, $effects, $preparer);
     }
 }
