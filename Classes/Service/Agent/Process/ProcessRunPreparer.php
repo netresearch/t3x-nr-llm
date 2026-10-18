@@ -78,7 +78,7 @@ final readonly class ProcessRunPreparer
 {
     /**
      * How many refused turns in a row a continuation follows back before it
-     * refuses the chain as unreadable.
+     * lets the process go with a refused_too_often notice.
      */
     private const MAX_CARRIED = 32;
 
@@ -231,8 +231,16 @@ final readonly class ProcessRunPreparer
                 break;
             }
 
+            // A refused run that is not finished — one requeued after a store
+            // error — still runs the process itself (ADR-214 item 9).
+            if ($predecessor->statusEnum()?->isTerminal() !== true) {
+                throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::PREDECESSOR_NOT_FINISHED);
+            }
+
+            // A conversation refused this many turns in a row lets the process
+            // go with a notice rather than refusing every later turn.
             if ($hops >= self::MAX_CARRIED) {
-                throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::LINEAGE_UNREADABLE);
+                return [null, [new DroppedSource('process', 0, DroppedSourceReason::REFUSED_TOO_OFTEN)], false, ''];
             }
 
             $predecessor = $this->continuable($own->carriedFromRunUuid, $actor);

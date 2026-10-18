@@ -110,11 +110,16 @@ Decision
    records a lineage without a pin that names its predecessor. A
    continuation of a refused run follows these names back to the last run
    that ran and applies its checks there, so a turn sent while the process
-   waits is refused again until that run is finished. A store error that is
+   waits is refused again until that run is finished. Every run passed on
+   the way must be finished too: a refused run that a store error requeued
+   still runs the process, and a turn that names it is refused as
+   ``predecessor_not_finished`` until it ends. A store error that is
    retried keeps the process the same way. Only a withdrawn pin (item 6), an
    explicit end (item 7) and a predecessor that is gone let the process go;
    a predecessor that held no process leaves the refused run without a
-   lineage.
+   lineage. A conversation refused more than 32 turns in a row lets the
+   process go with a ``refused_too_often`` notice (uid 0) instead of
+   refusing every later turn.
 
 5. **The runtime sets the pin.** The executor puts the prepared pin on the
    run's :php:`RunAugmentation` and replaces any pin a caller put there. A

@@ -68,4 +68,11 @@ enum DroppedSourceReason: string
      * so the notice does not tell whether that run exists.
      */
     case PREDECESSOR_GONE = 'predecessor_gone';
+
+    /**
+     * The continuation follows back more refused turns in a row than the
+     * preparer reads (ADR-228): the process is let go, with uid 0, so the
+     * conversation goes on instead of being refused on every later turn.
+     */
+    case REFUSED_TOO_OFTEN = 'refused_too_often';
 }

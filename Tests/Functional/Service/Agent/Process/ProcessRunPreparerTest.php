@@ -768,6 +768,53 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A refused run that is not finished - requeued after a store error -
+     * still runs the process: a turn that names it is refused until that run
+     * ends, and carries the process on once it has.
+     */
+    #[Test]
+    public function aTurnAfterARefusedRunThatIsNotFinishedWaitsForIt(): void
+    {
+        $configuration = $this->configuration($this->processSkill());
+        $predecessor   = $this->finishedProcessRun($configuration);
+        $configuration->setBeGroups($this->beGroups(8));
+        $refused = $this->refusedRun($this->request($configuration, null, predecessor: $predecessor), ProcessInvocationRefusal::CONFIGURATION_NOT_PERMITTED, settle: false);
+        $configuration->setBeGroups($this->beGroups(7));
+
+        $this->assertRefused(ProcessInvocationRefusal::PREDECESSOR_NOT_FINISHED, $this->request($configuration, null, predecessor: $refused));
+
+        $run = $this->persister->findRun($refused);
+        self::assertInstanceOf(AgentRun::class, $run);
+        $handle = $this->persister->resumeHandle($run);
+        self::assertInstanceOf(AgentRunHandle::class, $handle);
+        self::assertTrue($this->persister->settleCancelled($handle));
+        self::assertSame(self::PROCESS, $this->prepare($this->request($configuration, null, predecessor: $refused))->pin?->skillUid);
+    }
+
+    /**
+     * A conversation refused more turns in a row than the preparer follows
+     * back lets the process go with a notice instead of refusing every later
+     * turn; at the bound it still holds the process.
+     */
+    #[Test]
+    public function aConversationRefusedTooOftenLetsTheProcessGoWithANotice(): void
+    {
+        $configuration = $this->configuration($this->processSkill());
+        $tip           = $this->finishedProcessRun($configuration);
+        for ($i = 0; $i < 32; ++$i) {
+            $tip = $this->markerRun($tip);
+        }
+
+        self::assertSame(self::PROCESS, $this->prepare($this->request($configuration, null, predecessor: $tip))->pin?->skillUid);
+
+        $prepared = $this->prepare($this->request($configuration, null, predecessor: $this->markerRun($tip)));
+        self::assertNull($prepared->pin);
+        self::assertCount(1, $prepared->dropped);
+        self::assertSame(DroppedSourceReason::REFUSED_TOO_OFTEN, $prepared->dropped[0]->reason);
+        self::assertSame(0, $prepared->dropped[0]->uid);
+    }
+
+    /**
      * A refused continuation whose predecessor was purged since hands the
      * next turn the same notice as a gone predecessor: the turn goes on
      * without the process instead of being refused.
@@ -858,6 +905,19 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
     // --- helpers -----------------------------------------------------------
 
     /**
+     * A refused turn that could not read the process: a finished run whose
+     * lineage only names the run it continued.
+     */
+    private function markerRun(string $predecessor): string
+    {
+        $handle = $this->begin();
+        self::assertTrue($this->persister->recordLineage($handle, new RunLineage(self::CONFIGURATION, carriedFromRunUuid: $predecessor)));
+        self::assertTrue($this->persister->settleCancelled($handle));
+
+        return $handle->uuid;
+    }
+
+    /**
      * The answer to a gone predecessor: no process, one notice.
      */
     private function assertGone(PreparedProcess $prepared): void
@@ -882,9 +942,10 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * A run whose preparation is refused for `$reason`, settled cancelled.
+     * A run whose preparation is refused for `$reason`, settled cancelled
+     * unless `$settle` is false (a run requeued after a store error).
      */
-    private function refusedRun(AgentRunRequest $request, ProcessInvocationRefusal $reason): string
+    private function refusedRun(AgentRunRequest $request, ProcessInvocationRefusal $reason, bool $settle = true): string
     {
         $handle = $this->begin();
         try {
@@ -894,7 +955,9 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
             self::assertSame($reason, $exception->reason);
         }
 
-        self::assertTrue($this->persister->settleCancelled($handle));
+        if ($settle) {
+            self::assertTrue($this->persister->settleCancelled($handle));
+        }
 
         return $handle->uuid;
     }
