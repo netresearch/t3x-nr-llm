@@ -820,6 +820,15 @@ system message only when both hold:
   carry ``HIDE_FOR_NON_ADMINS``, which the DataHandler enforces for every
   non-administrator whatever a group grants.
 
+A forced snippet (playground, queued runs) reaches a caller's system message
+under the same two conditions, and joins that message rather than one of its
+own. Unlike a skill section, which carries a pin that a resume checks
+(:ref:`item 6 <adr-214-d6>`), a snippet block already in a suspended
+transcript is replayed as composed, as snippets always were (ADR-166,
+ADR-175): an unmark or an edit takes it out of every run composed afterwards,
+not out of a run waiting for a human. Marks and unmarks are logged with the
+acting backend user.
+
 A mark on the record alone was rejected: the ``snippet`` and ``name`` fields
 are not excluded, so a non-administrator could keep a marked record and
 replace its text or its label. A fixed label on the caller-system path was

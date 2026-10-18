@@ -20,6 +20,8 @@ use Netresearch\NrLlm\Service\Prompt\SnippetCallerMarkService;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\AbstractLogger;
+use Stringable;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
 /**
@@ -179,6 +181,36 @@ final class CallerSystemSnippetTest extends TestCase
 
         self::assertSame(['audience', 'style'], $review['tags']);
         self::assertSame((new SnippetCallerMark())->digestOf($snippet), $review['digest']);
+    }
+
+    /**
+     * A mark and an unmark are logged with the snippet and the digest.
+     */
+    #[Test]
+    public function markAndUnmarkAreLogged(): void
+    {
+        $logger = new class extends AbstractLogger {
+            /** @var list<array{message: string, context: array<mixed>}> */
+            public array $records = [];
+
+            public function log($level, string|Stringable $message, array $context = []): void
+            {
+                $this->records[] = ['message' => (string)$message, 'context' => $context];
+            }
+        };
+        $snippet = $this->snippet();
+        $snippet->_setProperty('uid', 5);
+
+        $mark    = new SnippetCallerMark();
+        $service = new SnippetCallerMarkService(self::createStub(ConnectionPool::class), $mark, $logger);
+
+        self::assertSame(SnippetCallerMarkService::MARKED, $service->mark($snippet, $mark->digestOf($snippet)));
+        $service->unmark($snippet);
+
+        self::assertCount(2, $logger->records);
+        self::assertSame(5, $logger->records[0]['context']['snippet'] ?? null);
+        self::assertSame($mark->digestOf($snippet), $logger->records[0]['context']['digest'] ?? null);
+        self::assertSame('', $logger->records[1]['context']['digest'] ?? null);
     }
 
     /**

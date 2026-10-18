@@ -366,30 +366,46 @@ final class ToolLoopServiceSectionAdmissionTest extends TestCase
     }
 
     /**
-     * A forced snippet nobody marked does not reach a caller's own system
-     * message, as an unmarked tag-selected one does not; marked, it does.
+     * A forced snippet reaches a caller's own system message only as a
+     * tag-selected one does: marked, and with the configuration's opt-in.
+     * Unmarked it is not sent; marked it joins the caller's message itself.
      */
     #[Test]
-    public function aForcedUnmarkedSnippetDoesNotReachTheCallersSystemMessage(): void
+    public function aForcedSnippetReachesTheCallersSystemMessageOnlyWhenMarked(): void
     {
         $forced = $this->forcedSnippet();
 
-        $this->service(admits: true, approve: false)->runLoop(
-            [ChatMessage::system('Chat identity.'), ChatMessage::user('go')],
-            $this->configuration(),
-            ToolExecutionContext::none(),
-            null,
-            null,
-            null,
-            null,
-            new RunAugmentation(forcedSnippets: [$forced]),
-        );
+        $this->runForced($forced, optIn: true);
         self::assertStringNotContainsString(self::FORCED_BLOCK, $this->wire());
 
         $forced->setCallerSystemDigest((new SnippetCallerMark())->digestOf($forced));
+        $this->runForced($forced, optIn: true);
+        self::assertSame(1, substr_count($this->wire(), self::FORCED_BLOCK));
+        self::assertInstanceOf(ChatMessage::class, $this->sent[0]);
+        self::assertStringStartsWith('Chat identity.', $this->sent[0]->content);
+        self::assertStringContainsString(self::FORCED_BLOCK, $this->sent[0]->content, "it joins the caller's message, not one of its own");
+    }
+
+    /**
+     * Without the configuration's opt-in even a marked forced snippet does
+     * not reach the caller's system message.
+     */
+    #[Test]
+    public function aMarkedForcedSnippetNeedsTheOptIn(): void
+    {
+        $forced = $this->forcedSnippet();
+        $forced->setCallerSystemDigest((new SnippetCallerMark())->digestOf($forced));
+
+        $this->runForced($forced, optIn: false);
+
+        self::assertStringNotContainsString(self::FORCED_BLOCK, $this->wire());
+    }
+
+    private function runForced(PromptSnippet $forced, bool $optIn): void
+    {
         $this->service(admits: true, approve: false)->runLoop(
             [ChatMessage::system('Chat identity.'), ChatMessage::user('go')],
-            $this->configuration(),
+            $this->configuration(optIn: $optIn),
             ToolExecutionContext::none(),
             null,
             null,
@@ -397,7 +413,6 @@ final class ToolLoopServiceSectionAdmissionTest extends TestCase
             null,
             new RunAugmentation(forcedSnippets: [$forced]),
         );
-        self::assertSame(1, substr_count($this->wire(), self::FORCED_BLOCK));
     }
 
     /**

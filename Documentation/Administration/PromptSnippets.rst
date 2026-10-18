@@ -174,8 +174,15 @@ carries the snippets as before.
 A run started with forced snippets (the playground, a
 queued run) follows the same rule: when the caller
 sent its own system message, only marked snippets
-reach it, each once — forced snippets included — and
-the configuration's prompt is not added.
+reach it, each once — forced snippets included, which
+also need the configuration's opt-in — and the
+configuration's prompt is not added.
+
+To take a snippet out of the caller's system message,
+unmark it. Hiding it is not enough: an editor who may
+edit snippets can show it again, and the mark still
+matches. Marks and unmarks are logged with the
+administrator who made them.
 
 Unmarking or editing a snippet takes it out of every
 run composed afterwards; a run that waits for a

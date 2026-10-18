@@ -11,6 +11,9 @@ namespace Netresearch\NrLlm\Service\Prompt;
 
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Service\Skill\SkillInvisibleCharacters;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
@@ -25,6 +28,9 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  *
  * Written through a plain update: the column is excluded and not part of any
  * form, so FormEngine cannot write it, and this service is the only writer.
+ * Every mark and unmark is logged with the snippet, the digest and the acting
+ * backend user, so who let a block into the caller's system channel can be
+ * read back.
  *
  * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
@@ -43,6 +49,7 @@ final readonly class SnippetCallerMarkService
     public function __construct(
         private ConnectionPool $connectionPool,
         private SnippetCallerMark $mark = new SnippetCallerMark(),
+        private LoggerInterface $logger = new NullLogger(),
     ) {}
 
     /**
@@ -110,5 +117,15 @@ final readonly class SnippetCallerMarkService
             ['caller_system_digest' => Connection::PARAM_STR],
         );
         $snippet->setCallerSystemDigest($digest);
+
+        $user = $GLOBALS['BE_USER'] ?? null;
+        $this->logger->notice(
+            $digest === '' ? 'Prompt snippet unmarked for caller system messages' : 'Prompt snippet marked for caller system messages',
+            [
+                'snippet' => $uid,
+                'digest'  => $digest,
+                'beUser'  => $user instanceof BackendUserAuthentication && is_array($user->user) && is_numeric($user->user['uid'] ?? null) ? (int)$user->user['uid'] : 0,
+            ],
+        );
     }
 }

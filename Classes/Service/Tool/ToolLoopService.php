@@ -1702,6 +1702,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // them, and before the instruction sections, which follow them.
         $callerSystem = $this->headSystemText($messages) !== null;
         $messages     = $this->snippetResolver?->appendToCallerSystemMessage($messages, $configuration) ?? $messages;
+        if ($callerSystem && $augmentation instanceof RunAugmentation) {
+            $messages = $this->appendForcedToCallerSystem($messages, $augmentation->forcedSnippets, $configuration);
+        }
 
         $configSkills = SkillInjectionService::toList($configuration->getSkills());
         $forcedSkills = $augmentation instanceof RunAugmentation ? $augmentation->forcedSkills : [];
@@ -1752,19 +1755,13 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // snippets appended above reach that system channel, each once.
         $system     = $callerSystem ? '' : $this->effectiveSystemPrompt($configuration, $options);
         $leadSystem = SkillInjectionService::join($system, $instructions);
-        $headSystem = $this->headSystemText($messages) ?? '';
         if ($leadSystem !== '') {
             $lead[] = ChatMessage::system($leadSystem);
         }
 
-        foreach ($augmentation->forcedSnippets as $snippet) {
-            // A forced snippet can come from an editor (playground, queued
-            // runs). Into a caller's own system message it goes only as a
-            // tag-selected one would: marked by an administrator.
-            if ($callerSystem && !(new SnippetCallerMark())->isMarked($snippet)) {
-                continue;
-            }
-
+        // With a caller system message the forced snippets were placed above,
+        // under the caller-system rule; none goes into a message of its own.
+        foreach ($callerSystem ? [] : $augmentation->forcedSnippets as $snippet) {
             $text = $this->snippetComposer?->composeSections([$snippet->getName() => $snippet]) ?? '';
             if ($text === '') {
                 continue;
@@ -1775,9 +1772,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             // therefore byte-identically. Emitting it again would put the same
             // instruction in the prompt twice — the resolver's identifier dedup
             // never sees the forced list, so the containment check is what
-            // spans both sources. The same holds for a marked snippet already
-            // appended to the caller's system message.
-            if (($system !== '' && str_contains($system, $text)) || ($headSystem !== '' && str_contains($headSystem, $text))) {
+            // spans both sources.
+            if ($system !== '' && str_contains($system, $text)) {
                 continue;
             }
 
@@ -1789,6 +1785,57 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         }
 
         return [$messages, $augmentation->dryRun, $pins, $instructionIds];
+    }
+
+    /**
+     * A caller's own system message receives forced snippets under the same
+     * rule as tag-selected ones (ADR-214 item 8): the configuration opts in
+     * and an administrator marked the snippet. A forced snippet can come
+     * from an editor (playground, queued runs). Each joins the caller's
+     * message, before the instruction sections, once: one it already holds
+     * is not appended again. A part-list message is not extended.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<PromptSnippet>                    $forced
+     *
+     * @return list<ChatMessage|array<string, mixed>>
+     */
+    private function appendForcedToCallerSystem(array $messages, array $forced, LlmConfiguration $configuration): array
+    {
+        if (!$configuration->isSnippetsInCallerSystemMessage()) {
+            return $messages;
+        }
+
+        $mark = new SnippetCallerMark();
+        foreach ($forced as $snippet) {
+            if (!$mark->isMarked($snippet)) {
+                continue;
+            }
+
+            $text = $mark->blockOf($snippet);
+            $head = $this->headSystemText($messages);
+            if ($text === '' || $head === null || str_contains($head, $text)) {
+                continue;
+            }
+
+            foreach ($messages as $index => $message) {
+                $role = $message instanceof ChatMessage ? $message->role : ($message['role'] ?? null);
+                if ($role !== 'system') {
+                    continue;
+                }
+
+                $content = $message instanceof ChatMessage ? $message->content : ($message['content'] ?? null);
+                if (!is_string($content)) {
+                    return $messages;
+                }
+
+                $joined           = $content === '' ? $text : $content . "\n\n" . $text;
+                $messages[$index] = $message instanceof ChatMessage ? ChatMessage::system($joined) : ['content' => $joined] + $message;
+                break;
+            }
+        }
+
+        return $messages;
     }
 
     /**
