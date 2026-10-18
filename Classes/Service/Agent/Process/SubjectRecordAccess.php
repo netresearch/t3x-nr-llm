@@ -67,7 +67,10 @@ final readonly class SubjectRecordAccess
             return true;
         }
 
-        return $user->isInWebMount($page) !== null && $user->doesUserHaveAccess($page, Permission::PAGE_SHOW);
+        // calcPerms() behind doesUserHaveAccess() answers "nothing" outside
+        // the user's web mounts (TYPO3 13.4 and 14.3), so the page-show bit
+        // covers the mount as well.
+        return $user->doesUserHaveAccess($page, Permission::PAGE_SHOW);
     }
 
     /**

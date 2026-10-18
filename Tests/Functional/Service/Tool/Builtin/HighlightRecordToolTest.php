@@ -85,7 +85,9 @@ final class HighlightRecordToolTest extends AbstractFunctionalTestCase
             'a deleted element'               => ['tt_content', 14, $this->page(1)],
             'an element that does not exist'  => ['tt_content', 99, $this->page(1)],
             'another table'                   => ['sys_file', 10, $this->page(1)],
-            'an element of a non-page subject' => ['tt_content', 10, new SubjectRecord(new RecordReference('tt_content', 13))],
+            // Element 10 sits on pid 1: a non-page subject with uid 1 must
+            // not reach it through the pid match.
+            'an element of a non-page subject' => ['tt_content', 10, new SubjectRecord(new RecordReference('tt_content', 1))],
             'a malformed table'               => ['pages; drop', 1, $this->page(1)],
         ] as $case => [$table, $uid, $subject]) {
             $result = $this->call($table, $uid, $subject);
