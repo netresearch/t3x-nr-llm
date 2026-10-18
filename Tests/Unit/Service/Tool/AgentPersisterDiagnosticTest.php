@@ -309,13 +309,16 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
         self::assertNull($caught);
         self::assertFalse($result);
         self::assertSame(
-            $mode === 'absent' ? [] : [
-                [
-                    'level' => 'notice',
-                    'message' => $input ? 'AgentRun was no longer running when its input suspension arrived; it was discarded' : 'AgentRun was no longer running when its suspension arrived; the suspension was discarded',
-                    'context' => ['run' => 'stored-run'],
+            match ($mode) {
+                'absent' => [],
+                default => [
+                    [
+                        'level' => 'notice',
+                        'message' => $input ? 'AgentRun was no longer running when its input suspension arrived; it was discarded' : 'AgentRun was no longer running when its suspension arrived; the suspension was discarded',
+                        'context' => ['run' => 'stored-run'],
+                    ],
                 ],
-            ],
+            },
             $attempts,
             'A refused suspension must retain only its original notice, even when logging throws.',
         );
@@ -546,5 +549,28 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
                 yield $operation . '/' . $mode => [$operation, $status, $reason, $mode];
             }
         }
+    }
+
+    #[Test]
+    public function successfulInputAuditAdvancesSequenceWithoutDiagnostic(): void
+    {
+        $repository = self::createMock(AgentRunRepositoryInterface::class);
+        $repository
+            ->expects(self::once())
+            ->method('recordEvent')
+            ->with(7, 4, 'input', 0, 0.0, '{"submittedBy":9}');
+        $logger = new RecordingLogger();
+        $subject = new AgentRunPersister(
+            $repository,
+            FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL),
+            $logger,
+        );
+        $handle = new AgentRunHandle(7, 'stored-run');
+        $handle->sequence = 4;
+
+        $subject->recordInput($handle, 9);
+
+        self::assertSame(5, $handle->sequence);
+        self::assertSame([], $logger->records);
     }
 }
