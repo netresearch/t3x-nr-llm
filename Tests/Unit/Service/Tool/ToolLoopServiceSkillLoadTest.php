@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
+use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationTarget;
@@ -477,6 +478,33 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
         $last = count($this->sends) - 1;
         self::assertStringNotContainsString(self::BODY, $this->systemText($last));
         self::assertStringContainsString('invocation denied (rule: no-loads', $this->toolResult($last, 'c1'));
+    }
+
+    /**
+     * The loop honours a process-bound list it is handed (the queued-run
+     * path): without the load tool in the declaration it is not offered,
+     * with it it is; an unbound list keeps the exemption.
+     */
+    #[Test]
+    public function aProcessBoundRunListDecidesWhetherTheLoadToolIsOffered(): void
+    {
+        $this->runBound(new SkillToolAllowList(['noop'], true));
+        self::assertNotContains(LoadSkillTool::NAME, $this->offeredNames(0));
+        self::assertContains('noop', $this->offeredNames(0));
+
+        $this->runBound(new SkillToolAllowList(['noop', LoadSkillTool::NAME], true));
+        self::assertContains(LoadSkillTool::NAME, $this->offeredNames(0));
+
+        $this->runBound(new SkillToolAllowList(['noop']));
+        self::assertContains(LoadSkillTool::NAME, $this->offeredNames(0));
+    }
+
+    private function runBound(SkillToolAllowList $list): void
+    {
+        $turns = [];
+        [$service, $configuration] = $this->service($turns);
+
+        $service->runLoop([ChatMessage::user('write the release note')], $configuration, ToolExecutionContext::none(), null, null, 5, skillAllowList: $list);
     }
 
     /**

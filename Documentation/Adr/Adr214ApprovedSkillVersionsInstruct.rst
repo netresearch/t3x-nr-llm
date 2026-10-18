@@ -561,6 +561,8 @@ skill text and has no effect outside the run's system message. The exemption
 does not hold in a run that invokes a process skill: there the load tool is
 offered only when the process skill's vouched declaration lists it, so an
 invoked process skill without a vouched declaration leaves the run no tool.
+The binding takes effect once the process wiring of items 6 and 10 hands the
+invoked skills to the allow-list resolution.
 
 .. _adr-214-d6:
 

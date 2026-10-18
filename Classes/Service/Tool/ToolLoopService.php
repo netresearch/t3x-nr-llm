@@ -1147,6 +1147,13 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * configuration stores no model, and measuring it against the
      * unknown-model fallback would admit what the send's own fit, against
      * the resolved model, then cannot keep. Null when none resolves.
+     *
+     * The send resolves the model a second time inside
+     * {@see LlmServiceManagerInterface::chatWithToolsForConfiguration()},
+     * which takes no resolution (#922 hands one over on the conversation
+     * path). Handing it over here would change that @api signature; the two
+     * evaluations read the same stored criteria and models and differ only
+     * when a model record changes between them.
      */
     private function windowModel(LlmConfiguration $configuration): ?Model
     {
