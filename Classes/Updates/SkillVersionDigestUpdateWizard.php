@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Updates;
 
 use Netresearch\NrLlm\Domain\Enum\SkillAuditEvent;
+use Netresearch\NrLlm\Domain\Enum\SkillSourceType;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Service\Skill\Exception\SkillParseException;
 use Netresearch\NrLlm\Service\Skill\SkillAuditService;
@@ -101,11 +102,12 @@ final readonly class SkillVersionDigestUpdateWizard implements UpgradeWizardInte
             }
 
             $skill->setEnabled(false);
+            $skill->setDisabledBy(Skill::DISABLED_BY_SYNC);
             // Zero affected rows means either a sync digested the row
             // meanwhile (skip: it is no longer legacy) or the row was already
             // disabled (MySQL counts an unchanged row as unaffected; it still
             // gets its audit row).
-            if ($this->update($skill, ['enabled' => 0]) === 0 && !$this->isStillLegacy($skill)) {
+            if ($this->update($skill, ['enabled' => 0, 'disabled_by' => Skill::DISABLED_BY_SYNC]) === 0 && !$this->isStillLegacy($skill)) {
                 continue;
             }
 
@@ -121,19 +123,7 @@ final readonly class SkillVersionDigestUpdateWizard implements UpgradeWizardInte
 
     public function updateNecessary(): bool
     {
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $queryBuilder->getRestrictions()->removeAll();
-        $count = $queryBuilder
-            ->count('uid')
-            ->from(self::TABLE)
-            ->where(
-                $queryBuilder->expr()->eq('version_digest', $queryBuilder->createNamedParameter('')),
-                $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
-            )
-            ->executeQuery()
-            ->fetchOne();
-
-        return is_numeric($count) && (int)$count > 0;
+        return $this->legacyRows() !== [];
     }
 
     /**
@@ -227,7 +217,7 @@ final readonly class SkillVersionDigestUpdateWizard implements UpgradeWizardInte
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $queryBuilder->getRestrictions()->removeAll();
 
-        return $queryBuilder
+        $rows = $queryBuilder
             ->select('*')
             ->from(self::TABLE)
             ->where(
@@ -237,6 +227,32 @@ final readonly class SkillVersionDigestUpdateWizard implements UpgradeWizardInte
             ->orderBy('uid')
             ->executeQuery()
             ->fetchAllAssociative();
+
+        // A skill of a backend source (ADR-214 item 3) never stores a digest:
+        // it is computed from the current fields. It is not a legacy row.
+        $backendSources = array_fill_keys($this->backendSourceUids(), true);
+
+        return array_values(array_filter(
+            $rows,
+            static fn(array $row): bool => !isset($backendSources[self::toInt($row['source'] ?? 0)]),
+        ));
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function backendSourceUids(): array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tx_nrllm_skill_source');
+        $queryBuilder->getRestrictions()->removeAll();
+        $uids = $queryBuilder
+            ->select('uid')
+            ->from('tx_nrllm_skill_source')
+            ->where($queryBuilder->expr()->eq('type', $queryBuilder->createNamedParameter(SkillSourceType::BACKEND->value)))
+            ->executeQuery()
+            ->fetchFirstColumn();
+
+        return array_values(array_map(self::toInt(...), $uids));
     }
 
     /**

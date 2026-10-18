@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Controller\Backend;
 
 use Netresearch\NrLlm\Domain\Enum\SkillAuditEvent;
+use Netresearch\NrLlm\Domain\Enum\SkillSourceType;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillSourceRepository;
@@ -86,6 +87,10 @@ final class SkillSourceController extends ActionController
         // (mirrors the docheader "Add source" button's buildNewUrl pattern).
         /** @var array<int, string> $sourceEditUrls */
         $sourceEditUrls = [];
+        /** @var array<int, string> $newSkillUrls */
+        $newSkillUrls = [];
+        /** @var array<int, true> $backendSourceUids */
+        $backendSourceUids = [];
         foreach ($sources as $source) {
             // Surface an interrupted sync (a stale SYNCING lock) as a retryable ERROR here, so the
             // list never shows a source wedged on "Syncing" after a crash; a live sync is untouched.
@@ -96,12 +101,32 @@ final class SkillSourceController extends ActionController
             }
 
             $sourceEditUrls[$uid] = $this->formEngineUrlBuilder->buildEditUrl('tx_nrllm_skill_source', $uid, 'nrllm_skills');
+            // A backend source (ADR-214 item 3) holds skills written here:
+            // it gets "new skill" instead of sync and token.
+            if ($source->getTypeEnum() === SkillSourceType::BACKEND) {
+                $newSkillUrls[$uid] = $this->formEngineUrlBuilder->buildNewUrlWithDefaults('tx_nrllm_skill', ['source' => $uid], 'nrllm_skills');
+                $backendSourceUids[$uid] = true;
+            }
+        }
+
+        $skills = $this->skillRepository->findAll();
+        // Backend-authored skills are written through FormEngine and the
+        // DataHandler, which keeps sys_history and the exclude boundary.
+        /** @var array<int, string> $skillEditUrls */
+        $skillEditUrls = [];
+        foreach ($skills as $skill) {
+            $skillUid = $skill->getUid();
+            if ($skillUid !== null && isset($backendSourceUids[$skill->getSource()])) {
+                $skillEditUrls[$skillUid] = $this->formEngineUrlBuilder->buildEditUrl('tx_nrllm_skill', $skillUid, 'nrllm_skills');
+            }
         }
 
         $moduleTemplate->assignMultiple([
             'sources' => $sources,
             'sourceEditUrls' => $sourceEditUrls,
-            'skills' => $this->skillRepository->findAll(),
+            'newSkillUrls' => $newSkillUrls,
+            'skills' => $skills,
+            'skillEditUrls' => $skillEditUrls,
         ]);
         return $moduleTemplate->renderResponse('Backend/Skill/List');
     }
@@ -145,6 +170,10 @@ final class SkillSourceController extends ActionController
 
         assert($skill instanceof Skill);
         $skill->setEnabled($this->boolFromBody($body, 'enabled'));
+        // An administrator's decision: a disable drops the skill out of the
+        // runs it is attached to, a re-enable clears the sync's mark.
+        $skill->setDisabledBy($skill->isEnabled() ? '' : Skill::DISABLED_BY_ADMIN);
+
         $this->skillRepository->update($skill);
         $this->persistenceManager->persistAll();
         // Append-only audit record of the admin's enable/disable (ADR-061).

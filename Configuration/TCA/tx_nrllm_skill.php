@@ -7,9 +7,39 @@
 
 declare(strict_types=1);
 
+$syncedShowitem = '
+    --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:general,
+        source,
+        name,
+        identifier,
+        description,
+        body,
+    --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.metadata,
+        trust_level,
+        data_class,
+        injection_scan,
+        support_status,
+        unsupported_notes,
+        allowed_tools,
+        process,
+        source_sha,
+        body_checksum,
+        version_digest,
+        raw_frontmatter,
+    --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
+        enabled,
+        orphaned,
+        hidden,
+';
+
+$syncedOverrides = [
+    'source' => ['config' => ['readOnly' => true]],
+];
+
 return [
     'ctrl' => [
         'title' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill',
+        'type' => 'source:type',
         'label' => 'name',
         'label_alt' => 'identifier',
         'tstamp' => 'tstamp',
@@ -25,31 +55,47 @@ return [
             'ignorePageTypeRestriction' => true,
         ],
     ],
+    // The form follows the type of the skill's source (ADR-214 item 3). A
+    // synced skill is written by the sync only, so every field the version
+    // digest covers is read-only. A backend-authored skill is written here.
+    // The source is not moved in the form: a synced skill keeps its source,
+    // and a backend skill offers only backend sources. A convenience — the
+    // control is that a record carrying sync-written values stays checked
+    // against them on any source (SkillComposer::isEditedInPlace()).
     'types' => [
-        '0' => [
+        // No source yet (a new record): the source is picked here.
+        '0' => ['showitem' => $syncedShowitem],
+        'single_file' => ['showitem' => $syncedShowitem, 'columnsOverrides' => $syncedOverrides],
+        'repo' => ['showitem' => $syncedShowitem, 'columnsOverrides' => $syncedOverrides],
+        'marketplace' => ['showitem' => $syncedShowitem, 'columnsOverrides' => $syncedOverrides],
+        'backend' => [
             'showitem' => '
                 --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:general,
+                    source,
                     name,
                     identifier,
                     description,
                     body,
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.metadata,
-                    trust_level,
-                    data_class,
-                    injection_scan,
-                    support_status,
-                    unsupported_notes,
                     allowed_tools,
                     process,
-                    source_sha,
-                    body_checksum,
-                    version_digest,
-                    raw_frontmatter,
+                    data_class,
                 --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
                     enabled,
-                    orphaned,
                     hidden,
             ',
+            'columnsOverrides' => [
+                'source' => ['config' => ['foreign_table_where' => "AND {#tx_nrllm_skill_source}.{#type} = 'backend' ORDER BY tx_nrllm_skill_source.title"]],
+                'identifier' => ['config' => ['readOnly' => false, 'required' => true]],
+                'name' => ['config' => ['readOnly' => false]],
+                'description' => ['config' => ['readOnly' => false]],
+                'body' => ['config' => ['readOnly' => false]],
+                'allowed_tools' => [
+                    'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.allowed_tools.backend.description',
+                    'config' => ['readOnly' => false],
+                ],
+                'process' => ['config' => ['readOnly' => false]],
+            ],
         ],
     ],
     'columns' => [
@@ -66,12 +112,20 @@ return [
                 'default' => 0,
             ],
         ],
+        // Excluded (ADR-214 item 3): moving a synced skill onto the backend
+        // source would switch off its stored-value integrity check. The
+        // approval's source binding covers an administrator doing it.
         'source' => [
             'exclude' => true,
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.source',
+            'onChange' => 'reload',
             'config' => [
-                'type' => 'number',
-                'readOnly' => true,
+                'type' => 'select',
+                'renderType' => 'selectSingle',
+                'foreign_table' => 'tx_nrllm_skill_source',
+                'foreign_table_where' => 'ORDER BY tx_nrllm_skill_source.title',
+                'minitems' => 1,
+                'maxitems' => 1,
             ],
         ],
         'identifier' => [
@@ -172,13 +226,15 @@ return [
                 'searchable' => false,
             ],
         ],
-        // Denormalized from the source; sync-managed and read-only here (the
-        // source's classification is the authoritative edit surface).
+        // Denormalized from the source by the sync.
         // A SECOND axis from trust_level (ADR-144): trust says who wrote the
         // skill, this says how sensitive what it carries is. A first-party
         // skill can still hold confidential material. Empty means undeclared
         // and cannot block, so ingested skills keep working untouched.
+        // Excluded: clearing it lifts the egress ceiling for the skill's text,
+        // and no approval covers it (ADR-214 item 3).
         'data_class' => [
+            'exclude' => true,
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.data_class',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.data_class.description',
             'config' => [
@@ -259,9 +315,12 @@ return [
         'orphaned' => [
             'exclude' => true,
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.orphaned',
+            // Written by the sync only; SkillDisabledByHook removes it from
+            // every DataHandler write (ADR-214 item 3).
             'config' => [
                 'type' => 'check',
                 'default' => 0,
+                'readOnly' => true,
             ],
         ],
         'enabled' => [
@@ -270,6 +329,16 @@ return [
             'config' => [
                 'type' => 'check',
                 'default' => 0,
+            ],
+        ],
+        // Written by the sync and by SkillDisabledByHook when the enable flag
+        // changes in the form; never shown or written by FormEngine.
+        'disabled_by' => [
+            'exclude' => true,
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.disabled_by',
+            'displayCond' => 'HIDE_FOR_NON_ADMINS',
+            'config' => [
+                'type' => 'passthrough',
             ],
         ],
     ],
