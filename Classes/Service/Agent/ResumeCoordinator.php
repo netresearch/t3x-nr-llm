@@ -265,6 +265,8 @@ final readonly class ResumeCoordinator
         // The claim carries this segment's identity and lease (ADR-141): the
         // approved calls execute here, so this is the segment the write fence
         // arms on.
+        // Literal lease-identity factory; it only builds a bounded process-identity string.
+        // nosemgrep: php.lang.security.exec-use.exec-use
         $leaseOwner = ExecutionIdentity::resume();
         if (!$this->persister->claimResume(
             $run,
@@ -698,6 +700,8 @@ final readonly class ResumeCoordinator
             throw RunStateUnavailableException::forRun($runUuid);
         }
 
+        // Literal lease-identity factory; it only builds a bounded process-identity string.
+        // nosemgrep: php.lang.security.exec-use.exec-use
         $leaseOwner = ExecutionIdentity::resume();
         if (!$this->persister->claimResumeFromInput(
             $run,
