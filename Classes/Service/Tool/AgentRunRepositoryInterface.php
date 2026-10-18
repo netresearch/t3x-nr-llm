@@ -245,7 +245,8 @@ interface AgentRunRepositoryInterface
 
     /**
      * The run's latest event of one kind, or null when it has none: one
-     * indexed read, for a check that runs at every step (ADR-228).
+     * query returning one row, for a check that runs at every step
+     * (ADR-228). Of two events with the same sequence the later insert wins.
      */
     public function findLatestEvent(int $runUid, string $kind): ?AgentRunEvent;
 

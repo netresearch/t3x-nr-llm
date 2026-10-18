@@ -148,8 +148,10 @@ final readonly class AgentRunExecutor
                     // its lineage without the process, as a refusal at derive
                     // time does, so the next turn goes on without it.
                     if ($prepared->pin instanceof SkillPin && $withdrawn->pin == $prepared->pin) {
-                        if ($handle instanceof AgentRunHandle) {
-                            $this->persister->recordLineage($handle, new RunLineage((int)$request->configuration->getUid(), null, $prepared->subject));
+                        if ($handle instanceof AgentRunHandle && !$this->persister->recordLineage($handle, new RunLineage((int)$request->configuration->getUid(), null, $prepared->subject))) {
+                            // Fails safe: the next turn derives the pin again
+                            // and is refused again.
+                            $this->logger?->notice('The lineage without the withdrawn process could not be stored; the next turn is refused again', ['run' => $handle->uuid]);
                         }
 
                         throw ProcessInvocationRefusedException::forRun($handle->uuid ?? '', ProcessInvocationRefusal::PIN_WITHDRAWN, $withdrawn->reason);
@@ -275,15 +277,18 @@ final readonly class AgentRunExecutor
      * before-tool guard is installed either way and REFUSES a side-effecting
      * tool it cannot fence.
      *
-     * $processProbe answers, at each step boundary, why a turn of a process
-     * may not go on (ADR-228): ending the process from another turn reaches a
-     * turn that is already running at its next step, as a cancel does. It costs
-     * a turn of a process up to three indexed reads per step (its latest
-     * lineage, its origin's row and the origin's latest lineage) and any
-     * other run nothing.
+     * $processProbe answers why a turn of a process may not go on (ADR-228):
+     * ending the process from another turn reaches a turn that is already
+     * running before its next provider call and before its next tool call.
+     * It is asked at every step boundary except the steps a tool result
+     * records (the tool step and its highlight and write steps), so a write
+     * that ran keeps its whole audit record (ADR-182), and before every tool
+     * call. It costs a turn of a process up to three queries per check (its
+     * latest lineage, its origin's row and the origin's latest lineage) and
+     * any other run nothing.
      *
-     * @param (Closure(RunStep): void)|null                        $onStep
-     * @param (Closure(?AgentRun): ?ProcessInvocationRefusal)|null $processProbe
+     * @param (Closure(RunStep): void)|null                                   $onStep
+     * @param (Closure(Closure(): ?AgentRun): ?ProcessInvocationRefusal)|null $processProbe
      */
     private function trace(?AgentRunHandle $handle, ?Closure $onStep, bool $captureRaw, ?string $leaseOwner = null, ?Closure $processProbe = null): RunTrace
     {
@@ -337,14 +342,26 @@ final readonly class AgentRunExecutor
                 // ended (ADR-228). After the lease guard, so a reclaimed
                 // segment stops as lease-lost without writing into the new
                 // owner's stream; after the step is recorded, so the stream
-                // stays complete up to the stop. Unlike the cancellation probe
-                // this one fails closed: a row it cannot read stops the turn.
-                $refusal = $processProbe instanceof Closure ? $processProbe($run) : null;
+                // stays complete up to the stop. Not on the steps of a tool
+                // result: its highlight and write steps follow it, and the
+                // check before the next tool call or provider call stops the
+                // turn instead. Unlike the cancellation probe this one fails
+                // closed: a row it cannot read stops the turn.
+                $toolResultStep = in_array($step->kind, [RunStep::KIND_TOOL, RunStep::KIND_HIGHLIGHT, RunStep::KIND_WRITE], true);
+                $refusal        = $processProbe instanceof Closure && !$toolResultStep ? $processProbe(static fn(): ?AgentRun => $run) : null;
                 if ($refusal instanceof ProcessInvocationRefusal) {
                     throw ProcessInvocationRefusedException::forRun($handle->uuid, $refusal);
                 }
             },
-            onBeforeTool: function (string $toolName) use ($handle, $leaseOwner): void {
+            onBeforeTool: function (string $toolName) use ($handle, $leaseOwner, $processProbe): void {
+                // No tool of a turn runs after its process was ended (ADR-228).
+                if ($handle instanceof AgentRunHandle && $processProbe instanceof Closure) {
+                    $refusal = $processProbe(fn(): ?AgentRun => $this->persister->findRun($handle->uuid));
+                    if ($refusal instanceof ProcessInvocationRefusal) {
+                        throw ProcessInvocationRefusedException::forRun($handle->uuid, $refusal);
+                    }
+                }
+
                 // Read-only tools need no fence — repeating them is always safe.
                 $effect = $this->toolEffectResolver?->effectFor($toolName) ?? ToolEffect::READ_ONLY;
                 if (!$effect->isWrite()) {
@@ -443,14 +460,18 @@ final readonly class AgentRunExecutor
      * segment holds no process, which $holdsProcess says once the start
      * checks or the resume check have run.
      *
-     * @return Closure(?AgentRun): ?ProcessInvocationRefusal
+     * The row is loaded only then.
+     *
+     * @return Closure(Closure(): ?AgentRun): ?ProcessInvocationRefusal
      */
     private function processProbe(bool &$holdsProcess): Closure
     {
-        return function (?AgentRun $run) use (&$holdsProcess): ?ProcessInvocationRefusal {
+        return function (Closure $load) use (&$holdsProcess): ?ProcessInvocationRefusal {
             if (!$holdsProcess) {
                 return null;
             }
+
+            $run = $load();
 
             return $run instanceof AgentRun
                 ? $this->processEndedFor($run)

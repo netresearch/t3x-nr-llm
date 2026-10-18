@@ -679,6 +679,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
                 $queryBuilder->expr()->eq('kind', $queryBuilder->createNamedParameter($kind)),
             )
             ->orderBy('sequence', 'DESC')
+            ->addOrderBy('uid', 'DESC')
             ->setMaxResults(1)
             ->executeQuery()
             ->fetchAssociative();

@@ -14,18 +14,22 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Enum\ProcessInvocationRefusal;
+use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\RunLineage;
+use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SkillInvocation;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SubjectRecord;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException;
 use Netresearch\NrLlm\Service\Agent\AgentRunExecutor;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
@@ -447,6 +451,86 @@ final class AgentRunExecutorProcessTest extends AbstractFunctionalTestCase
                 self::assertInstanceOf(ProcessInvocationRefusedException::class, $result->error, $case);
                 self::assertSame(ProcessInvocationRefusal::PROCESS_ENDED, $result->error->reason, $case);
                 self::assertCount($eventsBefore + 1, $this->persister->findEvents($run->uid), $case . ': the step is recorded before the stop');
+            }
+        }
+    }
+
+    /**
+     * A process ended while a write tool runs does not cut the write's audit
+     * record short (ADR-182): the tool step and its write step are both
+     * stored, and the turn stops before its next provider call.
+     */
+    #[Test]
+    public function aProcessEndedDuringAWriteKeepsTheWriteRecord(): void
+    {
+        $pin    = new SkillPin(5, self::SOURCE, str_repeat('a', 64));
+        $handle = $this->begin();
+        self::assertTrue($this->persister->recordLineage($handle, new RunLineage(30, $pin, originRunUuid: $handle->uuid)));
+
+        $this->rounds = 0;
+        $result       = $this->executor(true)->executeResume(
+            $handle,
+            null,
+            AiActorContext::backendUser(2),
+            function (ToolExecutionContext $context, RunTrace $trace) use ($handle, $pin): ToolLoopResult {
+                $trace->beforeToolExecution('update_record');
+                self::assertTrue($this->persister->recordLineage($handle, (new RunLineage(30, $pin, originRunUuid: $handle->uuid))->withReleasedProcess()));
+                $trace->recordToolResult(1, 0.0, 'update_record', [], ToolResult::text('saved')->withWriteTarget(new RecordReference('pages', 1), WriteKind::UPDATED));
+                $this->rounds = 1;
+                $trace->recordRequest(2, [], []);
+                $this->rounds = 2;
+
+                return new ToolLoopResult('done', [], 2, false, UsageStatistics::fromTokens(1, 1));
+            },
+        );
+
+        self::assertSame(1, $this->rounds, 'stopped before the next provider call');
+        self::assertInstanceOf(ProcessInvocationRefusedException::class, $result->error);
+        self::assertSame(ProcessInvocationRefusal::PROCESS_ENDED, $result->error->reason);
+        $run = $this->persister->findRun($handle->uuid);
+        self::assertInstanceOf(AgentRun::class, $run);
+        $kinds = array_map(static fn(AgentRunEvent $event): string => $event->kind, $this->persister->findEvents($run->uid));
+        self::assertContains(RunStep::KIND_TOOL, $kinds);
+        self::assertContains(RunStep::KIND_WRITE, $kinds, 'the write keeps its audit step');
+    }
+
+    /**
+     * No tool of a turn runs after its process was ended: the check before
+     * each tool call stops it. While the process holds, the tool runs.
+     */
+    #[Test]
+    public function noToolRunsAfterItsProcessWasEnded(): void
+    {
+        $pin = new SkillPin(5, self::SOURCE, str_repeat('a', 64));
+
+        foreach (['process ended' => true, 'process holds' => false] as $case => $end) {
+            $handle = $this->begin();
+            self::assertTrue($this->persister->recordLineage($handle, new RunLineage(30, $pin, originRunUuid: $handle->uuid)));
+
+            $this->rounds = 0;
+            $result       = $this->executor(true)->executeResume(
+                $handle,
+                null,
+                AiActorContext::backendUser(2),
+                function (ToolExecutionContext $context, RunTrace $trace) use ($handle, $pin, $end): ToolLoopResult {
+                    if ($end) {
+                        self::assertTrue($this->persister->recordLineage($handle, (new RunLineage(30, $pin, originRunUuid: $handle->uuid))->withReleasedProcess()));
+                    }
+
+                    $trace->beforeToolExecution('read_page');
+                    $this->rounds = 1;
+
+                    return new ToolLoopResult('done', [], 1, false, UsageStatistics::fromTokens(1, 1));
+                },
+            );
+
+            if ($end) {
+                self::assertSame(0, $this->rounds, $case);
+                self::assertInstanceOf(ProcessInvocationRefusedException::class, $result->error, $case);
+                self::assertSame(ProcessInvocationRefusal::PROCESS_ENDED, $result->error->reason, $case);
+            } else {
+                self::assertSame(1, $this->rounds, $case);
+                self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome, $case);
             }
         }
     }

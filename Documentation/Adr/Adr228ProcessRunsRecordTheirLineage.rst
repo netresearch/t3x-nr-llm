@@ -132,10 +132,12 @@ Decision
    actor may end that run as well; otherwise the named run alone lets go of
    the process. A turn that already waits for a decision when the process is
    ended does not resume: its resume is refused as ``process_ended``. A turn
-   that is already running stops at its next step boundary, where the
-   cancellation probe runs, and is settled failed as ``process_ended``; until
-   then it may finish the step it is in. That probe fails closed: a run row
-   or lineage it cannot read stops the turn. A turn that sends the
+   that is already running stops before its next provider call or tool call,
+   and is settled failed as ``process_ended``; until then it may finish the
+   call it is in, and a tool that ran keeps its whole audit record, its
+   write step included. The check runs after the lease guard, so a segment
+   that lost its run writes nothing, and it fails closed: a run row or
+   lineage it cannot read stops the turn. A turn that sends the
    invocation again after the end, or was queued with it before, starts the
    process anew as its own origin, through every start check. A
    release that fails leaves the named run holding, and a retry completes
