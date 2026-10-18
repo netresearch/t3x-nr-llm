@@ -50,10 +50,12 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  *
  * A continuation names its predecessor run only, and the process, its pin
  * and its subject record are derived from that run's lineage under four
- * rules: only its initiator or an administrator may continue it; a
- * predecessor holding a process must be terminal; a missing or unreadable
- * predecessor refuses; and a pin that fails stops the run, which records its
- * lineage without the pin so the next turn goes on without the process. A
+ * rules: only its initiator or an administrator may continue it, and a
+ * predecessor that is gone — purged, never there, or not the actor's to
+ * continue — drops the process with a notice; a predecessor holding a
+ * process must be terminal; an unreadable lineage refuses; and a pin that
+ * fails stops the run, which records its lineage without the pin so the
+ * next turn goes on without the process. A
  * pin whose skill was detached, or a turn on another configuration, drops the
  * pin with a notice and goes on. An invocation of the skill the derived pin
  * already names is the same process, not a new start.
@@ -66,9 +68,9 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * lineage it would have carried on, or, when it could not read one, a
  * lineage that names the run it continued. A continuation of the refused run
  * follows that name back to the last run that ran, and is held to that run's
- * rules: a process it carries on, a predecessor that must be finished, a
- * predecessor that must exist. Only a withdrawn pin and an explicit end let
- * the process go.
+ * rules: a process it carries on, a predecessor that must be finished. Only
+ * a withdrawn pin, an explicit end and a predecessor that is gone let the
+ * process go, the last with a notice.
  *
  * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
@@ -217,7 +219,11 @@ final readonly class ProcessRunPreparer
      */
     private function derive(AgentRunRequest $request, AiActorContext $actor, string $runUuid, ?RunLineage &$carry): array
     {
-        $predecessor = $this->continuable($request->predecessorRunUuid, $actor, $runUuid);
+        $predecessor = $this->continuable($request->predecessorRunUuid, $actor);
+        if (!$predecessor instanceof AgentRun) {
+            return [null, [$this->gone()], false, ''];
+        }
+
         for ($hops = 0;; ++$hops) {
             $own = $this->lineageOrRefuse($predecessor, $runUuid);
             $ended = $own?->processPin instanceof SkillPin && $own->released;
@@ -229,7 +235,10 @@ final readonly class ProcessRunPreparer
                 throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::LINEAGE_UNREADABLE);
             }
 
-            $predecessor = $this->continuable($own->carriedFromRunUuid, $actor, $runUuid);
+            $predecessor = $this->continuable($own->carriedFromRunUuid, $actor);
+            if (!$predecessor instanceof AgentRun) {
+                return [null, [$this->gone()], false, ''];
+            }
         }
 
         // A process the predecessor released, or whose start was released
@@ -282,24 +291,31 @@ final readonly class ProcessRunPreparer
     }
 
     /**
-     * A run this actor may continue. Not mayActOnRun(): what that admits
-     * depends on the scope, and a continuation derives another run's
+     * A run this actor may continue, or null. Not mayActOnRun(): what that
+     * admits depends on the scope, and a continuation derives another run's
      * instructions and subject record, which is more than reading or
-     * deciding it (ADR-214 item 6). A run that does not exist and one the
-     * actor may not continue are refused alike, so the refusal does not tell
-     * another user's run uuids apart.
-     *
-     * @throws ProcessInvocationRefusedException
+     * deciding it (ADR-214 item 6). A run that does not exist — purged by
+     * retention or never there — and one the actor may not continue answer
+     * alike, so the answer does not tell another user's run uuids apart.
      */
-    private function continuable(string $uuid, AiActorContext $actor, string $runUuid): AgentRun
+    private function continuable(string $uuid, AiActorContext $actor): ?AgentRun
     {
         $run = $this->persister->findRun($uuid);
         if (!$run instanceof AgentRun
             || (!$actor->isInitiatorOf($run) && (!$actor->isAdmin || $actor->isServiceAccount()))) {
-            throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::PREDECESSOR_MISSING);
+            return null;
         }
 
         return $run;
+    }
+
+    /**
+     * The notice of a continuation whose predecessor is gone or not its own
+     * (ADR-228): the turn goes on without a process, and the chat can say so.
+     */
+    private function gone(): DroppedSource
+    {
+        return new DroppedSource('process', 0, DroppedSourceReason::PREDECESSOR_GONE);
     }
 
     /**

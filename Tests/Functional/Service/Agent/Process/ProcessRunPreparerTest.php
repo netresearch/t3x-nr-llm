@@ -181,10 +181,7 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
         );
 
         $adminsRun = $this->finishedProcessRun($this->configuration($this->processSkill()), initiator: 1);
-        $this->assertRefused(
-            ProcessInvocationRefusal::PREDECESSOR_MISSING,
-            $this->request($this->configuration($this->processSkill()), null, AiActorContext::backendUser(self::OWNER, isAdmin: true), $adminsRun),
-        );
+        $this->assertGone($this->prepare($this->request($this->configuration($this->processSkill()), null, AiActorContext::backendUser(self::OWNER, isAdmin: true), $adminsRun)));
 
         // With another acting user than the actor, nothing the actor claims
         // is granted.
@@ -339,13 +336,25 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
         $this->assertRefused(ProcessInvocationRefusal::PROCESS_HELD, $this->request($configuration, new SkillInvocation(self::OTHER_PROCESS), predecessor: $predecessor));
     }
 
+    /**
+     * A predecessor that is gone — never there, or purged by retention —
+     * drops the process with a notice and the turn goes on (ADR-228): a
+     * conversation whose predecessor was purged would otherwise be refused
+     * on every later turn. A new invocation may start a process from there.
+     */
     #[Test]
-    public function aMissingPredecessorIsRefused(): void
+    public function aGonePredecessorDropsTheProcessWithANotice(): void
     {
-        $this->assertRefused(
-            ProcessInvocationRefusal::PREDECESSOR_MISSING,
-            $this->request($this->configuration($this->processSkill()), null, predecessor: '00000000-0000-4000-8000-000000000000'),
-        );
+        $configuration = $this->configuration($this->processSkill());
+        $this->assertGone($this->prepare($this->request($configuration, null, predecessor: '00000000-0000-4000-8000-000000000000')));
+
+        $purged = $this->finishedProcessRun($configuration);
+        $this->purge($purged);
+        $this->assertGone($this->prepare($this->request($configuration, null, predecessor: $purged)));
+
+        $started = $this->prepare($this->request($configuration, new SkillInvocation(self::PROCESS), predecessor: $purged));
+        self::assertSame(self::PROCESS, $started->pin?->skillUid);
+        self::assertTrue($started->newStart);
     }
 
     /**
@@ -358,10 +367,7 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
         $configuration = $this->configuration($this->processSkill());
         $predecessor   = $this->finishedProcessRun($configuration);
 
-        $this->assertRefused(
-            ProcessInvocationRefusal::PREDECESSOR_MISSING,
-            $this->request($configuration, null, AiActorContext::backendUser(3), $predecessor),
-        );
+        $this->assertGone($this->prepare($this->request($configuration, null, AiActorContext::backendUser(3), $predecessor)));
 
         self::assertSame(self::PROCESS, $this->prepare($this->request($configuration, null, AiActorContext::backendUser(1, isAdmin: true), $predecessor))->pin?->skillUid);
         self::assertSame(self::PROCESS, $this->prepare($this->request($configuration, null, predecessor: $predecessor))->pin?->skillUid);
@@ -762,22 +768,22 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * A refused continuation whose predecessor is missing names it, so the
-     * turn after it is refused for the same reason instead of starting
-     * empty: a refusal never drops a process silently (ADR-228).
+     * A refused continuation whose predecessor was purged since hands the
+     * next turn the same notice as a gone predecessor: the turn goes on
+     * without the process instead of being refused.
      */
     #[Test]
-    public function aTurnAfterAMissingPredecessorIsRefusedAgain(): void
+    public function aTurnAfterARefusalWhosePredecessorWasPurgedGoesOn(): void
     {
         $configuration = $this->configuration($this->processSkill());
-        $refused       = $this->refusedRun($this->request($configuration, null, predecessor: '00000000-0000-4000-8000-000000000000'), ProcessInvocationRefusal::PREDECESSOR_MISSING);
+        $predecessor   = $this->finishedProcessRun($configuration);
+        $configuration->setBeGroups($this->beGroups(8));
+        $refused = $this->refusedRun($this->request($configuration, null, predecessor: $predecessor), ProcessInvocationRefusal::CONFIGURATION_NOT_PERMITTED);
+        self::assertSame($predecessor, $this->lineage($refused)?->carriedFromRunUuid);
 
-        $marker = $this->lineage($refused);
-        self::assertInstanceOf(RunLineage::class, $marker);
-        self::assertFalse($marker->holdsProcess());
-        self::assertSame('00000000-0000-4000-8000-000000000000', $marker->carriedFromRunUuid);
-
-        $this->assertRefused(ProcessInvocationRefusal::PREDECESSOR_MISSING, $this->request($configuration, null, predecessor: $refused));
+        $configuration->setBeGroups($this->beGroups(7));
+        $this->purge($predecessor);
+        $this->assertGone($this->prepare($this->request($configuration, null, predecessor: $refused)));
     }
 
     /**
@@ -850,6 +856,30 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
     }
 
     // --- helpers -----------------------------------------------------------
+
+    /**
+     * The answer to a gone predecessor: no process, one notice.
+     */
+    private function assertGone(PreparedProcess $prepared): void
+    {
+        self::assertNull($prepared->pin);
+        self::assertCount(1, $prepared->dropped);
+        self::assertSame(DroppedSourceReason::PREDECESSOR_GONE, $prepared->dropped[0]->reason);
+        self::assertSame(0, $prepared->dropped[0]->uid);
+    }
+
+    /**
+     * Purge a finished run through retention itself: backdate it, then run
+     * the purge with a cutoff only that run is older than.
+     */
+    private function purge(string $uuid): void
+    {
+        $run = $this->persister->findRun($uuid);
+        self::assertInstanceOf(AgentRun::class, $run);
+        $this->pool()->getConnectionForTable('tx_nrllm_agentrun')->update('tx_nrllm_agentrun', ['crdate' => 1], ['uid' => $run->uid]);
+        self::assertSame(1, (new AgentRunRepository($this->pool(), $this->get(AgentStateCodec::class)))->purgeOlderThan(2));
+        self::assertNull($this->persister->findRun($uuid));
+    }
 
     /**
      * A run whose preparation is refused for `$reason`, settled cancelled.

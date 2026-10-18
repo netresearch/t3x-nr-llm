@@ -62,8 +62,10 @@ enum ProcessInvocationRefusal: string
     case SUBJECT_NOT_READABLE = 'subject_not_readable';
     /**
      * The predecessor run does not exist, or the actor is neither its
-     * initiator nor an administrator. One case for both, so a refusal does
-     * not tell whether another user's run exists.
+     * initiator nor an administrator. Not produced any more: such a
+     * continuation goes on without the process and reports it as a dropped
+     * source ({@see DroppedSourceReason::PREDECESSOR_GONE}), because a run
+     * that retention purged would otherwise refuse every later turn (ADR-228).
      */
     case PREDECESSOR_MISSING = 'predecessor_missing';
     /**

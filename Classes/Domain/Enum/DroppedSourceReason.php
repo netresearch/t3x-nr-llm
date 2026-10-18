@@ -54,4 +54,18 @@ enum DroppedSourceReason: string
      * ADR-228): the new configuration starts with its own attachments.
      */
     case CONFIGURATION_CHANGED = 'configuration_changed';
+
+    /**
+     * The run a continuation names is gone, or the actor may not continue it
+     * (ADR-228): whatever process it held is not carried on, and the turn
+     * goes on without it. The uid is 0, since nothing says which process
+     * that was.
+     *
+     * One case for three: a run that retention purged, one that never
+     * existed, and another user's run. Retention deletes the row and its
+     * events and leaves no trace, so a purged run and a uuid that never
+     * existed cannot be told apart; and another user's run answers the same,
+     * so the notice does not tell whether that run exists.
+     */
+    case PREDECESSOR_GONE = 'predecessor_gone';
 }

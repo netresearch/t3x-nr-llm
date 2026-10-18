@@ -44,11 +44,8 @@ Decision
    acting user — at an interactive start and again at worker pickup —
    through :php:`ProcessRunPreparer`. They are the checks of ADR-214 item 10,
    in this order: the actor may use the configuration
-   (:php:`ConfigurationResolver::actorMayUse()`); for a continuation, the
-   predecessor exists and the actor is its initiator or an administrator
-   (one refusal for both, so it does not tell whether another user's run
-   exists), its lineage can be read, and a predecessor holding a process is
-   terminal; an invocation of another skill while a process is held is
+   (:php:`ConfigurationResolver::actorMayUse()`); for a continuation, its
+   lineage can be read and a predecessor holding a process is terminal; an invocation of another skill while a process is held is
    refused; the skill is attached, enabled, not orphaned and admitted by the
    trust floor the catalogue applies; its current version is an approved
    instruction marked a process; the actor is not a service account and the
@@ -96,18 +93,28 @@ Decision
    predecessor's lineage cannot be read is refused rather than continued
    without the process.
 
+   A predecessor that is gone does not refuse the turn. A run that retention
+   purged, a uuid that never existed and a run the actor may not continue —
+   only its initiator or an administrator may — answer alike: the turn goes
+   on without a process and reports it as a dropped source
+   (``predecessor_gone``, uid 0). Purged and never-existed cannot be told
+   apart, because retention deletes the row and its events and leaves no
+   trace; a foreign run answers the same, so the notice does not tell
+   whether another user's run exists. A refusal would have repeated on every
+   later turn of a conversation whose predecessor was purged.
+
    A refusal does not end the process. A refused continuation records the
    lineage it would have carried on, marked with the run it was carried from
-   (``carriedFrom``); when it could not read one — the predecessor is missing,
-   foreign or unreadable, or the refusal came before the predecessor was
-   read — it records a lineage without a pin that names its predecessor. A
+   (``carriedFrom``); when it could not read one — the predecessor's lineage
+   is unreadable, or the refusal came before the predecessor was read — it
+   records a lineage without a pin that names its predecessor. A
    continuation of a refused run follows these names back to the last run
    that ran and applies its checks there, so a turn sent while the process
-   waits is refused again until that run is finished, and a missing
-   predecessor stays a refusal instead of an empty start. A store error that
-   is retried keeps the process the same way. Only a withdrawn pin (item 6)
-   and an explicit end (item 7) let the process go; a predecessor that held
-   no process leaves the refused run without a lineage.
+   waits is refused again until that run is finished. A store error that is
+   retried keeps the process the same way. Only a withdrawn pin (item 6), an
+   explicit end (item 7) and a predecessor that is gone let the process go;
+   a predecessor that held no process leaves the refused run without a
+   lineage.
 
 5. **The runtime sets the pin.** The executor puts the prepared pin on the
    run's :php:`RunAugmentation` and replaces any pin a caller put there. A
