@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Controller\Backend;
 use Closure;
 use Netresearch\NrLlm\Controller\Backend\Response\PlaygroundRunResponse;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
+use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Skill;
@@ -490,7 +491,9 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
      * answered here rather than handed on, because the runtime reads it again
      * and a second read that succeeds would get past the process check. Only
      * an administrator reaches this (denyNonAdmin()); the runtime authorises
-     * the decision itself.
+     * the decision itself. The retryable answer re-signals a pause only for a
+     * run that is in it; any other run is left to the runtime, which refuses
+     * it as not waiting before it asks about pins.
      */
     private function refusalBeforeTheRuntime(string $runUuid, string $waitingStatus): ?ResponseInterface
     {
@@ -503,9 +506,11 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.unreadable', "This run's state could not be read; no action is available.")], 400);
         }
 
+        $waitingIn = $waitingStatus === 'awaiting_input' ? AgentRunStatus::WAITING_FOR_INPUT : AgentRunStatus::WAITING_FOR_APPROVAL;
+
         return match ($this->processPins->processPinOf($run)) {
             true  => $this->decidedInTheChat(),
-            null  => $this->verdictUnavailable($runUuid, $waitingStatus),
+            null  => $run->statusEnum() === $waitingIn ? $this->verdictUnavailable($runUuid, $waitingStatus) : null,
             false => null,
         };
     }

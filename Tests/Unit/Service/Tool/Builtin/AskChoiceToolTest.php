@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
 use InvalidArgumentException;
+use Netresearch\NrLlm\Exception\NrLlmExceptionInterface;
 use Netresearch\NrLlm\Service\Tool\Builtin\AskChoiceTool;
 use Netresearch\NrLlm\Service\Tool\InputSchema;
 use Netresearch\NrLlm\Service\Tool\ToolApprovalRule;
@@ -64,6 +65,7 @@ final class AskChoiceToolTest extends TestCase
                 self::fail('Accepted ' . $case);
             } catch (InvalidArgumentException $e) {
                 self::assertStringStartsWith('ask_choice needs', $e->getMessage(), $case);
+                self::assertInstanceOf(NrLlmExceptionInterface::class, $e, $case . ': the common exception marker (ADR-053)');
             }
 
             $result = (new AskChoiceTool())->execute($arguments, ToolExecutionContext::none());

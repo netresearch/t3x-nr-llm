@@ -1244,6 +1244,29 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         }
     }
 
+    /**
+     * The retryable answer re-signals only the pause the run is in: an answer
+     * sent for a run that waits for approval is left to the runtime, which
+     * says the run does not wait for input.
+     */
+    #[Test]
+    public function theRetryableAnswerClaimsOnlyThePauseTheRunIsIn(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        [$controller, $persister, $uuid] = $this->suspendedApprovalController(processPins: new ProcessPinProbeStub(everyRun: true, unknown: true));
+        $response                        = $controller->submitInputAction(
+            (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/input'))->withParsedBody(['runUuid' => $uuid, 'input' => ['a' => 'b'], 'turnDigest' => 'd']),
+        );
+
+        self::assertSame(400, $response->getStatusCode(), (string)$response->getBody());
+        $payload = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($payload);
+        self::assertArrayNotHasKey('status', $payload);
+        $this->assertRunIsDecidableAgain($persister, $uuid);
+    }
+
     #[Test]
     public function resumeActionRefusesAnApprovalThatCarriesNoTurnDigest(): void
     {
