@@ -46,9 +46,13 @@ use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrLlm\Tests\Unit\Fixture\RecordingLogger;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 use Psr\Log\NullLogger;
+use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
 
@@ -477,7 +481,8 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
         ] as $case => [$table, $request]) {
             $handle     = $this->begin();
             $actingUser = $this->actingUser(self::OWNER);
-            $preparer   = $this->preparer();
+            $logger     = new RecordingLogger();
+            $preparer   = $this->preparer(logger: $logger);
             $connection = $this->pool()->getConnectionForTable($table);
             $connection->executeStatement(sprintf('ALTER TABLE %s RENAME TO %s_away', $table, $table));
             try {
@@ -490,6 +495,9 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
             }
 
             self::assertNull($this->lineage($handle->uuid), $case . ': no lineage is recorded');
+            $warnings = array_values(array_filter($logger->records, static fn(array $record): bool => $record['level'] === LogLevel::WARNING));
+            self::assertCount(1, $warnings, $case . ': the cause is logged');
+            self::assertInstanceOf(Throwable::class, $warnings[0]['context']['exception'] ?? null, $case);
             self::assertInstanceOf(PreparedProcess::class, $this->preparer()->prepare($request, $this->actingUser(self::OWNER), $this->begin()), $case . ': the retry goes through');
         }
     }
@@ -756,7 +764,7 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
     /**
      * @param array<string, string> $skills the `skills` extension settings
      */
-    private function preparer(array $skills = []): ProcessRunPreparer
+    private function preparer(array $skills = [], ?LoggerInterface $logger = null): ProcessRunPreparer
     {
         $factory = $this->composerFactory($skills);
 
@@ -767,6 +775,7 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
             new SkillPinCheck(new SkillApprovalRepository($this->pool()), new SkillSourceLookup($this->pool()), new SkillRecordLookup($this->pool()), $factory),
             new ApprovedProcessPinProbe(new SkillApprovalRepository($this->pool())),
             new SubjectRecordAccess($this->pool(), new TableReadAccessService()),
+            $logger,
         );
     }
 }
