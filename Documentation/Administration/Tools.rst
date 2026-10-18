@@ -69,7 +69,9 @@ backend users — those self-enforce the acting user's TYPO3 permissions
 ever sees what the backend already grants them (see
 :ref:`ADR-042 <adr-042>`). ``fetch_external_url`` is offered to non-admins
 too; it reads public web pages only, which no TYPO3 permission covers, under
-the controls in :ref:`administration-tools-external-pages`.
+the controls in :ref:`administration-tools-external-pages`. ``load_skill`` is
+offered to non-admins as well; it brings in only skill text an administrator
+approved for the run's configuration (see below).
 
 The two tools below are the fullest illustrations of the contract:
 
@@ -1092,7 +1094,12 @@ as *loaded on demand* and at least one of them is an approved instruction; its
 description lists those skills by uid, name and description. The skill
 allow-list and the configuration's allowed tool groups do not restrict it, so
 a skill declaring ``allowed-tools: []`` does not switch it off; the global tool
-state and the trust zone do. Loading a skill grants no tools.
+state and the trust zone do. Loading a skill grants no tools. It does not
+require admin: a non-admin backend user's run may load a skill, because the
+text it adds is an approved version an administrator vouched for, attached
+to the configuration, and it widens nothing the user may do. In a run that
+invokes a process skill the exemption does not hold; there the process
+skill's approved declaration decides whether ``load_skill`` is offered.
 
 Groups can be switched on three levels, and the result cascades
 **fail-closed** — a tool is offered only when *every* level permits it:

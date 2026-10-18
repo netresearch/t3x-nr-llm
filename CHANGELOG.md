@@ -109,6 +109,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A repeated disable in the skills module keeps the sync's mark.** Sending a disable for a skill the sync had already disabled turned its `disabled_by` mark from `sync` into `admin`, which lifts the restriction a sync disable keeps on a run. The module's toggle now changes the mark only when `enabled` changes, as `SkillDisabledByHook` does for DataHandler writes.
 - **Corrupt approved-skill tool declarations fail closed.** A stored approval
   snapshot accepts tool names only from a JSON array. JSON objects, including
   objects with numeric keys, are read as declared-empty lists. Missing
