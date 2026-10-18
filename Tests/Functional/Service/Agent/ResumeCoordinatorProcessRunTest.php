@@ -243,6 +243,27 @@ final class ResumeCoordinatorProcessRunTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * The other direction: the initiator on a configuration without four-eyes
+     * is neither stopped nor turned away when the lookup fails. The decision
+     * goes on, an approval and an answer alike; the tool loop's own check
+     * applies the turn rules.
+     */
+    #[Test]
+    public function theInitiatorDecidesOnAnAnswerThatCannotBeChecked(): void
+    {
+        $probe = new ProcessPinProbeStub(everyRun: true, unknown: true);
+
+        $uuid = $this->suspendOn('touch_thing');
+        $this->coordinator(false, $probe)->approve($this->initiator(), $uuid, $this->decision(true, 'touch_thing'));
+        self::assertTrue($this->resumed, 'the approval goes on');
+
+        $this->resumed = false;
+        $uuid          = $this->suspendForChoice();
+        $this->coordinator(false, $probe)->submitInput($this->initiator(), $uuid, $this->answer('Home'));
+        self::assertTrue($this->resumed, 'the answer goes on');
+    }
+
+    /**
      * Fails its first lookup, then answers that the run holds no process pin.
      */
     private function probeThatFailsOnce(): ProcessPinProbe

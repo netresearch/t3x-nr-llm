@@ -48,8 +48,9 @@ interface ProcessPinProbe
     /**
      * The answer of {@see holdsProcessPin()}, or null when it rests on an
      * approval lookup that failed. holdsProcessPin() reads null as yes, so
-     * the guards apply; the four-eyes stop, which ends the run and cannot be
-     * undone, waits for an answer that rests on approvals that were read.
+     * the turn rules apply; a decision that would end the run (the four-eyes
+     * stop) or turn a decider away is refused as retryable instead, and the
+     * inbox and the playground refuse every decision on such a run.
      */
     public function processPinOf(AgentRun $run): ?bool;
 

@@ -320,7 +320,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         // a client that does not send it cannot approve.
         $digest = trim($this->stringFromBody($body, 'turnDigest'));
 
-        if (($refusal = $this->refusalBeforeTheRuntime($runUuid)) instanceof ResponseInterface) {
+        if (($refusal = $this->refusalBeforeTheRuntime($runUuid, 'awaiting_approval')) instanceof ResponseInterface) {
             return $refusal;
         }
 
@@ -389,7 +389,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         } catch (ProcessRunNeedsSecondApproverException) {
             return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.processStopped', 'This run was stopped: it is a guided process, and its configuration requires a second approver, under which nobody could apply its proposals.')], 409);
         } catch (ProcessVerdictUnavailableException) {
-            return $this->verdictUnavailable();
+            return $this->verdictUnavailable($runUuid, 'awaiting_approval');
         }
 
         return $this->respondToResult($result, false);
@@ -419,7 +419,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         // not send it cannot submit.
         $digest = trim($this->stringFromBody($body, 'turnDigest'));
 
-        if (($refusal = $this->refusalBeforeTheRuntime($runUuid)) instanceof ResponseInterface) {
+        if (($refusal = $this->refusalBeforeTheRuntime($runUuid, 'awaiting_input')) instanceof ResponseInterface) {
             return $refusal;
         }
 
@@ -475,7 +475,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         } catch (ProcessRunNeedsSecondApproverException) {
             return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.processStopped', 'This run was stopped: it is a guided process, and its configuration requires a second approver, under which nobody could apply its proposals.')], 409);
         } catch (ProcessVerdictUnavailableException) {
-            return $this->verdictUnavailable();
+            return $this->verdictUnavailable($runUuid, 'awaiting_input');
         }
 
         return $this->respondToResult($result, false);
@@ -492,7 +492,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
      * an administrator reaches this (denyNonAdmin()); the runtime authorises
      * the decision itself.
      */
-    private function refusalBeforeTheRuntime(string $runUuid): ?ResponseInterface
+    private function refusalBeforeTheRuntime(string $runUuid, string $waitingStatus): ?ResponseInterface
     {
         if ($runUuid === '') {
             return null;
@@ -505,20 +505,22 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
 
         return match ($this->processPins->processPinOf($run)) {
             true  => $this->decidedInTheChat(),
-            null  => $this->verdictUnavailable(),
+            null  => $this->verdictUnavailable($runUuid, $waitingStatus),
             false => null,
         };
     }
 
     /**
-     * 503 and no status to re-signal: whether the run is a guided process
-     * could not be checked, nothing was decided, and the same request can be
-     * sent again.
+     * 503 with the pause re-signalled, like the other retryable refusal:
+     * whether the run is a guided process could not be checked, nothing was
+     * decided, the run still waits, and the same request can be sent again.
      */
-    private function verdictUnavailable(): ResponseInterface
+    private function verdictUnavailable(string $runUuid, string $waitingStatus): ResponseInterface
     {
         return $this->respondJson([
             'success' => false,
+            'status'  => $waitingStatus,
+            'runUuid' => $runUuid,
             'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.processVerdictUnavailable', 'Whether this run is a guided process could not be checked, so nothing was decided. Please try again.'),
         ], 503);
     }

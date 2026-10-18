@@ -9,9 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
-use InvalidArgumentException;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Skill\SkillInvisibleCharacters;
 use Netresearch\NrLlm\Service\Tool\ArgumentInputSchemaInterface;
 use Netresearch\NrLlm\Service\Tool\RequiresInputInterface;

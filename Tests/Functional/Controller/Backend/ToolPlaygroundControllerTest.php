@@ -1235,7 +1235,8 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
                 self::assertIsArray($payload);
                 self::assertIsString($payload['error']);
                 self::assertStringStartsWith('Whether this run is a guided process could not be checked', $payload['error'], $case);
-                self::assertArrayNotHasKey('status', $payload, $case);
+                self::assertSame($action === 'resume' ? 'awaiting_approval' : 'awaiting_input', $payload['status'] ?? null, $case . ': the pause is re-signalled, the request can be sent again');
+                self::assertSame($uuid, $payload['runUuid'] ?? null, $case);
                 $run = $persister->findRun($uuid);
                 self::assertInstanceOf(AgentRun::class, $run);
                 self::assertSame($action === 'resume' ? AgentRunStatus::WAITING_FOR_APPROVAL : AgentRunStatus::WAITING_FOR_INPUT, $run->statusEnum(), $case . ', ' . $action . ': the run keeps waiting');
