@@ -211,7 +211,7 @@ final readonly class AgentRunExecutor
     ): AgentRunResult {
         $trace = $this->trace($handle, $onStep, false, $leaseOwner);
 
-        return $this->execute($handle, $trace, fn(): ToolLoopResult => $loopCall($this->toolContext($owner, $handle, subject: $this->subjectOf($handle)), $trace), null, $leaseOwner);
+        return $this->execute($handle, $trace, fn(): ToolLoopResult => $loopCall($this->resumeContext($owner, $handle), $trace), null, $leaseOwner);
     }
 
     /**
@@ -335,7 +335,7 @@ final readonly class AgentRunExecutor
      * attribute the governance rows it writes. A run that could not be persisted
      * (null handle) contributes none — those calls keep their per-call trace.
      */
-    private function toolContext(AiActorContext $actor, ?AgentRunHandle $handle, ?ToolInvocationHistory $initialInvocationHistory = null, ?SubjectRecord $subject = null): ToolExecutionContext
+    private function toolContext(AiActorContext $actor, ?AgentRunHandle $handle, ?ToolInvocationHistory $initialInvocationHistory = null): ToolExecutionContext
     {
         $resolver = $this->actingBackendUserResolver ?? new ActingBackendUserResolver();
 
@@ -344,8 +344,23 @@ final readonly class AgentRunExecutor
             $resolver->resolve($actor),
             $handle instanceof AgentRunHandle ? new AgentRunReference($handle->runUid, $handle->uuid) : null,
             $initialInvocationHistory,
-            $subject,
         );
+    }
+
+    /**
+     * The tool context of a resumed run, with its process's subject record
+     * when the acting user may still read it (ADR-228): the subject is
+     * checked again on every resume, with the rule of the start, and without
+     * a preparer no subject is carried.
+     */
+    private function resumeContext(AiActorContext $owner, AgentRunHandle $handle): ToolExecutionContext
+    {
+        $context = $this->toolContext($owner, $handle);
+        $subject = $this->processPreparer?->readableSubject($context->actingBackendUser(), $this->subjectOf($handle));
+
+        return $subject instanceof SubjectRecord
+            ? new ToolExecutionContext($context->actor, $context->backendUser, $context->run, $context->initialInvocationHistory, $subject)
+            : $context;
     }
 
     /**

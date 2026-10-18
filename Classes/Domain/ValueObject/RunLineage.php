@@ -35,6 +35,10 @@ final readonly class RunLineage
         // The process skill's identifier when the run started or continued it,
         // for the run status; '' without a process.
         public string $processSkill = '',
+        // The run this one continued its process from, '' for a run that
+        // started it. Ending a process walks this chain and releases every
+        // run on it, so no earlier turn can hand the process on again.
+        public string $predecessorRunUuid = '',
     ) {}
 
     /**
@@ -50,11 +54,11 @@ final readonly class RunLineage
      */
     public function withReleasedProcess(): self
     {
-        return new self($this->configurationUid, $this->processPin, $this->subject, true, $this->processSkill);
+        return new self($this->configurationUid, $this->processPin, $this->subject, true, $this->processSkill, $this->predecessorRunUuid);
     }
 
     /**
-     * @return array{configuration: int, processPin: array{skill: int, source: int, digest: string}|null, subject: array{table: string, uid: int, language: int}|null, released: bool, processSkill: string}
+     * @return array{configuration: int, processPin: array{skill: int, source: int, digest: string}|null, subject: array{table: string, uid: int, language: int}|null, released: bool, processSkill: string, predecessor: string}
      */
     public function toArray(): array
     {
@@ -64,6 +68,7 @@ final readonly class RunLineage
             'subject'       => $this->subject?->toArray(),
             'released'      => $this->released,
             'processSkill'  => $this->processSkill,
+            'predecessor'   => $this->predecessorRunUuid,
         ];
     }
 
@@ -82,7 +87,8 @@ final readonly class RunLineage
         $configuration = $data['configuration'] ?? null;
         $released      = $data['released'] ?? null;
         $processSkill  = $data['processSkill'] ?? null;
-        if (!is_int($configuration) || $configuration < 0 || !is_bool($released) || !is_string($processSkill)) {
+        $predecessor   = $data['predecessor'] ?? null;
+        if (!is_int($configuration) || $configuration < 0 || !is_bool($released) || !is_string($processSkill) || !is_string($predecessor)) {
             return null;
         }
 
@@ -102,6 +108,6 @@ final readonly class RunLineage
             }
         }
 
-        return new self($configuration, $pin, $subject, $released, $processSkill);
+        return new self($configuration, $pin, $subject, $released, $processSkill, $predecessor);
     }
 }

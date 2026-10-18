@@ -139,12 +139,38 @@ final class ProcessSkillCatalogueTest extends AbstractFunctionalTestCase
         self::assertSame(404, $this->controller($configuration)->listAction((new ServerRequest('/'))->withQueryParams(['configuration' => '30']))->getStatusCode());
     }
 
+    /**
+     * A configuration the user may not use answers like one that does not
+     * exist, so the route does not tell which active configurations there
+     * are; the user's own group opens it.
+     */
+    #[Test]
+    public function theRouteAnswers404ForAConfigurationTheUserMayNotUse(): void
+    {
+        $this->pool()->getConnectionForTable('be_groups')->insert('be_groups', ['uid' => 7, 'pid' => 0, 'title' => 'Editors']);
+        $configuration = $this->configuration($this->approvedSkill(5, self::SOURCE, process: true));
+        $group         = new BackendUserGroup();
+        $group->_setProperty('uid', 7);
+        /** @var ObjectStorage<BackendUserGroup> $groups */
+        $groups = new ObjectStorage();
+        $groups->attach($group);
+
+        $configuration->setBeGroups($groups);
+
+        $this->setUpBackendUser(2);
+        self::assertSame(404, $this->controller($configuration)->listAction((new ServerRequest('/'))->withQueryParams(['configuration' => '30']))->getStatusCode());
+
+        $this->pool()->getConnectionForTable('be_users')->update('be_users', ['usergroup' => '7'], ['uid' => 2]);
+        $this->setUpBackendUser(2);
+        self::assertSame(200, $this->controller($configuration)->listAction((new ServerRequest('/'))->withQueryParams(['configuration' => '30']))->getStatusCode());
+    }
+
     private function controller(LlmConfiguration $configuration): ProcessSkillCatalogueController
     {
         $repository = self::createStub(LlmConfigurationRepository::class);
         $repository->method('findByUid')->willReturnCallback(static fn(int $uid): ?LlmConfiguration => $uid === 30 ? $configuration : null);
 
-        return new ProcessSkillCatalogueController($repository, $this->catalogue());
+        return new ProcessSkillCatalogueController($repository, $this->catalogue(), new ConfigurationResolver());
     }
 
     private function catalogue(): ProcessSkillCatalogue

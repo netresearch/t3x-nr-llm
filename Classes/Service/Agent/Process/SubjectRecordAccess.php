@@ -15,6 +15,7 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
+use TYPO3\CMS\Core\Database\Query\Restriction\WorkspaceRestriction;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -26,9 +27,11 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * live user the run's tools act as — not the ambient `$GLOBALS['BE_USER']`,
  * which a queue worker does not have. Fail-closed on every gate the record
  * tools apply: no user, a table the user may not select or the denylist
- * holds, a language the user may not edit, a record that does not exist or is
- * deleted, and a page outside the user's mounts or without show permission.
- * Hidden records count as existing: an editor works on hidden pages.
+ * holds, a language the user may not edit, a record that does not exist, is
+ * deleted or is a version in a workspace the user is not in, a translation
+ * named under another language than its own, and a page
+ * outside the user's mounts or without show permission. Hidden records count
+ * as existing: an editor works on hidden pages.
  *
  * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
@@ -50,13 +53,25 @@ final readonly class SubjectRecordAccess
             return false;
         }
 
-        $row = $this->fetch($table, $subject->record->uid, ['uid', 'pid']);
+        $languageField = $this->languageField($table);
+        $row           = $this->fetch($user, $table, $subject->record->uid, $languageField === null ? ['uid', 'pid'] : ['uid', 'pid', $languageField]);
         if ($row === null) {
             return false;
         }
 
+        // The language the record is in, not only the one the caller named.
+        // A translation row is the subject only in its own language, so a
+        // caller cannot name it under a language the user may edit. A row in
+        // the default language or in all languages may be viewed in any
+        // language the user may edit — a page worked on in its translation
+        // is the default-language page with the subject's language.
+        $recordLanguage = $languageField === null ? 0 : $this->toInt($row[$languageField] ?? 0);
+        if ($recordLanguage > 0 && $recordLanguage !== $subject->language) {
+            return false;
+        }
+
         $pageUid = $table === 'pages' ? $subject->record->uid : $this->toInt($row['pid'] ?? 0);
-        $page    = $pageUid > 0 ? $this->fetch('pages', $pageUid, ['*']) : null;
+        $page    = $pageUid > 0 ? $this->fetch($user, 'pages', $pageUid, ['*']) : null;
         if ($page === null) {
             // A record on the root level (pid 0) has no page to check; only an
             // administrator reads those, as the backend's list module has it.
@@ -78,10 +93,15 @@ final readonly class SubjectRecordAccess
      *
      * @return array<string, mixed>|null
      */
-    private function fetch(string $table, int $uid, array $fields): ?array
+    private function fetch(BackendUserAuthentication $user, string $table, int $uid, array $fields): ?array
     {
+        // Deleted rows and versions of a workspace the user is not in are not
+        // there for this user; hidden and time-restricted rows are.
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
-        $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+        $queryBuilder->getRestrictions()
+            ->removeAll()
+            ->add(GeneralUtility::makeInstance(DeletedRestriction::class))
+            ->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, $user->workspace));
 
         $row = $queryBuilder
             ->select(...$fields)
@@ -91,6 +111,16 @@ final readonly class SubjectRecordAccess
             ->fetchAssociative();
 
         return is_array($row) ? $row : null;
+    }
+
+    private function languageField(string $table): ?string
+    {
+        $allTca = $GLOBALS['TCA'] ?? null;
+        $tca    = is_array($allTca) && is_array($allTca[$table] ?? null) ? $allTca[$table] : [];
+        $ctrl   = is_array($tca['ctrl'] ?? null) ? $tca['ctrl'] : [];
+        $field  = $ctrl['languageField'] ?? null;
+
+        return is_string($field) && $field !== '' ? $field : null;
     }
 
     private function toInt(mixed $value): int

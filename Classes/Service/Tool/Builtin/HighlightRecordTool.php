@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
+use TYPO3\CMS\Core\Database\Query\Restriction\WorkspaceRestriction;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
@@ -132,7 +133,11 @@ final readonly class HighlightRecordTool implements ToolInterface
         }
 
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::CONTENT_TABLE);
-        $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+        // Not deleted, and live or in the acting user's own workspace.
+        $queryBuilder->getRestrictions()
+            ->removeAll()
+            ->add(GeneralUtility::makeInstance(DeletedRestriction::class))
+            ->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, $context->actingBackendUser()->workspace ?? 0));
 
         $count = $queryBuilder
             ->count('uid')

@@ -24,7 +24,7 @@ use Netresearch\NrLlm\Domain\ValueObject\RunLineage;
 use Netresearch\NrLlm\Domain\ValueObject\SkillInvocation;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SubjectRecord;
-use Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException;
+use Netresearch\NrLlm\Exception\SkillSectionNotAdmittedException;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessInvocationRefusedException;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunNeedsSecondApproverException;
@@ -76,16 +76,24 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
 
     private AgentRunPersister $persister;
 
-    private BackendUserAuthentication $admin;
-
     protected function setUp(): void
     {
         parent::setUp();
         $this->importFixture('BeUsers.csv');
-        $this->admin = $this->setUpBackendUser(1);
+        // The editor (uid 2) is in group 7, which mounts page 1 and reads
+        // pages in the default language.
+        $this->pool()->getConnectionForTable('be_groups')->insert('be_groups', [
+            'uid'               => 7,
+            'pid'               => 0,
+            'title'             => 'Editors',
+            'tables_select'     => 'pages,tt_content',
+            'db_mountpoints'    => '1',
+            'allowed_languages' => '0',
+        ]);
+        $this->pool()->getConnectionForTable('be_users')->update('be_users', ['usergroup' => '7', 'options' => 3], ['uid' => self::OWNER]);
 
         $this->seedSkillSource(self::SOURCE);
-        $this->pool()->getConnectionForTable('pages')->insert('pages', ['uid' => 1, 'pid' => 0, 'title' => 'Home']);
+        $this->pool()->getConnectionForTable('pages')->insert('pages', ['uid' => 1, 'pid' => 0, 'title' => 'Home', 'perms_everybody' => 1]);
 
         $this->persister = new AgentRunPersister(
             new AgentRunRepository($this->pool(), $this->get(AgentStateCodec::class)),
@@ -98,7 +106,7 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
     public function aRunThatNeitherInvokesNorContinuesIsLeftAlone(): void
     {
         $handle   = $this->begin();
-        $prepared = $this->preparer()->prepare($this->request($this->configuration($this->processSkill())), $this->admin, $handle);
+        $prepared = $this->preparer()->prepare($this->request($this->configuration($this->processSkill())), $this->actingUser(self::OWNER), $handle);
 
         self::assertNull($prepared->pin);
         self::assertNull($prepared->subject);
@@ -115,7 +123,7 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
 
         $prepared = $this->preparer()->prepare(
             $this->request($this->configuration($skill), new SkillInvocation(self::PROCESS, $subject)),
-            $this->admin,
+            $this->actingUser(self::OWNER),
             $handle,
         );
 
@@ -139,21 +147,51 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
     public function anInvocationNeedsTheConfiguration(): void
     {
         $configuration = $this->configuration($this->processSkill());
-        $group         = new BackendUserGroup();
-        $group->_setProperty('uid', 7);
-        /** @var ObjectStorage<BackendUserGroup> $groups */
-        $groups = new ObjectStorage();
-        $groups->attach($group);
-
-        $configuration->setBeGroups($groups);
+        $configuration->setBeGroups($this->beGroups(8));
 
         $this->assertRefused(
             ProcessInvocationRefusal::CONFIGURATION_NOT_PERMITTED,
-            $this->request($configuration, new SkillInvocation(self::PROCESS), AiActorContext::backendUser(self::OWNER)),
+            $this->request($configuration, new SkillInvocation(self::PROCESS)),
         );
 
-        $prepared = $this->prepare($this->request($configuration, new SkillInvocation(self::PROCESS), AiActorContext::backendUser(self::OWNER, backendGroupIds: [7])));
+        $configuration->setBeGroups($this->beGroups(7));
+        $prepared = $this->prepare($this->request($configuration, new SkillInvocation(self::PROCESS)));
         self::assertInstanceOf(SkillPin::class, $prepared->pin);
+    }
+
+    /**
+     * The checks read the acting user as it is now, not the actor the request
+     * froze (ADR-228): a queued request that claims a group or the admin flag
+     * its user no longer has gets neither.
+     */
+    #[Test]
+    public function theChecksReadTheActingUserNotTheFrozenActor(): void
+    {
+        $configuration = $this->configuration($this->processSkill());
+        $configuration->setBeGroups($this->beGroups(9));
+        $this->assertRefused(
+            ProcessInvocationRefusal::CONFIGURATION_NOT_PERMITTED,
+            $this->request($configuration, new SkillInvocation(self::PROCESS), AiActorContext::backendUser(self::OWNER, backendGroupIds: [9])),
+        );
+
+        $adminsRun = $this->finishedProcessRun($this->configuration($this->processSkill()), initiator: 1);
+        $this->assertRefused(
+            ProcessInvocationRefusal::PREDECESSOR_MISSING,
+            $this->request($this->configuration($this->processSkill()), null, AiActorContext::backendUser(self::OWNER, isAdmin: true), $adminsRun),
+        );
+
+        // With another acting user than the actor, nothing the actor claims
+        // is granted.
+        try {
+            $this->preparer()->prepare(
+                $this->request($configuration, new SkillInvocation(self::PROCESS), AiActorContext::backendUser(self::OWNER, backendGroupIds: [9])),
+                $this->actingUser(1),
+                $this->begin(),
+            );
+            self::fail('Expected a refusal for another acting user');
+        } catch (ProcessInvocationRefusedException $exception) {
+            self::assertSame(ProcessInvocationRefusal::CONFIGURATION_NOT_PERMITTED, $exception->reason);
+        }
     }
 
     #[Test]
@@ -249,7 +287,7 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
     public function aProcessWhoseLineageCannotBeStoredIsRefused(): void
     {
         try {
-            $this->preparer()->prepare($this->request($this->configuration($this->processSkill()), new SkillInvocation(self::PROCESS)), $this->admin, null);
+            $this->preparer()->prepare($this->request($this->configuration($this->processSkill()), new SkillInvocation(self::PROCESS)), $this->actingUser(self::OWNER), null);
             self::fail('Expected a refusal without a run row');
         } catch (ProcessInvocationRefusedException $exception) {
             self::assertSame(ProcessInvocationRefusal::LINEAGE_NOT_STORED, $exception->reason);
@@ -270,7 +308,7 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
         $predecessor   = $this->finishedProcessRun($configuration, $subject);
 
         $handle   = $this->begin();
-        $prepared = $this->preparer()->prepare($this->request($configuration, null, predecessor: $predecessor), $this->admin, $handle);
+        $prepared = $this->preparer()->prepare($this->request($configuration, null, predecessor: $predecessor), $this->actingUser(self::OWNER), $handle);
 
         self::assertEquals(new SkillPin(self::PROCESS, self::SOURCE, $skill->getVersionDigest()), $prepared->pin);
         self::assertEquals($subject, $prepared->subject);
@@ -315,7 +353,7 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
         $predecessor   = $this->finishedProcessRun($configuration);
 
         $this->assertRefused(
-            ProcessInvocationRefusal::PREDECESSOR_NOT_PERMITTED,
+            ProcessInvocationRefusal::PREDECESSOR_MISSING,
             $this->request($configuration, null, AiActorContext::backendUser(3), $predecessor),
         );
 
@@ -397,9 +435,10 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
 
         $handle = $this->begin();
         try {
-            $this->preparer()->prepare($this->request($configuration, null, predecessor: $predecessor), $this->admin, $handle);
-            self::fail('Expected SkillInstructionWithdrawnException');
-        } catch (SkillInstructionWithdrawnException $exception) {
+            $this->preparer()->prepare($this->request($configuration, null, predecessor: $predecessor), $this->actingUser(self::OWNER), $handle);
+            self::fail('Expected a refusal');
+        } catch (ProcessInvocationRefusedException $exception) {
+            self::assertSame(ProcessInvocationRefusal::PIN_WITHDRAWN, $exception->reason);
             self::assertStringContainsString('revoked', $exception->getMessage());
         }
 
@@ -424,9 +463,106 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
         $predecessor   = $this->finishedProcessRun($configuration);
         $this->pool()->getConnectionForTable('tx_nrllm_skill')->update('tx_nrllm_skill', ['enabled' => 0], ['uid' => self::PROCESS]);
 
-        $this->expectException(SkillInstructionWithdrawnException::class);
+        $this->expectException(ProcessInvocationRefusedException::class);
         $this->expectExceptionMessage('disabled');
         $this->prepare($this->request($configuration, null, predecessor: $predecessor));
+    }
+
+    /**
+     * The trust floor the catalogue applies (ADR-061) holds for a start too:
+     * a skill the composer does not admit is refused, one it admits starts.
+     */
+    #[Test]
+    public function anInvocationNeedsTheSkillAdmittedByTheTrustFloor(): void
+    {
+        $skill = $this->processSkill();
+        try {
+            $this->preparer(['minTrustLevel' => 'verified'])->prepare(
+                $this->request($this->configuration($skill), new SkillInvocation(self::PROCESS)),
+                $this->actingUser(self::OWNER),
+                $this->begin(),
+            );
+            self::fail('Expected a refusal below the trust floor');
+        } catch (ProcessInvocationRefusedException $exception) {
+            self::assertSame(ProcessInvocationRefusal::SKILL_NOT_ADMITTED, $exception->reason);
+        }
+
+        $skill->setTrustLevel('verified');
+        $prepared = $this->preparer(['minTrustLevel' => 'verified'])->prepare(
+            $this->request($this->configuration($skill), new SkillInvocation(self::PROCESS)),
+            $this->actingUser(self::OWNER),
+            $this->begin(),
+        );
+        self::assertInstanceOf(SkillPin::class, $prepared->pin);
+    }
+
+    /**
+     * A predecessor whose lineage cannot be read refuses the continuation
+     * with its own reason, rather than continuing without the process.
+     */
+    #[Test]
+    public function aPredecessorWhoseLineageCannotBeReadIsRefused(): void
+    {
+        $handle = $this->begin();
+        self::assertTrue($this->persister->settleCancelled($handle));
+        $this->pool()->getConnectionForTable('tx_nrllm_agentrun_event')->insert('tx_nrllm_agentrun_event', [
+            'pid' => 0, 'run' => $handle->runUid, 'sequence' => 0, 'kind' => 'lineage', 'payload' => '{}', 'crdate' => time(),
+        ]);
+
+        $this->assertRefused(ProcessInvocationRefusal::LINEAGE_UNREADABLE, $this->request($this->configuration($this->processSkill()), null, predecessor: $handle->uuid));
+    }
+
+    /**
+     * A predecessor the context window refused never sent the process, so
+     * the continuation admits it as a start (ADR-214 item 7); any other
+     * ended predecessor hands on a process the conversation holds.
+     */
+    #[Test]
+    public function aPredecessorTheWindowRefusedHandsItsProcessOnForAdmission(): void
+    {
+        $configuration = $this->configuration($this->processSkill());
+
+        $refused = $this->persister->begin($configuration, self::OWNER);
+        self::assertInstanceOf(AgentRunHandle::class, $refused);
+        self::assertTrue($this->persister->recordLineage($refused, new RunLineage(self::CONFIGURATION, $this->pinOf(self::PROCESS))));
+        self::assertTrue($this->persister->settleFailed($refused, new SkillSectionNotAdmittedException(['tour'], 1)));
+
+        self::assertTrue($this->prepare($this->request($configuration, null, predecessor: $refused->uuid))->newStart);
+        self::assertFalse($this->prepare($this->request($configuration, null, predecessor: $this->finishedProcessRun($configuration)))->newStart);
+    }
+
+    /**
+     * A continuation records the run it continued from, which ending the
+     * process walks; a start records none.
+     */
+    #[Test]
+    public function aContinuationRecordsItsPredecessor(): void
+    {
+        $configuration = $this->configuration($this->processSkill());
+        $predecessor   = $this->finishedProcessRun($configuration);
+
+        $handle = $this->begin();
+        $this->preparer()->prepare($this->request($configuration, null, predecessor: $predecessor), $this->actingUser(self::OWNER), $handle);
+        self::assertSame($predecessor, $this->lineage($handle->uuid)?->predecessorRunUuid);
+
+        $started = $this->begin();
+        $this->preparer()->prepare($this->request($configuration, new SkillInvocation(self::PROCESS)), $this->actingUser(self::OWNER), $started);
+        self::assertSame('', $this->lineage($started->uuid)?->predecessorRunUuid);
+    }
+
+    /**
+     * On resume the subject is checked again with the rule of the start: a
+     * record the acting user can no longer read is not carried.
+     */
+    #[Test]
+    public function aResumedSubjectIsCheckedAgain(): void
+    {
+        $subject = new SubjectRecord(new RecordReference('pages', 1));
+
+        self::assertSame($subject, $this->preparer()->readableSubject($this->actingUser(self::OWNER), $subject));
+        self::assertNull($this->preparer()->readableSubject(null, $subject));
+        self::assertNull($this->preparer()->readableSubject($this->actingUser(self::OWNER), new SubjectRecord(new RecordReference('pages', 999))));
+        self::assertNull($this->preparer()->readableSubject($this->actingUser(self::OWNER), null));
     }
 
     // --- helpers -----------------------------------------------------------
@@ -443,7 +579,30 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
 
     private function prepare(AgentRunRequest $request): PreparedProcess
     {
-        return $this->preparer()->prepare($request, $this->admin, $this->begin());
+        return $this->preparer()->prepare($request, $this->actingUser($request->actor->backendUserUid), $this->begin());
+    }
+
+    /**
+     * The backend user the runtime would resolve for an actor: the fixture's
+     * administrator or editor, none for any other uid.
+     */
+    private function actingUser(int $uid): ?BackendUserAuthentication
+    {
+        return in_array($uid, [1, self::OWNER], true) ? $this->setUpBackendUser($uid) : null;
+    }
+
+    /**
+     * @return ObjectStorage<BackendUserGroup>
+     */
+    private function beGroups(int $uid): ObjectStorage
+    {
+        $group = new BackendUserGroup();
+        $group->_setProperty('uid', $uid);
+        /** @var ObjectStorage<BackendUserGroup> $groups */
+        $groups = new ObjectStorage();
+        $groups->attach($group);
+
+        return $groups;
     }
 
     private function request(LlmConfiguration $configuration, ?SkillInvocation $invocation = null, ?AiActorContext $actor = null, string $predecessor = ''): AgentRunRequest
@@ -468,9 +627,10 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
     /**
      * @return string the uuid of a cancelled run that holds the process
      */
-    private function finishedProcessRun(LlmConfiguration $configuration, ?SubjectRecord $subject = null): string
+    private function finishedProcessRun(LlmConfiguration $configuration, ?SubjectRecord $subject = null, int $initiator = self::OWNER): string
     {
-        $handle = $this->begin($configuration);
+        $handle = $this->persister->begin($configuration, $initiator);
+        self::assertInstanceOf(AgentRunHandle::class, $handle);
         self::assertTrue($this->persister->recordLineage($handle, new RunLineage(self::CONFIGURATION, $this->pinOf(self::PROCESS), $subject)));
         self::assertTrue($this->persister->settleCancelled($handle));
 
@@ -515,9 +675,12 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
         return $this->approvedSkill($uid, self::SOURCE, $process, $approve);
     }
 
-    private function preparer(): ProcessRunPreparer
+    /**
+     * @param array<string, string> $skills the `skills` extension settings
+     */
+    private function preparer(array $skills = []): ProcessRunPreparer
     {
-        $factory = $this->composerFactory();
+        $factory = $this->composerFactory($skills);
 
         return new ProcessRunPreparer(
             $this->persister,

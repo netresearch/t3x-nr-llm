@@ -45,13 +45,23 @@ Decision
    through :php:`ProcessRunPreparer`. They are the checks of ADR-214 item 10,
    in this order: the actor may use the configuration
    (:php:`ConfigurationResolver::actorMayUse()`); for a continuation, the
-   predecessor exists, the actor is its initiator or an administrator, and a
-   predecessor holding a process is terminal; an invocation of another skill
-   while a process is held is refused; the skill is attached, enabled and not
-   orphaned; its current version is an approved instruction marked a
-   process; the actor is not a service account and the configuration does
-   not set ``require_second_approver``; the acting user may read the subject
-   record. A refusal is a :php:`ProcessInvocationRefusedException` carrying a
+   predecessor exists and the actor is its initiator or an administrator
+   (one refusal for both, so it does not tell whether another user's run
+   exists), its lineage can be read, and a predecessor holding a process is
+   terminal; an invocation of another skill while a process is held is
+   refused; the skill is attached, enabled, not orphaned and admitted by the
+   trust floor the catalogue applies; its current version is an approved
+   instruction marked a process; the actor is not a service account and the
+   configuration does not set ``require_second_approver``; the acting user
+   may read the subject record; a derived pin still holds (a pin that no
+   longer does is refused as ``pin_withdrawn``, after the run recorded its
+   lineage without it).
+
+   The checks read the actor's admin flag and groups from the acting
+   backend user as it is now, not from the actor the request froze: a
+   queued request is checked at pickup, and a user demoted or removed from a
+   group in between no longer has what the request claimed. An acting user
+   that is missing, or is not the actor, grants neither. A refusal is a :php:`ProcessInvocationRefusedException` carrying a
    :php:`ProcessInvocationRefusal` case. It settles the run ``failed`` with
    its class and the termination reason ``policy_denied`` — a continued
    process on a configuration that turned four-eyes on since with
@@ -64,14 +74,21 @@ Decision
 
 3. **The subject check is the acting user's**, not the global backend
    user's: the table (:php:`TableReadAccessService::canReadTable()`), the
-   language, the record not deleted, and for an editor the page's web mount
-   and page-show permission. A record on the root level is for
+   language the user may edit, the record not deleted and live or in the
+   user's own workspace, and for an editor the page's web mount and
+   page-show permission (one check: :php:`calcPerms()` answers nothing
+   outside the mounts in TYPO3 13.4 and 14.3). The record's own language
+   counts too: a translation row is the subject only in its own language; a
+   row in the default language or in all languages may be worked on in any
+   language the user may edit. A record on the root level is for
    administrators only. :php:`BackendUtility::readPageAccess()` is not used
-   because it reads the global backend user.
+   because it reads the global backend user. A resumed run carries the
+   subject only while the same check still passes.
 
 4. **The lineage is an event.** What the run started with is stored as an
    event of kind ``lineage`` in the run's event stream: the configuration uid,
-   the process pin, the subject record and whether the process was released.
+   the process pin, the subject record, the process skill's identifier, the
+   run it continued from, and whether the process was released.
    It holds uids and a digest only, so it is stored at every privacy level,
    and it is purged with the run. The latest lineage event counts. A
    continuation that cannot store its lineage is refused, and one whose
@@ -107,8 +124,12 @@ Decision
    same guarded transition as ``cancelIfWaiting()``; a queued or running run
    is left alone and the caller asks again; a terminal run keeps its status.
    The run then records its lineage as released, which a continuation does
-   not carry on. Applied writes stay. Anyone else, and an unknown run, learn
-   nothing.
+   not carry on, and so does every earlier turn the process was continued
+   from — following each lineage's predecessor — so no turn of the
+   conversation can hand the process on again. The earlier turns are released
+   first and the named run last, so a release that fails leaves the named run
+   holding and a retry releases the rest. Applied writes stay. Anyone else,
+   and an unknown run, learn nothing.
 
    The run status (:php:`AgentRuntimeInterface::status()`) says whether the
    run holds a process (``holdsProcess``) and names the process skill's
@@ -124,7 +145,8 @@ Decision
    service account, an actor who may not use the configuration, and a
    configuration that sets ``require_second_approver`` get an empty list. Its
    names and descriptions come from the approval snapshot. The route answers
-   404 for an unknown or deactivated configuration.
+   404 alike for an unknown or deactivated configuration and for one the
+   user may not use, so it does not tell which configurations exist.
 
 9. **Admission.** A process this run starts passes the window admission of
    ADR-214 item 7 with the other start sections, before the first provider
@@ -133,13 +155,16 @@ Decision
    configuration's model. A process the run continues from its predecessor
    is not admitted again: its section is one the conversation already
    holds, and a long tour would otherwise fail once its history outgrew the
-   headroom. The runtime marks a new start on the augmentation
-   (``admitsProcess``).
+   headroom. The exception is a predecessor the window refused
+   (:php:`SkillSectionNotAdmittedException`): it never sent the section, so
+   its continuation admits the process as a start. The runtime marks a new
+   start on the augmentation (``admitsProcess``).
 
 10. **Highlight targets.** The subject record is on the tool context, and the
     builtin ``highlight_record`` accepts only the subject record itself or,
-    for a page, a non-deleted content element on it in the subject's language
-    or in all languages, if the acting user may read ``tt_content``. The run
+    for a page, a non-deleted content element on it, live or in the acting
+    user's workspace, in the subject's language or in all languages, if the
+    acting user may read ``tt_content``. The run
     records a ``highlight`` step with the table and uid. The builtin ships
     disabled.
 

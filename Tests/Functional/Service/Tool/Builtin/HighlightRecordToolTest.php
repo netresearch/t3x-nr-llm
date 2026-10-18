@@ -56,6 +56,9 @@ final class HighlightRecordToolTest extends AbstractFunctionalTestCase
                 'header'           => 'Element ' . $uid,
             ]);
         }
+
+        // A new element in workspace 3, which the administrator is not in.
+        $pool->getConnectionForTable('tt_content')->insert('tt_content', ['uid' => 15, 'pid' => 1, 't3ver_wsid' => 3, 't3ver_state' => 1, 'header' => 'Workspace draft']);
     }
 
     #[Test]
@@ -83,6 +86,7 @@ final class HighlightRecordToolTest extends AbstractFunctionalTestCase
             'an element on another page'      => ['tt_content', 13, $this->page(1)],
             'an element in another language'  => ['tt_content', 11, $this->page(1)],
             'a deleted element'               => ['tt_content', 14, $this->page(1)],
+            'a draft in another workspace'    => ['tt_content', 15, $this->page(1)],
             'an element that does not exist'  => ['tt_content', 99, $this->page(1)],
             'another table'                   => ['sys_file', 10, $this->page(1)],
             // Element 10 sits on pid 1: a non-page subject with uid 1 must

@@ -82,6 +82,12 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
     /** Ceiling on the exponential requeue backoff, in milliseconds (ADR-104). */
     public const REQUEUE_BACKOFF_CAP_MS = 600_000;
 
+    /**
+     * How many earlier turns of a process {@see self::endProcess()} releases
+     * at most (ADR-228); a bound on a walk over stored lineages.
+     */
+    private const MAX_PROCESS_CHAIN = 1000;
+
     public function __construct(
         private ToolLoopServiceInterface $toolLoop,
         private AgentRunPersister $persister,
@@ -320,16 +326,61 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             return new GuardedCancelResult(false, $status);
         }
 
-        // Recorded after the cancel, on the ended run: a release that could
-        // not be stored leaves the process with the conversation, and the
-        // caller learns it was not ended and can ask again.
-        $ended = $this->persister->findRun($runUuid);
-        $handle = $ended instanceof AgentRun ? $this->persister->resumeHandle($ended) : null;
-        if (!$handle instanceof AgentRunHandle || !$this->persister->recordLineage($handle, $lineage->withReleasedProcess())) {
+        // The earlier turns the process was continued from are released
+        // first, so none of them can hand it on again (ADR-228), and this run
+        // last: a release that could not be stored leaves the process with
+        // this run, and the caller learns it was not ended and can ask again.
+        $chain = $this->processChainBefore($lineage);
+        if ($chain === null) {
             return new GuardedCancelResult(false, $status);
         }
 
+        foreach ([...$chain, [$runUuid, $lineage]] as [$uuid, $held]) {
+            $ended  = $this->persister->findRun($uuid);
+            $handle = $ended instanceof AgentRun ? $this->persister->resumeHandle($ended) : null;
+            if (!$handle instanceof AgentRunHandle || !$this->persister->recordLineage($handle, $held->withReleasedProcess())) {
+                return new GuardedCancelResult(false, $status);
+            }
+        }
+
         return new GuardedCancelResult(true, $status);
+    }
+
+    /**
+     * The earlier runs of a process chain that still hold the process,
+     * newest first, by following each lineage's predecessor; null when one
+     * of them cannot be read. The walk stops at a run that started the
+     * process or already released it, and after a bounded number of hops.
+     *
+     * @return list<array{0: string, 1: RunLineage}>|null
+     */
+    private function processChainBefore(RunLineage $lineage): ?array
+    {
+        $chain = [];
+        $seen  = [];
+        $next  = $lineage->predecessorRunUuid;
+        while ($next !== '' && !isset($seen[$next]) && count($chain) < self::MAX_PROCESS_CHAIN) {
+            $seen[$next] = true;
+            $run         = $this->persister->findRun($next);
+            if (!$run instanceof AgentRun) {
+                break;
+            }
+
+            try {
+                $held = $this->persister->lineageOf($run);
+            } catch (RunLineageUnreadableException) {
+                return null;
+            }
+
+            if (!$held instanceof RunLineage || !$held->holdsProcess()) {
+                break;
+            }
+
+            $chain[] = [$next, $held];
+            $next    = $held->predecessorRunUuid;
+        }
+
+        return $chain;
     }
 
     /**

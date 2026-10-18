@@ -267,15 +267,17 @@ Netresearch\NrLlm\Domain\Enum\ModelSelectionMode (enum)
 Netresearch\NrLlm\Domain\Enum\ProcessInvocationRefusal (enum)
   case CONFIGURATION_NOT_PERMITTED = "configuration_not_permitted"
   case LINEAGE_NOT_STORED = "lineage_not_stored"
+  case LINEAGE_UNREADABLE = "lineage_unreadable"
   case NOT_AN_INSTRUCTION = "not_an_instruction"
   case NOT_A_PROCESS = "not_a_process"
+  case PIN_WITHDRAWN = "pin_withdrawn"
   case PREDECESSOR_MISSING = "predecessor_missing"
   case PREDECESSOR_NOT_FINISHED = "predecessor_not_finished"
-  case PREDECESSOR_NOT_PERMITTED = "predecessor_not_permitted"
   case PROCESS_HELD = "process_held"
   case SECOND_APPROVER_REQUIRED = "second_approver_required"
   case SERVICE_ACCOUNT = "service_account"
   case SKILL_DISABLED = "skill_disabled"
+  case SKILL_NOT_ADMITTED = "skill_not_admitted"
   case SKILL_NOT_ATTACHED = "skill_not_attached"
   case SUBJECT_NOT_READABLE = "subject_not_readable"
   method static cases(): array

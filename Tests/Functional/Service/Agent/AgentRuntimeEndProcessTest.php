@@ -139,6 +139,28 @@ final class AgentRuntimeEndProcessTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * Ending a process ends it for the whole conversation: every earlier turn
+     * the process was continued from is released as well, so a continuation
+     * of any of them derives nothing.
+     */
+    #[Test]
+    public function endingAProcessReleasesTheTurnsItWasContinuedFrom(): void
+    {
+        $first = $this->processRun();
+        self::assertTrue($this->persister->settleCancelled($first));
+        $second = $this->processRun($first->uuid);
+        self::assertTrue($this->persister->settleCancelled($second));
+        $third = $this->processRun($second->uuid);
+        self::assertTrue($this->persister->suspend($third, $this->state()));
+
+        self::assertTrue($this->runtime()->endProcess(AiActorContext::backendUser(self::OWNER), $third->uuid)->cancelled);
+
+        foreach (['first' => $first, 'second' => $second, 'third' => $third] as $which => $handle) {
+            self::assertFalse($this->lineage($handle->uuid)->holdsProcess(), $which . ' released');
+        }
+    }
+
+    /**
      * A running turn is not interrupted from here: the caller waits for it to
      * pause or end and asks again.
      */
@@ -178,7 +200,7 @@ final class AgentRuntimeEndProcessTest extends AbstractFunctionalTestCase
 
     // --- helpers -----------------------------------------------------------
 
-    private function processRun(): AgentRunHandle
+    private function processRun(string $predecessor = ''): AgentRunHandle
     {
         $handle = $this->persister->begin(null, self::OWNER);
         self::assertInstanceOf(AgentRunHandle::class, $handle);
@@ -186,6 +208,7 @@ final class AgentRuntimeEndProcessTest extends AbstractFunctionalTestCase
             30,
             new SkillPin(5, 10, str_repeat('a', 64)),
             new SubjectRecord(new RecordReference('pages', 1)),
+            predecessorRunUuid: $predecessor,
         )));
 
         return $handle;

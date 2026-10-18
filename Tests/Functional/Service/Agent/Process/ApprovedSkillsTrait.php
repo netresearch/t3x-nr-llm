@@ -93,10 +93,13 @@ trait ApprovedSkillsTrait
         );
     }
 
-    private function composerFactory(): SkillComposerFactory
+    /**
+     * @param array<string, string> $skills the `skills` extension settings
+     */
+    private function composerFactory(array $skills = []): SkillComposerFactory
     {
         $configuration = self::createStub(ExtensionConfiguration::class);
-        $configuration->method('get')->willReturn(['skills' => []]);
+        $configuration->method('get')->willReturn(['skills' => $skills]);
 
         return new SkillComposerFactory($configuration, new SkillApprovalRepository($this->pool()), new SkillSourceLookup($this->pool()), new SkillRecordLookup($this->pool()));
     }

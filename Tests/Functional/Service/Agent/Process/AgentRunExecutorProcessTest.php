@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
+use Netresearch\NrLlm\Domain\ValueObject\RunLineage;
 use Netresearch\NrLlm\Domain\ValueObject\SkillInvocation;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SubjectRecord;
@@ -158,6 +159,37 @@ final class AgentRunExecutorProcessTest extends AbstractFunctionalTestCase
         }
 
         self::assertFalse($this->looped);
+    }
+
+    /**
+     * A resumed run carries its process's subject record only while the
+     * acting user may still read it (ADR-228), and only through a preparer.
+     */
+    #[Test]
+    public function aResumedRunCarriesItsSubjectOnlyWhileItIsReadable(): void
+    {
+        foreach ([
+            'readable'          => [1, true, 'pages:1'],
+            'no longer there'   => [999, true, ''],
+            'without preparer'  => [1, false, ''],
+        ] as $case => [$page, $withPreparer, $expected]) {
+            $handle = $this->begin();
+            self::assertTrue($this->persister->recordLineage($handle, new RunLineage(30, new SkillPin(5, self::SOURCE, str_repeat('a', 64)), new SubjectRecord(new RecordReference('pages', $page)))));
+
+            $seen = 'unset';
+            $this->executor($withPreparer)->executeResume(
+                $handle,
+                null,
+                AiActorContext::backendUser(2),
+                static function (ToolExecutionContext $context) use (&$seen): ToolLoopResult {
+                    $seen = (string)$context->subjectRecord?->record;
+
+                    return new ToolLoopResult('done', [], 1, false, UsageStatistics::fromTokens(1, 1));
+                },
+            );
+
+            self::assertSame($expected, $seen, $case);
+        }
     }
 
     private function request(LlmConfiguration $configuration, ?SkillInvocation $invocation = null, ?RunAugmentation $augmentation = null): AgentRunRequest

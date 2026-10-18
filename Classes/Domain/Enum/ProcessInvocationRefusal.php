@@ -32,6 +32,11 @@ enum ProcessInvocationRefusal: string
      */
     case SKILL_DISABLED = 'skill_disabled';
     /**
+     * The invoked skill's trust level is below the configured floor, so the
+     * composer does not admit it (ADR-061).
+     */
+    case SKILL_NOT_ADMITTED = 'skill_not_admitted';
+    /**
      * The invoked skill's approved version is not a process.
      */
     case NOT_A_PROCESS = 'not_a_process';
@@ -56,17 +61,25 @@ enum ProcessInvocationRefusal: string
      */
     case SUBJECT_NOT_READABLE = 'subject_not_readable';
     /**
-     * The predecessor run does not exist, or no longer does.
+     * The predecessor run does not exist, or the actor is neither its
+     * initiator nor an administrator. One case for both, so a refusal does
+     * not tell whether another user's run exists.
      */
     case PREDECESSOR_MISSING = 'predecessor_missing';
-    /**
-     * The actor is neither the predecessor's initiator nor an administrator.
-     */
-    case PREDECESSOR_NOT_PERMITTED = 'predecessor_not_permitted';
     /**
      * The predecessor holds a process and still waits or runs.
      */
     case PREDECESSOR_NOT_FINISHED = 'predecessor_not_finished';
+    /**
+     * What the predecessor recorded for its conversation could not be read.
+     */
+    case LINEAGE_UNREADABLE = 'lineage_unreadable';
+    /**
+     * The process pin the predecessor holds no longer holds: revoked,
+     * disabled, orphaned, distrusted, or no longer a process. The run records
+     * its lineage without the process, so the next turn goes on without it.
+     */
+    case PIN_WITHDRAWN = 'pin_withdrawn';
     /**
      * The run could not record its process, or was not persisted at all.
      */

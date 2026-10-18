@@ -14,13 +14,14 @@ use Netresearch\NrLlm\Domain\Enum\ProcessInvocationRefusal;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\DroppedSource;
 use Netresearch\NrLlm\Domain\ValueObject\RunLineage;
 use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
 use Netresearch\NrLlm\Domain\ValueObject\SkillInvocation;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SubjectRecord;
-use Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException;
+use Netresearch\NrLlm\Exception\SkillSectionNotAdmittedException;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessInvocationRefusedException;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunNeedsSecondApproverException;
@@ -74,8 +75,6 @@ final readonly class ProcessRunPreparer
     /**
      * @throws ProcessInvocationRefusedException
      * @throws ProcessRunNeedsSecondApproverException a continued process on a configuration that turned on four-eyes
-     * @throws SkillInstructionWithdrawnException     a continued process whose pin no longer holds
-     * @throws RunLineageUnreadableException
      */
     public function prepare(AgentRunRequest $request, ?BackendUserAuthentication $actingUser, ?AgentRunHandle $handle): PreparedProcess
     {
@@ -85,18 +84,22 @@ final readonly class ProcessRunPreparer
 
         $runUuid       = $handle->uuid ?? '';
         $configuration = $request->configuration;
-        if (!$this->configurations->actorMayUse($configuration, $request->actor)) {
+        // The checks read the actor as the acting user is now, not as the
+        // request froze it: a queued run is checked at pickup, and an
+        // administrator demoted in between is no longer one.
+        $actor = $this->liveActor($request->actor, $actingUser);
+        if (!$this->configurations->actorMayUse($configuration, $actor)) {
             throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::CONFIGURATION_NOT_PERMITTED);
         }
 
-        [$derived, $dropped] = $request->predecessorRunUuid !== ''
-            ? $this->derive($request, $runUuid)
-            : [null, []];
+        [$derived, $dropped, $readmit] = $request->predecessorRunUuid !== ''
+            ? $this->derive($request, $actor, $runUuid)
+            : [null, [], false];
 
         $pin      = $derived?->processPin;
         $subject  = $derived?->subject;
-        $newStart = false;
-        $invoked = $request->invocation;
+        $newStart = $readmit;
+        $invoked  = $request->invocation;
         if ($invoked instanceof SkillInvocation && $invoked->skillUid !== $pin?->skillUid) {
             if ($pin instanceof SkillPin) {
                 throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::PROCESS_HELD);
@@ -108,7 +111,7 @@ final readonly class ProcessRunPreparer
         }
 
         if ($pin instanceof SkillPin) {
-            $this->assertMayRunProcess($request, $runUuid, $derived instanceof RunLineage);
+            $this->assertMayRunProcess($request, $actor, $runUuid, $derived instanceof RunLineage);
             if ($subject instanceof SubjectRecord && !$this->subjectAccess->isReadable($actingUser, $subject)) {
                 throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::SUBJECT_NOT_READABLE);
             }
@@ -124,7 +127,13 @@ final readonly class ProcessRunPreparer
 
         $this->record(
             $handle,
-            new RunLineage((int)$configuration->getUid(), $pin, $subject, processSkill: $this->attachedSkill($configuration, $pin->skillUid)?->getIdentifier() ?? ''),
+            new RunLineage(
+                (int)$configuration->getUid(),
+                $pin,
+                $subject,
+                processSkill: $this->attachedSkill($configuration, $pin->skillUid)?->getIdentifier() ?? '',
+                predecessorRunUuid: $derived instanceof RunLineage ? $request->predecessorRunUuid : '',
+            ),
             $runUuid,
         );
 
@@ -132,29 +141,43 @@ final readonly class ProcessRunPreparer
     }
 
     /**
-     * The process the predecessor holds, if the continuation carries it on,
-     * and the notices for a pin it drops.
-     *
-     * @return array{0: RunLineage|null, 1: list<DroppedSource>}
+     * The subject record a resumed run's process is about, when the acting
+     * user may still read it (ADR-228); null otherwise, so a highlight on
+     * resume is checked against the same rule as the start.
      */
-    private function derive(AgentRunRequest $request, string $runUuid): array
+    public function readableSubject(?BackendUserAuthentication $actingUser, ?SubjectRecord $subject): ?SubjectRecord
     {
+        return $subject instanceof SubjectRecord && $this->subjectAccess->isReadable($actingUser, $subject) ? $subject : null;
+    }
+
+    /**
+     * The process the predecessor holds, if the continuation carries it on,
+     * the notices for a pin it drops, and whether the predecessor's process
+     * section was never admitted against the window, so this run admits it.
+     *
+     * @return array{0: RunLineage|null, 1: list<DroppedSource>, 2: bool}
+     */
+    private function derive(AgentRunRequest $request, AiActorContext $actor, string $runUuid): array
+    {
+        // Not mayActOnRun(): what that admits depends on the scope, and a
+        // continuation derives another run's instructions and subject record,
+        // which is more than reading or deciding it (ADR-214 item 6). A run
+        // that does not exist and one the actor may not continue are refused
+        // alike, so the refusal does not tell another user's run uuids apart.
         $predecessor = $this->persister->findRun($request->predecessorRunUuid);
-        if (!$predecessor instanceof AgentRun) {
+        if (!$predecessor instanceof AgentRun
+            || (!$actor->isInitiatorOf($predecessor) && (!$actor->isAdmin || $actor->isServiceAccount()))) {
             throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::PREDECESSOR_MISSING);
         }
 
-        // Not mayActOnRun(): what that admits depends on the scope, and a
-        // continuation derives another run's instructions and subject record,
-        // which is more than reading or deciding it (ADR-214 item 6).
-        $actor = $request->actor;
-        if (!$actor->isInitiatorOf($predecessor) && (!$actor->isAdmin || $actor->isServiceAccount())) {
-            throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::PREDECESSOR_NOT_PERMITTED);
+        try {
+            $lineage = $this->persister->lineageOf($predecessor);
+        } catch (RunLineageUnreadableException) {
+            throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::LINEAGE_UNREADABLE);
         }
 
-        $lineage = $this->persister->lineageOf($predecessor);
         if (!$lineage instanceof RunLineage || !$lineage->holdsProcess() || !$lineage->processPin instanceof SkillPin) {
-            return [null, []];
+            return [null, [], false];
         }
 
         // nr_llm only checks; getting the predecessor to a terminal state is
@@ -164,14 +187,41 @@ final readonly class ProcessRunPreparer
         }
 
         if ($lineage->configurationUid !== (int)$request->configuration->getUid()) {
-            return [null, [new DroppedSource('process', $lineage->processPin->skillUid, DroppedSourceReason::CONFIGURATION_CHANGED)]];
+            return [null, [new DroppedSource('process', $lineage->processPin->skillUid, DroppedSourceReason::CONFIGURATION_CHANGED)], false];
         }
 
         if (!$this->attachedSkill($request->configuration, $lineage->processPin->skillUid) instanceof Skill) {
-            return [null, [new DroppedSource('process', $lineage->processPin->skillUid, DroppedSourceReason::DETACHED)]];
+            return [null, [new DroppedSource('process', $lineage->processPin->skillUid, DroppedSourceReason::DETACHED)], false];
         }
 
-        return [$lineage, []];
+        // A predecessor the window refused never sent the section, so the
+        // conversation does not hold it yet: this run admits it (ADR-214
+        // item 7).
+        return [$lineage, [], $predecessor->errorClass === SkillSectionNotAdmittedException::class];
+    }
+
+    /**
+     * The request's actor as the acting backend user is now: its admin flag
+     * and groups. Fails closed — no admin flag, no groups — when there is no
+     * acting user or it is another user than the actor. A service account
+     * has no backend user and keeps its declared scopes.
+     */
+    private function liveActor(AiActorContext $actor, ?BackendUserAuthentication $user): AiActorContext
+    {
+        if ($actor->isServiceAccount()) {
+            return $actor;
+        }
+
+        if (!$user instanceof BackendUserAuthentication || $user->getUserId() !== $actor->backendUserUid) {
+            return AiActorContext::backendUser($actor->backendUserUid, false, [], $actor->grants);
+        }
+
+        return AiActorContext::backendUser(
+            $actor->backendUserUid,
+            $user->isAdmin(),
+            array_values(array_map(static fn(mixed $g): int => is_numeric($g) ? (int)$g : 0, $user->userGroupsUID)),
+            $actor->grants,
+        );
     }
 
     /**
@@ -187,6 +237,12 @@ final readonly class ProcessRunPreparer
 
         if (!$skill->isEnabled() || $skill->isOrphaned()) {
             throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::SKILL_DISABLED);
+        }
+
+        // The trust floor (ADR-061) the catalogue applies too: a skill the
+        // composer does not admit is neither listed nor started.
+        if (!in_array($skill, $this->composer->admittedSkills([$skill], []), true)) {
+            throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::SKILL_NOT_ADMITTED);
         }
 
         $version = $this->composer->approvedVersion($skill);
@@ -207,9 +263,9 @@ final readonly class ProcessRunPreparer
      * nobody could apply a proposal. A continued process on a configuration
      * that turned four-eyes on since stops with the stop's own message.
      */
-    private function assertMayRunProcess(AgentRunRequest $request, string $runUuid, bool $continued): void
+    private function assertMayRunProcess(AgentRunRequest $request, AiActorContext $actor, string $runUuid, bool $continued): void
     {
-        if ($request->actor->isServiceAccount()) {
+        if ($actor->isServiceAccount()) {
             throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::SERVICE_ACCOUNT);
         }
 
@@ -226,9 +282,9 @@ final readonly class ProcessRunPreparer
 
     /**
      * The pin rules at every continuation (ADR-214 item 6). A pin that no
-     * longer holds stops the run, which first records its lineage without the
-     * pin: the next turn then goes on without the process instead of failing
-     * on it for ever.
+     * longer holds stops the run with a refusal naming why, after the run
+     * recorded its lineage without the pin: the next turn then goes on
+     * without the process instead of failing on it for ever.
      */
     private function assertDerivedPinHolds(SkillPin $pin, LlmConfiguration $configuration, ?AgentRunHandle $handle, ?SubjectRecord $subject): void
     {
@@ -239,10 +295,11 @@ final readonly class ProcessRunPreparer
 
         $this->record($handle, new RunLineage((int)$configuration->getUid(), null, $subject), $handle->uuid ?? '');
 
-        // The pin check names the skill as the approver saw it.
-        $this->pinCheck->assertHeld([$pin]);
-
-        throw new SkillInstructionWithdrawnException($pin, 'unknown', 'its approval no longer marks a process');
+        throw ProcessInvocationRefusedException::forRun(
+            $handle->uuid ?? '',
+            ProcessInvocationRefusal::PIN_WITHDRAWN,
+            $reason ?? 'its approval no longer marks a process',
+        );
     }
 
     private function record(?AgentRunHandle $handle, RunLineage $lineage, string $runUuid): void
