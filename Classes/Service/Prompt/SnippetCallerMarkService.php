@@ -17,9 +17,9 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 /**
  * Marks and unmarks a snippet for a caller's system message (ADR-214 item 8).
  *
- * The marking form shows the composed block and posts the digest of the block
- * it rendered. The mark is refused when that digest is not the digest of the
- * block as stored now — the rule item 2 applies to skill approvals — and when
+ * The marking form shows the composed block and the snippet's tags and posts
+ * the digest of what it rendered. The mark is refused when that digest is not
+ * the digest of the block and tags as stored now — the rule item 2 applies to skill approvals — and when
  * the block holds characters a browser does not show but a model reads, which
  * the administrator could not have reviewed.
  *
@@ -46,10 +46,11 @@ final readonly class SnippetCallerMarkService
     ) {}
 
     /**
-     * What the review page shows: the block, its digest, whether that block
-     * is marked, and the characters that keep it from being marked.
+     * What the review page shows: the block, the tags the mark is bound to,
+     * their digest, whether they are marked, and the characters that keep
+     * the block from being marked.
      *
-     * @return array{block: string, digest: string, marked: bool, staleMark: bool, invisible: list<string>}
+     * @return array{block: string, tags: list<string>, digest: string, marked: bool, staleMark: bool, invisible: list<string>}
      */
     public function review(PromptSnippet $snippet): array
     {
@@ -57,6 +58,7 @@ final readonly class SnippetCallerMarkService
 
         return [
             'block'     => $block,
+            'tags'      => $this->mark->tagsOf($snippet),
             'digest'    => $this->mark->digestOf($snippet),
             'marked'    => $this->mark->isMarked($snippet),
             'staleMark' => $snippet->getCallerSystemDigest() !== '' && !$this->mark->isMarked($snippet),

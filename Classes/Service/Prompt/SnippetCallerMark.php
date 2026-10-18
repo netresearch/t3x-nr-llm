@@ -22,11 +22,15 @@ use Netresearch\NrLlm\Domain\Model\PromptSnippet;
  * an edit of either takes the snippet out of the caller's system message until
  * an administrator marks the new block.
  *
+ * The digest also covers the snippet's tags, which decide the configurations
+ * that select it: re-tagging a marked snippet routes it to other
+ * configurations, so it takes the snippet out until it is marked again.
+ *
  * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final readonly class SnippetCallerMark
 {
-    private const VERSION = '1:';
+    private const VERSION = '2:';
 
     public function __construct(
         private PromptSnippetComposer $composer = new PromptSnippetComposer(),
@@ -41,14 +45,31 @@ final readonly class SnippetCallerMark
     }
 
     /**
-     * The digest of the snippet's current block; '' when the block is empty,
-     * which nothing can mark.
+     * The tags the mark is bound to: normalised, deduplicated and sorted, so
+     * a change of case, spacing or order is not a re-tagging.
+     *
+     * @return list<string>
+     */
+    public function tagsOf(PromptSnippet $snippet): array
+    {
+        $tags = array_values(array_unique($snippet->getTagList()));
+        sort($tags);
+
+        return $tags;
+    }
+
+    /**
+     * The digest of the snippet's current block and tags; '' when the block
+     * is empty, which nothing can mark.
      */
     public function digestOf(PromptSnippet $snippet): string
     {
         $block = $this->blockOf($snippet);
+        if ($block === '') {
+            return '';
+        }
 
-        return $block === '' ? '' : self::VERSION . hash('sha256', $block);
+        return self::VERSION . hash('sha256', json_encode(['tags' => $this->tagsOf($snippet), 'block' => $block], JSON_THROW_ON_ERROR));
     }
 
     /**

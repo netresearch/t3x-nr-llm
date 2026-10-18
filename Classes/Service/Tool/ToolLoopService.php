@@ -450,8 +450,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $this->beginSegment();
         }
 
+        // Measured against the model the send runs on; without one there is
+        // no window to admit against, and the run does not start.
+        $windowModel = $instructionIds !== [] ? $this->windowModel($configuration) : null;
         if ($instructionIds !== [] && $this->contextWindow instanceof ContextWindowManagerInterface && (
             !$this->contextWindow instanceof SectionAdmissionInterface
+            || !$windowModel instanceof Model
             || !$this->contextWindow->admitsSection(
                 $messages,
                 '',
@@ -459,6 +463,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $options,
                 array_map(static fn(ToolSpec $s): array => $s->toArray(), $specs),
                 $this->effectiveSystemPrompt($configuration, $options),
+                $windowModel,
             )
         )) {
             throw new SkillSectionNotAdmittedException($instructionIds, 2497035577);
@@ -1694,7 +1699,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // configuration opts in (ADR-214 item 8) — before anything this
         // method bakes, so only a system message the caller sent receives
         // them, and before the instruction sections, which follow them.
-        $messages = $this->snippetResolver?->appendToCallerSystemMessage($messages, $configuration) ?? $messages;
+        $callerSystem = $this->headSystemText($messages) !== null;
+        $messages     = $this->snippetResolver?->appendToCallerSystemMessage($messages, $configuration) ?? $messages;
 
         $configSkills = SkillInjectionService::toList($configuration->getSkills());
         $forcedSkills = $augmentation instanceof RunAugmentation ? $augmentation->forcedSkills : [];
@@ -1738,8 +1744,14 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // The same composition the manager's planner applies, so the playground
         // shows the prompt a live run sends rather than one without the
         // configuration's snippets.
-        $system     = $this->effectiveSystemPrompt($configuration, $options);
+        //
+        // A caller that sent its own system message suppresses the
+        // configuration's prompt and its tag-selected snippets on the send
+        // (ADR-031, ADR-214 item 8): nothing is baked then, so only the marked
+        // snippets appended above reach that system channel, each once.
+        $system     = $callerSystem ? '' : $this->effectiveSystemPrompt($configuration, $options);
         $leadSystem = SkillInjectionService::join($system, $instructions);
+        $headSystem = $this->headSystemText($messages) ?? '';
         if ($leadSystem !== '') {
             $lead[] = ChatMessage::system($leadSystem);
         }
@@ -1755,8 +1767,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             // therefore byte-identically. Emitting it again would put the same
             // instruction in the prompt twice — the resolver's identifier dedup
             // never sees the forced list, so the containment check is what
-            // spans both sources.
-            if ($system !== '' && str_contains($system, $text)) {
+            // spans both sources. The same holds for a marked snippet already
+            // appended to the caller's system message.
+            if (($system !== '' && str_contains($system, $text)) || ($headSystem !== '' && str_contains($headSystem, $text))) {
                 continue;
             }
 
@@ -1768,6 +1781,31 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         }
 
         return [$messages, $augmentation->dryRun, $pins, $instructionIds];
+    }
+
+    /**
+     * The text of the first system message in the head (before the first
+     * user turn), '' for one whose content is not a string, or null when the
+     * head holds none.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     */
+    private function headSystemText(array $messages): ?string
+    {
+        foreach ($messages as $message) {
+            $role = $message instanceof ChatMessage ? $message->role : ($message['role'] ?? null);
+            if ($role === 'user') {
+                return null;
+            }
+
+            if ($role === 'system') {
+                $content = $message instanceof ChatMessage ? $message->content : ($message['content'] ?? null);
+
+                return is_string($content) ? $content : '';
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -17,9 +17,9 @@ use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
- * The snippet mark and a configuration's opt-in for caller system messages
- * are written by an administrator only (ADR-214 item 8): an editor whose
- * group is granted both fields cannot write them through the DataHandler,
+ * The snippet mark, a configuration's opt-in for caller system messages and
+ * its snippet tags are written by an administrator only (ADR-214 item 8): an
+ * editor whose group is granted the fields cannot write them through the DataHandler,
  * while the same write by an administrator lands. The control field shows
  * that the editor may write the records at all.
  */
@@ -28,7 +28,7 @@ final class CallerSystemFieldRightsTest extends AbstractFunctionalTestCase
 {
     private const EDITOR_UID = 3;
 
-    private const MARK = '1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    private const MARK = '2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
     protected function setUp(): void
     {
@@ -44,7 +44,7 @@ final class CallerSystemFieldRightsTest extends AbstractFunctionalTestCase
             'uid' => 1, 'pid' => 0, 'title' => 'LLM editors',
             'tables_select' => 'tx_nrllm_promptsnippet,tx_nrllm_configuration',
             'tables_modify' => 'tx_nrllm_promptsnippet,tx_nrllm_configuration',
-            'non_exclude_fields' => 'tx_nrllm_promptsnippet:caller_system_digest,tx_nrllm_configuration:snippets_in_caller_system_message',
+            'non_exclude_fields' => 'tx_nrllm_promptsnippet:caller_system_digest,tx_nrllm_configuration:snippets_in_caller_system_message,tx_nrllm_configuration:snippet_tags',
             'db_mountpoints' => '10',
         ]);
         $pool->getConnectionForTable('be_users')->insert('be_users', [
@@ -52,7 +52,7 @@ final class CallerSystemFieldRightsTest extends AbstractFunctionalTestCase
             'usergroup' => '1', 'db_mountpoints' => '10', 'options' => 3,
         ]);
         $pool->getConnectionForTable('tx_nrllm_promptsnippet')->insert('tx_nrllm_promptsnippet', [
-            'uid' => 5, 'pid' => 10, 'name' => 'House style', 'snippet' => 'Short sentences.', 'description' => 'Original',
+            'uid' => 5, 'pid' => 10, 'name' => 'House style', 'snippet' => 'Short sentences.', 'description' => 'Original', 'tags' => 'style',
         ]);
         $pool->getConnectionForTable('tx_nrllm_configuration')->insert('tx_nrllm_configuration', [
             'uid' => 6, 'pid' => 10, 'identifier' => 'chat', 'name' => 'Chat', 'description' => 'Original',
@@ -98,6 +98,26 @@ final class CallerSystemFieldRightsTest extends AbstractFunctionalTestCase
 
         $this->actAs(1);
         self::assertSame(self::MARK, $this->column('tx_nrllm_promptsnippet', $this->copySnippet(), 'caller_system_digest'));
+    }
+
+    /**
+     * The tags route marked snippets: a group grant does not let an editor
+     * change which snippets a configuration selects.
+     */
+    #[Test]
+    public function anEditorCannotSetAConfigurationsSnippetTags(): void
+    {
+        $this->actAs(self::EDITOR_UID);
+
+        $this->write(['tx_nrllm_configuration' => [6 => ['snippet_tags' => 'style', 'description' => 'Edited']]]);
+
+        self::assertSame('Edited', $this->column('tx_nrllm_configuration', 6, 'description'), 'the control: the editor may write the configuration');
+        self::assertSame('', $this->column('tx_nrllm_configuration', 6, 'snippet_tags'));
+
+        $this->actAs(1);
+        $this->write(['tx_nrllm_configuration' => [6 => ['snippet_tags' => 'style']]]);
+
+        self::assertSame('style', $this->column('tx_nrllm_configuration', 6, 'snippet_tags'), 'an administrator sets them');
     }
 
     #[Test]

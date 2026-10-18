@@ -804,16 +804,21 @@ system message only when both hold:
   as a label, then its text. Both fields are editable without ``exclude``, so
   the mark (working name ``caller_system_digest`` on
   ``tx_nrllm_promptsnippet``, ``exclude => true``) stores a sha256 of that
-  composed block, label and text. The marking form shows the block and posts
-  the digest of the block it rendered; the server recomputes it and refuses
-  the mark when the two differ, the rule item 2 applies to skill approvals.
-  The snippet is appended only while the digest of its current block
-  matches. An edit of the name or the text by anyone who may edit them —
-  under ADR-169 a non-administrator — takes it out of the chat's system
-  message until an administrator marks the new block; and
+  composed block, label and text, together with the snippet's tags, which
+  decide the configurations that select it. The marking form shows the block
+  and the tags and posts the digest of what it rendered; the server
+  recomputes it and refuses the mark when the two differ, the rule item 2
+  applies to skill approvals. The snippet is appended only while the digest
+  of its current block and tags matches. An edit of the name, the text or the
+  tags by anyone who may edit them — under ADR-169 a non-administrator —
+  takes it out of the chat's system message until an administrator marks the
+  new block; and
 - **the configuration opts in** (working name
   ``snippets_in_caller_system_message`` on ``tx_nrllm_configuration``,
-  ``exclude => true``, default off).
+  ``exclude => true``, default off). Its ``snippet_tags`` selection, which
+  routes marked snippets to it, is likewise an administrator's: both fields
+  carry ``HIDE_FOR_NON_ADMINS``, which the DataHandler enforces for every
+  non-administrator whatever a group grants.
 
 A mark on the record alone was rejected: the ``snippet`` and ``name`` fields
 are not excluded, so a non-administrator could keep a marked record and

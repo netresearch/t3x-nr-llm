@@ -61,6 +61,7 @@ final class PromptSnippetMarkControllerTest extends AbstractFunctionalTestCase
         $snippet = new PromptSnippet();
         $snippet->setName(self::NAME);
         $snippet->setSnippet(self::TEXT);
+        $snippet->setTags('style');
 
         $this->digest = (new SnippetCallerMark())->digestOf($snippet);
     }
@@ -77,13 +78,28 @@ final class PromptSnippetMarkControllerTest extends AbstractFunctionalTestCase
         $this->dispatch('mark', 'POST', $this->digest);
 
         self::assertSame($this->digest, $this->storedDigest());
-        self::assertStringStartsWith('1:', $this->digest);
+        self::assertStringStartsWith('2:', $this->digest);
     }
 
     #[Test]
     public function aDigestTheFormDidNotRenderFromTheCurrentBlockIsRefused(): void
     {
-        $this->dispatch('mark', 'POST', '1:' . str_repeat('0', 64));
+        $this->dispatch('mark', 'POST', '2:' . str_repeat('0', 64));
+
+        self::assertSame('', $this->storedDigest());
+    }
+
+    /**
+     * The digest covers the tags: a form rendered before the snippet was
+     * re-tagged posts a digest that no longer matches, and the mark is
+     * refused.
+     */
+    #[Test]
+    public function aDigestRenderedBeforeARetaggingIsRefused(): void
+    {
+        $this->pool()->getConnectionForTable('tx_nrllm_promptsnippet')->update('tx_nrllm_promptsnippet', ['tags' => 'style,legal'], ['uid' => self::SNIPPET]);
+
+        $this->dispatch('mark', 'POST', $this->digest);
 
         self::assertSame('', $this->storedDigest());
     }
@@ -96,6 +112,7 @@ final class PromptSnippetMarkControllerTest extends AbstractFunctionalTestCase
         $snippet = new PromptSnippet();
         $snippet->setName(self::NAME);
         $snippet->setSnippet($text);
+        $snippet->setTags('style');
 
         $this->dispatch('mark', 'POST', (new SnippetCallerMark())->digestOf($snippet));
 

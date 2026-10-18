@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\ModelSelectionMode;
 use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
@@ -32,7 +33,9 @@ use Netresearch\NrLlm\Service\Context\SectionAdmissionInterface;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
+use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Service\Prompt\SnippetCallerMark;
@@ -43,6 +46,7 @@ use Netresearch\NrLlm\Service\Skill\SkillInstructionPolicy;
 use Netresearch\NrLlm\Service\Skill\SkillPinCheck;
 use Netresearch\NrLlm\Service\Skill\SkillVersionDigest;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
+use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -75,7 +79,11 @@ final class ToolLoopServiceSectionAdmissionTest extends TestCase
 
     private const BLOCK = "Tone:\nUse the formal register.";
 
+    private const UNMARKED_BLOCK = "Draft notes:\nNot reviewed by an administrator.";
+
     private int $providerCalls = 0;
+
+    private string $body = self::BODY;
 
     /** @var list<ChatMessage|array<string, mixed>> */
     private array $sent = [];
@@ -124,10 +132,10 @@ final class ToolLoopServiceSectionAdmissionTest extends TestCase
     {
         $manager  = new ContextWindowManager();
         $messages = [ChatMessage::user('go')];
-        $first    = $manager->fit($messages, $this->configuration(), null, null);
-        $manager->fit($messages, $this->configuration(), null, UsageStatistics::fromTokens($first->estimatedTokens * 400, 1));
+        $first    = $manager->fit($messages, $this->configuration(window: 10000), null, null);
+        $manager->fit($messages, $this->configuration(window: 10000), null, UsageStatistics::fromTokens($first->estimatedTokens * 400, 1));
 
-        $this->service(admits: true, window: $manager)->runLoop([ChatMessage::user('go')], $this->configuration(), ToolExecutionContext::none(), null);
+        $this->service(admits: true, window: $manager)->runLoop([ChatMessage::user('go')], $this->configuration(window: 10000), ToolExecutionContext::none(), null);
 
         self::assertSame(1, $this->providerCalls);
     }
@@ -192,7 +200,220 @@ final class ToolLoopServiceSectionAdmissionTest extends TestCase
         self::assertSame(1, substr_count($this->sent[0]->content, self::BLOCK));
     }
 
-    private function service(bool $admits, bool $approve = true, bool $windowWithoutAdmission = false, ?ContextWindowManagerInterface $window = null): ToolLoopService
+    /**
+     * A criteria-mode configuration's start is measured against the model
+     * the send resolves to (ADR-143): sections that fit the configuration's
+     * own 8192-token model but not the resolved 4096 one stop the start, and
+     * the same sections start against a resolved large window.
+     */
+    #[Test]
+    public function aStartInCriteriaModeIsMeasuredAgainstTheResolvedModel(): void
+    {
+        $this->body = str_repeat('word ', 3500);
+        $config     = $this->configuration(window: 8192, criteria: true);
+
+        try {
+            $this->service(admits: true, window: new ContextWindowManager(), selection: $this->selecting($this->model(4096)))
+                ->runLoop([ChatMessage::user('go')], $config, ToolExecutionContext::none(), null);
+            self::fail('The start was not refused against the resolved 4096-token window.');
+        } catch (SkillSectionNotAdmittedException) {
+            self::assertSame(0, $this->providerCalls);
+        }
+
+        $this->service(admits: true, window: new ContextWindowManager(), selection: $this->selecting($this->model(100000)))
+            ->runLoop([ChatMessage::user('go')], $this->configuration(window: 8192, criteria: true), ToolExecutionContext::none(), null);
+
+        self::assertSame(1, $this->providerCalls);
+    }
+
+    /**
+     * The precondition the test above rests on: the sections fit 8192 tokens
+     * and do not fit 4096.
+     */
+    #[Test]
+    public function theCriteriaSectionsFit8192ButNot4096(): void
+    {
+        $this->body = str_repeat('word ', 3500);
+
+        $this->service(admits: true, window: new ContextWindowManager())->runLoop([ChatMessage::user('go')], $this->configuration(window: 8192), ToolExecutionContext::none(), null);
+        self::assertSame(1, $this->providerCalls);
+
+        $this->expectException(SkillSectionNotAdmittedException::class);
+        $this->service(admits: true, window: new ContextWindowManager())->runLoop([ChatMessage::user('go')], $this->configuration(window: 4096), ToolExecutionContext::none(), null);
+    }
+
+    #[Test]
+    public function aStartInCriteriaModeWithoutAResolvableModelIsRefused(): void
+    {
+        $this->expectException(SkillSectionNotAdmittedException::class);
+
+        try {
+            $this->service(admits: true, selection: $this->selecting(null))->runLoop([ChatMessage::user('go')], $this->configuration(criteria: true), ToolExecutionContext::none(), null);
+        } finally {
+            self::assertSame(0, $this->providerCalls);
+        }
+    }
+
+    /**
+     * An unknown window admits nothing at the start: a context length of 0
+     * or below stops a run with sections; a known one starts it.
+     */
+    #[Test]
+    public function aStartAgainstAnUnknownWindowIsRefused(): void
+    {
+        foreach ([0, -1] as $contextLength) {
+            try {
+                $this->service(admits: true, window: new ContextWindowManager())->runLoop([ChatMessage::user('go')], $this->configuration(window: $contextLength), ToolExecutionContext::none(), null);
+                self::fail(sprintf('A start against a context length of %d was not refused.', $contextLength));
+            } catch (SkillSectionNotAdmittedException) {
+                self::assertSame(0, $this->providerCalls);
+            }
+        }
+
+        $this->service(admits: true, window: new ContextWindowManager())->runLoop([ChatMessage::user('go')], $this->configuration(window: 10000), ToolExecutionContext::none(), null);
+
+        self::assertSame(1, $this->providerCalls);
+    }
+
+    /**
+     * A caller's max_tokens larger than the window leaves no budget: the
+     * start is refused. A smaller one starts the run.
+     */
+    #[Test]
+    public function aCallerReserveLargerThanTheWindowRefusesTheStart(): void
+    {
+        try {
+            $this->service(admits: true, window: new ContextWindowManager())->runLoop([ChatMessage::user('go')], $this->configuration(window: 10000), ToolExecutionContext::none(), null, new ToolOptions(maxTokens: 12000));
+            self::fail('The start was not refused.');
+        } catch (SkillSectionNotAdmittedException) {
+            self::assertSame(0, $this->providerCalls);
+        }
+
+        $this->service(admits: true, window: new ContextWindowManager())->runLoop([ChatMessage::user('go')], $this->configuration(window: 10000), ToolExecutionContext::none(), null, new ToolOptions(maxTokens: 2000));
+
+        self::assertSame(1, $this->providerCalls);
+    }
+
+    /**
+     * The other direction on the plain path: an unmarked snippet the
+     * configuration selects does not join the caller's system message.
+     */
+    #[Test]
+    public function anUnmarkedSnippetDoesNotJoinTheCallersSystemMessage(): void
+    {
+        $this->service(admits: true, approve: false)->runLoop(
+            [ChatMessage::system('Chat identity.'), ChatMessage::user('go')],
+            $this->configuration(optIn: true),
+            ToolExecutionContext::none(),
+            null,
+        );
+
+        self::assertStringNotContainsString(self::UNMARKED_BLOCK, $this->wire());
+        self::assertSame(1, substr_count($this->wire(), self::BLOCK));
+    }
+
+    /**
+     * A run with forced items (playground, queued runs) whose caller sent
+     * its own system message: only the marked snippet reaches the system
+     * channel, once; the unmarked one and the configuration's prompt do not.
+     */
+    #[Test]
+    public function anAugmentedRunWithACallerSystemMessageSendsOnlyMarkedSnippetsOnce(): void
+    {
+        $this->service(admits: true, approve: false)->runLoop(
+            [ChatMessage::system('Chat identity.'), ChatMessage::user('go')],
+            $this->configuration(optIn: true),
+            ToolExecutionContext::none(),
+            null,
+            null,
+            null,
+            null,
+            new RunAugmentation(),
+        );
+
+        self::assertSame(1, substr_count($this->wire(), self::BLOCK));
+        self::assertStringNotContainsString(self::UNMARKED_BLOCK, $this->wire());
+        self::assertStringNotContainsString(self::CONFIG_SYSTEM_PROMPT, $this->wire());
+    }
+
+    /**
+     * A forced snippet that is marked and already joined the caller's
+     * system message is not sent a second time.
+     */
+    #[Test]
+    public function aForcedMarkedSnippetJoinsTheCallersSystemMessageOnce(): void
+    {
+        $forced = new PromptSnippet();
+        $forced->setIdentifier('tone');
+        $forced->setName('Tone');
+        $forced->setSnippet('Use the formal register.');
+
+        $this->service(admits: true, approve: false)->runLoop(
+            [ChatMessage::system('Chat identity.'), ChatMessage::user('go')],
+            $this->configuration(optIn: true),
+            ToolExecutionContext::none(),
+            null,
+            null,
+            null,
+            null,
+            new RunAugmentation(forcedSnippets: [$forced]),
+        );
+
+        self::assertSame(1, substr_count($this->wire(), self::BLOCK));
+    }
+
+    /**
+     * The other direction: without a caller system message the augmented
+     * run bakes the configuration's prompt with every tag-selected snippet,
+     * each once, as before (ADR-031).
+     */
+    #[Test]
+    public function anAugmentedRunWithoutACallerSystemMessageBakesTheConfigurationPrompt(): void
+    {
+        $this->service(admits: true, approve: false)->runLoop(
+            [ChatMessage::user('go')],
+            $this->configuration(optIn: true),
+            ToolExecutionContext::none(),
+            null,
+            null,
+            null,
+            null,
+            new RunAugmentation(),
+        );
+
+        self::assertStringContainsString(self::CONFIG_SYSTEM_PROMPT, $this->wire());
+        self::assertSame(1, substr_count($this->wire(), self::BLOCK));
+        self::assertSame(1, substr_count($this->wire(), self::UNMARKED_BLOCK));
+    }
+
+    private function wire(): string
+    {
+        $text = '';
+        foreach ($this->sent as $message) {
+            $text .= ($message instanceof ChatMessage ? $message->content : (is_string($message['content'] ?? null) ? $message['content'] : '')) . "\n---\n";
+        }
+
+        return $text;
+    }
+
+    private function selecting(?Model $resolved): ModelSelectionServiceInterface
+    {
+        $selection = self::createStub(ModelSelectionServiceInterface::class);
+        $selection->method('resolveModel')->willReturn($resolved);
+
+        return $selection;
+    }
+
+    private function model(int $contextLength): Model
+    {
+        $model = new Model();
+        $model->setContextLength($contextLength);
+        $model->setMaxOutputTokens(500);
+
+        return $model;
+    }
+
+    private function service(bool $admits, bool $approve = true, bool $windowWithoutAdmission = false, ?ContextWindowManagerInterface $window = null, ?ModelSelectionServiceInterface $selection = null): ToolLoopService
     {
         $this->providerCalls = 0;
         $this->sent          = [];
@@ -226,8 +447,13 @@ final class ToolLoopServiceSectionAdmissionTest extends TestCase
         $snippet->setSnippet('Use the formal register.');
         $snippet->setCallerSystemDigest((new SnippetCallerMark())->digestOf($snippet));
 
+        $unmarked = new PromptSnippet();
+        $unmarked->setIdentifier('draft');
+        $unmarked->setName('Draft notes');
+        $unmarked->setSnippet('Not reviewed by an administrator.');
+
         $repository = self::createStub(PromptSnippetRepository::class);
-        $repository->method('findActiveByTag')->willReturn([$snippet]);
+        $repository->method('findActiveByTag')->willReturn([$snippet, $unmarked]);
 
         return new ToolLoopService(
             $manager,
@@ -245,6 +471,7 @@ final class ToolLoopServiceSectionAdmissionTest extends TestCase
             contextWindow: $window ?? ($windowWithoutAdmission ? $this->plainWindow() : $this->window($admits)),
             snippetResolver: new ConfigurationSnippetResolver($repository, new PromptSnippetComposer()),
             skillPinCheck: new SkillPinCheck($approvals, $sources, new FixedSkillRecordLookup([3]), new SkillComposerFactory($extensionConfiguration)),
+            modelSelection: $selection,
         );
     }
 
@@ -277,13 +504,15 @@ final class ToolLoopServiceSectionAdmissionTest extends TestCase
         };
     }
 
-    private function configuration(bool $optIn = false): LlmConfiguration
+    private function configuration(bool $optIn = false, int $window = 0, bool $criteria = false): LlmConfiguration
     {
         $provider = new Provider();
         $provider->setTrustZoneEnum(TrustZone::LOCAL);
 
         $model = new Model();
         $model->setProvider($provider);
+        $model->setContextLength($window);
+        $model->setMaxOutputTokens(500);
 
         $configuration = new LlmConfiguration();
         $configuration->setIdentifier('section-admission');
@@ -292,6 +521,9 @@ final class ToolLoopServiceSectionAdmissionTest extends TestCase
         $configuration->setSnippetTags('style');
         $configuration->setSnippetsInCallerSystemMessage($optIn);
         $configuration->addSkill($this->skill());
+        if ($criteria) {
+            $configuration->setModelSelectionMode(ModelSelectionMode::CRITERIA->value);
+        }
 
         return $configuration;
     }
@@ -303,8 +535,8 @@ final class ToolLoopServiceSectionAdmissionTest extends TestCase
         $skill->setSource(1);
         $skill->setIdentifier('cfg');
         $skill->setName('Config Skill');
-        $skill->setBody(self::BODY);
-        $skill->setBodyChecksum(hash('sha256', self::BODY));
+        $skill->setBody($this->body);
+        $skill->setBodyChecksum(hash('sha256', $this->body));
         $skill->setSupportStatus('full');
         $skill->setEnabled(true);
         $skill->setVersionDigest(SkillVersionDigest::of($skill));

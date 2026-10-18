@@ -23,7 +23,7 @@
         </p>
 
         <f:be.infobox state="-1">
-            <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.mark.intro" default="When a caller such as the chat sends its own system message, a configuration's system prompt and snippets are not sent. A marked snippet is appended to that system message for configurations that opt in. The mark names exactly the block shown on this page; any later change to the name or the text takes the snippet out until it is marked again." /></p>
+            <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.mark.intro" default="When a caller such as the chat sends its own system message, a configuration's system prompt and snippets are not sent. A marked snippet is appended to that system message for configurations that opt in and select it by tag. The mark names exactly the block and the tags shown on this page; any later change to the name, the text or the tags takes the snippet out until it is marked again." /></p>
         </f:be.infobox>
 
         <f:if condition="{review.marked}">
@@ -34,7 +34,7 @@
             </f:then>
             <f:else if="{review.staleMark}">
                 <f:be.infobox state="1" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.mark.state.stale.title', default: 'Changed since it was marked')}">
-                    <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.mark.state.stale" default="The name or the text changed after the snippet was marked. It does not reach a caller's system message until the block below is marked." /></p>
+                    <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.mark.state.stale" default="The name, the text or the tags changed after the snippet was marked. It does not reach a caller's system message until the block and tags below are marked." /></p>
                 </f:be.infobox>
             </f:else>
             <f:else>
@@ -57,7 +57,20 @@
 
         <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.mark.block" default="Block appended to a caller's system message" /></h2>
         <pre class="border rounded p-3 text-break" style="background: var(--typo3-surface-container-base); white-space: pre-wrap; border-radius: var(--typo3-component-border-radius);">{review.block}</pre>
-        <p class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.mark.digest" default="Block digest" />: <code class="text-break">{review.digest}</code></p>
+        <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.mark.tags" default="Tags the mark is bound to" /></h2>
+        <f:if condition="{review.tags -> f:count()}">
+            <f:then>
+                <ul>
+                    <f:for each="{review.tags}" as="tag">
+                        <li><code>{tag}</code></li>
+                    </f:for>
+                </ul>
+            </f:then>
+            <f:else>
+                <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.mark.tags.none" default="None. No configuration selects this snippet." /></p>
+            </f:else>
+        </f:if>
+        <p class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.mark.digest" default="Digest of block and tags" />: <code class="text-break">{review.digest}</code></p>
 
         <div class="d-flex gap-2 mb-4">
             <f:if condition="{review.marked}">

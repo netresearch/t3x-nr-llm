@@ -146,20 +146,22 @@ must hold:
    :guilabel:`AI > Authoring > Snippets`, click the
    check-mark button of the snippet. The page shows
    the block exactly as it is appended — the name as
-   a label, then the text — and
-   :guilabel:`Mark this block` marks that block. Any
-   later change to the name or the text takes the
-   snippet out until it is marked again, so an
-   editor who may edit snippets cannot route new text
-   into the chat's system message. A block with
+   a label, then the text — and the snippet's tags,
+   and :guilabel:`Mark this block` marks the block
+   with those tags. Any later change to the name, the
+   text or the tags takes the snippet out until it is
+   marked again, so an editor who may edit snippets
+   can neither route new text into the chat's system
+   message nor route a marked snippet to another
+   configuration. A block with
    characters a browser does not show cannot be
    marked; the page lists them.
 2. **The configuration opts in.** Tick
    :guilabel:`Marked snippets in the caller's system
    message` on the :guilabel:`Parameters` tab. Only
-   administrators see and write the field, whatever a
-   group is granted; the mark is an administrator's
-   too.
+   administrators see and write the field, and the
+   configuration's snippet tags, whatever a group is
+   granted; the mark is an administrator's too.
 
 The marked blocks of the snippets the configuration
 selects by tag are then appended to the caller's
@@ -169,11 +171,12 @@ before the first user turn. Without such a message
 nothing changes: the configuration's system prompt
 carries the snippets as before.
 
-The mark binds the block, not the tags: an editor
-who may tag snippets can let a marked snippet reach
-another configuration that opts in and selects the
-new tag. Mark a snippet only when its block may join
-any opted-in configuration's caller system message.
+A run started with forced snippets (the playground, a
+queued run) follows the same rule: when the caller
+sent its own system message, only marked snippets
+reach it, each once, and the configuration's prompt
+is not added.
+
 Unmarking or editing a snippet takes it out of every
 run composed afterwards; a run that waits for a
 human keeps the transcript it was composed with.

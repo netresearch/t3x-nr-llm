@@ -1106,7 +1106,7 @@
                 <source>Back to snippets</source>
             </trans-unit>
             <trans-unit id="snippet.mark.intro">
-                <source>When a caller such as the chat sends its own system message, a configuration's system prompt and snippets are not sent. A marked snippet is appended to that system message for configurations that opt in. The mark names exactly the block shown on this page; any later change to the name or the text takes the snippet out until it is marked again.</source>
+                <source>When a caller such as the chat sends its own system message, a configuration's system prompt and snippets are not sent. A marked snippet is appended to that system message for configurations that opt in and select it by tag. The mark names exactly the block and the tags shown on this page; any later change to the name, the text or the tags takes the snippet out until it is marked again.</source>
             </trans-unit>
             <trans-unit id="snippet.mark.state.marked.title">
                 <source>Marked</source>
@@ -1118,7 +1118,7 @@
                 <source>Changed since it was marked</source>
             </trans-unit>
             <trans-unit id="snippet.mark.state.stale">
-                <source>The name or the text changed after the snippet was marked. It does not reach a caller's system message until the block below is marked.</source>
+                <source>The name, the text or the tags changed after the snippet was marked. It does not reach a caller's system message until the block and tags below are marked.</source>
             </trans-unit>
             <trans-unit id="snippet.mark.state.unmarked.title">
                 <source>Not marked</source>
@@ -1136,7 +1136,13 @@
                 <source>Block appended to a caller's system message</source>
             </trans-unit>
             <trans-unit id="snippet.mark.digest">
-                <source>Block digest</source>
+                <source>Digest of block and tags</source>
+            </trans-unit>
+            <trans-unit id="snippet.mark.tags">
+                <source>Tags the mark is bound to</source>
+            </trans-unit>
+            <trans-unit id="snippet.mark.tags.none">
+                <source>None. No configuration selects this snippet.</source>
             </trans-unit>
             <trans-unit id="snippet.mark.mark">
                 <source>Mark this block</source>

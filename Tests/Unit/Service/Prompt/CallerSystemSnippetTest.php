@@ -16,9 +16,11 @@ use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Service\Prompt\SnippetCallerMark;
+use Netresearch\NrLlm\Service\Prompt\SnippetCallerMarkService;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 
 /**
  * Snippets in a caller's own system message (ADR-214 item 8): only when the
@@ -27,6 +29,7 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(ConfigurationSnippetResolver::class)]
 #[CoversClass(SnippetCallerMark::class)]
+#[CoversClass(SnippetCallerMarkService::class)]
 final class CallerSystemSnippetTest extends TestCase
 {
     private const BLOCK = "Tone:\nUse the formal register.";
@@ -134,6 +137,68 @@ final class CallerSystemSnippetTest extends TestCase
         self::assertSame(['role' => 'system', 'content' => "Chat identity.\n\n" . self::BLOCK], $out[0]);
     }
 
+    /**
+     * The tags route a snippet to configurations, so the mark is bound to
+     * them: a re-tagged snippet is no longer marked. A change of case,
+     * spacing or order is not a re-tagging.
+     */
+    #[Test]
+    public function theDigestCoversTheTags(): void
+    {
+        $mark   = new SnippetCallerMark();
+        $marked = $this->snippet();
+        $marked->setTags('style, Audience');
+        $marked->setCallerSystemDigest($mark->digestOf($marked));
+
+        self::assertTrue($mark->isMarked($marked));
+
+        $reordered = clone $marked;
+        $reordered->setTags('audience,STYLE');
+        self::assertTrue($mark->isMarked($reordered), 'the same tags in another order and case');
+
+        $retagged = clone $marked;
+        $retagged->setTags('style,audience,legal');
+        self::assertFalse($mark->isMarked($retagged));
+
+        $untagged = clone $marked;
+        $untagged->setTags('style');
+        self::assertFalse($mark->isMarked($untagged));
+    }
+
+    /**
+     * The review page shows the tags the mark binds, as the digest covers
+     * them.
+     */
+    #[Test]
+    public function theReviewShowsTheTagsTheMarkBinds(): void
+    {
+        $snippet = $this->snippet();
+        $snippet->setTags('style, Audience');
+
+        $review = (new SnippetCallerMarkService(self::createStub(ConnectionPool::class)))->review($snippet);
+
+        self::assertSame(['audience', 'style'], $review['tags']);
+        self::assertSame((new SnippetCallerMark())->digestOf($snippet), $review['digest']);
+    }
+
+    /**
+     * Re-tagging takes a marked snippet out of the caller's system message.
+     */
+    #[Test]
+    public function aRetaggedMarkedSnippetDoesNotJoinTheCallersSystemMessage(): void
+    {
+        $snippet = $this->snippet();
+        $snippet->setCallerSystemDigest((new SnippetCallerMark())->digestOf($snippet));
+        $snippet->setTags('style,legal');
+
+        $out = $this->resolver($snippet)->appendToCallerSystemMessage(
+            [['role' => 'system', 'content' => 'Chat identity.'], ['role' => 'user', 'content' => 'hi']],
+            $this->configuration(optIn: true),
+        );
+
+        self::assertSame(['role' => 'system', 'content' => 'Chat identity.'], $out[0]);
+    }
+
     #[Test]
     public function theDigestCoversLabelAndTextAndIsEmptyForAnEmptyBlock(): void
     {
@@ -149,7 +214,7 @@ final class CallerSystemSnippetTest extends TestCase
         $empty = $this->snippet();
         $empty->setSnippet('   ');
 
-        self::assertSame('1:' . hash('sha256', self::BLOCK), $base);
+        self::assertSame('2:' . hash('sha256', json_encode(['tags' => ['style'], 'block' => self::BLOCK], JSON_THROW_ON_ERROR)), $base);
         self::assertNotSame($base, $mark->digestOf($renamed));
         self::assertNotSame($base, $mark->digestOf($retexted));
         self::assertSame('', $mark->digestOf($empty));
@@ -189,6 +254,7 @@ final class CallerSystemSnippetTest extends TestCase
         $snippet->setIdentifier('tone');
         $snippet->setName('Tone');
         $snippet->setSnippet('Use the formal register.');
+        $snippet->setTags('style');
 
         return $snippet;
     }

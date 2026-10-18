@@ -1468,8 +1468,8 @@
                 <target>Zurück zu den Snippets</target>
             </trans-unit>
             <trans-unit id="snippet.mark.intro">
-                <source>When a caller such as the chat sends its own system message, a configuration's system prompt and snippets are not sent. A marked snippet is appended to that system message for configurations that opt in. The mark names exactly the block shown on this page; any later change to the name or the text takes the snippet out until it is marked again.</source>
-                <target>Wenn ein Aufrufer wie der Chat eine eigene System-Nachricht sendet, werden System-Prompt und Snippets einer Konfiguration nicht gesendet. Ein markiertes Snippet wird bei Konfigurationen, die das zulassen, an diese System-Nachricht angehängt. Die Markierung gilt genau für den Block auf dieser Seite; jede spätere Änderung von Name oder Text nimmt das Snippet heraus, bis es erneut markiert wird.</target>
+                <source>When a caller such as the chat sends its own system message, a configuration's system prompt and snippets are not sent. A marked snippet is appended to that system message for configurations that opt in and select it by tag. The mark names exactly the block and the tags shown on this page; any later change to the name, the text or the tags takes the snippet out until it is marked again.</source>
+                <target>Wenn ein Aufrufer wie der Chat eine eigene System-Nachricht sendet, werden System-Prompt und Snippets einer Konfiguration nicht gesendet. Ein markiertes Snippet wird bei Konfigurationen, die das zulassen und es über ein Tag auswählen, an diese System-Nachricht angehängt. Die Markierung gilt genau für den Block und die Tags auf dieser Seite; jede spätere Änderung von Name, Text oder Tags nimmt das Snippet heraus, bis es erneut markiert wird.</target>
             </trans-unit>
             <trans-unit id="snippet.mark.state.marked.title">
                 <source>Marked</source>
@@ -1484,8 +1484,8 @@
                 <target>Seit der Markierung geändert</target>
             </trans-unit>
             <trans-unit id="snippet.mark.state.stale">
-                <source>The name or the text changed after the snippet was marked. It does not reach a caller's system message until the block below is marked.</source>
-                <target>Name oder Text wurden nach der Markierung geändert. Das Snippet erreicht die System-Nachricht eines Aufrufers erst, wenn der Block unten markiert ist.</target>
+                <source>The name, the text or the tags changed after the snippet was marked. It does not reach a caller's system message until the block and tags below are marked.</source>
+                <target>Name, Text oder Tags wurden nach der Markierung geändert. Das Snippet erreicht die System-Nachricht eines Aufrufers erst, wenn Block und Tags unten markiert sind.</target>
             </trans-unit>
             <trans-unit id="snippet.mark.state.unmarked.title">
                 <source>Not marked</source>
@@ -1508,8 +1508,16 @@
                 <target>Block, der an die System-Nachricht eines Aufrufers angehängt wird</target>
             </trans-unit>
             <trans-unit id="snippet.mark.digest">
-                <source>Block digest</source>
-                <target>Prüfsumme des Blocks</target>
+                <source>Digest of block and tags</source>
+                <target>Prüfsumme von Block und Tags</target>
+            </trans-unit>
+            <trans-unit id="snippet.mark.tags">
+                <source>Tags the mark is bound to</source>
+                <target>Tags, an die die Markierung gebunden ist</target>
+            </trans-unit>
+            <trans-unit id="snippet.mark.tags.none">
+                <source>None. No configuration selects this snippet.</source>
+                <target>Keine. Keine Konfiguration wählt dieses Snippet aus.</target>
             </trans-unit>
             <trans-unit id="snippet.mark.mark">
                 <source>Mark this block</source>
