@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\RunLineage;
+use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SkillInvocation;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SubjectRecord;
@@ -513,9 +514,10 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * A predecessor the context window refused never sent the process, so
-     * the continuation admits it as a start (ADR-214 item 7); any other
-     * ended predecessor hands on a process the conversation holds.
+     * A predecessor that never sent a provider call — here refused by the
+     * context window — never admitted the process, so the continuation
+     * admits it as a start (ADR-214 item 7); a predecessor that sent hands
+     * on a process the conversation holds.
      */
     #[Test]
     public function aPredecessorTheWindowRefusedHandsItsProcessOnForAdmission(): void
@@ -524,7 +526,7 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
 
         $refused = $this->persister->begin($configuration, self::OWNER);
         self::assertInstanceOf(AgentRunHandle::class, $refused);
-        self::assertTrue($this->persister->recordLineage($refused, new RunLineage(self::CONFIGURATION, $this->pinOf(self::PROCESS))));
+        self::assertTrue($this->persister->recordLineage($refused, new RunLineage(self::CONFIGURATION, $this->pinOf(self::PROCESS), originRunUuid: $refused->uuid)));
         self::assertTrue($this->persister->settleFailed($refused, new SkillSectionNotAdmittedException(['tour'], 1)));
 
         self::assertTrue($this->prepare($this->request($configuration, null, predecessor: $refused->uuid))->newStart);
@@ -532,22 +534,50 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * A continuation records the run it continued from, which ending the
-     * process walks; a start records none.
+     * Every turn of a process records the run that started it: a start names
+     * itself, a continuation carries its predecessor's origin on.
      */
     #[Test]
-    public function aContinuationRecordsItsPredecessor(): void
+    public function everyTurnRecordsTheRunThatStartedTheProcess(): void
     {
         $configuration = $this->configuration($this->processSkill());
-        $predecessor   = $this->finishedProcessRun($configuration);
-
-        $handle = $this->begin();
-        $this->preparer()->prepare($this->request($configuration, null, predecessor: $predecessor), $this->actingUser(self::OWNER), $handle);
-        self::assertSame($predecessor, $this->lineage($handle->uuid)?->predecessorRunUuid);
 
         $started = $this->begin();
         $this->preparer()->prepare($this->request($configuration, new SkillInvocation(self::PROCESS)), $this->actingUser(self::OWNER), $started);
-        self::assertSame('', $this->lineage($started->uuid)?->predecessorRunUuid);
+        self::assertSame($started->uuid, $this->lineage($started->uuid)?->originRunUuid);
+        self::assertTrue($this->persister->recordStep($started, new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 0.0)));
+        self::assertTrue($this->persister->settleCancelled($started));
+
+        $second = $this->begin();
+        $this->preparer()->prepare($this->request($configuration, null, predecessor: $started->uuid), $this->actingUser(self::OWNER), $second);
+        self::assertSame($started->uuid, $this->lineage($second->uuid)?->originRunUuid);
+        self::assertTrue($this->persister->settleCancelled($second));
+
+        $third = $this->begin();
+        $this->preparer()->prepare($this->request($configuration, null, predecessor: $second->uuid), $this->actingUser(self::OWNER), $third);
+        self::assertSame($started->uuid, $this->lineage($third->uuid)?->originRunUuid);
+    }
+
+    /**
+     * Once the run that started the process released it, no turn of the
+     * conversation carries it on, a parallel one included.
+     */
+    #[Test]
+    public function aProcessWhoseStartWasReleasedIsNotCarriedOn(): void
+    {
+        $configuration = $this->configuration($this->processSkill());
+        $origin        = $this->finishedProcessRun($configuration);
+        $turn          = $this->finishedProcessRun($configuration, origin: $origin);
+
+        self::assertSame(self::PROCESS, $this->prepare($this->request($configuration, null, predecessor: $turn))->pin?->skillUid);
+
+        $originRun = $this->persister->findRun($origin);
+        self::assertInstanceOf(AgentRun::class, $originRun);
+        $handle = $this->persister->resumeHandle($originRun);
+        self::assertInstanceOf(AgentRunHandle::class, $handle);
+        self::assertTrue($this->persister->recordLineage($handle, (new RunLineage(self::CONFIGURATION, $this->pinOf(self::PROCESS), originRunUuid: $origin))->withReleasedProcess()));
+
+        self::assertNull($this->prepare($this->request($configuration, null, predecessor: $turn))->pin);
     }
 
     /**
@@ -627,11 +657,16 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
     /**
      * @return string the uuid of a cancelled run that holds the process
      */
-    private function finishedProcessRun(LlmConfiguration $configuration, ?SubjectRecord $subject = null, int $initiator = self::OWNER): string
+    /**
+     * A turn that held the process, sent a provider call and ended; the
+     * process started with it unless `$origin` names an earlier run.
+     */
+    private function finishedProcessRun(LlmConfiguration $configuration, ?SubjectRecord $subject = null, int $initiator = self::OWNER, string $origin = ''): string
     {
         $handle = $this->persister->begin($configuration, $initiator);
         self::assertInstanceOf(AgentRunHandle::class, $handle);
-        self::assertTrue($this->persister->recordLineage($handle, new RunLineage(self::CONFIGURATION, $this->pinOf(self::PROCESS), $subject)));
+        self::assertTrue($this->persister->recordLineage($handle, new RunLineage(self::CONFIGURATION, $this->pinOf(self::PROCESS), $subject, originRunUuid: $origin !== '' ? $origin : $handle->uuid)));
+        self::assertTrue($this->persister->recordStep($handle, new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 0.0)));
         self::assertTrue($this->persister->settleCancelled($handle));
 
         return $handle->uuid;

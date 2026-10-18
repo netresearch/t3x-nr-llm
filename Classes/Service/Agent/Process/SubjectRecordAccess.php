@@ -28,7 +28,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * which a queue worker does not have. Fail-closed on every gate the record
  * tools apply: no user, a table the user may not select or the denylist
  * holds, a language the user may not edit, a record that does not exist, is
- * deleted or is a version in a workspace the user is not in, a translation
+ * deleted or is not live (a workspace version or placeholder), a translation
  * named under another language than its own, and a page
  * outside the user's mounts or without show permission. Hidden records count
  * as existing: an editor works on hidden pages.
@@ -95,13 +95,14 @@ final readonly class SubjectRecordAccess
      */
     private function fetch(BackendUserAuthentication $user, string $table, int $uid, array $fields): ?array
     {
-        // Deleted rows and versions of a workspace the user is not in are not
-        // there for this user; hidden and time-restricted rows are.
+        // Live rows only: the acting user a run resolves works in no
+        // workspace, so a workspace version or placeholder is not there for
+        // it. Deleted rows are not; hidden and time-restricted rows are.
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
         $queryBuilder->getRestrictions()
             ->removeAll()
             ->add(GeneralUtility::makeInstance(DeletedRestriction::class))
-            ->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, $user->workspace));
+            ->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
 
         $row = $queryBuilder
             ->select(...$fields)

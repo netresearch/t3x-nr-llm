@@ -133,11 +133,12 @@ final readonly class HighlightRecordTool implements ToolInterface
         }
 
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::CONTENT_TABLE);
-        // Not deleted, and live or in the acting user's own workspace.
+        // Not deleted, and live: the acting user a run resolves works in no
+        // workspace.
         $queryBuilder->getRestrictions()
             ->removeAll()
             ->add(GeneralUtility::makeInstance(DeletedRestriction::class))
-            ->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, $context->actingBackendUser()->workspace ?? 0));
+            ->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
 
         $count = $queryBuilder
             ->count('uid')

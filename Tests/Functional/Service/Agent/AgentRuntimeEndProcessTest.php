@@ -139,25 +139,44 @@ final class AgentRuntimeEndProcessTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * Ending a process ends it for the whole conversation: every earlier turn
-     * the process was continued from is released as well, so a continuation
-     * of any of them derives nothing.
+     * Ending a process ends it for the whole conversation: the run that
+     * started it is released, so no turn continued from it — earlier, later
+     * or in parallel — holds the process any more.
      */
     #[Test]
-    public function endingAProcessReleasesTheTurnsItWasContinuedFrom(): void
+    public function endingAProcessEndsItForEveryTurn(): void
     {
-        $first = $this->processRun();
-        self::assertTrue($this->persister->settleCancelled($first));
-        $second = $this->processRun($first->uuid);
-        self::assertTrue($this->persister->settleCancelled($second));
-        $third = $this->processRun($second->uuid);
-        self::assertTrue($this->persister->suspend($third, $this->state()));
+        $start = $this->processRun();
+        self::assertTrue($this->persister->settleCancelled($start));
+        $left  = $this->processRun($start->uuid);
+        self::assertTrue($this->persister->settleCancelled($left));
+        $right = $this->processRun($start->uuid);
+        self::assertTrue($this->persister->suspend($right, $this->state()));
 
-        self::assertTrue($this->runtime()->endProcess(AiActorContext::backendUser(self::OWNER), $third->uuid)->cancelled);
+        self::assertTrue($this->runtime()->endProcess(AiActorContext::backendUser(self::OWNER), $right->uuid)->cancelled);
 
-        foreach (['first' => $first, 'second' => $second, 'third' => $third] as $which => $handle) {
-            self::assertFalse($this->lineage($handle->uuid)->holdsProcess(), $which . ' released');
+        foreach (['start' => $start, 'parallel turn' => $left, 'ended turn' => $right] as $which => $handle) {
+            self::assertNull($this->persister->heldProcessOf($this->storedRun($handle->uuid)), $which);
+            self::assertFalse($this->runtime()->status(AiActorContext::backendUser(self::OWNER), $handle->uuid)?->holdsProcess, $which);
         }
+    }
+
+    /**
+     * A start that belongs to somebody the actor may not end it for is left
+     * alone: the actor's own turn lets go of the process, the start keeps it.
+     */
+    #[Test]
+    public function aStartTheActorMayNotEndIsLeftAlone(): void
+    {
+        $start = $this->processRun(initiator: 1);
+        self::assertTrue($this->persister->settleCancelled($start));
+        $turn = $this->processRun($start->uuid);
+        self::assertTrue($this->persister->settleCancelled($turn));
+
+        self::assertTrue($this->runtime()->endProcess(AiActorContext::backendUser(self::OWNER), $turn->uuid)->cancelled);
+
+        self::assertNull($this->persister->heldProcessOf($this->storedRun($turn->uuid)));
+        self::assertInstanceOf(RunLineage::class, $this->persister->heldProcessOf($this->storedRun($start->uuid)), 'the start keeps its process');
     }
 
     /**
@@ -200,15 +219,15 @@ final class AgentRuntimeEndProcessTest extends AbstractFunctionalTestCase
 
     // --- helpers -----------------------------------------------------------
 
-    private function processRun(string $predecessor = ''): AgentRunHandle
+    private function processRun(string $origin = '', int $initiator = self::OWNER): AgentRunHandle
     {
-        $handle = $this->persister->begin(null, self::OWNER);
+        $handle = $this->persister->begin(null, $initiator);
         self::assertInstanceOf(AgentRunHandle::class, $handle);
         self::assertTrue($this->persister->recordLineage($handle, new RunLineage(
             30,
             new SkillPin(5, 10, str_repeat('a', 64)),
             new SubjectRecord(new RecordReference('pages', 1)),
-            predecessorRunUuid: $predecessor,
+            originRunUuid: $origin !== '' ? $origin : $handle->uuid,
         )));
 
         return $handle;

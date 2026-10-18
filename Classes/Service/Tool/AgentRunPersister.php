@@ -869,6 +869,50 @@ final readonly class AgentRunPersister
     }
 
     /**
+     * The lineage of a run that still holds its process (ADR-228), or null:
+     * the run holds none, released it, or the run that started the process —
+     * its origin — no longer holds it or no longer exists. Ending a process
+     * releases its origin, so every turn that continues it, earlier, later or
+     * in parallel, holds nothing from then on.
+     *
+     * @throws RunLineageUnreadableException when this run's or its origin's lineage cannot be read
+     */
+    public function heldProcessOf(AgentRun $run): ?RunLineage
+    {
+        $lineage = $this->lineageOf($run);
+        if (!$lineage instanceof RunLineage || !$lineage->holdsProcess()) {
+            return null;
+        }
+
+        if ($lineage->originRunUuid === '' || $lineage->originRunUuid === $run->uuid) {
+            return $lineage;
+        }
+
+        $origin = $this->findRun($lineage->originRunUuid);
+        if (!$origin instanceof AgentRun) {
+            return null;
+        }
+
+        return $this->lineageOf($origin)?->holdsProcess() === true ? $lineage : null;
+    }
+
+    /**
+     * Whether the run sent at least one provider call, which a run reaches
+     * only after the window admitted its start sections (ADR-214 item 7).
+     * False when no call was recorded or the events cannot be read.
+     */
+    public function sentProviderCall(AgentRun $run): bool
+    {
+        foreach ($this->findEvents($run->uid) as $event) {
+            if ($event->kind === AgentEventKind::LLM->value) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Persist a user's input submission as the next event in the run's stream
      * (ADR-105): kind {@see AgentEventKind::INPUT}, payload ``{submittedBy}``
      * ONLY — never the submitted values, which are privacy-filtered content

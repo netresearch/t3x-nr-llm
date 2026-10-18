@@ -21,7 +21,6 @@ use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
 use Netresearch\NrLlm\Domain\ValueObject\SkillInvocation;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SubjectRecord;
-use Netresearch\NrLlm\Exception\SkillSectionNotAdmittedException;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessInvocationRefusedException;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunNeedsSecondApproverException;
@@ -132,7 +131,9 @@ final readonly class ProcessRunPreparer
                 $pin,
                 $subject,
                 processSkill: $this->attachedSkill($configuration, $pin->skillUid)?->getIdentifier() ?? '',
-                predecessorRunUuid: $derived instanceof RunLineage ? $request->predecessorRunUuid : '',
+                originRunUuid: $derived instanceof RunLineage
+                    ? ($derived->originRunUuid !== '' ? $derived->originRunUuid : $request->predecessorRunUuid)
+                    : $runUuid,
             ),
             $runUuid,
         );
@@ -170,13 +171,16 @@ final readonly class ProcessRunPreparer
             throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::PREDECESSOR_MISSING);
         }
 
+        // A process the predecessor released, or whose start was released
+        // since — the end of the process, from any of its turns — is not
+        // carried on.
         try {
-            $lineage = $this->persister->lineageOf($predecessor);
+            $lineage = $this->persister->heldProcessOf($predecessor);
         } catch (RunLineageUnreadableException) {
             throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::LINEAGE_UNREADABLE);
         }
 
-        if (!$lineage instanceof RunLineage || !$lineage->holdsProcess() || !$lineage->processPin instanceof SkillPin) {
+        if (!$lineage instanceof RunLineage || !$lineage->processPin instanceof SkillPin) {
             return [null, [], false];
         }
 
@@ -194,10 +198,11 @@ final readonly class ProcessRunPreparer
             return [null, [new DroppedSource('process', $lineage->processPin->skillUid, DroppedSourceReason::DETACHED)], false];
         }
 
-        // A predecessor the window refused never sent the section, so the
-        // conversation does not hold it yet: this run admits it (ADR-214
-        // item 7).
-        return [$lineage, [], $predecessor->errorClass === SkillSectionNotAdmittedException::class];
+        // A predecessor that never sent a provider call never got its
+        // sections past the window — refused there, a dry run, cancelled or
+        // failed before the send — so the conversation does not hold the
+        // process yet: this run admits it (ADR-214 item 7).
+        return [$lineage, [], !$this->persister->sentProviderCall($predecessor)];
     }
 
     /**

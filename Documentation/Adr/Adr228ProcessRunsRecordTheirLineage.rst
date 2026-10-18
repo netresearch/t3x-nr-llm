@@ -74,8 +74,8 @@ Decision
 
 3. **The subject check is the acting user's**, not the global backend
    user's: the table (:php:`TableReadAccessService::canReadTable()`), the
-   language the user may edit, the record not deleted and live or in the
-   user's own workspace, and for an editor the page's web mount and
+   language the user may edit, the record not deleted and live (the acting
+   user a run resolves works in no workspace), and for an editor the page's web mount and
    page-show permission (one check: :php:`calcPerms()` answers nothing
    outside the mounts in TYPO3 13.4 and 14.3). The record's own language
    counts too: a translation row is the subject only in its own language; a
@@ -88,7 +88,8 @@ Decision
 4. **The lineage is an event.** What the run started with is stored as an
    event of kind ``lineage`` in the run's event stream: the configuration uid,
    the process pin, the subject record, the process skill's identifier, the
-   run it continued from, and whether the process was released.
+   run that started the process (its origin), and whether the process was
+   released.
    It holds uids and a digest only, so it is stored at every privacy level,
    and it is purged with the run. The latest lineage event counts. A
    continuation that cannot store its lineage is refused, and one whose
@@ -123,13 +124,16 @@ Decision
    waiting run is cancelled through the
    same guarded transition as ``cancelIfWaiting()``; a queued or running run
    is left alone and the caller asks again; a terminal run keeps its status.
-   The run then records its lineage as released, which a continuation does
-   not carry on, and so does every earlier turn the process was continued
-   from — following each lineage's predecessor — so no turn of the
-   conversation can hand the process on again. The earlier turns are released
-   first and the named run last, so a release that fails leaves the named run
-   holding and a retry releases the rest. Applied writes stay. Anyone else,
-   and an unknown run, learn nothing.
+   The run that started the process (its origin) records its lineage as
+   released first, then the named run. A turn holds a process only while its
+   origin still does, so from then on no turn of the conversation — earlier,
+   later or continued in parallel — hands the process on, and the status of
+   every such turn says it holds none. The origin is released only when the
+   actor may end that run as well; otherwise the named run alone lets go of
+   the process. A release that fails leaves the named run holding, and a
+   retry completes it. An origin that no longer exists ends the process for
+   every turn. Applied writes stay. Anyone else, and an unknown run, learn
+   nothing.
 
    The run status (:php:`AgentRuntimeInterface::status()`) says whether the
    run holds a process (``holdsProcess``) and names the process skill's
@@ -155,15 +159,16 @@ Decision
    configuration's model. A process the run continues from its predecessor
    is not admitted again: its section is one the conversation already
    holds, and a long tour would otherwise fail once its history outgrew the
-   headroom. The exception is a predecessor the window refused
-   (:php:`SkillSectionNotAdmittedException`): it never sent the section, so
-   its continuation admits the process as a start. The runtime marks a new
+   headroom. The exception is a predecessor that never sent a provider call —
+   the window refused it, it was a dry run, or it ended before the send: its
+   section was never admitted, so its continuation admits the process as a
+   start. The runtime marks a new
    start on the augmentation (``admitsProcess``).
 
 10. **Highlight targets.** The subject record is on the tool context, and the
     builtin ``highlight_record`` accepts only the subject record itself or,
-    for a page, a non-deleted content element on it, live or in the acting
-    user's workspace, in the subject's language or in all languages, if the
+    for a page, a live, non-deleted content element on it in the subject's
+    language or in all languages, if the
     acting user may read ``tt_content``. The run
     records a ``highlight`` step with the table and uid. The builtin ships
     disabled.

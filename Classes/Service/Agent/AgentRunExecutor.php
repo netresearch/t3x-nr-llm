@@ -376,12 +376,12 @@ final readonly class AgentRunExecutor
         }
 
         try {
-            $lineage = $this->persister->lineageOf($run);
+            $lineage = $this->persister->heldProcessOf($run);
         } catch (RunLineageUnreadableException) {
             return null;
         }
 
-        return $lineage?->holdsProcess() === true ? $lineage->subject : null;
+        return $lineage?->subject;
     }
 
     /**

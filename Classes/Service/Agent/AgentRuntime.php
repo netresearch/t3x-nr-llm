@@ -82,12 +82,6 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
     /** Ceiling on the exponential requeue backoff, in milliseconds (ADR-104). */
     public const REQUEUE_BACKOFF_CAP_MS = 600_000;
 
-    /**
-     * How many earlier turns of a process {@see self::endProcess()} releases
-     * at most (ADR-228); a bound on a walk over stored lineages.
-     */
-    private const MAX_PROCESS_CHAIN = 1000;
-
     public function __construct(
         private ToolLoopServiceInterface $toolLoop,
         private AgentRunPersister $persister,
@@ -300,12 +294,12 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         }
 
         try {
-            $lineage = $this->persister->lineageOf($run);
+            $lineage = $this->persister->heldProcessOf($run);
         } catch (RunLineageUnreadableException) {
             return new GuardedCancelResult(false, $run->statusEnum());
         }
 
-        if (!$lineage instanceof RunLineage || !$lineage->holdsProcess()) {
+        if (!$lineage instanceof RunLineage) {
             return new GuardedCancelResult(false, $run->statusEnum());
         }
 
@@ -326,61 +320,47 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             return new GuardedCancelResult(false, $status);
         }
 
-        // The earlier turns the process was continued from are released
-        // first, so none of them can hand it on again (ADR-228), and this run
-        // last: a release that could not be stored leaves the process with
-        // this run, and the caller learns it was not ended and can ask again.
-        $chain = $this->processChainBefore($lineage);
-        if ($chain === null) {
+        // The run that started the process is released first: from then on
+        // no turn of the conversation — earlier, later or in parallel — holds
+        // it (ADR-228). Only when the actor may end that run too; otherwise
+        // this run alone lets go of the process. Then this run: a release
+        // that could not be stored leaves the process with it, and the caller
+        // learns it was not ended and can ask again.
+        $origin = $lineage->originRunUuid !== '' && $lineage->originRunUuid !== $runUuid
+            ? $this->persister->findRun($lineage->originRunUuid)
+            : null;
+        if ($origin instanceof AgentRun && $this->mayWithdraw($actor, $origin) && !$this->release($origin)) {
             return new GuardedCancelResult(false, $status);
         }
 
-        foreach ([...$chain, [$runUuid, $lineage]] as [$uuid, $held]) {
-            $ended  = $this->persister->findRun($uuid);
-            $handle = $ended instanceof AgentRun ? $this->persister->resumeHandle($ended) : null;
-            if (!$handle instanceof AgentRunHandle || !$this->persister->recordLineage($handle, $held->withReleasedProcess())) {
-                return new GuardedCancelResult(false, $status);
-            }
+        $ended = $this->persister->findRun($runUuid);
+        if (!$ended instanceof AgentRun || !$this->release($ended)) {
+            return new GuardedCancelResult(false, $status);
         }
 
         return new GuardedCancelResult(true, $status);
     }
 
     /**
-     * The earlier runs of a process chain that still hold the process,
-     * newest first, by following each lineage's predecessor; null when one
-     * of them cannot be read. The walk stops at a run that started the
-     * process or already released it, and after a bounded number of hops.
-     *
-     * @return list<array{0: string, 1: RunLineage}>|null
+     * Record that a run released its process; true when it holds none any
+     * more, false when its lineage cannot be read or the release could not
+     * be stored.
      */
-    private function processChainBefore(RunLineage $lineage): ?array
+    private function release(AgentRun $run): bool
     {
-        $chain = [];
-        $seen  = [];
-        $next  = $lineage->predecessorRunUuid;
-        while ($next !== '' && !isset($seen[$next]) && count($chain) < self::MAX_PROCESS_CHAIN) {
-            $seen[$next] = true;
-            $run         = $this->persister->findRun($next);
-            if (!$run instanceof AgentRun) {
-                break;
-            }
-
-            try {
-                $held = $this->persister->lineageOf($run);
-            } catch (RunLineageUnreadableException) {
-                return null;
-            }
-
-            if (!$held instanceof RunLineage || !$held->holdsProcess()) {
-                break;
-            }
-
-            $chain[] = [$next, $held];
-            $next    = $held->predecessorRunUuid;
+        try {
+            $lineage = $this->persister->lineageOf($run);
+        } catch (RunLineageUnreadableException) {
+            return false;
         }
 
-        return $chain;
+        if (!$lineage instanceof RunLineage || !$lineage->holdsProcess()) {
+            return true;
+        }
+
+        $handle = $this->persister->resumeHandle($run);
+
+        return $handle instanceof AgentRunHandle && $this->persister->recordLineage($handle, $lineage->withReleasedProcess());
     }
 
     /**
@@ -424,14 +404,12 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         // tour after a reload (ADR-228). Fail-soft: an unreadable lineage
         // leaves the field null ("not known"), and the status still answers.
         try {
-            $lineage = $this->persister->lineageOf($run);
+            $lineage = $this->persister->heldProcessOf($run);
         } catch (RunLineageUnreadableException) {
             return $status->withProcessState(null, '');
         }
 
-        $holds = $lineage instanceof RunLineage && $lineage->holdsProcess();
-
-        return $status->withProcessState($holds, $holds ? $lineage->processSkill : '');
+        return $status->withProcessState($lineage instanceof RunLineage, $lineage->processSkill ?? '');
     }
 
     /**

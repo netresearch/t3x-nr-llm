@@ -35,10 +35,11 @@ final readonly class RunLineage
         // The process skill's identifier when the run started or continued it,
         // for the run status; '' without a process.
         public string $processSkill = '',
-        // The run this one continued its process from, '' for a run that
-        // started it. Ending a process walks this chain and releases every
-        // run on it, so no earlier turn can hand the process on again.
-        public string $predecessorRunUuid = '',
+        // The run that started the process; every turn that continues it
+        // carries the same origin. Ending the process releases the origin
+        // too, and a turn whose origin no longer holds the process holds
+        // nothing, so no earlier or parallel turn can hand it on again.
+        public string $originRunUuid = '',
     ) {}
 
     /**
@@ -54,11 +55,11 @@ final readonly class RunLineage
      */
     public function withReleasedProcess(): self
     {
-        return new self($this->configurationUid, $this->processPin, $this->subject, true, $this->processSkill, $this->predecessorRunUuid);
+        return new self($this->configurationUid, $this->processPin, $this->subject, true, $this->processSkill, $this->originRunUuid);
     }
 
     /**
-     * @return array{configuration: int, processPin: array{skill: int, source: int, digest: string}|null, subject: array{table: string, uid: int, language: int}|null, released: bool, processSkill: string, predecessor: string}
+     * @return array{configuration: int, processPin: array{skill: int, source: int, digest: string}|null, subject: array{table: string, uid: int, language: int}|null, released: bool, processSkill: string, origin: string}
      */
     public function toArray(): array
     {
@@ -68,7 +69,7 @@ final readonly class RunLineage
             'subject'       => $this->subject?->toArray(),
             'released'      => $this->released,
             'processSkill'  => $this->processSkill,
-            'predecessor'   => $this->predecessorRunUuid,
+            'origin'        => $this->originRunUuid,
         ];
     }
 
@@ -87,8 +88,8 @@ final readonly class RunLineage
         $configuration = $data['configuration'] ?? null;
         $released      = $data['released'] ?? null;
         $processSkill  = $data['processSkill'] ?? null;
-        $predecessor   = $data['predecessor'] ?? null;
-        if (!is_int($configuration) || $configuration < 0 || !is_bool($released) || !is_string($processSkill) || !is_string($predecessor)) {
+        $origin        = $data['origin'] ?? null;
+        if (!is_int($configuration) || $configuration < 0 || !is_bool($released) || !is_string($processSkill) || !is_string($origin)) {
             return null;
         }
 
@@ -108,6 +109,6 @@ final readonly class RunLineage
             }
         }
 
-        return new self($configuration, $pin, $subject, $released, $processSkill, $predecessor);
+        return new self($configuration, $pin, $subject, $released, $processSkill, $origin);
     }
 }

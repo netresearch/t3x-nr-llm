@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\RunLineage;
+use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SubjectRecord;
 use Netresearch\NrLlm\Service\Agent\Exception\RunLineageUnreadableException;
@@ -67,6 +68,42 @@ final class AgentRunPersisterLineageTest extends AbstractFunctionalTestCase
 
         $this->expectException(RunLineageUnreadableException::class);
         $persister->lineageOf($this->storedRun($persister, $handle));
+    }
+
+    /**
+     * A turn holds its process only while the run that started it does: a
+     * released start, and a start that no longer exists, end it for the turn.
+     */
+    #[Test]
+    public function aTurnHoldsItsProcessOnlyWhileItsStartDoes(): void
+    {
+        $persister = $this->persister(PrivacyLevel::FULL);
+        $pin       = new SkillPin(5, 10, str_repeat('a', 64));
+
+        $start = $this->begin($persister);
+        self::assertTrue($persister->recordLineage($start, new RunLineage(30, $pin, originRunUuid: $start->uuid)));
+        $turn = $this->begin($persister);
+        self::assertTrue($persister->recordLineage($turn, new RunLineage(30, $pin, originRunUuid: $start->uuid)));
+
+        self::assertInstanceOf(RunLineage::class, $persister->heldProcessOf($this->storedRun($persister, $turn)));
+
+        self::assertTrue($persister->recordLineage($start, (new RunLineage(30, $pin, originRunUuid: $start->uuid))->withReleasedProcess()));
+        self::assertNull($persister->heldProcessOf($this->storedRun($persister, $turn)), 'the start released it');
+
+        $orphan = $this->begin($persister);
+        self::assertTrue($persister->recordLineage($orphan, new RunLineage(30, $pin, originRunUuid: '00000000-0000-4000-8000-000000000000')));
+        self::assertNull($persister->heldProcessOf($this->storedRun($persister, $orphan)), 'the start is gone');
+    }
+
+    #[Test]
+    public function aRunSentAProviderCallOnlyWhenOneWasRecorded(): void
+    {
+        $persister = $this->persister(PrivacyLevel::NONE);
+        $handle    = $this->begin($persister);
+        self::assertFalse($persister->sentProviderCall($this->storedRun($persister, $handle)));
+
+        self::assertTrue($persister->recordStep($handle, new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 0.0)));
+        self::assertTrue($persister->sentProviderCall($this->storedRun($persister, $handle)), 'recorded at every privacy level');
     }
 
     private function persister(PrivacyLevel $level): AgentRunPersister
