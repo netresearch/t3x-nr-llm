@@ -211,6 +211,8 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         // fence arms here too. Without it this path could execute a remote tool
         // that declares a write but carries no approval flag (ADR-134 exempts
         // remote tools) with no fence around it.
+        // Literal lease-identity factory; it only builds a bounded process-identity string.
+        // nosemgrep: php.lang.security.exec-use.exec-use
         $leaseOwner = ExecutionIdentity::interactive();
         $handle     = $this->persister->begin(
             $request->configuration,

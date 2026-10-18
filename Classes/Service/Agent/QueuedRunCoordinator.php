@@ -189,6 +189,8 @@ final readonly class QueuedRunCoordinator
      */
     private function workerIdentity(): string
     {
+        // Literal lease-identity factory; it only builds a bounded process-identity string.
+        // nosemgrep: php.lang.security.exec-use.exec-use
         return ExecutionIdentity::worker();
     }
 }
