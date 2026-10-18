@@ -60,7 +60,11 @@ final class GetEnvToolTest extends TestCase
 
     // Assembled rather than written out: a complete Stripe-shaped literal in a
     // committed file trips GitHub's push protection, even as an obvious fixture.
-    private const SHAPED_STRIPE_VALUE = 'sk_live_' . '999999999999999999999999';
+    // The prefix is a constant of its own because PHP-CS-Fixer's
+    // no_useless_concat_operator joins two adjacent string literals.
+    private const STRIPE_LIVE_PREFIX = 'sk_live_';
+
+    private const SHAPED_STRIPE_VALUE = self::STRIPE_LIVE_PREFIX . '999999999999999999999999';
 
     private const SHAPED_JWT_KEY = 'NRLLM_TEST_SESSION_BLOB';
 

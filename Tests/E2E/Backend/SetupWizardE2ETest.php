@@ -64,6 +64,8 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
 
     private const ANT = '-ant-';
 
+    private const PROJ = '-proj-';
+
     private SetupWizardController $controller;
 
     private ProviderRepository $providerRepository;
@@ -1297,7 +1299,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     {
         // Test with various API key formats. Prefixes built at runtime so the
         // file doesn't trip secret-scanning false positives on literal patterns.
-        $openaiPrefix = 'sk' . '-proj-';
+        $openaiPrefix = 'sk' . self::PROJ;
         $anthropicPrefix = 'sk' . self::ANT;
         $testCases = [
             ['key' => $openaiPrefix . 'abc123', 'type' => 'openai'],
@@ -1745,7 +1747,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     {
         // Prefixes built at runtime so the file doesn't trip secret-scanning
         // tools that flag literal API-key prefixes.
-        $openaiPrefix = 'sk' . '-proj-';
+        $openaiPrefix = 'sk' . self::PROJ;
         $anthropicPrefix = 'sk' . self::ANT;
         $keyFormats = [
             $openaiPrefix . 'abc123def456',     // OpenAI project key shape
