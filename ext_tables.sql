@@ -1063,6 +1063,9 @@ CREATE TABLE tx_nrllm_agentrun_event (
     KEY parent (pid),
     -- Replay read path: a run's events in order.
     KEY run_sequence (run, sequence),
+    -- A run's latest event of one kind (ADR-228): the lineage a turn of a
+    -- process reads before every provider call and tool call.
+    KEY run_kind_sequence (run, kind, sequence),
     KEY crdate (crdate)
 );
 
