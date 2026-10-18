@@ -113,6 +113,10 @@ It is deliberately not the same as :guilabel:`Last import`: a server that has
 been answering tool calls all month can still show an import from six weeks
 ago, and previously there was no way to see the difference.
 
+A failed status write loses only that observation. Even if its optional
+diagnostic logger also throws, a completed connection test, catalogue walk or
+tool call keeps its successful result; the original warning is attempted once.
+
 A failed connection test replaces the report on the card with its reason, and
 is stored nowhere. Only a success moves the contact date.
 
@@ -197,7 +201,7 @@ the credential had gone out.
 
 See :ref:`ADR-116 <adr-116>` for the design rationale,
 :ref:`ADR-154 <adr-154>` for what liveness is measured on and why the
-connection test writes nothing, :ref:`ADR-170 <adr-170>` for the operation
+connection test writes no catalogue, :ref:`ADR-170 <adr-170>` for the operation
 budget, :ref:`ADR-190 <adr-190>` for cancellation, and
 :ref:`ADR-161 <adr-161>` for the conformance suite every supported connection
 is held to.
