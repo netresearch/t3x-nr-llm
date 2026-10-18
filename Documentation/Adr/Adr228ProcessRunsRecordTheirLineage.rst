@@ -206,3 +206,14 @@ Consequences
   composes only an unrevoked process approval for it. Such a caller is
   trusted like any other caller of the loop, and the members are marked
   ``@internal``.
+- A store error is retried only where a process starts or continues: the
+  reads of its approvals, their source's trust and its subject record. The
+  same reads inside the loop's skill composition, which every run shares,
+  are not: a queued run that hits one there is dead-lettered as before.
+- A resumed turn whose process approval cannot be read goes on without the
+  process's declared tools, bounded by the tool list stored when it
+  suspended. Its claim is already won, so a stop at that point would be
+  final.
+- A fault inside a guarded read that a retry cannot fix, such as a type
+  error, is retried like a store error until the requeue budget is spent,
+  and is then dead-lettered as retries exhausted.
