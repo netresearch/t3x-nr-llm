@@ -148,7 +148,7 @@ final readonly class ProcessRunPreparer
         // continuation derives another run's instructions and subject record,
         // which is more than reading or deciding it (ADR-214 item 6).
         $actor = $request->actor;
-        if (!$actor->isInitiatorOf($predecessor) && !($actor->isAdmin && !$actor->isServiceAccount())) {
+        if (!$actor->isInitiatorOf($predecessor) && (!$actor->isAdmin || $actor->isServiceAccount())) {
             throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::PREDECESSOR_NOT_PERMITTED);
         }
 

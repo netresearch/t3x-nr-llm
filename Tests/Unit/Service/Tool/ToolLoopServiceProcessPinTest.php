@@ -329,7 +329,7 @@ final class ToolLoopServiceProcessPinTest extends TestCase
         return $this->systemSent[$call];
     }
 
-    private static function toolName(mixed $tool): string
+    private function toolName(mixed $tool): string
     {
         if ($tool instanceof ToolSpec) {
             return $tool->name;
@@ -366,9 +366,9 @@ final class ToolLoopServiceProcessPinTest extends TestCase
         $manager  = self::createStub(LlmServiceManagerInterface::class);
         $manager->method('chatWithToolsForConfiguration')->willReturnCallback(
             function (array $messages, array $tools): CompletionResponse {
-                $this->offered[]    = array_values(array_map(self::toolName(...), $tools));
+                $this->offered[]    = array_values(array_map($this->toolName(...), $tools));
                 $system             = array_filter($messages, static fn(mixed $m): bool => $m instanceof ChatMessage && $m->role === 'system');
-                $this->systemSent[] = implode("\n", array_map(static fn(ChatMessage $m): string => is_string($m->content) ? $m->content : '', $system));
+                $this->systemSent[] = implode("\n", array_map(static fn(ChatMessage $m): string => $m->content, $system));
                 $next               = array_shift($this->queue);
                 if (!$next instanceof CompletionResponse) {
                     throw new RuntimeException('Scripted response queue underflow.', 1793500900);
@@ -401,10 +401,10 @@ final class ToolLoopServiceProcessPinTest extends TestCase
             ),
             skillInjection: new SkillInjectionService($composer, new NullLogger()),
             snippetComposer: new PromptSnippetComposer(),
+            contextWindow: $window,
             previewTranslator: $this->englishTranslator(),
             skillPinCheck: new SkillPinCheck($this->approvals, $sources, $records, new SkillComposerFactory($extensionConfiguration)),
             processPinProbe: new ApprovedProcessPinProbe($this->approvals),
-            contextWindow: $window,
         );
     }
 
@@ -453,6 +453,7 @@ final class ToolLoopServiceProcessPinTest extends TestCase
         $guide->setAllowedTools('["list_pages"]');
         $guide->setEnabled(true);
         $guide->setVersionDigest(SkillVersionDigest::of($guide));
+
         $this->approvals->add(self::GUIDE, self::SOURCE, $guide->getVersionDigest(), SkillVersionDigest::fieldsOf($guide), 'verified', 1);
 
         return $guide;

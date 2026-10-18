@@ -144,6 +144,7 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
         /** @var ObjectStorage<BackendUserGroup> $groups */
         $groups = new ObjectStorage();
         $groups->attach($group);
+
         $configuration->setBeGroups($groups);
 
         $this->assertRefused(

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Domain\ValueObject;
 
+use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\RunLineage;
 use Netresearch\NrLlm\Domain\ValueObject\SkillInvocation;
@@ -28,6 +29,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(SubjectRecord::class)]
 #[CoversClass(SkillInvocation::class)]
 #[CoversClass(RunLineage::class)]
+#[CoversClass(AgentRun::class)]
 final class ProcessInvocationValueObjectsTest extends TestCase
 {
     #[Test]
@@ -136,5 +138,47 @@ final class ProcessInvocationValueObjectsTest extends TestCase
         ] as $case => $data) {
             self::assertNull(RunLineage::fromArray($data), $case);
         }
+    }
+
+    /**
+     * The run status carries the process state the runtime read (ADR-228):
+     * the skill only while the run holds the process, and an unknown state
+     * as null. Every other member is carried over unchanged.
+     */
+    #[Test]
+    public function aRunStatusCarriesItsProcessState(): void
+    {
+        $run = new AgentRun(
+            uid: 1,
+            uuid: 'run',
+            status: 'completed',
+            configurationUid: 30,
+            configurationIdentifier: 'cfg',
+            beUser: 2,
+            iterations: 1,
+            truncated: false,
+            totalPromptTokens: 1,
+            totalCompletionTokens: 1,
+            totalTokens: 2,
+            estimatedCost: 0.0,
+            errorClass: '',
+            terminationReason: 'completed',
+            startedAt: 1,
+            finishedAt: 2,
+            crdate: 1,
+            requeueCount: 3,
+        );
+
+        self::assertNull($run->holdsProcess, 'not read yet');
+
+        $holding = $run->withProcessState(true, 'tour');
+        self::assertTrue($holding->holdsProcess);
+        self::assertSame('tour', $holding->processSkill);
+        self::assertSame(3, $holding->requeueCount);
+        self::assertTrue($holding->withoutSuspendedState()->holdsProcess, 'the status projection keeps it');
+
+        self::assertSame('', $run->withProcessState(false, 'tour')->processSkill, 'no skill without a process');
+        self::assertNull($run->withProcessState(null, 'tour')->holdsProcess);
+        self::assertSame('', $run->withProcessState(null, 'tour')->processSkill);
     }
 }

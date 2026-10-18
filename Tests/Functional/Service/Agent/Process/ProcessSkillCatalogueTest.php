@@ -99,6 +99,7 @@ final class ProcessSkillCatalogueTest extends AbstractFunctionalTestCase
         /** @var ObjectStorage<BackendUserGroup> $groups */
         $groups = new ObjectStorage();
         $groups->attach($group);
+
         $configuration->setBeGroups($groups);
 
         self::assertSame([], $this->catalogue()->forActor($configuration, AiActorContext::backendUser(2)));

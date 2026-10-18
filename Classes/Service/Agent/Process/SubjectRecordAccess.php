@@ -55,7 +55,7 @@ final readonly class SubjectRecordAccess
             return false;
         }
 
-        $pageUid = $table === 'pages' ? $subject->record->uid : self::toInt($row['pid'] ?? 0);
+        $pageUid = $table === 'pages' ? $subject->record->uid : $this->toInt($row['pid'] ?? 0);
         $page    = $pageUid > 0 ? $this->fetch('pages', $pageUid, ['*']) : null;
         if ($page === null) {
             // A record on the root level (pid 0) has no page to check; only an
@@ -90,7 +90,7 @@ final readonly class SubjectRecordAccess
         return is_array($row) ? $row : null;
     }
 
-    private static function toInt(mixed $value): int
+    private function toInt(mixed $value): int
     {
         return is_numeric($value) ? (int)$value : 0;
     }
