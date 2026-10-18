@@ -117,8 +117,9 @@ Decision
    retried keeps the process the same way. Only a withdrawn pin (item 6), an
    explicit end (item 7) and a predecessor that is gone let the process go;
    a predecessor that held no process leaves the refused run without a
-   lineage. A conversation refused more than 32 turns in a row lets the
-   process go with a ``refused_too_often`` notice (uid 0) instead of
+   lineage. A conversation with more than 32 refusals in a row that could
+   not read the process — each adds a lineage that only names its
+   predecessor — lets the process go with a ``refused_too_often`` notice (uid 0) instead of
    refusing every later turn.
 
 5. **The runtime sets the pin.** The executor puts the prepared pin on the

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\Process;
 
+use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\DroppedSourceReason;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Enum\ProcessInvocationRefusal;
@@ -781,14 +782,22 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
         $refused = $this->refusedRun($this->request($configuration, null, predecessor: $predecessor), ProcessInvocationRefusal::CONFIGURATION_NOT_PERMITTED, settle: false);
         $configuration->setBeGroups($this->beGroups(7));
 
-        $this->assertRefused(ProcessInvocationRefusal::PREDECESSOR_NOT_FINISHED, $this->request($configuration, null, predecessor: $refused));
-
+        // Requeued for a retry, as the queue does after a store error.
         $run = $this->persister->findRun($refused);
         self::assertInstanceOf(AgentRun::class, $run);
+        $this->pool()->getConnectionForTable('tx_nrllm_agentrun')->update('tx_nrllm_agentrun', ['claimed_by' => 'worker'], ['uid' => $run->uid]);
+        self::assertTrue((new AgentRunRepository($this->pool(), $this->get(AgentStateCodec::class)))->requeue($run->uid, 'worker'));
+        self::assertSame(AgentRunStatus::QUEUED, $this->persister->findRun($refused)?->statusEnum());
+
+        // Directly, and behind a finished refused turn that names it.
+        $behind = $this->markerRun($refused);
+        $this->assertRefused(ProcessInvocationRefusal::PREDECESSOR_NOT_FINISHED, $this->request($configuration, null, predecessor: $refused));
+        $this->assertRefused(ProcessInvocationRefusal::PREDECESSOR_NOT_FINISHED, $this->request($configuration, null, predecessor: $behind));
+
         $handle = $this->persister->resumeHandle($run);
         self::assertInstanceOf(AgentRunHandle::class, $handle);
         self::assertTrue($this->persister->settleCancelled($handle));
-        self::assertSame(self::PROCESS, $this->prepare($this->request($configuration, null, predecessor: $refused))->pin?->skillUid);
+        self::assertSame(self::PROCESS, $this->prepare($this->request($configuration, null, predecessor: $behind))->pin?->skillUid);
     }
 
     /**
