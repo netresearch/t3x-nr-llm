@@ -279,7 +279,7 @@ instruction, because no approval names it.
   not disabled merely because its row was legacy.
 - **The upgrade wizard does not bless earlier edits.** ``name`` and
   ``description`` are editable in FormEngine today
-  (``Configuration/TCA/tx_nrllm_skill.php#'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.name'``),
+  (``Configuration/TCA/tx_nrllm_skill.php#'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.name'``),
   so the stored fields of a synced row may differ from what the sync wrote.
   Before it writes ``version_digest``, the wizard verifies the body against
   ``body_checksum`` and re-derives ``name``, ``description`` and

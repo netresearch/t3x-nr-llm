@@ -197,7 +197,7 @@ final class ApprovalSurfaceInventoryTest extends TestCase
 
             self::assertSame(
                 1,
-                \preg_match("/'access' => '(\w+)'/", $block, $matches),
+                \preg_match("/'access'\s+=>\s+'(\w+)'/", $block, $matches),
                 'Module ' . $name . ' registers an approval action but declares no access.',
             );
 

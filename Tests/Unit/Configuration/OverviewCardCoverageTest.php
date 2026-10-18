@@ -130,7 +130,7 @@ final class OverviewCardCoverageTest extends TestCase
 
             $isCardTarget = false;
             foreach (self::CARD_PARENTS as $parent) {
-                if (\str_contains($block, "'parent' => '" . $parent . "'")) {
+                if (\preg_match("/'parent'\\s+=>\\s+'" . \preg_quote($parent, '/') . "'/", $block) === 1) {
                     $isCardTarget = true;
                     break;
                 }
