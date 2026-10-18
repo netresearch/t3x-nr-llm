@@ -49,8 +49,9 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
         mixed $expected,
         string $message,
         string $loggerMode,
+        string $storageKind,
     ): void {
-        $storageError = new RuntimeException('storage unavailable');
+        $storageError = $storageKind === 'error' ? new Error('storage unavailable') : new RuntimeException('storage unavailable');
         $repository = self::createMock(AgentRunRepositoryInterface::class);
         $repository
             ->expects(self::once())
@@ -104,7 +105,7 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
     }
 
     /**
-     * @return iterable<string,array{string,non-empty-string,mixed,string,string}>
+     * @return iterable<string,array{string,non-empty-string,mixed,string,string,string}>
      */
     public static function storageFailureCases(): iterable
     {
@@ -190,7 +191,16 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
         ];
         foreach ($cases as [$operation, $repositoryMethod, $expected, $message]) {
             foreach (['recording', 'runtime', 'error', 'absent'] as $mode) {
-                yield $operation . '/' . $mode => [$operation, $repositoryMethod, $expected, $message, $mode];
+                foreach (['runtime', 'error'] as $storageKind) {
+                    yield $operation . '/' . $mode . ($storageKind === 'runtime' ? '' : '/storage-error') => [
+                        $operation,
+                        $repositoryMethod,
+                        $expected,
+                        $message,
+                        $mode,
+                        $storageKind,
+                    ];
+                }
             }
         }
     }
@@ -199,8 +209,9 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
     #[DataProvider('loggerModes')]
     public function inputAuditFailureRemainsBestEffortWithoutAdvancingSequence(
         string $mode,
+        string $storageKind,
     ): void {
-        $original = new RuntimeException('input audit unavailable');
+        $original = $storageKind === 'error' ? new Error('input audit unavailable') : new RuntimeException('input audit unavailable');
         $repository = self::createMock(AgentRunRepositoryInterface::class);
         $repository
             ->expects(self::once())
@@ -278,7 +289,8 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method($input ? 'suspendRunForInput' : 'suspendRun')
             ->willReturn(false);
-        $logger = $this->loggerFor($mode);
+        $attempts = [];
+        $logger = $this->refusalLogger($mode, $attempts);
         $subject = new AgentRunPersister(
             $repository,
             FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL),
@@ -296,18 +308,17 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
 
         self::assertNull($caught);
         self::assertFalse($result);
-        if ($logger instanceof RecordingLogger) {
-            self::assertSame(
+        self::assertSame(
+            $mode === 'absent' ? [] : [
                 [
-                    [
-                        'level' => 'notice',
-                        'message' => $input ? 'AgentRun was no longer running when its input suspension arrived; it was discarded' : 'AgentRun was no longer running when its suspension arrived; the suspension was discarded',
-                        'context' => ['run' => 'stored-run'],
-                    ],
+                    'level' => 'notice',
+                    'message' => $input ? 'AgentRun was no longer running when its input suspension arrived; it was discarded' : 'AgentRun was no longer running when its suspension arrived; the suspension was discarded',
+                    'context' => ['run' => 'stored-run'],
                 ],
-                $logger->records,
-            );
-        }
+            ],
+            $attempts,
+            'A refused suspension must retain only its original notice, even when logging throws.',
+        );
     }
 
     /**
@@ -323,12 +334,14 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
     }
 
     /**
-     * @return iterable<string,array{string}>
+     * @return iterable<string,array{string,string}>
      */
     public static function loggerModes(): iterable
     {
         foreach (['recording', 'runtime', 'error', 'absent'] as $mode) {
-            yield $mode => [$mode];
+            foreach (['runtime', 'error'] as $storageKind) {
+                yield $mode . ($storageKind === 'runtime' ? '' : '/storage-error') => [$mode, $storageKind];
+            }
         }
     }
 
