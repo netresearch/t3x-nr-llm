@@ -103,7 +103,6 @@ final readonly class SkillInjectionService
      * `$processVersions` are the approval snapshots of the process the run
      * invokes or holds a pin for (ADR-228), composed as instruction sections
      * from the snapshot ({@see SkillComposer::composeBlock()}).
-     *
      * @param list<SkillApproval> $processVersions
      *
      * @return array{messages: list<ChatMessage|array<string, mixed>>, instructions: string, pins: list<SkillPin>, instructionIds: list<string>}

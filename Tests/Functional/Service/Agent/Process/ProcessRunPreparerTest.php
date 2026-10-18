@@ -121,6 +121,7 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
 
         self::assertEquals(new SkillPin(self::PROCESS, self::SOURCE, $skill->getVersionDigest()), $prepared->pin);
         self::assertEquals($subject, $prepared->subject);
+        self::assertTrue($prepared->newStart);
 
         $lineage = $this->lineage($handle->uuid);
         self::assertInstanceOf(RunLineage::class, $lineage);
@@ -272,6 +273,7 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
 
         self::assertEquals(new SkillPin(self::PROCESS, self::SOURCE, $skill->getVersionDigest()), $prepared->pin);
         self::assertEquals($subject, $prepared->subject);
+        self::assertFalse($prepared->newStart, 'continued, not admitted again');
         self::assertEquals($prepared->pin, $this->lineage($handle->uuid)?->processPin);
     }
 
@@ -287,6 +289,7 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
 
         $same = $this->prepare($this->request($configuration, new SkillInvocation(self::PROCESS), predecessor: $predecessor));
         self::assertSame(self::PROCESS, $same->pin?->skillUid);
+        self::assertFalse($same->newStart, 'the same process, not a new start');
 
         $this->assertRefused(ProcessInvocationRefusal::PROCESS_HELD, $this->request($configuration, new SkillInvocation(self::OTHER_PROCESS), predecessor: $predecessor));
     }

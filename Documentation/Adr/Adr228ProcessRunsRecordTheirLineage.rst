@@ -52,9 +52,15 @@ Decision
    process; the actor is not a service account and the configuration does
    not set ``require_second_approver``; the acting user may read the subject
    record. A refusal is a :php:`ProcessInvocationRefusedException` carrying a
-   :php:`ProcessInvocationRefusal` case; it settles the run failed, and a
-   queued run is dead-lettered, not retried. An executor built without a
-   preparer refuses every invocation and continuation.
+   :php:`ProcessInvocationRefusal` case. It settles the run ``failed`` with
+   its class and the termination reason ``policy_denied`` — a continued
+   process on a configuration that turned four-eyes on since with
+   :php:`ProcessRunNeedsSecondApproverException` and ``approval_denied``, as
+   on resume. A queued run is checked at pickup, not at enqueue; its refusal
+   takes the same settle, outside the queue's recovery, so the initiator
+   finds a failed run with a reason rather than a retry or a dead letter. An
+   executor built without a preparer refuses every invocation and
+   continuation.
 
 3. **The subject check is the acting user's**, not the global backend
    user's: the table (:php:`TableReadAccessService::canReadTable()`), the
@@ -76,7 +82,10 @@ Decision
    run's :php:`RunAugmentation` and replaces any pin a caller put there. A
    run whose caller sent no augmentation gets one that only carries the
    process (``bakesSystemPrompt: false``), so its prompt is assembled as if
-   there were none.
+   there were none. The augmentation's process members are ``@internal``:
+   :php:`ToolLoopServiceInterface::runLoop()` still accepts them from any
+   caller, and the public entry points — :php:`AgentRunRequest` through the
+   runtime, interactive or queued — never carry a pin they did not derive.
 
 6. **The pin is the source, not the record.** The loop composes the process
    from its approval snapshot and joins the snapshot's declared tools to the
@@ -91,12 +100,22 @@ Decision
    without it.
 
 7. **Ending a process.** :php:`AgentRuntimeInterface::endProcess()` is
-   called by the run's initiator only. A waiting run is cancelled through the
+   called by the run's initiator or an administrator, as
+   ``cancelIfWaiting()`` is, so an administrator can end a process that is
+   stuck; not by a service account or the holder of the approve grant. A
+   waiting run is cancelled through the
    same guarded transition as ``cancelIfWaiting()``; a queued or running run
    is left alone and the caller asks again; a terminal run keeps its status.
    The run then records its lineage as released, which a continuation does
    not carry on. Applied writes stay. Anyone else, and an unknown run, learn
    nothing.
+
+   The run status (:php:`AgentRuntimeInterface::status()`) says whether the
+   run holds a process (``holdsProcess``) and names the process skill's
+   identifier (``processSkill``), so a chat restores its tour header after a
+   reload. It is read from the lineage, which records the identifier at
+   start; an unreadable lineage leaves ``holdsProcess`` null. The flag is
+   information for the client; the runtime decides nothing from it.
 
 8. **The catalogue** (:php:`ProcessSkillCatalogue::forActor()`, AJAX route
    ``nrllm_process_skills``) lists the skills a :php:`SkillInvocation` would
@@ -107,12 +126,22 @@ Decision
    names and descriptions come from the approval snapshot. The route answers
    404 for an unknown or deactivated configuration.
 
-9. **Highlight targets.** The subject record is on the tool context, and the
-   builtin ``highlight_record`` accepts only the subject record itself or,
-   for a page, a non-deleted content element on it in the subject's language
-   or in all languages, if the acting user may read ``tt_content``. The run
-   records a ``highlight`` step with the table and uid. The builtin ships
-   disabled.
+9. **Admission.** A process this run starts passes the window admission of
+   ADR-214 item 7 with the other start sections, before the first provider
+   call and measured against the model the send runs on — the start
+   admission of the skill streams, which resolves a criteria-mode
+   configuration's model. A process the run continues from its predecessor
+   is not admitted again: its section is one the conversation already
+   holds, and a long tour would otherwise fail once its history outgrew the
+   headroom. The runtime marks a new start on the augmentation
+   (``admitsProcess``).
+
+10. **Highlight targets.** The subject record is on the tool context, and the
+    builtin ``highlight_record`` accepts only the subject record itself or,
+    for a page, a non-deleted content element on it in the subject's language
+    or in all languages, if the acting user may read ``tt_content``. The run
+    records a ``highlight`` step with the table and uid. The builtin ships
+    disabled.
 
 Consequences
 ============
@@ -123,22 +152,15 @@ Consequences
   load mode exists.
 - The catalogue lists processes only, without a load mode or a flag for
   untrusted descriptions: every listed skill is an approved instruction.
-- A disabled pinned process stops a continuation, as it stops a resume:
-  :php:`SkillPinCheck` treats a disabled record like an orphaned one. ADR-214
-  item 10 waives ``enabled`` for a continuation. Keeping the stricter rule
-  means a synced process whose upstream changed (the sync disables it) ends
-  the tour; changing it belongs in the pin check, for resume and
-  continuation alike.
-- ``endProcess()`` admits the initiator only, where ``cancelIfWaiting()``
-  also admits an administrator: ending a person's guided process is that
-  person's decision.
-- A queued run is checked at worker pickup, not at enqueue; a refusal there
-  dead-letters the run.
-- A run's status does not yet expose whether it holds a process, and the
-  admission headroom and the progress builtin of ADR-214 are not part of
-  this change.
-- :php:`ToolLoopServiceInterface::runLoop()` still accepts an augmentation
-  with a process pin from any caller. The loop composes only an unrevoked
-  process approval for it, but the actor and subject checks of item 2 run in
-  the executor; a caller that drives the loop directly is trusted like any
-  other caller of the loop.
+- **Correction to ADR-214 item 10:** a continuation does not waive
+  ``enabled``. A disabled pinned process stops a continuation, as it stops a
+  resume: :php:`SkillPinCheck` treats a disabled record like an orphaned one,
+  for resume and continuation alike. A synced process whose upstream
+  changed (the sync disables it) therefore ends the tour.
+- The catalogue has no load mode, and nr-llm has no progress builtin: the
+  chat keeps its own progress.
+- A caller that drives :php:`ToolLoopServiceInterface::runLoop()` directly
+  with a process pin skips the actor and subject checks of item 2; the loop
+  composes only an unrevoked process approval for it. Such a caller is
+  trusted like any other caller of the loop, and the members are marked
+  ``@internal``.

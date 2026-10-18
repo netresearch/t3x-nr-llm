@@ -97,6 +97,7 @@ final class AgentRunExecutorProcessTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(RunAugmentation::class, $this->augmentationSeen);
         self::assertEquals(new SkillPin(5, self::SOURCE, $skill->getVersionDigest()), $this->augmentationSeen->processPin);
         self::assertFalse($this->augmentationSeen->bakesSystemPrompt, 'a carrier, not a playground bake');
+        self::assertTrue($this->augmentationSeen->admitsProcess, 'a new start is admitted against the window');
         self::assertSame('pages:1', (string)$this->contextSeen?->subjectRecord?->record);
     }
 

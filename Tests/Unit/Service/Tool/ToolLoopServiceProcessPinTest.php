@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\DroppedSourceReason;
 use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
@@ -18,14 +19,22 @@ use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
+use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
+use Netresearch\NrLlm\Domain\ValueObject\DroppedSource;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException;
+use Netresearch\NrLlm\Exception\SkillSectionNotAdmittedException;
 use Netresearch\NrLlm\Service\Agent\Process\ApprovedProcessPinProbe;
+use Netresearch\NrLlm\Service\Context\ContextWindowManager;
+use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
+use Netresearch\NrLlm\Service\Context\SectionAdmissionInterface;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Skill\SkillComposerFactory;
@@ -86,6 +95,8 @@ final class ToolLoopServiceProcessPinTest extends TestCase
 
     /** @var list<list<string>> the tool names offered on each model call */
     private array $offered = [];
+
+    private int $contextLength = 0;
 
     /** @var list<string> the system text sent on each model call */
     private array $systemSent = [];
@@ -198,26 +209,107 @@ final class ToolLoopServiceProcessPinTest extends TestCase
     }
 
     /**
-     * The augmentation the runtime builds only to carry a process assembles
-     * like no augmentation: the caller's system message, with the process
-     * appended, is the only one the run sends. One that bakes puts the
-     * configuration's prompt in front of it, as the playground does.
+     * The augmentation the runtime builds only to carry what a continuation
+     * dropped assembles like no augmentation: it bakes nothing into the
+     * transcript, and the configuration's prompt is left to the send, as for
+     * a run without one. An augmentation that bakes puts it in front, as the
+     * playground does.
      */
     #[Test]
-    public function aCarrierAugmentationKeepsTheCallersSystemMessage(): void
+    public function aCarrierAssemblesLikeNoAugmentation(): void
     {
-        $messages = [ChatMessage::system('CALLER SYSTEM'), ChatMessage::user('start')];
+        $dropped = [new DroppedSource('process', self::SKILL, DroppedSourceReason::DETACHED)];
 
         $this->queue[] = $this->response('done');
-        $this->service()->runLoop($messages, $this->configuration($this->skill), ToolExecutionContext::none(), null, augmentation: RunAugmentation::forProcess($this->pin));
-        self::assertStringContainsString('CALLER SYSTEM', $this->systemAt(0));
-        self::assertStringContainsString(self::BODY, $this->systemAt(0));
+        $this->service()->runLoop([ChatMessage::user('start')], $this->configuration($this->skill), ToolExecutionContext::none(), null, augmentation: RunAugmentation::forProcess(null, $dropped));
         self::assertStringNotContainsString('CONFIGURATION PROMPT', $this->systemAt(0));
 
         $this->systemSent = [];
         $this->queue[]    = $this->response('done');
-        $this->service()->runLoop($messages, $this->configuration($this->skill), ToolExecutionContext::none(), null, augmentation: new RunAugmentation(processPin: $this->pin));
+        $this->service()->runLoop([ChatMessage::user('start')], $this->configuration($this->skill), ToolExecutionContext::none(), null, augmentation: new RunAugmentation(droppedSources: $dropped));
         self::assertStringContainsString('CONFIGURATION PROMPT', $this->systemAt(0));
+    }
+
+    /**
+     * A process this run starts passes the window admission of ADR-214
+     * item 7 before the first provider call, measured against the model the
+     * send runs on: the same process start fits a large window and is refused
+     * in a small one.
+     */
+    #[Test]
+    public function aStartedProcessIsAdmittedAgainstTheResolvedWindow(): void
+    {
+        $long = str_repeat('Walk the editor through every heading and every paragraph. ', 400);
+        $this->useProcessBody($long);
+
+        try {
+            $this->service(window: new ContextWindowManager(), contextLength: 4096)
+                ->runLoop([ChatMessage::user('start')], $this->configuration($this->skill), ToolExecutionContext::none(), null, augmentation: RunAugmentation::forProcess($this->pin, [], true));
+            self::fail('Expected SkillSectionNotAdmittedException');
+        } catch (SkillSectionNotAdmittedException $exception) {
+            self::assertStringContainsString('tour', $exception->getMessage());
+        }
+
+        self::assertSame([], $this->offered, 'refused before the first provider call');
+
+        $this->queue[] = $this->response('done');
+        $this->service(window: new ContextWindowManager(), contextLength: 100000)
+            ->runLoop([ChatMessage::user('start')], $this->configuration($this->skill), ToolExecutionContext::none(), null, augmentation: RunAugmentation::forProcess($this->pin, [], true));
+        self::assertCount(1, $this->offered);
+    }
+
+    /**
+     * A process the run continues from its predecessor is not admitted
+     * again (ADR-214 item 7): against a window that admits no new section,
+     * the continuation goes on, while the same process as a new start is
+     * refused before the first provider call.
+     */
+    #[Test]
+    public function aContinuedProcessIsNotAdmittedAgain(): void
+    {
+        $this->queue[] = $this->response('done');
+        $this->service(window: $this->refusingWindow())
+            ->runLoop([ChatMessage::user('go on')], $this->configuration($this->skill), ToolExecutionContext::none(), null, augmentation: RunAugmentation::forProcess($this->pin));
+        self::assertCount(1, $this->offered);
+
+        $this->offered = [];
+        $this->expectException(SkillSectionNotAdmittedException::class);
+        try {
+            $this->service(window: $this->refusingWindow())
+                ->runLoop([ChatMessage::user('start')], $this->configuration($this->skill), ToolExecutionContext::none(), null, augmentation: RunAugmentation::forProcess($this->pin, [], true));
+        } finally {
+            self::assertSame([], $this->offered);
+        }
+    }
+
+    /**
+     * A window that fits every send and admits no new section.
+     */
+    private function refusingWindow(): ContextWindowManagerInterface&SectionAdmissionInterface
+    {
+        return new class implements ContextWindowManagerInterface, SectionAdmissionInterface {
+            public function beginRun(): void {}
+
+            public function fit(array $messages, LlmConfiguration $configuration, ?ChatOptions $options, ?UsageStatistics $lastUsage, array $toolSpecs = [], string $injectedText = '', ?string $effectiveSystemPrompt = null, ?Model $resolvedModel = null): ContextFitResult
+            {
+                return new ContextFitResult($messages, false, 0, 0, 10, 100, false, 1.0, ContextBudgetBreakdown::none());
+            }
+
+            public function admitsSection(array $messages, string $section, LlmConfiguration $configuration, ?ChatOptions $options, array $toolSpecs = [], ?string $effectiveSystemPrompt = null, ?Model $resolvedModel = null): bool
+            {
+                return false;
+            }
+        };
+    }
+
+    /**
+     * Replace the approved process with one whose body is `$body`.
+     */
+    private function useProcessBody(string $body): void
+    {
+        $this->skill = $this->skill($body, '["read_page"]');
+        $this->approvals->add(self::SKILL, self::SOURCE, $this->skill->getVersionDigest(), ['process' => true] + SkillVersionDigest::fieldsOf($this->skill), 'verified', 1);
+        $this->pin = new SkillPin(self::SKILL, self::SOURCE, $this->skill->getVersionDigest());
     }
 
     /**
@@ -260,8 +352,9 @@ final class ToolLoopServiceProcessPinTest extends TestCase
         return $names;
     }
 
-    private function service(?string $declaring = null): ToolLoopService
+    private function service(?string $declaring = null, ?ContextWindowManagerInterface $window = null, int $contextLength = 0): ToolLoopService
     {
+        $this->contextLength = $contextLength;
         if ($declaring !== null) {
             $declared = $this->skill(self::BODY, $declaring);
             $this->approvals->add(self::SKILL, self::SOURCE, $declared->getVersionDigest(), ['process' => true] + SkillVersionDigest::fieldsOf($declared), 'verified', 1);
@@ -311,6 +404,7 @@ final class ToolLoopServiceProcessPinTest extends TestCase
             previewTranslator: $this->englishTranslator(),
             skillPinCheck: new SkillPinCheck($this->approvals, $sources, $records, new SkillComposerFactory($extensionConfiguration)),
             processPinProbe: new ApprovedProcessPinProbe($this->approvals),
+            contextWindow: $window,
         );
     }
 
@@ -329,6 +423,8 @@ final class ToolLoopServiceProcessPinTest extends TestCase
 
         $model = new Model();
         $model->setProvider($provider);
+        $model->setContextLength($this->contextLength);
+        $model->setMaxOutputTokens(500);
 
         $configuration = new LlmConfiguration();
         $configuration->setIdentifier('process-pins');
