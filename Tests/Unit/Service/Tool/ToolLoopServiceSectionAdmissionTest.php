@@ -574,7 +574,10 @@ final class ToolLoopServiceSectionAdmissionTest extends TestCase
         return new class ($admits) implements ContextWindowManagerInterface, SectionAdmissionInterface {
             public function __construct(private readonly bool $admits) {}
 
-            public function beginRun(): void {}
+            public function beginRun(): void
+            {
+                // This fake answers admission from a fixed flag and carries no calibration state to reset.
+            }
 
             public function fit(array $messages, LlmConfiguration $configuration, ?ChatOptions $options, ?UsageStatistics $lastUsage, array $toolSpecs = [], string $injectedText = '', ?string $effectiveSystemPrompt = null, ?Model $resolvedModel = null): ContextFitResult
             {
