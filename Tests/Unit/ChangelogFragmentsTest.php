@@ -242,6 +242,47 @@ final class ChangelogFragmentsTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function checkAcceptsFragmentsWhenTheReleaseTagExistsOnlyOnOrigin(): void
+    {
+        // A CI checkout has no tags. The tag is looked up on origin without
+        // being fetched, so a full clone does not turn shallow.
+        $origin = $this->repo . '/.git/test-origin.git';
+        $this->git('init', '--quiet', '--bare', $origin);
+        $this->git('remote', 'add', 'origin', $origin);
+        $this->git('tag', 'v1.3.0');
+        $this->git('push', '--quiet', 'origin', 'refs/tags/v1.3.0');
+        $this->git('tag', '-d', 'v1.3.0');
+        file_put_contents(
+            $this->repo . '/CHANGELOG.md',
+            str_replace('## [Unreleased]', "## [Unreleased]\n\n## [1.3.0] - 2026-02-01", self::CHANGELOG),
+        );
+        $this->fragment('fix-thing.fixed.md', "- A fix.\n");
+
+        [$exit, , $stderr] = $this->runScript('check');
+
+        self::assertSame(0, $exit, $stderr);
+        $this->expectException(RuntimeException::class);
+        $this->git('rev-parse', '--quiet', '--verify', 'refs/tags/v1.3.0');
+    }
+
+    #[Test]
+    public function checkStopsWhenOriginCannotBeAsked(): void
+    {
+        $this->git('remote', 'add', 'origin', $this->repo . '/.git/missing.git');
+        file_put_contents(
+            $this->repo . '/CHANGELOG.md',
+            str_replace('## [Unreleased]', "## [Unreleased]\n\n## [1.3.0] - 2026-02-01", self::CHANGELOG),
+        );
+        $this->fragment('fix-thing.fixed.md', "- A fix.\n");
+
+        [$exit, , $stderr] = $this->runScript('check');
+
+        self::assertSame(2, $exit);
+        self::assertStringContainsString('cannot ask origin whether tag v1.3.0 exists', $stderr);
+        self::assertStringNotContainsString('has no tag', $stderr);
+    }
+
+    #[Test]
     public function aReleaseCommitWithoutFragmentsPasses(): void
     {
         file_put_contents(

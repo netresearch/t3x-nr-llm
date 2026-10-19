@@ -118,7 +118,13 @@ function topmostReleased(string $changelog): ?string
 }
 
 /**
- * Whether tag v$version exists, fetching it once for a shallow checkout.
+ * Whether tag v$version exists, locally or on origin.
+ *
+ * A shallow CI checkout carries no tags, so origin is asked with ls-remote. It
+ * fetches nothing, so it cannot turn a full clone into a shallow one. Without
+ * an origin there is nothing else to ask. A failing ls-remote stops the check
+ * with its own message, because reporting it as a missing tag would name the
+ * wrong cause.
  */
 function tagExists(string $root, string $version): bool
 {
@@ -127,15 +133,23 @@ function tagExists(string $root, string $version): bool
         return true;
     }
 
-    run(['git', '-C', $root, 'fetch', '--quiet', '--depth=1', '--no-tags', 'origin', '+' . $ref . ':' . $ref]);
+    if (!run(['git', '-C', $root, 'remote', 'get-url', 'origin'])) {
+        return false;
+    }
 
-    return run(['git', '-C', $root, 'rev-parse', '--quiet', '--verify', $ref]);
+    $listed = '';
+    if (!run(['git', '-C', $root, 'ls-remote', '--tags', 'origin', $ref], $listed)) {
+        fwrite(STDERR, sprintf("changelog-fragments: cannot ask origin whether tag v%s exists. Check the remote and run the check again.\n", $version));
+        exit(2);
+    }
+
+    return trim($listed) !== '';
 }
 
 /**
  * @param list<string> $command
  */
-function run(array $command): bool
+function run(array $command, string &$stdout = ''): bool
 {
     // nosemgrep: netresearch.php.lang.security.exec-use.exec-use - argv array, no shell; every caller passes literal git arguments plus this repository's own root and a version read from its CHANGELOG
     $proc = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
@@ -143,7 +157,7 @@ function run(array $command): bool
         return false;
     }
 
-    stream_get_contents($pipes[1]);
+    $stdout = (string)stream_get_contents($pipes[1]);
     stream_get_contents($pipes[2]);
     fclose($pipes[1]);
     fclose($pipes[2]);
