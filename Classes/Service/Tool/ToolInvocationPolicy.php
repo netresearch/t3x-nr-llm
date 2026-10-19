@@ -8,10 +8,10 @@ declare (strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
-use LogicException;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationTarget;
+use Netresearch\NrLlm\Exception\LogicException;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Throwable;
 

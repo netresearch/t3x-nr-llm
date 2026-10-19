@@ -57,6 +57,37 @@ final class InputContextClassifierTest extends TestCase
         );
     }
 
+    /**
+     * An on-demand skill can enter the run through a load (ADR-214 item 4),
+     * so it is classified up front like an always one, and listed once when
+     * it is attached in both modes.
+     */
+    #[Test]
+    public function anOnDemandSkillIsClassifiedOnceLikeAnAlwaysOne(): void
+    {
+        $onDemand = $this->skill('secret-howto', ToolDataClass::SECRET_ADJACENT->value);
+        $onDemand->_setProperty('uid', 5);
+
+        $configuration = $this->configuration([]);
+        $configuration->addSkillOnDemand($onDemand);
+
+        self::assertSame([['skill "secret-howto"', ToolDataClass::SECRET_ADJACENT]], $this->listed($this->classifier([])->sources($configuration)));
+
+        $configuration->addSkill($onDemand);
+
+        self::assertSame([['skill "secret-howto"', ToolDataClass::SECRET_ADJACENT]], $this->listed($this->classifier([])->sources($configuration)), 'attached in both modes, listed once');
+    }
+
+    /**
+     * @param list<InputContextClassification> $sources
+     *
+     * @return list<array{string, ToolDataClass|null}>
+     */
+    private function listed(array $sources): array
+    {
+        return array_map(static fn(InputContextClassification $c): array => [$c->source, $c->effective], $sources);
+    }
+
     #[Test]
     public function anUnclassifiedSourceIsListedRatherThanOmitted(): void
     {

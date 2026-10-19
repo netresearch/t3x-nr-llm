@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Skill;
 
 use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
 use Netresearch\NrLlm\Domain\Model\Skill;
+use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
 use Netresearch\NrLlm\Domain\ValueObject\SkillSourceFacts;
 
 /**
@@ -75,6 +76,27 @@ final readonly class SkillInstructionPolicy
         }
 
         return $this->approvals->hasUnrevokedApproval($uid, $skill->getSource(), $versionDigest);
+    }
+
+    /**
+     * The approved version of the skill from its current source that vouches
+     * for its tool declaration and process marker (ADR-214 item 3): the
+     * version with the given digest when that one is approved — the version
+     * that instructs — and otherwise the most recent unrevoked approved
+     * version. Null when no version from this source is approved.
+     */
+    public function approvalOf(Skill $skill, ?string $currentDigest = null): ?SkillApproval
+    {
+        $uid = $skill->getUid();
+        if ($uid === null || $uid <= 0) {
+            return null;
+        }
+
+        $approval = $currentDigest !== null && $currentDigest !== ''
+            ? $this->approvals->findUnrevoked($uid, $skill->getSource(), $currentDigest)
+            : null;
+
+        return $approval ?? $this->approvals->findLatestUnrevokedFromSource($uid, $skill->getSource());
     }
 
     /**
