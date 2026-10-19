@@ -95,11 +95,10 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         // test wiring; production autowires the real resolver, and a null falls
         // back to a fresh default instance.
         private ?ActingBackendUserResolverInterface $actingBackendUserResolver = null,
-        // Classifies a tool's side effect so a WRITING tool's audit step is
-        // fail-closed (ADR-111). Optional only for the positional test wiring;
-        // production autowires it. A null resolver treats every tool as
-        // read-only — safe today (no builtin writes) and only reachable in bare
-        // test construction, never in the autowired runtime.
+        // Classifies side effects so writing-tool audit persistence is fail-closed.
+        // Production autowires the resolver. A null is supported for bare positional
+        // construction and classifies tools as read-only; callers that execute writes
+        // must supply the resolver.
         private ?ToolEffectResolver $toolEffectResolver = null,
         // Serialises a request into, and back out of, the queued row (ADR-102).
         // Optional in the ctor only for the positional test wiring, like the

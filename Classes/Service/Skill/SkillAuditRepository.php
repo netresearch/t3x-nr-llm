@@ -14,13 +14,10 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
 /**
- * Append-only store for the skill audit trail (`tx_nrllm_skill_audit`, ADR-061).
- *
- * By construction the application can only INSERT: this class exposes
- * {@see record()} and read helpers and *deliberately* offers no update or
- * delete method. The audit rows are the immutable provenance record of every
- * skill that can reach a prompt; a purge, if ever needed, is a separate,
- * explicitly documented retention operation — never the regular write path.
+ * Append-only skill audit trail during normal writes (ADR-061).
+ * record() inserts provenance rows; no normal operation updates existing rows.
+ * purgeOlderThan() is the explicit retention exception (ADR-064), driven by
+ * nrllm:privacy:purge and the skill-audit retention setting.
  */
 final readonly class SkillAuditRepository implements SkillAuditRepositoryInterface
 {
