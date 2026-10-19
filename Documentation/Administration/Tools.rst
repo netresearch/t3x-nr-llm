@@ -41,10 +41,10 @@ non-admin users.
 The built-in tools
 ==================
 
-nr-llm ships forty-two read-only tools and seventeen writing tools. Each is a
+nr-llm ships forty-three read-only tools and seventeen writing tools. Each is a
 reference implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
-redacted or gated behind a separate ``_raw`` variant. Thirty-eight ship
+redacted or gated behind a separate ``_raw`` variant. Thirty-nine ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
 ``get_php_info_raw`` and ``list_be_users_raw``), ``fetch_external_url``
 (see :ref:`administration-tools-external-pages`) and all seventeen writing tools
@@ -69,7 +69,9 @@ backend users — those self-enforce the acting user's TYPO3 permissions
 ever sees what the backend already grants them (see
 :ref:`ADR-042 <adr-042>`). ``fetch_external_url`` is offered to non-admins
 too; it reads public web pages only, which no TYPO3 permission covers, under
-the controls in :ref:`administration-tools-external-pages`.
+the controls in :ref:`administration-tools-external-pages`. ``load_skill`` is
+offered to non-admins as well; it brings in only skill text an administrator
+approved for the run's configuration (see below).
 
 The two tools below are the fullest illustrations of the contract:
 
@@ -1065,7 +1067,8 @@ Group              Tools
                    ``list_deprecations``, ``list_middlewares``
 ``accounts``       ``list_be_users`` (+ raw), ``list_be_groups``
 ``configuration``  ``get_typoscript``, ``get_tsconfig``, ``fluid_resolve``,
-                   ``check_typoscript``, ``get_site_config``
+                   ``check_typoscript``, ``get_site_config``,
+                   ``load_skill``
 ``code``           ``get_last_exception``, ``read_source``, ``search_code``
 ``files``          ``list_fal_storages``, ``browse_fal_folder``,
                    ``search_fal_files``, ``get_fal_references``,
@@ -1084,6 +1087,19 @@ Group              Tools
                    ``replace_file_reference``
                    — the only WRITING group
 =================  ============================================================
+
+``load_skill`` loads an approved skill into an agent run's system message
+(ADR-214). It is offered only to a run whose configuration has skills attached
+as *loaded on demand* and at least one of them is an approved instruction; its
+description lists those skills by uid, name and description. The skill
+allow-list and the configuration's allowed tool groups do not restrict it, so
+a skill declaring ``allowed-tools: []`` does not switch it off; the global tool
+state and the trust zone do. Loading a skill grants no tools. It does not
+require admin: a non-admin backend user's run may load a skill, because the
+text it adds is an approved version an administrator vouched for, attached
+to the configuration, and it widens nothing the user may do. In a run that
+invokes a process skill the exemption does not hold; there the process
+skill's approved declaration decides whether ``load_skill`` is offered.
 
 Groups can be switched on three levels, and the result cascades
 **fail-closed** — a tool is offered only when *every* level permits it:

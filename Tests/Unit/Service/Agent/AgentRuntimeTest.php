@@ -327,6 +327,11 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $observed = [];
         $runtime  = $this->runtime($loop);
         $result   = $runtime->run($this->request(), function (RunStep $s) use (&$observed): void {
+            self::assertSame(
+                [],
+                $this->repository->events,
+                'The observer runs before the event is stored.',
+            );
             $observed[] = $s->kind;
         });
 
@@ -1469,7 +1474,10 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $loop = self::createStub(ToolLoopServiceInterface::class);
         $loop->method('runLoop')->willReturnCallback(static function (): ToolLoopResult {
             // A retryable class (would normally requeue within budget).
-            throw new RuntimeException('transient provider blip', 1785000099);
+            throw new ProviderConnectionException(
+                'transient provider blip',
+                1785000099,
+            );
         });
 
         $result = $this->runtime($loop)->runQueued('run-uuid-q');

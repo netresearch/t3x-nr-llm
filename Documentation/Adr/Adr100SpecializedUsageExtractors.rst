@@ -72,3 +72,11 @@ Consequences
 - Adding a specialized provider means adding one extractor tagged
   ``nr_llm.usage_metrics_extractor`` and setting an intent before dispatch; no
   service touches the usage table.
+
+Accounting failures after a successful provider call are best-effort. A failed
+extractor or usage write attempts a warning; a failing warning writer is also
+contained. The original answer still reaches the caller without another
+provider call. This applies to typed responses, cache-codec arrays and
+specialized extractor responses. Token measurements already recorded on the
+call context survive a failed aggregate write; the failed write remains absent
+from the daily aggregate and can therefore leave budget accounting incomplete.
