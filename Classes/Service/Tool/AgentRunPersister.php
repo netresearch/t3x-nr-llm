@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
@@ -82,7 +83,7 @@ final readonly class AgentRunPersister
         int $leaseExpires = 0,
     ): ?AgentRunHandle {
         try {
-            $uuid = Uuid::v4()->toRfc4122();
+            $uuid   = Uuid::v4()->toRfc4122();
             $runUid = $this->repository->startRun(
                 $uuid,
                 $configuration?->getUid() ?? 0,
@@ -119,7 +120,7 @@ final readonly class AgentRunPersister
         string $requestJson,
     ): ?AgentRunHandle {
         try {
-            $uuid = Uuid::v4()->toRfc4122();
+            $uuid   = Uuid::v4()->toRfc4122();
             $runUid = $this->repository->enqueueRun(
                 $uuid,
                 $configuration?->getUid() ?? 0,
@@ -279,6 +280,7 @@ final readonly class AgentRunPersister
                 $payload,
             );
             ++$handle->sequence;
+
             return true;
         } catch (Throwable $exception) {
             $this->recordDiagnostic(
@@ -289,6 +291,7 @@ final readonly class AgentRunPersister
                     );
                 },
             );
+
             return false;
         }
     }
@@ -499,6 +502,7 @@ final readonly class AgentRunPersister
                     );
                 },
             );
+
             return false;
         }
     }
@@ -634,6 +638,7 @@ final readonly class AgentRunPersister
                     );
                 },
             );
+
             return null;
         }
     }
@@ -724,7 +729,7 @@ final readonly class AgentRunPersister
     public function resumeHandle(AgentRun $run): ?AgentRunHandle
     {
         try {
-            $handle = new AgentRunHandle($run->uid, $run->uuid);
+            $handle           = new AgentRunHandle($run->uid, $run->uuid);
             $handle->sequence = $this->repository->maxEventSequence($run->uid) + 1;
 
             return $handle;
@@ -991,7 +996,7 @@ final readonly class AgentRunPersister
                         $this->logger?->notice(
                             'AgentRun was not settled by this call (already terminal or ownership lost)',
                             [
-                                'run' => $handle->uuid,
+                                'run'    => $handle->uuid,
                                 'status' => $status->value,
                                 'reason' => $reason->value,
                             ],
@@ -1010,6 +1015,7 @@ final readonly class AgentRunPersister
                     );
                 },
             );
+
             return false;
         }
     }
@@ -1025,6 +1031,7 @@ final readonly class AgentRunPersister
         }
 
         $payload['initiatingRunUuid'] = $uuid;
+
         return json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
     }
 }

@@ -47,22 +47,22 @@ final class GetPageContentToolTest extends AbstractFunctionalTestCase
         // Owned by admin (uid 1); no group/everybody perms — the editor
         // (uid 2, non-admin) must not pass the PAGE_SHOW check.
         $pages->insert('pages', [
-            'uid' => 1, 'pid' => 0, 'title' => 'Home', 'doktype' => 1, 'slug' => '/',
-            'sorting' => 1, 'perms_userid' => 1, 'perms_user' => 31,
+            'uid'           => 1, 'pid' => 0, 'title' => 'Home', 'doktype' => 1, 'slug' => '/',
+            'sorting'       => 1, 'perms_userid' => 1, 'perms_user' => 31,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => 0,
         ]);
 
         $content = $connectionPool->getConnectionForTable('tt_content');
         $content->insert('tt_content', [
-            'uid' => 20, 'pid' => 1, 'colPos' => 1, 'sorting' => 1, 'CType' => 'text',
+            'uid'    => 20, 'pid' => 1, 'colPos' => 1, 'sorting' => 1, 'CType' => 'text',
             'header' => 'Sidebar', 'bodytext' => '<p>Side <b>note</b>.</p>',
         ]);
         $content->insert('tt_content', [
-            'uid' => 21, 'pid' => 1, 'colPos' => 0, 'sorting' => 1, 'CType' => 'textmedia',
+            'uid'    => 21, 'pid' => 1, 'colPos' => 0, 'sorting' => 1, 'CType' => 'textmedia',
             'header' => 'Intro', 'bodytext' => '<p>Welcome to the intro paragraph.</p>',
         ]);
         $content->insert('tt_content', [
-            'uid' => 22, 'pid' => 1, 'colPos' => 0, 'sorting' => 2, 'CType' => 'text',
+            'uid'    => 22, 'pid' => 1, 'colPos' => 0, 'sorting' => 2, 'CType' => 'text',
             'header' => 'Secret draft', 'bodytext' => 'Draft body', 'hidden' => 1,
         ]);
     }
@@ -97,8 +97,8 @@ final class GetPageContentToolTest extends AbstractFunctionalTestCase
         // Unpublished workspace draft (t3ver_wsid > 0) must never egress to the
         // LLM — not even for an admin, who may otherwise inspect hidden rows.
         $content->insert('tt_content', [
-            'uid' => 29, 'pid' => 1, 'colPos' => 0, 'sorting' => 9, 'CType' => 'text',
-            'header' => 'DraftOnlyMarker', 'bodytext' => 'draft body',
+            'uid'        => 29, 'pid' => 1, 'colPos' => 0, 'sorting' => 9, 'CType' => 'text',
+            'header'     => 'DraftOnlyMarker', 'bodytext' => 'draft body',
             't3ver_wsid' => 1, 't3ver_oid' => 21, 't3ver_state' => 0,
         ]);
 
@@ -138,7 +138,7 @@ final class GetPageContentToolTest extends AbstractFunctionalTestCase
         // A root-level page the editor can fully reach (own rootline, everybody
         // perms, in web mount below) so the language gate is the only variable.
         $pages->insert('pages', [
-            'uid' => 5, 'pid' => 0, 'title' => 'Public', 'doktype' => 1, 'slug' => '/public',
+            'uid'     => 5, 'pid' => 0, 'title' => 'Public', 'doktype' => 1, 'slug' => '/public',
             'sorting' => 5, 'perms_everybody' => Permission::ALL,
         ]);
 
@@ -237,7 +237,7 @@ final class GetPageContentToolTest extends AbstractFunctionalTestCase
     public function elementsForAllLanguagesAreNotNamedAsAnotherLanguage(): void
     {
         $this->get(ConnectionPool::class)->getConnectionForTable('tt_content')->insert('tt_content', [
-            'uid' => 23, 'pid' => 1, 'colPos' => 0, 'sorting' => 9, 'CType' => 'text',
+            'uid'    => 23, 'pid' => 1, 'colPos' => 0, 'sorting' => 9, 'CType' => 'text',
             'header' => 'Everywhere', 'sys_language_uid' => -1,
         ]);
 
@@ -257,25 +257,25 @@ final class GetPageContentToolTest extends AbstractFunctionalTestCase
         $pages = $pool->getConnectionForTable('pages');
         self::assertInstanceOf(Connection::class, $pages);
         $pages->insert('pages', [
-            'uid' => 10017, 'pid' => 1, 'title' => 'Full-Time MBA — Programmüberblick', 'doktype' => 1,
-            'slug' => '/mbs-demo-fiktiv/full-time-mba-programmueberblick', 'sorting' => 7,
+            'uid'          => 10017, 'pid' => 1, 'title' => 'Full-Time MBA — Programmüberblick', 'doktype' => 1,
+            'slug'         => '/mbs-demo-fiktiv/full-time-mba-programmueberblick', 'sorting' => 7,
             'perms_userid' => 1, 'perms_user' => 31,
         ]);
         $pages->insert('pages', [
-            'uid' => 10018, 'pid' => 1, 'title' => 'Full-Time MBA — Programmüberblick', 'doktype' => 1,
-            'slug' => '/mbs-demo-fiktiv/full-time-mba-programmueberblick', 'sorting' => 7,
+            'uid'              => 10018, 'pid' => 1, 'title' => 'Full-Time MBA — Programmüberblick', 'doktype' => 1,
+            'slug'             => '/mbs-demo-fiktiv/full-time-mba-programmueberblick', 'sorting' => 7,
             'sys_language_uid' => 1, 'l10n_parent' => 10017,
-            'perms_userid' => 1, 'perms_user' => 31,
+            'perms_userid'     => 1, 'perms_user' => 31,
         ]);
 
         $content = $pool->getConnectionForTable('tt_content');
         $content->insert('tt_content', [
-            'uid' => 10042, 'pid' => 10017, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
+            'uid'    => 10042, 'pid' => 10017, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
             'header' => 'Full-Time MBA', 'bodytext' => 'Programme overview.', 'hidden' => 1,
         ]);
         $content->insert('tt_content', [
-            'uid' => 10043, 'pid' => 10017, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
-            'header' => 'Full-Time MBA', 'bodytext' => 'Programmüberblick.',
+            'uid'              => 10043, 'pid' => 10017, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
+            'header'           => 'Full-Time MBA', 'bodytext' => 'Programmüberblick.',
             'sys_language_uid' => 1, 'l18n_parent' => 10042,
         ]);
 

@@ -82,7 +82,7 @@ final class FalStorageGate
 
         return array_values(array_filter(
             $this->allowedStorages,
-            static fn(int $uid): bool => isset($reachable[$uid]),
+            static fn (int $uid): bool => isset($reachable[$uid]),
         ));
     }
 
@@ -184,7 +184,7 @@ final class FalStorageGate
             }
 
             [$base, $path] = GeneralUtility::trimExplode(':', $identifier, false, 2);
-            if ((int)$base !== $storageUid) {
+            if ((int) $base !== $storageUid) {
                 continue;
             }
 
@@ -220,7 +220,7 @@ final class FalStorageGate
     private function fileMountRecordsFor(BackendUserAuthentication $user): array
     {
         $declared  = $user->groupData['filemounts'] ?? '';
-        $mountUids = is_scalar($declared) ? GeneralUtility::intExplode(',', (string)$declared, true) : [];
+        $mountUids = is_scalar($declared) ? GeneralUtility::intExplode(',', (string) $declared, true) : [];
         if ($mountUids === [] || !$this->connectionPool instanceof ConnectionPool) {
             return [];
         }
@@ -259,18 +259,18 @@ final class FalStorageGate
     {
         $permissions = [];
         foreach ($user->getFilePermissions() as $permission => $value) {
-            $permissions[(string)$permission] = (bool)$value;
+            $permissions[(string) $permission] = (bool) $value;
         }
 
         // Walked one level at a time: getTSConfig() is typed array<string,
         // mixed>, so every nested offset is mixed to the analyser.
-        $section = $user->getTSConfig()['permissions.'] ?? null;
-        $files   = is_array($section) ? ($section['file.'] ?? null) : null;
-        $storages = is_array($files) ? ($files['storage.'] ?? null) : null;
+        $section    = $user->getTSConfig()['permissions.'] ?? null;
+        $files      = is_array($section) ? ($section['file.'] ?? null) : null;
+        $storages   = is_array($files) ? ($files['storage.'] ?? null) : null;
         $perStorage = is_array($storages) ? ($storages[$storageUid . '.'] ?? null) : null;
         if (is_array($perStorage)) {
             foreach ($perStorage as $permission => $value) {
-                $permissions[(string)$permission] = (bool)$value;
+                $permissions[(string) $permission] = (bool) $value;
             }
         }
 

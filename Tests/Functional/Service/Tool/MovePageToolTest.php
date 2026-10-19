@@ -88,11 +88,11 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
             [self::SIBLING_IN_B, self::SECTION_B, 'Sibling', '/b/sibling', 0, 0, Permission::ALL, 0],
         ] as [$uid, $pid, $title, $slug, $language, $parent, $everybody, $siteRoot]) {
             $pages->insert('pages', [
-                'uid' => $uid, 'pid' => $pid, 'title' => $title, 'doktype' => 1, 'slug' => $slug,
+                'uid'              => $uid, 'pid' => $pid, 'title' => $title, 'doktype' => 1, 'slug' => $slug,
                 'sys_language_uid' => $language, 'l10n_parent' => $parent, 'is_siteroot' => $siteRoot,
-                'sorting' => $uid * 256,
-                'perms_userid' => 1, 'perms_user' => Permission::ALL,
-                'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => $everybody,
+                'sorting'          => $uid * 256,
+                'perms_userid'     => 1, 'perms_user' => Permission::ALL,
+                'perms_groupid'    => 0, 'perms_group' => 0, 'perms_everybody' => $everybody,
             ]);
         }
 
@@ -126,10 +126,10 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
         self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
 
         $moved = $this->pageRow(self::MOVED);
-        self::assertSame(self::SECTION_B, (int)($moved['pid'] ?? 0));
+        self::assertSame(self::SECTION_B, (int) ($moved['pid'] ?? 0));
         self::assertSame('/a/moved', $moved['slug'] ?? null, 'core does not regenerate the slug on a move');
-        self::assertSame(self::SECTION_B, (int)($this->pageRow(self::TRANSLATION)['pid'] ?? 0));
-        self::assertSame(self::MOVED, (int)($this->pageRow(self::CHILD)['pid'] ?? 0));
+        self::assertSame(self::SECTION_B, (int) ($this->pageRow(self::TRANSLATION)['pid'] ?? 0));
+        self::assertSame(self::MOVED, (int) ($this->pageRow(self::CHILD)['pid'] ?? 0));
     }
 
     /**
@@ -151,7 +151,7 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
         self::assertFalse($result->isError, $result->content);
         self::assertStringNotContainsString('Not completely', $result->content);
         self::assertStringContainsString('TYPO3 reported:', $result->content);
-        self::assertSame(self::SECTION_B, (int)($this->pageRow(self::TRANSLATION)['pid'] ?? 0));
+        self::assertSame(self::SECTION_B, (int) ($this->pageRow(self::TRANSLATION)['pid'] ?? 0));
         self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
     }
 
@@ -172,8 +172,8 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
 
         self::assertFalse($result->isError, $result->content);
         self::assertStringContainsString('translation(s) ' . self::TRANSLATION . ' stayed behind.', $result->content);
-        self::assertSame(self::SECTION_B, (int)($this->pageRow(self::MOVED)['pid'] ?? 0));
-        self::assertSame(self::SECTION_A, (int)($this->pageRow(self::TRANSLATION)['pid'] ?? 0));
+        self::assertSame(self::SECTION_B, (int) ($this->pageRow(self::MOVED)['pid'] ?? 0));
+        self::assertSame(self::SECTION_A, (int) ($this->pageRow(self::TRANSLATION)['pid'] ?? 0));
         self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
     }
 
@@ -186,10 +186,10 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertFalse($result->isError, $result->content);
-        self::assertSame(self::SECTION_B, (int)($this->pageRow(self::MOVED)['pid'] ?? 0));
+        self::assertSame(self::SECTION_B, (int) ($this->pageRow(self::MOVED)['pid'] ?? 0));
         self::assertGreaterThan(
-            (int)($this->pageRow(self::SIBLING_IN_B)['sorting'] ?? 0),
-            (int)($this->pageRow(self::MOVED)['sorting'] ?? 0),
+            (int) ($this->pageRow(self::SIBLING_IN_B)['sorting'] ?? 0),
+            (int) ($this->pageRow(self::MOVED)['sorting'] ?? 0),
         );
     }
 
@@ -215,7 +215,7 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
 
         self::assertTrue($result->isError);
         self::assertStringContainsString('inside the branch of page [4]', $result->content);
-        self::assertSame(self::SECTION_A, (int)($this->pageRow(self::MOVED)['pid'] ?? 0));
+        self::assertSame(self::SECTION_A, (int) ($this->pageRow(self::MOVED)['pid'] ?? 0));
     }
 
     #[Test]
@@ -240,15 +240,15 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
 
         self::assertTrue($result->isError);
         self::assertStringContainsString('page [5] is a translation (language 1) of page [4]', $result->content);
-        self::assertSame(self::SECTION_B, (int)($this->pageRow(self::SIBLING_IN_B)['pid'] ?? 0));
+        self::assertSame(self::SECTION_B, (int) ($this->pageRow(self::SIBLING_IN_B)['pid'] ?? 0));
     }
 
     #[Test]
     public function thePreviewWarnsWhenThePageMovesIntoAnotherSite(): void
     {
         $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
-            'uid' => 11, 'pid' => 0, 'title' => 'Other root', 'doktype' => 1, 'slug' => '/', 'is_siteroot' => 1,
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => 11, 'pid' => 0, 'title' => 'Other root', 'doktype' => 1, 'slug' => '/', 'is_siteroot' => 1,
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
         ]);
 
@@ -274,8 +274,8 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
     public function thePreviewNamesASideOutsideEverySite(): void
     {
         $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
-            'uid' => 12, 'pid' => 0, 'title' => 'Storage', 'doktype' => 254, 'slug' => '/storage',
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => 12, 'pid' => 0, 'title' => 'Storage', 'doktype' => 254, 'slug' => '/storage',
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
         ]);
 
@@ -289,8 +289,8 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
         );
 
         $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
-            'uid' => 13, 'pid' => 12, 'title' => 'Stored', 'doktype' => 1, 'slug' => '/storage/stored',
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => 13, 'pid' => 12, 'title' => 'Stored', 'doktype' => 1, 'slug' => '/storage/stored',
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
         ]);
 
@@ -325,7 +325,7 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertFalse($result->isError, $result->content);
-        self::assertSame(self::SECTION_B, (int)($this->pageRow(self::MOVED)['pid'] ?? 0));
+        self::assertSame(self::SECTION_B, (int) ($this->pageRow(self::MOVED)['pid'] ?? 0));
     }
 
     #[Test]
@@ -338,7 +338,7 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
 
         self::assertTrue($result->isError);
         self::assertSame('Page not found or not permitted.', $result->content);
-        self::assertSame(self::SECTION_A, (int)($this->pageRow(self::MOVED)['pid'] ?? 0));
+        self::assertSame(self::SECTION_A, (int) ($this->pageRow(self::MOVED)['pid'] ?? 0));
     }
 
     #[Test]
@@ -354,7 +354,7 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
 
         self::assertTrue($result->isError);
         self::assertStringContainsString('translations in language(s) 1', $result->content);
-        self::assertSame(self::SECTION_A, (int)($this->pageRow(self::MOVED)['pid'] ?? 0));
+        self::assertSame(self::SECTION_A, (int) ($this->pageRow(self::MOVED)['pid'] ?? 0));
     }
 
     #[Test]
@@ -367,8 +367,8 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
 
         self::assertFalse($result->isError, $result->content);
         self::assertGreaterThan(
-            (int)($this->pageRow(self::MOVED)['sorting'] ?? 0),
-            (int)($this->pageRow(self::PINNED)['sorting'] ?? 0),
+            (int) ($this->pageRow(self::MOVED)['sorting'] ?? 0),
+            (int) ($this->pageRow(self::PINNED)['sorting'] ?? 0),
         );
     }
 
@@ -382,7 +382,7 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
 
         self::assertTrue($result->isError);
         self::assertSame('Page not found or not permitted.', $result->content);
-        self::assertSame(self::SECTION_A, (int)($this->pageRow(self::PINNED)['pid'] ?? 0));
+        self::assertSame(self::SECTION_A, (int) ($this->pageRow(self::PINNED)['pid'] ?? 0));
     }
 
     #[Test]
@@ -420,7 +420,7 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
             'Der URL-Pfad bleibt unverändert: /a/moved. Er wird beim Verschieben nicht neu erzeugt.',
             'Technische Details: Seite UID 4, bisherige übergeordnete Seite UID 2, übergeordnete Seite UID 3, vorangehende Seite UID 8',
         ], $this->previewIn('de', $arguments));
-        self::assertSame(self::SECTION_A, (int)($this->pageRow(self::MOVED)['pid'] ?? 0));
+        self::assertSame(self::SECTION_A, (int) ($this->pageRow(self::MOVED)['pid'] ?? 0));
     }
 
     #[Test]

@@ -18,7 +18,7 @@ use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
  * controller needs: edit and new-record links that send the user back
  * to the originating module after save/close.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class FormEngineUrlBuilder
 {
@@ -68,13 +68,13 @@ final readonly class FormEngineUrlBuilder
     private function buildRecordUrl(string $tableName, array $commands, string $returnRoute, array $defaults = []): string
     {
         $parameters = [
-            'edit' => [$tableName => $commands],
-            'returnUrl' => (string)$this->backendUriBuilder->buildUriFromRoute($returnRoute),
+            'edit'      => [$tableName => $commands],
+            'returnUrl' => (string) $this->backendUriBuilder->buildUriFromRoute($returnRoute),
         ];
         if ($defaults !== []) {
             $parameters['defVals'] = [$tableName => $defaults];
         }
 
-        return (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', $parameters);
+        return (string) $this->backendUriBuilder->buildUriFromRoute('record_edit', $parameters);
     }
 }

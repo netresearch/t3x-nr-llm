@@ -23,6 +23,8 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Throwable;
 
+use function is_array;
+
 /**
  * Records usage to tx_nrllm_service_usage after a successful provider call.
  *
@@ -355,9 +357,9 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
         }
 
         if (
-            \is_array($result)
+            is_array($result)
             && isset($result['usage'], $result['provider'])
-            && \is_array($result['usage'])
+            && is_array($result['usage'])
             && \is_string($result['provider'])
         ) {
             /** @var array<string, mixed> $usageData */

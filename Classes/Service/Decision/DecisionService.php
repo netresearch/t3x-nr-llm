@@ -76,11 +76,11 @@ final readonly class DecisionService implements DecisionServiceInterface
                 }
             }
 
-            $configuration = $this->resolveConfiguration($request->configuration);
-            $context = $configuration->getIdentifier();
+            $configuration         = $this->resolveConfiguration($request->configuration);
+            $context               = $configuration->getIdentifier();
             [$resolution, $native] = $this->route($profile, $configuration);
-            $request = $this->withBudgetSubject($request);
-            $response = $native ? $this->llmManager->decideForConfiguration(
+            $request               = $this->withBudgetSubject($request);
+            $response              = $native ? $this->llmManager->decideForConfiguration(
                 $request->subject,
                 $profile->questions,
                 $configuration,
@@ -93,6 +93,7 @@ final readonly class DecisionService implements DecisionServiceInterface
                 $resolution,
             );
             $this->assertAnswersMatch($profile, $context, $response);
+
             return $this->result($profile, $configuration, $response);
         } catch (DecisionException|BudgetExceededException|GuardrailPolicyException|InputContextTrustZoneException $e) {
             // Policy refusals keep their types: a caller may handle them as policy.
@@ -109,9 +110,9 @@ final readonly class DecisionService implements DecisionServiceInterface
     ): void {
         $context = trim($configuration ?? '') ?: 'decision.configuration';
         try {
-            $resolvedProfile = $this->profile($profile);
+            $resolvedProfile       = $this->profile($profile);
             $resolvedConfiguration = $this->resolveConfiguration($configuration);
-            $context = $resolvedConfiguration->getIdentifier();
+            $context               = $resolvedConfiguration->getIdentifier();
             $this->route($resolvedProfile, $resolvedConfiguration);
         } catch (DecisionException|BudgetExceededException|GuardrailPolicyException|InputContextTrustZoneException $e) {
             throw $e;
@@ -250,7 +251,7 @@ final readonly class DecisionService implements DecisionServiceInterface
 
     private function result(DecisionProfile $profile, LlmConfiguration $configuration, DecisionResponse $response): DecisionResult
     {
-        $usage = $response->usage;
+        $usage    = $response->usage;
         $reported = !($usage->promptTokens === 0 && $usage->completionTokens === 0 && $usage->totalTokens === 0);
 
         return new DecisionResult(
@@ -278,7 +279,7 @@ final readonly class DecisionService implements DecisionServiceInterface
         $expected = [];
         foreach ($profile->questions as $question) {
             $expected[$question->key()] = true;
-            $answer = $response->answers[$question->key()] ?? null;
+            $answer                     = $response->answers[$question->key()] ?? null;
             if (!$answer instanceof DecisionAnswer) {
                 throw DecisionException::invalidAnswer($configuration, $question->key(), 'no answer');
             }
@@ -288,7 +289,7 @@ final readonly class DecisionService implements DecisionServiceInterface
 
         foreach (array_keys($response->answers) as $key) {
             if (!isset($expected[$key])) {
-                throw DecisionException::invalidAnswer($configuration, (string)$key, 'the profile asks no such question');
+                throw DecisionException::invalidAnswer($configuration, (string) $key, 'the profile asks no such question');
             }
         }
     }
@@ -307,7 +308,7 @@ final readonly class DecisionService implements DecisionServiceInterface
         };
 
         if ($question instanceof ChoiceQuestion && !in_array($answer->choice, $question->options, true)) {
-            throw DecisionException::invalidAnswer($configuration, $key, sprintf('"%s" is not one of its options', (string)$answer->choice));
+            throw DecisionException::invalidAnswer($configuration, $key, sprintf('"%s" is not one of its options', (string) $answer->choice));
         }
 
         if ($question instanceof ScoreQuestion && ($answer->value ?? -1.0) > $question->maxLevel()) {
@@ -315,7 +316,7 @@ final readonly class DecisionService implements DecisionServiceInterface
         }
 
         foreach (array_keys($answer->probabilities) as $name) {
-            if (!in_array((string)$name, $offered, true)) {
+            if (!in_array((string) $name, $offered, true)) {
                 throw DecisionException::invalidAnswer($configuration, $key, sprintf('a probability for "%s", which the question does not offer', $name));
             }
         }

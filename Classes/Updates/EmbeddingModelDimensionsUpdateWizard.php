@@ -26,7 +26,7 @@ use TYPO3\CMS\Install\Updates\UpgradeWizardInterface;
  * for rows whose model_id is a known embedding model and whose value is
  * still 0 — an explicitly configured value is never touched.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[UpgradeWizard('nrLlm_embeddingModelDimensions')]
 final readonly class EmbeddingModelDimensionsUpdateWizard implements UpgradeWizardInterface
@@ -106,8 +106,8 @@ final readonly class EmbeddingModelDimensionsUpdateWizard implements UpgradeWiza
 
         $seedable = [];
         foreach ($rows as $row) {
-            $uid = is_numeric($row['uid'] ?? null) ? (int)$row['uid'] : 0;
-            $modelId = is_string($row['model_id'] ?? null) ? $row['model_id'] : '';
+            $uid        = is_numeric($row['uid'] ?? null) ? (int) $row['uid'] : 0;
+            $modelId    = is_string($row['model_id'] ?? null) ? $row['model_id'] : '';
             $dimensions = EmbeddingModelDimensions::forModelId($modelId);
             if ($uid > 0 && $dimensions > 0) {
                 $seedable[$uid] = $dimensions;

@@ -125,7 +125,7 @@ final class SkillDeletionGuardWorkspaceTest extends AbstractFunctionalTestCase
         $backendUser = $this->setUpBackendUser(1);
         $backendUser->setWorkspace(self::WORKSPACE);
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
-        $data = GeneralUtility::makeInstance(DataHandler::class);
+        $data            = GeneralUtility::makeInstance(DataHandler::class);
         $data->start(['pages' => [11 => ['title' => 'Other, edited']]], []);
         $data->process_datamap();
 
@@ -185,7 +185,7 @@ final class SkillDeletionGuardWorkspaceTest extends AbstractFunctionalTestCase
             )
             ->executeQuery()->fetchOne();
 
-        return is_numeric($uid) ? (int)$uid : 0;
+        return is_numeric($uid) ? (int) $uid : 0;
     }
 
     private function deleted(string $table, int $uid): int
@@ -196,6 +196,6 @@ final class SkillDeletionGuardWorkspaceTest extends AbstractFunctionalTestCase
             ->where($queryBuilder->expr()->eq('uid', $uid))
             ->executeQuery()->fetchOne();
 
-        return is_numeric($value) ? (int)$value : -1;
+        return is_numeric($value) ? (int) $value : -1;
     }
 }

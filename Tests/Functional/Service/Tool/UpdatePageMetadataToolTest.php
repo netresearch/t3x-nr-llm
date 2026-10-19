@@ -67,15 +67,15 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
 
         $pages = $this->connectionPool->getConnectionForTable('pages');
         $pages->insert('pages', [
-            'uid' => self::PAGE_ADMIN_ONLY, 'pid' => 0, 'title' => 'Home', 'doktype' => 1, 'slug' => '/',
-            'sorting' => 1, 'description' => 'Old description',
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => self::PAGE_ADMIN_ONLY, 'pid' => 0, 'title' => 'Home', 'doktype' => 1, 'slug' => '/',
+            'sorting'       => 1, 'description' => 'Old description',
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => 0,
         ]);
         $pages->insert('pages', [
-            'uid' => self::PAGE_OPEN, 'pid' => 0, 'title' => 'Open', 'doktype' => 1, 'slug' => '/open',
-            'sorting' => 2, 'description' => 'Old description',
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => self::PAGE_OPEN, 'pid' => 0, 'title' => 'Open', 'doktype' => 1, 'slug' => '/open',
+            'sorting'       => 2, 'description' => 'Old description',
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
         ]);
 
@@ -190,8 +190,8 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function theAuditNamesTheContextUserNotTheAmbientOne(): void
     {
-        $editor = $this->setUpBackendUser(2);
-        $editor->groupData['tables_modify']     = 'pages';
+        $editor                                  = $this->setUpBackendUser(2);
+        $editor->groupData['tables_modify']      = 'pages';
         $editor->groupData['non_exclude_fields'] = 'pages:description';
         // Ambient user is somebody else entirely.
         $this->setUpBackendUser(1);
@@ -208,7 +208,7 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function aNonAdminWithoutEditRightIsRefusedIndistinguishablyFromAMissingPage(): void
     {
-        $editor = $this->setUpBackendUser(2);
+        $editor  = $this->setUpBackendUser(2);
         $context = ToolExecutionContext::fromBackendUser($editor);
 
         $denied  = $this->tool->execute(['uid' => self::PAGE_ADMIN_ONLY, 'title' => 'Hijacked'], $context);
@@ -269,7 +269,7 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function thePreviewShowsAChangePastTheExcerptAndBindsTheWholeValue(): void
     {
-        $long  = str_repeat('A calm and honest description of the page. ', 4);
+        $long = str_repeat('A calm and honest description of the page. ', 4);
         $this->connectionPool->getConnectionForTable('pages')
             ->update('pages', ['description' => $long], ['uid' => self::PAGE_ADMIN_ONLY]);
 
@@ -580,7 +580,7 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function aSilentlyDroppedFieldIsReportedAsAnErrorRatherThanASuccess(): void
     {
-        $editor = $this->setUpBackendUser(2);
+        $editor                             = $this->setUpBackendUser(2);
         $editor->groupData['tables_modify'] = 'pages';
         // Deliberately NOT granting pages:description.
         $editor->groupData['non_exclude_fields'] = '';
@@ -647,7 +647,7 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function aNonAdminWithEveryGrantWritesSuccessfully(): void
     {
-        $editor = $this->setUpBackendUser(2);
+        $editor                                  = $this->setUpBackendUser(2);
         $editor->groupData['tables_modify']      = 'pages';
         $editor->groupData['non_exclude_fields'] = 'pages:description';
 
@@ -764,6 +764,6 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
             ->executeQuery()
             ->fetchAllAssociative();
 
-        return array_map(static fn(array $row): int => (int)($row['userid'] ?? 0), $rows);
+        return array_map(static fn (array $row): int => (int) ($row['userid'] ?? 0), $rows);
     }
 }

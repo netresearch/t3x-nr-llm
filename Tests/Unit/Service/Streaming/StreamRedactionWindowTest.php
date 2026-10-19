@@ -15,6 +15,9 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+use function strlen;
+use function substr;
+
 /**
  * The golden invariant of the sliding window is: concatenating every emitted
  * delta equals redacting the whole raw stream in one shot. If the prune/offset
@@ -60,8 +63,8 @@ final class StreamRedactionWindowTest extends TestCase
     private function stream(StreamRedactionWindow $w, string $raw, int $chunkSize): string
     {
         $out = '';
-        for ($i = 0, $n = \strlen($raw); $i < $n; $i += $chunkSize) {
-            foreach ($w->push(\substr($raw, $i, $chunkSize)) as $d) {
+        for ($i = 0, $n = strlen($raw); $i < $n; $i += $chunkSize) {
+            foreach ($w->push(substr($raw, $i, $chunkSize)) as $d) {
                 $out .= $d;
             }
         }
@@ -78,12 +81,12 @@ final class StreamRedactionWindowTest extends TestCase
     {
         $redact = $this->redactor();
         $cases  = [
-            'benign'                 => str_repeat('the quick brown fox ', 50),
-            'secret past 8k window'  => str_repeat('word ', 2000) . 'sk-ABCDEFGHIJKLMNOP0123 tail',
-            'secret at the start'    => 'sk-ABCDEFGHIJKLMNOP0123 then ' . str_repeat('x ', 5000),
-            'bearer with spaces'     => 'Authorization: Bearer    tokAbc123def456 end',
-            'url param'              => 'GET /x?key=SUPERSECRETVALUE&z=1 ok',
-            'interleaved secrets'    => str_repeat('a sk-ABCDEFGHIJKLMNOP01 b Bearer tok12345678 c ?token=zzzz d ', 300),
+            'benign'                => str_repeat('the quick brown fox ', 50),
+            'secret past 8k window' => str_repeat('word ', 2000) . 'sk-ABCDEFGHIJKLMNOP0123 tail',
+            'secret at the start'   => 'sk-ABCDEFGHIJKLMNOP0123 then ' . str_repeat('x ', 5000),
+            'bearer with spaces'    => 'Authorization: Bearer    tokAbc123def456 end',
+            'url param'             => 'GET /x?key=SUPERSECRETVALUE&z=1 ok',
+            'interleaved secrets'   => str_repeat('a sk-ABCDEFGHIJKLMNOP01 b Bearer tok12345678 c ?token=zzzz d ', 300),
         ];
         foreach ($cases as $name => $raw) {
             $expected = $redact($raw);
@@ -114,7 +117,7 @@ final class StreamRedactionWindowTest extends TestCase
             $expected = $redact($raw);
             $chunk    = $this->roll(1, 20);
             $out      = $this->stream(new StreamRedactionWindow($redact), $raw, $chunk);
-            self::assertSame($expected, $out, "iter={$iter} chunk={$chunk} rawLen=" . \strlen($raw));
+            self::assertSame($expected, $out, "iter={$iter} chunk={$chunk} rawLen=" . strlen($raw));
         }
     }
 
@@ -226,8 +229,8 @@ final class StreamRedactionWindowTest extends TestCase
         $raw    = str_repeat('grüße 😀 мир ', 2000); // heavy multibyte, crosses the caps
         $w      = new StreamRedactionWindow($redact);
         $out    = '';
-        for ($i = 0, $n = \strlen($raw); $i < $n; $i += 3) {
-            foreach ($w->push(\substr($raw, $i, 3)) as $d) {
+        for ($i = 0, $n = strlen($raw); $i < $n; $i += 3) {
+            foreach ($w->push(substr($raw, $i, 3)) as $d) {
                 $out .= $d;
                 self::assertTrue(mb_check_encoding($out, 'UTF-8'), 'no delta boundary splits a codepoint');
             }

@@ -155,7 +155,7 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
     public function unframesAnEventStreamThatCarriesTheResponse(): void
     {
         $fake = (new McpTestServer())->willReturnRawForRequest(
-            static fn(
+            static fn (
                 array $request,
             ): string => "event: message\r\nid: 7\r\ndata: {\"jsonrpc\":\"2.0\",\"id\":" . json_encode($request['id'], JSON_THROW_ON_ERROR) . ",\r\ndata:  \"result\":{\"tools\":[{\"name\":\"x\"}]}}\r\n\r\n",
             'text/event-stream; charset=utf-8',
@@ -171,9 +171,9 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
     public function passesOverAServerNotificationOnTheStreamAndTakesTheResponse(): void
     {
         $fake = (new McpTestServer())->willReturnRawForRequest(
-            static fn(
+            static fn (
                 array $request,
-            ): string => ": keep-alive\n\n" . "data: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/message\",\"params\":{\"level\":\"info\"}}\n\n" . 'data: {"jsonrpc":"2.0","id":' . json_encode($request['id'], JSON_THROW_ON_ERROR) . ",\"result\":{\"ok\":true}}\n\n",
+            ): string => ": keep-alive\n\ndata: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/message\",\"params\":{\"level\":\"info\"}}\n\n" . 'data: {"jsonrpc":"2.0","id":' . json_encode($request['id'], JSON_THROW_ON_ERROR) . ",\"result\":{\"ok\":true}}\n\n",
             'text/event-stream',
         );
         $answer = $this

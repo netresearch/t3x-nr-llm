@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Mcp\Auth;
 
@@ -81,28 +82,29 @@ final class McpPrimaryCleanupOutcomeTest extends AbstractUnitTestCase
     public static function failureCases(): array
     {
         $cancellation = 'The call to MCP server "srv" was cancelled.';
-        $deadline = 'The 20-second operation budget for MCP server "srv" ran out before this request was sent, ' . 'so the server was not asked. This is the budget this installation sets, not a server that did not answer.';
-        $metadata = 'Delegated authentication for MCP server "srv" was refused (exchange_failed).';
+        $deadline     = 'The 20-second operation budget for MCP server "srv" ran out before this request was sent, so the server was not asked. This is the budget this installation sets, not a server that did not answer.';
+        $metadata     = 'Delegated authentication for MCP server "srv" was refused (exchange_failed).';
+
         return [
-            'cancelled / healthy cleanup' => ['cancelled', 'healthy', 1799990218, $cancellation, true],
-            'cancelled / cleanup RuntimeException' => ['cancelled', 'runtime', 1799990218, $cancellation, true],
-            'cancelled / cleanup Error' => ['cancelled', 'error', 1799990218, $cancellation, true],
-            'cancelled / cleanup RequestCancelledException' => ['cancelled', 'cancelled', 1799990218, $cancellation, true],
-            'deadline / healthy cleanup' => ['deadline', 'healthy', 1799990217, $deadline, false],
-            'deadline / cleanup RuntimeException' => ['deadline', 'runtime', 1799990217, $deadline, false],
-            'deadline / cleanup Error' => ['deadline', 'error', 1799990217, $deadline, false],
-            'deadline / cleanup RequestCancelledException' => ['deadline', 'cancelled', 1799990217, $deadline, false],
-            'metadata RuntimeException / healthy cleanup' => ['metadata_runtime', 'healthy', 1799990219, $metadata, false],
-            'metadata RuntimeException / cleanup RuntimeException' => ['metadata_runtime', 'runtime', 1799990219, $metadata, false],
-            'metadata RuntimeException / cleanup Error' => ['metadata_runtime', 'error', 1799990219, $metadata, false],
-            'metadata RuntimeException / cleanup RequestCancelledException' => ['metadata_runtime', 'cancelled', 1799990219, $metadata, false],
-            'metadata Error / healthy cleanup' => ['metadata_error', 'healthy', 1799990219, $metadata, false],
-            'metadata Error / cleanup RuntimeException' => ['metadata_error', 'runtime', 1799990219, $metadata, false],
-            'metadata Error / cleanup Error' => ['metadata_error', 'error', 1799990219, $metadata, false],
-            'metadata Error / cleanup RequestCancelledException' => ['metadata_error', 'cancelled', 1799990219, $metadata, false],
-            'metadata RequestCancelledException / healthy cleanup' => ['metadata_cancelled', 'healthy', 1799990218, $cancellation, true],
-            'metadata RequestCancelledException / cleanup RuntimeException' => ['metadata_cancelled', 'runtime', 1799990218, $cancellation, true],
-            'metadata RequestCancelledException / cleanup Error' => ['metadata_cancelled', 'error', 1799990218, $cancellation, true],
+            'cancelled / healthy cleanup'                                            => ['cancelled', 'healthy', 1799990218, $cancellation, true],
+            'cancelled / cleanup RuntimeException'                                   => ['cancelled', 'runtime', 1799990218, $cancellation, true],
+            'cancelled / cleanup Error'                                              => ['cancelled', 'error', 1799990218, $cancellation, true],
+            'cancelled / cleanup RequestCancelledException'                          => ['cancelled', 'cancelled', 1799990218, $cancellation, true],
+            'deadline / healthy cleanup'                                             => ['deadline', 'healthy', 1799990217, $deadline, false],
+            'deadline / cleanup RuntimeException'                                    => ['deadline', 'runtime', 1799990217, $deadline, false],
+            'deadline / cleanup Error'                                               => ['deadline', 'error', 1799990217, $deadline, false],
+            'deadline / cleanup RequestCancelledException'                           => ['deadline', 'cancelled', 1799990217, $deadline, false],
+            'metadata RuntimeException / healthy cleanup'                            => ['metadata_runtime', 'healthy', 1799990219, $metadata, false],
+            'metadata RuntimeException / cleanup RuntimeException'                   => ['metadata_runtime', 'runtime', 1799990219, $metadata, false],
+            'metadata RuntimeException / cleanup Error'                              => ['metadata_runtime', 'error', 1799990219, $metadata, false],
+            'metadata RuntimeException / cleanup RequestCancelledException'          => ['metadata_runtime', 'cancelled', 1799990219, $metadata, false],
+            'metadata Error / healthy cleanup'                                       => ['metadata_error', 'healthy', 1799990219, $metadata, false],
+            'metadata Error / cleanup RuntimeException'                              => ['metadata_error', 'runtime', 1799990219, $metadata, false],
+            'metadata Error / cleanup Error'                                         => ['metadata_error', 'error', 1799990219, $metadata, false],
+            'metadata Error / cleanup RequestCancelledException'                     => ['metadata_error', 'cancelled', 1799990219, $metadata, false],
+            'metadata RequestCancelledException / healthy cleanup'                   => ['metadata_cancelled', 'healthy', 1799990218, $cancellation, true],
+            'metadata RequestCancelledException / cleanup RuntimeException'          => ['metadata_cancelled', 'runtime', 1799990218, $cancellation, true],
+            'metadata RequestCancelledException / cleanup Error'                     => ['metadata_cancelled', 'error', 1799990218, $cancellation, true],
             'metadata RequestCancelledException / cleanup RequestCancelledException' => ['metadata_cancelled', 'cancelled', 1799990218, $cancellation, true],
         ];
     }
@@ -120,7 +122,7 @@ final class McpPrimaryCleanupOutcomeTest extends AbstractUnitTestCase
         string $expectedMessage,
         bool $expectedCancellation,
     ): void {
-        $result = $this->exerciseExchange($primary, $cleanup);
+        $result     = $this->exerciseExchange($primary, $cleanup);
         $allocation = $this->assertRecordedExchange($result['before'], $result['after']);
 
         self::assertNull($result['credential']);
@@ -129,7 +131,7 @@ final class McpPrimaryCleanupOutcomeTest extends AbstractUnitTestCase
             [
                 [
                     'identifier' => $allocation,
-                    'reason' => str_starts_with($primary, 'metadata_') ? 'Discard invalid MCP delegated credential binding' : 'Discard unusable MCP delegated credential',
+                    'reason'     => str_starts_with($primary, 'metadata_') ? 'Discard invalid MCP delegated credential binding' : 'Discard unusable MCP delegated credential',
                 ],
             ],
             $this->deletes,
@@ -148,7 +150,7 @@ final class McpPrimaryCleanupOutcomeTest extends AbstractUnitTestCase
     public function aSuccessfulExchangeReturnsItsFreshCredentialWithoutDeletingIt(): void
     {
         // A delete would throw, so success cannot conceal premature cleanup.
-        $result = $this->exerciseExchange('healthy', 'error');
+        $result     = $this->exerciseExchange('healthy', 'error');
         $allocation = $this->assertRecordedExchange($result['before'], $result['after']);
 
         self::assertNull($result['exception']);
@@ -171,7 +173,7 @@ final class McpPrimaryCleanupOutcomeTest extends AbstractUnitTestCase
      */
     private function exerciseExchange(string $primary, string $cleanup): array
     {
-        $clock = new FakeMcpClock();
+        $clock  = new FakeMcpClock();
         $signal = new class implements CancellationSignalInterface {
             public bool $cancelled = false;
 
@@ -181,12 +183,13 @@ final class McpPrimaryCleanupOutcomeTest extends AbstractUnitTestCase
             }
         };
         $captured = $this;
-        $http = self::createStub(VaultHttpClientInterface::class);
+        $http     = self::createStub(VaultHttpClientInterface::class);
         $http
             ->method('withTimeout')
             ->willReturnCallback(
                 static function (int $seconds) use ($http, $captured): VaultHttpClientInterface {
                     $captured->timeouts[] = $seconds;
+
                     return $http;
                 },
             );
@@ -195,6 +198,7 @@ final class McpPrimaryCleanupOutcomeTest extends AbstractUnitTestCase
             ->willReturnCallback(
                 static function (string $reason) use ($http, $captured): VaultHttpClientInterface {
                     $captured->reasons[] = $reason;
+
                     return $http;
                 },
             );
@@ -208,6 +212,7 @@ final class McpPrimaryCleanupOutcomeTest extends AbstractUnitTestCase
                     array $options,
                 ) use ($http, $captured): VaultHttpClientInterface {
                     $captured->authentication[] = [$identifier, $placement, $options];
+
                     return $http;
                 },
             );
@@ -216,16 +221,17 @@ final class McpPrimaryCleanupOutcomeTest extends AbstractUnitTestCase
             ->willReturnCallback(
                 static function (RequestInterface $request) use ($captured): ResponseInterface {
                     $captured->requests[] = $request;
-                    $captured->events[] = 'request';
+                    $captured->events[]   = 'request';
+
                     return new Response(
                         200,
                         ['Content-Type' => 'application/json'],
                         json_encode(
                             [
-                                'access_token' => self::ISSUED_VALUE,
-                                'token_type' => 'Bearer',
+                                'access_token'      => self::ISSUED_VALUE,
+                                'token_type'        => 'Bearer',
                                 'issued_token_type' => 'urn:ietf:params:oauth:token-type:access_token',
-                                'expires_in' => 60,
+                                'expires_in'        => 60,
                             ],
                             JSON_THROW_ON_ERROR,
                         ),
@@ -259,7 +265,7 @@ final class McpPrimaryCleanupOutcomeTest extends AbstractUnitTestCase
             ->willReturnCallback(
                 static function (string $identifier) use ($captured, $primary): SecretDetails {
                     $captured->metadata[] = $identifier;
-                    $captured->events[] = 'metadata';
+                    $captured->events[]   = 'metadata';
                     if ($primary === 'metadata_runtime') {
                         throw new RuntimeException('private-metadata-runtime', 10700011);
                     }
@@ -283,7 +289,7 @@ final class McpPrimaryCleanupOutcomeTest extends AbstractUnitTestCase
                     string $reason,
                 ) use ($captured, $cleanup): void {
                     $captured->deletes[] = ['identifier' => $identifier, 'reason' => $reason];
-                    $captured->events[] = 'delete';
+                    $captured->events[]  = 'delete';
                     if ($cleanup === 'runtime') {
                         throw new RuntimeException('private-cleanup-runtime', 10700013);
                     }
@@ -331,13 +337,13 @@ final class McpPrimaryCleanupOutcomeTest extends AbstractUnitTestCase
             ['urn:one'],
             ['read'],
         );
-        $subject = new McpSubjectCredential(self::SUBJECT, ['urn:one'], ['read']);
-        $deadline = McpOperationDeadline::start($clock, 20);
-        $exchange = new McpTokenExchange($vault, $this->createPublicDnsHttpClientFactory(), $clock);
+        $subject            = new McpSubjectCredential(self::SUBJECT, ['urn:one'], ['read']);
+        $deadline           = McpOperationDeadline::start($clock, 20);
+        $exchange           = new McpTokenExchange($vault, $this->createPublicDnsHttpClientFactory(), $clock);
         $startedNanoseconds = $clock->monotonicNanoseconds();
-        $credential = null;
-        $exception = null;
-        $before = time();
+        $credential         = null;
+        $exception          = null;
+        $before             = time();
         try {
             $credential = $exchange->exchange(
                 $server,
@@ -353,10 +359,10 @@ final class McpPrimaryCleanupOutcomeTest extends AbstractUnitTestCase
         }
 
         return [
-            'credential' => $credential,
-            'exception' => $exception,
-            'before' => $before,
-            'after' => time(),
+            'credential'         => $credential,
+            'exception'          => $exception,
+            'before'             => $before,
+            'after'              => time(),
             'startedNanoseconds' => $startedNanoseconds,
         ];
     }
@@ -364,7 +370,7 @@ final class McpPrimaryCleanupOutcomeTest extends AbstractUnitTestCase
     private function assertRecordedExchange(int $before, int $after): string
     {
         self::assertCount(1, $this->stores);
-        $store = $this->stores[0];
+        $store      = $this->stores[0];
         $allocation = $store['identifier'];
         self::assertTrue(Uuid::isValid($allocation));
         self::assertInstanceOf(UuidV7::class, Uuid::fromString($allocation));
@@ -383,11 +389,11 @@ final class McpPrimaryCleanupOutcomeTest extends AbstractUnitTestCase
         self::assertLessThanOrEqual($after + 60, $options['expiresAt']);
         self::assertSame(
             [
-                'server' => 'srv',
-                'profile' => 'office',
-                'audience' => 'urn:one',
-                'scopes' => ['read'],
-                'actorUid' => 7,
+                'server'         => 'srv',
+                'profile'        => 'office',
+                'audience'       => 'urn:one',
+                'scopes'         => ['read'],
+                'actorUid'       => 7,
                 'serviceAccount' => null,
             ],
             $options['metadata'],
@@ -402,24 +408,25 @@ final class McpPrimaryCleanupOutcomeTest extends AbstractUnitTestCase
         self::assertCount(1, $this->requests);
         $request = $this->requests[0];
         self::assertSame('POST', $request->getMethod());
-        self::assertSame('https://idp.example.com/token', (string)$request->getUri());
+        self::assertSame('https://idp.example.com/token', (string) $request->getUri());
         self::assertSame(
             'application/x-www-form-urlencoded',
             $request->getHeaderLine('Content-Type'),
         );
         self::assertSame('application/json', $request->getHeaderLine('Accept'));
-        parse_str((string)$request->getBody(), $form);
+        parse_str((string) $request->getBody(), $form);
         self::assertSame(
             [
-                'grant_type' => 'urn:ietf:params:oauth:grant-type:token-exchange',
-                'subject_token_type' => 'urn:ietf:params:oauth:token-type:access_token',
+                'grant_type'           => 'urn:ietf:params:oauth:grant-type:token-exchange',
+                'subject_token_type'   => 'urn:ietf:params:oauth:token-type:access_token',
                 'requested_token_type' => 'urn:ietf:params:oauth:token-type:access_token',
-                'client_id' => 'public-client',
-                'audience' => 'urn:one',
-                'scope' => 'read',
+                'client_id'            => 'public-client',
+                'audience'             => 'urn:one',
+                'scope'                => 'read',
             ],
             $form,
         );
+
         return $allocation;
     }
 }

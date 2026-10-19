@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Exception;
 
@@ -53,7 +54,7 @@ final class PublicExceptionBoundaryTest extends TestCase
     public function specializedTranslationFailuresRetainTheirContext(): void
     {
         $previous = new RuntimeException('transport failure');
-        $error = $this->capture(
+        $error    = $this->capture(
             static function () use ($previous): never {
                 throw new TranslatorException(
                     'translation failed',
@@ -88,7 +89,7 @@ final class PublicExceptionBoundaryTest extends TestCase
     public function delegatedCredentialValidationUsesTheCommonMarker(): void
     {
         $error = $this->capture(
-            static fn(): McpSubjectCredential => new McpSubjectCredential('bad:identifier', ['api'], ['read']),
+            static fn (): McpSubjectCredential => new McpSubjectCredential('bad:identifier', ['api'], ['read']),
         );
         self::assertInstanceOf(InvalidArgumentException::class, $error);
         self::assertSame(6331797530, $error->getCode());
@@ -98,7 +99,7 @@ final class PublicExceptionBoundaryTest extends TestCase
     public function editorActionValidationUsesTheCommonMarker(): void
     {
         $error = $this->capture(
-            static fn(): EditorAction => new EditorAction('', 'description', 'icon', ['pages']),
+            static fn (): EditorAction => new EditorAction('', 'description', 'icon', ['pages']),
         );
         self::assertInstanceOf(InvalidArgumentException::class, $error);
         self::assertSame(1786406401, $error->getCode());
@@ -159,6 +160,7 @@ final class PublicExceptionBoundaryTest extends TestCase
         } catch (ToolApprovalRequiredException $pause) {
             self::assertSame($state, $pause->state);
             self::assertSame($state->toArray(), $pause->state->toArray());
+
             return;
         } catch (NrLlmExceptionInterface) {
             self::fail(
@@ -186,6 +188,7 @@ final class PublicExceptionBoundaryTest extends TestCase
         } catch (ToolInputRequiredException $pause) {
             self::assertSame($state, $pause->state);
             self::assertSame($state->toArray(), $pause->state->toArray());
+
             return;
         } catch (NrLlmExceptionInterface) {
             self::fail(

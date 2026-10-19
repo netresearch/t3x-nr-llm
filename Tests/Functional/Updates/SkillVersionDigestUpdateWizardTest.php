@@ -44,10 +44,10 @@ final class SkillVersionDigestUpdateWizardTest extends AbstractFunctionalTestCas
 
         $first = $this->row(1);
         self::assertTrue(SkillVersionDigest::isWellFormed(self::str($first['version_digest'] ?? '')));
-        self::assertSame(1, (int)$first['enabled']);
+        self::assertSame(1, (int) $first['enabled']);
         self::assertSame('', $first['disabled_by']);
-        self::assertSame(0, (int)$first['process']);
-        self::assertSame(1, (int)$this->row(2)['process']);
+        self::assertSame(0, (int) $first['process']);
+        self::assertSame(1, (int) $this->row(2)['process']);
         self::assertNotSame($first['version_digest'], $this->row(2)['version_digest'], 'the process marker is part of the version');
         self::assertSame([], $this->auditEvents());
     }
@@ -77,7 +77,7 @@ final class SkillVersionDigestUpdateWizardTest extends AbstractFunctionalTestCas
 
         $row = $this->row(1);
         self::assertSame('', $row['version_digest']);
-        self::assertSame(0, (int)$row['enabled']);
+        self::assertSame(0, (int) $row['enabled']);
         self::assertSame('sync', $row['disabled_by'], 'the wizard disables as the sync does, so the skill keeps restricting');
         self::assertSame([SkillAuditEvent::VERSION_DIGEST_UNVERIFIED->value], $this->auditEvents());
         self::assertStringContainsString($field, $this->auditDetails()[0]);
@@ -104,7 +104,7 @@ final class SkillVersionDigestUpdateWizardTest extends AbstractFunctionalTestCas
 
         self::assertSame(0, $affected);
         self::assertSame('1:' . str_repeat('c', 64), $this->row(1)['version_digest']);
-        self::assertSame(1, (int)$this->row(1)['enabled']);
+        self::assertSame(1, (int) $this->row(1)['enabled']);
     }
 
     /**
@@ -179,7 +179,7 @@ final class SkillVersionDigestUpdateWizardTest extends AbstractFunctionalTestCas
      */
     private function auditEvents(): array
     {
-        return array_map(static fn(array $row): string => self::str($row['event'] ?? ''), $this->auditRepository()->findBySourceUid(10));
+        return array_map(static fn (array $row): string => self::str($row['event'] ?? ''), $this->auditRepository()->findBySourceUid(10));
     }
 
     /**
@@ -187,7 +187,7 @@ final class SkillVersionDigestUpdateWizardTest extends AbstractFunctionalTestCas
      */
     private function auditDetails(): array
     {
-        return array_map(static fn(array $row): string => self::str($row['detail'] ?? ''), $this->auditRepository()->findBySourceUid(10));
+        return array_map(static fn (array $row): string => self::str($row['detail'] ?? ''), $this->auditRepository()->findBySourceUid(10));
     }
 
     private function pool(): ConnectionPool
@@ -200,6 +200,6 @@ final class SkillVersionDigestUpdateWizardTest extends AbstractFunctionalTestCas
 
     private static function str(mixed $value): string
     {
-        return is_scalar($value) ? (string)$value : '';
+        return is_scalar($value) ? (string) $value : '';
     }
 }

@@ -67,7 +67,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'claude-opus-4-5-20251124',
+            'defaultModel'     => 'claude-opus-4-5-20251124',
         ]);
 
         self::assertEquals('claude-opus-4-5-20251124', $provider->getDefaultModel());
@@ -79,7 +79,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => '',
+            'defaultModel'     => '',
         ]);
 
         // Should return default when empty string is configured
@@ -212,7 +212,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
         $provider->configure(['apiKeyIdentifier' => $this->randomApiKey()]);
 
         $reflection = new ReflectionClass($provider);
-        $baseUrl = $reflection->getProperty('baseUrl');
+        $baseUrl    = $reflection->getProperty('baseUrl');
         /** @var string $baseUrlValue */
         $baseUrlValue = $baseUrl->getValue($provider);
 
@@ -264,11 +264,11 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'baseUrl' => 'https://custom-api.example.com/v1',
+            'baseUrl'          => 'https://custom-api.example.com/v1',
         ]);
 
         $reflection = new ReflectionClass($provider);
-        $baseUrl = $reflection->getProperty('baseUrl');
+        $baseUrl    = $reflection->getProperty('baseUrl');
 
         self::assertEquals('https://custom-api.example.com/v1', $baseUrl->getValue($provider));
     }

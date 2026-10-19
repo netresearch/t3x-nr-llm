@@ -96,7 +96,7 @@ final class TranslationServiceCacheTest extends AbstractUnitTestCase
     #[Test]
     public function aRepeatedIdenticalDeepLCallIsTranslatedOnce(): void
     {
-        $subject = $this->subject();
+        $subject        = $this->subject();
         $this->glossary = $this->siteGlossary('Welt = Erde');
 
         $subject->translateWithTranslator('Hello world', 'de', 'en', $this->cached('deepl')->withSite('main'));
@@ -142,7 +142,7 @@ final class TranslationServiceCacheTest extends AbstractUnitTestCase
     #[Test]
     public function aChangedDeepLGlossaryIsTranslatedAgain(): void
     {
-        $subject = $this->subject();
+        $subject        = $this->subject();
         $this->glossary = $this->siteGlossary('world = Welt');
 
         $subject->translateWithTranslator('Hello world', 'de', 'en', $this->cached('deepl')->withSite('main'));
@@ -206,7 +206,7 @@ final class TranslationServiceCacheTest extends AbstractUnitTestCase
     #[Test]
     public function aFailedTranslationIsNotStored(): void
     {
-        $subject = $this->subject();
+        $subject           = $this->subject();
         $this->nextFailure = new RuntimeException('translator down');
 
         try {
@@ -405,7 +405,7 @@ final class TranslationServiceCacheTest extends AbstractUnitTestCase
     private function subject(): TranslationService
     {
         $registry = self::createStub(TranslatorRegistryInterface::class);
-        $registry->method('get')->willReturnCallback(fn(string $identifier): TranslatorInterface => $this->countingTranslator($identifier));
+        $registry->method('get')->willReturnCallback(fn (string $identifier): TranslatorInterface => $this->countingTranslator($identifier));
 
         $test     = $this;
         $resolver = new class ($test) implements GlossaryResolverInterface {
@@ -459,7 +459,7 @@ final class TranslationServiceCacheTest extends AbstractUnitTestCase
         });
 
         $repository = self::createStub(LlmConfigurationRepository::class);
-        $repository->method('findDefault')->willReturnCallback(fn(): ?LlmConfiguration => $this->defaultConfiguration);
+        $repository->method('findDefault')->willReturnCallback(fn (): ?LlmConfiguration => $this->defaultConfiguration);
 
         $typo3CacheManager = new Typo3CacheManager();
         $typo3CacheManager->setCacheConfigurations([

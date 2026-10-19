@@ -32,7 +32,7 @@ final class RunTimelineFactoryTest extends TestCase
     #[Test]
     public function invocationDenialsExposeTheRuleReasonAndKindInTheRunTimeline(): void
     {
-        $governance = new InMemoryGovernanceEventRepository();
+        $governance            = new InMemoryGovernanceEventRepository();
         $governance->runEvents = [
             new RecordedGovernanceEvent(
                 decision: 'invocation_denied',
@@ -71,11 +71,11 @@ final class RunTimelineFactoryTest extends TestCase
     #[Test]
     public function theThreeStreamsAreJoinedOnTheRunAndOrderedInTime(): void
     {
-        $telemetry = new InMemoryTelemetryRepository();
+        $telemetry                                     = new InMemoryTelemetryRepository();
         $telemetry->callsByCorrelation[self::RUN_UUID] = [$this->call(1_700_000_020)];
 
-        $governance             = new InMemoryGovernanceEventRepository();
-        $governance->runEvents  = [$this->governanceEvent(1_700_000_030)];
+        $governance            = new InMemoryGovernanceEventRepository();
+        $governance->runEvents = [$this->governanceEvent(1_700_000_030)];
 
         $factory = new RunTimelineFactory($telemetry, $governance);
 
@@ -91,7 +91,7 @@ final class RunTimelineFactoryTest extends TestCase
                 RunTimelineEntry::SOURCE_CALL,
                 RunTimelineEntry::SOURCE_GOVERNANCE,
             ],
-            array_map(static fn(RunTimelineEntry $e): string => $e->source, $timeline),
+            array_map(static fn (RunTimelineEntry $e): string => $e->source, $timeline),
         );
 
         // Both keys of the run's identity are used, because the three write
@@ -106,7 +106,7 @@ final class RunTimelineFactoryTest extends TestCase
     {
         // A provider call happens inside the step that triggered it, and both
         // land on the same crdate; the step must stay first.
-        $telemetry = new InMemoryTelemetryRepository();
+        $telemetry                                     = new InMemoryTelemetryRepository();
         $telemetry->callsByCorrelation[self::RUN_UUID] = [$this->call(1_700_000_010)];
 
         $factory = new RunTimelineFactory($telemetry, new InMemoryGovernanceEventRepository());
@@ -279,7 +279,7 @@ final class RunTimelineFactoryTest extends TestCase
     #[Test]
     public function aCallThatWasNotSwappedDoesNotRepeatItselfAsItsOwnServer(): void
     {
-        $telemetry = new InMemoryTelemetryRepository();
+        $telemetry                                     = new InMemoryTelemetryRepository();
         $telemetry->callsByCorrelation[self::RUN_UUID] = [
             $this->call(1_700_000_020),
             new TelemetryCall(

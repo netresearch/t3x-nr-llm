@@ -66,7 +66,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * Constructor scope is narrow: only the dependencies these three
  * actions actually use.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class TaskExecutionController extends ActionController
@@ -107,6 +107,7 @@ final class TaskExecutionController extends ActionController
                 $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.error', 'Error'),
                 ContextualFeedbackSeverity::ERROR,
             );
+
             return new RedirectResponse($this->backendUriBuilder->buildUriFromRoute('nrllm_tasks', [
                 'controller' => 'Backend\\TaskList',
                 'action'     => 'list',
@@ -114,11 +115,11 @@ final class TaskExecutionController extends ActionController
         }
 
         $this->pageRenderer->addInlineSettingArray('ajaxUrls', [
-            'nrllm_task_list_tables'      => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_task_list_tables'),
-            'nrllm_task_fetch_records'    => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_task_fetch_records'),
-            'nrllm_task_load_record_data' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_task_load_record_data'),
-            'nrllm_task_refresh_input'    => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_task_refresh_input'),
-            'nrllm_task_execute'          => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_task_execute'),
+            'nrllm_task_list_tables'      => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_task_list_tables'),
+            'nrllm_task_fetch_records'    => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_task_fetch_records'),
+            'nrllm_task_load_record_data' => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_task_load_record_data'),
+            'nrllm_task_refresh_input'    => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_task_refresh_input'),
+            'nrllm_task_execute'          => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_task_execute'),
         ]);
 
         $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/TaskExecute.js');
@@ -126,15 +127,15 @@ final class TaskExecutionController extends ActionController
         $inputData = $this->taskInputResolver->resolve($task);
 
         // Resolve the effective configuration (task's own or system default).
-        $configuration = $task->getConfiguration();
+        $configuration  = $task->getConfiguration();
         $isUsingDefault = false;
         if ($configuration === null) {
-            $configuration = $this->configurationRepository->findDefault();
+            $configuration  = $this->configurationRepository->findDefault();
             $isUsingDefault = true;
         }
 
         // Return URL for FormEngine: back to this specific task's execute form.
-        $executeReturnUrl = (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_tasks', [
+        $executeReturnUrl = (string) $this->backendUriBuilder->buildUriFromRoute('nrllm_tasks', [
             'controller' => 'Backend\\TaskExecution',
             'action'     => 'executeForm',
             'uid'        => $task->getUid(),
@@ -142,32 +143,32 @@ final class TaskExecutionController extends ActionController
 
         // Build edit URLs for the full chain: task → configuration → model → provider.
         $taskEditUrl = $task->getUid() !== null
-            ? (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', [
+            ? (string) $this->backendUriBuilder->buildUriFromRoute('record_edit', [
                 'edit'      => [self::TABLE_NAME => [$task->getUid() => 'edit']],
                 'returnUrl' => $executeReturnUrl,
             ])
             : null;
 
-        $configEditUrl = null;
-        $modelEditUrl = null;
+        $configEditUrl   = null;
+        $modelEditUrl    = null;
         $providerEditUrl = null;
 
         if ($configuration !== null && $configuration->getUid() !== null) {
-            $configEditUrl = (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', [
+            $configEditUrl = (string) $this->backendUriBuilder->buildUriFromRoute('record_edit', [
                 'edit'      => ['tx_nrllm_configuration' => [$configuration->getUid() => 'edit']],
                 'returnUrl' => $executeReturnUrl,
             ]);
 
             $model = $configuration->getLlmModel();
             if ($model !== null && $model->getUid() !== null) {
-                $modelEditUrl = (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', [
+                $modelEditUrl = (string) $this->backendUriBuilder->buildUriFromRoute('record_edit', [
                     'edit'      => ['tx_nrllm_model' => [$model->getUid() => 'edit']],
                     'returnUrl' => $executeReturnUrl,
                 ]);
 
                 $provider = $model->getProvider();
                 if ($provider !== null && $provider->getUid() !== null) {
-                    $providerEditUrl = (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', [
+                    $providerEditUrl = (string) $this->backendUriBuilder->buildUriFromRoute('record_edit', [
                         'edit'      => ['tx_nrllm_provider' => [$provider->getUid() => 'edit']],
                         'returnUrl' => $executeReturnUrl,
                     ]);
@@ -314,8 +315,8 @@ final class TaskExecutionController extends ActionController
             return $deny;
         }
 
-        $body          = $request->getParsedBody();
-        $body          = is_array($body) ? $body : [];
+        $body = $request->getParsedBody();
+        $body = is_array($body) ? $body : [];
 
         $correlationId = $body['correlationId'] ?? null;
         $rating        = $body['outcome'] ?? null;

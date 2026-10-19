@@ -78,7 +78,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * admins via the module's ``access => admin`` and (for the AJAX actions) the
  * {@see RequiresBackendAdminTrait} guard.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class ToolPlaygroundController extends ActionController implements LoggerAwareInterface
@@ -130,11 +130,12 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         $this->applyModuleChrome($moduleTemplate, $this->request);
         $moduleTemplate->assignMultiple([
             'configurations' => $this->configurationRepository->findAll(),
-            'toolStates' => $this->toolAvailability->states(),
-            'skills' => $this->availableSkills(),
-            'snippets' => $this->availableSnippets(),
-            'ajaxRoute' => 'nrllm_tool_run',
+            'toolStates'     => $this->toolAvailability->states(),
+            'skills'         => $this->availableSkills(),
+            'snippets'       => $this->availableSnippets(),
+            'ajaxRoute'      => 'nrllm_tool_run',
         ]);
+
         return $moduleTemplate->renderResponse('Backend/Playground/List');
     }
 
@@ -173,12 +174,12 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         $systemPrompt = trim($this->stringFromBody($body, 'systemPrompt'));
         // Cap the per-run round count at the UI ceiling; the runtime clamps to
         // the same constant again server-side (single source of truth).
-        $maxRounds    = min($this->intFromBody($body, 'maxRounds'), AgentRuntime::MAX_ITERATIONS);
-        $maxTokens    = $this->intFromBody($body, 'maxTokens');
+        $maxRounds = min($this->intFromBody($body, 'maxRounds'), AgentRuntime::MAX_ITERATIONS);
+        $maxTokens = $this->intFromBody($body, 'maxTokens');
         // Clamp to ChatOptions' valid range: an out-of-range value would throw
         // an InvalidArgumentException from the ToolOptions constructor below —
         // before the runtime's ladder — and 500 the request.
-        $temperature  = $this->floatFromBody($body, 'temperature');
+        $temperature = $this->floatFromBody($body, 'temperature');
         if ($temperature !== null) {
             $temperature = max(0.0, min(2.0, $temperature));
         }
@@ -186,11 +187,11 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         // Tri-state reasoning toggle (#312): '1' forces thinking on, '0'
         // off, anything else keeps the provider/model default.
         $think = match ($this->stringFromBody($body, 'think')) {
-            '1' => true,
-            '0' => false,
+            '1'     => true,
+            '0'     => false,
             default => null,
         };
-        $options      = new ToolOptions(
+        $options = new ToolOptions(
             temperature: $temperature,
             maxTokens: $maxTokens > 0 ? $maxTokens : null,
             systemPrompt: $systemPrompt !== '' ? $systemPrompt : null,
@@ -272,7 +273,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
 
         return [
             'sources' => array_map(
-                static fn(InputContextClassification $source): array => [
+                static fn (InputContextClassification $source): array => [
                     'source'    => $source->source,
                     'dataClass' => $source->effective?->value,
                 ],
@@ -483,7 +484,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                     'success' => false,
                     'status'  => 'cancelled',
                     'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.cancelled', 'The run was cancelled.'),
-                    'steps'   => array_map(static fn(RunStep $step): array => $step->toArray(), $result->steps),
+                    'steps'   => array_map(static fn (RunStep $step): array => $step->toArray(), $result->steps),
                 ]);
 
             case AgentRunOutcome::COMPLETED:
@@ -538,7 +539,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             'runUuid'      => $result->runUuid,
             'pendingTools' => $this->pendingTools($result),
             'turnDigest'   => $this->turnDigestFor($result),
-            'steps'        => array_map(static fn(RunStep $step): array => $step->toArray(), $result->steps),
+            'steps'        => array_map(static fn (RunStep $step): array => $step->toArray(), $result->steps),
         ];
     }
 
@@ -625,8 +626,8 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                 'tool'   => $state instanceof SuspendedRunState ? ($state->inputToolName ?? '') : '',
                 'schema' => $state instanceof SuspendedRunState ? $state->inputSchema : [],
             ],
-            'turnDigest'   => $this->turnDigestFor($result),
-            'steps'        => array_map(static fn(RunStep $step): array => $step->toArray(), $result->steps),
+            'turnDigest' => $this->turnDigestFor($result),
+            'steps'      => array_map(static fn (RunStep $step): array => $step->toArray(), $result->steps),
         ];
     }
 
@@ -645,7 +646,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
 
         $data = [];
         foreach ($body['input'] as $key => $value) {
-            $data[(string)$key] = $value;
+            $data[(string) $key] = $value;
         }
 
         return $data;
@@ -665,7 +666,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             'status'    => $result->outcome->value,
             'guardrail' => $result->guardrailClass ?? '',
             'error'     => $result->error?->getMessage() ?? '',
-            'steps'     => array_map(static fn(RunStep $step): array => $step->toArray(), $result->steps),
+            'steps'     => array_map(static fn (RunStep $step): array => $step->toArray(), $result->steps),
         ];
     }
 
@@ -746,7 +747,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                     // The streamed pause carries the same binding as the batch
                     // payload (ADR-132) — both surfaces show a turn, so both
                     // must be able to prove which turn was shown.
-                    'turnDigest'   => $this->turnDigestFor($result),
+                    'turnDigest' => $this->turnDigestFor($result),
                 ]);
 
                 return;
@@ -766,7 +767,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                     // The streamed pause carries the same binding as the batch
                     // payload (ADR-150) — both surfaces show a form, so both
                     // must let the client prove which form was shown.
-                    'turnDigest'   => $this->turnDigestFor($result),
+                    'turnDigest' => $this->turnDigestFor($result),
                 ]);
 
                 return;
@@ -900,7 +901,8 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         }
 
         $value = $body[$key] ?? 0;
-        return is_numeric($value) ? (int)$value : 0;
+
+        return is_numeric($value) ? (int) $value : 0;
     }
 
     /**
@@ -913,7 +915,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             return null;
         }
 
-        return (float)$body[$key];
+        return (float) $body[$key];
     }
 
     private function stringFromBody(mixed $body, string $key): string
@@ -923,7 +925,8 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         }
 
         $value = $body[$key] ?? '';
-        return is_scalar($value) ? (string)$value : '';
+
+        return is_scalar($value) ? (string) $value : '';
     }
 
     /**
@@ -975,8 +978,8 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
 
         $uids = [];
         foreach ($body[$key] as $value) {
-            if (is_numeric($value) && (int)$value > 0) {
-                $uids[] = (int)$value;
+            if (is_numeric($value) && (int) $value > 0) {
+                $uids[] = (int) $value;
             }
         }
 

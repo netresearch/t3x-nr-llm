@@ -17,10 +17,10 @@ namespace Netresearch\NrLlm\Domain\Enum;
 enum TaskCategory: string
 {
     case LOG_ANALYSIS = 'log_analysis';
-    case CONTENT = 'content';
-    case SYSTEM = 'system';
-    case DEVELOPER = 'developer';
-    case GENERAL = 'general';
+    case CONTENT      = 'content';
+    case SYSTEM       = 'system';
+    case DEVELOPER    = 'developer';
+    case GENERAL      = 'general';
 
     /**
      * Get all category values as an array.
@@ -30,7 +30,7 @@ enum TaskCategory: string
     public static function values(): array
     {
         return array_map(
-            static fn(self $case): string => $case->value,
+            static fn (self $case): string => $case->value,
             self::cases(),
         );
     }
@@ -58,10 +58,10 @@ enum TaskCategory: string
     {
         return match ($this) {
             self::LOG_ANALYSIS => 'Log Analysis',
-            self::CONTENT => 'Content',
-            self::SYSTEM => 'System',
-            self::DEVELOPER => 'Developer',
-            self::GENERAL => 'General',
+            self::CONTENT      => 'Content',
+            self::SYSTEM       => 'System',
+            self::DEVELOPER    => 'Developer',
+            self::GENERAL      => 'General',
         };
     }
 
@@ -72,10 +72,10 @@ enum TaskCategory: string
     {
         return match ($this) {
             self::LOG_ANALYSIS => 'actions-document-info',
-            self::CONTENT => 'actions-document-edit',
-            self::SYSTEM => 'actions-cog',
-            self::DEVELOPER => 'actions-code',
-            self::GENERAL => 'actions-rocket',
+            self::CONTENT      => 'actions-document-edit',
+            self::SYSTEM       => 'actions-cog',
+            self::DEVELOPER    => 'actions-code',
+            self::GENERAL      => 'actions-rocket',
         };
     }
 }

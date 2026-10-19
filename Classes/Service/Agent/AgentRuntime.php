@@ -326,5 +326,4 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
     {
         return ToolEffect::tryFrom($pendingEffect)?->isSafeToRetry() ?? true;
     }
-
 }

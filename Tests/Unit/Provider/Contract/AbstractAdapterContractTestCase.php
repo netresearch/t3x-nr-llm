@@ -82,9 +82,9 @@ abstract class AbstractAdapterContractTestCase extends AbstractUnitTestCase
      * @var array<string, mixed>
      */
     protected const STRICT_SCHEMA = [
-        'type' => 'object',
+        'type'                 => 'object',
         'additionalProperties' => false,
-        'properties' => [
+        'properties'           => [
             'title' => ['type' => 'string'],
         ],
         'required' => ['title'],
@@ -98,9 +98,9 @@ abstract class AbstractAdapterContractTestCase extends AbstractUnitTestCase
      * @var array<string, mixed>
      */
     protected const UNSUPPORTED_SCHEMA = [
-        'type' => 'object',
+        'type'                 => 'object',
         'additionalProperties' => false,
-        'properties' => [
+        'properties'           => [
             'title' => ['type' => 'string', 'minLength' => 1],
         ],
         'required' => ['title'],
@@ -447,7 +447,7 @@ abstract class AbstractAdapterContractTestCase extends AbstractUnitTestCase
                 // cannot end short.
                 $deadline = microtime(true) + 0.7;
                 while (($remaining = $deadline - microtime(true)) > 0.0) {
-                    usleep((int)($remaining * 1_000_000));
+                    usleep((int) ($remaining * 1_000_000));
                 }
 
                 throw new RuntimeException('cURL error 28: Operation timed out', 8599352423);
@@ -699,9 +699,9 @@ abstract class AbstractAdapterContractTestCase extends AbstractUnitTestCase
             name: 'get_weather',
             description: 'Current weather for a city.',
             parameters: [
-                'type' => 'object',
+                'type'       => 'object',
                 'properties' => ['city' => ['type' => 'string']],
-                'required' => ['city'],
+                'required'   => ['city'],
             ],
         );
     }
@@ -778,7 +778,7 @@ abstract class AbstractAdapterContractTestCase extends AbstractUnitTestCase
         $request = $this->sentRequests[count($this->sentRequests) - 1] ?? null;
         self::assertInstanceOf(RequestInterface::class, $request, 'The adapter sent no request.');
 
-        return (string)$request->getBody();
+        return (string) $request->getBody();
     }
 
     /**

@@ -100,18 +100,18 @@ final class RecordingCancellableClient implements CancellableHttpClientInterface
 
     private function answer(RequestInterface $request): ResponseInterface
     {
-        $requestBody = json_decode((string)$request->getBody(), true);
+        $requestBody = json_decode((string) $request->getBody(), true);
         if (!is_array($requestBody) || !array_key_exists('id', $requestBody)) {
             return (new Response())->withStatus(202);
         }
 
         $stream = new Stream('php://temp', 'rw');
         $stream->write(
-            (string)json_encode(
+            (string) json_encode(
                 [
                     'jsonrpc' => '2.0',
-                    'id' => $requestBody['id'],
-                    'result' => new stdClass(),
+                    'id'      => $requestBody['id'],
+                    'result'  => new stdClass(),
                 ],
             ),
         );

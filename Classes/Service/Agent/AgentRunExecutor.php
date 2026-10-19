@@ -103,7 +103,7 @@ final readonly class AgentRunExecutor
         return $this->execute(
             $handle,
             $trace,
-            fn(): ToolLoopResult => $this->toolLoop->runLoop(
+            fn (): ToolLoopResult => $this->toolLoop->runLoop(
                 $request->messages,
                 $request->configuration,
                 $this->toolContext(
@@ -152,9 +152,9 @@ final readonly class AgentRunExecutor
         Closure $loopCall,
         ?string $leaseOwner = null,
     ): AgentRunResult {
-        $trace   = $this->trace($handle, $onStep, false, $leaseOwner);
+        $trace = $this->trace($handle, $onStep, false, $leaseOwner);
 
-        return $this->execute($handle, $trace, fn(): ToolLoopResult => $loopCall($this->toolContext($owner, $handle), $trace), null, $leaseOwner);
+        return $this->execute($handle, $trace, fn (): ToolLoopResult => $loopCall($this->toolContext($owner, $handle), $trace), null, $leaseOwner);
     }
 
     /**

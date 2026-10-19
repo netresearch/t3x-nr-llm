@@ -1,8 +1,11 @@
 <?php
 
-/* Copyright (c) 2025-2026 Netresearch DTT GmbH
- * SPDX-License-Identifier: GPL-2.0-or-later */
-declare (strict_types=1);
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Mcp\Auth;
 
@@ -25,7 +28,7 @@ use Symfony\Component\Uid\Uuid;
 use Throwable;
 
 /**
- * @internal RFC-8693 exchange through Vault's injection and transport boundary.
+ * @internal RFC-8693 exchange through Vault's injection and transport boundary
  */
 final readonly class McpTokenExchange
 {
@@ -55,38 +58,39 @@ final readonly class McpTokenExchange
         McpOperationDeadline $deadline,
         ?CancellationSignalInterface $cancellation,
     ): McpIssuedCredential {
-        $body = '';
-        $payload = [];
+        $body     = '';
+        $payload  = [];
         $response = null;
         try {
             McpAuthOperationGuard::assertAlive($server->identifier, $deadline, $cancellation);
             $this->assertHosts($server, $profile);
-            $client = $this->client($profile, $subject, $deadline->legTimeoutSeconds());
+            $client  = $this->client($profile, $subject, $deadline->legTimeoutSeconds());
             $request = new Request(
                 'POST',
                 $profile->tokenEndpoint,
                 ['Content-Type' => 'application/x-www-form-urlencoded', 'Accept' => 'application/json'],
                 http_build_query(
                     [
-                        'grant_type' => 'urn:ietf:params:oauth:grant-type:token-exchange',
-                        'subject_token_type' => self::TOKEN_TYPE,
+                        'grant_type'           => 'urn:ietf:params:oauth:grant-type:token-exchange',
+                        'subject_token_type'   => self::TOKEN_TYPE,
                         'requested_token_type' => self::TOKEN_TYPE,
-                        'client_id' => $profile->clientId,
-                        'audience' => $server->delegationAudience,
-                        'scope' => implode(' ', $scopes),
+                        'client_id'            => $profile->clientId,
+                        'audience'             => $server->delegationAudience,
+                        'scope'                => implode(' ', $scopes),
                     ],
                 ),
             );
-            $started = $this->clock->monotonicNanoseconds();
+            $started  = $this->clock->monotonicNanoseconds();
             $response = $client instanceof CancellableHttpClientInterface && $cancellation instanceof CancellationSignalInterface && $client->supportsCancellation() ? $client->sendCancellable($request, $cancellation) : $client->sendRequest($request);
-            $body = $this->readResponse($response);
-            $payload = json_decode($body, true, 8, JSON_THROW_ON_ERROR);
+            $body     = $this->readResponse($response);
+            $payload  = json_decode($body, true, 8, JSON_THROW_ON_ERROR);
             if (!is_array($payload)) {
                 throw new InvalidArgumentException('Invalid token response.', 3748556769);
             }
 
             $this->validateResponse($payload, $scopes, $server->delegationAudience);
             McpAuthOperationGuard::assertAlive($server->identifier, $deadline, $cancellation);
+
             return $this->verifiedCredential(
                 $this->storeResponse(
                     $payload,
@@ -145,6 +149,7 @@ final readonly class McpTokenExchange
             SecretPlacement::BodyField,
             ['bodyField' => 'client_secret'],
         );
+
         return $this->withAdditionalSubject($client, $subject);
     }
 
@@ -155,7 +160,7 @@ final readonly class McpTokenExchange
             throw new InvalidArgumentException('Token endpoint refused the exchange.', 8707934477);
         }
 
-        $body = '';
+        $body   = '';
         $stream = $response->getBody();
         try {
             while (!$stream->eof()) {
@@ -193,11 +198,11 @@ final readonly class McpTokenExchange
     private function lifetime(array $payload): float
     {
         $lifetime = $payload['expires_in'] ?? null;
-        if (!is_int($lifetime) && !is_float($lifetime) || !is_finite((float)$lifetime) || $lifetime < 1) {
+        if (!is_int($lifetime) && !is_float($lifetime) || !is_finite((float) $lifetime) || $lifetime < 1) {
             throw new InvalidArgumentException('Token response has no usable finite lifetime.', 2776456353);
         }
 
-        return min((float)$lifetime, self::MAX_LIFETIME_SECONDS);
+        return min((float) $lifetime, self::MAX_LIFETIME_SECONDS);
     }
 
     /**
@@ -212,8 +217,8 @@ final readonly class McpTokenExchange
         array $scopes,
         int $started,
     ): McpIssuedCredential {
-        $expires = $started + (int)floor($this->lifetime($payload) * 1000000000);
-        $remaining = (int)floor(($expires - $this->clock->monotonicNanoseconds()) / 1000000000);
+        $expires   = $started + (int) floor($this->lifetime($payload) * 1000000000);
+        $remaining = (int) floor(($expires - $this->clock->monotonicNanoseconds()) / 1000000000);
         if ($remaining < 1) {
             throw new InvalidArgumentException(
                 'The issued credential lifetime was already spent.',
@@ -233,16 +238,16 @@ final readonly class McpTokenExchange
                     $identifier,
                     $token,
                     [
-                        'owner' => $actor->backendUserUid,
-                        'groups' => [],
-                        'context' => 'mcp_delegation',
+                        'owner'     => $actor->backendUserUid,
+                        'groups'    => [],
+                        'context'   => 'mcp_delegation',
                         'expiresAt' => time() + $remaining,
-                        'metadata' => [
-                            'server' => $server->identifier,
-                            'profile' => $profile->identifier,
-                            'audience' => $server->delegationAudience,
-                            'scopes' => $scopes,
-                            'actorUid' => $actor->backendUserUid,
+                        'metadata'  => [
+                            'server'         => $server->identifier,
+                            'profile'        => $profile->identifier,
+                            'audience'       => $server->delegationAudience,
+                            'scopes'         => $scopes,
+                            'actorUid'       => $actor->backendUserUid,
                             'serviceAccount' => $actor->serviceAccount,
                         ],
                     ],
@@ -424,11 +429,11 @@ final readonly class McpTokenExchange
             }
 
             $expected = [
-                'server' => $server->identifier,
-                'profile' => $profile->identifier,
-                'audience' => $server->delegationAudience,
-                'scopes' => $scopes,
-                'actorUid' => $actor->backendUserUid,
+                'server'         => $server->identifier,
+                'profile'        => $profile->identifier,
+                'audience'       => $server->delegationAudience,
+                'scopes'         => $scopes,
+                'actorUid'       => $actor->backendUserUid,
                 'serviceAccount' => $actor->serviceAccount,
             ];
             foreach ($expected as $key => $value) {

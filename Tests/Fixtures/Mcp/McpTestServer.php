@@ -64,19 +64,19 @@ final class McpTestServer implements ClientInterface
             usleep($this->delayMicroseconds);
         }
 
-        $raw = (string)$request->getBody();
+        $raw     = (string) $request->getBody();
         $decoded = json_decode($raw, true);
-        $body = is_array($decoded) ? $decoded : [];
+        $body    = is_array($decoded) ? $decoded : [];
 
         /** @var array<string, mixed> $body */
         $method = $body['method'] ?? null;
 
         $this->received[] = [
-            'method' => is_string($method) ? $method : null,
-            'body' => $body,
-            'raw' => $raw,
+            'method'  => is_string($method) ? $method : null,
+            'body'    => $body,
+            'raw'     => $raw,
             'session' => $request->getHeaderLine('Mcp-Session-Id'),
-            'accept' => $request->getHeaderLine('Accept'),
+            'accept'  => $request->getHeaderLine('Accept'),
         ];
 
         // A notification carries no id and gets no reply, so it must not eat a
@@ -99,11 +99,11 @@ final class McpTestServer implements ClientInterface
     public function willReturn(array $result, ?string $sessionId = null): self
     {
         return $this->willReturnRawForRequest(
-            static fn(array $request): string => json_encode(
+            static fn (array $request): string => json_encode(
                 [
                     'jsonrpc' => '2.0',
-                    'id' => $request['id'],
-                    'result' => $result === [] ? new stdClass() : $result,
+                    'id'      => $request['id'],
+                    'result'  => $result === [] ? new stdClass() : $result,
                 ],
                 JSON_THROW_ON_ERROR,
             ),
@@ -117,11 +117,11 @@ final class McpTestServer implements ClientInterface
     public function willReturnRpcError(int $code, string $message): self
     {
         return $this->willReturnRawForRequest(
-            static fn(array $request): string => json_encode(
+            static fn (array $request): string => json_encode(
                 [
                     'jsonrpc' => '2.0',
-                    'id' => $request['id'],
-                    'error' => ['code' => $code, 'message' => $message],
+                    'id'      => $request['id'],
+                    'error'   => ['code' => $code, 'message' => $message],
                 ],
                 JSON_THROW_ON_ERROR,
             ),
@@ -154,7 +154,7 @@ final class McpTestServer implements ClientInterface
      */
     public function methods(): array
     {
-        return array_map(static fn(array $call): ?string => $call['method'], $this->received);
+        return array_map(static fn (array $call): ?string => $call['method'], $this->received);
     }
 
     /**
@@ -201,7 +201,7 @@ final class McpTestServer implements ClientInterface
         ) use ($body, $contentType, $sessionId, $status): ResponseInterface {
             /** @var array<string, mixed> $decoded */
             $decoded = json_decode(
-                (string)$request->getBody(),
+                (string) $request->getBody(),
                 true,
                 512,
                 JSON_THROW_ON_ERROR,

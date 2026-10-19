@@ -30,7 +30,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SkillSourceFacts;
  * Provenance and approval stay separate: nothing here rewrites a trust level,
  * and "reset to untrusted" means "no unrevoked approval matches".
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class SkillInstructionPolicy
 {

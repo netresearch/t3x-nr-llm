@@ -54,9 +54,9 @@ final readonly class DeterministicGrader implements GraderInterface
             );
         }
 
-        $total = count($prompt->assertions);
+        $total       = count($prompt->assertions);
         $passedCount = 0;
-        $failures = [];
+        $failures    = [];
         foreach ($prompt->assertions as $assertion) {
             if ($this->matches($assertion, $response)) {
                 ++$passedCount;
@@ -76,9 +76,9 @@ final readonly class DeterministicGrader implements GraderInterface
     private function matches(Assertion $assertion, string $response): bool
     {
         return match ($assertion->type) {
-            AssertionType::EXACT => trim($response) === trim($assertion->value),
-            AssertionType::CONTAINS => str_contains($response, $assertion->value),
-            AssertionType::REGEX => preg_match($assertion->value, $response) === 1,
+            AssertionType::EXACT       => trim($response) === trim($assertion->value),
+            AssertionType::CONTAINS    => str_contains($response, $assertion->value),
+            AssertionType::REGEX       => preg_match($assertion->value, $response) === 1,
             AssertionType::JSON_SCHEMA => $this->schemaValidator->validateJson($response, $assertion->value),
         };
     }
@@ -86,6 +86,7 @@ final readonly class DeterministicGrader implements GraderInterface
     private function summarise(string $value): string
     {
         $value = trim($value);
+
         return mb_strlen($value) > 40 ? mb_substr($value, 0, 37) . '...' : $value;
     }
 }

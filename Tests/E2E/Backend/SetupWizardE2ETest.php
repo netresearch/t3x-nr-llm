@@ -113,13 +113,13 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
         self::assertInstanceOf(ConfigurationGenerator::class, $configurationGenerator);
 
         return $this->createControllerWithReflection(SetupWizardController::class, [
-            'providerDetector' => $providerDetector,
-            'modelDiscovery' => $modelDiscovery,
-            'configurationGenerator' => $configurationGenerator,
-            'providerRepository' => $this->providerRepository,
-            'modelRepository' => $this->modelRepository,
+            'providerDetector'           => $providerDetector,
+            'modelDiscovery'             => $modelDiscovery,
+            'configurationGenerator'     => $configurationGenerator,
+            'providerRepository'         => $this->providerRepository,
+            'modelRepository'            => $this->modelRepository,
             'llmConfigurationRepository' => $this->configurationRepository,
-            'persistenceManager' => $this->persistenceManager,
+            'persistenceManager'         => $this->persistenceManager,
             // The vault's master-key encryption isn't configured in the
             // functional env, so the real VaultService::store() throws and the
             // save flow returns 500. Inject a stub (no-op void store(), null
@@ -133,7 +133,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway1_1_firstTimeProviderSetup_openAi(): void
+    public function pathway11FirstTimeProviderSetupOpenAi(): void
     {
         // Record initial state
         $initialProviderCount = $this->providerRepository->countActive();
@@ -153,23 +153,23 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
 
         // Step 2: Test connection with API key
         $testRequest = $this->createFormRequest(self::AJAX_WIZARD_TEST, [
-            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-            'apiKey' => 'sk-test-key',
+            'endpoint'    => self::HTTPS_API_OPENAI_COM_V1,
+            'apiKey'      => 'sk-test-key',
             'adapterType' => 'openai',
         ]);
         $testResponse = $this->controller->testAction($testRequest);
 
         // Connection test returns 200 regardless of success/failure (graceful handling)
         self::assertSame(200, $testResponse->getStatusCode());
-        $testBody = json_decode((string)$testResponse->getBody(), true);
+        $testBody = json_decode((string) $testResponse->getBody(), true);
         self::assertIsArray($testBody);
         self::assertArrayHasKey('success', $testBody);
         self::assertArrayHasKey('message', $testBody);
 
         // Step 3: Discover available models
         $discoverRequest = $this->createFormRequest(self::AJAX_WIZARD_DISCOVER, [
-            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-            'apiKey' => 'sk-test-key',
+            'endpoint'    => self::HTTPS_API_OPENAI_COM_V1,
+            'apiKey'      => 'sk-test-key',
             'adapterType' => 'openai',
         ]);
         $discoverResponse = $this->controller->discoverAction($discoverRequest);
@@ -180,10 +180,10 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
 
         // Step 4: Generate configurations for selected models
         $generateRequest = $this->createJsonRequest(self::AJAX_WIZARD_GENERATE, [
-            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-            'apiKey' => 'sk-test-key',
+            'endpoint'    => self::HTTPS_API_OPENAI_COM_V1,
+            'apiKey'      => 'sk-test-key',
             'adapterType' => 'openai',
-            'models' => [
+            'models'      => [
                 ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat', 'vision']],
                 ['modelId' => 'o4-mini', 'name' => self::O4_MINI, 'capabilities' => ['chat']],
             ],
@@ -198,37 +198,37 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'OpenAI Production',
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-prod-key-12345',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-prod-key-12345',
             ],
             'models' => [
                 [
-                    'modelId' => 'gpt-5',
-                    'name' => 'GPT-5',
-                    'capabilities' => ['chat', 'vision', 'tools'],
-                    'contextLength' => 128000,
+                    'modelId'         => 'gpt-5',
+                    'name'            => 'GPT-5',
+                    'capabilities'    => ['chat', 'vision', 'tools'],
+                    'contextLength'   => 128000,
                     'maxOutputTokens' => 16384,
-                    'selected' => true,
-                    'recommended' => true,
+                    'selected'        => true,
+                    'recommended'     => true,
                 ],
                 [
-                    'modelId' => 'o4-mini',
-                    'name' => self::O4_MINI,
-                    'capabilities' => ['chat'],
-                    'contextLength' => 128000,
+                    'modelId'         => 'o4-mini',
+                    'name'            => self::O4_MINI,
+                    'capabilities'    => ['chat'],
+                    'contextLength'   => 128000,
                     'maxOutputTokens' => 16384,
-                    'selected' => true,
+                    'selected'        => true,
                 ],
             ],
             'configurations' => [
                 [
-                    'name' => 'Default Chat',
-                    'modelId' => 'gpt-5',
-                    'temperature' => 0.7,
-                    'maxTokens' => 2048,
+                    'name'         => 'Default Chat',
+                    'modelId'      => 'gpt-5',
+                    'temperature'  => 0.7,
+                    'maxTokens'    => 2048,
                     'systemPrompt' => 'You are a helpful assistant.',
-                    'isDefault' => true,
+                    'isDefault'    => true,
                 ],
             ],
             'pid' => 0,
@@ -259,7 +259,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_1_firstTimeProviderSetup_ollama(): void
+    public function pathway11FirstTimeProviderSetupOllama(): void
     {
         $initialProviderCount = $this->providerRepository->countActive();
 
@@ -281,21 +281,21 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'Local Ollama',
-                'adapterType' => 'ollama',
-                'endpoint' => self::HTTP_LOCALHOST_11434,
-                'apiKey' => '', // Ollama doesn't require API key
+                'adapterType'   => 'ollama',
+                'endpoint'      => self::HTTP_LOCALHOST_11434,
+                'apiKey'        => '', // Ollama doesn't require API key
             ],
             'models' => [
                 [
-                    'modelId' => 'llama3.2',
-                    'name' => 'Llama 3.2',
-                    'capabilities' => ['chat'],
+                    'modelId'       => 'llama3.2',
+                    'name'          => 'Llama 3.2',
+                    'capabilities'  => ['chat'],
                     'contextLength' => 128000,
-                    'selected' => true,
+                    'selected'      => true,
                 ],
             ],
             'configurations' => [],
-            'pid' => 0,
+            'pid'            => 0,
         ]);
         $saveResponse = $this->controller->saveAction($saveRequest);
 
@@ -309,7 +309,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_1_firstTimeProviderSetup_anthropic(): void
+    public function pathway11FirstTimeProviderSetupAnthropic(): void
     {
         // Step 1: Detect Anthropic provider
         $detectRequest = $this->createFormRequest(self::AJAX_WIZARD_DETECT, [
@@ -318,7 +318,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
         $detectResponse = $this->controller->detectAction($detectRequest);
 
         $detectBody = $this->assertSuccessResponse($detectResponse);
-        $provider = $detectBody['provider'];
+        $provider   = $detectBody['provider'];
         self::assertIsArray($provider);
         /** @var array{adapterType: string} $provider */
         self::assertSame('anthropic', $provider['adapterType']);
@@ -328,25 +328,25 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
         // generates its own UUIDv7 identifier separately). Build the fake
         // key at runtime so secret-scanning tools don't match a literal.
         $anthropicPrefix = 'sk' . self::ANT;
-        $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
+        $saveRequest     = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'Anthropic',
-                'adapterType' => 'anthropic',
-                'endpoint' => self::HTTPS_API_ANTHROPIC_COM_V1,
-                'apiKey' => $anthropicPrefix . 'fixture-not-a-real-key',
+                'adapterType'   => 'anthropic',
+                'endpoint'      => self::HTTPS_API_ANTHROPIC_COM_V1,
+                'apiKey'        => $anthropicPrefix . 'fixture-not-a-real-key',
             ],
             'models' => [
                 [
-                    'modelId' => 'claude-sonnet-4-20250514',
-                    'name' => 'Claude Sonnet 4',
-                    'capabilities' => ['chat', 'vision', 'tools'],
-                    'contextLength' => 200000,
+                    'modelId'         => 'claude-sonnet-4-20250514',
+                    'name'            => 'Claude Sonnet 4',
+                    'capabilities'    => ['chat', 'vision', 'tools'],
+                    'contextLength'   => 200000,
                     'maxOutputTokens' => 8192,
-                    'selected' => true,
+                    'selected'        => true,
                 ],
             ],
             'configurations' => [],
-            'pid' => 0,
+            'pid'            => 0,
         ]);
         $saveResponse = $this->controller->saveAction($saveRequest);
 
@@ -358,32 +358,32 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway1_2_addAdditionalProvider(): void
+    public function pathway12AddAdditionalProvider(): void
     {
         // Get initial provider count (fixtures already have providers)
         $initialProviders = $this->providerRepository->findActive()->toArray();
-        $initialCount = count($initialProviders);
+        $initialCount     = count($initialProviders);
         self::assertGreaterThan(0, $initialCount, 'Should have existing providers from fixtures');
 
         // Add a new provider (second OpenAI account or different provider)
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'OpenAI Secondary',
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-secondary-key',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-secondary-key',
             ],
             'models' => [
                 [
-                    'modelId' => 'o1-preview',
-                    'name' => 'O1 Preview',
-                    'capabilities' => ['chat'],
+                    'modelId'       => 'o1-preview',
+                    'name'          => 'O1 Preview',
+                    'capabilities'  => ['chat'],
                     'contextLength' => 128000,
-                    'selected' => true,
+                    'selected'      => true,
                 ],
             ],
             'configurations' => [],
-            'pid' => 0,
+            'pid'            => 0,
         ]);
         $saveResponse = $this->controller->saveAction($saveRequest);
 
@@ -405,7 +405,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_2_addProviderWithDifferentType(): void
+    public function pathway12AddProviderWithDifferentType(): void
     {
         // Record existing provider types
         $existingTypes = [];
@@ -414,26 +414,26 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
         }
 
         // Add a provider of a different type
-        $newType = isset($existingTypes['anthropic']) ? 'google' : 'anthropic';
+        $newType     = isset($existingTypes['anthropic']) ? 'google' : 'anthropic';
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'New Type Provider',
-                'adapterType' => $newType,
-                'endpoint' => $newType === 'anthropic'
+                'adapterType'   => $newType,
+                'endpoint'      => $newType === 'anthropic'
                     ? self::HTTPS_API_ANTHROPIC_COM_V1
                     : 'https://generativelanguage.googleapis.com/v1',
                 'apiKey' => 'test-key-' . $newType,
             ],
             'models' => [
                 [
-                    'modelId' => 'test-model',
-                    'name' => self::TEST_MODEL,
+                    'modelId'      => 'test-model',
+                    'name'         => self::TEST_MODEL,
                     'capabilities' => ['chat'],
-                    'selected' => true,
+                    'selected'     => true,
                 ],
             ],
             'configurations' => [],
-            'pid' => 0,
+            'pid'            => 0,
         ]);
         $saveResponse = $this->controller->saveAction($saveRequest);
 
@@ -456,7 +456,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway1_1_detectRejectsInvalidEndpoint(): void
+    public function pathway11DetectRejectsInvalidEndpoint(): void
     {
         $request = $this->createFormRequest(self::AJAX_WIZARD_DETECT, [
             'endpoint' => 'not-a-valid-url',
@@ -465,13 +465,13 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
 
         // Should still return 200 but with unknown provider type
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         // The detector should handle unknown endpoints gracefully
     }
 
     #[Test]
-    public function pathway1_1_saveValidatesRequiredFields(): void
+    public function pathway11SaveValidatesRequiredFields(): void
     {
         // Missing provider
         $request1 = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
@@ -496,7 +496,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
         // Empty models array
         $request3 = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => ['suggestedName' => 'Test', 'adapterType' => 'openai'],
-            'models' => [],
+            'models'   => [],
         ]);
         $this->assertErrorResponse(
             $this->controller->saveAction($request3),
@@ -506,61 +506,61 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_1_saveWithMultipleModelsAndConfigurations(): void
+    public function pathway11SaveWithMultipleModelsAndConfigurations(): void
     {
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'Full Setup Provider',
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-full-setup-key',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-full-setup-key',
             ],
             'models' => [
                 [
-                    'modelId' => 'gpt-5',
-                    'name' => 'GPT-5',
-                    'capabilities' => ['chat', 'vision', 'tools'],
-                    'contextLength' => 128000,
+                    'modelId'         => 'gpt-5',
+                    'name'            => 'GPT-5',
+                    'capabilities'    => ['chat', 'vision', 'tools'],
+                    'contextLength'   => 128000,
                     'maxOutputTokens' => 16384,
-                    'selected' => true,
-                    'recommended' => true,
+                    'selected'        => true,
+                    'recommended'     => true,
                 ],
                 [
-                    'modelId' => 'o4-mini',
-                    'name' => self::O4_MINI,
-                    'capabilities' => ['chat'],
-                    'contextLength' => 128000,
+                    'modelId'         => 'o4-mini',
+                    'name'            => self::O4_MINI,
+                    'capabilities'    => ['chat'],
+                    'contextLength'   => 128000,
                     'maxOutputTokens' => 16384,
-                    'selected' => true,
+                    'selected'        => true,
                 ],
                 [
-                    'modelId' => 'o1-mini',
-                    'name' => 'O1 Mini',
-                    'capabilities' => ['chat'],
+                    'modelId'       => 'o1-mini',
+                    'name'          => 'O1 Mini',
+                    'capabilities'  => ['chat'],
                     'contextLength' => 128000,
-                    'selected' => true,
+                    'selected'      => true,
                 ],
             ],
             'configurations' => [
                 [
-                    'name' => 'Creative Writing',
-                    'modelId' => 'gpt-5',
-                    'temperature' => 0.9,
-                    'maxTokens' => 4096,
+                    'name'         => 'Creative Writing',
+                    'modelId'      => 'gpt-5',
+                    'temperature'  => 0.9,
+                    'maxTokens'    => 4096,
                     'systemPrompt' => 'You are a creative writing assistant.',
                 ],
                 [
-                    'name' => 'Code Assistant',
-                    'modelId' => 'gpt-5',
-                    'temperature' => 0.1,
-                    'maxTokens' => 8192,
+                    'name'         => 'Code Assistant',
+                    'modelId'      => 'gpt-5',
+                    'temperature'  => 0.1,
+                    'maxTokens'    => 8192,
                     'systemPrompt' => 'You are a coding assistant. Be precise and thorough.',
                 ],
                 [
-                    'name' => 'Quick Chat',
-                    'modelId' => 'o4-mini',
+                    'name'        => 'Quick Chat',
+                    'modelId'     => 'o4-mini',
                     'temperature' => 0.7,
-                    'maxTokens' => 1024,
+                    'maxTokens'   => 1024,
                 ],
             ],
             'pid' => 0,
@@ -577,18 +577,18 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway1_3_discoverModelsFromProvider(): void
+    public function pathway13DiscoverModelsFromProvider(): void
     {
         // Discover models from an OpenAI endpoint
         $discoverRequest = $this->createFormRequest(self::AJAX_WIZARD_DISCOVER, [
-            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-            'apiKey' => 'sk-test-key',
+            'endpoint'    => self::HTTPS_API_OPENAI_COM_V1,
+            'apiKey'      => 'sk-test-key',
             'adapterType' => 'openai',
         ]);
         $discoverResponse = $this->controller->discoverAction($discoverRequest);
 
         self::assertSame(200, $discoverResponse->getStatusCode());
-        $body = json_decode((string)$discoverResponse->getBody(), true);
+        $body = json_decode((string) $discoverResponse->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
         self::assertArrayHasKey('models', $body);
@@ -603,10 +603,10 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_3_discoverModels_errorForMissingEndpoint(): void
+    public function pathway13DiscoverModelsErrorForMissingEndpoint(): void
     {
         $request = $this->createFormRequest(self::AJAX_WIZARD_DISCOVER, [
-            'apiKey' => 'sk-test-key',
+            'apiKey'      => 'sk-test-key',
             'adapterType' => 'openai',
         ]);
         $response = $this->controller->discoverAction($request);
@@ -615,11 +615,11 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_3_discoverModels_emptyEndpoint(): void
+    public function pathway13DiscoverModelsEmptyEndpoint(): void
     {
         $request = $this->createFormRequest(self::AJAX_WIZARD_DISCOVER, [
-            'endpoint' => '',
-            'apiKey' => 'sk-test-key',
+            'endpoint'    => '',
+            'apiKey'      => 'sk-test-key',
             'adapterType' => 'openai',
         ]);
         $response = $this->controller->discoverAction($request);
@@ -632,28 +632,28 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway1_4_generateConfigurations(): void
+    public function pathway14GenerateConfigurations(): void
     {
         $generateRequest = $this->createJsonRequest(self::AJAX_WIZARD_GENERATE, [
-            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-            'apiKey' => 'sk-test-key',
+            'endpoint'    => self::HTTPS_API_OPENAI_COM_V1,
+            'apiKey'      => 'sk-test-key',
             'adapterType' => 'openai',
-            'models' => [
+            'models'      => [
                 [
-                    'modelId' => 'gpt-5',
-                    'name' => 'GPT-5',
-                    'description' => 'Most capable model',
-                    'capabilities' => ['chat', 'vision', 'tools'],
-                    'contextLength' => 128000,
+                    'modelId'         => 'gpt-5',
+                    'name'            => 'GPT-5',
+                    'description'     => 'Most capable model',
+                    'capabilities'    => ['chat', 'vision', 'tools'],
+                    'contextLength'   => 128000,
                     'maxOutputTokens' => 16384,
-                    'recommended' => true,
+                    'recommended'     => true,
                 ],
             ],
         ]);
         $generateResponse = $this->controller->generateAction($generateRequest);
 
         self::assertSame(200, $generateResponse->getStatusCode());
-        $body = json_decode((string)$generateResponse->getBody(), true);
+        $body = json_decode((string) $generateResponse->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
         self::assertTrue($body['success']);
@@ -662,7 +662,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_4_generateConfigurations_errorForMissingEndpoint(): void
+    public function pathway14GenerateConfigurationsErrorForMissingEndpoint(): void
     {
         $request = $this->createJsonRequest(self::AJAX_WIZARD_GENERATE, [
             'apiKey' => 'sk-test-key',
@@ -674,11 +674,11 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_4_generateConfigurations_errorForMissingModels(): void
+    public function pathway14GenerateConfigurationsErrorForMissingModels(): void
     {
         $request = $this->createJsonRequest(self::AJAX_WIZARD_GENERATE, [
             'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-            'apiKey' => 'sk-test-key',
+            'apiKey'   => 'sk-test-key',
         ]);
         $response = $this->controller->generateAction($request);
 
@@ -686,12 +686,12 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_4_generateConfigurations_emptyModelsArray(): void
+    public function pathway14GenerateConfigurationsEmptyModelsArray(): void
     {
         $request = $this->createJsonRequest(self::AJAX_WIZARD_GENERATE, [
             'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-            'apiKey' => 'sk-test-key',
-            'models' => [],
+            'apiKey'   => 'sk-test-key',
+            'models'   => [],
         ]);
         $response = $this->controller->generateAction($request);
 
@@ -703,18 +703,18 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway1_5_testConnection(): void
+    public function pathway15TestConnection(): void
     {
         $testRequest = $this->createFormRequest(self::AJAX_WIZARD_TEST, [
-            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-            'apiKey' => 'sk-test-key',
+            'endpoint'    => self::HTTPS_API_OPENAI_COM_V1,
+            'apiKey'      => 'sk-test-key',
             'adapterType' => 'openai',
         ]);
         $testResponse = $this->controller->testAction($testRequest);
 
         // Test connection should return structured response
         self::assertSame(200, $testResponse->getStatusCode());
-        $body = json_decode((string)$testResponse->getBody(), true);
+        $body = json_decode((string) $testResponse->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
         self::assertArrayHasKey('message', $body);
@@ -723,10 +723,10 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_5_testConnection_errorForMissingEndpoint(): void
+    public function pathway15TestConnectionErrorForMissingEndpoint(): void
     {
         $request = $this->createFormRequest(self::AJAX_WIZARD_TEST, [
-            'apiKey' => 'sk-test-key',
+            'apiKey'      => 'sk-test-key',
             'adapterType' => 'openai',
         ]);
         $response = $this->controller->testAction($request);
@@ -735,21 +735,21 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_5_testConnection_withDifferentAdapterTypes(): void
+    public function pathway15TestConnectionWithDifferentAdapterTypes(): void
     {
         $adapterTypes = ['openai', 'anthropic', 'ollama', 'google'];
 
         foreach ($adapterTypes as $adapterType) {
             $testRequest = $this->createFormRequest(self::AJAX_WIZARD_TEST, [
-                'endpoint' => 'https://example.com/api',
-                'apiKey' => 'test-key',
+                'endpoint'    => 'https://example.com/api',
+                'apiKey'      => 'test-key',
                 'adapterType' => $adapterType,
             ]);
             $testResponse = $this->controller->testAction($testRequest);
 
             // All adapter types should be handled gracefully
             self::assertSame(200, $testResponse->getStatusCode());
-            $body = json_decode((string)$testResponse->getBody(), true);
+            $body = json_decode((string) $testResponse->getBody(), true);
             self::assertIsArray($body);
             self::assertArrayHasKey('success', $body);
         }
@@ -760,16 +760,16 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function detectAction_errorForMissingEndpoint(): void
+    public function detectActionErrorForMissingEndpoint(): void
     {
-        $request = $this->createFormRequest(self::AJAX_WIZARD_DETECT, []);
+        $request  = $this->createFormRequest(self::AJAX_WIZARD_DETECT, []);
         $response = $this->controller->detectAction($request);
 
         $this->assertErrorResponse($response, 400, self::ENDPOINT_URL_IS_REQUIRED);
     }
 
     #[Test]
-    public function detectAction_emptyEndpoint(): void
+    public function detectActionEmptyEndpoint(): void
     {
         $request = $this->createFormRequest(self::AJAX_WIZARD_DETECT, [
             'endpoint' => '',
@@ -780,7 +780,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function detectAction_detectsGoogleProvider(): void
+    public function detectActionDetectsGoogleProvider(): void
     {
         $detectRequest = $this->createFormRequest(self::AJAX_WIZARD_DETECT, [
             'endpoint' => 'https://generativelanguage.googleapis.com/v1',
@@ -797,7 +797,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function detectAction_detectsDeepSeekProvider(): void
+    public function detectActionDetectsDeepSeekProvider(): void
     {
         $detectRequest = $this->createFormRequest(self::AJAX_WIZARD_DETECT, [
             'endpoint' => 'https://api.deepseek.com/v1',
@@ -818,31 +818,31 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function saveAction_onlySelectedModelsAreSaved(): void
+    public function saveActionOnlySelectedModelsAreSaved(): void
     {
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'Selective Provider',
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-selective-key',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-selective-key',
             ],
             'models' => [
                 [
-                    'modelId' => 'selected-model',
-                    'name' => 'Selected Model',
+                    'modelId'      => 'selected-model',
+                    'name'         => 'Selected Model',
                     'capabilities' => ['chat'],
-                    'selected' => true,
+                    'selected'     => true,
                 ],
                 [
-                    'modelId' => 'not-selected-model',
-                    'name' => 'Not Selected Model',
+                    'modelId'      => 'not-selected-model',
+                    'name'         => 'Not Selected Model',
                     'capabilities' => ['chat'],
-                    'selected' => false, // Not selected
+                    'selected'     => false, // Not selected
                 ],
             ],
             'configurations' => [],
-            'pid' => 0,
+            'pid'            => 0,
         ]);
         $saveResponse = $this->controller->saveAction($saveRequest);
 
@@ -851,38 +851,38 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function saveAction_onlySelectedConfigurationsAreSaved(): void
+    public function saveActionOnlySelectedConfigurationsAreSaved(): void
     {
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'Config Test Provider',
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-config-test-key',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-config-test-key',
             ],
             'models' => [
                 [
-                    'modelId' => 'test-model',
-                    'name' => self::TEST_MODEL,
+                    'modelId'      => 'test-model',
+                    'name'         => self::TEST_MODEL,
                     'capabilities' => ['chat'],
-                    'selected' => true,
-                    'recommended' => true,
+                    'selected'     => true,
+                    'recommended'  => true,
                 ],
             ],
             'configurations' => [
                 [
-                    'name' => 'Selected Config',
+                    'name'               => 'Selected Config',
                     'recommendedModelId' => 'test-model',
-                    'temperature' => 0.7,
-                    'maxTokens' => 2048,
-                    'selected' => true,
+                    'temperature'        => 0.7,
+                    'maxTokens'          => 2048,
+                    'selected'           => true,
                 ],
                 [
-                    'name' => 'Not Selected Config',
+                    'name'               => 'Not Selected Config',
                     'recommendedModelId' => 'test-model',
-                    'temperature' => 0.5,
-                    'maxTokens' => 1024,
-                    'selected' => false, // Not selected
+                    'temperature'        => 0.5,
+                    'maxTokens'          => 1024,
+                    'selected'           => false, // Not selected
                 ],
             ],
             'pid' => 0,
@@ -894,27 +894,27 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function saveAction_handlesCustomPid(): void
+    public function saveActionHandlesCustomPid(): void
     {
         $customPid = 123;
 
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'PID Test Provider',
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-pid-test-key',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-pid-test-key',
             ],
             'models' => [
                 [
-                    'modelId' => 'pid-test-model',
-                    'name' => 'PID Test Model',
+                    'modelId'      => 'pid-test-model',
+                    'name'         => 'PID Test Model',
                     'capabilities' => ['chat'],
-                    'selected' => true,
+                    'selected'     => true,
                 ],
             ],
             'configurations' => [],
-            'pid' => $customPid,
+            'pid'            => $customPid,
         ]);
         $saveResponse = $this->controller->saveAction($saveRequest);
 
@@ -935,7 +935,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway1_6_detectAction_specialCharactersInEndpoint(): void
+    public function pathway16DetectActionSpecialCharactersInEndpoint(): void
     {
         // Test with special characters that might break URL parsing
         $request = $this->createFormRequest(self::AJAX_WIZARD_DETECT, [
@@ -945,12 +945,12 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
 
         // Should handle gracefully (return 200 with result or unknown)
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
     }
 
     #[Test]
-    public function pathway1_6_detectAction_whitespaceInEndpoint(): void
+    public function pathway16DetectActionWhitespaceInEndpoint(): void
     {
         $request = $this->createFormRequest(self::AJAX_WIZARD_DETECT, [
             'endpoint' => '   https://api.openai.com/v1   ',
@@ -959,65 +959,65 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
 
         // Should trim whitespace and detect correctly
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
     }
 
     #[Test]
-    public function pathway1_6_testAction_emptyApiKey(): void
+    public function pathway16TestActionEmptyApiKey(): void
     {
         $request = $this->createFormRequest(self::AJAX_WIZARD_TEST, [
-            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-            'apiKey' => '',
+            'endpoint'    => self::HTTPS_API_OPENAI_COM_V1,
+            'apiKey'      => '',
             'adapterType' => 'openai',
         ]);
         $response = $this->controller->testAction($request);
 
         // Should return result (failure expected for empty key)
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
     }
 
     #[Test]
-    public function pathway1_6_testAction_veryLongApiKey(): void
+    public function pathway16TestActionVeryLongApiKey(): void
     {
         $longKey = str_repeat('x', 5000);
         $request = $this->createFormRequest(self::AJAX_WIZARD_TEST, [
-            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-            'apiKey' => $longKey,
+            'endpoint'    => self::HTTPS_API_OPENAI_COM_V1,
+            'apiKey'      => $longKey,
             'adapterType' => 'openai',
         ]);
         $response = $this->controller->testAction($request);
 
         // Should handle long keys gracefully
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
     }
 
     #[Test]
-    public function pathway1_6_saveAction_unicodeProviderName(): void
+    public function pathway16SaveActionUnicodeProviderName(): void
     {
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => '日本語プロバイダー 🚀',
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-unicode-test',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-unicode-test',
             ],
             'models' => [
                 [
-                    'modelId' => 'unicode-model',
-                    'name' => '模型',
+                    'modelId'      => 'unicode-model',
+                    'name'         => '模型',
                     'capabilities' => ['chat'],
-                    'selected' => true,
+                    'selected'     => true,
                 ],
             ],
             'configurations' => [],
-            'pid' => 0,
+            'pid'            => 0,
         ]);
         $saveResponse = $this->controller->saveAction($saveRequest);
 
@@ -1034,31 +1034,31 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_6_saveAction_specialCharactersInSystemPrompt(): void
+    public function pathway16SaveActionSpecialCharactersInSystemPrompt(): void
     {
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'Special Prompt Provider',
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-special-prompt',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-special-prompt',
             ],
             'models' => [
                 [
-                    'modelId' => 'test-model',
-                    'name' => self::TEST_MODEL,
+                    'modelId'      => 'test-model',
+                    'name'         => self::TEST_MODEL,
                     'capabilities' => ['chat'],
-                    'selected' => true,
+                    'selected'     => true,
                 ],
             ],
             'configurations' => [
                 [
-                    'name' => 'Special Config',
-                    'modelId' => 'test-model',
-                    'temperature' => 0.7,
-                    'maxTokens' => 1024,
+                    'name'         => 'Special Config',
+                    'modelId'      => 'test-model',
+                    'temperature'  => 0.7,
+                    'maxTokens'    => 1024,
                     'systemPrompt' => "You are a helpful assistant.\n\nRules:\n1. Be <precise>\n2. Use \"quotes\" properly\n3. Handle 日本語",
-                    'selected' => true,
+                    'selected'     => true,
                 ],
             ],
             'pid' => 0,
@@ -1069,33 +1069,33 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_6_discoverAction_unknownAdapterType(): void
+    public function pathway16DiscoverActionUnknownAdapterType(): void
     {
         $request = $this->createFormRequest(self::AJAX_WIZARD_DISCOVER, [
-            'endpoint' => self::HTTPS_API_EXAMPLE_COM_V1,
-            'apiKey' => 'test-key',
+            'endpoint'    => self::HTTPS_API_EXAMPLE_COM_V1,
+            'apiKey'      => 'test-key',
             'adapterType' => 'unknown-adapter-type',
         ]);
         $response = $this->controller->discoverAction($request);
 
         // Should handle unknown adapter gracefully
         self::assertContains($response->getStatusCode(), [200, 400, 500]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
     }
 
     #[Test]
-    public function pathway1_6_generateAction_emptyModelsCapabilities(): void
+    public function pathway16GenerateActionEmptyModelsCapabilities(): void
     {
         $generateRequest = $this->createJsonRequest(self::AJAX_WIZARD_GENERATE, [
-            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-            'apiKey' => 'sk-test-key',
+            'endpoint'    => self::HTTPS_API_OPENAI_COM_V1,
+            'apiKey'      => 'sk-test-key',
             'adapterType' => 'openai',
-            'models' => [
+            'models'      => [
                 [
-                    'modelId' => 'basic-model',
-                    'name' => 'Basic Model',
-                    'capabilities' => [], // Empty capabilities
+                    'modelId'       => 'basic-model',
+                    'name'          => 'Basic Model',
+                    'capabilities'  => [], // Empty capabilities
                     'contextLength' => 4096,
                 ],
             ],
@@ -1103,36 +1103,36 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
         $generateResponse = $this->controller->generateAction($generateRequest);
 
         self::assertSame(200, $generateResponse->getStatusCode());
-        $body = json_decode((string)$generateResponse->getBody(), true);
+        $body = json_decode((string) $generateResponse->getBody(), true);
         self::assertIsArray($body);
     }
 
     #[Test]
-    public function pathway1_6_saveAction_duplicateModelIds(): void
+    public function pathway16SaveActionDuplicateModelIds(): void
     {
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'Duplicate Model Provider',
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-duplicate-test',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-duplicate-test',
             ],
             'models' => [
                 [
-                    'modelId' => 'same-model-id',
-                    'name' => 'First Model',
+                    'modelId'      => 'same-model-id',
+                    'name'         => 'First Model',
                     'capabilities' => ['chat'],
-                    'selected' => true,
+                    'selected'     => true,
                 ],
                 [
-                    'modelId' => 'same-model-id', // Duplicate
-                    'name' => 'Second Model',
+                    'modelId'      => 'same-model-id', // Duplicate
+                    'name'         => 'Second Model',
                     'capabilities' => ['chat'],
-                    'selected' => true,
+                    'selected'     => true,
                 ],
             ],
             'configurations' => [],
-            'pid' => 0,
+            'pid'            => 0,
         ]);
         $saveResponse = $this->controller->saveAction($saveRequest);
 
@@ -1141,37 +1141,37 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_6_saveAction_extremeTemperatureValues(): void
+    public function pathway16SaveActionExtremeTemperatureValues(): void
     {
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'Extreme Temp Provider',
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-extreme-temp',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-extreme-temp',
             ],
             'models' => [
                 [
-                    'modelId' => 'test-model',
-                    'name' => self::TEST_MODEL,
+                    'modelId'      => 'test-model',
+                    'name'         => self::TEST_MODEL,
                     'capabilities' => ['chat'],
-                    'selected' => true,
+                    'selected'     => true,
                 ],
             ],
             'configurations' => [
                 [
-                    'name' => 'High Temp Config',
-                    'modelId' => 'test-model',
+                    'name'        => 'High Temp Config',
+                    'modelId'     => 'test-model',
                     'temperature' => 2.0, // Maximum
-                    'maxTokens' => 1024,
-                    'selected' => true,
+                    'maxTokens'   => 1024,
+                    'selected'    => true,
                 ],
                 [
-                    'name' => 'Zero Temp Config',
-                    'modelId' => 'test-model',
+                    'name'        => 'Zero Temp Config',
+                    'modelId'     => 'test-model',
                     'temperature' => 0.0, // Minimum
-                    'maxTokens' => 1024,
-                    'selected' => true,
+                    'maxTokens'   => 1024,
+                    'selected'    => true,
                 ],
             ],
             'pid' => 0,
@@ -1182,30 +1182,30 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_6_saveAction_zeroMaxTokens(): void
+    public function pathway16SaveActionZeroMaxTokens(): void
     {
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'Zero Tokens Provider',
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-zero-tokens',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-zero-tokens',
             ],
             'models' => [
                 [
-                    'modelId' => 'test-model',
-                    'name' => self::TEST_MODEL,
+                    'modelId'      => 'test-model',
+                    'name'         => self::TEST_MODEL,
                     'capabilities' => ['chat'],
-                    'selected' => true,
+                    'selected'     => true,
                 ],
             ],
             'configurations' => [
                 [
-                    'name' => 'Zero Tokens Config',
-                    'modelId' => 'test-model',
+                    'name'        => 'Zero Tokens Config',
+                    'modelId'     => 'test-model',
                     'temperature' => 0.7,
-                    'maxTokens' => 0, // Edge case
-                    'selected' => true,
+                    'maxTokens'   => 0, // Edge case
+                    'selected'    => true,
                 ],
             ],
             'pid' => 0,
@@ -1221,29 +1221,29 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway1_7_reconfigureExistingProvider(): void
+    public function pathway17ReconfigureExistingProvider(): void
     {
         // First create a provider
         $saveRequest1 = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'Reconfig Provider',
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-initial-key',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-initial-key',
             ],
             'models' => [
                 [
-                    'modelId' => 'gpt-5',
-                    'name' => 'GPT-5',
+                    'modelId'      => 'gpt-5',
+                    'name'         => 'GPT-5',
                     'capabilities' => ['chat'],
-                    'selected' => true,
+                    'selected'     => true,
                 ],
             ],
             'configurations' => [],
-            'pid' => 0,
+            'pid'            => 0,
         ]);
-        $response1 = $this->controller->saveAction($saveRequest1);
-        $body1 = $this->assertSuccessResponse($response1);
+        $response1     = $this->controller->saveAction($saveRequest1);
+        $body1         = $this->assertSuccessResponse($response1);
         $savedProvider = $body1['provider'];
         self::assertIsArray($savedProvider);
         /** @var array{uid: int} $savedProvider */
@@ -1258,7 +1258,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_7_addModelsToExistingProvider(): void
+    public function pathway17AddModelsToExistingProvider(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -1275,7 +1275,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway1_8_detectValidatesUrlFormat(): void
+    public function pathway18DetectValidatesUrlFormat(): void
     {
         // Test various URL formats
         $validUrls = [
@@ -1285,23 +1285,23 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
         ];
 
         foreach ($validUrls as $url) {
-            $request = $this->createFormRequest(self::AJAX_WIZARD_DETECT, ['endpoint' => $url]);
+            $request  = $this->createFormRequest(self::AJAX_WIZARD_DETECT, ['endpoint' => $url]);
             $response = $this->controller->detectAction($request);
 
             self::assertSame(200, $response->getStatusCode());
-            $body = json_decode((string)$response->getBody(), true);
+            $body = json_decode((string) $response->getBody(), true);
             self::assertIsArray($body);
         }
     }
 
     #[Test]
-    public function pathway1_8_testValidatesApiKeyFormat(): void
+    public function pathway18TestValidatesApiKeyFormat(): void
     {
         // Test with various API key formats. Prefixes built at runtime so the
         // file doesn't trip secret-scanning false positives on literal patterns.
-        $openaiPrefix = 'sk' . self::PROJ;
+        $openaiPrefix    = 'sk' . self::PROJ;
         $anthropicPrefix = 'sk' . self::ANT;
-        $testCases = [
+        $testCases       = [
             ['key' => $openaiPrefix . 'abc123', 'type' => 'openai'],
             ['key' => $anthropicPrefix . 'api03-xyz', 'type' => 'anthropic'],
             ['key' => '', 'type' => 'ollama'], // Ollama doesn't need key
@@ -1309,53 +1309,53 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
 
         foreach ($testCases as $case) {
             $request = $this->createFormRequest(self::AJAX_WIZARD_TEST, [
-                'endpoint' => self::HTTPS_API_EXAMPLE_COM_V1,
-                'apiKey' => $case['key'],
+                'endpoint'    => self::HTTPS_API_EXAMPLE_COM_V1,
+                'apiKey'      => $case['key'],
                 'adapterType' => $case['type'],
             ]);
             $response = $this->controller->testAction($request);
 
             // All should return valid response structure
             self::assertSame(200, $response->getStatusCode());
-            $body = json_decode((string)$response->getBody(), true);
+            $body = json_decode((string) $response->getBody(), true);
             self::assertIsArray($body);
             self::assertArrayHasKey('success', $body);
         }
     }
 
     #[Test]
-    public function pathway1_8_saveValidatesModelSelection(): void
+    public function pathway18SaveValidatesModelSelection(): void
     {
         // Test saving with no selected models (all selected=false)
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'No Selection Provider',
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-test',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-test',
             ],
             'models' => [
                 [
-                    'modelId' => 'model-1',
-                    'name' => 'Model 1',
+                    'modelId'      => 'model-1',
+                    'name'         => 'Model 1',
                     'capabilities' => ['chat'],
-                    'selected' => false,
+                    'selected'     => false,
                 ],
                 [
-                    'modelId' => 'model-2',
-                    'name' => 'Model 2',
+                    'modelId'      => 'model-2',
+                    'name'         => 'Model 2',
                     'capabilities' => ['chat'],
-                    'selected' => false,
+                    'selected'     => false,
                 ],
             ],
             'configurations' => [],
-            'pid' => 0,
+            'pid'            => 0,
         ]);
         $response = $this->controller->saveAction($saveRequest);
 
         // Response should be returned (either saves with 0 models or fails)
         self::assertContains($response->getStatusCode(), [200, 400]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
 
         // If succeeded, should have 0 models saved
@@ -1369,7 +1369,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway1_9_setupMultipleProvidersSequentially(): void
+    public function pathway19SetupMultipleProvidersSequentially(): void
     {
         $initialCount = $this->providerRepository->countActive();
 
@@ -1377,13 +1377,13 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
         $save1 = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'Multi Provider 1 - ' . time(),
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-multi-1',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-multi-1',
             ],
-            'models' => [['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat'], 'selected' => true]],
+            'models'         => [['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat'], 'selected' => true]],
             'configurations' => [],
-            'pid' => 0,
+            'pid'            => 0,
         ]);
         $this->assertSuccessResponse($this->controller->saveAction($save1));
 
@@ -1391,16 +1391,16 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
         // vault — see longer comment on the first fixture above. Built at
         // runtime to dodge secret-scanning literal matches.
         $anthropicPrefix = 'sk' . self::ANT;
-        $save2 = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
+        $save2           = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'Multi Provider 2 - ' . time(),
-                'adapterType' => 'anthropic',
-                'endpoint' => self::HTTPS_API_ANTHROPIC_COM_V1,
-                'apiKey' => $anthropicPrefix . 'multi-2-fixture',
+                'adapterType'   => 'anthropic',
+                'endpoint'      => self::HTTPS_API_ANTHROPIC_COM_V1,
+                'apiKey'        => $anthropicPrefix . 'multi-2-fixture',
             ],
-            'models' => [['modelId' => 'claude-sonnet-4-20250514', 'name' => 'Claude Sonnet', 'capabilities' => ['chat'], 'selected' => true]],
+            'models'         => [['modelId' => 'claude-sonnet-4-20250514', 'name' => 'Claude Sonnet', 'capabilities' => ['chat'], 'selected' => true]],
             'configurations' => [],
-            'pid' => 0,
+            'pid'            => 0,
         ]);
         $this->assertSuccessResponse($this->controller->saveAction($save2));
 
@@ -1412,7 +1412,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_9_differentAdapterTypesSupported(): void
+    public function pathway19DifferentAdapterTypesSupported(): void
     {
         $adapterTypes = ['openai', 'anthropic', 'ollama', 'google', 'deepseek'];
 
@@ -1432,7 +1432,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway1_10_recoverFromFailedDetection(): void
+    public function pathway110RecoverFromFailedDetection(): void
     {
         // First attempt with invalid URL
         $request1 = $this->createFormRequest(self::AJAX_WIZARD_DETECT, [
@@ -1452,12 +1452,12 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_10_recoverFromFailedTest(): void
+    public function pathway110RecoverFromFailedTest(): void
     {
         // First attempt with bad credentials
         $request1 = $this->createFormRequest(self::AJAX_WIZARD_TEST, [
-            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-            'apiKey' => 'invalid-key',
+            'endpoint'    => self::HTTPS_API_OPENAI_COM_V1,
+            'apiKey'      => 'invalid-key',
             'adapterType' => 'openai',
         ]);
         $response1 = $this->controller->testAction($request1);
@@ -1465,8 +1465,8 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
 
         // Retry should work
         $request2 = $this->createFormRequest(self::AJAX_WIZARD_TEST, [
-            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-            'apiKey' => 'sk-valid-key',
+            'endpoint'    => self::HTTPS_API_OPENAI_COM_V1,
+            'apiKey'      => 'sk-valid-key',
             'adapterType' => 'openai',
         ]);
         $response2 = $this->controller->testAction($request2);
@@ -1474,7 +1474,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_10_partialSaveDoesNotCorruptState(): void
+    public function pathway110PartialSaveDoesNotCorruptState(): void
     {
         $initialProviderCount = $this->providerRepository->countActive();
 
@@ -1498,7 +1498,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway1_11_detectLocalhost(): void
+    public function pathway111DetectLocalhost(): void
     {
         $localEndpoints = [
             self::HTTP_LOCALHOST_11434,
@@ -1507,18 +1507,18 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
         ];
 
         foreach ($localEndpoints as $endpoint) {
-            $request = $this->createFormRequest(self::AJAX_WIZARD_DETECT, ['endpoint' => $endpoint]);
+            $request  = $this->createFormRequest(self::AJAX_WIZARD_DETECT, ['endpoint' => $endpoint]);
             $response = $this->controller->detectAction($request);
 
             self::assertSame(200, $response->getStatusCode());
-            $body = json_decode((string)$response->getBody(), true);
+            $body = json_decode((string) $response->getBody(), true);
             self::assertIsArray($body);
             self::assertArrayHasKey('success', $body);
         }
     }
 
     #[Test]
-    public function pathway1_11_detectWithPort(): void
+    public function pathway111DetectWithPort(): void
     {
         $portsToTest = [80, 443, 8080, 11434, 3000];
 
@@ -1533,7 +1533,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_11_detectWithPath(): void
+    public function pathway111DetectWithPath(): void
     {
         $pathsToTest = [
             '/v1',
@@ -1557,25 +1557,25 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway1_12_saveWithSingleModel(): void
+    public function pathway112SaveWithSingleModel(): void
     {
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'Single Model Provider - ' . time(),
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-single-model',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-single-model',
             ],
             'models' => [
                 [
-                    'modelId' => 'gpt-5',
-                    'name' => 'GPT-5',
+                    'modelId'      => 'gpt-5',
+                    'name'         => 'GPT-5',
                     'capabilities' => ['chat'],
-                    'selected' => true,
+                    'selected'     => true,
                 ],
             ],
             'configurations' => [],
-            'pid' => 0,
+            'pid'            => 0,
         ]);
         $response = $this->controller->saveAction($saveRequest);
 
@@ -1584,28 +1584,28 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_12_saveWithManyModels(): void
+    public function pathway112SaveWithManyModels(): void
     {
         $models = [];
-        for ($i = 1; $i <= 10; $i++) {
+        for ($i = 1; $i <= 10; ++$i) {
             $models[] = [
-                'modelId' => "model-$i",
-                'name' => "Model $i",
+                'modelId'      => "model-$i",
+                'name'         => "Model $i",
                 'capabilities' => ['chat'],
-                'selected' => true,
+                'selected'     => true,
             ];
         }
 
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'Many Models Provider - ' . time(),
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-many-models',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-many-models',
             ],
-            'models' => $models,
+            'models'         => $models,
             'configurations' => [],
-            'pid' => 0,
+            'pid'            => 0,
         ]);
         $response = $this->controller->saveAction($saveRequest);
 
@@ -1614,14 +1614,14 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_12_saveWithMixedSelection(): void
+    public function pathway112SaveWithMixedSelection(): void
     {
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'Mixed Selection Provider - ' . time(),
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-mixed',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-mixed',
             ],
             'models' => [
                 ['modelId' => 'model-1', 'name' => 'Model 1', 'capabilities' => ['chat'], 'selected' => true],
@@ -1631,7 +1631,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
                 ['modelId' => 'model-5', 'name' => 'Model 5', 'capabilities' => ['chat'], 'selected' => true],
             ],
             'configurations' => [],
-            'pid' => 0,
+            'pid'            => 0,
         ]);
         $response = $this->controller->saveAction($saveRequest);
 
@@ -1644,14 +1644,14 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway1_13_saveWithMultipleConfigurations(): void
+    public function pathway113SaveWithMultipleConfigurations(): void
     {
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'Multi Config Provider - ' . time(),
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-multi-config',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-multi-config',
             ],
             'models' => [
                 ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat'], 'selected' => true],
@@ -1671,7 +1671,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_13_saveConfigurationWithSystemPrompt(): void
+    public function pathway113SaveConfigurationWithSystemPrompt(): void
     {
         $longSystemPrompt = "You are a helpful AI assistant.\n\n"
             . "Your role is to assist users with their questions.\n\n"
@@ -1684,21 +1684,21 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'System Prompt Provider - ' . time(),
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-system-prompt',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-system-prompt',
             ],
             'models' => [
                 ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat'], 'selected' => true],
             ],
             'configurations' => [
                 [
-                    'name' => 'With System Prompt',
-                    'modelId' => 'gpt-5',
-                    'temperature' => 0.7,
-                    'maxTokens' => 2048,
+                    'name'         => 'With System Prompt',
+                    'modelId'      => 'gpt-5',
+                    'temperature'  => 0.7,
+                    'maxTokens'    => 2048,
                     'systemPrompt' => $longSystemPrompt,
-                    'selected' => true,
+                    'selected'     => true,
                 ],
             ],
             'pid' => 0,
@@ -1709,26 +1709,26 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_13_saveConfigurationWithDefaultFlag(): void
+    public function pathway113SaveConfigurationWithDefaultFlag(): void
     {
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'Default Config Provider - ' . time(),
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-default-config',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-default-config',
             ],
             'models' => [
                 ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat'], 'selected' => true],
             ],
             'configurations' => [
                 [
-                    'name' => 'Default Config',
-                    'modelId' => 'gpt-5',
+                    'name'        => 'Default Config',
+                    'modelId'     => 'gpt-5',
                     'temperature' => 0.7,
-                    'maxTokens' => 2048,
-                    'isDefault' => true,
-                    'selected' => true,
+                    'maxTokens'   => 2048,
+                    'isDefault'   => true,
+                    'selected'    => true,
                 ],
             ],
             'pid' => 0,
@@ -1743,13 +1743,13 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway1_14_testWithDifferentKeyFormats(): void
+    public function pathway114TestWithDifferentKeyFormats(): void
     {
         // Prefixes built at runtime so the file doesn't trip secret-scanning
         // tools that flag literal API-key prefixes.
-        $openaiPrefix = 'sk' . self::PROJ;
+        $openaiPrefix    = 'sk' . self::PROJ;
         $anthropicPrefix = 'sk' . self::ANT;
-        $keyFormats = [
+        $keyFormats      = [
             $openaiPrefix . 'abc123def456',     // OpenAI project key shape
             $anthropicPrefix . 'api03-xyz789',  // Anthropic key shape
             'AIzaSy...',                        // Google key pattern
@@ -1759,36 +1759,36 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
 
         foreach ($keyFormats as $key) {
             $request = $this->createFormRequest(self::AJAX_WIZARD_TEST, [
-                'endpoint' => self::HTTPS_API_EXAMPLE_COM_V1,
-                'apiKey' => $key,
+                'endpoint'    => self::HTTPS_API_EXAMPLE_COM_V1,
+                'apiKey'      => $key,
                 'adapterType' => 'openai',
             ]);
             $response = $this->controller->testAction($request);
 
             self::assertSame(200, $response->getStatusCode());
-            $body = json_decode((string)$response->getBody(), true);
+            $body = json_decode((string) $response->getBody(), true);
             self::assertIsArray($body);
             self::assertArrayHasKey('success', $body);
         }
     }
 
     #[Test]
-    public function pathway1_14_saveWithSpecialCharacterApiKey(): void
+    public function pathway114SaveWithSpecialCharacterApiKey(): void
     {
         $specialKey = 'sk-test+key/with=special&chars!@#$%';
 
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'Special Key Provider - ' . time(),
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => $specialKey,
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => $specialKey,
             ],
             'models' => [
                 ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat'], 'selected' => true],
             ],
             'configurations' => [],
-            'pid' => 0,
+            'pid'            => 0,
         ]);
         $response = $this->controller->saveAction($saveRequest);
 
@@ -1809,12 +1809,12 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway1_15_wizardSessionMaintainsContext(): void
+    public function pathway115WizardSessionMaintainsContext(): void
     {
         // Step 1: Test connection
         $testRequest = $this->createFormRequest(self::AJAX_WIZARD_TEST, [
-            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-            'apiKey' => 'sk-session-test-key',
+            'endpoint'    => self::HTTPS_API_OPENAI_COM_V1,
+            'apiKey'      => 'sk-session-test-key',
             'adapterType' => 'openai',
         ]);
         $testResponse = $this->controller->testAction($testRequest);
@@ -1822,8 +1822,8 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
 
         // Step 2: Discover models
         $discoverRequest = $this->createFormRequest(self::AJAX_WIZARD_DISCOVER, [
-            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-            'apiKey' => 'sk-session-test-key',
+            'endpoint'    => self::HTTPS_API_OPENAI_COM_V1,
+            'apiKey'      => 'sk-session-test-key',
             'adapterType' => 'openai',
         ]);
         $discoverResponse = $this->controller->discoverAction($discoverRequest);
@@ -1833,15 +1833,15 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'Session Test Provider - ' . time(),
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-session-test-key',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-session-test-key',
             ],
             'models' => [
                 ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat'], 'selected' => true],
             ],
             'configurations' => [],
-            'pid' => 0,
+            'pid'            => 0,
         ]);
         $saveResponse = $this->controller->saveAction($saveRequest);
 
@@ -1849,12 +1849,12 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_15_wizardAllowsBacktracking(): void
+    public function pathway115WizardAllowsBacktracking(): void
     {
         // User can test connection multiple times with different values.
         // Prefixes built at runtime — see comment on similar test above.
         $anthropicPrefix = 'sk' . self::ANT;
-        $endpoints = [
+        $endpoints       = [
             ['endpoint' => self::HTTPS_API_OPENAI_COM_V1, 'key' => 'sk-test1'],
             ['endpoint' => 'https://api.anthropic.com', 'key' => $anthropicPrefix . 'test'],
             ['endpoint' => self::HTTPS_API_OPENAI_COM_V1, 'key' => 'sk-test2'],
@@ -1862,25 +1862,25 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
 
         foreach ($endpoints as $config) {
             $request = $this->createFormRequest(self::AJAX_WIZARD_TEST, [
-                'endpoint' => $config['endpoint'],
-                'apiKey' => $config['key'],
+                'endpoint'    => $config['endpoint'],
+                'apiKey'      => $config['key'],
                 'adapterType' => 'openai',
             ]);
             $response = $this->controller->testAction($request);
 
             self::assertSame(200, $response->getStatusCode());
-            $body = json_decode((string)$response->getBody(), true);
+            $body = json_decode((string) $response->getBody(), true);
             self::assertIsArray($body);
         }
     }
 
     #[Test]
-    public function pathway1_15_wizardHandlesPartialProgress(): void
+    public function pathway115WizardHandlesPartialProgress(): void
     {
         // Test connection but don't proceed
         $testRequest = $this->createFormRequest(self::AJAX_WIZARD_TEST, [
-            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-            'apiKey' => 'sk-partial-test',
+            'endpoint'    => self::HTTPS_API_OPENAI_COM_V1,
+            'apiKey'      => 'sk-partial-test',
             'adapterType' => 'openai',
         ]);
         $testResponse = $this->controller->testAction($testRequest);
@@ -1888,8 +1888,8 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
 
         // User can start fresh with different endpoint
         $newTestRequest = $this->createFormRequest(self::AJAX_WIZARD_TEST, [
-            'endpoint' => 'https://different-api.com/v1',
-            'apiKey' => 'sk-different-key',
+            'endpoint'    => 'https://different-api.com/v1',
+            'apiKey'      => 'sk-different-key',
             'adapterType' => 'openai',
         ]);
         $newTestResponse = $this->controller->testAction($newTestRequest);
@@ -1901,67 +1901,67 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway1_16_emptyEndpoint_stillProcesses(): void
+    public function pathway116EmptyEndpointStillProcesses(): void
     {
         $request = $this->createFormRequest(self::AJAX_WIZARD_TEST, [
-            'endpoint' => '',
-            'apiKey' => 'sk-test-key',
+            'endpoint'    => '',
+            'apiKey'      => 'sk-test-key',
             'adapterType' => 'openai',
         ]);
         $response = $this->controller->testAction($request);
 
         // Should handle empty endpoint gracefully
         self::assertContains($response->getStatusCode(), [200, 400, 500]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
     }
 
     #[Test]
-    public function pathway1_16_emptyApiKey_stillProcesses(): void
+    public function pathway116EmptyApiKeyStillProcesses(): void
     {
         $request = $this->createFormRequest(self::AJAX_WIZARD_TEST, [
-            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-            'apiKey' => '',
+            'endpoint'    => self::HTTPS_API_OPENAI_COM_V1,
+            'apiKey'      => '',
             'adapterType' => 'openai',
         ]);
         $response = $this->controller->testAction($request);
 
         self::assertContains($response->getStatusCode(), [200, 400, 500]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
     }
 
     #[Test]
-    public function pathway1_16_veryLongEndpoint_handled(): void
+    public function pathway116VeryLongEndpointHandled(): void
     {
         $longEndpoint = 'https://' . str_repeat('a', 200) . '.com/v1';
 
         $request = $this->createFormRequest(self::AJAX_WIZARD_TEST, [
-            'endpoint' => $longEndpoint,
-            'apiKey' => 'sk-test-key',
+            'endpoint'    => $longEndpoint,
+            'apiKey'      => 'sk-test-key',
             'adapterType' => 'openai',
         ]);
         $response = $this->controller->testAction($request);
 
         // Should fail gracefully (invalid host)
         self::assertContains($response->getStatusCode(), [200, 400, 500]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
     }
 
     #[Test]
-    public function pathway1_16_invalidAdapterType_handled(): void
+    public function pathway116InvalidAdapterTypeHandled(): void
     {
         $request = $this->createFormRequest(self::AJAX_WIZARD_TEST, [
-            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-            'apiKey' => 'sk-test-key',
+            'endpoint'    => self::HTTPS_API_OPENAI_COM_V1,
+            'apiKey'      => 'sk-test-key',
             'adapterType' => 'nonexistent_adapter',
         ]);
         $response = $this->controller->testAction($request);
 
         // Should fail gracefully
         self::assertContains($response->getStatusCode(), [200, 400, 500]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
     }
 
@@ -1970,68 +1970,68 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway1_17_discoverWithInvalidCredentials(): void
+    public function pathway117DiscoverWithInvalidCredentials(): void
     {
         $request = $this->createFormRequest(self::AJAX_WIZARD_DISCOVER, [
-            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-            'apiKey' => 'invalid-api-key-xyz',
+            'endpoint'    => self::HTTPS_API_OPENAI_COM_V1,
+            'apiKey'      => 'invalid-api-key-xyz',
             'adapterType' => 'openai',
         ]);
         $response = $this->controller->discoverAction($request);
 
         // Should return error response
         self::assertContains($response->getStatusCode(), [200, 401, 500]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
     }
 
     #[Test]
-    public function pathway1_17_discoverWithUnreachableEndpoint(): void
+    public function pathway117DiscoverWithUnreachableEndpoint(): void
     {
         $request = $this->createFormRequest(self::AJAX_WIZARD_DISCOVER, [
-            'endpoint' => 'https://nonexistent.invalid.local/v1',
-            'apiKey' => 'sk-test-key',
+            'endpoint'    => 'https://nonexistent.invalid.local/v1',
+            'apiKey'      => 'sk-test-key',
             'adapterType' => 'openai',
         ]);
         $response = $this->controller->discoverAction($request);
 
         // Should return structured error
         self::assertContains($response->getStatusCode(), [200, 500]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
     }
 
     #[Test]
-    public function pathway1_17_discoverWithEmptyModelList(): void
+    public function pathway117DiscoverWithEmptyModelList(): void
     {
         // Some providers might return empty model lists
         $request = $this->createFormRequest(self::AJAX_WIZARD_DISCOVER, [
-            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-            'apiKey' => 'sk-might-have-no-models',
+            'endpoint'    => self::HTTPS_API_OPENAI_COM_V1,
+            'apiKey'      => 'sk-might-have-no-models',
             'adapterType' => 'openai',
         ]);
         $response = $this->controller->discoverAction($request);
 
         self::assertContains($response->getStatusCode(), [200, 500]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
     }
 
     #[Test]
-    public function pathway1_17_discoverMultipleTimes(): void
+    public function pathway117DiscoverMultipleTimes(): void
     {
         // User can rediscover models
-        for ($i = 0; $i < 3; $i++) {
+        for ($i = 0; $i < 3; ++$i) {
             $request = $this->createFormRequest(self::AJAX_WIZARD_DISCOVER, [
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-test-key-' . $i,
+                'endpoint'    => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'      => 'sk-test-key-' . $i,
                 'adapterType' => 'openai',
             ]);
             $response = $this->controller->discoverAction($request);
 
             self::assertContains($response->getStatusCode(), [200, 500]);
-            $body = json_decode((string)$response->getBody(), true);
+            $body = json_decode((string) $response->getBody(), true);
             self::assertIsArray($body);
         }
     }
@@ -2041,54 +2041,54 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway1_18_saveWithEmptyModels(): void
+    public function pathway118SaveWithEmptyModels(): void
     {
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'No Models Provider - ' . time(),
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-no-models',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-no-models',
             ],
-            'models' => [],
+            'models'         => [],
             'configurations' => [],
-            'pid' => 0,
+            'pid'            => 0,
         ]);
         $response = $this->controller->saveAction($saveRequest);
 
         // Should still create provider even with no models
         self::assertContains($response->getStatusCode(), [200, 400]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
     }
 
     #[Test]
-    public function pathway1_18_saveWithNoSelectedModels(): void
+    public function pathway118SaveWithNoSelectedModels(): void
     {
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'No Selected Models Provider - ' . time(),
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-no-selected',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-no-selected',
             ],
             'models' => [
                 ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat'], 'selected' => false],
                 ['modelId' => 'o4-mini', 'name' => self::O4_MINI, 'capabilities' => ['chat'], 'selected' => false],
             ],
             'configurations' => [],
-            'pid' => 0,
+            'pid'            => 0,
         ]);
         $response = $this->controller->saveAction($saveRequest);
 
         // Behavior depends on implementation - should handle gracefully
         self::assertContains($response->getStatusCode(), [200, 400]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
     }
 
     #[Test]
-    public function pathway1_18_saveWithDuplicateProviderName(): void
+    public function pathway118SaveWithDuplicateProviderName(): void
     {
         $providerName = 'Duplicate Provider - ' . time();
 
@@ -2096,15 +2096,15 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
         $saveRequest1 = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => $providerName,
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-first',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-first',
             ],
             'models' => [
                 ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat'], 'selected' => true],
             ],
             'configurations' => [],
-            'pid' => 0,
+            'pid'            => 0,
         ]);
         $response1 = $this->controller->saveAction($saveRequest1);
         $this->assertSuccessResponse($response1);
@@ -2113,46 +2113,46 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
         $saveRequest2 = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => $providerName,
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-second',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-second',
             ],
             'models' => [
                 ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat'], 'selected' => true],
             ],
             'configurations' => [],
-            'pid' => 0,
+            'pid'            => 0,
         ]);
         $response2 = $this->controller->saveAction($saveRequest2);
 
         // Should handle duplicate name - either create or return error
         self::assertContains($response2->getStatusCode(), [200, 400, 500]);
-        $body = json_decode((string)$response2->getBody(), true);
+        $body = json_decode((string) $response2->getBody(), true);
         self::assertIsArray($body);
     }
 
     #[Test]
-    public function pathway1_18_saveWithVeryLongConfigurationName(): void
+    public function pathway118SaveWithVeryLongConfigurationName(): void
     {
         $longName = str_repeat('Configuration Name ', 50);
 
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'Long Config Name Provider - ' . time(),
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-long-config',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-long-config',
             ],
             'models' => [
                 ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat'], 'selected' => true],
             ],
             'configurations' => [
                 [
-                    'name' => $longName,
-                    'modelId' => 'gpt-5',
+                    'name'        => $longName,
+                    'modelId'     => 'gpt-5',
                     'temperature' => 0.7,
-                    'maxTokens' => 2048,
-                    'selected' => true,
+                    'maxTokens'   => 2048,
+                    'selected'    => true,
                 ],
             ],
             'pid' => 0,
@@ -2163,30 +2163,30 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
         // columns before persisting (#335), so the save succeeds on every
         // DBMS.
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
     }
 
     #[Test]
-    public function pathway1_18_saveWithUnicodeNames(): void
+    public function pathway118SaveWithUnicodeNames(): void
     {
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => '提供者名称 🚀 - ' . time(),
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-unicode-names',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-unicode-names',
             ],
             'models' => [
                 ['modelId' => 'gpt-5', 'name' => '模型名称 🤖', 'capabilities' => ['chat'], 'selected' => true],
             ],
             'configurations' => [
                 [
-                    'name' => '配置名称 ⚙️',
-                    'modelId' => 'gpt-5',
+                    'name'        => '配置名称 ⚙️',
+                    'modelId'     => 'gpt-5',
                     'temperature' => 0.7,
-                    'maxTokens' => 2048,
-                    'selected' => true,
+                    'maxTokens'   => 2048,
+                    'selected'    => true,
                 ],
             ],
             'pid' => 0,
@@ -2206,7 +2206,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway1_18_saveWithExtremeTemperature(): void
+    public function pathway118SaveWithExtremeTemperature(): void
     {
         // Test boundary temperatures
         $temperatures = [0.0, 2.0, 0.001, 1.999];
@@ -2215,20 +2215,20 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
             $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
                 'provider' => [
                     'suggestedName' => 'Temp Test Provider - ' . $temp . ' - ' . time(),
-                    'adapterType' => 'openai',
-                    'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                    'apiKey' => 'sk-temp-test',
+                    'adapterType'   => 'openai',
+                    'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                    'apiKey'        => 'sk-temp-test',
                 ],
                 'models' => [
                     ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat'], 'selected' => true],
                 ],
                 'configurations' => [
                     [
-                        'name' => 'Temp ' . $temp . ' Config',
-                        'modelId' => 'gpt-5',
+                        'name'        => 'Temp ' . $temp . ' Config',
+                        'modelId'     => 'gpt-5',
                         'temperature' => $temp,
-                        'maxTokens' => 2048,
-                        'selected' => true,
+                        'maxTokens'   => 2048,
+                        'selected'    => true,
                     ],
                 ],
                 'pid' => 0,
@@ -2236,31 +2236,31 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
             $response = $this->controller->saveAction($saveRequest);
 
             self::assertContains($response->getStatusCode(), [200, 400]);
-            $body = json_decode((string)$response->getBody(), true);
+            $body = json_decode((string) $response->getBody(), true);
             self::assertIsArray($body);
         }
     }
 
     #[Test]
-    public function pathway1_18_saveWithZeroMaxTokens(): void
+    public function pathway118SaveWithZeroMaxTokens(): void
     {
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'Zero Tokens Provider - ' . time(),
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-zero-tokens',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-zero-tokens',
             ],
             'models' => [
                 ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat'], 'selected' => true],
             ],
             'configurations' => [
                 [
-                    'name' => 'Zero Tokens Config',
-                    'modelId' => 'gpt-5',
+                    'name'        => 'Zero Tokens Config',
+                    'modelId'     => 'gpt-5',
                     'temperature' => 0.7,
-                    'maxTokens' => 0,
-                    'selected' => true,
+                    'maxTokens'   => 0,
+                    'selected'    => true,
                 ],
             ],
             'pid' => 0,
@@ -2269,7 +2269,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
 
         // Should handle zero tokens
         self::assertContains($response->getStatusCode(), [200, 400]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
     }
 }

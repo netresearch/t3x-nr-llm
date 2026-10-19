@@ -72,7 +72,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             'translators' => [
                 'deepl' => [
                     'apiKeyIdentifier' => $this->apiKeyIdentifier,
-                    'timeout' => 30,
+                    'timeout'          => 30,
                 ],
             ],
         ];
@@ -144,7 +144,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
      * exact request DeepLTranslator constructs. Uses the default config
      * (non-`:fx` vault secret → Pro host) unless a config override is supplied.
      *
-     * @param array<string, mixed>      $captured Populated in place; initialize to [] at the call site.
+     * @param array<string, mixed>      $captured populated in place; initialize to [] at the call site
      * @param array<string, mixed>|null $config
      */
     private function createCapturingSubject(
@@ -177,7 +177,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
      * records the method/URI it is asked to build and the body streamed onto
      * the request. This is the seam the exact-transformation assertions read.
      *
-     * @param array<string, mixed> $captured Populated in place; initialize to [] at the call site.
+     * @param array<string, mixed> $captured populated in place; initialize to [] at the call site
      */
     private function createCapturingRequestFactory(array &$captured): RequestFactoryInterface
     {
@@ -185,7 +185,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         $stub->method('createRequest')->willReturnCallback(
             function (string $method, string $uri) use (&$captured): RequestInterface {
                 $captured['method'] = $method;
-                $captured['uri'] = $uri;
+                $captured['uri']    = $uri;
 
                 $uriStub = self::createStub(UriInterface::class);
                 $uriStub->method('__toString')->willReturn($uri);
@@ -193,11 +193,11 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
                 $uriStub->method('getPath')->willReturn(parse_url($uri, PHP_URL_PATH) ?? '');
 
                 $request = self::createStub(RequestInterface::class);
-                $request->method('withHeader')->willReturnCallback(fn(): Stub => $request);
-                $request->method('withoutHeader')->willReturnCallback(fn(): Stub => $request);
+                $request->method('withHeader')->willReturnCallback(fn (): Stub => $request);
+                $request->method('withoutHeader')->willReturnCallback(fn (): Stub => $request);
                 $request->method('withBody')->willReturnCallback(
                     function (StreamInterface $body) use (&$captured, &$request): RequestInterface {
-                        $captured['body'] = (string)$body;
+                        $captured['body'] = (string) $body;
 
                         return $request;
                     },
@@ -284,7 +284,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         $vault->method('http')->willReturn(self::createStub(VaultHttpClientInterface::class));
         $calls = 0;
         $vault->method('retrieve')->willReturnCallback(static function () use (&$calls): string {
-            $calls++;
+            ++$calls;
             if ($calls === 1) {
                 throw new LogicException('vault unavailable', 5331512677);
             }
@@ -292,7 +292,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             return 'free-key:fx';
         });
 
-        $config = ['translators' => ['deepl' => ['apiKeyIdentifier' => 'deepl-id']]];
+        $config     = ['translators' => ['deepl' => ['apiKeyIdentifier' => 'deepl-id']]];
         $translator = new DeepLTranslator(
             $vault,
             $this->createRequestFactoryMock(),
@@ -307,7 +307,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         );
 
         $reflection = new ReflectionClass($translator);
-        $resolve = $reflection->getMethod('resolveBaseUrl');
+        $resolve    = $reflection->getMethod('resolveBaseUrl');
 
         // First attempt: retrieve() throws → exception propagates and the base
         // URL must NOT be marked resolved.
@@ -354,7 +354,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         $apiResponse = [
             'translations' => [
                 [
-                    'text' => 'Hallo Welt',
+                    'text'                     => 'Hallo Welt',
                     'detected_source_language' => 'EN',
                 ],
             ],
@@ -383,7 +383,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         $apiResponse = [
             'translations' => [
                 [
-                    'text' => 'Bonjour le monde',
+                    'text'                     => 'Bonjour le monde',
                     'detected_source_language' => 'EN',
                 ],
             ],
@@ -418,7 +418,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     public function translateWithAutoSentinelOmitsSourceLangFromPayload(string $sentinel): void
     {
         $captured = [];
-        $subject = $this->createCapturingSubject(
+        $subject  = $this->createCapturingSubject(
             $this->createJsonResponseMock(['translations' => [
                 ['text' => 'Bonjour', 'detected_source_language' => 'EN'],
             ]]),
@@ -435,7 +435,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     public function translateBatchWithAutoSentinelOmitsSourceLangFromPayload(string $sentinel): void
     {
         $captured = [];
-        $subject = $this->createCapturingSubject(
+        $subject  = $this->createCapturingSubject(
             $this->createJsonResponseMock(['translations' => [
                 ['text' => 'Bonjour', 'detected_source_language' => 'EN'],
             ]]),
@@ -455,7 +455,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         return [
             'lowercase auto' => ['auto'],
             'uppercase AUTO' => ['AUTO'],
-            'empty string' => [''],
+            'empty string'   => [''],
         ];
     }
 
@@ -594,7 +594,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             ->with(
                 'translation',
                 'deepl',
-                self::callback(fn(array $data): bool => $data['characters'] === mb_strlen($text)),
+                self::callback(fn (array $data): bool => $data['characters'] === mb_strlen($text)),
                 null,
                 0,
                 '',
@@ -811,9 +811,9 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     public static function languagePairProvider(): array
     {
         return [
-            'en to de' => ['en', 'de', true],
-            'de to fr' => ['de', 'fr', true],
-            'en to en-gb' => ['en', 'en-gb', true],
+            'en to de'       => ['en', 'de', true],
+            'de to fr'       => ['de', 'fr', true],
+            'en to en-gb'    => ['en', 'en-gb', true],
             'invalid source' => ['xx', 'de', false],
             'invalid target' => ['en', 'xx', false],
         ];
@@ -834,11 +834,11 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     public static function formalityLanguageProvider(): array
     {
         return [
-            'german supports' => ['de', true],
-            'french supports' => ['fr', true],
-            'spanish supports' => ['es', true],
-            'english does not' => ['en', false],
-            'chinese does not' => ['zh', false],
+            'german supports'        => ['de', true],
+            'french supports'        => ['fr', true],
+            'spanish supports'       => ['es', true],
+            'english does not'       => ['en', false],
+            'chinese does not'       => ['zh', false],
             'portuguese-br supports' => ['pt-br', true],
             // Base lang 'fr' is formality-supported though 'fr-ca' is not listed:
             // the `||` on base OR full code must hold (an `&&` mutant would fail).
@@ -869,7 +869,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             'glossaries' => [
                 [
                     'glossary_id' => 'gls_123',
-                    'name' => 'Technical Terms',
+                    'name'        => 'Technical Terms',
                     'source_lang' => 'en',
                     'target_lang' => 'de',
                 ],
@@ -973,7 +973,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     public function translatePostsExactPayloadToProV2TranslateEndpoint(): void
     {
         $captured = [];
-        $subject = $this->createCapturingSubject(
+        $subject  = $this->createCapturingSubject(
             $this->createJsonResponseMock([
                 'translations' => [['text' => 'Hallo Welt', 'detected_source_language' => 'DE']],
             ]),
@@ -994,7 +994,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     public function translateNormalizesChineseTargetToZhHans(): void
     {
         $captured = [];
-        $subject = $this->createCapturingSubject(
+        $subject  = $this->createCapturingSubject(
             $this->createJsonResponseMock([
                 'translations' => [['text' => 'x', 'detected_source_language' => 'EN']],
             ]),
@@ -1012,7 +1012,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     public function translateNormalizesChineseSourceToZh(): void
     {
         $captured = [];
-        $subject = $this->createCapturingSubject(
+        $subject  = $this->createCapturingSubject(
             $this->createJsonResponseMock([
                 'translations' => [['text' => 'x', 'detected_source_language' => 'EN']],
             ]),
@@ -1074,7 +1074,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             ->with(
                 'translation',
                 'deepl',
-                self::callback(fn(array $data): bool => $data['characters'] === mb_strlen($text)),
+                self::callback(fn (array $data): bool => $data['characters'] === mb_strlen($text)),
                 null,
                 0,
                 '',
@@ -1169,7 +1169,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     public function translateBatchBuildsPayloadWithNormalizedCodes(): void
     {
         $captured = [];
-        $subject = $this->createCapturingSubject(
+        $subject  = $this->createCapturingSubject(
             $this->createJsonResponseMock([
                 'translations' => [['text' => 'a', 'detected_source_language' => 'EN']],
             ]),
@@ -1232,7 +1232,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     #[Test]
     public function translateBatchTracksMultibyteTotalCharacters(): void
     {
-        $texts = ['Héllo', 'Wörld'];
+        $texts              = ['Héllo', 'Wörld'];
         $expectedCharacters = array_sum(array_map(mb_strlen(...), $texts));
 
         $httpClientStub = self::createStub(ClientInterface::class);
@@ -1253,7 +1253,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
                 'translation',
                 'deepl',
                 self::callback(
-                    fn(array $data): bool => $data['characters'] === $expectedCharacters && $data['batch_size'] === 2,
+                    fn (array $data): bool => $data['characters'] === $expectedCharacters && $data['batch_size'] === 2,
                 ),
                 null,
                 0,
@@ -1299,7 +1299,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         $text = str_repeat('0123456789', 15);
 
         $captured = [];
-        $subject = $this->createCapturingSubject(
+        $subject  = $this->createCapturingSubject(
             $this->createJsonResponseMock([
                 'translations' => [['text' => 'x', 'detected_source_language' => 'DE']],
             ]),

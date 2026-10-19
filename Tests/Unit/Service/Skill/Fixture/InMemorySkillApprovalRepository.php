@@ -63,7 +63,7 @@ final class InMemorySkillApprovalRepository implements SkillApprovalRepositoryIn
 
     public function findBySkill(int $skillUid): array
     {
-        return array_values(array_filter(array_reverse($this->rows), static fn(SkillApproval $row): bool => $row->skillUid === $skillUid));
+        return array_values(array_filter(array_reverse($this->rows), static fn (SkillApproval $row): bool => $row->skillUid === $skillUid));
     }
 
     public function add(int $skillUid, int $sourceUid, string $versionDigest, array $fields, string $trustLevel, int $approvedBy): int
@@ -117,7 +117,7 @@ final class InMemorySkillApprovalRepository implements SkillApprovalRepositoryIn
                 $revokedBy,
                 2,
             );
-            $count++;
+            ++$count;
         }
 
         return $count;

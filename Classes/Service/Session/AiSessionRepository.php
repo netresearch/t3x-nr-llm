@@ -60,7 +60,7 @@ final readonly class AiSessionRepository implements AiSessionRepositoryInterface
             'crdate'                   => $now,
         ]);
 
-        return (int)$connection->lastInsertId();
+        return (int) $connection->lastInsertId();
     }
 
     public function bindConfiguration(int $sessionUid, string $configurationIdentifier): void
@@ -229,7 +229,7 @@ final readonly class AiSessionRepository implements AiSessionRepositoryInterface
             ->executeQuery()
             ->fetchAllAssociative();
 
-        return array_map(fn(array $row): AiSessionMessage => new AiSessionMessage(
+        return array_map(fn (array $row): AiSessionMessage => new AiSessionMessage(
             uid: self::toInt($row['uid'] ?? 0),
             session: self::toInt($row['session'] ?? 0),
             sequence: self::toInt($row['sequence'] ?? 0),
@@ -257,7 +257,7 @@ final readonly class AiSessionRepository implements AiSessionRepositoryInterface
             ->executeQuery()
             ->fetchAllAssociative();
 
-        $uids = array_map(fn(array $row): int => self::toInt($row['uid'] ?? 0), $rows);
+        $uids = array_map(fn (array $row): int => self::toInt($row['uid'] ?? 0), $rows);
         if ($uids === []) {
             return 0;
         }
@@ -283,5 +283,4 @@ final readonly class AiSessionRepository implements AiSessionRepositoryInterface
 
         return $deleted;
     }
-
 }

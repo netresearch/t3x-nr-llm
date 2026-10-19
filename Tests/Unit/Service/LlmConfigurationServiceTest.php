@@ -49,14 +49,14 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
     {
         parent::setUp();
 
-        $this->repositoryMock = $this->createMock(LlmConfigurationRepository::class);
+        $this->repositoryMock         = $this->createMock(LlmConfigurationRepository::class);
         $this->persistenceManagerStub = self::createStub(PersistenceManagerInterface::class);
-        $this->contextMock = $this->createMock(Context::class);
+        $this->contextMock            = $this->createMock(Context::class);
 
         // Reset user state
-        $this->isAdmin = false;
+        $this->isAdmin    = false;
         $this->isLoggedIn = true;
-        $this->groupIds = [];
+        $this->groupIds   = [];
     }
 
     private function createSubject(): LlmConfigurationService
@@ -103,8 +103,8 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
     private function setupAdminUser(): void
     {
         $this->isLoggedIn = true;
-        $this->isAdmin = true;
-        $this->groupIds = [];
+        $this->isAdmin    = true;
+        $this->groupIds   = [];
         $this->setupContextStub();
     }
 
@@ -114,8 +114,8 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
     private function setupNonAdminUser(array $groupIds = []): void
     {
         $this->isLoggedIn = true;
-        $this->isAdmin = false;
-        $this->groupIds = $groupIds;
+        $this->isAdmin    = false;
+        $this->groupIds   = $groupIds;
         $this->setupContextStub();
     }
 
@@ -144,9 +144,9 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
             {
                 return match ($name) {
                     'isLoggedIn' => $this->isLoggedIn,
-                    'isAdmin' => $this->isAdmin,
-                    'groupIds' => $this->groupIds,
-                    default => null,
+                    'isAdmin'    => $this->isAdmin,
+                    'groupIds'   => $this->groupIds,
+                    default      => null,
                 };
             }
         };
@@ -171,7 +171,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
             ->willReturn($config);
 
         $subject = $this->createSubject();
-        $result = $subject->getConfiguration('test-config');
+        $result  = $subject->getConfiguration('test-config');
 
         self::assertSame($config, $result);
     }
@@ -236,7 +236,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
             ->willReturn($config);
 
         $subject = $this->createSubject();
-        $result = $subject->getDefaultConfiguration();
+        $result  = $subject->getDefaultConfiguration();
 
         self::assertSame($config, $result);
     }
@@ -273,7 +273,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
             ->willReturn($queryResult);
 
         $subject = $this->createSubject();
-        $result = $subject->getAccessibleConfigurations();
+        $result  = $subject->getAccessibleConfigurations();
 
         self::assertCount(2, $result);
     }
@@ -294,7 +294,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
             ->willReturn($queryResult);
 
         $subject = $this->createSubject();
-        $result = $subject->getAccessibleConfigurations();
+        $result  = $subject->getAccessibleConfigurations();
 
         self::assertCount(1, $result);
     }
@@ -308,7 +308,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
         $config = $this->createConfigurationStub();
 
         $subject = $this->createSubject();
-        $result = $subject->hasAccess($config);
+        $result  = $subject->hasAccess($config);
 
         self::assertFalse($result);
     }
@@ -320,7 +320,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
         $config = $this->createConfigurationStub(hasRestrictions: true, groupIds: [5]);
 
         $subject = $this->createSubject();
-        $result = $subject->hasAccess($config);
+        $result  = $subject->hasAccess($config);
 
         self::assertTrue($result);
     }
@@ -332,7 +332,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
         $config = $this->createConfigurationStub(hasRestrictions: false);
 
         $subject = $this->createSubject();
-        $result = $subject->hasAccess($config);
+        $result  = $subject->hasAccess($config);
 
         self::assertTrue($result);
     }
@@ -344,7 +344,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
         $config = $this->createConfigurationStub(hasRestrictions: true, groupIds: [2, 5]);
 
         $subject = $this->createSubject();
-        $result = $subject->hasAccess($config);
+        $result  = $subject->hasAccess($config);
 
         self::assertTrue($result);
     }
@@ -356,7 +356,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
         $config = $this->createConfigurationStub(hasRestrictions: true, groupIds: [5, 6]);
 
         $subject = $this->createSubject();
-        $result = $subject->hasAccess($config);
+        $result  = $subject->hasAccess($config);
 
         self::assertFalse($result);
     }
@@ -507,7 +507,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
             ->willReturn(true);
 
         $subject = $this->createSubject();
-        $result = $subject->isIdentifierAvailable('new-identifier', 5);
+        $result  = $subject->isIdentifierAvailable('new-identifier', 5);
 
         self::assertTrue($result);
     }
@@ -521,7 +521,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
             ->willReturn(false);
 
         $subject = $this->createSubject();
-        $result = $subject->isIdentifierAvailable('existing-identifier');
+        $result  = $subject->isIdentifierAvailable('existing-identifier');
 
         self::assertFalse($result);
     }
@@ -540,7 +540,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
         $config->method('getBeGroups')->willReturn(new ObjectStorage());
 
         $subject = $this->createSubject();
-        $result = $subject->hasAccess($config);
+        $result  = $subject->hasAccess($config);
 
         // No allowed groups means no access
         self::assertFalse($result);
@@ -560,7 +560,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
             ->willReturn($queryResult);
 
         $subject = $this->createSubject();
-        $result = $subject->getAccessibleConfigurations();
+        $result  = $subject->getAccessibleConfigurations();
 
         self::assertEmpty($result);
     }

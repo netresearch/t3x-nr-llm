@@ -32,7 +32,7 @@ final class SkillSourceListBackendSkillsTest extends AbstractFunctionalTestCase
 {
     private const BACKEND = 30;
 
-    private const SYNCED  = 31;
+    private const SYNCED = 31;
 
     protected function tearDown(): void
     {
@@ -56,7 +56,7 @@ final class SkillSourceListBackendSkillsTest extends AbstractFunctionalTestCase
         $request    = $this->actionRequest('list');
         $controller = $this->getService(SkillSourceController::class);
         self::assertInstanceOf(SkillSourceController::class, $controller);
-        $body = html_entity_decode((string)$controller->processRequest($request)->getBody());
+        $body = html_entity_decode((string) $controller->processRequest($request)->getBody());
 
         self::assertStringContainsString('defVals[tx_nrllm_skill][source]=' . self::BACKEND, urldecode($body));
         self::assertStringNotContainsString('defVals[tx_nrllm_skill][source]=' . self::SYNCED, urldecode($body));

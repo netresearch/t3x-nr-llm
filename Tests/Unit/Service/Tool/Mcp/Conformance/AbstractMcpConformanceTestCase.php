@@ -342,13 +342,13 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
             ->connection()
             ->scriptedServer()
             ->willReturnRawForRequest(
-                static fn(
+                static fn (
                     array $request,
                 ): string => "event: message\ndata: " . json_encode(
                     [
                         'jsonrpc' => '2.0',
-                        'id' => $request['id'],
-                        'result' => [
+                        'id'      => $request['id'],
+                        'result'  => [
                             'content' => [['type' => 'text', 'text' => 'framed: hello']],
                         ],
                     ],
@@ -642,7 +642,7 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
                             implode(
                                 ',',
                                 array_map(
-                                    static fn(ReflectionParameter $next): string => $next->getName(),
+                                    static fn (ReflectionParameter $next): string => $next->getName(),
                                     array_slice(
                                         $parameters,
                                         $parameter->getPosition() + 1,
@@ -662,7 +662,7 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
                 McpHttpTransport::class . '::notify(?' . CancellationSignalInterface::class . ' $cancellation, position 5, following credentials)',
             ],
             $seams,
-            'ADR-190 names the three places a cancellation may enter this path — the tool call and the ' . 'two transport sends it drives — and no others, each taking nr-vault\'s signal type, nullable, ' . 'at its original positional index; ADR-217 adds only the known trailing actor/session context. A seam anywhere else is a second way in that nothing decided; a different shape in one ' . 'of these three is a different seam from the one the record names. This check has always been ' . 'for exactly that, and merely asserted the empty list while the gap was open',
+            'ADR-190 names the three places a cancellation may enter this path — the tool call and the two transport sends it drives — and no others, each taking nr-vault\'s signal type, nullable, at its original positional index; ADR-217 adds only the known trailing actor/session context. A seam anywhere else is a second way in that nothing decided; a different shape in one of these three is a different seam from the one the record names. This check has always been for exactly that, and merely asserted the empty list while the gap was open',
         );
     }
 
@@ -679,15 +679,15 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
     public static function serverFailures(): array
     {
         return [
-            'a server error'                => ['{}', 500, 'application/json'],
-            'a redirect we refuse to follow' => ['{}', 302, 'application/json'],
-            'an authentication refusal'     => ['{}', 401, 'application/json'],
-            'a JSON-RPC error object'       => ['{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}', 200, 'application/json'],
-            'a maintenance page'            => ['<html>maintenance</html>', 200, 'text/html'],
-            'an event stream with no message' => [": ping\n\n", 200, 'text/event-stream'],
+            'a server error'                                      => ['{}', 500, 'application/json'],
+            'a redirect we refuse to follow'                      => ['{}', 302, 'application/json'],
+            'an authentication refusal'                           => ['{}', 401, 'application/json'],
+            'a JSON-RPC error object'                             => ['{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}', 200, 'application/json'],
+            'a maintenance page'                                  => ['<html>maintenance</html>', 200, 'text/html'],
+            'an event stream with no message'                     => [": ping\n\n", 200, 'text/event-stream'],
             'an event stream carrying only a server notification' => ["data: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/message\",\"params\":{}}\n\n", 200, 'text/event-stream'],
-            'a body with neither result nor error' => ['{"jsonrpc":"2.0","id":1}', 200, 'application/json'],
-            'an empty body'                 => ['', 200, 'application/json'],
+            'a body with neither result nor error'                => ['{"jsonrpc":"2.0","id":1}', 200, 'application/json'],
+            'an empty body'                                       => ['', 200, 'application/json'],
         ];
     }
 
@@ -708,7 +708,7 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
             ->connection()
             ->scriptedServer()
             ->willReturnRawForRequest(
-                static fn(array $request): string => str_replace(
+                static fn (array $request): string => str_replace(
                     '"id":1',
                     '"id":' . json_encode($request['id']),
                     $body,

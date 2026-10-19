@@ -32,11 +32,11 @@ final readonly class PromptEvaluation
     public function toArray(): array
     {
         return [
-            'promptId' => $this->promptId,
-            'passed' => $this->result->passed,
-            'score' => $this->result->score,
-            'grader' => $this->result->grader,
-            'reason' => $this->result->reason,
+            'promptId'  => $this->promptId,
+            'passed'    => $this->result->passed,
+            'score'     => $this->result->score,
+            'grader'    => $this->result->grader,
+            'reason'    => $this->result->reason,
             'latencyMs' => $this->latencyMs,
             'generatorProvenance' => $this->generatorProvenance?->toArray(),
             'reportedAdapterKey' => $this->reportedAdapterKey,

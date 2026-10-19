@@ -165,7 +165,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
                         'description' => 'The uid of the single default-language page to set the image on.',
                     ],
                     'field' => [
-                        'type'        => 'string',
+                        'type' => 'string',
                         // Never an empty enum: a schema the model cannot satisfy
                         // is worse than a call that is refused with the reason.
                         'enum'        => $available === [] ? self::FIELDS : $available,
@@ -199,7 +199,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             return ToolResult::error($plan);
         }
 
-        $survivors   = array_map(static fn(array $reference): string => (string)$reference['uid'], $plan['existing']);
+        $survivors   = array_map(static fn (array $reference): string => (string) $reference['uid'], $plan['existing']);
         $placeholder = StringUtility::getUniqueId('NEW');
 
         // One run for the reference AND the page: see the class docblock for
@@ -219,7 +219,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
                         'uid_foreign' => $plan['page'],
                         'fieldname'   => $plan['field'],
                         // A page's inline children live on the page itself.
-                        'pid'         => $plan['page'],
+                        'pid' => $plan['page'],
                         // Stated rather than defaulted: the DataHandler checks
                         // language access against the record it is handed, and
                         // a payload without this field fails that check for a
@@ -275,7 +275,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         // found goes back into the page's field; where the cmdmap removed
         // some of it, the DataHandler relates only the rows still live and
         // the page counts those (measured, not read).
-        $live = array_map(static fn(array $reference): int => $reference['uid'], $this->existingReferences($plan['page'], $plan['field']));
+        $live = array_map(static fn (array $reference): int => $reference['uid'], $this->existingReferences($plan['page'], $plan['field']));
         if ($live !== [$newUid]) {
             return ToolResult::error(sprintf(
                 'Reference [%d] was created, but page [%d] still carries %d other live reference(s) in "%s": the previous '
@@ -342,7 +342,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             $plan['existing'] === []
                 ? $t(ApprovalPreviewLabel::SocialImageCurrentNone)
                 : $t(ApprovalPreviewLabel::SocialImageCurrent, implode(', ', array_map(
-                    static fn(array $reference): string => $q($reference['name']),
+                    static fn (array $reference): string => $q($reference['name']),
                     $plan['existing'],
                 ))),
             $t(ApprovalPreviewLabel::SocialImageProposed, $q($plan['fileName']), $q($plan['fileIdentifier'])),
@@ -773,7 +773,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
 
         $report = $reported === [] ? '' : ' TYPO3 reported while putting it back: ' . $this->summariseErrors($reported);
 
-        $live    = array_map(static fn(array $reference): int => $reference['uid'], $this->existingReferences($pageUid, $field));
+        $live    = array_map(static fn (array $reference): int => $reference['uid'], $this->existingReferences($pageUid, $field));
         $counter = self::toInt($this->fetchRowByUid(self::PAGES_TABLE, $pageUid)[$field] ?? 0);
 
         $notLanded = [];
@@ -828,7 +828,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             ->executeQuery()
             ->fetchAllAssociative();
 
-        return array_map(static fn(array $row): int => self::toInt($row['uid'] ?? 0), $rows);
+        return array_map(static fn (array $row): int => self::toInt($row['uid'] ?? 0), $rows);
     }
 
     /**
@@ -939,7 +939,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         }
 
         return implode(', ', array_map(
-            fn(array $reference): string => sprintf('file [%d] "%s"', $reference['file'], $this->excerpt($reference['name'])),
+            fn (array $reference): string => sprintf('file [%d] "%s"', $reference['file'], $this->excerpt($reference['name'])),
             $references,
         ));
     }
@@ -960,7 +960,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
 
         return array_values(array_filter(
             self::FIELDS,
-            fn(string $field): bool => self::toStr($this->configOf($field)['type'] ?? '') === 'file',
+            fn (string $field): bool => self::toStr($this->configOf($field)['type'] ?? '') === 'file',
         ));
     }
 
@@ -974,7 +974,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
     {
         $column = ($this->tcaColumnsFor(self::PAGES_TABLE) ?? [])[$field] ?? null;
 
-        return is_array($column) && (bool)($column['exclude'] ?? false);
+        return is_array($column) && (bool) ($column['exclude'] ?? false);
     }
 
     /**
@@ -1004,7 +1004,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         }
 
         return array_values(array_filter(array_map(
-            static fn(string $part): string => strtolower(trim($part)),
+            static fn (string $part): string => strtolower(trim($part)),
             explode(',', $allowed),
         )));
     }

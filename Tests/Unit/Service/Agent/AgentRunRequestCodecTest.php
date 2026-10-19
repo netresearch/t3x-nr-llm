@@ -154,7 +154,7 @@ final class AgentRunRequestCodecTest extends TestCase
         $skill = new Skill();
         $skill->setSource(1);
         $skill->setIdentifier($identifier);
-        $skill->setAllowedTools((string)json_encode([$tool]));
+        $skill->setAllowedTools((string) json_encode([$tool]));
         $skill->setEnabled(true);
 
         return $skill;

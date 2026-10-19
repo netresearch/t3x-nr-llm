@@ -16,6 +16,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+use function array_key_exists;
+
 /**
  * Unit tests for GetEnvTool.
  *
@@ -95,14 +97,14 @@ final class GetEnvToolTest extends TestCase
     private function fixtureEnv(): array
     {
         return [
-            self::PLAIN_KEY       => self::PLAIN_VALUE,
-            self::SECRET_KEY      => self::SECRET_VALUE,
-            self::PWD_KEY         => self::PWD_VALUE,
-            self::URL_KEY         => self::URL_VALUE,
-            self::NOUSER_URL_KEY  => self::NOUSER_URL_VALUE,
-            self::SHAPED_PAT_KEY  => self::SHAPED_PAT_VALUE,
+            self::PLAIN_KEY         => self::PLAIN_VALUE,
+            self::SECRET_KEY        => self::SECRET_VALUE,
+            self::PWD_KEY           => self::PWD_VALUE,
+            self::URL_KEY           => self::URL_VALUE,
+            self::NOUSER_URL_KEY    => self::NOUSER_URL_VALUE,
+            self::SHAPED_PAT_KEY    => self::SHAPED_PAT_VALUE,
             self::SHAPED_STRIPE_KEY => self::SHAPED_STRIPE_VALUE,
-            self::SHAPED_JWT_KEY  => self::SHAPED_JWT_VALUE,
+            self::SHAPED_JWT_KEY    => self::SHAPED_JWT_VALUE,
         ];
     }
 
@@ -164,7 +166,7 @@ final class GetEnvToolTest extends TestCase
      */
     private function overrideEnv(string $name, string $value): callable
     {
-        $had      = \array_key_exists($name, $_ENV);
+        $had      = array_key_exists($name, $_ENV);
         $previous = $had ? $_ENV[$name] : null;
 
         $_ENV[$name] = $value;

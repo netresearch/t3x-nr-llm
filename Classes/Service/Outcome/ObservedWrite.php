@@ -24,7 +24,7 @@ use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
  * It is what separates the write's own history row from the ones that came
  * after it, which is the difference between `ACCEPTED_UNCHANGED` and `EDITED`.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class ObservedWrite
 {

@@ -38,20 +38,20 @@ $syncedOverrides = [
 
 return [
     'ctrl' => [
-        'title' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill',
-        'type' => 'source:type',
-        'label' => 'name',
-        'label_alt' => 'identifier',
-        'tstamp' => 'tstamp',
-        'crdate' => 'crdate',
-        'delete' => 'deleted',
+        'title'          => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill',
+        'type'           => 'source:type',
+        'label'          => 'name',
+        'label_alt'      => 'identifier',
+        'tstamp'         => 'tstamp',
+        'crdate'         => 'crdate',
+        'delete'         => 'deleted',
         'default_sortby' => 'name ASC',
-        'enablecolumns' => [
+        'enablecolumns'  => [
             'disabled' => 'hidden',
         ],
         'typeicon_classes' => ['default' => 'nrllm-record-skill'],
-        'rootLevel' => -1,
-        'security' => [
+        'rootLevel'        => -1,
+        'security'         => [
             'ignorePageTypeRestriction' => true,
         ],
     ],
@@ -64,11 +64,11 @@ return [
     // against them on any source (SkillComposer::isEditedInPlace()).
     'types' => [
         // No source yet (a new record): the source is picked here.
-        '0' => ['showitem' => $syncedShowitem],
+        '0'           => ['showitem' => $syncedShowitem],
         'single_file' => ['showitem' => $syncedShowitem, 'columnsOverrides' => $syncedOverrides],
-        'repo' => ['showitem' => $syncedShowitem, 'columnsOverrides' => $syncedOverrides],
+        'repo'        => ['showitem' => $syncedShowitem, 'columnsOverrides' => $syncedOverrides],
         'marketplace' => ['showitem' => $syncedShowitem, 'columnsOverrides' => $syncedOverrides],
-        'backend' => [
+        'backend'     => [
             'showitem' => '
                 --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:general,
                     source,
@@ -85,14 +85,14 @@ return [
                     hidden,
             ',
             'columnsOverrides' => [
-                'source' => ['config' => ['foreign_table_where' => "AND {#tx_nrllm_skill_source}.{#type} = 'backend' ORDER BY tx_nrllm_skill_source.title"]],
-                'identifier' => ['config' => ['readOnly' => false, 'required' => true]],
-                'name' => ['config' => ['readOnly' => false]],
-                'description' => ['config' => ['readOnly' => false]],
-                'body' => ['config' => ['readOnly' => false]],
+                'source'        => ['config' => ['foreign_table_where' => "AND {#tx_nrllm_skill_source}.{#type} = 'backend' ORDER BY tx_nrllm_skill_source.title"]],
+                'identifier'    => ['config' => ['readOnly' => false, 'required' => true]],
+                'name'          => ['config' => ['readOnly' => false]],
+                'description'   => ['config' => ['readOnly' => false]],
+                'body'          => ['config' => ['readOnly' => false]],
                 'allowed_tools' => [
                     'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.allowed_tools.backend.description',
-                    'config' => ['readOnly' => false],
+                    'config'      => ['readOnly' => false],
                 ],
                 'process' => ['config' => ['readOnly' => false]],
             ],
@@ -106,9 +106,9 @@ return [
         // an explicit exclude-field grant.
         'hidden' => [
             'exclude' => true,
-            'label' => 'LLL:EXT:core/Resources/Private/Language/locallang_general.xlf:LGL.hidden',
-            'config' => [
-                'type' => 'check',
+            'label'   => 'LLL:EXT:core/Resources/Private/Language/locallang_general.xlf:LGL.hidden',
+            'config'  => [
+                'type'    => 'check',
                 'default' => 0,
             ],
         ],
@@ -116,24 +116,24 @@ return [
         // source would switch off its stored-value integrity check. The
         // approval's source binding covers an administrator doing it.
         'source' => [
-            'exclude' => true,
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.source',
+            'exclude'  => true,
+            'label'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.source',
             'onChange' => 'reload',
-            'config' => [
-                'type' => 'select',
-                'renderType' => 'selectSingle',
-                'foreign_table' => 'tx_nrllm_skill_source',
+            'config'   => [
+                'type'                => 'select',
+                'renderType'          => 'selectSingle',
+                'foreign_table'       => 'tx_nrllm_skill_source',
                 'foreign_table_where' => 'ORDER BY tx_nrllm_skill_source.title',
-                'minitems' => 1,
-                'maxitems' => 1,
+                'minitems'            => 1,
+                'maxitems'            => 1,
             ],
         ],
         'identifier' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.identifier',
+            'label'  => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.identifier',
             'config' => [
-                'type' => 'input',
-                'size' => 50,
-                'max' => 512,
+                'type'     => 'input',
+                'size'     => 50,
+                'max'      => 512,
                 'readOnly' => true,
             ],
         ],
@@ -141,88 +141,88 @@ return [
         // item 1) and written by the sync: an edit here fails the compose-time
         // integrity check, so FormEngine shows them read-only.
         'name' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.name',
+            'label'  => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.name',
             'config' => [
-                'type' => 'input',
-                'size' => 50,
-                'max' => 255,
-                'trim' => true,
+                'type'     => 'input',
+                'size'     => 50,
+                'max'      => 255,
+                'trim'     => true,
                 'required' => true,
                 'readOnly' => true,
             ],
         ],
         'description' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.description',
+            'label'  => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.description',
             'config' => [
-                'type' => 'text',
-                'cols' => 40,
-                'rows' => 3,
+                'type'     => 'text',
+                'cols'     => 40,
+                'rows'     => 3,
                 'readOnly' => true,
             ],
         ],
         'body' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.body',
+            'label'  => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.body',
             'config' => [
-                'type' => 'text',
-                'cols' => 80,
-                'rows' => 12,
-                'readOnly' => true,
+                'type'       => 'text',
+                'cols'       => 80,
+                'rows'       => 12,
+                'readOnly'   => true,
                 'searchable' => false,
             ],
         ],
         'body_checksum' => [
             'exclude' => true,
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.body_checksum',
-            'config' => [
-                'type' => 'input',
-                'size' => 30,
-                'max' => 64,
-                'readOnly' => true,
+            'label'   => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.body_checksum',
+            'config'  => [
+                'type'       => 'input',
+                'size'       => 30,
+                'max'        => 64,
+                'readOnly'   => true,
                 'searchable' => false,
             ],
         ],
         // Sync-managed (ADR-214 item 1): the digest over body and frontmatter
         // fields that approvals, revocations and pins name.
         'version_digest' => [
-            'exclude' => true,
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.version_digest',
+            'exclude'     => true,
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.version_digest',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.version_digest.description',
-            'config' => [
-                'type' => 'input',
-                'size' => 50,
-                'max' => 80,
-                'readOnly' => true,
+            'config'      => [
+                'type'       => 'input',
+                'size'       => 50,
+                'max'        => 80,
+                'readOnly'   => true,
                 'searchable' => false,
             ],
         ],
         // Sync-managed (ADR-214 item 6): the frontmatter's process marker.
         'process' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.process',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.process',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.process.description',
-            'config' => [
-                'type' => 'check',
-                'default' => 0,
+            'config'      => [
+                'type'     => 'check',
+                'default'  => 0,
                 'readOnly' => true,
             ],
         ],
         'source_sha' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.source_sha',
+            'label'  => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.source_sha',
             'config' => [
-                'type' => 'input',
-                'size' => 30,
-                'max' => 64,
-                'readOnly' => true,
+                'type'       => 'input',
+                'size'       => 30,
+                'max'        => 64,
+                'readOnly'   => true,
                 'searchable' => false,
             ],
         ],
         'raw_frontmatter' => [
             'exclude' => true,
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.raw_frontmatter',
-            'config' => [
-                'type' => 'text',
-                'cols' => 40,
-                'rows' => 5,
-                'readOnly' => true,
+            'label'   => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.raw_frontmatter',
+            'config'  => [
+                'type'       => 'text',
+                'cols'       => 40,
+                'rows'       => 5,
+                'readOnly'   => true,
                 'searchable' => false,
             ],
         ],
@@ -234,13 +234,13 @@ return [
         // Excluded: clearing it lifts the egress ceiling for the skill's text,
         // and no approval covers it (ADR-214 item 3).
         'data_class' => [
-            'exclude' => true,
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.data_class',
+            'exclude'     => true,
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.data_class',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.data_class.description',
-            'config' => [
-                'type' => 'select',
+            'config'      => [
+                'type'       => 'select',
                 'renderType' => 'selectSingle',
-                'items' => [
+                'items'      => [
                     ['label' => '', 'value' => ''],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.tool_data_class.publicContent', 'value' => 'publicContent'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.tool_data_class.editorContent', 'value' => 'editorContent'],
@@ -253,91 +253,91 @@ return [
         ],
         'trust_level' => [
             'exclude' => true,
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.trust_level',
-            'config' => [
-                'type' => 'select',
+            'label'   => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.trust_level',
+            'config'  => [
+                'type'       => 'select',
                 'renderType' => 'selectSingle',
-                'items' => [
+                'items'      => [
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.trust_level.untrusted', 'value' => 'untrusted'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.trust_level.community', 'value' => 'community'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.trust_level.verified', 'value' => 'verified'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.trust_level.first_party', 'value' => 'first_party'],
                 ],
-                'default' => 'untrusted',
+                'default'  => 'untrusted',
                 'readOnly' => true,
             ],
         ],
         'injection_scan' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.injection_scan',
+            'label'  => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.injection_scan',
             'config' => [
-                'type' => 'text',
-                'cols' => 40,
-                'rows' => 4,
-                'readOnly' => true,
+                'type'       => 'text',
+                'cols'       => 40,
+                'rows'       => 4,
+                'readOnly'   => true,
                 'searchable' => false,
             ],
         ],
         'support_status' => [
             'exclude' => true,
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.support_status',
-            'config' => [
-                'type' => 'select',
+            'label'   => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.support_status',
+            'config'  => [
+                'type'       => 'select',
                 'renderType' => 'selectSingle',
-                'items' => [
+                'items'      => [
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.support_status.full', 'value' => 'full'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.support_status.partial', 'value' => 'partial'],
                 ],
-                'default' => 'full',
+                'default'  => 'full',
                 'readOnly' => true,
             ],
         ],
         'unsupported_notes' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.unsupported_notes',
+            'label'  => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.unsupported_notes',
             'config' => [
-                'type' => 'text',
-                'cols' => 40,
-                'rows' => 3,
-                'readOnly' => true,
+                'type'       => 'text',
+                'cols'       => 40,
+                'rows'       => 3,
+                'readOnly'   => true,
                 'searchable' => false,
             ],
         ],
         'allowed_tools' => [
             'exclude' => true,
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.allowed_tools',
-            'config' => [
-                'type' => 'text',
-                'cols' => 40,
-                'rows' => 3,
-                'readOnly' => true,
+            'label'   => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.allowed_tools',
+            'config'  => [
+                'type'       => 'text',
+                'cols'       => 40,
+                'rows'       => 3,
+                'readOnly'   => true,
                 'searchable' => false,
             ],
         ],
         'orphaned' => [
             'exclude' => true,
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.orphaned',
+            'label'   => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.orphaned',
             // Written by the sync only; SkillDisabledByHook removes it from
             // every DataHandler write (ADR-214 item 3).
             'config' => [
-                'type' => 'check',
-                'default' => 0,
+                'type'     => 'check',
+                'default'  => 0,
                 'readOnly' => true,
             ],
         ],
         'enabled' => [
             'exclude' => true,
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.enabled',
-            'config' => [
-                'type' => 'check',
+            'label'   => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.enabled',
+            'config'  => [
+                'type'    => 'check',
                 'default' => 0,
             ],
         ],
         // Written by the sync and by SkillDisabledByHook when the enable flag
         // changes in the form; never shown or written by FormEngine.
         'disabled_by' => [
-            'exclude' => true,
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.disabled_by',
+            'exclude'     => true,
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.disabled_by',
             'displayCond' => 'HIDE_FOR_NON_ADMINS',
-            'config' => [
+            'config'      => [
                 'type' => 'passthrough',
             ],
         ],

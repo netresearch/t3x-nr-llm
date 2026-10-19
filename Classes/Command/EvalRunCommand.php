@@ -46,7 +46,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     description: 'Run a golden prompt set against a model and report grading and regression.',
 )]
 /**
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class EvalRunCommand extends Command
 {
@@ -75,7 +75,7 @@ final class EvalRunCommand extends Command
         InputInterface $input,
         OutputInterface $output,
     ): int {
-        $io = new SymfonyStyle($input, $output);
+        $io  = new SymfonyStyle($input, $output);
         $set = $this->findSet($input, $io);
         if (!$set instanceof GoldenPromptSet) {
             return Command::FAILURE;
@@ -97,7 +97,7 @@ final class EvalRunCommand extends Command
                 $evaluation->promptId,
                 $evaluation->result->passed ? 'pass' : 'FAIL',
                 sprintf('%.2f', $evaluation->result->score),
-                (string)$evaluation->latencyMs,
+                (string) $evaluation->latencyMs,
                 $evaluation->result->reason,
             ];
         }
@@ -112,7 +112,7 @@ final class EvalRunCommand extends Command
 
     private function buildBaseOptions(InputInterface $input): ?ChatOptions
     {
-        $model = $input->getOption('model');
+        $model    = $input->getOption('model');
         $provider = $input->getOption('provider');
         if (!is_string($model) && !is_string($provider)) {
             return null;
@@ -133,23 +133,23 @@ final class EvalRunCommand extends Command
     private function floatOption(InputInterface $input, string $name): float
     {
         $value = $input->getOption($name);
-        if (!is_numeric($value) || !is_finite((float)$value) || (float)$value < 0.0 || (float)$value > 1.0) {
+        if (!is_numeric($value) || !is_finite((float) $value) || (float) $value < 0.0 || (float) $value > 1.0) {
             throw new InvalidArgumentException(
                 sprintf('Option "--%s" must be a finite number in 0..1.', $name),
                 1794000041,
             );
         }
 
-        return (float)$value;
+        return (float) $value;
     }
 
     private function findSet(
         InputInterface $input,
         SymfonyStyle $io,
     ): ?GoldenPromptSet {
-        $argument = $input->getArgument('set');
+        $argument   = $input->getArgument('set');
         $identifier = is_string($argument) ? $argument : '';
-        $set = $this->registry->findByIdentifier($identifier);
+        $set        = $this->registry->findByIdentifier($identifier);
         if (!$set instanceof GoldenPromptSet) {
             $io->error(sprintf('Unknown golden prompt set "%s".', $identifier));
             $available = $this->registry->identifiers();
@@ -165,12 +165,13 @@ final class EvalRunCommand extends Command
         InputInterface $input,
         SymfonyStyle $io,
     ): ?string {
-        $option = $input->getOption('grader');
+        $option     = $input->getOption('grader');
         $identifier = is_string($option) ? $option : DeterministicGrader::IDENTIFIER;
-        $available = $this->evaluationService->availableGraders();
+        $available  = $this->evaluationService->availableGraders();
         if (!in_array($identifier, $available, true)) {
             $io->error(sprintf('Unknown grader "%s".', $identifier));
             $io->writeln('Available graders: ' . implode(', ', $available));
+
             return null;
         }
 
@@ -190,6 +191,7 @@ final class EvalRunCommand extends Command
             );
         } catch (InvalidArgumentException $exception) {
             $io->error($exception->getMessage());
+
             return Command::FAILURE;
         }
 

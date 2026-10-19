@@ -14,20 +14,20 @@ use Netresearch\NrLlm\Form\Tca\ToolGroupItems;
 
 return [
     'ctrl' => [
-        'title' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration',
-        'label' => 'name',
-        'label_alt' => 'identifier',
-        'tstamp' => 'tstamp',
-        'crdate' => 'crdate',
-        'sortby' => 'sorting',
+        'title'          => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration',
+        'label'          => 'name',
+        'label_alt'      => 'identifier',
+        'tstamp'         => 'tstamp',
+        'crdate'         => 'crdate',
+        'sortby'         => 'sorting',
         'default_sortby' => 'name ASC',
-        'delete' => 'deleted',
-        'enablecolumns' => [
+        'delete'         => 'deleted',
+        'enablecolumns'  => [
             'disabled' => 'hidden',
         ],
-        'iconfile' => 'EXT:nr_llm/Resources/Public/Icons/Extension.svg',
+        'iconfile'  => 'EXT:nr_llm/Resources/Public/Icons/Extension.svg',
         'rootLevel' => -1,
-        'security' => [
+        'security'  => [
             'ignorePageTypeRestriction' => true,
         ],
     ],
@@ -63,59 +63,59 @@ return [
     ],
     'palettes' => [
         'identity' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.identity',
+            'label'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.identity',
             'showitem' => 'identifier, name, --linebreak--, description',
         ],
         'provider' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.provider',
+            'label'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.provider',
             'showitem' => 'model_selection_mode, --linebreak--, model_uid, model_selection_criteria, --linebreak--, translator',
         ],
         'parameters' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.parameters',
+            'label'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.parameters',
             'showitem' => 'temperature, max_tokens, timeout, --linebreak--, top_p, frequency_penalty, presence_penalty',
         ],
         'limits' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.limits',
+            'label'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.limits',
             'showitem' => 'max_requests_per_day, max_tokens_per_day, max_cost_per_day',
         ],
         'status' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.status',
+            'label'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.status',
             'showitem' => 'is_active, is_default',
         ],
     ],
     'columns' => [
         'hidden' => [
-            'label' => 'LLL:EXT:core/Resources/Private/Language/locallang_general.xlf:LGL.hidden',
+            'label'  => 'LLL:EXT:core/Resources/Private/Language/locallang_general.xlf:LGL.hidden',
             'config' => [
-                'type' => 'check',
+                'type'    => 'check',
                 'default' => 0,
             ],
         ],
         'identifier' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.identifier',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.identifier',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.identifier.description',
-            'config' => [
-                'type' => 'input',
-                'size' => 30,
-                'max' => 100,
-                'trim' => true,
-                'eval' => 'alphanum_x,lower,unique',
+            'config'      => [
+                'type'     => 'input',
+                'size'     => 30,
+                'max'      => 100,
+                'trim'     => true,
+                'eval'     => 'alphanum_x,lower,unique',
                 'required' => true,
             ],
         ],
         'name' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.name',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.name',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.name.description',
-            'config' => [
-                'type' => 'input',
-                'size' => 50,
-                'max' => 255,
-                'trim' => true,
+            'config'      => [
+                'type'     => 'input',
+                'size'     => 50,
+                'max'      => 255,
+                'trim'     => true,
                 'required' => true,
             ],
         ],
         'description' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.description',
+            'label'  => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.description',
             'config' => [
                 'type' => 'text',
                 'cols' => 40,
@@ -124,13 +124,13 @@ return [
             ],
         ],
         'model_selection_mode' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.model_selection_mode',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.model_selection_mode',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.model_selection_mode.description',
-            'onChange' => 'reload',
-            'config' => [
-                'type' => 'select',
+            'onChange'    => 'reload',
+            'config'      => [
+                'type'       => 'select',
                 'renderType' => 'selectSingle',
-                'items' => [
+                'items'      => [
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.model_selection_mode.fixed', 'value' => 'fixed'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.model_selection_mode.criteria', 'value' => 'criteria'],
                 ],
@@ -138,19 +138,19 @@ return [
             ],
         ],
         'model_uid' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.model_uid',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.model_uid',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.model_uid.description',
             'displayCond' => 'FIELD:model_selection_mode:=:fixed',
-            'config' => [
-                'type' => 'select',
-                'renderType' => 'selectSingle',
-                'foreign_table' => 'tx_nrllm_model',
+            'config'      => [
+                'type'                => 'select',
+                'renderType'          => 'selectSingle',
+                'foreign_table'       => 'tx_nrllm_model',
                 'foreign_table_where' => 'AND {#tx_nrllm_model}.{#hidden} = 0 AND {#tx_nrllm_model}.{#deleted} = 0 ORDER BY tx_nrllm_model.name',
-                'items' => [
+                'items'               => [
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.model_uid.select', 'value' => 0],
                 ],
-                'default' => 0,
-                'minitems' => 0,
+                'default'     => 0,
+                'minitems'    => 0,
                 'fieldWizard' => [
                     'modelConstraintsWizard' => [
                         'renderType' => 'modelConstraintsWizard',
@@ -159,13 +159,13 @@ return [
             ],
         ],
         'model_selection_criteria' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.model_selection_criteria',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.model_selection_criteria',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.model_selection_criteria.description',
             'displayCond' => 'FIELD:model_selection_mode:=:criteria',
-            'config' => [
-                'type' => 'select',
+            'config'      => [
+                'type'       => 'select',
                 'renderType' => 'selectCheckBox',
-                'items' => [
+                'items'      => [
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.chat', 'value' => 'cap:chat', 'icon' => 'content-message', 'group' => 'capabilities'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.completion', 'value' => 'cap:completion', 'icon' => 'actions-document-new', 'group' => 'capabilities'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.vision', 'value' => 'cap:vision', 'icon' => 'actions-image', 'group' => 'capabilities'],
@@ -186,19 +186,19 @@ return [
                 ],
                 'itemGroups' => [
                     'capabilities' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.criteria.group.capabilities',
-                    'adapters' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.criteria.group.adapters',
-                    'preferences' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.criteria.group.preferences',
+                    'adapters'     => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.criteria.group.adapters',
+                    'preferences'  => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.criteria.group.preferences',
                 ],
                 'default' => '',
             ],
         ],
         'translator' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.translator',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.translator',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.translator.description',
-            'config' => [
-                'type' => 'select',
+            'config'      => [
+                'type'       => 'select',
                 'renderType' => 'selectSingle',
-                'items' => [
+                'items'      => [
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.translator.none', 'value' => ''],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.translator.deepl', 'value' => 'deepl'],
                 ],
@@ -206,15 +206,15 @@ return [
             ],
         ],
         'system_prompt' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.system_prompt',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.system_prompt',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.system_prompt.description',
-            'config' => [
-                'type' => 'text',
-                'cols' => 60,
-                'rows' => 8,
-                'trim' => true,
+            'config'      => [
+                'type'           => 'text',
+                'cols'           => 60,
+                'rows'           => 8,
+                'trim'           => true,
                 'enableRichtext' => false,
-                'searchable' => false,
+                'searchable'     => false,
             ],
         ],
         // The sensitivity ceiling an operator declares for the system prompt
@@ -224,12 +224,12 @@ return [
         // the declaration constrains which model it may resolve to. Empty means
         // UNDECLARED and constrains nothing.
         'system_prompt_data_class' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.system_prompt_data_class',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.system_prompt_data_class',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.system_prompt_data_class.description',
-            'config' => [
-                'type' => 'select',
+            'config'      => [
+                'type'       => 'select',
                 'renderType' => 'selectSingle',
-                'items' => [
+                'items'      => [
                     ['label' => '', 'value' => ''],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.tool_data_class.publicContent', 'value' => 'publicContent'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.tool_data_class.editorContent', 'value' => 'editorContent'],
@@ -241,29 +241,29 @@ return [
             ],
         ],
         'temperature' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.temperature',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.temperature',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.temperature.description',
-            'config' => [
-                'type' => 'number',
+            'config'      => [
+                'type'   => 'number',
                 'format' => 'decimal',
-                'size' => 5,
-                'range' => [
+                'size'   => 5,
+                'range'  => [
                     'lower' => 0.0,
                     'upper' => 2.0,
                 ],
                 'default' => 0.7,
-                'slider' => [
-                    'step' => 0.1,
+                'slider'  => [
+                    'step'  => 0.1,
                     'width' => 200,
                 ],
             ],
         ],
         'max_tokens' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.max_tokens',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.max_tokens',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.max_tokens.description',
-            'config' => [
-                'type' => 'number',
-                'size' => 10,
+            'config'      => [
+                'type'  => 'number',
+                'size'  => 10,
                 'range' => [
                     // 0 = unset: fall back to the model's max output tokens
                     // (or the provider default) — see #390.
@@ -274,13 +274,13 @@ return [
             ],
         ],
         'top_p' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.top_p',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.top_p',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.top_p.description',
-            'config' => [
-                'type' => 'number',
+            'config'      => [
+                'type'   => 'number',
                 'format' => 'decimal',
-                'size' => 5,
-                'range' => [
+                'size'   => 5,
+                'range'  => [
                     'lower' => 0.0,
                     'upper' => 1.0,
                 ],
@@ -288,13 +288,13 @@ return [
             ],
         ],
         'frequency_penalty' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.frequency_penalty',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.frequency_penalty',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.frequency_penalty.description',
-            'config' => [
-                'type' => 'number',
+            'config'      => [
+                'type'   => 'number',
                 'format' => 'decimal',
-                'size' => 5,
-                'range' => [
+                'size'   => 5,
+                'range'  => [
                     'lower' => -2.0,
                     'upper' => 2.0,
                 ],
@@ -302,13 +302,13 @@ return [
             ],
         ],
         'presence_penalty' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.presence_penalty',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.presence_penalty',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.presence_penalty.description',
-            'config' => [
-                'type' => 'number',
+            'config'      => [
+                'type'   => 'number',
                 'format' => 'decimal',
-                'size' => 5,
-                'range' => [
+                'size'   => 5,
+                'range'  => [
                     'lower' => -2.0,
                     'upper' => 2.0,
                 ],
@@ -316,11 +316,11 @@ return [
             ],
         ],
         'timeout' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.timeout',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.timeout',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.timeout.description',
-            'config' => [
-                'type' => 'number',
-                'size' => 5,
+            'config'      => [
+                'type'  => 'number',
+                'size'  => 5,
                 'range' => [
                     'lower' => 0,
                     'upper' => 600,
@@ -329,23 +329,23 @@ return [
             ],
         ],
         'options' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.options',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.options',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.options.description',
-            'config' => [
-                'type' => 'text',
-                'cols' => 60,
-                'rows' => 5,
-                'trim' => true,
+            'config'      => [
+                'type'        => 'text',
+                'cols'        => 60,
+                'rows'        => 5,
+                'trim'        => true,
                 'placeholder' => '{"stop_sequences": ["\\n\\n"]}',
-                'searchable' => false,
+                'searchable'  => false,
             ],
         ],
         'max_requests_per_day' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.max_requests_per_day',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.max_requests_per_day',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.max_requests_per_day.description',
-            'config' => [
-                'type' => 'number',
-                'size' => 10,
+            'config'      => [
+                'type'  => 'number',
+                'size'  => 10,
                 'range' => [
                     'lower' => 0,
                 ],
@@ -353,11 +353,11 @@ return [
             ],
         ],
         'max_tokens_per_day' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.max_tokens_per_day',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.max_tokens_per_day',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.max_tokens_per_day.description',
-            'config' => [
-                'type' => 'number',
-                'size' => 10,
+            'config'      => [
+                'type'  => 'number',
+                'size'  => 10,
                 'range' => [
                     'lower' => 0,
                 ],
@@ -365,29 +365,29 @@ return [
             ],
         ],
         'max_cost_per_day' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.max_cost_per_day',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.max_cost_per_day',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.max_cost_per_day.description',
-            'config' => [
-                'type' => 'number',
+            'config'      => [
+                'type'   => 'number',
                 'format' => 'decimal',
-                'size' => 10,
-                'range' => [
+                'size'   => 10,
+                'range'  => [
                     'lower' => 0,
                 ],
                 'default' => 0.00,
             ],
         ],
         'fallback_chain' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.fallback_chain',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.fallback_chain',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.fallback_chain.description',
-            'config' => [
-                'type' => 'text',
-                'cols' => 60,
-                'rows' => 4,
-                'trim' => true,
+            'config'      => [
+                'type'        => 'text',
+                'cols'        => 60,
+                'rows'        => 4,
+                'trim'        => true,
                 'placeholder' => '{"configurationIdentifiers":["claude-sonnet","ollama-local"]}',
-                'default' => '',
-                'searchable' => false,
+                'default'     => '',
+                'searchable'  => false,
             ],
         ],
         // SHA-256 checksum of the configuration preset this record was imported from; written by
@@ -409,62 +409,62 @@ return [
             ],
         ],
         'is_active' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.is_active',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.is_active',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.is_active.description',
-            'config' => [
-                'type' => 'check',
+            'config'      => [
+                'type'    => 'check',
                 'default' => 1,
             ],
         ],
         'is_default' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.is_default',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.is_default',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.is_default.description',
-            'config' => [
-                'type' => 'check',
+            'config'      => [
+                'type'    => 'check',
                 'default' => 0,
             ],
         ],
         'allowed_groups' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.allowed_groups',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.allowed_groups',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.allowed_groups.description',
-            'config' => [
-                'type' => 'select',
-                'renderType' => 'selectMultipleSideBySide',
-                'foreign_table' => 'be_groups',
+            'config'      => [
+                'type'                => 'select',
+                'renderType'          => 'selectMultipleSideBySide',
+                'foreign_table'       => 'be_groups',
                 'foreign_table_where' => 'AND {#be_groups}.{#hidden} = 0 AND {#be_groups}.{#deleted} = 0 ORDER BY be_groups.title',
-                'MM' => 'tx_nrllm_configuration_begroups_mm',
-                'size' => 5,
-                'minitems' => 0,
-                'maxitems' => 100,
+                'MM'                  => 'tx_nrllm_configuration_begroups_mm',
+                'size'                => 5,
+                'minitems'            => 0,
+                'maxitems'            => 100,
             ],
         ],
         'allowed_tool_groups' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.allowed_tool_groups',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.allowed_tool_groups',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.allowed_tool_groups.description',
-            'config' => [
-                'type' => 'select',
-                'renderType' => 'selectCheckBox',
+            'config'      => [
+                'type'          => 'select',
+                'renderType'    => 'selectCheckBox',
                 'itemsProcFunc' => ToolGroupItems::class . '->addItems',
-                'default' => '',
+                'default'       => '',
             ],
         ],
         'allowed_guardrails' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.allowed_guardrails',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.allowed_guardrails',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.allowed_guardrails.description',
-            'config' => [
-                'type' => 'select',
-                'renderType' => 'selectCheckBox',
+            'config'      => [
+                'type'          => 'select',
+                'renderType'    => 'selectCheckBox',
                 'itemsProcFunc' => GuardrailItems::class . '->addItems',
-                'default' => '',
+                'default'       => '',
             ],
         ],
         'require_second_approver' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.require_second_approver',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.require_second_approver',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.require_second_approver.description',
-            'config' => [
-                'type' => 'check',
+            'config'      => [
+                'type'       => 'check',
                 'renderType' => 'checkboxToggle',
-                'default' => 0,
+                'default'    => 0,
             ],
         ],
         // The tags decide which snippets reach a caller's system message
@@ -472,15 +472,15 @@ return [
         // whatever a group is granted: a marked snippet must not be routed
         // to a configuration nobody with that right chose.
         'snippet_tags' => [
-            'exclude' => true,
+            'exclude'     => true,
             'displayCond' => 'HIDE_FOR_NON_ADMINS',
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.snippet_tags',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.snippet_tags',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.snippet_tags.description',
-            'config' => [
-                'type' => 'select',
-                'renderType' => 'selectCheckBox',
+            'config'      => [
+                'type'          => 'select',
+                'renderType'    => 'selectCheckBox',
                 'itemsProcFunc' => SnippetTagItems::class . '->addItems',
-                'default' => '',
+                'default'       => '',
             ],
         ],
         // ADR-214 item 8: whether marked snippets also join a caller's own
@@ -490,50 +490,50 @@ return [
             'exclude' => true,
             // An administrator's decision, whatever a group is granted.
             'displayCond' => 'HIDE_FOR_NON_ADMINS',
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.snippets_in_caller_system_message',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.snippets_in_caller_system_message',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.snippets_in_caller_system_message.description',
-            'config' => [
-                'type' => 'check',
+            'config'      => [
+                'type'       => 'check',
                 'renderType' => 'checkboxToggle',
-                'default' => 0,
+                'default'    => 0,
             ],
         ],
         'skills' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.skills',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.skills',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.skills.description',
-            'config' => [
-                'type' => 'select',
-                'renderType' => 'selectMultipleSideBySide',
+            'config'      => [
+                'type'          => 'select',
+                'renderType'    => 'selectMultipleSideBySide',
                 'foreign_table' => 'tx_nrllm_skill',
                 // Every skill; SkillAttachmentItems offers only enabled,
                 // non-orphaned ones — and, attached 'always', no process skill
                 // (ADR-214 item 6) — for a new attachment, and keeps an
                 // attached one whatever its state, labelled (ADR-214 item 3).
                 'foreign_table_where' => 'ORDER BY tx_nrllm_skill.name',
-                'itemsProcFunc' => SkillAttachmentItems::class . '->filterAndLabel',
-                'MM' => 'tx_nrllm_configuration_skill_mm',
+                'itemsProcFunc'       => SkillAttachmentItems::class . '->filterAndLabel',
+                'MM'                  => 'tx_nrllm_configuration_skill_mm',
                 // Both fields share the MM table; the load mode tells their rows
                 // apart (ADR-214 item 4). Reads filter on it, writes set it.
                 'MM_match_fields' => ['load_mode' => 'always'],
-                'size' => 5,
-                'minitems' => 0,
-                'maxitems' => 100,
+                'size'            => 5,
+                'minitems'        => 0,
+                'maxitems'        => 100,
             ],
         ],
         'skills_on_demand' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.skills_on_demand',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.skills_on_demand',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.skills_on_demand.description',
-            'config' => [
-                'type' => 'select',
-                'renderType' => 'selectMultipleSideBySide',
-                'foreign_table' => 'tx_nrllm_skill',
+            'config'      => [
+                'type'                => 'select',
+                'renderType'          => 'selectMultipleSideBySide',
+                'foreign_table'       => 'tx_nrllm_skill',
                 'foreign_table_where' => 'ORDER BY tx_nrllm_skill.name',
-                'itemsProcFunc' => SkillAttachmentItems::class . '->filterAndLabel',
-                'MM' => 'tx_nrllm_configuration_skill_mm',
-                'MM_match_fields' => ['load_mode' => 'on_demand'],
-                'size' => 5,
-                'minitems' => 0,
-                'maxitems' => 100,
+                'itemsProcFunc'       => SkillAttachmentItems::class . '->filterAndLabel',
+                'MM'                  => 'tx_nrllm_configuration_skill_mm',
+                'MM_match_fields'     => ['load_mode' => 'on_demand'],
+                'size'                => 5,
+                'minitems'            => 0,
+                'maxitems'            => 100,
             ],
         ],
     ],

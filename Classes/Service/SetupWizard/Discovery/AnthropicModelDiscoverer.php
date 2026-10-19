@@ -17,7 +17,7 @@ use Throwable;
  * enrichment with API display names, recommended-first sort; falls back to a
  * hand-maintained catalog.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class AnthropicModelDiscoverer extends AbstractModelDiscoverer
 {
@@ -39,7 +39,7 @@ final class AnthropicModelDiscoverer extends AbstractModelDiscoverer
                 return DiscoveryResult::fallback($this->getAnthropicFallbackModels());
             }
 
-            $data = $this->decodeModelListBody('anthropic', $response->getBody()->getContents());
+            $data      = $this->decodeModelListBody('anthropic', $response->getBody()->getContents());
             $modelList = is_array($data) && isset($data['data']) && is_array($data['data'])
                 ? $data['data']
                 : [];
@@ -64,7 +64,7 @@ final class AnthropicModelDiscoverer extends AbstractModelDiscoverer
             }
 
             // Sort: recommended first, then by name
-            usort($models, fn(DiscoveredModel $a, DiscoveredModel $b): int => $b->recommended <=> $a->recommended);
+            usort($models, fn (DiscoveredModel $a, DiscoveredModel $b): int => $b->recommended <=> $a->recommended);
 
             return $models !== [] ? DiscoveryResult::live($models) : DiscoveryResult::fallback($this->getAnthropicFallbackModels());
         } catch (Throwable $e) {
@@ -83,38 +83,38 @@ final class AnthropicModelDiscoverer extends AbstractModelDiscoverer
     {
         $specs = [
             'claude-opus-4-5' => [
-                'name' => 'Claude Opus 4.5',
+                'name'        => 'Claude Opus 4.5',
                 'description' => 'Most intelligent, best for coding, agents, and computer use',
-                'costInput' => 500,
-                'costOutput' => 2500,
+                'costInput'   => 500,
+                'costOutput'  => 2500,
                 'recommended' => true,
             ],
             'claude-sonnet-4-5' => [
-                'name' => 'Claude Sonnet 4.5',
+                'name'        => 'Claude Sonnet 4.5',
                 'description' => 'Balanced performance and cost',
-                'costInput' => 300,
-                'costOutput' => 1500,
+                'costInput'   => 300,
+                'costOutput'  => 1500,
                 'recommended' => true,
             ],
             'claude-haiku-4-5' => [
-                'name' => 'Claude Haiku 4.5',
+                'name'        => 'Claude Haiku 4.5',
                 'description' => 'Fast and cost-effective for simple tasks',
-                'costInput' => 100,
-                'costOutput' => 500,
+                'costInput'   => 100,
+                'costOutput'  => 500,
                 'recommended' => true,
             ],
             'claude-opus-4' => [
-                'name' => 'Claude Opus 4',
+                'name'        => 'Claude Opus 4',
                 'description' => 'Previous generation Opus',
-                'costInput' => 1500,
-                'costOutput' => 7500,
+                'costInput'   => 1500,
+                'costOutput'  => 7500,
                 'recommended' => false,
             ],
             'claude-sonnet-4' => [
-                'name' => 'Claude Sonnet 4',
+                'name'        => 'Claude Sonnet 4',
                 'description' => 'Previous generation Sonnet',
-                'costInput' => 300,
-                'costOutput' => 1500,
+                'costInput'   => 300,
+                'costOutput'  => 1500,
                 'recommended' => false,
             ],
         ];

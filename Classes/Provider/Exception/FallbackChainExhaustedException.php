@@ -38,7 +38,7 @@ final class FallbackChainExhaustedException extends ProviderException
     public static function fromAttempts(array $attempts): self
     {
         $configurations = array_map(
-            static fn(array $attempt): string => $attempt['configuration'],
+            static fn (array $attempt): string => $attempt['configuration'],
             $attempts,
         );
         $last = self::decisive($attempts);
@@ -92,7 +92,7 @@ final class FallbackChainExhaustedException extends ProviderException
     public function getAttemptedConfigurations(): array
     {
         return array_map(
-            static fn(array $attempt): string => $attempt['configuration'],
+            static fn (array $attempt): string => $attempt['configuration'],
             $this->attemptErrors,
         );
     }

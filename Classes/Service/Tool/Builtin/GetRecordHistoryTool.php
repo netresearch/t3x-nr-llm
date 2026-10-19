@@ -295,7 +295,7 @@ final readonly class GetRecordHistoryTool implements ToolInterface
         $fields = array_unique(array_merge(array_keys($old), array_keys($new)));
         $parts  = [];
         foreach ($fields as $field) {
-            $fieldName = (string)$field;
+            $fieldName = (string) $field;
             if ($fieldFilter !== '' && $fieldName !== $fieldFilter) {
                 continue;
             }
@@ -331,7 +331,7 @@ final readonly class GetRecordHistoryTool implements ToolInterface
             return '[complex value]';
         }
 
-        $text = trim((string)preg_replace('/\s+/', ' ', (string)$value));
+        $text = trim((string) preg_replace('/\s+/', ' ', (string) $value));
 
         return mb_strimwidth($text, 0, self::VALUE_WIDTH, '…');
     }

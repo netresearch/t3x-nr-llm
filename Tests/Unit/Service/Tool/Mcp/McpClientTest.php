@@ -335,7 +335,7 @@ final class McpClientTest extends AbstractUnitTestCase
      * Every other assertion in this class is satisfied by a transport that
      * returns a constant — `durationMs => 0` passes them all. This one makes
      * the server slow and requires the number to notice, end to end: what
-     * {@see \Netresearch\NrLlm\Service\Tool\Mcp\McpHttpTransport} timed is what
+     * {@see McpHttpTransport} timed is what
      * the report shows and what the recorder is handed.
      */
     #[Test]

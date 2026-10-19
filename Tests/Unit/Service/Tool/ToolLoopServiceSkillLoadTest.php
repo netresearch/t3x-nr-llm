@@ -135,7 +135,7 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
     #[Test]
     public function aLoadInASuspendedTurnRunsOnResume(): void
     {
-        $turns = [[$this->loadCall('c1'), new ToolCall('c2', 'write', [])]];
+        $turns                     = [[$this->loadCall('c1'), new ToolCall('c2', 'write', [])]];
         [$service, $configuration] = $this->service($turns);
 
         try {
@@ -159,7 +159,7 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
     #[Test]
     public function aLoadInATurnSuspendedForInputRunsOnResumeWithInput(): void
     {
-        $turns = [[$this->loadCall('c1'), new ToolCall('c2', 'ask_user', [])]];
+        $turns                     = [[$this->loadCall('c1'), new ToolCall('c2', 'ask_user', [])]];
         [$service, $configuration] = $this->service($turns);
 
         try {
@@ -184,7 +184,7 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
     #[Test]
     public function aLoadInADeclinedTurnIsNotRunAndSaysWhy(): void
     {
-        $turns = [[$this->loadCall('c1'), new ToolCall('c2', 'write', [])]];
+        $turns                     = [[$this->loadCall('c1'), new ToolCall('c2', 'write', [])]];
         [$service, $configuration] = $this->service($turns);
 
         try {
@@ -209,7 +209,7 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
     #[Test]
     public function aResumeStartsTheWindowsMeasurementAfresh(): void
     {
-        $turns = [[$this->loadCall('c1'), new ToolCall('c2', 'write', [])]];
+        $turns                              = [[$this->loadCall('c1'), new ToolCall('c2', 'write', [])]];
         [$service, $configuration, $window] = $this->service($turns, admits: true);
         self::assertNotNull($window);
 
@@ -225,7 +225,7 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
 
         self::assertSame($before + 1, $window->begun);
 
-        $turns = [[$this->loadCall('c1'), new ToolCall('c2', 'ask_user', [])]];
+        $turns                              = [[$this->loadCall('c1'), new ToolCall('c2', 'ask_user', [])]];
         [$service, $configuration, $window] = $this->service($turns, admits: true);
         self::assertNotNull($window);
 
@@ -249,7 +249,7 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
     #[Test]
     public function aResumeWithAnEmptyCatalogueDoesNotOfferTheLoadTool(): void
     {
-        $turns = [[$this->loadCall('c1'), new ToolCall('c2', 'write', [])]];
+        $turns                     = [[$this->loadCall('c1'), new ToolCall('c2', 'write', [])]];
         [$service, $configuration] = $this->service($turns);
 
         try {
@@ -443,7 +443,7 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
     #[Test]
     public function anInvocationRuleRefusesALoadHeldInASuspendedTurn(): void
     {
-        $turns = [[$this->loadCall('c1'), new ToolCall('c2', 'write', [])]];
+        $turns                     = [[$this->loadCall('c1'), new ToolCall('c2', 'write', [])]];
         [$service, $configuration] = $this->service($turns, invocationPolicy: $this->rules([LoadSkillTool::NAME]));
 
         try {
@@ -463,7 +463,7 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
     #[Test]
     public function anInvocationRuleRefusesALoadHeldInATurnSuspendedForInput(): void
     {
-        $turns = [[$this->loadCall('c1'), new ToolCall('c2', 'ask_user', [])]];
+        $turns                     = [[$this->loadCall('c1'), new ToolCall('c2', 'ask_user', [])]];
         [$service, $configuration] = $this->service($turns, invocationPolicy: $this->rules([LoadSkillTool::NAME]));
 
         try {
@@ -501,7 +501,7 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
 
     private function runBound(SkillToolAllowList $list): void
     {
-        $turns = [];
+        $turns                     = [];
         [$service, $configuration] = $this->service($turns);
 
         $service->runLoop([ChatMessage::user('write the release note')], $configuration, ToolExecutionContext::none(), null, null, 5, skillAllowList: $list);
@@ -557,7 +557,7 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
                 return new ContextFitResult($messages, false, 0, 0, 10, 100, false, 1.0, ContextBudgetBreakdown::none());
             }
         };
-        $turns = [];
+        $turns                     = [];
         [$service, $configuration] = $this->service($turns, windowOverride: $window, modelSelection: $this->selecting($resolved), criteria: true);
 
         $service->runLoop([ChatMessage::user('write the release note')], $configuration, ToolExecutionContext::none(), null, null, 5);
@@ -568,7 +568,7 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
 
     private function runCriteriaLoad(string $body, ?Model $resolved): void
     {
-        $turns = [[$this->loadCall('c1')]];
+        $turns                     = [[$this->loadCall('c1')]];
         [$service, $configuration] = $this->service($turns, windowOverride: new ContextWindowManager(), modelSelection: $this->selecting($resolved), criteria: true, body: $body);
         $configuration->getLlmModel()?->setContextLength(8192);
         $configuration->getLlmModel()?->setMaxOutputTokens(500);
@@ -675,8 +675,8 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
             },
         );
 
-        $skill = $this->skill(self::SKILL_UID, 'style', $onDemandAllowedTools, $body);
-        $approvals = new InMemorySkillApprovalRepository();
+        $skill           = $this->skill(self::SKILL_UID, 'style', $onDemandAllowedTools, $body);
+        $approvals       = new InMemorySkillApprovalRepository();
         $this->approvals = $approvals;
 
         $lookup = new FixedSkillLoadLookup();
@@ -692,9 +692,9 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
         if ($attachOnDemand) {
             $configuration->addSkillOnDemand($skill);
             $lookup->onDemand[self::CONFIGURATION_UID] = [self::SKILL_UID];
-            $lookup->digests[self::SKILL_UID]         = $skill->getVersionDigest();
-            $lookup->trustLevels[self::SKILL_UID]     = $skill->getTrustLevel();
-            $lookup->sources[self::SKILL_UID]         = $skill->getSource();
+            $lookup->digests[self::SKILL_UID]          = $skill->getVersionDigest();
+            $lookup->trustLevels[self::SKILL_UID]      = $skill->getTrustLevel();
+            $lookup->sources[self::SKILL_UID]          = $skill->getSource();
         }
 
         if ($alwaysAllowedTools !== null) {
@@ -713,8 +713,8 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
             new LoadSkillTool(),
             new FakeInputTool('ask_user'),
         ]);
-        $window   = $admits === null ? null : $this->window($admits);
-        $service  = new ToolLoopService(
+        $window  = $admits === null ? null : $this->window($admits);
+        $service = new ToolLoopService(
             $manager,
             $registry,
             new ToolCallPolicy(
@@ -762,7 +762,7 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
             public function decide(ToolInvocationContext $context): ToolInvocationDecision
             {
                 $this->seen[$context->toolName] = array_map(
-                    static fn(array $entry): array => ['tool' => $entry['tool'], 'outcome' => $entry['outcome']],
+                    static fn (array $entry): array => ['tool' => $entry['tool'], 'outcome' => $entry['outcome']],
                     $context->history->entries,
                 );
 
@@ -820,7 +820,7 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
      */
     private function offeredNames(int $send): array
     {
-        return array_map(static fn(ToolSpec $spec): string => $spec->name, $this->sends[$send]['specs']);
+        return array_map(static fn (ToolSpec $spec): string => $spec->name, $this->sends[$send]['specs']);
     }
 
     private function spec(int $send, string $name): ToolSpec

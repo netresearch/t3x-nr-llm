@@ -66,7 +66,7 @@ final class FakeDecisionService implements DecisionServiceInterface
         $this->requests[] = $request;
 
         if ($this->throwable instanceof Throwable) {
-            $throwable = $this->throwable;
+            $throwable       = $this->throwable;
             $this->throwable = null;
 
             throw $throwable;

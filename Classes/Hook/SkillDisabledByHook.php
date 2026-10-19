@@ -64,7 +64,7 @@ final class SkillDisabledByHook
             return;
         }
 
-        $current = BackendUtility::getRecord('tx_nrllm_skill', (int)$id, 'enabled,hidden');
+        $current = BackendUtility::getRecord('tx_nrllm_skill', (int) $id, 'enabled,hidden');
         if (!is_array($current)) {
             return;
         }
@@ -112,9 +112,9 @@ final class SkillDisabledByHook
             // An administrator's copy of a skill an administrator disabled
             // keeps that decision; every other new disabled row restricts.
             $fieldArray['disabled_by'] = match (true) {
-                $this->isOn($fieldArray['enabled'] ?? 0)                => '',
+                $this->isOn($fieldArray['enabled'] ?? 0)             => '',
                 $admin && $incomingMark === Skill::DISABLED_BY_ADMIN => Skill::DISABLED_BY_ADMIN,
-                default                                                 => Skill::DISABLED_BY_SYNC,
+                default                                              => Skill::DISABLED_BY_SYNC,
             };
 
             return;
@@ -141,7 +141,7 @@ final class SkillDisabledByHook
     {
         $dataHandler->log(
             'tx_nrllm_skill',
-            is_numeric($id) ? (int)$id : 0,
+            is_numeric($id) ? (int) $id : 0,
             SystemLogDatabaseAction::UPDATE,
             null,
             SystemLogErrorClassification::USER_ERROR,
@@ -153,7 +153,7 @@ final class SkillDisabledByHook
 
     private function isOn(mixed $value): bool
     {
-        return is_numeric($value) && (int)$value === 1;
+        return is_numeric($value) && (int) $value === 1;
     }
 
     private function isInteractiveAdmin(mixed $user): bool

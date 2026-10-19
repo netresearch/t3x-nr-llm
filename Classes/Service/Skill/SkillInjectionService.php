@@ -94,7 +94,7 @@ final readonly class SkillInjectionService
      * @param list<Skill>                            $taskSkills
      *
      * `pins` names the versions the instruction sections were composed from
-     * (ADR-214 item 6), whether placed here or handed back.
+     * (ADR-214 item 6), whether placed here or handed back
      *
      * `instructionIds` names the skills whose sections the instructions hold,
      * for a refusal that has to name them (ADR-214 item 7).
@@ -164,7 +164,7 @@ final readonly class SkillInjectionService
             $content = $message[self::KEY_CONTENT] ?? '';
             if (is_array($content)) {
                 // A part list: the text joins as one more text part at the end.
-                $content[]                 = ['type' => 'text', 'text' => $text];
+                $content[]                  = ['type' => 'text', 'text' => $text];
                 $message[self::KEY_CONTENT] = $content;
             } else {
                 $message[self::KEY_CONTENT] = self::join(is_string($content) ? $content : '', $text);

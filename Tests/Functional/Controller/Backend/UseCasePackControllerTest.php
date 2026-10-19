@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
@@ -56,7 +57,7 @@ final class UseCasePackControllerTest extends AbstractFunctionalTestCase
         $before = $this->extensionRows();
 
         $response = $this->dispatch('index');
-        $body = (string)$response->getBody();
+        $body     = (string) $response->getBody();
 
         self::assertSame(200, $response->getStatusCode());
         foreach ([
@@ -80,11 +81,11 @@ final class UseCasePackControllerTest extends AbstractFunctionalTestCase
     public function theActualPlanDescribesPendingRecordsWithoutInstallingThem(): void
     {
         $this->satisfiableModel();
-        $before = $this->extensionRows();
+        $before     = $this->extensionRows();
         $governance = $this->governanceConfiguration();
 
         $response = $this->dispatch('show', 'editorial-starter');
-        $body = (string)$response->getBody();
+        $body     = (string) $response->getBody();
 
         self::assertSame(200, $response->getStatusCode());
         self::assertStringContainsString('Would be created', $body);
@@ -103,7 +104,7 @@ final class UseCasePackControllerTest extends AbstractFunctionalTestCase
     public static function unknownPackActions(): array
     {
         return [
-            'unknown plan' => ['show', 'GET'],
+            'unknown plan'    => ['show', 'GET'],
             'unknown install' => ['install', 'POST'],
         ];
     }
@@ -153,7 +154,7 @@ final class UseCasePackControllerTest extends AbstractFunctionalTestCase
     public function aConfirmedInstallCreatesTheDeclaredRecordsAndASecondConfirmationIsANoOp(): void
     {
         $this->satisfiableModel();
-        $before = $this->extensionRows();
+        $before     = $this->extensionRows();
         $governance = $this->governanceConfiguration();
 
         $response = $this->dispatch('install', 'editorial-starter', 'POST');
@@ -174,8 +175,8 @@ final class UseCasePackControllerTest extends AbstractFunctionalTestCase
         );
         foreach ($after['tx_nrllm_task'] as $task) {
             self::assertSame(
-                (int)$configuration['uid'],
-                (int)$task['configuration_uid'],
+                (int) $configuration['uid'],
+                (int) $task['configuration_uid'],
             );
         }
 
@@ -266,7 +267,7 @@ final class UseCasePackControllerTest extends AbstractFunctionalTestCase
     private function extensionRows(): array
     {
         $connection = $this->getConnection();
-        $snapshot = [];
+        $snapshot   = [];
         foreach ($connection->createSchemaManager()->listTableNames() as $table) {
             if (!str_starts_with($table, 'tx_nrllm_')) {
                 continue;
@@ -323,7 +324,7 @@ final class UseCasePackControllerTest extends AbstractFunctionalTestCase
             NormalizedParams::createFromRequest($request),
         );
         $GLOBALS['TYPO3_REQUEST'] = $request;
-        $GLOBALS['LANG'] = $this
+        $GLOBALS['LANG']          = $this
             ->getService(LanguageServiceFactory::class)
             ->createFromUserPreferences($GLOBALS['BE_USER'] ?? null);
 

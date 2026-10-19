@@ -21,7 +21,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
  * wins over every approval of that pair made before it; only a new approval
  * makes the digest instruct again.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 interface SkillApprovalRepositoryInterface
 {

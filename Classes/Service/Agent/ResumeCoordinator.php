@@ -283,7 +283,7 @@ final readonly class ResumeCoordinator
         // interleave segments. The claim is won, so a failure now settles the
         // run rather than stranding it RUNNING (fail-closed either way).
         [$claimed, $handle, $state] = $this->claimedRunState($run);
-        $initiatingActor = $this->claimedActor($state, $claimed, $handle);
+        $initiatingActor            = $this->claimedActor($state, $claimed, $handle);
 
         // Gate 1 — the decision must name THIS turn. hash_equals rather than
         // !== because comparing digests is what it is for, not because the
@@ -306,8 +306,8 @@ final readonly class ResumeCoordinator
             $this->logger?->warning(
                 'Approval refused: the approver may not run the pending write',
                 [
-                    'run' => $runUuid,
-                    'actor' => $actor->describe(),
+                    'run'    => $runUuid,
+                    'actor'  => $actor->describe(),
                     'reason' => $refusal->getMessage(),
                 ],
             );
@@ -340,7 +340,7 @@ final readonly class ResumeCoordinator
             $handle,
             $onStep,
             $initiatingActor,
-            fn(
+            fn (
                 ToolExecutionContext $context,
                 RunTrace $trace,
             ): ToolLoopResult => $this->toolLoop->resume(
@@ -712,7 +712,7 @@ final readonly class ResumeCoordinator
         }
 
         [$claimed, $handle, $state] = $this->claimedRunState($run);
-        $initiatingActor = $this->claimedActor($state, $claimed, $handle);
+        $initiatingActor            = $this->claimedActor($state, $claimed, $handle);
 
         // Gate 1 — the submission must name THIS turn (ADR-150). hash_equals for
         // the same reason as approve(): the digest is not a secret, and what it
@@ -731,8 +731,8 @@ final readonly class ResumeCoordinator
             $this->logger?->warning(
                 'Input submission refused: the submitter may not run the pending tool',
                 [
-                    'run' => $runUuid,
-                    'actor' => $actor->describe(),
+                    'run'    => $runUuid,
+                    'actor'  => $actor->describe(),
                     'reason' => $refusal->getMessage(),
                 ],
             );
@@ -751,7 +751,7 @@ final readonly class ResumeCoordinator
             $handle,
             $onStep,
             $initiatingActor,
-            fn(
+            fn (
                 ToolExecutionContext $context,
                 RunTrace $trace,
             ): ToolLoopResult => $this->toolLoop->resumeWithInput(
@@ -780,6 +780,7 @@ final readonly class ResumeCoordinator
         /** @var array<string, mixed> $decoded */
         $state = SuspendedRunState::fromArray($decoded);
         $this->actorForResume($state, $run);
+
         return $state;
     }
 
@@ -825,7 +826,7 @@ final readonly class ResumeCoordinator
     private function claimedRunState(AgentRun $run): array
     {
         $claimed = $this->persister->findRun($run->uuid);
-        $handle = $claimed instanceof AgentRun ? $this->persister->resumeHandle($claimed) : null;
+        $handle  = $claimed instanceof AgentRun ? $this->persister->resumeHandle($claimed) : null;
         if (!$claimed instanceof AgentRun || !$handle instanceof AgentRunHandle) {
             $this->persister->settleFailed(
                 new AgentRunHandle($run->uid, $run->uuid),

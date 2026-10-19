@@ -70,11 +70,11 @@ final readonly class AgentRunRequestCodec
             ?? $this->toolPolicy?->skillAllowListForRun($request->configuration, $augmentation->forcedSkills ?? []);
 
         return [
-            'messages'         => array_map(
+            'messages' => array_map(
                 // The stored shape, not the wire shape: a turn's provider items
                 // must survive the queue (ADR-203). ToolLoopService turns such a
                 // turn back into a ChatMessage before anything is sent.
-                static fn(ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toTranscriptArray() : $m,
+                static fn (ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toTranscriptArray() : $m,
                 $request->messages,
             ),
             // The FULL initiating actor (ADR-083), not just its backend-user id:
@@ -90,8 +90,8 @@ final readonly class AgentRunRequestCodec
             // ADR-084 resume case that exclusion was designed for. Carry them
             // out-of-band so run() and enqueue()+runQueued() of the same
             // request hit the identical budget gate and dedup.
-            'plannedCost'      => $request->options?->getPlannedCost(),
-            'idempotencyKey'   => $request->options?->getIdempotencyKey(),
+            'plannedCost'    => $request->options?->getPlannedCost(),
+            'idempotencyKey' => $request->options?->getIdempotencyKey(),
             // Same channel, same reason (#847): the caller identity is call
             // metadata, not a provider option, so it is absent from toArray() —
             // and a queued run would otherwise be unattributed for its whole
@@ -100,24 +100,24 @@ final readonly class AgentRunRequestCodec
             // extension and "Unattributed", and neither figure is its cost.
             'callerSourceExtension' => $request->options?->getCallerSourceExtension(),
             'callerSourceOperation' => $request->options?->getCallerSourceOperation(),
-            'maxIterations'    => $request->maxIterations,
-            'captureRaw'       => $request->captureRaw,
+            'maxIterations'         => $request->maxIterations,
+            'captureRaw'            => $request->captureRaw,
             // null stays null: a non-null augmentation makes the loop bake the
             // effective system prompt into the transcript (ADR-060 assembly),
             // which a null-augmentation run() would not do — losing the
             // distinction would silently change the prompt composition.
-            'augmentation'     => $augmentation instanceof RunAugmentation ? [
-                'forcedSkillUids'   => array_values(array_filter(array_map(
-                    static fn(Skill $skill): int => $skill->getUid() ?? 0,
+            'augmentation' => $augmentation instanceof RunAugmentation ? [
+                'forcedSkillUids' => array_values(array_filter(array_map(
+                    static fn (Skill $skill): int => $skill->getUid() ?? 0,
                     $augmentation->forcedSkills,
                 ))),
                 'forcedSnippetUids' => array_values(array_filter(array_map(
-                    static fn(PromptSnippet $snippet): int => $snippet->getUid() ?? 0,
+                    static fn (PromptSnippet $snippet): int => $snippet->getUid() ?? 0,
                     $augmentation->forcedSnippets,
                 ))),
-                'dryRun'            => $augmentation->dryRun,
+                'dryRun' => $augmentation->dryRun,
             ] : null,
-            'skillAllowList'   => $skillAllowList?->toStored(),
+            'skillAllowList' => $skillAllowList?->toStored(),
         ];
     }
 
@@ -184,7 +184,7 @@ final readonly class AgentRunRequestCodec
             // deduplicatable.
             $plannedCost = $data['plannedCost'] ?? null;
             if (is_float($plannedCost) || is_int($plannedCost)) {
-                $options = $options->withPlannedCost((float)$plannedCost);
+                $options = $options->withPlannedCost((float) $plannedCost);
             }
 
             $idempotencyKey = $data['idempotencyKey'] ?? null;
@@ -195,7 +195,7 @@ final readonly class AgentRunRequestCodec
             $callerSourceExtension = $data['callerSourceExtension'] ?? null;
             if (is_string($callerSourceExtension) && $callerSourceExtension !== '') {
                 $callerSourceOperation = $data['callerSourceOperation'] ?? null;
-                $options = $options->withCallerSource(
+                $options               = $options->withCallerSource(
                     $callerSourceExtension,
                     is_string($callerSourceOperation) ? $callerSourceOperation : '',
                 );
@@ -205,11 +205,11 @@ final readonly class AgentRunRequestCodec
         $augmentation = null;
         if (is_array($data['augmentation'] ?? null)) {
             $augmentationData = $data['augmentation'];
-            $skillUids = $this->uidList($augmentationData['forcedSkillUids'] ?? null);
-            $snippetUids = $this->uidList($augmentationData['forcedSnippetUids'] ?? null);
-            $forcedSkills = $this->skillsByUids($skillUids);
-            $forcedSnippets = $this->snippetsByUids($snippetUids);
-            $augmentation = new RunAugmentation(
+            $skillUids        = $this->uidList($augmentationData['forcedSkillUids'] ?? null);
+            $snippetUids      = $this->uidList($augmentationData['forcedSnippetUids'] ?? null);
+            $forcedSkills     = $this->skillsByUids($skillUids);
+            $forcedSnippets   = $this->snippetsByUids($snippetUids);
+            $augmentation     = new RunAugmentation(
                 forcedSkills: $forcedSkills,
                 forcedSnippets: $forcedSnippets,
                 dryRun: ($augmentationData['dryRun'] ?? false) === true,
@@ -417,7 +417,7 @@ final readonly class AgentRunRequestCodec
         }
 
         /** @var array<string, mixed> $stored */
-        $actor = AiActorContext::fromArray($stored);
+        $actor   = AiActorContext::fromArray($stored);
         $binding = $data['initiatingRunUuid'] ?? null;
         if (!$actor->isAuthenticated() || $actor->backendUserUid !== $run->beUser || $actor->isServiceAccount() && $actor->backendUserUid !== 0 || array_key_exists('initiatingRunUuid', $data) && (!is_string($binding) || !hash_equals($run->uuid, $binding))) {
             throw new RuntimeException(

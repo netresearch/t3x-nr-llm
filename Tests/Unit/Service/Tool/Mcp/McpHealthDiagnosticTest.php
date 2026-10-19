@@ -1,9 +1,11 @@
 <?php
 
-/* Copyright (c) 2026 Netresearch DTT GmbH
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Mcp;
 
@@ -43,9 +45,9 @@ final class McpHealthDiagnosticTest extends AbstractUnitTestCase
         string $loggerKind,
     ): void {
         $original = $this->errorFor($storageKind, 'storage failure');
-        $logger = new McpHealthDiagnosticLoggerFixture($loggerKind);
-        $subject = $this->recorder($original, $logger);
-        $caught = null;
+        $logger   = new McpHealthDiagnosticLoggerFixture($loggerKind);
+        $subject  = $this->recorder($original, $logger);
+        $caught   = null;
         try {
             $subject->recordContact(McpTestServer::server('health'), 17);
         } catch (Throwable $error) {
@@ -59,7 +61,7 @@ final class McpHealthDiagnosticTest extends AbstractUnitTestCase
         self::assertSame(
             [
                 [
-                    'level' => 'warning',
+                    'level'   => 'warning',
                     'message' => 'An MCP liveness observation could not be stored',
                     'context' => ['server' => 'health', 'exception' => $original],
                 ],
@@ -76,8 +78,8 @@ final class McpHealthDiagnosticTest extends AbstractUnitTestCase
         string $operation,
     ): void {
         $original = $this->errorFor($storageKind, 'storage failure');
-        $logger = new McpHealthDiagnosticLoggerFixture($loggerKind);
-        $http = new McpTestServer();
+        $logger   = new McpHealthDiagnosticLoggerFixture($loggerKind);
+        $http     = new McpTestServer();
         if ($operation === 'ping') {
             $http->willReturn(['protocolVersion' => '2025-06-18']);
         } else {
@@ -111,8 +113,8 @@ final class McpHealthDiagnosticTest extends AbstractUnitTestCase
         $actual = null;
         try {
             $actual = match ($operation) {
-                'ping' => $client->ping($server)->reachable,
-                'list' => $client->listTools($server),
+                'ping'  => $client->ping($server)->reachable,
+                'list'  => $client->listTools($server),
                 default => $client->callTool($server, 'read', [])->text,
             };
         } catch (Throwable $error) {
@@ -125,16 +127,16 @@ final class McpHealthDiagnosticTest extends AbstractUnitTestCase
         );
         self::assertSame(
             match ($operation) {
-                'ping' => true,
-                'list' => [['name' => 'read']],
+                'ping'  => true,
+                'list'  => [['name' => 'read']],
                 default => 'still answered',
             },
             $actual,
         );
         self::assertSame(
             match ($operation) {
-                'ping' => ['initialize', 'notifications/initialized'],
-                'list' => ['initialize', 'notifications/initialized', 'tools/list'],
+                'ping'  => ['initialize', 'notifications/initialized'],
+                'list'  => ['initialize', 'notifications/initialized', 'tools/list'],
                 default => ['initialize', 'notifications/initialized', 'tools/call'],
             },
             $http->methods(),
@@ -142,7 +144,7 @@ final class McpHealthDiagnosticTest extends AbstractUnitTestCase
         self::assertSame(
             [
                 [
-                    'level' => 'warning',
+                    'level'   => 'warning',
                     'message' => 'An MCP liveness observation could not be stored',
                     'context' => ['server' => 'health', 'exception' => $original],
                 ],
@@ -197,6 +199,7 @@ final class McpHealthDiagnosticTest extends AbstractUnitTestCase
                 new DateTimeImmutable('@1700000000'),
             ),
         );
+
         return new McpHealthRecorder(
             new McpServerRepository($connections),
             $context,
@@ -221,8 +224,8 @@ final class McpHealthDiagnosticLoggerFixture extends AbstractLogger
         array $context = [],
     ): void {
         $this->records[] = [
-            'level' => $level,
-            'message' => (string)$message,
+            'level'   => $level,
+            'message' => (string) $message,
             'context' => $context,
         ];
         if ($this->mode === 'runtime') {

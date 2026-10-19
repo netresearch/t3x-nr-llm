@@ -26,7 +26,7 @@ use TYPO3\CMS\Core\Context\Context;
  * an operator a stale timestamp; a thrown exception would cost them the answer
  * they were waiting for.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class McpHealthRecorder implements McpHealthRecorderInterface
 {

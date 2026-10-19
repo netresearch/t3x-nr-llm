@@ -74,7 +74,7 @@ final class UseCasePackRegistry
     {
         return array_values(array_filter(
             $this->byIdentifier,
-            static fn(UseCasePack $pack): bool => $pack->useCase === $useCase,
+            static fn (UseCasePack $pack): bool => $pack->useCase === $useCase,
         ));
     }
 }

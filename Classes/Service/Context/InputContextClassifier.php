@@ -93,7 +93,7 @@ final readonly class InputContextClassifier
             ...$this->fromSnippets($configuration),
             ...$this->fromSkills($configuration),
         ];
-        $seen    = [];
+        $seen = [];
         foreach ($sources as $source) {
             $seen[$source->source] = true;
         }
@@ -181,8 +181,8 @@ final readonly class InputContextClassifier
             }
 
             $seen[$key] = true;
-            $name  = $this->skillName($skill->getName());
-            $class = $skill->getDataClassEnum();
+            $name       = $this->skillName($skill->getName());
+            $class      = $skill->getDataClassEnum();
 
             $sources[] = $class === null
                 ? InputContextClassification::undeclaredFrom($name)

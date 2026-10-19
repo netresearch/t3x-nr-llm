@@ -91,8 +91,8 @@ final class AgentRunRepositoryAggregatesTest extends AbstractFunctionalTestCase
     #[Test]
     public function countInStatusIsALiveGaugeIgnoringAge(): void
     {
-        $now        = time();
-        $longAgo    = $now - (30 * 86400);
+        $now     = time();
+        $longAgo = $now - (30 * 86400);
         $this->insertRun(AgentRunStatus::WAITING_FOR_APPROVAL->value, '', $longAgo);
         $this->insertRun(AgentRunStatus::WAITING_FOR_APPROVAL->value, '', $now);
         $this->insertRun(AgentRunStatus::RUNNING->value, '', $now);

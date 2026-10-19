@@ -226,8 +226,8 @@ class BudgetServiceTest extends AbstractUnitTestCase
         $this->repositoryStub->method('findOneByBeUser')->willReturn($budget);
 
         /** @var BudgetUsageWindowsInterface&MockObject $usageWindows */
-        $usageWindows = $this->createMock(BudgetUsageWindowsInterface::class);
-        $capturedDailyFrom = null;
+        $usageWindows        = $this->createMock(BudgetUsageWindowsInterface::class);
+        $capturedDailyFrom   = null;
         $capturedMonthlyFrom = null;
         $usageWindows->expects(self::once())
             ->method('aggregate')
@@ -236,10 +236,11 @@ class BudgetServiceTest extends AbstractUnitTestCase
                 ?int $dailyFromTimestamp,
                 ?int $monthlyFromTimestamp,
             ) use (&$capturedDailyFrom, &$capturedMonthlyFrom): array {
-                $capturedDailyFrom = $dailyFromTimestamp;
+                $capturedDailyFrom   = $dailyFromTimestamp;
                 $capturedMonthlyFrom = $monthlyFromTimestamp;
+
                 return [
-                    'daily' => ['requests' => 3, 'tokens' => 0, 'cost' => 0.0],
+                    'daily'   => ['requests' => 3, 'tokens' => 0, 'cost' => 0.0],
                     'monthly' => ['requests' => 50, 'tokens' => 0, 'cost' => 0.0],
                 ];
             });
@@ -292,7 +293,7 @@ class BudgetServiceTest extends AbstractUnitTestCase
     {
         $this->repositoryStub->method('findOneByBeUser')->willReturn(null);
         $service = $this->makeService(configUsage: ['requests' => 1, 'tokens' => 10, 'cost' => 0.9]);
-        $config = $this->makeConfiguration(uid: 7, dailyCost: 1.0);
+        $config  = $this->makeConfiguration(uid: 7, dailyCost: 1.0);
 
         // 0.9 used + 0.5 planned = 1.4 > 1.0 cap
         $result = $service->check(42, 0.5, $config);
@@ -309,7 +310,7 @@ class BudgetServiceTest extends AbstractUnitTestCase
         // Usage already at the limit -> +1 incoming > limit (compare() semantics)
         $this->repositoryStub->method('findOneByBeUser')->willReturn(null);
         $service = $this->makeService(configUsage: ['requests' => 10, 'tokens' => 0, 'cost' => 0.0]);
-        $config = $this->makeConfiguration(uid: 7, dailyRequests: 10);
+        $config  = $this->makeConfiguration(uid: 7, dailyRequests: 10);
 
         $result = $service->check(42, 0.0, $config);
 
@@ -322,7 +323,7 @@ class BudgetServiceTest extends AbstractUnitTestCase
     {
         $this->repositoryStub->method('findOneByBeUser')->willReturn(null);
         $service = $this->makeService(configUsage: ['requests' => 0, 'tokens' => 1500, 'cost' => 0.0]);
-        $config = $this->makeConfiguration(uid: 7, dailyTokens: 1000);
+        $config  = $this->makeConfiguration(uid: 7, dailyTokens: 1000);
 
         $result = $service->check(42, 0.0, $config);
 
@@ -336,7 +337,7 @@ class BudgetServiceTest extends AbstractUnitTestCase
         // CLI/scheduler traffic (beUserUid 0) skips only the per-user
         // check; the configuration-scoped cap still gates the call.
         $service = $this->makeService(configUsage: ['requests' => 1, 'tokens' => 10, 'cost' => 0.9]);
-        $config = $this->makeConfiguration(uid: 7, dailyCost: 1.0);
+        $config  = $this->makeConfiguration(uid: 7, dailyCost: 1.0);
 
         $result = $service->check(0, 0.5, $config);
 
@@ -356,7 +357,7 @@ class BudgetServiceTest extends AbstractUnitTestCase
         $usageWindows->expects(self::never())->method('aggregateForConfiguration');
 
         $service = new BudgetService($this->repositoryStub, $usageWindows);
-        $config = $this->makeConfiguration(uid: null, dailyCost: 1.0);
+        $config  = $this->makeConfiguration(uid: null, dailyCost: 1.0);
 
         self::assertTrue($service->check(42, 5.0, $config)->allowed);
     }
@@ -373,7 +374,7 @@ class BudgetServiceTest extends AbstractUnitTestCase
         $usageWindows->expects(self::never())->method('aggregateForConfiguration');
 
         $service = new BudgetService($this->repositoryStub, $usageWindows);
-        $config = $this->makeConfiguration(uid: 7);
+        $config  = $this->makeConfiguration(uid: 7);
 
         self::assertTrue($service->check(42, 5.0, $config)->allowed);
     }
@@ -389,13 +390,13 @@ class BudgetServiceTest extends AbstractUnitTestCase
         /** @var BudgetUsageWindowsInterface&MockObject $usageWindows */
         $usageWindows = $this->createMock(BudgetUsageWindowsInterface::class);
         $usageWindows->method('aggregate')->willReturn([
-            'daily' => ['requests' => 0, 'tokens' => 0, 'cost' => 0.9],
+            'daily'   => ['requests' => 0, 'tokens' => 0, 'cost' => 0.9],
             'monthly' => ['requests' => 0, 'tokens' => 0, 'cost' => 0.9],
         ]);
         $usageWindows->expects(self::never())->method('aggregateForConfiguration');
 
         $service = new BudgetService($this->repositoryStub, $usageWindows);
-        $config = $this->makeConfiguration(uid: 7, dailyCost: 1.0);
+        $config  = $this->makeConfiguration(uid: 7, dailyCost: 1.0);
 
         $result = $service->check(42, 0.5, $config);
 
@@ -408,11 +409,11 @@ class BudgetServiceTest extends AbstractUnitTestCase
      * @param array{requests: int, tokens: int, cost: float}|null $monthly
      * @param array{requests: int, tokens: int, cost: float}|null $configUsage
      */
-    private function makeService(array $daily = null, array $monthly = null, array $configUsage = null): BudgetService
+    private function makeService(?array $daily = null, ?array $monthly = null, ?array $configUsage = null): BudgetService
     {
         $usageWindows = self::createStub(BudgetUsageWindowsInterface::class);
         $usageWindows->method('aggregate')->willReturn([
-            'daily' => $daily ?? ['requests' => 0, 'tokens' => 0, 'cost' => 0.0],
+            'daily'   => $daily ?? ['requests' => 0, 'tokens' => 0, 'cost' => 0.0],
             'monthly' => $monthly ?? ['requests' => 0, 'tokens' => 0, 'cost' => 0.0],
         ]);
         $usageWindows->method('aggregateForConfiguration')->willReturn(
@@ -458,6 +459,7 @@ class BudgetServiceTest extends AbstractUnitTestCase
         $budget->setMaxRequestsPerMonth($monthlyRequests);
         $budget->setMaxTokensPerMonth($monthlyTokens);
         $budget->setMaxCostPerMonth($monthlyCost);
+
         return $budget;
     }
 }

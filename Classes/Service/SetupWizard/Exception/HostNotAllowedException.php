@@ -16,7 +16,7 @@ use Netresearch\NrLlm\Exception\RuntimeException;
  * the target host is not covered by the nr-vault SSRF host allowlist
  * (`SecureHttpClientFactory::isHostAllowed()`).
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class HostNotAllowedException extends RuntimeException
 {

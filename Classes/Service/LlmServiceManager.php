@@ -507,8 +507,8 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      * Record how involved this send was, for the telemetry row (ADR-156).
      *
      * OBSERVATION. The figure reaches one column and no decision: nothing in
-     * {@see \Netresearch\NrLlm\Service\Routing\CandidateRanker},
-     * {@see \Netresearch\NrLlm\Service\Routing\EligibilityEvaluator} or
+     * {@see Routing\CandidateRanker},
+     * {@see Routing\EligibilityEvaluator} or
      * {@see \Netresearch\NrLlm\Domain\Enum\RoutingPolicyMode} reads it, and
      * ADR-156 states the three conditions that must hold before anything may.
      *
@@ -675,7 +675,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         return $this->runThroughPipeline(
             $this->synthesizeTransientConfiguration(ProviderOperation::Chat, $providerKey),
             ProviderOperation::Chat,
-            fn(): CompletionResponse => ServingGeneratorMetadata::attach(
+            fn (): CompletionResponse => ServingGeneratorMetadata::attach(
                 $this
                     ->getProvider($providerKey)
                     ->chatCompletion(
@@ -719,7 +719,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         return $this->runThroughPipeline(
             $this->synthesizeTransientConfiguration(ProviderOperation::Completion, $providerKey),
             ProviderOperation::Completion,
-            fn(): CompletionResponse => ServingGeneratorMetadata::attach(
+            fn (): CompletionResponse => ServingGeneratorMetadata::attach(
                 $this
                     ->getProvider($providerKey)
                     ->complete($prompt, $optionsArray),
@@ -738,15 +738,15 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
     public function embed(string|array $input, ?EmbeddingOptions $options = null): EmbeddingResponse
     {
         $options ??= new EmbeddingOptions();
-        [$providerKey, $optionsArray] = $this->splitProviderKey($options->toArray());
+        [$providerKey, $optionsArray]                 = $this->splitProviderKey($options->toArray());
         [$configuration, $providerKey, $optionsArray] = $this->applyDefaultConfiguration($providerKey, $optionsArray);
 
         // Cache metadata: EmbedCacheKeyBuilder returns an empty array when
         // cache_ttl <= 0 (the EmbeddingOptions::noCache() contract), so the key
         // is left out and CacheMiddleware becomes a no-op for this call. The
         // ad-hoc path keys by provider identifier.
-        $cacheTtl = is_int($optionsArray['cache_ttl'] ?? null) ? $optionsArray['cache_ttl'] : 0;
-        $metadata = $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options);
+        $cacheTtl         = is_int($optionsArray['cache_ttl'] ?? null) ? $optionsArray['cache_ttl'] : 0;
+        $metadata         = $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options);
         $resolvedProvider = $providerKey ?? 'default';
         $metadata += $this->embedCacheKeyBuilder->build(
             $cacheTtl,
@@ -801,7 +801,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
     public function vision(array $content, ?VisionOptions $options = null): VisionResponse
     {
         $options ??= new VisionOptions();
-        [$providerKey, $optionsArray] = $this->splitProviderKey($options->toArray());
+        [$providerKey, $optionsArray]                 = $this->splitProviderKey($options->toArray());
         [$configuration, $providerKey, $optionsArray] = $this->applyDefaultConfiguration($providerKey, $optionsArray);
 
         $normalisedContent = array_values(array_map(
@@ -907,7 +907,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // first iteration inside the dispatcher.
         $this->assertStreamingCapable($this->getProvider($providerKey), 1581627129);
 
-        $metadata = $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->callerSource($options);
+        $metadata                                             = $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->callerSource($options);
         $metadata[StreamingDispatcher::METADATA_PROVIDER]     = $providerKey ?? 'default';
         $metadata[StreamingDispatcher::METADATA_PROMPT_CHARS] = $this->estimatePromptChars($messages);
 
@@ -1037,7 +1037,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                     // The estimator counts what goes on the wire, so the specs
                     // are handed over in their serialised shape rather than as
                     // value objects.
-                    array_map(static fn(ToolSpec $spec): array => $spec->toArray(), $normalisedTools),
+                    array_map(static fn (ToolSpec $spec): array => $spec->toArray(), $normalisedTools),
                     $ctx->telemetrySignals,
                 );
 
@@ -1050,7 +1050,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options),
             new PipelineScope($run, $injectedContext, $this->collectRequestFacts(
                 $normalisedMessages,
-                array_map(static fn(ToolSpec $spec): array => $spec->toArray(), $normalisedTools),
+                array_map(static fn (ToolSpec $spec): array => $spec->toArray(), $normalisedTools),
             )),
         );
     }
@@ -1794,5 +1794,4 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
 
         return is_string($value) && $value !== '' ? $value : null;
     }
-
 }

@@ -35,7 +35,7 @@ final class AllowedToolsResolverDeclaredToolsTest extends TestCase
 {
     private const BACKEND = 20;
 
-    private const SYNCED  = 21;
+    private const SYNCED = 21;
 
     private InMemorySkillApprovalRepository $approvals;
 

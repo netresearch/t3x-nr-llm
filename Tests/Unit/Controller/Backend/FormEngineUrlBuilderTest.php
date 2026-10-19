@@ -62,7 +62,7 @@ final class FormEngineUrlBuilderTest extends TestCase
                 [
                     'record_edit',
                     [
-                        'edit' => ['tx_nrllm_promptsnippet' => [42 => 'edit']],
+                        'edit'      => ['tx_nrllm_promptsnippet' => [42 => 'edit']],
                         'returnUrl' => '/typo3/module/nrllm_snippets',
                     ],
                 ],
@@ -83,7 +83,7 @@ final class FormEngineUrlBuilderTest extends TestCase
                 [
                     'record_edit',
                     [
-                        'edit' => ['tx_nrllm_promptsnippet' => [0 => 'new']],
+                        'edit'      => ['tx_nrllm_promptsnippet' => [0 => 'new']],
                         'returnUrl' => '/typo3/module/nrllm_snippets',
                     ],
                 ],
@@ -108,9 +108,9 @@ final class FormEngineUrlBuilderTest extends TestCase
                 [
                     'record_edit',
                     [
-                        'edit' => ['tx_nrllm_skill' => [0 => 'new']],
+                        'edit'      => ['tx_nrllm_skill' => [0 => 'new']],
                         'returnUrl' => '/typo3/module/nrllm_skills',
-                        'defVals' => ['tx_nrllm_skill' => ['source' => 7]],
+                        'defVals'   => ['tx_nrllm_skill' => ['source' => 7]],
                     ],
                 ],
             ],

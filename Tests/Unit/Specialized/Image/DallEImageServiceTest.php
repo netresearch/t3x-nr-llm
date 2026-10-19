@@ -81,13 +81,13 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     {
         parent::setUp();
 
-        $this->httpClientStub = self::createStub(ClientInterface::class);
-        $this->requestFactoryStub = self::createStub(RequestFactoryInterface::class);
-        $this->streamFactoryStub = self::createStub(StreamFactoryInterface::class);
+        $this->httpClientStub      = self::createStub(ClientInterface::class);
+        $this->requestFactoryStub  = self::createStub(RequestFactoryInterface::class);
+        $this->streamFactoryStub   = self::createStub(StreamFactoryInterface::class);
         $this->extensionConfigMock = $this->createMock(ExtensionConfiguration::class);
-        $this->usageTrackerStub = self::createStub(UsageTrackerServiceInterface::class);
-        $this->loggerStub = self::createStub(LoggerInterface::class);
-        $this->vaultStub = $this->createVaultServiceMock();
+        $this->usageTrackerStub    = self::createStub(UsageTrackerServiceInterface::class);
+        $this->loggerStub          = self::createStub(LoggerInterface::class);
+        $this->vaultStub           = $this->createVaultServiceMock();
 
         // Real calculator over a model-less repository: catalog prices apply,
         // so the cost assertions below exercise the real pricing math.
@@ -108,6 +108,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $middleware = new class (static function (ProviderCallContext $context) use (&$captured): void {
             $captured = $context;
         }) implements ProviderMiddlewareInterface {
+
             /**
              * @param Closure(ProviderCallContext): void $onHandle
              */
@@ -263,6 +264,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         // Create minimal PNG file (8x8 transparent)
         $pngContent = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAADklEQVQI12NgGAWjYGgAAAIIAAFcCg/wAAAAAElFTkSuQmCC');
         file_put_contents($this->tempFile, $pngContent);
+
         return $this->tempFile;
     }
 
@@ -402,9 +404,9 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     public static function gptImageVariantProvider(): array
     {
         return [
-            'gpt-image-1' => ['gpt-image-1'],
+            'gpt-image-1'      => ['gpt-image-1'],
             'gpt-image-1-mini' => ['gpt-image-1-mini'],
-            'gpt-image-2' => ['gpt-image-2'],
+            'gpt-image-2'      => ['gpt-image-2'],
         ];
     }
 
@@ -427,7 +429,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $this->setupSuccessfulRequest([
             'data' => [
                 [
-                    'url' => 'https://example.com/image.png',
+                    'url'            => 'https://example.com/image.png',
                     'revised_prompt' => 'A beautiful cat sitting',
                 ],
             ],
@@ -494,7 +496,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function generateThrowsOnPromptTooLong(): void
     {
-        $subject = $this->createSubject();
+        $subject    = $this->createSubject();
         $longPrompt = str_repeat('a', 4001);
 
         $this->expectException(ServiceUnavailableException::class);
@@ -531,7 +533,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
                     // dall-e-3 responses carry no usage object: token metrics
                     // are omitted, the cost falls back to the per-image list
                     // price (standard 1024x1024 = $0.040).
-                    fn(array $metrics): bool => $metrics['images'] === 1
+                    fn (array $metrics): bool => $metrics['images'] === 1
                         && !isset($metrics['tokens'])
                         && is_float($metrics['cost']) && abs($metrics['cost'] - 0.040) < 1e-9,
                 ),
@@ -576,7 +578,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             ->with(
                 'image',
                 'dall-e',
-                self::callback(static fn(array $metrics): bool => $metrics['images'] === 1),
+                self::callback(static fn (array $metrics): bool => $metrics['images'] === 1),
                 null,
                 0,
                 'dall-e-3',
@@ -617,7 +619,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             ->with(
                 'image',
                 'dall-e',
-                self::callback(static fn(array $metrics): bool => $metrics['images'] === 1),
+                self::callback(static fn (array $metrics): bool => $metrics['images'] === 1),
                 null,
                 42,
                 'dall-e-3',
@@ -805,7 +807,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             ->with(
                 'image',
                 'dall-e',
-                self::callback(static fn(array $metrics): bool => $metrics['images'] === 1),
+                self::callback(static fn (array $metrics): bool => $metrics['images'] === 1),
                 23,
                 0,
                 'dall-e-3',
@@ -862,7 +864,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
 
         $options = [
             'model' => 'dall-e-3',
-            'size' => '1024x1792',
+            'size'  => '1024x1792',
         ];
 
         $result = $subject->generate('A portrait', $options);
@@ -900,13 +902,14 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $this->requestFactoryStub->method('createRequest')->willReturnCallback(
             function (...$args) use (&$capturedUrl, $requestStub): RequestInterface {
                 $capturedUrl = is_string($args[1] ?? null) ? $args[1] : '';
+
                 return $requestStub;
             },
         );
         $streamStub = self::createStub(StreamInterface::class);
         $this->streamFactoryStub->method('createStream')->willReturn($streamStub);
         $responseBodyStub = self::createStub(StreamInterface::class);
-        $responseBodyStub->method('__toString')->willReturn((string)json_encode(['data' => [['url' => 'x']]]));
+        $responseBodyStub->method('__toString')->willReturn((string) json_encode(['data' => [['url' => 'x']]]));
         $responseStub = self::createStub(ResponseInterface::class);
         $responseStub->method('getStatusCode')->willReturn(200);
         $responseStub->method('getBody')->willReturn($responseBodyStub);
@@ -954,7 +957,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
      */
     private function captureGeneratePayload(array $responseData, ImageGenerationOptions $options): array
     {
-        $captured = null;
+        $captured    = null;
         $requestStub = self::createStub(RequestInterface::class);
         $requestStub->method('withHeader')->willReturnSelf();
         $requestStub->method('withBody')->willReturnSelf();
@@ -964,12 +967,13 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $this->streamFactoryStub->method('createStream')->willReturnCallback(
             function (string $json) use (&$captured, $streamStub): StreamInterface {
                 $captured = $json;
+
                 return $streamStub;
             },
         );
 
         $responseBodyStub = self::createStub(StreamInterface::class);
-        $responseBodyStub->method('__toString')->willReturn((string)json_encode($responseData));
+        $responseBodyStub->method('__toString')->willReturn((string) json_encode($responseData));
         $responseStub = self::createStub(ResponseInterface::class);
         $responseStub->method('getStatusCode')->willReturn(200);
         $responseStub->method('getBody')->willReturn($responseBodyStub);
@@ -992,7 +996,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $this->setupSuccessfulRequest([
             'data' => [
                 [
-                    'url' => '',
+                    'url'      => '',
                     'b64_json' => base64_encode('image-content'),
                 ],
             ],
@@ -1064,7 +1068,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function createVariationsReturnsResults(): void
     {
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $imageFile = $this->createTestImageFile();
         $this->setupSuccessfulRequest([
             'data' => [['url' => 'https://example.com/variation.png']],
@@ -1098,7 +1102,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function createVariationsThrowsOnNonPngFile(): void
     {
-        $subject = $this->createSubject();
+        $subject  = $this->createSubject();
         $tempFile = tempnam(sys_get_temp_dir(), 'test_') . '.jpg';
         file_put_contents($tempFile, 'content');
         $this->tempFile = $tempFile;
@@ -1117,7 +1121,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function createVariationsThrowsOnFileTooLarge(): void
     {
-        $subject = $this->createSubject();
+        $subject  = $this->createSubject();
         $tempFile = tempnam(sys_get_temp_dir(), 'test_') . '.png';
         // Write >4MB
         file_put_contents($tempFile, str_repeat('a', 5 * 1024 * 1024));
@@ -1163,7 +1167,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
                 self::callback(
                     // One variation at the default 1024x1024 — dall-e-2 list
                     // price $0.020 per image.
-                    fn(array $metrics): bool => $metrics['images'] === 1
+                    fn (array $metrics): bool => $metrics['images'] === 1
                         && is_float($metrics['cost']) && abs($metrics['cost'] - 0.020) < 1e-9,
                 ),
                 null,
@@ -1188,7 +1192,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function editReturnsResult(): void
     {
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $imageFile = $this->createTestImageFile();
         $this->setupSuccessfulRequest([
             'data' => [['url' => 'https://example.com/edited.png']],
@@ -1211,11 +1215,11 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function editWithMaskReturnsResult(): void
     {
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $imageFile = $this->createTestImageFile();
 
         // Create mask file
-        $maskFile = tempnam(sys_get_temp_dir(), 'mask_') . '.png';
+        $maskFile   = tempnam(sys_get_temp_dir(), 'mask_') . '.png';
         $pngContent = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAADklEQVQI12NgGAWjYGgAAAIIAAFcCg/wAAAAAElFTkSuQmCC');
         file_put_contents($maskFile, $pngContent);
 
@@ -1260,7 +1264,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
                 'image',
                 'dall-e',
                 self::callback(
-                    fn(array $metrics): bool => $metrics['images'] === 1
+                    fn (array $metrics): bool => $metrics['images'] === 1
                         && is_float($metrics['cost']) && abs($metrics['cost'] - 0.020) < 1e-9,
                 ),
                 null,
@@ -1476,7 +1480,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function generateWithDallE2ThrowsOnPromptTooLong(): void
     {
-        $subject = $this->createSubject();
+        $subject    = $this->createSubject();
         $longPrompt = str_repeat('a', 1001); // >1000 chars for DALL-E 2
 
         $options = new ImageGenerationOptions(
@@ -1551,7 +1555,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     public function createVariationsClampCountToMinimumOfOne(): void
     {
         // Passing count=0 should be clamped to 1 by min(max($count, 1), 10).
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $imageFile = $this->createTestImageFile();
         $this->setupSuccessfulRequest([
             'data' => [['url' => 'https://example.com/variation.png']],
@@ -1567,8 +1571,8 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     {
         // Passing count=99 should be clamped to 10 by min(max($count, 1), 10).
         // The API responds with 10 items (we simulate that).
-        $subject = $this->createSubject();
-        $imageFile = $this->createTestImageFile();
+        $subject      = $this->createSubject();
+        $imageFile    = $this->createTestImageFile();
         $responseData = array_fill(0, 10, ['url' => 'https://example.com/variation.png']);
         $this->setupSuccessfulRequest(['data' => $responseData]);
 
@@ -1647,7 +1651,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
                 'dall-e',
                 self::callback(
                     // Two 512x512 dall-e-2 images at $0.018 list price each.
-                    fn(array $metrics): bool => $metrics['images'] === 2
+                    fn (array $metrics): bool => $metrics['images'] === 2
                         && is_float($metrics['cost']) && abs($metrics['cost'] - 0.036) < 1e-9,
                 ),
                 null,
@@ -1679,11 +1683,11 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         // in the usage row and price the call token-based:
         // 40 text-in × $5/1M + 10 image-in × $8/1M + 1000 out × $30/1M.
         $this->setupSuccessfulRequest([
-            'data' => [['b64_json' => base64_encode('png-bytes')]],
+            'data'  => [['b64_json' => base64_encode('png-bytes')]],
             'usage' => [
-                'input_tokens' => 50,
-                'output_tokens' => 1000,
-                'total_tokens' => 1050,
+                'input_tokens'         => 50,
+                'output_tokens'        => 1000,
+                'total_tokens'         => 1050,
                 'input_tokens_details' => ['text_tokens' => 40, 'image_tokens' => 10],
             ],
         ]);
@@ -1703,7 +1707,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
                 'image',
                 'dall-e',
                 self::callback(
-                    fn(array $metrics): bool => $metrics['images'] === 1
+                    fn (array $metrics): bool => $metrics['images'] === 1
                         && $metrics['tokens'] === 1050
                         && $metrics['promptTokens'] === 50
                         && $metrics['completionTokens'] === 1000
@@ -1753,7 +1757,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
                 'image',
                 'dall-e',
                 self::callback(
-                    fn(array $metrics): bool => $metrics['images'] === 1
+                    fn (array $metrics): bool => $metrics['images'] === 1
                         && !isset($metrics['tokens'])
                         && $metrics['cost'] === 0.0,
                 ),
@@ -1812,7 +1816,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     {
         // Passing a non-existent mask path to edit() must throw ServiceUnavailableException
         // because validateImageFile() is called on the mask as well.
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $imageFile = $this->createTestImageFile();
 
         $this->expectException(ServiceUnavailableException::class);
@@ -1873,7 +1877,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         // The dall-e-2 batch sends a single request with n clamped to 10 and
         // maps every response entry onto a result (URL, revised prompt, size,
         // metadata).
-        $captured = null;
+        $captured    = null;
         $requestStub = self::createStub(RequestInterface::class);
         $requestStub->method('withHeader')->willReturnSelf();
         $requestStub->method('withBody')->willReturnSelf();
@@ -1883,12 +1887,13 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $this->streamFactoryStub->method('createStream')->willReturnCallback(
             function (string $json) use (&$captured, $streamStub): StreamInterface {
                 $captured = $json;
+
                 return $streamStub;
             },
         );
 
         $responseBodyStub = self::createStub(StreamInterface::class);
-        $responseBodyStub->method('__toString')->willReturn((string)json_encode([
+        $responseBodyStub->method('__toString')->willReturn((string) json_encode([
             'data' => array_fill(0, 10, ['url' => 'https://example.com/i.png', 'revised_prompt' => 'rev']),
         ]));
         $responseStub = self::createStub(ResponseInterface::class);
@@ -1922,7 +1927,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function createVariationsThrowsWhenServiceUnavailable(): void
     {
-        $subject = $this->createSubjectWithoutApiKey();
+        $subject   = $this->createSubjectWithoutApiKey();
         $imageFile = $this->createTestImageFile();
 
         $this->expectException(ServiceUnavailableException::class);
@@ -1936,7 +1941,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     {
         // n is clamped to [1, 10] and shipped as a string form field alongside
         // size and response_format.
-        $bodies = [];
+        $bodies      = [];
         $requestStub = self::createStub(RequestInterface::class);
         $requestStub->method('withHeader')->willReturnSelf();
         $requestStub->method('withBody')->willReturnSelf();
@@ -1946,12 +1951,13 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $this->streamFactoryStub->method('createStream')->willReturnCallback(
             function (string $body) use (&$bodies, $streamStub): StreamInterface {
                 $bodies[] = $body;
+
                 return $streamStub;
             },
         );
 
         $responseBodyStub = self::createStub(StreamInterface::class);
-        $responseBodyStub->method('__toString')->willReturn((string)json_encode([
+        $responseBodyStub->method('__toString')->willReturn((string) json_encode([
             'data' => [['url' => 'https://example.com/v.png']],
         ]));
         $responseStub = self::createStub(ResponseInterface::class);
@@ -1959,7 +1965,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $responseStub->method('getBody')->willReturn($responseBodyStub);
         $this->httpClientStub->method('sendRequest')->willReturn($responseStub);
 
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $imageFile = $this->createTestImageFile();
 
         $subject->createVariations($imageFile);       // default count -> clamped to 1
@@ -1977,7 +1983,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function editThrowsWhenServiceUnavailable(): void
     {
-        $subject = $this->createSubjectWithoutApiKey();
+        $subject   = $this->createSubjectWithoutApiKey();
         $imageFile = $this->createTestImageFile();
 
         $this->expectException(ServiceUnavailableException::class);
@@ -2003,7 +2009,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     public function editSendsPromptAndFieldsInMultipartBody(): void
     {
         // The prompt, size and response_format ride along as form fields.
-        $captured = null;
+        $captured    = null;
         $requestStub = self::createStub(RequestInterface::class);
         $requestStub->method('withHeader')->willReturnSelf();
         $requestStub->method('withBody')->willReturnSelf();
@@ -2013,12 +2019,13 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $this->streamFactoryStub->method('createStream')->willReturnCallback(
             function (string $body) use (&$captured, $streamStub): StreamInterface {
                 $captured = $body;
+
                 return $streamStub;
             },
         );
 
         $responseBodyStub = self::createStub(StreamInterface::class);
-        $responseBodyStub->method('__toString')->willReturn((string)json_encode([
+        $responseBodyStub->method('__toString')->willReturn((string) json_encode([
             'data' => [['url' => 'https://example.com/edited.png']],
         ]));
         $responseStub = self::createStub(ResponseInterface::class);
@@ -2026,7 +2033,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $responseStub->method('getBody')->willReturn($responseBodyStub);
         $this->httpClientStub->method('sendRequest')->willReturn($responseStub);
 
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $imageFile = $this->createTestImageFile();
         $subject->edit($imageFile, 'Add a red hat');
 
@@ -2045,11 +2052,11 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         // service casts them to ints so the recorded metrics stay strictly
         // integer.
         $this->setupSuccessfulRequest([
-            'data' => [['b64_json' => base64_encode('png-bytes')]],
+            'data'  => [['b64_json' => base64_encode('png-bytes')]],
             'usage' => [
-                'input_tokens' => '50',
-                'output_tokens' => '1000',
-                'total_tokens' => '1050',
+                'input_tokens'         => '50',
+                'output_tokens'        => '1000',
+                'total_tokens'         => '1050',
                 'input_tokens_details' => ['image_tokens' => 10],
             ],
         ]);
@@ -2069,7 +2076,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
                 'image',
                 'dall-e',
                 self::callback(
-                    static fn(array $metrics): bool => $metrics['tokens'] === 1050
+                    static fn (array $metrics): bool => $metrics['tokens'] === 1050
                         && $metrics['promptTokens'] === 50
                         && $metrics['completionTokens'] === 1000,
                 ),

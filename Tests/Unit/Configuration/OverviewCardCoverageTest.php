@@ -13,6 +13,18 @@ use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+use function array_diff;
+use function array_filter;
+use function array_keys;
+use function array_unique;
+use function array_values;
+use function file_get_contents;
+use function implode;
+use function preg_match;
+use function preg_match_all;
+use function preg_quote;
+use function sort;
+
 /**
  * Locks the registered backend modules to the cards on the overview page.
  *
@@ -64,10 +76,10 @@ final class OverviewCardCoverageTest extends TestCase
     {
         parent::setUp();
 
-        $source = \file_get_contents(self::MODULES_FILE);
+        $source = file_get_contents(self::MODULES_FILE);
         self::assertIsString($source);
 
-        \preg_match_all("/^    '([a-z_]+)' => \[(.*?)^    \],/ms", $source, $matches, PREG_SET_ORDER);
+        preg_match_all("/^    '([a-z_]+)' => \[(.*?)^    \],/ms", $source, $matches, PREG_SET_ORDER);
         self::assertNotSame([], $matches, 'No module blocks found — has Modules.php been reformatted?');
 
         foreach ($matches as $match) {
@@ -78,12 +90,12 @@ final class OverviewCardCoverageTest extends TestCase
     #[Test]
     public function everyRegisteredModuleHasACardOnTheOverview(): void
     {
-        $missing = \array_values(\array_diff($this->registeredModules(), $this->linkedModules()));
+        $missing = array_values(array_diff($this->registeredModules(), $this->linkedModules()));
 
         self::assertSame(
             [],
             $missing,
-            'Registered but not linked from the overview: ' . \implode(', ', $missing)
+            'Registered but not linked from the overview: ' . implode(', ', $missing)
                 . '. Add a card in Resources/Private/Templates/Backend/Index.html.',
         );
     }
@@ -94,12 +106,12 @@ final class OverviewCardCoverageTest extends TestCase
         // Any registered module may be linked — nrllm_aitasks for instance is
         // an editor-facing Web module that the overview points at on purpose.
         // What must not happen is a link to a route nobody registers.
-        $unknown = \array_values(\array_diff($this->linkedModules(), $this->allRegisteredModules()));
+        $unknown = array_values(array_diff($this->linkedModules(), $this->allRegisteredModules()));
 
         self::assertSame(
             [],
             $unknown,
-            'Linked from the overview but not registered: ' . \implode(', ', $unknown)
+            'Linked from the overview but not registered: ' . implode(', ', $unknown)
                 . '. Such a card renders a dead link.',
         );
     }
@@ -111,8 +123,8 @@ final class OverviewCardCoverageTest extends TestCase
      */
     private function allRegisteredModules(): array
     {
-        $names = \array_keys($this->modules);
-        \sort($names);
+        $names = array_keys($this->modules);
+        sort($names);
 
         return $names;
     }
@@ -130,7 +142,7 @@ final class OverviewCardCoverageTest extends TestCase
 
             $isCardTarget = false;
             foreach (self::CARD_PARENTS as $parent) {
-                if (\preg_match("/'parent'\\s+=>\\s+'" . \preg_quote($parent, '/') . "'/", $block) === 1) {
+                if (preg_match("/'parent'\\s+=>\\s+'" . preg_quote($parent, '/') . "'/", $block) === 1) {
                     $isCardTarget = true;
                     break;
                 }
@@ -143,7 +155,7 @@ final class OverviewCardCoverageTest extends TestCase
             $names[] = $name;
         }
 
-        \sort($names);
+        sort($names);
 
         return $names;
     }
@@ -153,15 +165,15 @@ final class OverviewCardCoverageTest extends TestCase
      */
     private function linkedModules(): array
     {
-        $template = \file_get_contents(self::OVERVIEW_TEMPLATE);
+        $template = file_get_contents(self::OVERVIEW_TEMPLATE);
         self::assertIsString($template);
 
-        \preg_match_all("/route: '([a-z_]+)'/", $template, $matches);
-        $routes = \array_values(\array_unique(\array_filter(
+        preg_match_all("/route: '([a-z_]+)'/", $template, $matches);
+        $routes = array_values(array_unique(array_filter(
             $matches[1],
-            static fn(string $route): bool => $route !== self::NOT_A_CARD_TARGET,
+            static fn (string $route): bool => $route !== self::NOT_A_CARD_TARGET,
         )));
-        \sort($routes);
+        sort($routes);
 
         return $routes;
     }

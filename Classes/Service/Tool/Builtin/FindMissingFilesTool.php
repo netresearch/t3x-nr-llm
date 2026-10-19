@@ -135,7 +135,7 @@ final readonly class FindMissingFilesTool implements ToolInterface
         if (!$isAdmin) {
             $rows = array_slice(array_values(array_filter(
                 $rows,
-                fn(array $row): bool => $this->storageGate->isFileAccessible(
+                fn (array $row): bool => $this->storageGate->isFileAccessible(
                     $user,
                     self::toInt($row['storage'] ?? 0),
                     self::toStr($row['identifier'] ?? ''),

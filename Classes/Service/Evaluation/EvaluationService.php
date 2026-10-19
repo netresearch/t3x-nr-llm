@@ -62,9 +62,9 @@ final readonly class EvaluationService
                 $options = $options->withSystemPrompt($prompt->systemPrompt);
             }
 
-            $startedAt = microtime(true);
-            $response = $this->completionService->complete($prompt->prompt, $options);
-            $latencyMs = (int)round((microtime(true) - $startedAt) * 1000);
+            $startedAt  = microtime(true);
+            $response   = $this->completionService->complete($prompt->prompt, $options);
+            $latencyMs  = (int) round((microtime(true) - $startedAt) * 1000);
             $provenance = GeneratorProvenance::fromArray(
                 $response->metadata[GeneratorProvenance::METADATA_KEY] ?? null,
             );
@@ -74,8 +74,8 @@ final readonly class EvaluationService
 
             // Grade the system prompt used by the actual call, independent of generator attribution.
             $effectiveSystemPrompt = $options->getSystemPrompt();
-            $gradedPrompt = $effectiveSystemPrompt === $prompt->systemPrompt ? $prompt : $prompt->withSystemPrompt($effectiveSystemPrompt);
-            $grading = $this->gradingService->grade(
+            $gradedPrompt          = $effectiveSystemPrompt === $prompt->systemPrompt ? $prompt : $prompt->withSystemPrompt($effectiveSystemPrompt);
+            $grading               = $this->gradingService->grade(
                 $response->content,
                 $gradedPrompt,
                 $graderId,
@@ -90,6 +90,7 @@ final readonly class EvaluationService
         }
 
         $generator = $this->singleGenerator($evaluations);
+
         return new SetEvaluationResult(
             $set->identifier,
             $generator->modelId ?? '',
@@ -115,7 +116,7 @@ final readonly class EvaluationService
     private function series(string $graderId, array $evaluations): string
     {
         $graders = array_values(array_unique(array_map(
-            static fn(PromptEvaluation $evaluation): string => $evaluation->result->grader,
+            static fn (PromptEvaluation $evaluation): string => $evaluation->result->grader,
             $evaluations,
         )));
 

@@ -58,7 +58,7 @@ use TYPO3\CMS\Install\Updates\UpgradeWizardInterface;
  * ``version_digest_unverified`` and left without a digest: it keeps the
  * body-only legacy check, can never instruct, and the next sync rewrites it.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[UpgradeWizard('nrllmAdr214SkillVersionDigest')]
 final readonly class SkillVersionDigestUpdateWizard implements UpgradeWizardInterface
@@ -201,7 +201,7 @@ final readonly class SkillVersionDigestUpdateWizard implements UpgradeWizardInte
 
         $mapping = [];
         foreach ($decoded as $key => $value) {
-            $mapping[(string)$key] = $value;
+            $mapping[(string) $key] = $value;
         }
 
         return $mapping;
@@ -234,7 +234,7 @@ final readonly class SkillVersionDigestUpdateWizard implements UpgradeWizardInte
 
         return array_values(array_filter(
             $rows,
-            static fn(array $row): bool => !isset($backendSources[self::toInt($row['source'] ?? 0)]),
+            static fn (array $row): bool => !isset($backendSources[self::toInt($row['source'] ?? 0)]),
         ));
     }
 
@@ -282,7 +282,7 @@ final readonly class SkillVersionDigestUpdateWizard implements UpgradeWizardInte
     private function isStillLegacy(Skill $skill): bool
     {
         $digest = $this->connectionPool->getConnectionForTable(self::TABLE)
-            ->select(['version_digest'], self::TABLE, ['uid' => (int)$skill->getUid()])
+            ->select(['version_digest'], self::TABLE, ['uid' => (int) $skill->getUid()])
             ->fetchOne();
 
         return $digest === '';
@@ -299,7 +299,7 @@ final readonly class SkillVersionDigestUpdateWizard implements UpgradeWizardInte
         return $this->connectionPool->getConnectionForTable(self::TABLE)->update(
             self::TABLE,
             $values,
-            ['uid' => (int)$skill->getUid(), 'version_digest' => ''],
+            ['uid' => (int) $skill->getUid(), 'version_digest' => ''],
         );
     }
 }

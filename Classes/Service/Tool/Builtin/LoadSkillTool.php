@@ -78,7 +78,7 @@ final readonly class LoadSkillTool implements ToolInterface, ToolDataClassInterf
                     'skill_uid' => [
                         'type'        => 'integer',
                         'description' => 'The uid of a skill in the catalogue.',
-                        'enum'        => array_map(static fn(SkillCatalogueEntry $entry): int => $entry->skillUid, $catalogue->entries),
+                        'enum'        => array_map(static fn (SkillCatalogueEntry $entry): int => $entry->skillUid, $catalogue->entries),
                     ],
                 ],
                 'required' => ['skill_uid'],

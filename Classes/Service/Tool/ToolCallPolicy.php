@@ -177,7 +177,7 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
         $configurationAllowed = $this->configurationAllowed($configuration, $runAllowList);
 
         return array_values(array_map(
-            fn(string $name): ToolPolicyDecision => $this->decideAgainst($name, $configuration, $user, $enabled, $configurationAllowed, $runAllowList instanceof SkillToolAllowList && $runAllowList->processBound),
+            fn (string $name): ToolPolicyDecision => $this->decideAgainst($name, $configuration, $user, $enabled, $configurationAllowed, $runAllowList instanceof SkillToolAllowList && $runAllowList->processBound),
             $requested ?? $enabled,
         ));
     }
