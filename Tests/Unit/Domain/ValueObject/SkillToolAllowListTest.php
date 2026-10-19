@@ -36,4 +36,27 @@ final class SkillToolAllowListTest extends TestCase
         self::assertSame(['read_a'], $stored->intersect(new SkillToolAllowList(['read_a', 'read_c']))->toolNames);
         self::assertSame([], $stored->intersect(new SkillToolAllowList([]))->toolNames);
     }
+
+    /**
+     * A process binding survives the stored form and either side of an
+     * intersection, unrestricted sides included; an unbound list stays
+     * unbound and keeps its stored form.
+     */
+    #[Test]
+    public function aProcessBindingSurvivesStorageAndIntersection(): void
+    {
+        $bound = new SkillToolAllowList(['read_a'], true);
+
+        self::assertTrue(SkillToolAllowList::fromStored($bound->toStored())?->processBound);
+        self::assertTrue(SkillToolAllowList::fromStored((new SkillToolAllowList(null, true))->toStored())?->processBound);
+        self::assertTrue((new SkillToolAllowList(null))->intersect($bound)->processBound);
+        self::assertTrue($bound->intersect(new SkillToolAllowList(null))->processBound);
+        self::assertTrue((new SkillToolAllowList(['read_a']))->intersect($bound)->processBound);
+
+        $unbound = new SkillToolAllowList(['read_a']);
+
+        self::assertSame(['toolNames' => ['read_a']], $unbound->toStored());
+        self::assertFalse(SkillToolAllowList::fromStored($unbound->toStored())?->processBound);
+        self::assertFalse($unbound->intersect(new SkillToolAllowList(null))->processBound);
+    }
 }

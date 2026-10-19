@@ -149,16 +149,27 @@ class LlmConfiguration extends AbstractEntity
     protected ?ObjectStorage $beGroups = null;
 
     /**
-     * Attached skills (MM relation).
+     * Skills attached with the load mode 'always' (MM relation): composed at
+     * run start (ADR-214 item 4).
      *
      * @var ObjectStorage<Skill>
      */
     protected ObjectStorage $skills;
 
+    /**
+     * Skills attached with the load mode 'on_demand' (the same MM table, told
+     * apart by its load_mode column): listed in an agent run's catalogue and
+     * loaded by the model (ADR-214 item 4).
+     *
+     * @var ObjectStorage<Skill>
+     */
+    protected ObjectStorage $skillsOnDemand;
+
     public function __construct()
     {
         $this->beGroups = new ObjectStorage();
         $this->skills = new ObjectStorage();
+        $this->skillsOnDemand = new ObjectStorage();
     }
 
     // ========================================
@@ -510,6 +521,39 @@ class LlmConfiguration extends AbstractEntity
         return $this->skills;
     }
 
+    /**
+     * The skills attached with the load mode 'on_demand' (ADR-214 item 4).
+     *
+     * @return ObjectStorage<Skill>
+     */
+    public function getSkillsOnDemand(): ObjectStorage
+    {
+        if (!isset($this->skillsOnDemand)) { // @phpstan-ignore isset.initializedProperty (Extbase reconstitution skips the constructor)
+            $this->skillsOnDemand = new ObjectStorage();
+        }
+
+        return $this->skillsOnDemand;
+    }
+
+    /**
+     * Every attached skill, in both load modes: 'always' first, then
+     * 'on_demand' (ADR-214 item 5 — attachment grants tools whatever the
+     * mode). A skill attached in both modes appears twice; consumers dedupe.
+     *
+     * @return list<Skill>
+     */
+    public function getAttachedSkills(): array
+    {
+        $skills = [];
+        foreach ([$this->getSkills(), $this->getSkillsOnDemand()] as $storage) {
+            foreach ($storage as $skill) {
+                $skills[] = $skill;
+            }
+        }
+
+        return $skills;
+    }
+
     public function getTstamp(): int
     {
         return $this->tstamp;
@@ -776,6 +820,24 @@ class LlmConfiguration extends AbstractEntity
     public function removeSkill(Skill $skill): void
     {
         $this->getSkills()->detach($skill);
+    }
+
+    /**
+     * @param ObjectStorage<Skill> $skills
+     */
+    public function setSkillsOnDemand(ObjectStorage $skills): void
+    {
+        $this->skillsOnDemand = $skills;
+    }
+
+    public function addSkillOnDemand(Skill $skill): void
+    {
+        $this->getSkillsOnDemand()->attach($skill);
+    }
+
+    public function removeSkillOnDemand(Skill $skill): void
+    {
+        $this->getSkillsOnDemand()->detach($skill);
     }
 
     // ========================================

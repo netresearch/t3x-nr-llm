@@ -34,6 +34,8 @@ final class SkillFieldExclusionTest extends TestCase
             'trust_level', 'body_checksum', 'version_digest', 'enabled', 'source',
             // …and the sync-managed fields the integrity, tool and pin checks read.
             'allowed_tools', 'support_status', 'orphaned', 'raw_frontmatter', 'hidden',
+            // The egress class: clearing it lifts the ceiling, and no approval covers it.
+            'data_class',
         ],
         'tx_nrllm_skill_source' => [
             'trust_level', 'type',
@@ -81,16 +83,57 @@ final class SkillFieldExclusionTest extends TestCase
     }
 
     /**
+     * A backend-authored skill (ADR-214 item 3) edits its content in the form;
+     * a synced one keeps it read-only, because its protection is the digest.
+     */
+    #[Test]
+    public function aBackendSkillCanEditItsContentAndASyncedOneCannot(): void
+    {
+        $tca     = $this->tca('tx_nrllm_skill');
+        $backend = $tca['types']['backend']['columnsOverrides'] ?? [];
+        self::assertIsArray($backend);
+        $columns = $this->columns('tx_nrllm_skill');
+
+        self::assertSame('source:type', $tca['ctrl']['type'] ?? null);
+        foreach (['name', 'description', 'body', 'identifier', 'allowed_tools', 'process'] as $field) {
+            self::assertTrue(($columns[$field]['config']['readOnly'] ?? false) === true, $field . ' is read-only for a synced skill');
+            self::assertFalse($backend[$field]['config']['readOnly'] ?? true, $field . ' is editable for a backend skill');
+        }
+
+        self::assertArrayNotHasKey('columnsOverrides', $tca['types']['0'] ?? [], 'a record without a source yet can pick one');
+        foreach (['single_file', 'repo', 'marketplace'] as $type) {
+            $overrides = $tca['types'][$type]['columnsOverrides'] ?? [];
+            self::assertIsArray($overrides);
+            self::assertSame(['source'], array_keys($overrides), $type . ' overrides only the source');
+            self::assertTrue($overrides['source']['config']['readOnly'] ?? false, $type . ': a synced skill keeps its source in the form');
+        }
+
+        $where = $backend['source']['config']['foreign_table_where'] ?? null;
+        self::assertIsString($where);
+        self::assertStringContainsString("{#type} = 'backend'", $where, 'a backend skill is offered backend sources only');
+    }
+
+    /**
      * @return array<string, array<string, mixed>>
      */
     private function columns(string $table): array
     {
-        $tca = require dirname(__DIR__, 3) . '/Configuration/TCA/' . $table . '.php';
-        self::assertIsArray($tca);
-        $columns = $tca['columns'] ?? [];
+        $columns = $this->tca($table)['columns'] ?? [];
         self::assertIsArray($columns);
 
         /** @var array<string, array<string, mixed>> $columns */
         return $columns;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function tca(string $table): array
+    {
+        $tca = require dirname(__DIR__, 3) . '/Configuration/TCA/' . $table . '.php';
+        self::assertIsArray($tca);
+
+        /** @var array<string, mixed> $tca */
+        return $tca;
     }
 }

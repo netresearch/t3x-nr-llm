@@ -197,6 +197,7 @@ final readonly class McpClient
             $deadline,
             $cancellation,
         );
+        $operationFailure = null;
         try {
             // The handshake carries the signal too. It is a full round trip to the
             // same server under the same operation deadline, so leaving it out
@@ -243,8 +244,16 @@ final readonly class McpClient
                 $note . ($text === '' ? 'The remote tool returned no textual content.' : $text),
                 false,
             );
+        } catch (Throwable $operationFailure) {
+            throw $operationFailure;
         } finally {
-            $credentials?->close();
+            try {
+                $credentials?->close();
+            } catch (Throwable $cleanupFailure) {
+                if (!$operationFailure instanceof Throwable) {
+                    throw $cleanupFailure;
+                }
+            }
         }
     }
 
