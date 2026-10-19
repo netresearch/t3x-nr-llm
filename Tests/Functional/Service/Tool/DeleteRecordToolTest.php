@@ -389,7 +389,6 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
      */
     public static function deletesThatWouldTakeADraftAlong(): iterable
     {
-
         yield 'a version of the element' => [
             ['table' => 'tt_content', 'uid' => self::ELEMENT],
             [self::draftElement(['pid' => self::PAGE_OPEN, 't3ver_oid' => self::ELEMENT])],

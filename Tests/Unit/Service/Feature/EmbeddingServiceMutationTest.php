@@ -162,7 +162,6 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     #[Test]
     public function embedFullWithOptionsUsesProvidedOptions(): void
     {
-
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
             ->expects(self::once())
@@ -180,7 +179,6 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     #[Test]
     public function embedFullCreatesDefaultOptionsWhenNull(): void
     {
-
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
             ->expects(self::once())
@@ -210,7 +208,6 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     #[Test]
     public function embedBatchCreatesDefaultOptionsWhenNull(): void
     {
-
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
             ->expects(self::once())

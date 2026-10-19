@@ -136,7 +136,6 @@ final class McpServerControllerTest extends AbstractFunctionalTestCase
             // that integer, unlike '1.9', which means something else. Asserting
             // it here would also send the test at a real endpoint, because a
             // resolved server goes on to an actual import.
-
         ];
     }
 

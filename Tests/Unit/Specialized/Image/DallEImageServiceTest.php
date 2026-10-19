@@ -108,7 +108,6 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $middleware = new class (static function (ProviderCallContext $context) use (&$captured): void {
             $captured = $context;
         }) implements ProviderMiddlewareInterface {
-
             /**
              * @param Closure(ProviderCallContext): void $onHandle
              */

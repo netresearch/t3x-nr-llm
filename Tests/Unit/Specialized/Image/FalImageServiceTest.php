@@ -358,7 +358,6 @@ class FalImageServiceTest extends AbstractUnitTestCase
 
     private function setupFailedRequest(int $statusCode, string $errorMessage = 'API Error'): void
     {
-
         $requestStub = self::createStub(RequestInterface::class);
         $requestStub->method('withHeader')->willReturnSelf();
         $requestStub->method('withBody')->willReturnSelf();
