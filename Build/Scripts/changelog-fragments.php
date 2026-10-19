@@ -287,10 +287,16 @@ if ($collected === null) {
     exit(1);
 }
 
-// The fragments are deleted only after the changelog holds their text; a
-// failed or short write keeps them, so nothing is lost.
-if (file_put_contents($changelogPath, $collected) !== strlen($collected)) {
-    fwrite(STDERR, sprintf("changelog-fragments: cannot write %s; the fragments are kept.\n", $changelogPath));
+// The new changelog is written beside the old one and renamed over it only
+// once it is complete, so a failed or short write leaves CHANGELOG.md as it
+// was. The fragments are deleted only after the rename.
+$temporary = $changelogPath . '.collect';
+if (file_put_contents($temporary, $collected) !== strlen($collected) || !rename($temporary, $changelogPath)) {
+    if (is_file($temporary)) {
+        // nosemgrep: php.lang.security.unlink-use.unlink-use - the temporary file this script just created beside CHANGELOG.md
+        unlink($temporary);
+    }
+    fwrite(STDERR, sprintf("changelog-fragments: cannot write %s; it and the fragments are unchanged.\n", $changelogPath));
     exit(2);
 }
 foreach ($fragments as $fragment) {
