@@ -192,24 +192,35 @@ embeddings, vision or speech — nr-llm composes the attached skills into a
 delimited block and prepends it to the *user* prompt. The configuration
 ``system_prompt`` is never modified.
 
+A configuration has two skill fields:
+
+- :guilabel:`Skills loaded on demand`. An agent run lists the attached skills
+  whose current version is approved as an instruction (and which are not
+  process skills) by uid, name and description in the description of the
+  builtin tool ``load_skill``. When the task matches, the model loads one: its
+  section joins the run's system message before the next call, the tool
+  result confirms the load without the body, and loading the same version
+  again appends nothing. The load re-checks the attachment, the record and
+  the approval at that moment, and refuses a section that would leave less
+  than 10 % of the model's context budget. A skill attached here that is not
+  approved is neither listed nor composed. Tasks, translation and the other
+  one-shot paths never load on demand.
+- :guilabel:`Skills loaded always`. Composed into every run, as described
+  below. Every attachment that existed before the load modes is one of these.
+  Process skills cannot be attached here.
+
+Both fields grant the skills' declared tools (``allowed-tools``) from the
+start of a run; loading a skill grants nothing.
+
 .. note::
 
-   Injection is **eager and complete**, not on demand. The whole skill
+   An attachment loaded always is **eager and complete**. The whole skill
    **body** — the entire ``SKILL.md`` prose after the front-matter, not just
    the ``name``/``description`` — is written into the prompt *before* the model
-   runs. Unlike a :ref:`tool <administration-tools>`, a skill is **not**
-   something the model calls or fetches when it decides it needs it: there is no
-   runtime round-trip that loads a skill's body, and none that loads its
-   ``references/`` / ``scripts/`` / ``assets/`` (those lines are stripped from
-   ``partial`` skills, and the files are never executed). An attached skill
-   therefore always costs its full body in tokens on every run (subject to the
-   budget below).
-
-   *Planned direction (not in this release):* a progressive-disclosure mode
-   that injects only the ``description`` and lets the model pull the full body
-   or a referenced file on demand — the same shape as the tool runtime.
-   Executing a skill's bundled scripts or assets is a separate, harder step and
-   is not on the near-term roadmap.
+   runs. Nothing loads a skill's ``references/`` / ``scripts/`` / ``assets/``
+   (those lines are stripped from ``partial`` skills, and the files are never
+   executed). Such a skill therefore always costs its full body in tokens on
+   every run (subject to the budget below).
 
 Composition rules:
 
@@ -234,6 +245,90 @@ Composition rules:
   boundary.
 
 See :ref:`ADR-036 <adr-036>` for the injection design.
+
+.. _administration-skills-backend:
+
+Writing skills in the backend
+=============================
+
+A source of the type :guilabel:`Written in the backend` holds skills that are
+authored in TYPO3 instead of fetched from GitHub (:ref:`ADR-214 <adr-214>`).
+
+1. Create a skill source and choose the type :guilabel:`Written in the
+   backend`. Set its trust level: it decides whether its skills are admitted
+   (``skills.minTrustLevel``) and whether an approved version may instruct
+   (``skills.instructionTrustLevel``).
+2. In the :guilabel:`Sources` table, click :guilabel:`New skill` on that
+   source. Write the name, an identifier unique within the source, the
+   description and the body. ``Allowed tools`` takes a JSON list of tool
+   names; leave it empty for no declaration, ``[]`` allows no tool.
+3. Enable the skill and attach it like any other. Approve a version as
+   described below to make it an instruction.
+
+Skills written here are edited through FormEngine and the DataHandler, so
+every change is in the record history with a diff and a rollback. Every edit
+changes the version: an approved version stops instructing at the next run
+until the edited version is approved. Until a version is approved the skill
+grants no tools — it counts as a declared empty list — and afterwards it grants
+the tools of the approved version it holds, or of its most recent approved
+version while it holds an unapproved one; never the ones in the field.
+Every unrevoked approval keeps vouching: an author who restores the fields of
+an older approved version gets that version back, its tools included. Revoke
+an older version when a newer one is meant to replace it.
+
+A skill attached to a configuration or a task keeps restricting the tools of
+its runs even when it stops instructing: an orphaned skill — one whose
+identifier the sync no longer finds — grants no tools and still restricts, as
+does a skill whose source is gone. A skill that is still attached cannot be
+deleted; detach it on the configuration or the task first.
+
+Only an administrator enables or disables a skill. A skill the sync disabled
+— its version changed, the scanner found an injection, or it was orphaned —
+keeps restricting the runs it is attached to until an administrator enables
+it again or detaches it; a skill an administrator disabled drops out of those
+runs.
+Hiding a skill takes it out of every run like an administrator's disable: a
+hidden skill neither instructs nor restricts. Like the enable flag, hiding
+and unhiding an existing skill is an administrator's, even where a group is
+granted the field. A new skill, a copy included, is stored disabled unless
+an administrator enables it, and such a skill restricts the runs it gets
+attached to — a copied page's configuration, for example — until an
+administrator enables it; a new skill an administrator stores with the
+administrator's mark — a copy of a skill an administrator disabled — stays
+out.
+
+A workspace publish request that would delete a page holding an attached
+skill, on it or below it, is refused as a whole: no workspace action in that
+request is applied. "Publish all" works in batches, so batches before the
+refused one are published. The single publish and "publish all" show the
+refusal; publishing or sending a selection to a stage, and the scheduled
+auto-publish, write it to the system log only — a staged delete over an
+attached skill then holds back every auto-publish of its workspace until the
+skill is detached or the delete discarded.
+
+A backend user who is not an administrator writes skills only with the
+fields an administrator granted: the source, the allowed tools and the data
+class are excluded fields (:guilabel:`Allowed excludefields` of the backend
+group). Without the source grant a new skill is stored without a source and
+is never composed. The enable flag is an administrator's, even when a group
+is granted it: a new skill stays disabled until an administrator enables
+it. The :guilabel:`New skill`
+button creates the record on the root page, which only administrators may
+write; a backend user who is not an administrator creates the skill with
+:guilabel:`Create new record` on a page in their web mount.
+
+A skill does not change its kind by changing its source: a skill that a sync
+wrote keeps being checked against what the sync wrote, also on a backend
+source, so an edit after such a move takes it out instead of becoming a new
+version.
+
+The same rule protects every skill's tool declaration: a skill whose source
+is missing, hidden or disabled, and a synced skill edited after its sync count
+as a declared empty list. They restrict a run's tools instead of widening them.
+A process skill counts only in a run that invokes it; attached without an
+invocation it adds neither tools nor a restriction.
+
+A backend source cannot be synced.
 
 .. _administration-skills-approval:
 
@@ -298,6 +393,10 @@ version digest it concerns. A skill without a version digest yet (synced
 before the upgrade, and not yet migrated) cannot be approved: run the upgrade
 wizard :guilabel:`Write the version digest onto existing skills` or sync its
 source first.
+
+An approval snapshot keeps an omitted tool declaration distinct from a
+declared empty list. A malformed or non-list JSON declaration in a stored
+snapshot is read as an empty list, so object values cannot become tool names.
 
 .. warning::
 

@@ -26,15 +26,21 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  * The configuration's `allowed_tool_groups` gate is not part of this list. It
  * is a gate of its own and is applied live on top, like the other gates.
  *
+ * `$processBound` marks the list of a run that invokes a process skill (holds
+ * a process pin). In such a run the skill load tool gets no exemption: it is
+ * offered only where the vouched declaration lists it (ADR-214 item 5).
+ *
  * @api
  */
 final readonly class SkillToolAllowList
 {
     /**
-     * @param list<string>|null $toolNames null = no effective skill declares (no skill-imposed restriction)
+     * @param list<string>|null $toolNames    null = no effective skill declares (no skill-imposed restriction)
+     * @param bool              $processBound the run invokes a process skill; the load tool is then held to the list too
      */
     public function __construct(
         public ?array $toolNames,
+        public bool $processBound = false,
     ) {}
 
     /**
@@ -44,29 +50,36 @@ final readonly class SkillToolAllowList
      * never admit a tool this list did not admit, which is what a resume needs —
      * a live list that resolves to null because its only declaring skill was
      * disabled while the run waited must not widen the run to every tool.
+     * Either side's process binding holds for the result.
      */
     public function intersect(self $other): self
     {
+        $processBound = $this->processBound || $other->processBound;
         if ($this->toolNames === null) {
-            return $other;
+            return new self($other->toolNames, $processBound);
         }
 
         if ($other->toolNames === null) {
-            return $this;
+            return new self($this->toolNames, $processBound);
         }
 
-        return new self(array_values(array_intersect($this->toolNames, $other->toolNames)));
+        return new self(array_values(array_intersect($this->toolNames, $other->toolNames)), $processBound);
     }
 
     /**
      * The stored form: wrapped, so "no restriction" (`toolNames` null) stays
      * distinguishable from "no list recorded" (no value at all) after JSON.
      *
-     * @return array{toolNames: list<string>|null}
+     * The process binding is written only when set, so the stored form of
+     * every other run is unchanged.
+     *
+     * @return array{toolNames: list<string>|null, processBound?: true}
      */
     public function toStored(): array
     {
-        return ['toolNames' => $this->toolNames];
+        return $this->processBound
+            ? ['toolNames' => $this->toolNames, 'processBound' => true]
+            : ['toolNames' => $this->toolNames];
     }
 
     /**
@@ -80,7 +93,8 @@ final readonly class SkillToolAllowList
      * tool. A recorded value whose `toolNames` is neither a list nor null
      * degrades to `[]`, the narrow side: the field is written only by this
      * extension, so a malformed one was tampered with or truncated and must not
-     * grant.
+     * grant. A recorded `processBound` that is not `false` keeps the binding,
+     * the narrow side; a record written before the field existed has none.
      */
     public static function fromStored(mixed $raw): ?self
     {
@@ -88,15 +102,16 @@ final readonly class SkillToolAllowList
             return null;
         }
 
+        $processBound = array_key_exists('processBound', $raw) && $raw['processBound'] !== false;
         if (array_key_exists('toolNames', $raw) && $raw['toolNames'] === null) {
-            return new self(null);
+            return new self(null, $processBound);
         }
 
         $names = $raw['toolNames'] ?? null;
         if (!is_array($names)) {
-            return new self([]);
+            return new self([], $processBound);
         }
 
-        return new self(array_values(array_filter($names, is_string(...))));
+        return new self(array_values(array_filter($names, is_string(...))), $processBound);
     }
 }
