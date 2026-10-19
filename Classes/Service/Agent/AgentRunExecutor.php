@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
+use Netresearch\NrLlm\Exception\RuntimeException;
 use Netresearch\NrLlm\Service\Agent\Exception\AuditPersistenceFailedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunCancellationRequestedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunLeaseLostException;
@@ -35,7 +36,6 @@ use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
 use Psr\Log\LoggerInterface;
-use RuntimeException;
 use Throwable;
 
 /**
@@ -77,9 +77,10 @@ final readonly class AgentRunExecutor
      *
      * A queued run passes its worker identity as $leaseOwner (so each step
      * boundary renews the lease and detects a reaper reclaim, ADR-104) and a
-     * $recover closure that decides retry-vs-dead-letter for a failure. An
-     * interactive run() passes neither: it holds no lease and surfaces failures
-     * to its caller unchanged.
+     * $recover closure that decides retry-vs-dead-letter for a failure.
+     * An interactive run() passes its own lease when the run was persisted
+     * (ADR-141). It passes no recovery closure; loop failures use the shared
+     * lifecycle's default failure result.
      *
      * @param (Closure(RunStep): void)|null                             $onStep
      * @param (Closure(Throwable, list<RunStep>): ?AgentRunResult)|null $recover
@@ -95,9 +96,6 @@ final readonly class AgentRunExecutor
         $maxIterations = $request->maxIterations !== null ? min($request->maxIterations, AgentRuntime::MAX_ITERATIONS) : null;
 
         $trace = $this->trace($handle, $onStep, $request->captureRaw, $leaseOwner);
-        // Resolve the run's explicit actor to a live acting backend user ONCE,
-        // identically whether this runs synchronously or in a worker (ADR-083).
-        $context = $this->toolContext($request->actor, $handle, $initialInvocationHistory);
 
         return $this->execute(
             $handle,
@@ -105,7 +103,11 @@ final readonly class AgentRunExecutor
             fn(): ToolLoopResult => $this->toolLoop->runLoop(
                 $request->messages,
                 $request->configuration,
-                $context,
+                $this->toolContext(
+                    $request->actor,
+                    $handle,
+                    $initialInvocationHistory,
+                ),
                 $request->allowedToolNames,
                 $request->options,
                 $maxIterations,
@@ -130,12 +132,12 @@ final readonly class AgentRunExecutor
      * factory over the context and the trace keeps the ordering here, where it
      * is stated once, instead of in each caller.
      *
-     * A resume carries no recovery: it is the continuation of a suspended run
-     * driven by a request, so a failure surfaces to its caller exactly as an
-     * interactive run's does. It DOES hold a lease (ADR-141). This is the
-     * segment a writing tool executes in — a write suspends before it runs
-     * (ADR-134), so the first pass never reaches the tool — and an unleased
-     * segment cannot arm the ADR-111 fence around it.
+     * A resume carries no queued recovery and uses the shared lifecycle's
+     * default failure result, like an interactive run. It holds a lease
+     * (ADR-141), so an approval-bound write can execute fenced in this
+     * continuation. A remote write that requires no approval can execute in
+     * the initial segment, which also holds a lease (ADR-134/141). An unleased
+     * segment cannot arm the ADR-111 fence around a write.
      *
      * @param (Closure(RunStep): void)|null                           $onStep
      * @param Closure(ToolExecutionContext, RunTrace): ToolLoopResult $loopCall
@@ -147,16 +149,9 @@ final readonly class AgentRunExecutor
         Closure $loopCall,
         ?string $leaseOwner = null,
     ): AgentRunResult {
-        $trace = $this->trace($handle, $onStep, false, $leaseOwner);
-        $context = $this->toolContext($owner, $handle);
+        $trace   = $this->trace($handle, $onStep, false, $leaseOwner);
 
-        return $this->execute(
-            $handle,
-            $trace,
-            fn(): ToolLoopResult => $loopCall($context, $trace),
-            null,
-            $leaseOwner,
-        );
+        return $this->execute($handle, $trace, fn(): ToolLoopResult => $loopCall($this->toolContext($owner, $handle), $trace), null, $leaseOwner);
     }
 
     /**

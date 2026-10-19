@@ -170,8 +170,8 @@ failed claims retain ``false``; a failed ``begin()`` or ``findRun()``
 retains ``null``.
 Logging cannot make these operations succeed. Explicit validation exceptions
 still propagate.
-The logger is called once with the existing severity, message and context,
-without a fallback logging attempt. See :ref:`adr-225`.
+A configured logger is attempted once with the existing severity, message and
+context, without a fallback logging attempt. See :ref:`adr-225`.
 
 The executor also retains its original outcome and exception when optional
 logging fails after cancellation, lease loss, a guardrail verdict or a refused

@@ -9,11 +9,11 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Testing;
 
-use LogicException;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Exception\LogicException;
 use Netresearch\NrLlm\Service\Feature\ToolCallingServiceInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Throwable;

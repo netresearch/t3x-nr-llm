@@ -253,9 +253,9 @@ final readonly class AgentRunPersister
     /**
      * Persist one recorded step as the next event in the run's stream.
      *
-     * Returns whether the step was durably persisted. The store hiccup is still
-     * logged and swallowed here (this method never throws), but the boolean lets
-     * the caller enforce a stricter policy for an audit-critical step: the
+     * Returns whether the step was durably persisted. Store failures are contained
+     * here (this method never throws); a configured logger is attempted once.
+     * The boolean lets the caller enforce a stricter policy for an audit-critical step: the
      * runtime fails a run whose WRITING tool executed but whose audit event
      * could not be stored (ADR-111), rather than continuing as if the write were
      * recorded. A read-only step's caller ignores the result, preserving the
@@ -473,7 +473,7 @@ final readonly class AgentRunPersister
      * and stays the operator's tool, this moves the run only while it is in
      * one of $from, so it never stops a decision somebody else already
      * released. False when the run had left those states, or on a store
-     * failure, which is logged.
+     * failure; a configured logger is attempted once.
      *
      * @param list<AgentRunStatus> $from the waiting states to move from; empty moves nothing
      *
@@ -747,9 +747,9 @@ final readonly class AgentRunPersister
      * stream (ADR-101): kind {@see AgentEventKind::APPROVAL}, payload
      * ``{approved, decidedBy}``.
      *
-     * Returns whether the decision was durably persisted. The store hiccup is
-     * still logged and swallowed here (this method never throws), same shape as
-     * {@see self::recordStep()}, but the boolean lets the caller fail closed on
+     * Returns whether the decision was durably persisted. A store failure is
+     * contained here (this method never throws); a configured logger is attempted
+     * once, like {@see self::recordStep()}. The boolean lets the caller fail closed on
      * the decision that AUTHORISES a write: {@see \Netresearch\NrLlm\Service\Agent\ResumeCoordinator::approve()}
      * refuses to execute a write-declaring turn whose approval could not be
      * recorded (ADR-132). A read-only turn's caller ignores the result,
@@ -795,7 +795,8 @@ final readonly class AgentRunPersister
      * (ADR-105): kind {@see AgentEventKind::INPUT}, payload ``{submittedBy}``
      * ONLY — never the submitted values, which are privacy-filtered content
      * (ADR-064), mirroring {@see self::recordApproval()}'s who/when-not-what
-     * rule. Best-effort — a failure is logged, never blocks the continuation.
+     * rule. Best-effort — a failure cannot block the continuation; a configured
+     * logger is attempted once.
      */
     public function recordInput(AgentRunHandle $handle, int $submittedByBeUser): void
     {
