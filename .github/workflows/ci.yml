@@ -51,7 +51,14 @@ jobs:
       # The CHANGELOG and workflow checks run in the shared workflow's
       # repo-checks job rather than a job of our own — see AGENTS.md.
       run-repo-checks: true
-      php-versions: ${{ github.event_name == 'merge_group' && '["8.2","8.4"]' || '["8.2","8.3","8.4","8.5"]' }}
+      #
+      # TEMPORARY (backlog of ~60 open PRs, 2026-10-19): pull_request runs the
+      # same reduced matrix as the queue, so a PR run costs 4 functional cells
+      # instead of 8 while every PR is re-validated after the CHANGELOG
+      # fragment conversion. Push to main and the weekly schedule keep the full
+      # matrix, so 8.3 and 8.5 are still tested on every merged commit. Revert
+      # to `github.event_name == 'merge_group'` alone once the backlog is gone.
+      php-versions: ${{ (github.event_name == 'merge_group' || github.event_name == 'pull_request') && '["8.2","8.4"]' || '["8.2","8.3","8.4","8.5"]' }}
       typo3-versions: '["^13.4","^14.3"]'
       # Keeps the unit job's Codecov upload on every PR — that job is ~1min, so
       # its Xdebug tax is negligible and patch coverage stays useful. The
