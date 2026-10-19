@@ -154,31 +154,31 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
     #[Test]
     public function unframesAnEventStreamThatCarriesTheResponse(): void
     {
-        $fake = (new McpTestServer())->willReturnRaw(
-            "event: message\r\nid: 7\r\ndata: {\"jsonrpc\":\"2.0\",\"id\":1,\r\ndata:  \"result\":{\"tools\":[{\"name\":\"x\"}]}}\r\n\r\n",
-            200,
+        $fake = (new McpTestServer())->willReturnRawForRequest(
+            static fn(
+                array $request,
+            ): string => "event: message\r\nid: 7\r\ndata: {\"jsonrpc\":\"2.0\",\"id\":" . json_encode($request['id'], JSON_THROW_ON_ERROR) . ",\r\ndata:  \"result\":{\"tools\":[{\"name\":\"x\"}]}}\r\n\r\n",
             'text/event-stream; charset=utf-8',
         );
-
-        $answer = $this->transportFor($fake)->call(McpTestServer::server(), 'tools/list', [], $this->deadline());
-
-        // Two `data:` lines of one event join with a newline; `event:` and
-        // `id:` lines and the leading space after `data:` are framing, not
-        // payload; CRLF is a line ending like any other.
+        $answer = $this
+            ->transportFor($fake)
+            ->call(McpTestServer::server(), 'tools/list', [], $this->deadline());
+        // Multiline data, CRLF, SSE field names and its own event ID stay framing.
         self::assertSame(['tools' => [['name' => 'x']]], $answer['result']);
     }
 
     #[Test]
     public function passesOverAServerNotificationOnTheStreamAndTakesTheResponse(): void
     {
-        $fake = (new McpTestServer())->willReturnRaw(
-            ": keep-alive\n\n" . "data: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/message\",\"params\":{\"level\":\"info\"}}\n\n" . "data: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"ok\":true}}\n\n",
-            200,
+        $fake = (new McpTestServer())->willReturnRawForRequest(
+            static fn(
+                array $request,
+            ): string => ": keep-alive\n\n" . "data: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/message\",\"params\":{\"level\":\"info\"}}\n\n" . 'data: {"jsonrpc":"2.0","id":' . json_encode($request['id'], JSON_THROW_ON_ERROR) . ",\"result\":{\"ok\":true}}\n\n",
             'text/event-stream',
         );
-
-        $answer = $this->transportFor($fake)->call(McpTestServer::server(), 'ping', [], $this->deadline());
-
+        $answer = $this
+            ->transportFor($fake)
+            ->call(McpTestServer::server(), 'ping', [], $this->deadline());
         self::assertSame(['ok' => true], $answer['result']);
     }
 
@@ -446,13 +446,25 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
         };
     }
 
+    /**
+     * ADR-227: a reply body must be complete within the read cap. A valid
+     * reply followed by more bytes than the cap allows is refused rather than
+     * accepted as a truncated prefix.
+     */
     #[Test]
     #[DataProvider('oversizedValidReplies')]
-    public function acceptsACompleteReplyWithinTheBoundedReadPrefix(string $body, string $contentType): void
+    public function refusesAValidReplyThatOverrunsTheReadCap(string $padding, string $contentType): void
     {
-        $fake = (new McpTestServer())->willReturnRaw($body, 200, $contentType);
-        $answer = $this->transportFor($fake)->call(McpTestServer::server(), 'ping', [], $this->deadline());
-        self::assertSame(['ok' => true], $answer['result']);
+        $fake = (new McpTestServer())->willReturnRawForRequest(
+            static fn(array $request): string => self::reply($request, $contentType) . $padding,
+            $contentType,
+        );
+        try {
+            $this->transportFor($fake)->call(McpTestServer::server(), 'ping', [], $this->deadline());
+            self::fail('Expected an oversized reply to be refused.');
+        } catch (McpTransportException $e) {
+            self::assertStringContainsString('oversized or incomplete', $e->getMessage());
+        }
     }
 
     /**
@@ -460,20 +472,30 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
      */
     public static function oversizedValidReplies(): iterable
     {
-        $json = '{"jsonrpc":"2.0","id":1,"result":{"ok":true}}';
-        yield 'JSON plus trailing whitespace' => [$json . str_repeat(' ', 2 * 1024 * 1024 + 1 - strlen($json)), 'application/json'];
-        $sse = 'data: ' . $json . "\n\n";
-        yield 'SSE plus a long comment' => [$sse . ':' . str_repeat('x', 2 * 1024 * 1024 - strlen($sse)), 'text/event-stream'];
+        yield 'JSON plus trailing whitespace' => [str_repeat(' ', 2 * 1024 * 1024), 'application/json'];
+        yield 'SSE plus a long comment' => [':' . str_repeat('x', 2 * 1024 * 1024), 'text/event-stream'];
     }
 
     #[Test]
     public function acceptsACompleteReplyAtExactlyTheReadCap(): void
     {
-        $json = '{"jsonrpc":"2.0","id":1,"result":{"ok":true}}';
-        $body = $json . str_repeat(' ', 2 * 1024 * 1024 - strlen($json));
-        $fake = (new McpTestServer())->willReturnRaw($body);
+        $fake = (new McpTestServer())->willReturnRawForRequest(static function (array $request): string {
+            $json = self::reply($request, 'application/json');
+
+            return $json . str_repeat(' ', 2 * 1024 * 1024 - strlen($json));
+        });
         $answer = $this->transportFor($fake)->call(McpTestServer::server(), 'ping', [], $this->deadline());
         self::assertSame(['ok' => true], $answer['result']);
+    }
+
+    /**
+     * @param array<string, mixed> $request
+     */
+    private static function reply(array $request, string $contentType): string
+    {
+        $json = '{"jsonrpc":"2.0","id":' . json_encode($request['id'], JSON_THROW_ON_ERROR) . ',"result":{"ok":true}}';
+
+        return $contentType === 'text/event-stream' ? 'data: ' . $json . "\n\n" : $json;
     }
 
     #[Test]

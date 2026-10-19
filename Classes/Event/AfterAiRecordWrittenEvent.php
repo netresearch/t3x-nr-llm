@@ -9,9 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Event;
 
-use InvalidArgumentException;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 
 /**
  * An AI run wrote a record (ADR-187).

@@ -10,20 +10,33 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Upgrading from 0.40
 
+- **Evaluation regression tolerances are validated before a run.** All four CLI drop options and `RegressionThresholds` require finite values in the inclusive `0..1` interval. Invalid strings, infinity, NAN and out-of-range values fail without starting evaluation or storing a measurement; zero and negative zero remain valid.
 - **Run the upgrade wizard "Write the version digest onto existing skills" (`nrllmAdr214SkillVersionDigest`).** It writes the new version digest onto every synced skill. A row whose stored name, description, support status, allowed tools or body no longer match what the sync wrote is disabled, recorded in the skill audit trail as `version_digest_unverified` and left without a digest until its next sync. Rows without a digest keep the body-only integrity check and cannot be approved.
 - **After the upgrade a frontmatter-only change upstream disables an enabled skill** on the next sync, as a body change already did. Expect more re-reviews for sources that change their frontmatter.
 - **The name, description and body of a synced skill are read-only in FormEngine.** An edit of any of them fails the integrity check, as a body edit already did.
 - **No skill version is approved after the upgrade**, so every skill keeps today's fenced frame until an administrator approves a version.
-- **Ten skill fields and nine skill source fields are now `exclude` fields (ADR-214 item 3):** on `tx_nrllm_skill` the source, trust level, body checksum, version digest, enabled and hidden flags, allowed tools, support status, orphan flag and stored frontmatter; on `tx_nrllm_skill_source` the type, trust level, hidden and enabled flags, URL, ref, pinned SHA, expected fingerprint and access token. A backend group that edited any of them needs the field granted explicitly under "Allowed excludefields"; the name, description and body stay outside the list.
+- **Eleven skill fields and nine skill source fields are now `exclude` fields (ADR-214 item 3):** on `tx_nrllm_skill` the source, trust level, body checksum, version digest, enabled and hidden flags, allowed tools, support status, orphan flag, stored frontmatter and data class; on `tx_nrllm_skill_source` the type, trust level, hidden and enabled flags, URL, ref, pinned SHA, expected fingerprint and access token. A backend group that edited any of them needs the field granted explicitly under "Allowed excludefields"; the name, description and body stay outside the list.
 - **A hidden or disabled skill source no longer vouches for its skills' provenance.** Their approved versions fall back to the fenced frame until the source is active again.
 
+- **Handle tool-loop suspensions before the common exception catch.**
+  `ToolApprovalRequiredException` and `ToolInputRequiredException` now also
+  implement the common marker. Direct tool-loop consumers must catch these
+  specific signals first to preserve their resumable state.
+
 ### Added
+
+- Behavioral tests cover reciprocal rank fusion's weighting, CLI outcome derivation windows and Poppler subprocess arguments, pipe drainage, page ordering, failures and cleanup. The stderr flood regression has a bounded assertion failure.
 
 - **Worker operations (ADR-219).** `nrllm:agent:status` reports queue wait,
   unknown timings, expired run leases and transport-scoped consumer heartbeats,
   with JSON output and explicit health thresholds. Queue-entry time is recorded
   on enqueue and requeue; legacy rows remain unknown. Idle consumers renew
   process heartbeats independently of run leases, with bounded retention.
+
+- **Compatible common-marker runtime and logic exceptions (ADR-053).**
+  `Exception\RuntimeException` and `Exception\LogicException` retain their
+  native parent hierarchy and provide marker types for internally generated
+  failures. The public API snapshot gains these two types.
 
 - **Retrieval experiment provenance (ADR-215).** Registered retrievers can add the optional `RetrievalProvenanceProviderInterface` and readonly `RetrievalProvenance` (`@api`) to declare corpus, model, chunking, pipeline and execution revisions. The existing result row preserves benchmark/variant fingerprints and privacy-filtered measured rankings, form, hard class and latency. The API inventory is additive.
 
@@ -64,6 +77,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **A suspended run re-checks the approved skill versions it holds before it resumes (ADR-214 item 6).** The run stores each instruction as a pin (skill, source, version digest). On a resume after an approval decision or a typed input, a pin whose approval was revoked, whose snapshot no longer matches its digest, whose skill was deleted, disabled, hidden or orphaned, or whose source is no longer active or fell below `skills.instructionTrustLevel` stops the run with `SkillInstructionWithdrawnException` before any pending call executes; the run fails with a message naming the skill and the reason. A damaged stored pin never holds.
 - **`SkillPin`, `SkillInstructionWithdrawnException`, `SuspendedRunState::$skillPins` (trailing optional constructor argument) and `SuspendedRunState::withSkillPins()`** (`@api`, additive). A state stored before this release rehydrates without pins.
 - **A run's skill allow-list as a value (ADR-038 item 5).** `Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList` (`@api`) holds the union of the `allowed-tools` declarations a run resolved at its start; `null` names no restriction. `toStored()` and `fromStored()` give its persisted form, which keeps `[]` and `null` apart. `SuspendedRunState` and `AgentRunRequest` gain an optional `skillAllowList`. The API surface snapshot gains these lines.
+- **Skills written in the backend (ADR-214 item 3).** A skill source of the new type "Written in the backend" holds skills authored through FormEngine, with `sys_history` and the DataHandler's field rights. Such a skill is admitted by its source's trust level, its version digest is computed from its current fields, and an edit takes an approved version out of the system message until the new version is approved. The Skills module offers "New skill" on a backend source and an edit link on its skills. A backend source cannot be synced.
+- **A skill's tool declaration counts only where something vouches for it (ADR-214 item 3).** The run allow-list reads the declaration of a backend-authored skill's most recent approved version from its own source, and the declared empty list while none is approved, whatever its live field says. A skill whose source is missing, hidden, disabled or of an unknown type, and a synced skill whose stored fields fail the integrity check declare the empty list: they restrict the run instead of widening it. A process skill contributes to the allow-list only in a run that invokes it; attached or forced without an invocation it adds neither tools nor a restriction.
+- **Skills load on demand (ADR-214 item 4).** A configuration has a second skill field, "Skills loaded on demand". An agent run lists the approved instruction skills attached there by uid, name and description in the description of the new builtin `load_skill`, and the model loads one when the task matches: the section joins the run's system message before the next call, the tool result confirms the load without the body, and a second load of the same version appends nothing. The load re-checks the attachment, the record and the approval at that moment, and a section that would leave less than 10 % of the context budget is refused (item 7). `load_skill` is offered only when the list is not empty; a skill's `allowed-tools` and the configuration's allowed tool groups do not restrict it, the global tool state and the trust zone do. Attachment grants a skill's declared tools in both modes; a load grants none (item 5).
+- **`LlmConfiguration::getSkillsOnDemand()`, `setSkillsOnDemand()`, `addSkillOnDemand()`, `removeSkillOnDemand()` and `getAttachedSkills()`** (`@api`, additive).
+- **New column** `tx_nrllm_configuration_skill_mm.load_mode` (default `always`) and the field `tx_nrllm_configuration.skills_on_demand`.
+- **`SkillToolAllowList::$processBound`** (`@api`, additive: an optional constructor argument and a property). It marks the list of a run that invokes a process skill; there `load_skill` is offered only when the process skill's vouched declaration lists it, so an invoked process skill without a vouched declaration leaves the run no tool (ADR-214 item 5). The stored form carries it only when set.
 
 - **The approval card names a write's record and fields as structured values (ADR-214, amending ADR-136).** `Netresearch\NrLlm\Service\Tool\PendingTargetInterface` (`@api` extension point) has a write tool return a `Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget` (`@api`: a `RecordReference` and a sorted list of field names) for a pending call, read from its arguments only. All 17 built-in writers implement it; the ones that create their record return none. `PendingCallView` carries it as `pendingTarget`, and `declaresWrite` says whether the pending call is a write at all.
 
@@ -75,28 +94,79 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Cache regression oracles now distinguish raw keys that share a sanitized or truncated prefix.** Idempotency tests verify separate answers and correct replay, bypass for unusable keys, and successful provider answers despite cache failures. Failed provider calls must propagate their original exception on every retry; the assertion is outside the expected-exception catch. Functional circuit-store tests verify independent state for colliding readable prefixes; selected faults must fail behavioral assertions.
+
+- Strengthen the use-case pack controller regression tests for read-only plans,
+  POST confirmation, real installation, repeat installs and operator feedback.
+
 - **Retrieval regression checks require comparable benchmark provenance (ADR-215).** Corpus or scoring-label changes and unknown legacy provenance skip numeric comparison; `--fail-on-regression` now fails in those states. A changed model, chunker or pipeline on the same benchmark remains comparable and is reported as a treatment change. The first known run establishes a baseline. Existing retrievers still run without the optional capability.
+
+- **Existing skill attachments are "loaded always"** by the new column's default; nothing changes for them. The field formerly labelled "Attached Skills" is now "Skills loaded always" and no longer offers process skills.
+- **The agent loop measures the context window against the model a criteria-mode configuration resolves to** (ADR-143), not the unknown-model fallback of 8192 tokens: the fit before each send, and the admission of a loaded skill section. A section is not admitted when no model resolves, or when the model's context length is unknown.
 - **The sync's change test and the compose-time integrity check compare the version digest (ADR-214 item 1)** instead of the body checksum. `body_checksum` keeps its body-only meaning for the signed manifest and for rows without a digest.
 - **A skill whose frontmatter sets `process: true` is not composed from an attachment or a forced skill**; it is skipped with a warning. Process skills reach a run only through an explicit invocation, which a later change adds (ADR-214 item 6).
 - **BREAKING for implementations of `ToolCallPolicyInterface` and `ToolLoopServiceInterface` (ADR-038 item 5).** `ToolCallPolicyInterface::decide()`, `explain()` and `filterOfferable()` take an optional `?SkillToolAllowList $runAllowList` last, and the interface gains `skillAllowListForRun()`, which resolves the list over the configuration's skills and the run's forced skills; without the argument the policy keeps the configuration-only resolution. `ToolLoopServiceInterface::runLoop()` takes an optional `?SkillToolAllowList $skillAllowList` last, the list a queued run was enqueued under. Callers are unaffected; a class outside nr-llm that implements either interface has to add the parameters and the method.
+- **The decision sidecar installs transformers 5.19.0 and the reranker sentence-transformers 6.1.0.** `requirements.txt` and `requirements.lock` move together, so `check-lock-matches-requirements.sh` keeps passing. Only the bumped entry changes in each lock; every other pinned wheel resolves unchanged.
 
 ### Fixed
 
+- **A repeated disable in the skills module keeps the sync's mark.** Sending a disable for a skill the sync had already disabled turned its `disabled_by` mark from `sync` into `admin`, which lifts the restriction a sync disable keeps on a run. The module's toggle now changes the mark only when `enabled` changes, as `SkillDisabledByHook` does for DataHandler writes.
+- **Corrupt approved-skill tool declarations fail closed.** A stored approval
+  snapshot accepts tool names only from a JSON array. JSON objects, including
+  objects with numeric keys, are read as declared-empty lists. Missing
+  declarations, valid lists and their existing normalization remain compatible.
+
+- **MCP replies must belong to their actual request (ADR-227).** Requests use distinct opaque string IDs; version, matching ID, exclusive response branch, object results and exact integral remote error codes are checked. Complete bounded event streams require one matching response, and oversized or incomplete prefixes are refused before health recording or catalogue reconciliation.
+
+- **An MCP tool-operation failure survives credential cleanup.** The client
+  still closes its credential session once, while retaining an already-raised
+  cancellation, budget, protocol or caller serialization failure if cleanup
+  also throws. Successful RPC results and explicit session close retain their
+  existing cleanup-failure behavior.
+
+- **Rejected MCP credentials retain the original failure when cleanup fails.** A failing rejection-cleanup attempt no longer changes cancellation or an exhausted deadline into an exchange failure, or a metadata failure into cancellation. Normal Vault deletion is still attempted once; unsuccessful cleanup can leave the temporary credential until expiry. Explicit session-close failures still report `cleanup_failed`.
+
+- **Discard partially persisted delegated MCP credentials.** If Vault storage throws after creating a temporary token, the exchange checks the locally allocated reference's actor and purpose metadata before attempting normal ACL- and audit-controlled deletion. Cleanup failures retain the original sanitized authentication failure; configured references are preserved. Native SQL and recorded-boundary tests cover post-persist RuntimeException/Error, unavailable or mismatched metadata and failing cleanup.
+
+- MCP liveness observations preserve completed connection, catalogue and tool-call results when both storage and optional diagnostic logging fail; the existing warning is attempted once.
+
+- **Keyword search availability tolerates broken backend discovery.** A backend
+  whose priority lookup throws no longer hides a usable index sibling. A failed
+  backend iterator makes the availability check return `false` instead of
+  throwing.
+
 - **Invalid retrieval provenance follows the public exception contract (ADR-053).** Constructor validation implements `NrLlmExceptionInterface` while preserving native `InvalidArgumentException` catch compatibility, reason codes and messages.
+
+- **The common exception marker covers all extension failure families
+  (ADR-053).** Agent, specialized, skill and tool errors, delegated credential
+  validation, editor-action validation and internally generated runtime or
+  configuration failures are catchable through `NrLlmExceptionInterface`.
+  Existing native parent catches, messages, codes and exception chaining stay
+  compatible. Full-source discovery and consumer-boundary tests prevent the
+  former two-directory check from overlooking new families.
 
 - **Retrieval details preserve legacy byte ids at full privacy (ADR-215).** Invalid UTF-8 question ids, hard classes and measured document ids use a versioned lossless field representation after filtering their original bytes. Ordinary UTF-8 and prompt snapshots remain compatible; redacted and metadata policies cannot be bypassed through encoding.
 
 - **Worker telemetry failures do not stop healthy consumers (ADR-219).** Heartbeat writes, pruning and stop cleanup isolate storage and logging failures. Retries retain one process identity and wait at least 30 seconds, including after partial writes; diagnostic warnings exclude connection details. Status read failures remain errors.
-- **Public tool-loop continuations preserve uncertainty about prior calls (ADR-216).** Skipping prompt assembly or seeding any resumed counter without authoritative invocation history now marks that history incomplete, so a rule requiring complete history refuses execution. Explicitly supplied history keeps its completeness flag.
 
-- **Unreadable MCP response streams return a typed failure.** Exceptions while
-  obtaining or reading a response body now become a sanitized
-  `McpTransportException`, so a failed remote stream follows the tool failure
-  path. Complete replies within the bounded read prefix remain accepted.
+- **A failed usage warning no longer loses an already-generated answer.** Usage accounting contains failures from both its tracker and its warning logger for typed, array and specialized responses, without repeating the provider call. A failed aggregate write can still leave daily usage and budget accounting incomplete.
+
+- **Agent runs settle when the acting backend user cannot be resolved.**
+  Context construction now runs inside the executor's lifecycle error boundary.
+  Synchronous, queued and resumed runs return the existing failed outcome and
+  settle the claimed row under its ownership guard instead of escaping with a
+  run left running. Regression tests also exercise the retryable write fence
+  and observer-before-persistence ordering directly.
+
+- **Agent executor documentation describes the existing interactive lease.** The request and resume comments explain the shared failure result and distinguish approval-bound write continuations from remote writes that can execute in the initial leased segment.
+
+- **Public tool-loop continuations preserve uncertainty about prior calls (ADR-216).** Skipping prompt assembly or seeding any resumed counter without authoritative invocation history now marks that history incomplete, so a rule requiring complete history refuses execution. Explicitly supplied history keeps its completeness flag.
 - **Invocation-rule denials have their own governance decision (ADR-216).** The governance chart and run timeline show `invocation_denied` with the bounded rule reason; the original tool-denial reason counts remain limited to offering-gate decisions.
 - **Write tools read page TSconfig as the run's acting user (#1017).** `update_content_element`, `create_content_element_draft`, `create_record_draft` and `copy_record` built their approval preview and their permission checks from page TSconfig as core resolves it for the ambient backend user: that user's workspace overlaid the rootline, their user TSconfig `page.` overrides were merged in, and their identity fed the `[backend.user…]` conditions. A run approved by another user, or resumed in a worker without one, could therefore bounce its approval or be checked against the approver's TSconfig. They now read it for the acting user, like `get_tsconfig`, which shows the acting user's view as well.
 - **A forced skill's `allowed-tools` restricts the run (ADR-038 item 5).** The tool gate resolved the skill allow-list from the configuration's skills alone, so a skill forced on a run in the playground or through a queued run's augmentation offered and permitted every tool its declaration left out. The list is now resolved once at run start over the configuration's and the forced skills and enforced when tools are offered and when a call executes. A queued run resolves it when it is enqueued and carries it with the request; at execution it is intersected with the list as it is then.
 - **A resumed run never gains tools through the skill allow-list (ADR-165).** A resume re-derived the list from the live configuration, so a run whose only declaring skill was disabled while it waited resumed with every tool. The suspended state now stores the run's list; a resume, after an approval or an input, intersects it with the live list, so a change while the run waits can take tools away but not add any. The approver and submitter gate asks with the stored list. A run suspended or queued before this release has no stored list and uses the live one, as before.
+
+- One-shot test fakes now assert the exact first-call exception outside their exception handlers, so swallowing a configured failure cannot pass unnoticed.
 
 ## [0.40.0] - 2026-10-08
 

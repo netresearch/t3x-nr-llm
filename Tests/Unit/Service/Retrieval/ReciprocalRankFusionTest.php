@@ -4,8 +4,7 @@
  * Copyright (c) 2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-
-declare(strict_types=1);
+declare (strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Retrieval;
 
@@ -14,6 +13,9 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * Verifies weighted fusion, deterministic ties and k-sensitive ordering.
+ */
 #[CoversClass(ReciprocalRankFusion::class)]
 final class ReciprocalRankFusionTest extends TestCase
 {
@@ -75,10 +77,7 @@ final class ReciprocalRankFusionTest extends TestCase
     {
         // The duplicate 'b' at position 3 is skipped without consuming a rank,
         // so c is rank 3 and d rank 4 — not demoted to 4 and 5.
-        self::assertSame(
-            ['a', 'b', 'c', 'd'],
-            (new ReciprocalRankFusion())->fuse([['a', 'b', 'b', 'c', 'd']], 60),
-        );
+        self::assertSame(['a', 'b', 'c', 'd'], (new ReciprocalRankFusion())->fuse([['a', 'b', 'b', 'c', 'd']], 60));
     }
 
     #[Test]
@@ -112,5 +111,15 @@ final class ReciprocalRankFusionTest extends TestCase
     {
         // k=-1 would make (k + rank) zero at rank 1; clamped to 1 avoids division by zero.
         self::assertSame(['a', 'b'], (new ReciprocalRankFusion())->fuse([['a', 'b']], -1));
+    }
+
+    #[Test]
+    public function kChangesTheWinnerBetweenOneTopRankAndTwoLowerRanks(): void
+    {
+        $lists = [['a', 'x', 'y', 'b'], ['c', 'u', 'v', 'b']];
+        $fusion = new ReciprocalRankFusion();
+
+        self::assertSame(['a', 'c', 'b', 'x', 'u', 'y', 'v'], $fusion->fuse($lists, 1));
+        self::assertSame(['b', 'a', 'c', 'x', 'u', 'y', 'v'], $fusion->fuse($lists, 60));
     }
 }

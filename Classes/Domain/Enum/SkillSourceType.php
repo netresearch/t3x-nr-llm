@@ -16,6 +16,13 @@ enum SkillSourceType: string
     case MARKETPLACE = 'marketplace';
 
     /**
+     * Skills authored in the backend through FormEngine (ADR-214 item 3).
+     * Nothing is fetched or synced; the record is edited in place, so its
+     * version digest is computed from the current fields rather than stored.
+     */
+    case BACKEND = 'backend';
+
+    /**
      * @return list<string>
      */
     public static function values(): array
@@ -26,6 +33,16 @@ enum SkillSourceType: string
     public static function isValid(string $value): bool
     {
         return in_array($value, self::values(), true);
+    }
+
+    /**
+     * Whether skills of this source are written by the sync. For those the
+     * sync is the only legitimate writer, so a stored-value integrity check
+     * catches a backend edit; a backend source has no such writer.
+     */
+    public function isSynced(): bool
+    {
+        return $this !== self::BACKEND;
     }
 
     public static function tryFromString(string $value): ?self

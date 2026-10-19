@@ -109,6 +109,9 @@ final class FakeEmbeddingService implements EmbeddingServiceInterface
         return $this->embedResult;
     }
 
+    /**
+     * @throws Throwable the configured one-shot failure, when set
+     */
     public function embedFull(string $text, ?EmbeddingOptions $options = null): EmbeddingResponse
     {
         $this->embedFullCalls[] = ['text' => $text, 'options' => $options];
@@ -129,6 +132,9 @@ final class FakeEmbeddingService implements EmbeddingServiceInterface
         return $this->embedBatchResult;
     }
 
+    /**
+     * @throws Throwable the configured one-shot failure, when set
+     */
     public function embedForConfiguration(string $text, LlmConfiguration $configuration, ?EmbeddingOptions $options = null): array
     {
         $this->embedForConfigurationCalls[] = ['text' => $text, 'configuration' => $configuration, 'options' => $options];

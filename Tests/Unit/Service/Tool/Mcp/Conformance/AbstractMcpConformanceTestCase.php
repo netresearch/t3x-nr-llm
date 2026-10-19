@@ -338,13 +338,27 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
     #[Test]
     public function readsAnEventStreamFramedAnswerLikeAPlainOne(): void
     {
-        $fake = $this->connection()->scriptedServer()->willReturnRaw(
-            "event: message\ndata: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"framed: hello\"}]}}\n\n",
-            200,
-            'text/event-stream',
-        );
+        $fake = $this
+            ->connection()
+            ->scriptedServer()
+            ->willReturnRawForRequest(
+                static fn(
+                    array $request,
+                ): string => "event: message\ndata: " . json_encode(
+                    [
+                        'jsonrpc' => '2.0',
+                        'id' => $request['id'],
+                        'result' => [
+                            'content' => [['type' => 'text', 'text' => 'framed: hello']],
+                        ],
+                    ],
+                ) . "\n\n",
+                'text/event-stream',
+            );
 
-        $result = $this->toolFor($fake)->execute(['uid' => 3], ToolExecutionContext::none());
+        $result = $this
+            ->toolFor($fake)
+            ->execute(['uid' => 3], ToolExecutionContext::none());
 
         self::assertFalse($result->isError, $result->content);
         self::assertSame('framed: hello', $result->content);
@@ -685,16 +699,41 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
      */
     #[Test]
     #[DataProvider('serverFailures')]
-    public function everyServerFailureBecomesAFailedToolResult(string $body, int $status, string $contentType): void
-    {
-        $fake = $this->connection()->scriptedServer()->willReturnRaw($body, $status, $contentType);
+    public function everyServerFailureBecomesAFailedToolResult(
+        string $body,
+        int $status,
+        string $contentType,
+    ): void {
+        $fake = $this
+            ->connection()
+            ->scriptedServer()
+            ->willReturnRawForRequest(
+                static fn(array $request): string => str_replace(
+                    '"id":1',
+                    '"id":' . json_encode($request['id']),
+                    $body,
+                ),
+                $contentType,
+                status: $status,
+            );
 
         $result = $this->toolFor($fake)->execute([], ToolExecutionContext::none());
 
         self::assertTrue($result->isError);
-        self::assertStringContainsString('"' . $this->connection()->identifier . '"', $result->content);
-        self::assertSame([], $result->artifacts, 'a failed remote call carries nothing run-scoped');
-        self::assertSame([], $this->health->contacts, 'a server that did not answer was not contacted');
+        self::assertStringContainsString(
+            '"' . $this->connection()->identifier . '"',
+            $result->content,
+        );
+        self::assertSame(
+            [],
+            $result->artifacts,
+            'a failed remote call carries nothing run-scoped',
+        );
+        self::assertSame(
+            [],
+            $this->health->contacts,
+            'a server that did not answer was not contacted',
+        );
     }
 
     // -- oversized response ------------------------------------------------
