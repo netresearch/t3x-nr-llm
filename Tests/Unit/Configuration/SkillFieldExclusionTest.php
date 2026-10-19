@@ -49,8 +49,8 @@ final class SkillFieldExclusionTest extends TestCase
     ];
 
     private const NOT_EXCLUDED = [
-        'tx_nrllm_skill'         => ['name', 'identifier', 'description', 'body', 'process'],
-        'tx_nrllm_skill_source'  => ['title'],
+        'tx_nrllm_skill'        => ['name', 'identifier', 'description', 'body', 'process'],
+        'tx_nrllm_skill_source' => ['title'],
         // ADR-169: non-administrators manage snippets; the mark, not the
         // fields, decides the caller-system path.
         'tx_nrllm_promptsnippet' => ['name', 'snippet'],

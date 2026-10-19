@@ -389,7 +389,7 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function theStructuredPreviewIsEmptyForAPageTheReaderMayNotEdit(): void
     {
-        $editor = $this->setUpBackendUser(2);
+        $editor                                  = $this->setUpBackendUser(2);
         $editor->groupData['non_exclude_fields'] = 'pages:description';
 
         self::assertSame([], $this->tool->structuredPreview(['uid' => self::PAGE_ADMIN_ONLY, 'description' => 'x'], $editor));
@@ -406,7 +406,7 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function aFieldWithoutTheReadersExcludeGrantIsLeftOut(): void
     {
-        $editor = $this->setUpBackendUser(2);
+        $editor                                  = $this->setUpBackendUser(2);
         $editor->groupData['non_exclude_fields'] = '';
 
         $entries = $this->tool->structuredPreview(
@@ -414,7 +414,7 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
             $editor,
         );
 
-        self::assertSame(['title'], array_map(static fn(FieldProposal $entry): string => $entry->field, $entries));
+        self::assertSame(['title'], array_map(static fn (FieldProposal $entry): string => $entry->field, $entries));
     }
 
     /**

@@ -145,7 +145,7 @@ return [
             // is granted: the DataHandler skips it for everyone else, and
             // the group form does not list it (ADR-214 item 8).
             'displayCond' => 'HIDE_FOR_NON_ADMINS',
-            'config' => [
+            'config'      => [
                 'type' => 'passthrough',
             ],
         ],

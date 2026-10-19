@@ -392,7 +392,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
         $answer = new stdClass();
         $actual = null;
         $caught = null;
-        $calls = 0;
+        $calls  = 0;
         try {
             $actual = $this
                 ->middleware($store, cooldown: PHP_INT_MAX)
@@ -401,7 +401,8 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
                         $this->config(self::PROVIDER),
                     ),
                     static function () use ($answer, &$calls): object {
-                        $calls++;
+                        ++$calls;
+
                         return $answer;
                     },
                 );
@@ -422,10 +423,10 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
     #[Test]
     public function aLargePositiveCooldownPreservesTheOriginalProviderFailure(): void
     {
-        $store = new InMemoryCircuitBreakerStore();
+        $store    = new InMemoryCircuitBreakerStore();
         $expected = new ProviderResponseException('gateway failed', 503);
-        $caught = null;
-        $calls = 0;
+        $caught   = null;
+        $calls    = 0;
         try {
             $this
                 ->middleware($store, threshold: 1, cooldown: PHP_INT_MAX)
@@ -434,7 +435,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
                         $this->config(self::PROVIDER),
                     ),
                     static function () use ($expected, &$calls): never {
-                        $calls++;
+                        ++$calls;
                         throw $expected;
                     },
                 );
@@ -469,7 +470,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
                         $this->context()->withConfiguration(
                             $this->config(self::PROVIDER),
                         ),
-                        static fn(): string => 'recovered',
+                        static fn (): string => 'recovered',
                     );
             } catch (Throwable $failure) {
                 $caught = $failure;
@@ -492,16 +493,16 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
                 ['consecutiveFailures' => PHP_INT_MAX, 'openedAt' => null],
             ),
         );
-        $expected = new ProviderResponseException('gateway failed', 503);
-        $caught = null;
-        $calls = 0;
+        $expected   = new ProviderResponseException('gateway failed', 503);
+        $caught     = null;
+        $calls      = 0;
         $middleware = $this->middleware($store);
-        $context = $this->context()->withConfiguration($this->config(self::PROVIDER));
+        $context    = $this->context()->withConfiguration($this->config(self::PROVIDER));
         try {
             $middleware->handle(
                 $context,
                 static function () use ($expected, &$calls): never {
-                    $calls++;
+                    ++$calls;
                     throw $expected;
                 },
             );
@@ -526,7 +527,8 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
             $middleware->handle(
                 $context,
                 static function () use (&$calls): string {
-                    $calls++;
+                    ++$calls;
+
                     return 'must not be called';
                 },
             );

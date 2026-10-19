@@ -37,18 +37,18 @@ final class CallerSystemFieldRightsTest extends AbstractFunctionalTestCase
         $this->importFixture('BeUsers.csv');
         $pool = $this->getConnectionPool();
         $pool->getConnectionForTable('pages')->insert('pages', [
-            'uid' => 10, 'pid' => 0, 'title' => 'LLM', 'doktype' => 254,
+            'uid'          => 10, 'pid' => 0, 'title' => 'LLM', 'doktype' => 254,
             'perms_userid' => 1, 'perms_groupid' => 1, 'perms_user' => 31, 'perms_group' => 31, 'perms_everybody' => 31,
         ]);
         $pool->getConnectionForTable('be_groups')->insert('be_groups', [
-            'uid' => 1, 'pid' => 0, 'title' => 'LLM editors',
-            'tables_select' => 'tx_nrllm_promptsnippet,tx_nrllm_configuration',
-            'tables_modify' => 'tx_nrllm_promptsnippet,tx_nrllm_configuration',
+            'uid'                => 1, 'pid' => 0, 'title' => 'LLM editors',
+            'tables_select'      => 'tx_nrllm_promptsnippet,tx_nrllm_configuration',
+            'tables_modify'      => 'tx_nrllm_promptsnippet,tx_nrllm_configuration',
             'non_exclude_fields' => 'tx_nrllm_promptsnippet:caller_system_digest,tx_nrllm_configuration:snippets_in_caller_system_message,tx_nrllm_configuration:snippet_tags',
-            'db_mountpoints' => '10',
+            'db_mountpoints'     => '10',
         ]);
         $pool->getConnectionForTable('be_users')->insert('be_users', [
-            'uid' => self::EDITOR_UID, 'pid' => 0, 'username' => 'llmeditor', 'password' => 'x', 'admin' => 0,
+            'uid'       => self::EDITOR_UID, 'pid' => 0, 'username' => 'llmeditor', 'password' => 'x', 'admin' => 0,
             'usergroup' => '1', 'db_mountpoints' => '10', 'options' => 3,
         ]);
         $pool->getConnectionForTable('tx_nrllm_promptsnippet')->insert('tx_nrllm_promptsnippet', [
@@ -159,7 +159,7 @@ final class CallerSystemFieldRightsTest extends AbstractFunctionalTestCase
         $copies = $dataHandler->copyMappingArray_merged['tx_nrllm_promptsnippet'] ?? [];
         $copy   = is_array($copies) ? ($copies[5] ?? 0) : 0;
 
-        return is_numeric($copy) ? (int)$copy : 0;
+        return is_numeric($copy) ? (int) $copy : 0;
     }
 
     private function column(string $table, int $uid, string $column): string
@@ -167,6 +167,6 @@ final class CallerSystemFieldRightsTest extends AbstractFunctionalTestCase
         $value = $this->getConnectionPool()->getConnectionForTable($table)
             ->select([$column], $table, ['uid' => $uid])->fetchOne();
 
-        return is_scalar($value) ? (string)$value : '';
+        return is_scalar($value) ? (string) $value : '';
     }
 }

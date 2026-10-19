@@ -32,7 +32,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * through their own route, for the reason {@see SkillApprovalController}
  * gives.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class PromptSnippetMarkController extends ActionController

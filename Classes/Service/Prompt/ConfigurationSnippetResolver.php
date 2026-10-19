@@ -84,7 +84,7 @@ final readonly class ConfigurationSnippetResolver
                 return $messages;
             }
 
-            $joined = $content === '' ? $block : $content . "\n\n" . $block;
+            $joined           = $content === '' ? $block : $content . "\n\n" . $block;
             $messages[$index] = $message instanceof ChatMessage ? ChatMessage::system($joined) : ['role' => 'system', 'content' => $joined] + $message;
 
             return $messages;

@@ -98,7 +98,7 @@ final class CircuitStateTest extends AbstractUnitTestCase
     #[Test]
     public function futureOpenTimestampKeepsLargeRetryHintsWithinTheIntegerRange(): void
     {
-        $state = new CircuitState(5, 1001);
+        $state  = new CircuitState(5, 1001);
         $actual = null;
         $caught = null;
         try {

@@ -308,7 +308,7 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
         foreach ($plan['fields'] as $column => $new) {
             $config    = $columns[$column] ?? [];
             $kind      = self::toStr($config['type'] ?? '');
-            $proposed  = (string)$new;
+            $proposed  = (string) $new;
             $entries[] = new FieldProposal(
                 $column,
                 $this->translator->columnLabel($reader, self::TABLE, $column, $plan['type']),
@@ -319,7 +319,7 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
                     $column,
                     $proposed,
                     $kind === 'input',
-                    $kind === 'text' && (bool)($config['enableRichtext'] ?? false),
+                    $kind === 'text' && (bool) ($config['enableRichtext'] ?? false),
                 ),
             );
         }

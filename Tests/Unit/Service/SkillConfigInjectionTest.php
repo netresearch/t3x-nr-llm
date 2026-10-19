@@ -294,6 +294,7 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
             $adapter->method('chatCompletion')->willReturnCallback(
                 function (array $messages) use (&$capturedMessages): CompletionResponse {
                     $capturedMessages = $messages;
+
                     return $this->completionResponse();
                 },
             );

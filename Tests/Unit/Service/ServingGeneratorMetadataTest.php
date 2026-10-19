@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service;
 
@@ -44,7 +45,7 @@ final class ServingGeneratorMetadataTest extends TestCase
     #[Test]
     public function instancesWithOneAdapterAndAliasHaveSeparateServingIdentity(): void
     {
-        $adapter = $this->createMock(ProviderInterface::class);
+        $adapter  = $this->createMock(ProviderInterface::class);
         $response = new CompletionResponse(
             'ACK',
             'shared-2026-10',
@@ -60,6 +61,7 @@ final class ServingGeneratorMetadataTest extends TestCase
                     array $options,
                 ) use ($response): CompletionResponse {
                     self::assertSame('shared-alias', $options['model']);
+
                     return $response;
                 },
             );
@@ -76,10 +78,10 @@ final class ServingGeneratorMetadataTest extends TestCase
             );
             self::assertSame(
                 [
-                    'version' => 1,
+                    'version'            => 1,
                     'providerIdentifier' => $providerId,
-                    'modelId' => 'shared-alias',
-                    'reportedModelId' => 'shared-2026-10',
+                    'modelId'            => 'shared-alias',
+                    'reportedModelId'    => 'shared-2026-10',
                 ],
                 $actual->metadata[self::KEY] ?? null,
             );
@@ -90,7 +92,7 @@ final class ServingGeneratorMetadataTest extends TestCase
     #[Test]
     public function finalOutboundOverrideAndReportedSnapshotStayDistinctAndForgedMetadataIsReplaced(): void
     {
-        $usage = new UsageStatistics(2, 3, 5);
+        $usage    = new UsageStatistics(2, 3, 5);
         $response = new CompletionResponse(
             'answer',
             'override-snapshot',
@@ -99,12 +101,12 @@ final class ServingGeneratorMetadataTest extends TestCase
             'openai',
             [],
             [
-                'keep' => 'adapter value',
+                'keep'    => 'adapter value',
                 self::KEY => [
-                    'version' => 1,
+                    'version'            => 1,
                     'providerIdentifier' => 'forged',
-                    'modelId' => 'forged',
-                    'reportedModelId' => 'forged',
+                    'modelId'            => 'forged',
+                    'reportedModelId'    => 'forged',
                 ],
             ],
             'reasoning',
@@ -120,6 +122,7 @@ final class ServingGeneratorMetadataTest extends TestCase
                 ) use ($response): CompletionResponse {
                     self::assertSame('Question', $prompt);
                     self::assertSame('override-alias', $options['model']);
+
                     return $response;
                 },
             );
@@ -137,10 +140,10 @@ final class ServingGeneratorMetadataTest extends TestCase
             );
         self::assertSame(
             [
-                'version' => 1,
+                'version'            => 1,
                 'providerIdentifier' => 'configured-instance',
-                'modelId' => 'override-alias',
-                'reportedModelId' => 'override-snapshot',
+                'modelId'            => 'override-alias',
+                'reportedModelId'    => 'override-snapshot',
             ],
             $actual->metadata[self::KEY] ?? null,
         );
@@ -172,6 +175,7 @@ final class ServingGeneratorMetadataTest extends TestCase
         $configuration->setIdentifier('evaluation');
         $configuration->setIsActive(true);
         $configuration->setLlmModel($model);
+
         return $configuration;
     }
 
@@ -181,6 +185,7 @@ final class ServingGeneratorMetadataTest extends TestCase
     ): LlmServiceManager {
         $extension = self::createStub(ExtensionConfiguration::class);
         $extension->method('get')->willReturn(['providers' => []]);
+
         return $this->createLlmServiceManager(
             $extension,
             new NullLogger(),
@@ -199,12 +204,12 @@ final class ServingGeneratorMetadataTest extends TestCase
             new UsageStatistics(0, 0, 0),
             provider: 'openai',
             metadata: [
-                'keep' => 'value',
+                'keep'    => 'value',
                 self::KEY => [
-                    'version' => 1,
+                    'version'            => 1,
                     'providerIdentifier' => 'forged',
-                    'modelId' => 'alias',
-                    'reportedModelId' => 'reported',
+                    'modelId'            => 'alias',
+                    'reportedModelId'    => 'reported',
                 ],
             ],
         );
@@ -226,8 +231,8 @@ final class ServingGeneratorMetadataTest extends TestCase
         $manager = $this->manager($registry);
         $manager->registerProvider($adapter);
 
-        $options = (new ChatOptions())->withProvider('openai')->withModel('alias');
-        $chat = $manager->chat([['role' => 'user', 'content' => 'Question']], $options);
+        $options    = (new ChatOptions())->withProvider('openai')->withModel('alias');
+        $chat       = $manager->chat([['role' => 'user', 'content' => 'Question']], $options);
         $completion = $manager->complete('Question', $options);
         foreach ([$chat, $completion] as $actual) {
             self::assertArrayNotHasKey(self::KEY, $actual->metadata ?? []);
@@ -275,6 +280,7 @@ final class ServingGeneratorMetadataTest extends TestCase
                         $model,
                         [$primary->getLlmModel(), $fallback->getLlmModel()],
                     );
+
                     return $model === $primary->getLlmModel() ? $failed : $served;
                 },
             );
@@ -287,7 +293,7 @@ final class ServingGeneratorMetadataTest extends TestCase
         $health = self::createStub(ProviderHealthServiceInterface::class);
         $health
             ->method('reorder')
-            ->willReturnCallback(static fn(FallbackChain $chain): FallbackChain => $chain);
+            ->willReturnCallback(static fn (FallbackChain $chain): FallbackChain => $chain);
         $pipeline = new MiddlewarePipeline(
             [
                 new FallbackMiddleware(
@@ -302,10 +308,10 @@ final class ServingGeneratorMetadataTest extends TestCase
             ->chatWithConfiguration([['role' => 'user', 'content' => 'Reply ACK']], $primary);
         self::assertSame(
             [
-                'version' => 1,
+                'version'            => 1,
                 'providerIdentifier' => 'fallback-instance',
-                'modelId' => 'shared-alias',
-                'reportedModelId' => 'fallback-snapshot',
+                'modelId'            => 'shared-alias',
+                'reportedModelId'    => 'fallback-snapshot',
             ],
             $actual->metadata[self::KEY] ?? null,
         );

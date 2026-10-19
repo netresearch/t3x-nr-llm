@@ -35,7 +35,7 @@ final class SkillSectionNotAdmittedException extends RuntimeException implements
         parent::__construct(
             sprintf(
                 'The run was not started: the approved instructions of the skill(s) %s do not fit the context window of this model with the required headroom. Detach a skill, choose a model with a larger window, or shorten the first message.',
-                implode(', ', array_map(static fn(string $id): string => '"' . $id . '"', $skillIdentifiers)),
+                implode(', ', array_map(static fn (string $id): string => '"' . $id . '"', $skillIdentifiers)),
             ),
             $code,
         );

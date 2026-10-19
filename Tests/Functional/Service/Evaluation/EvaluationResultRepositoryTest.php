@@ -78,10 +78,10 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
     ): SetEvaluationResult {
         $generator = GeneratorProvenance::fromArray(
             [
-                'version' => 1,
+                'version'            => 1,
                 'providerIdentifier' => 'functional-fixture',
-                'modelId' => $model,
-                'reportedModelId' => $model,
+                'modelId'            => $model,
+                'reportedModelId'    => $model,
             ],
         );
         $evaluations = [];

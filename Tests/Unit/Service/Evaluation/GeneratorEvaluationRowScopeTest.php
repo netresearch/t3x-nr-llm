@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Evaluation;
 
@@ -48,6 +49,7 @@ final class GeneratorEvaluationRowScopeTest extends TestCase
             ->willReturn($result);
         $pool = self::createStub(ConnectionPool::class);
         $pool->method('getQueryBuilderForTable')->willReturn($builder);
+
         return new EvaluationResultRepository(
             $pool,
             self::createStub(PrivacyPolicyInterface::class),
@@ -63,20 +65,20 @@ final class GeneratorEvaluationRowScopeTest extends TestCase
         string $grader = 'deterministic',
     ): array {
         return [
-            'set_identifier' => $set,
-            'model_id' => $alias,
-            'grader' => $grader,
-            'prompt_count' => 1,
-            'passed_count' => 1,
-            'mean_score' => 1.0,
-            'pass_rate' => 1.0,
-            'run_date' => 100,
+            'set_identifier'       => $set,
+            'model_id'             => $alias,
+            'grader'               => $grader,
+            'prompt_count'         => 1,
+            'passed_count'         => 1,
+            'mean_score'           => 1.0,
+            'pass_rate'            => 1.0,
+            'run_date'             => 100,
             'generator_provenance' => json_encode(
                 [
-                    'version' => 1,
+                    'version'            => 1,
                     'providerIdentifier' => 'instance-a',
-                    'modelId' => $alias,
-                    'reportedModelId' => 'snapshot-1',
+                    'modelId'            => $alias,
+                    'reportedModelId'    => 'snapshot-1',
                 ],
                 JSON_THROW_ON_ERROR,
             ),

@@ -1,10 +1,11 @@
 <?php
 
 /*
- * Copyright (c) 2026 Netresearch DTT GmbH
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Documentation;
 
@@ -44,7 +45,7 @@ final class CustomProviderExampleTest extends TestCase
         );
         self::assertSame(
             [
-                'model' => 'example-chat',
+                'model'    => 'example-chat',
                 'messages' => [
                     ['role' => 'user', 'content' => 'hello'],
                     ['role' => 'assistant', 'content' => 'earlier'],
@@ -83,7 +84,7 @@ final class CustomProviderExampleTest extends TestCase
     private function runExample(string $mode): array
     {
         $project = dirname(__DIR__, 3);
-        $manual = file_get_contents(
+        $manual  = file_get_contents(
             $project . '/Documentation/Developer/CustomProviders.rst',
         );
         self::assertIsString($manual);
@@ -202,6 +203,7 @@ final class CustomProviderExampleTest extends TestCase
         );
         $actual = json_decode($process->getOutput(), true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($actual);
+
         /** @var array<string, mixed> $actual */
         return $actual;
     }

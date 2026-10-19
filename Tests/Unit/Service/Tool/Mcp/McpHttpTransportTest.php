@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Mcp;
 
@@ -322,11 +323,11 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
     #[Test]
     public function refusesToSendAnythingOnceTheBudgetIsSpent(): void
     {
-        $clock = new FakeMcpClock();
+        $clock    = new FakeMcpClock();
         $deadline = McpOperationDeadline::start($clock, 20);
         $clock->advanceSeconds(20.0);
 
-        $fake = (new McpTestServer())->willReturn(['tools' => []]);
+        $fake      = (new McpTestServer())->willReturn(['tools' => []]);
         $transport = $this->transportFor($fake);
 
         try {
@@ -456,7 +457,7 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
     public function refusesAValidReplyThatOverrunsTheReadCap(string $padding, string $contentType): void
     {
         $fake = (new McpTestServer())->willReturnRawForRequest(
-            static fn(array $request): string => self::reply($request, $contentType) . $padding,
+            static fn (array $request): string => self::reply($request, $contentType) . $padding,
             $contentType,
         );
         try {

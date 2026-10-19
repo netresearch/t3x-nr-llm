@@ -287,7 +287,7 @@ final readonly class WaitingRunViewFactory
             return [];
         }
 
-        return array_values(array_filter($entries, static fn(mixed $entry): bool => $entry instanceof FieldProposal));
+        return array_values(array_filter($entries, static fn (mixed $entry): bool => $entry instanceof FieldProposal));
     }
 
     /**

@@ -1,10 +1,11 @@
 <?php
 
 /*
- * Copyright (c) 2026 Netresearch DTT GmbH
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Testing;
 
@@ -51,7 +52,7 @@ final class FunctionalHarnessTest extends TestCase
     public function configuredBootstrapFailureMakesTheFunctionalRunFail(): void
     {
         $process = $this->runFixture('BrokenBootstrapTest.php');
-        $output = $process->getOutput() . $process->getErrorOutput();
+        $output  = $process->getOutput() . $process->getErrorOutput();
         self::assertSame(2, $process->getExitCode(), $output);
         self::assertStringContainsString('audit_missing_extension', $output);
         self::assertStringContainsString('Errors: 1', $output);
@@ -61,7 +62,7 @@ final class FunctionalHarnessTest extends TestCase
     public function teardownFailureAfterSuccessfulSetupMakesTheRunFail(): void
     {
         $process = $this->runFixture('BrokenTeardownTest.php');
-        $output = $process->getOutput() . $process->getErrorOutput();
+        $output  = $process->getOutput() . $process->getErrorOutput();
         self::assertSame(1, $process->getExitCode(), $output);
         self::assertStringContainsString(
             'tearDown() integrity check found changed error_reporting',
@@ -74,7 +75,7 @@ final class FunctionalHarnessTest extends TestCase
     public function successfulBootstrapAndCleanTeardownExecuteTheTest(): void
     {
         $process = $this->runFixture('SuccessfulLifecycleTest.php');
-        $output = $process->getOutput() . $process->getErrorOutput();
+        $output  = $process->getOutput() . $process->getErrorOutput();
         self::assertSame(0, $process->getExitCode(), $output);
         self::assertStringContainsString('OK (1 test, 1 assertion)', $output);
     }
@@ -83,7 +84,7 @@ final class FunctionalHarnessTest extends TestCase
     public function absentDatabaseConfigurationStillSkipsDeliberately(): void
     {
         $process = $this->runFixture('SuccessfulLifecycleTest.php', false);
-        $output = $process->getOutput() . $process->getErrorOutput();
+        $output  = $process->getOutput() . $process->getErrorOutput();
         self::assertSame(0, $process->getExitCode(), $output);
         self::assertStringContainsString(
             'Functional tests require database configuration.',
@@ -98,7 +99,7 @@ final class FunctionalHarnessTest extends TestCase
     public static function concurrentFixtures(): array
     {
         return [
-            'success' => ['SuccessfulLifecycleTest.php', 0, 'OK (1 test, 1 assertion)'],
+            'success'           => ['SuccessfulLifecycleTest.php', 0, 'OK (1 test, 1 assertion)'],
             'bootstrap failure' => ['BrokenBootstrapTest.php', 2, 'audit_missing_extension'],
         ];
     }
@@ -110,7 +111,7 @@ final class FunctionalHarnessTest extends TestCase
         int $expectedExit,
         string $expectedMessage,
     ): void {
-        for ($round = 0; $round < 3; $round++) {
+        for ($round = 0; $round < 3; ++$round) {
             $children = [
                 $this->createFixtureProcess($fixture),
                 $this->createFixtureProcess($fixture),
@@ -135,6 +136,7 @@ final class FunctionalHarnessTest extends TestCase
         $process = $this->createFixtureProcess($fixture, $databaseConfigured);
         $process->start();
         $this->waitForFixture($process);
+
         return $process;
     }
 
@@ -142,11 +144,11 @@ final class FunctionalHarnessTest extends TestCase
         string $fixture,
         bool $databaseConfigured = true,
     ): Process {
-        $project = dirname(__DIR__, 3);
-        $identifier = bin2hex(random_bytes(16));
-        $webRoot = $project . '/.Build/Web';
+        $project               = dirname(__DIR__, 3);
+        $identifier            = bin2hex(random_bytes(16));
+        $webRoot               = $project . '/.Build/Web';
         $this->instancePaths[] = $webRoot . '/typo3temp/var/tests/functional-' . $identifier;
-        $process = new Process(
+        $process               = new Process(
             [
                 PHP_BINARY,
                 $project . '/.Build/bin/phpunit',
@@ -159,13 +161,14 @@ final class FunctionalHarnessTest extends TestCase
             ],
             $project,
             [
-                'typo3DatabaseDriver' => $databaseConfigured ? 'pdo_sqlite' : false,
-                'TYPO3_PATH_WEB' => $webRoot,
+                'typo3DatabaseDriver'          => $databaseConfigured ? 'pdo_sqlite' : false,
+                'TYPO3_PATH_WEB'               => $webRoot,
                 'NR_LLM_FUNCTIONAL_FIXTURE_ID' => $identifier,
             ],
         );
         $process->setTimeout(30);
         $this->children[] = $process;
+
         return $process;
     }
 

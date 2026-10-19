@@ -751,7 +751,7 @@ final class WaitingRunViewFactoryTest extends TestCase
             }
 
             ++$checked;
-            self::assertStringNotContainsString('structuredPreview', (string)file_get_contents($file->getPathname()), $file->getPathname());
+            self::assertStringNotContainsString('structuredPreview', (string) file_get_contents($file->getPathname()), $file->getPathname());
         }
 
         self::assertGreaterThan(0, $checked);

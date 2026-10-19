@@ -72,7 +72,7 @@ final class EvalRunCommandTest extends TestCase
     private function command(StaticCompletionService $completion, InMemoryEvaluationResultRepository $repository, ?FakeDecisionService $decisions = null): EvalRunCommand
     {
         $completion->generatorProvenance = $this->generator();
-        $evaluationService = new EvaluationService(
+        $evaluationService               = new EvaluationService(
             $completion,
             new GradingService(new DeterministicGrader(), new DecisionGrader($decisions ?? new FakeDecisionService())),
         );
@@ -312,13 +312,14 @@ final class EvalRunCommandTest extends TestCase
     {
         $record = GeneratorProvenance::fromArray(
             [
-                'version' => 1,
+                'version'            => 1,
                 'providerIdentifier' => 'fixture-provider',
-                'modelId' => 'test-model',
-                'reportedModelId' => 'test-model',
+                'modelId'            => 'test-model',
+                'reportedModelId'    => 'test-model',
             ],
         );
         self::assertInstanceOf(GeneratorProvenance::class, $record);
+
         return $record;
     }
 

@@ -462,7 +462,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 '',
                 $configuration,
                 $options,
-                array_map(static fn(ToolSpec $s): array => $s->toArray(), $specs),
+                array_map(static fn (ToolSpec $s): array => $s->toArray(), $specs),
                 $this->effectiveSystemPrompt($configuration, $options),
                 $windowModel,
             )
@@ -1714,14 +1714,14 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // messages. The injection appends them to a caller's own system
         // message; when the transcript has none they come back unplaced and are
         // baked below, behind the effective system prompt.
-        $instructions = '';
-        $pins         = [];
+        $instructions   = '';
+        $pins           = [];
         $instructionIds = [];
         if ($this->skillInjection instanceof SkillInjectionService) {
-            $injected     = $this->skillInjection->composeIntoMessages($messages, $configSkills, $forcedSkills);
-            $messages     = $injected['messages'];
-            $instructions = $injected['instructions'];
-            $pins         = $injected['pins'];
+            $injected       = $this->skillInjection->composeIntoMessages($messages, $configSkills, $forcedSkills);
+            $messages       = $injected['messages'];
+            $instructions   = $injected['instructions'];
+            $pins           = $injected['pins'];
             $instructionIds = $injected['instructionIds'];
         }
 

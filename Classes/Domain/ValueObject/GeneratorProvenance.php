@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\ValueObject;
 
@@ -51,10 +52,10 @@ final readonly class GeneratorProvenance
     public function toArray(): array
     {
         return [
-            'version' => 1,
+            'version'            => 1,
             'providerIdentifier' => $this->providerIdentifier,
-            'modelId' => $this->modelId,
-            'reportedModelId' => $this->reportedModelId,
+            'modelId'            => $this->modelId,
+            'reportedModelId'    => $this->reportedModelId,
         ];
     }
 

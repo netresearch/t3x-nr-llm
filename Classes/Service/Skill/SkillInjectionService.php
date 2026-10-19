@@ -97,7 +97,7 @@ final readonly class SkillInjectionService
      * (ADR-214 item 6), whether placed here or handed back
      *
      * `instructionIds` names the skills whose sections the instructions hold,
-     * for a refusal that has to name them (ADR-214 item 7).
+     * for a refusal that has to name them (ADR-214 item 7)
      *
      * @return array{messages: list<ChatMessage|array<string, mixed>>, instructions: string, pins: list<SkillPin>, instructionIds: list<string>}
      */
