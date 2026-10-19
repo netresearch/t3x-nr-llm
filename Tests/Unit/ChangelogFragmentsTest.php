@@ -91,6 +91,29 @@ final class ChangelogFragmentsTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function collectFailsWhenAFragmentCannotBeDeleted(): void
+    {
+        $this->fragment('feat-x.fixed.md', "- A new fix.\n");
+        // A read-only directory refuses the deletion of the file inside it.
+        chmod($this->repo . '/changelog.d', 0o555);
+        clearstatcache();
+        try {
+            if (is_writable($this->repo . '/changelog.d')) {
+                self::markTestSkipped('The test user can write a read-only directory (root).');
+            }
+
+            [$exit, , $stderr] = $this->runScript('collect');
+        } finally {
+            chmod($this->repo . '/changelog.d', 0o755);
+        }
+
+        self::assertSame(2, $exit);
+        self::assertStringContainsString('1 could not be deleted', $stderr);
+        self::assertStringContainsString('feat-x.fixed.md', $stderr);
+        self::assertStringContainsString("- A fixed line.\n\n- A new fix.\n", $this->changelog());
+    }
+
+    #[Test]
     public function collectInsertsAMissingHeadingInKeepAChangelogOrder(): void
     {
         $this->fragment('a.removed.md', "- A removal.\n");

@@ -299,9 +299,23 @@ if (file_put_contents($temporary, $collected) !== strlen($collected) || !rename(
     fwrite(STDERR, sprintf("changelog-fragments: cannot write %s; it and the fragments are unchanged.\n", $changelogPath));
     exit(2);
 }
+// A fragment left behind would be collected a second time by the next run,
+// so a failed deletion is an error that names every file still to remove.
+$kept = [];
 foreach ($fragments as $fragment) {
     // nosemgrep: php.lang.security.unlink-use.unlink-use - a fragment file this script just read from the repository's own changelog.d/ and validated by name
-    unlink($fragment['file']);
+    if (!unlink($fragment['file'])) {
+        $kept[] = $fragment['file'];
+    }
+}
+if ($kept !== []) {
+    fwrite(STDERR, sprintf(
+        "changelog-fragments: %s now holds the fragments, but %d could not be deleted. Delete them before the next run, or it adds their entries again:\n  %s\n",
+        $changelogPath,
+        count($kept),
+        implode("\n  ", $kept),
+    ));
+    exit(2);
 }
 
 fwrite(STDOUT, sprintf("changelog-fragments: collected %d fragment(s) into [Unreleased]\n", count($fragments)));
