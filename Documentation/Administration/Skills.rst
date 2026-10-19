@@ -227,8 +227,10 @@ Composition rules:
 - **Budget.** The untrusted user-message block is bounded by a byte budget;
   when it is exceeded, task-additive skills are dropped before
   configuration-baseline skills and each drop is logged. Approved instruction
-  sections are kept in full; the request's context-window check can refuse a
-  request that cannot fit them rather than silently dropping an instruction.
+  sections are kept in full and count toward the context-window estimate. A
+  request that does not fit even then is still sent, with a logged warning:
+  the chat path first drops older turns, the completion path sends the prompt
+  unchanged. No instruction section is dropped to make it fit.
 - **Integrity.** Each skill's version digest — over the body and the
   frontmatter fields the model reads — is recomputed from the stored fields at
   injection time; a mismatch (tampering or a stale row) drops that skill — it

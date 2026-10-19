@@ -59,7 +59,7 @@ All tests
 ---------
 
 .. code-block:: bash
-   :caption: Run complete test suite
+   :caption: Run the PHP test suites and quality checks
 
    # Run the PHP test suites and architecture rules
    Build/Scripts/runTests.sh -s unit
