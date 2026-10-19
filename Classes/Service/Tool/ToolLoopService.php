@@ -631,6 +631,20 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     $messages[] = ChatMessage::assistantToolCalls([...$besides, $proposal], $resp->content, $this->providerItemsOf($resp));
                     $environment = new ToolInvocationEnvironment($configuration, $skillAllowList, $context, $runTrace);
                     foreach ($besides as $call) {
+                        if ($call->name === LoadSkillTool::NAME && in_array($call->name, $allowedNames, true)) {
+                            // A load is a read that needs no approval, and the
+                            // loop runs it itself as in any other turn
+                            // (ADR-214 item 4): its section joins this
+                            // transcript's system message and its pin is
+                            // stored with the suspension.
+                            $tt0 = hrtime(true);
+                            [$messages, $skillPins, $tr] = $this->dispatchLoad($call, $allowedNames, $environment, $invocationHistory, $catalogue, $skillPins, $messages, $configuration, $options, $specs);
+                            $runTrace?->recordToolResult($iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr);
+                            $messages[] = ChatMessage::toolResult($call->id, $tr->content);
+
+                            continue;
+                        }
+
                         $messages[] = ChatMessage::toolResult($call->id, $this->settleBesideProposal($call, $allowedNames, $remoteCalls, $environment, $invocationHistory, $iterations));
                     }
 
