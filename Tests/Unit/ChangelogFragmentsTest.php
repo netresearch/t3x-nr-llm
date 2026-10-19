@@ -256,6 +256,7 @@ final class ChangelogFragmentsTest extends AbstractUnitTestCase
     private function runScript(string $mode): array
     {
         $script = dirname(__DIR__, 2) . '/Build/Scripts/changelog-fragments.php';
+        // nosemgrep: netresearch.php.lang.security.exec-use.exec-use - argv array, no shell; runs PHP or git on a throwaway test repository
         $proc = proc_open([PHP_BINARY, $script, $mode, $this->repo], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
         if (!is_resource($proc)) {
             throw new RuntimeException('cannot start the script', 1790260001);
@@ -272,6 +273,7 @@ final class ChangelogFragmentsTest extends AbstractUnitTestCase
     private function git(string ...$args): void
     {
         $command = array_values(['git', '-C', $this->repo, ...$args]);
+        // nosemgrep: netresearch.php.lang.security.exec-use.exec-use - argv array, no shell; runs PHP or git on a throwaway test repository
         $proc = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
         if (!is_resource($proc)) {
             throw new RuntimeException('cannot start git', 1790260002);
@@ -298,6 +300,7 @@ final class ChangelogFragmentsTest extends AbstractUnitTestCase
         );
         foreach ($items as $item) {
             /** @var SplFileInfo $item */
+            // nosemgrep: php.lang.security.unlink-use.unlink-use - removes the test's own temporary directory
             $item->isDir() && !$item->isLink() ? rmdir($item->getPathname()) : unlink($item->getPathname());
         }
 

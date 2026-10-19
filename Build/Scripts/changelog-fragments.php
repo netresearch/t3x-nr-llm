@@ -137,6 +137,7 @@ function tagExists(string $root, string $version): bool
  */
 function run(array $command): bool
 {
+    // nosemgrep: netresearch.php.lang.security.exec-use.exec-use - argv array, no shell; every caller passes literal git arguments plus this repository's own root and a version read from its CHANGELOG
     $proc = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
     if (!is_resource($proc)) {
         return false;
@@ -271,6 +272,7 @@ if ($collected === null) {
 
 file_put_contents($changelogPath, $collected);
 foreach ($fragments as $fragment) {
+    // nosemgrep: php.lang.security.unlink-use.unlink-use - a fragment file this script just read from the repository's own changelog.d/ and validated by name
     unlink($fragment['file']);
 }
 
