@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent;
 
@@ -93,7 +94,9 @@ final readonly class AgentRunExecutor
         ?Closure $recover = null,
         ?ToolInvocationHistory $initialInvocationHistory = null,
     ): AgentRunResult {
-        $maxIterations = $request->maxIterations !== null ? min($request->maxIterations, AgentRuntime::MAX_ITERATIONS) : null;
+        $maxIterations = $request->maxIterations !== null
+            ? min($request->maxIterations, AgentRuntime::MAX_ITERATIONS)
+            : null;
 
         $trace = $this->trace($handle, $onStep, $request->captureRaw, $leaseOwner);
 
@@ -185,12 +188,8 @@ final readonly class AgentRunExecutor
      *
      * @param (Closure(RunStep): void)|null $onStep
      */
-    private function trace(
-        ?AgentRunHandle $handle,
-        ?Closure $onStep,
-        bool $captureRaw,
-        ?string $leaseOwner = null,
-    ): RunTrace {
+    private function trace(?AgentRunHandle $handle, ?Closure $onStep, bool $captureRaw, ?string $leaseOwner = null): RunTrace
+    {
         // The write guard below is installed even when there is nothing to
         // record: a run that could not be persisted at all (begin() returned
         // null) has no row to fence against, and that is precisely the case the
@@ -261,12 +260,7 @@ final readonly class AgentRunExecutor
                 // so a reap mid non-idempotent-write dead-letters instead of
                 // retrying. A lost lease stops the segment before the side
                 // effect, exactly like the heartbeat guard.
-                if (!$this->persister->markPendingEffect(
-                    $handle,
-                    $leaseOwner,
-                    $effect->value,
-                    time() + AgentRuntime::LEASE_SECONDS,
-                )) {
+                if (!$this->persister->markPendingEffect($handle, $leaseOwner, $effect->value, time() + AgentRuntime::LEASE_SECONDS)) {
                     throw RunLeaseLostException::forRun($handle->uuid);
                 }
             },
@@ -284,11 +278,8 @@ final readonly class AgentRunExecutor
      * attribute the governance rows it writes. A run that could not be persisted
      * (null handle) contributes none — those calls keep their per-call trace.
      */
-    private function toolContext(
-        AiActorContext $actor,
-        ?AgentRunHandle $handle,
-        ?ToolInvocationHistory $initialInvocationHistory = null,
-    ): ToolExecutionContext {
+    private function toolContext(AiActorContext $actor, ?AgentRunHandle $handle, ?ToolInvocationHistory $initialInvocationHistory = null): ToolExecutionContext
+    {
         $resolver = $this->actingBackendUserResolver ?? new ActingBackendUserResolver();
 
         return new ToolExecutionContext(
@@ -305,11 +296,8 @@ final readonly class AgentRunExecutor
      * one ownership-guarded write (ADR-111). Returns false when the worker has
      * lost the run, so the caller stops before recording the step.
      */
-    private function renewOrClearFence(
-        AgentRunHandle $handle,
-        string $leaseOwner,
-        RunStep $step,
-    ): bool {
+    private function renewOrClearFence(AgentRunHandle $handle, string $leaseOwner, RunStep $step): bool
+    {
         $leaseExpires = time() + AgentRuntime::LEASE_SECONDS;
         if ($this->stepEffect($step)->isWrite()) {
             return $this->persister->markPendingEffect($handle, $leaseOwner, '', $leaseExpires);
@@ -379,13 +367,8 @@ final readonly class AgentRunExecutor
      * @param Closure(): ToolLoopResult                                 $loopCall
      * @param (Closure(Throwable, list<RunStep>): ?AgentRunResult)|null $recover
      */
-    private function execute(
-        ?AgentRunHandle $handle,
-        RunTrace $trace,
-        Closure $loopCall,
-        ?Closure $recover = null,
-        ?string $ownerGuard = null,
-    ): AgentRunResult {
+    private function execute(?AgentRunHandle $handle, RunTrace $trace, Closure $loopCall, ?Closure $recover = null, ?string $ownerGuard = null): AgentRunResult
+    {
         $runUuid = $handle instanceof AgentRunHandle ? $handle->uuid : '';
         $settled = false;
 
@@ -400,11 +383,7 @@ final readonly class AgentRunExecutor
                 if ($ownerGuard !== null && !$settledOk) {
                     $settled = true;
 
-                    return new AgentRunResult(
-                        outcome: AgentRunOutcome::LEASE_LOST,
-                        runUuid: $runUuid,
-                        steps: $trace->getSteps(),
-                    );
+                    return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $trace->getSteps());
                 }
             }
 
@@ -534,7 +513,9 @@ final readonly class AgentRunExecutor
                 $settledOk = $this->persister->settlePolicyStopped(
                     $handle,
                     $guardrail,
-                    $guardrail instanceof GuardrailApprovalRequiredException ? AgentRunTerminationReason::APPROVAL_DENIED : AgentRunTerminationReason::POLICY_DENIED,
+                    $guardrail instanceof GuardrailApprovalRequiredException
+                        ? AgentRunTerminationReason::APPROVAL_DENIED
+                        : AgentRunTerminationReason::POLICY_DENIED,
                     $ownerGuard,
                 );
                 // Ownership-guarded on the queued path: a run reclaimed to
@@ -551,12 +532,7 @@ final readonly class AgentRunExecutor
                         },
                     );
 
-                    return new AgentRunResult(
-                        outcome: AgentRunOutcome::LEASE_LOST,
-                        runUuid: $runUuid,
-                        steps: $trace->getSteps(),
-                        error: $guardrail,
-                    );
+                    return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $trace->getSteps(), error: $guardrail);
                 }
             }
 
@@ -571,7 +547,9 @@ final readonly class AgentRunExecutor
             );
 
             return new AgentRunResult(
-                outcome: $guardrail instanceof GuardrailApprovalRequiredException ? AgentRunOutcome::GUARDRAIL_APPROVAL_REQUIRED : AgentRunOutcome::GUARDRAIL_BLOCKED,
+                outcome: $guardrail instanceof GuardrailApprovalRequiredException
+                    ? AgentRunOutcome::GUARDRAIL_APPROVAL_REQUIRED
+                    : AgentRunOutcome::GUARDRAIL_BLOCKED,
                 runUuid: $runUuid,
                 steps: $trace->getSteps(),
                 guardrailClass: $guardrail->guardrail,
@@ -625,12 +603,7 @@ final readonly class AgentRunExecutor
                         },
                     );
 
-                    return new AgentRunResult(
-                        outcome: AgentRunOutcome::LEASE_LOST,
-                        runUuid: $runUuid,
-                        steps: $trace->getSteps(),
-                        error: $e,
-                    );
+                    return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $trace->getSteps(), error: $e);
                 }
             }
 
@@ -660,11 +633,7 @@ final readonly class AgentRunExecutor
             if ($handle instanceof AgentRunHandle && !$settled) {
                 // Ownership-guarded so this safety-net settle cannot clobber a
                 // queued run the reaper reclaimed to another worker.
-                $this->persister->settleFailed(
-                    $handle,
-                    new RuntimeException('Agent run did not complete'),
-                    $ownerGuard,
-                );
+                $this->persister->settleFailed($handle, new RuntimeException('Agent run did not complete'), $ownerGuard);
             }
         }
     }
