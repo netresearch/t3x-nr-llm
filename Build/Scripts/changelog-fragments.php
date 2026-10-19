@@ -289,10 +289,19 @@ if ($collected === null) {
 
 // The new changelog is written beside the old one and renamed over it only
 // once it is complete, so a failed or short write leaves CHANGELOG.md as it
-// was. The fragments are deleted only after the rename.
-$temporary = $changelogPath . '.collect';
-if (file_put_contents($temporary, $collected) !== strlen($collected) || !rename($temporary, $changelogPath)) {
-    if (is_file($temporary)) {
+// was. The fragments are deleted only after the rename. tempnam() creates a
+// file of its own, so an existing path (a symlink a pull request checked in)
+// is never opened. It creates the file with mode 0600, so the changelog's
+// mode is copied before the rename. When the directory is not writable it
+// falls back to the system temp directory, and the rename into the directory
+// then fails, which the cleanup below handles.
+$temporary = tempnam(dirname($changelogPath), 'CHANGELOG.md.collect.');
+$written = $temporary !== false
+    && file_put_contents($temporary, $collected) === strlen($collected)
+    && chmod($temporary, fileperms($changelogPath) & 0o777)
+    && rename($temporary, $changelogPath);
+if (!$written) {
+    if (is_string($temporary) && is_file($temporary)) {
         // nosemgrep: php.lang.security.unlink-use.unlink-use - the temporary file this script just created beside CHANGELOG.md
         unlink($temporary);
     }
