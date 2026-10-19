@@ -57,6 +57,8 @@ use Throwable;
  */
 final readonly class AgentRunExecutor
 {
+    use OptionalAgentDiagnostics;
+
     public function __construct(
         private ToolLoopServiceInterface $toolLoop,
         private AgentRunPersister $persister,
@@ -399,7 +401,14 @@ final readonly class AgentRunExecutor
             // discarded anyway, so none is attempted. Control flow, not
             // failure: the loop stopped cooperatively at a step boundary.
             $settled = true;
-            $this->logger?->info('Agent run stopped cooperatively after being cancelled', ['run' => $runUuid]);
+            $this->recordDiagnostic(
+                function () use ($runUuid): void {
+                    $this->logger?->info(
+                        'Agent run stopped cooperatively after being cancelled',
+                        ['run' => $runUuid],
+                    );
+                },
+            );
 
             return new AgentRunResult(
                 outcome: AgentRunOutcome::CANCELLED,
@@ -437,7 +446,14 @@ final readonly class AgentRunExecutor
                 $this->persister->settleFailed($handle, $approval, $ownerGuard);
             }
 
-            $this->logger?->error('Agent run could not be suspended for approval; no resume is possible', ['run' => $runUuid]);
+            $this->recordDiagnostic(
+                function () use ($runUuid): void {
+                    $this->logger?->error(
+                        'Agent run could not be suspended for approval; no resume is possible',
+                        ['run' => $runUuid],
+                    );
+                },
+            );
 
             return new AgentRunResult(
                 outcome: AgentRunOutcome::SUSPEND_FAILED,
@@ -474,7 +490,14 @@ final readonly class AgentRunExecutor
                 $this->persister->settleFailed($handle, $input, $ownerGuard);
             }
 
-            $this->logger?->error('Agent run could not be suspended for input; no resume is possible', ['run' => $runUuid]);
+            $this->recordDiagnostic(
+                function () use ($runUuid): void {
+                    $this->logger?->error(
+                        'Agent run could not be suspended for input; no resume is possible',
+                        ['run' => $runUuid],
+                    );
+                },
+            );
 
             return new AgentRunResult(
                 outcome: AgentRunOutcome::SUSPEND_FAILED,
@@ -500,14 +523,28 @@ final readonly class AgentRunExecutor
                 // by this zombie worker — stop as LEASE_LOST.
                 if ($ownerGuard !== null && !$settledOk) {
                     $settled = true;
-                    $this->logger?->notice('Guardrail-stopped queued run was reclaimed; leaving it to its new owner', ['run' => $runUuid]);
+                    $this->recordDiagnostic(
+                        function () use ($runUuid): void {
+                            $this->logger?->notice(
+                                'Guardrail-stopped queued run was reclaimed; leaving it to its new owner',
+                                ['run' => $runUuid],
+                            );
+                        },
+                    );
 
                     return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $trace->getSteps(), error: $guardrail);
                 }
             }
 
             $settled = true;
-            $this->logger?->warning('Agent run blocked by guardrail', ['exception' => $guardrail, 'run' => $runUuid]);
+            $this->recordDiagnostic(
+                function () use ($guardrail, $runUuid): void {
+                    $this->logger?->warning(
+                        'Agent run blocked by guardrail',
+                        ['exception' => $guardrail, 'run' => $runUuid],
+                    );
+                },
+            );
 
             return new AgentRunResult(
                 outcome: $guardrail instanceof GuardrailApprovalRequiredException
@@ -524,7 +561,14 @@ final readonly class AgentRunExecutor
             // settle here could destroy the new owner's in-flight state. Not a
             // failure of the run; a loss of ownership by this worker.
             $settled = true;
-            $this->logger?->info('Agent run worker lost its lease; stopping without settling', ['run' => $runUuid]);
+            $this->recordDiagnostic(
+                function () use ($runUuid): void {
+                    $this->logger?->info(
+                        'Agent run worker lost its lease; stopping without settling',
+                        ['run' => $runUuid],
+                    );
+                },
+            );
 
             return new AgentRunResult(
                 outcome: AgentRunOutcome::LEASE_LOST,
@@ -550,14 +594,28 @@ final readonly class AgentRunExecutor
                 $settledOk = $this->persister->settleFailed($handle, $e, $ownerGuard);
                 if ($ownerGuard !== null && !$settledOk) {
                     $settled = true;
-                    $this->logger?->notice('Failed queued run was reclaimed; leaving it to its new owner', ['run' => $runUuid]);
+                    $this->recordDiagnostic(
+                        function () use ($runUuid): void {
+                            $this->logger?->notice(
+                                'Failed queued run was reclaimed; leaving it to its new owner',
+                                ['run' => $runUuid],
+                            );
+                        },
+                    );
 
                     return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $trace->getSteps(), error: $e);
                 }
             }
 
             $settled = true;
-            $this->logger?->error('Agent run failed', ['exception' => $e, 'run' => $runUuid]);
+            $this->recordDiagnostic(
+                function () use ($e, $runUuid): void {
+                    $this->logger?->error(
+                        'Agent run failed',
+                        ['exception' => $e, 'run' => $runUuid],
+                    );
+                },
+            );
 
             return new AgentRunResult(
                 outcome: AgentRunOutcome::FAILED,

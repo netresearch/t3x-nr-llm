@@ -1,0 +1,1 @@
+- Optional executor diagnostics retain cancellation, lease-loss, guardrail and suspension outcomes when logging throws; original exceptions and guarded settlement remain authoritative (ADR-225).
