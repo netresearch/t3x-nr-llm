@@ -66,6 +66,36 @@ class KeyedProviderRegistryTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function registeringTheSameIdentifierReplacesOnlyThatProvider(): void
+    {
+        $registry = $this->createRegistry();
+        $first = $this->providerStub('same', 'First');
+        $second = $this->providerStub('same', 'Second');
+        $other = $this->providerStub('other', 'Other');
+        $registry->registerProvider($first);
+        $registry->registerProvider($other);
+        self::assertSame(
+            $first,
+            $registry->getProvider(new ProviderAdapterKey('same')),
+        );
+
+        $registry->registerProvider($second);
+
+        self::assertSame(
+            $second,
+            $registry->getProvider(new ProviderAdapterKey('same')),
+        );
+        self::assertSame(
+            $other,
+            $registry->getProvider(new ProviderAdapterKey('other')),
+        );
+        self::assertSame(
+            ['same' => 'Second', 'other' => 'Other'],
+            $registry->getProviderList(),
+        );
+    }
+
+    #[Test]
     public function getProviderThrowsForUnknownIdentifier(): void
     {
         $registry = $this->createRegistry();
