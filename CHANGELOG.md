@@ -119,7 +119,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   document/decision capability interfaces. Priority regressions assert the
   actual registration order.
 - **BREAKING for implementations of `ToolCallPolicyInterface` and `ToolLoopServiceInterface` (ADR-038 item 5).** `ToolCallPolicyInterface::decide()`, `explain()` and `filterOfferable()` take an optional `?SkillToolAllowList $runAllowList` last, and the interface gains `skillAllowListForRun()`, which resolves the list over the configuration's skills and the run's forced skills; without the argument the policy keeps the configuration-only resolution. `ToolLoopServiceInterface::runLoop()` takes an optional `?SkillToolAllowList $skillAllowList` last, the list a queued run was enqueued under. Callers are unaffected; a class outside nr-llm that implements either interface has to add the parameters and the method.
-- **The decision sidecar installs transformers 5.20.0 and the reranker sentence-transformers 6.1.0.** `requirements.txt` and `requirements.lock` move together, so `check-lock-matches-requirements.sh` keeps passing. Only the bumped entry changes in each lock; every other pinned wheel resolves unchanged.
+- **The decision sidecar installs transformers 5.20.1 and the reranker sentence-transformers 6.1.0.** `requirements.txt` and `requirements.lock` move together, so `check-lock-matches-requirements.sh` keeps passing. Only the bumped entry changes in each lock; every other pinned wheel resolves unchanged.
 
 ### Fixed
 
