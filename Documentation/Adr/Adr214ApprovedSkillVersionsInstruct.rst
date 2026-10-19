@@ -767,7 +767,11 @@ of 10 % of the budget (working value). That is the floor ``fit()`` reaches by
 dropping older turns (:ref:`ADR-107 <adr-107>`), so a section that passes can
 always be sent. Otherwise nothing is appended: a load returns an error result
 naming the skill, and a start fails before the first provider call with a
-message naming the skill.
+message naming the skill. The implementing change applies the check at the
+start of an agent run and at a load; a single call through the manager's
+configuration paths (completion, translation, a chat without the loop) is
+charged but not refused, because it carries no older turns the fit could
+drop instead (``specs/012-approved-skill-versions/spec.md``, section (d)).
 
 **A section the conversation already holds at the same digest is not
 re-admitted.** A pin derived from the predecessor run is composed without a
@@ -800,16 +804,30 @@ system message only when both hold:
   as a label, then its text. Both fields are editable without ``exclude``, so
   the mark (working name ``caller_system_digest`` on
   ``tx_nrllm_promptsnippet``, ``exclude => true``) stores a sha256 of that
-  composed block, label and text. The marking form shows the block and posts
-  the digest of the block it rendered; the server recomputes it and refuses
-  the mark when the two differ, the rule item 2 applies to skill approvals.
-  The snippet is appended only while the digest of its current block
-  matches. An edit of the name or the text by anyone who may edit them —
-  under ADR-169 a non-administrator — takes it out of the chat's system
-  message until an administrator marks the new block; and
+  composed block, label and text, together with the snippet's tags, which
+  decide the configurations that select it. The marking form shows the block
+  and the tags and posts the digest of what it rendered; the server
+  recomputes it and refuses the mark when the two differ, the rule item 2
+  applies to skill approvals. The snippet is appended only while the digest
+  of its current block and tags matches. An edit of the name, the text or the
+  tags by anyone who may edit them — under ADR-169 a non-administrator —
+  takes it out of the chat's system message until an administrator marks the
+  new block; and
 - **the configuration opts in** (working name
   ``snippets_in_caller_system_message`` on ``tx_nrllm_configuration``,
-  ``exclude => true``, default off).
+  ``exclude => true``, default off). Its ``snippet_tags`` selection, which
+  routes marked snippets to it, is likewise an administrator's: both fields
+  carry ``HIDE_FOR_NON_ADMINS``, which the DataHandler enforces for every
+  non-administrator whatever a group grants.
+
+A forced snippet (playground, queued runs) reaches a caller's system message
+under the same two conditions, and joins that message rather than one of its
+own. Unlike a skill section, which carries a pin that a resume checks
+(:ref:`item 6 <adr-214-d6>`), a snippet block already in a suspended
+transcript is replayed as composed, as snippets always were (ADR-166,
+ADR-175): an unmark or an edit takes it out of every run composed afterwards,
+not out of a run waiting for a human. Marks and unmarks are logged with the
+acting backend user.
 
 A mark on the record alone was rejected: the ``snippet`` and ``name`` fields
 are not excluded, so a non-administrator could keep a marked record and

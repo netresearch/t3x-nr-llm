@@ -96,7 +96,10 @@ final readonly class SkillInjectionService
      * `pins` names the versions the instruction sections were composed from
      * (ADR-214 item 6), whether placed here or handed back.
      *
-     * @return array{messages: list<ChatMessage|array<string, mixed>>, instructions: string, pins: list<SkillPin>}
+     * `instructionIds` names the skills whose sections the instructions hold,
+     * for a refusal that has to name them (ADR-214 item 7).
+     *
+     * @return array{messages: list<ChatMessage|array<string, mixed>>, instructions: string, pins: list<SkillPin>, instructionIds: list<string>}
      */
     public function composeIntoMessages(array $messages, array $configSkills, array $taskSkills = []): array
     {
@@ -104,15 +107,15 @@ final readonly class SkillInjectionService
         $messages = $this->prependBlockToFirstUserMessage($messages, $result->block);
 
         if ($result->instructions === '') {
-            return ['messages' => $messages, 'instructions' => '', 'pins' => []];
+            return ['messages' => $messages, 'instructions' => '', 'pins' => [], 'instructionIds' => []];
         }
 
         $placed = self::appendToFirstSystemMessage($messages, $result->instructions);
         if ($placed === null) {
-            return ['messages' => $messages, 'instructions' => $result->instructions, 'pins' => $result->instructionPins];
+            return ['messages' => $messages, 'instructions' => $result->instructions, 'pins' => $result->instructionPins, 'instructionIds' => $result->instructionIncluded];
         }
 
-        return ['messages' => $placed, 'instructions' => '', 'pins' => $result->instructionPins];
+        return ['messages' => $placed, 'instructions' => '', 'pins' => $result->instructionPins, 'instructionIds' => $result->instructionIncluded];
     }
 
     /**

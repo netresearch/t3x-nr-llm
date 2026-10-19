@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Controller\Backend\McpServerController;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
 use Netresearch\NrLlm\Controller\Backend\PromptSnippetController;
+use Netresearch\NrLlm\Controller\Backend\PromptSnippetMarkController;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
 use Netresearch\NrLlm\Controller\Backend\SetupWizardController;
 use Netresearch\NrLlm\Controller\Backend\SkillApprovalController;
@@ -237,6 +238,12 @@ return [
         'controllerActions' => [
             PromptSnippetController::class => [
                 'list',
+            ],
+            // Mark a snippet for a caller's system message (ADR-214 item 8).
+            PromptSnippetMarkController::class => [
+                'review',
+                'mark',
+                'unmark',
             ],
         ],
     ],

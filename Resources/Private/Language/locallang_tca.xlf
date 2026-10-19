@@ -230,6 +230,12 @@
             <trans-unit id="tx_nrllm_configuration.snippet_tags.description">
                 <source>Active prompt snippets carrying any of the selected tags are appended to this configuration's system prompt. Empty = no snippets. Tags are matched as whole tokens and case-insensitively, so "style" does not match "lifestyle".</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.snippets_in_caller_system_message">
+                <source>Marked snippets in the caller's system message</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.snippets_in_caller_system_message.description">
+                <source>When a caller such as the chat sends its own system message, this configuration's system prompt and snippets are not sent. With this option, the selected snippets an administrator marked in the snippet library are appended to that message.</source>
+            </trans-unit>
             <trans-unit id="tx_nrllm_configuration.skills">
                 <source>Skills loaded always</source>
             </trans-unit>

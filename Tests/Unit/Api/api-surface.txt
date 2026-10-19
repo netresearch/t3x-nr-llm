@@ -527,6 +527,7 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method hasUsageLimits(): bool
   method isActive(): bool
   method isDefault(): bool
+  method isSnippetsInCallerSystemMessage(): bool
   method removeSkill(Netresearch\NrLlm\Domain\Model\Skill $skill): void
   method removeSkillOnDemand(Netresearch\NrLlm\Domain\Model\Skill $skill): void
   method requiresSecondApprover(): bool
@@ -558,6 +559,7 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method setSkills(TYPO3\CMS\Extbase\Persistence\ObjectStorage $skills): void
   method setSkillsOnDemand(TYPO3\CMS\Extbase\Persistence\ObjectStorage $skills): void
   method setSnippetTags(string $snippetTags): void
+  method setSnippetsInCallerSystemMessage(bool $snippetsInCallerSystemMessage): void
   method setSystemPrompt(string $systemPrompt): void
   method setSystemPromptDataClass(string $systemPromptDataClass): void
   method setTemperature(float $temperature): void
@@ -1271,6 +1273,10 @@ Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException (class)
   property readonly pin: Netresearch\NrLlm\Domain\ValueObject\SkillPin
   property readonly reason: string
   property readonly skillName: string
+
+Netresearch\NrLlm\Exception\SkillSectionNotAdmittedException (class)
+  constructor(array $skillIdentifiers, int $code = …)
+  property readonly skillIdentifiers: array
 
 Netresearch\NrLlm\Exception\StructuredResponseMismatchException (class)
 

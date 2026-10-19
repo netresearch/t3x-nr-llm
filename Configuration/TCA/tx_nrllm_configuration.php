@@ -42,6 +42,7 @@ return [
                     system_prompt,
                     system_prompt_data_class,
                     snippet_tags,
+                    snippets_in_caller_system_message,
                     skills_on_demand,
                     skills,
                     options,
@@ -466,7 +467,13 @@ return [
                 'default' => 0,
             ],
         ],
+        // The tags decide which snippets reach a caller's system message
+        // (ADR-214 item 8), so the selection is an administrator's decision,
+        // whatever a group is granted: a marked snippet must not be routed
+        // to a configuration nobody with that right chose.
         'snippet_tags' => [
+            'exclude' => true,
+            'displayCond' => 'HIDE_FOR_NON_ADMINS',
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.snippet_tags',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.snippet_tags.description',
             'config' => [
@@ -474,6 +481,21 @@ return [
                 'renderType' => 'selectCheckBox',
                 'itemsProcFunc' => SnippetTagItems::class . '->addItems',
                 'default' => '',
+            ],
+        ],
+        // ADR-214 item 8: whether marked snippets also join a caller's own
+        // system message. Excluded: it routes text into the chat's system
+        // message, which only an administrator decides.
+        'snippets_in_caller_system_message' => [
+            'exclude' => true,
+            // An administrator's decision, whatever a group is granted.
+            'displayCond' => 'HIDE_FOR_NON_ADMINS',
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.snippets_in_caller_system_message',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.snippets_in_caller_system_message.description',
+            'config' => [
+                'type' => 'check',
+                'renderType' => 'checkboxToggle',
+                'default' => 0,
             ],
         ],
         'skills' => [
