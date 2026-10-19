@@ -15,9 +15,11 @@ use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 use stdClass;
+use Throwable;
 use TYPO3\CMS\Core\Cache\CacheManager as Typo3CacheManager;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 
@@ -114,26 +116,29 @@ final class IdempotencyMiddlewareTest extends AbstractUnitTestCase
     public function doesNotStoreFailedCalls(): void
     {
         $middleware = $this->middleware();
-        $context    = $this->contextWithKey('will-fail');
-
+        $context = $this->contextWithKey('will-fail');
+        $expectedFailure = new RuntimeException('boom', 1);
         $calls = 0;
-        $next  = function () use (&$calls): never {
+        $next = static function () use (&$calls, $expectedFailure): never {
             $calls++;
-
-            throw new RuntimeException('boom', 1);
+            throw $expectedFailure;
         };
-
         for ($i = 0; $i < 2; $i++) {
+            $actualFailure = null;
             try {
                 $middleware->handle($context, $next);
-                self::fail('Expected the failure to propagate');
-            } catch (RuntimeException) {
-                // expected
+            } catch (RuntimeException $exception) {
+                $actualFailure = $exception;
             }
+
+            self::assertSame(
+                $expectedFailure,
+                $actualFailure,
+                'Each retry must propagate the original provider failure.',
+            );
         }
 
-        // A failure is never cached: a retry with the same key genuinely re-runs.
-        self::assertSame(2, $calls);
+        self::assertSame(2, $calls, 'Failed calls must never be cached.');
     }
 
     // -----------------------------------------------------------------------
@@ -180,5 +185,195 @@ final class IdempotencyMiddlewareTest extends AbstractUnitTestCase
         $cacheManager->method('getCache')->willReturn($frontend);
 
         return $cacheManager;
+    }
+
+    #[Test]
+    #[DataProvider('distinctKeysWithTheSameReadablePrefix')]
+    public function distinctRawKeysKeepSeparateResultsAndReplayTheirOwnAnswer(
+        string $firstKey,
+        string $secondKey,
+    ): void {
+        $middleware = $this->middleware();
+        $calls = 0;
+        $next = static function () use (&$calls): string {
+            return 'answer-' . ++$calls;
+        };
+        self::assertSame(
+            'answer-1',
+            $middleware->handle($this->contextWithKey($firstKey), $next),
+        );
+        self::assertSame(
+            'answer-2',
+            $middleware->handle($this->contextWithKey($secondKey), $next),
+        );
+        self::assertSame(
+            'answer-1',
+            $middleware->handle($this->contextWithKey($firstKey), $next),
+        );
+        self::assertSame(
+            'answer-2',
+            $middleware->handle($this->contextWithKey($secondKey), $next),
+        );
+        self::assertSame(2, $calls);
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function distinctKeysWithTheSameReadablePrefix(): iterable
+    {
+        yield 'same sanitized prefix' => ['order:42', 'order?42'];
+        yield 'same truncated prefix' => [str_repeat('a', 64) . 'first', str_repeat('a', 64) . 'second'];
+    }
+
+    #[Test]
+    #[DataProvider('absentKeys')]
+    public function unusableKeysBypassTheCache(mixed $key): void
+    {
+        $frontend = self::createMock(FrontendInterface::class);
+        $frontend->expects(self::never())->method('get');
+        $frontend->expects(self::never())->method('set');
+        $response = new stdClass();
+        $context = new ProviderCallContext(
+            ProviderOperation::Chat,
+            'corr',
+            metadata: [IdempotencyMiddleware::METADATA_IDEMPOTENCY_KEY => $key],
+        );
+        $result = null;
+        $failure = null;
+        try {
+            $result = $this
+                ->middlewareWithFrontend($frontend)
+                ->handle($context, static fn(): stdClass => $response);
+        } catch (Throwable $exception) {
+            $failure = $exception;
+        }
+
+        self::assertNull(
+            $failure,
+            'An unusable idempotency key must pass through without cache failures.',
+        );
+        self::assertSame($response, $result);
+    }
+
+    /**
+     * @return iterable<string, array{mixed}>
+     */
+    public static function absentKeys(): iterable
+    {
+        yield 'empty string' => [''];
+        yield 'null' => [null];
+        yield 'integer' => [42];
+        yield 'boolean' => [true];
+        yield 'array' => [['key']];
+    }
+
+    #[Test]
+    public function aCacheReadFailureStillReturnsAndStoresTheFreshAnswer(): void
+    {
+        $response = new stdClass();
+        $frontend = self::createMock(FrontendInterface::class);
+        $frontend
+            ->expects(self::once())
+            ->method('get')
+            ->willThrowException(new RuntimeException('cache read failed', 1));
+        $frontend
+            ->expects(self::once())
+            ->method('set')
+            ->with(self::isString(), $response, [], 86400);
+        $result = null;
+        $failure = null;
+        $calls = 0;
+        try {
+            $result = $this
+                ->middlewareWithFrontend($frontend)
+                ->handle(
+                    $this->contextWithKey('read-failure'),
+                    static function () use (&$calls, $response): stdClass {
+                        $calls++;
+                        return $response;
+                    },
+                );
+        } catch (Throwable $exception) {
+            $failure = $exception;
+        }
+
+        self::assertNull(
+            $failure,
+            'A cache read failure must not replace a successful provider answer.',
+        );
+        self::assertSame($response, $result);
+        self::assertSame(1, $calls);
+    }
+
+    #[Test]
+    public function cacheResolutionFailureDoesNotBlockOrInventAReplay(): void
+    {
+        $manager = self::createStub(Typo3CacheManager::class);
+        $manager
+            ->method('getCache')
+            ->willThrowException(new RuntimeException('cache not available', 1));
+        $middleware = new IdempotencyMiddleware($manager);
+        $results = [];
+        $failure = null;
+        $calls = 0;
+        $next = static function () use (&$calls): string {
+            return 'answer-' . ++$calls;
+        };
+        try {
+            $results[] = $middleware->handle(
+                $this->contextWithKey('resolution-failure'),
+                $next,
+            );
+            $results[] = $middleware->handle(
+                $this->contextWithKey('resolution-failure'),
+                $next,
+            );
+        } catch (Throwable $exception) {
+            $failure = $exception;
+        }
+
+        self::assertNull($failure);
+        self::assertSame(['answer-1', 'answer-2'], $results);
+        self::assertSame(2, $calls);
+    }
+
+    #[Test]
+    public function aCacheStoreFailureReturnsTheFreshAnswerAndAllowsARetry(): void
+    {
+        $frontend = self::createMock(FrontendInterface::class);
+        $frontend->expects(self::exactly(2))->method('get')->willReturn(false);
+        $frontend
+            ->expects(self::exactly(2))
+            ->method('set')
+            ->willThrowException(new RuntimeException('cache store failed', 1));
+        $middleware = $this->middlewareWithFrontend($frontend);
+        $calls = 0;
+        $results = [];
+        $failure = null;
+        $next = static function () use (&$calls): string {
+            return 'answer-' . ++$calls;
+        };
+        try {
+            $results[] = $middleware->handle($this->contextWithKey('store-failure'), $next);
+            $results[] = $middleware->handle($this->contextWithKey('store-failure'), $next);
+        } catch (Throwable $exception) {
+            $failure = $exception;
+        }
+
+        self::assertNull(
+            $failure,
+            'Best-effort persistence must not replace a successful provider answer.',
+        );
+        self::assertSame(['answer-1', 'answer-2'], $results);
+        self::assertSame(2, $calls);
+    }
+
+    private function middlewareWithFrontend(
+        FrontendInterface $frontend,
+    ): IdempotencyMiddleware {
+        $manager = self::createStub(Typo3CacheManager::class);
+        $manager->method('getCache')->willReturn($frontend);
+        return new IdempotencyMiddleware($manager);
     }
 }

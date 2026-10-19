@@ -14,7 +14,6 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
-use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 
 /**
  * How sensitive the context a configuration injects is (ADR-144).
@@ -172,7 +171,16 @@ final readonly class InputContextClassifier
     private function fromSkills(LlmConfiguration $configuration): array
     {
         $sources = [];
-        foreach (SkillInjectionService::toList($configuration->getSkills()) as $skill) {
+        // Both load modes: an on-demand skill can enter the run's context
+        // through a load (ADR-214 item 4), so it is classified up front.
+        $seen = [];
+        foreach ($configuration->getAttachedSkills() as $skill) {
+            $key = $skill->getUid() ?? 'o' . spl_object_id($skill);
+            if (isset($seen[$key])) {
+                continue;
+            }
+
+            $seen[$key] = true;
             $name  = $this->skillName($skill->getName());
             $class = $skill->getDataClassEnum();
 

@@ -204,6 +204,8 @@ final class TaskExecutionController extends ActionController
             return $deny;
         }
 
+        // Literal DTO factory; it parses request values without executing OS commands.
+        // nosemgrep: php.lang.security.exec-use.exec-use
         $dto = ExecuteTaskRequest::fromRequest($request);
 
         $task = $this->taskRepository->findByUid($dto->uid);

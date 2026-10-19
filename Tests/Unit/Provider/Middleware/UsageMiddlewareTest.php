@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Provider\Middleware;
 
+use Error;
 use LogicException;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\DecisionResponse;
@@ -31,11 +32,13 @@ use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Log\LoggerInterface;
 use ReflectionProperty;
 use RuntimeException;
+use Throwable;
 
 #[CoversClass(UsageMiddleware::class)]
 final class UsageMiddlewareTest extends AbstractUnitTestCase
@@ -930,5 +933,120 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
     {
         $prop = new ReflectionProperty($model, 'uid');
         $prop->setValue($model, $uid);
+    }
+
+    /**
+     * @param 'typed'|'array'|'specialized' $shape
+     */
+    #[Test]
+    #[DataProvider('throwingLoggersAndResponseShapes')]
+    public function usageAndLoggingFailuresPreserveTheSuccessfulAnswer(
+        string $shape,
+        Throwable $loggingFailure,
+    ): void {
+        $usageFailure = new RuntimeException('usage database unavailable', 1);
+        $this->tracker
+            ->expects(self::once())
+            ->method('trackUsage')
+            ->willThrowException($usageFailure);
+        $operation = $shape === 'specialized' ? ProviderOperation::ImageGeneration : ProviderOperation::Chat;
+        $this->logger
+            ->expects(self::once())
+            ->method('warning')
+            ->with(
+                'Usage tracking failed after a successful provider call; the call result is unaffected.',
+                ['exception' => $usageFailure, 'operation' => $operation->value],
+            )
+            ->willThrowException($loggingFailure);
+        $response = match ($shape) {
+            'typed' => new CompletionResponse(
+                content: 'already generated',
+                model: 'example-model',
+                usage: new UsageStatistics(2, 3, 5, 0.1),
+                provider: 'example-provider',
+            ),
+            'array' => [
+                'content' => 'already generated',
+                'model' => 'example-model',
+                'provider' => 'example-provider',
+                'usage' => [
+                    'promptTokens' => 2,
+                    'completionTokens' => 3,
+                    'totalTokens' => 5,
+                    'estimatedCost' => 0.1,
+                ],
+            ],
+            'specialized' => ['images' => [['url' => 'https://example.test/generated.png']]],
+        };
+        $extractors = $shape === 'specialized' ? [
+            $this->extractor(
+                $operation,
+                new ProviderUsageRecord(
+                    serviceType: 'image',
+                    provider: 'example-provider',
+                    metrics: ['images' => 1],
+                ),
+            ),
+        ] : [];
+        $context = ProviderCallContext::forService(
+            $operation,
+            'example-provider',
+            'example-model',
+        );
+        $actualAnswer = null;
+        $actualFailure = null;
+        $providerCalls = 0;
+        try {
+            $actualAnswer = $this
+                ->pipeline($extractors)
+                ->run(
+                    $context,
+                    static function () use ($response, &$providerCalls): mixed {
+                        $providerCalls++;
+                        return $response;
+                    },
+                );
+        } catch (Throwable $exception) {
+            $actualFailure = $exception;
+        }
+
+        self::assertNull(
+            $actualFailure,
+            'Post-success bookkeeping and its logger must never turn the answer into an error.',
+        );
+        self::assertSame($response, $actualAnswer);
+        self::assertSame(
+            1,
+            $providerCalls,
+            'Accounting failure must not repeat the paid provider call.',
+        );
+        if ($shape === 'specialized') {
+            self::assertNull($context->telemetrySignals->callUsage);
+        } else {
+            self::assertInstanceOf(
+                ProviderCallUsage::class,
+                $context->telemetrySignals->callUsage,
+            );
+            self::assertSame(
+                2,
+                $context->telemetrySignals->callUsage->inputTokens,
+            );
+            self::assertSame(
+                3,
+                $context->telemetrySignals->callUsage->outputTokens,
+            );
+            self::assertSame(0.1, $context->telemetrySignals->callUsage->cost);
+        }
+    }
+
+    /**
+     * @return iterable<string, array{'typed'|'array'|'specialized', Throwable}>
+     */
+    public static function throwingLoggersAndResponseShapes(): iterable
+    {
+        foreach (['typed', 'array', 'specialized'] as $shape) {
+            yield $shape . ' with logger exception' => [$shape, new RuntimeException('log writer unavailable', 1)];
+            yield $shape . ' with logger error' => [$shape, new Error('log writer failed')];
+        }
     }
 }
