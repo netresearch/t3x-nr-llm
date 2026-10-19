@@ -49,6 +49,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\ListExtensionsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListFalStoragesTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListMiddlewaresTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListSchedulerTasksTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\LoadSkillTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\MoveContentElementTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\MovePageTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ProbeUrlTool;
@@ -113,6 +114,7 @@ final class BuiltinToolGroupsTest extends TestCase
             'get_tsconfig'      => [GetTsConfigTool::class, 'configuration'],
             'list_extensions'   => [ListExtensionsTool::class, 'system'],
             'get_site_config'   => [GetSiteConfigTool::class, 'configuration'],
+            'load_skill'        => [LoadSkillTool::class, 'configuration'],
             'list_scheduler_tasks'   => [ListSchedulerTasksTool::class, 'system'],
             'get_system_status' => [GetSystemStatusTool::class, 'system'],
             'list_deprecations' => [ListDeprecationsTool::class, 'system'],

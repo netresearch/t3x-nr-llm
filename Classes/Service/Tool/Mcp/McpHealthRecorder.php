@@ -22,9 +22,9 @@ use TYPO3\CMS\Core\Context\Context;
  * behind a call that has already succeeded, so it must never be able to turn a
  * working tool call into a failed one. Every failure — a locked table, a
  * column an install has not migrated yet, a connection that went away — is
- * swallowed and logged. A lost observation costs an operator a stale
- * timestamp; a thrown exception would cost them the answer they were waiting
- * for.
+ * contained; the existing warning is attempted once. A lost observation costs
+ * an operator a stale timestamp; a thrown exception would cost them the answer
+ * they were waiting for.
  *
  * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
@@ -45,12 +45,20 @@ final readonly class McpHealthRecorder implements McpHealthRecorderInterface
         }
 
         try {
-            $this->servers->recordSuccessfulContact($server->uid, $this->now(), max(0, $latencyMs));
+            $this->servers->recordSuccessfulContact(
+                $server->uid,
+                $this->now(),
+                max(0, $latencyMs),
+            );
         } catch (Throwable $e) {
-            $this->logger->warning('An MCP liveness observation could not be stored', [
-                'server'    => $server->identifier,
-                'exception' => $e,
-            ]);
+            try {
+                $this->logger->warning(
+                    'An MCP liveness observation could not be stored',
+                    ['server' => $server->identifier, 'exception' => $e],
+                );
+            } catch (Throwable) {
+                // Optional diagnostics cannot invalidate a completed MCP operation.
+            }
         }
     }
 
