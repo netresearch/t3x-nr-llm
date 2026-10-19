@@ -1659,6 +1659,14 @@
                 <source>This version had no active approval to revoke.</source>
                 <target>Diese Version hatte keine gültige Freigabe, die widerrufen werden konnte.</target>
             </trans-unit>
+            <trans-unit id="skill.action.newBackendSkill">
+                <source>New skill</source>
+                <target>Neuer Skill</target>
+            </trans-unit>
+            <trans-unit id="skill.action.edit">
+                <source>Edit skill</source>
+                <target>Skill bearbeiten</target>
+            </trans-unit>
             <trans-unit id="skill.action.sync">
                 <source>Sync</source>
                 <target>Synchronisieren</target>

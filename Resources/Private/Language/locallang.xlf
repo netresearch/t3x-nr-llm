@@ -1249,6 +1249,12 @@
             <trans-unit id="skill.approval.flash.nothingRevoked">
                 <source>This version had no active approval to revoke.</source>
             </trans-unit>
+            <trans-unit id="skill.action.newBackendSkill">
+                <source>New skill</source>
+            </trans-unit>
+            <trans-unit id="skill.action.edit">
+                <source>Edit skill</source>
+            </trans-unit>
             <trans-unit id="skill.action.sync">
                 <source>Sync</source>
             </trans-unit>

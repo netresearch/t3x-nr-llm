@@ -4,20 +4,28 @@
  * Copyright (c) 2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-
-declare(strict_types=1);
+declare (strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Retrieval;
 
+use Error;
+use Generator;
 use Netresearch\NrLlm\Service\Retrieval\EvidenceSource;
 use Netresearch\NrLlm\Service\Retrieval\KeywordHit;
 use Netresearch\NrLlm\Service\Retrieval\KeywordSearchService;
 use Netresearch\NrLlm\Service\Retrieval\RetrievalQuery;
+use Netresearch\NrLlm\Service\Retrieval\SearchBackendInterface;
 use Netresearch\NrLlm\Tests\Unit\Service\Retrieval\Fixtures\FakeSearchBackend;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Throwable;
 
+/**
+ * Verifies keyword routing and availability across backend discovery failures.
+ */
 #[CoversClass(KeywordSearchService::class)]
 #[CoversClass(KeywordHit::class)]
 final class KeywordSearchServiceTest extends TestCase
@@ -98,10 +106,7 @@ final class KeywordSearchServiceTest extends TestCase
     #[Test]
     public function availabilityProbeSurvivesThrowingBackend(): void
     {
-        $service = new KeywordSearchService([
-            new FakeSearchBackend('broken', 30, throwsOnAvailability: true),
-            new FakeSearchBackend('database', 0),
-        ]);
+        $service = new KeywordSearchService([new FakeSearchBackend('broken', 30, throwsOnAvailability: true), new FakeSearchBackend('database', 0)]);
 
         self::assertTrue($service->isAvailable());
     }
@@ -189,5 +194,93 @@ final class KeywordSearchServiceTest extends TestCase
 
         self::assertCount(2, $hits);
         self::assertSame(['a:1', 'a:3'], array_map(static fn(KeywordHit $hit): string => $hit->sourceId, $hits));
+    }
+
+    #[Test]
+    public function indexBackedAvailabilitySurvivesAThrowingPriority(): void
+    {
+        $broken = $this->createMock(SearchBackendInterface::class);
+        $broken->expects(self::once())->method('getPriority')->willThrowException(new RuntimeException('Broken backend priority'));
+        $broken->expects(self::never())->method('isAvailable');
+        $service = new KeywordSearchService([$broken], indexBackedOnly: true);
+        try {
+            self::assertFalse($service->isAvailable());
+        } catch (Throwable $e) {
+            self::fail('Availability must degrade to false, but escaped ' . $e::class . ': ' . $e->getMessage());
+        }
+
+        self::assertSame([], $service->search('term', 5));
+    }
+
+    #[Test]
+    public function aThrowingPriorityDoesNotHideAUsableIndexSibling(): void
+    {
+        $broken = $this->createMock(SearchBackendInterface::class);
+        $broken->expects(self::once())->method('getPriority')->willThrowException(new RuntimeException('Broken backend priority'));
+        $broken->expects(self::never())->method('isAvailable');
+        $healthy = new FakeSearchBackend('solr', 30, sources: [FakeSearchBackend::source('solr:1')]);
+        $service = new KeywordSearchService([$broken, $healthy], indexBackedOnly: true);
+        try {
+            self::assertTrue($service->isAvailable());
+        } catch (Throwable $e) {
+            self::fail('A usable index sibling must stay available, but escaped ' . $e::class . ': ' . $e->getMessage());
+        }
+
+        self::assertSame(['solr:1'], array_map(static fn(KeywordHit $hit): string => $hit->sourceId, $service->search('term', 5)));
+        self::assertSame(1, $healthy->searchCalls);
+    }
+
+    #[Test]
+    public function availabilitySurvivesAThrowingBackendIterator(): void
+    {
+        $backends = (static function (): Generator {
+            yield from [];
+            throw new RuntimeException('Backend discovery failed', 1770581041);
+        })();
+        $service = new KeywordSearchService($backends);
+        try {
+            self::assertFalse($service->isAvailable());
+        } catch (Throwable $e) {
+            self::fail('Failed backend discovery must degrade to false, but escaped ' . $e::class . ': ' . $e->getMessage());
+        }
+    }
+
+    #[Test]
+    #[DataProvider('fullCascadePriorityFailures')]
+    public function fullCascadePriorityFailureKeepsHealthyDatabaseFallback(
+        Throwable $failure,
+    ): void {
+        $broken = $this->createMock(SearchBackendInterface::class);
+        $broken
+            ->expects(self::once())
+            ->method('getPriority')
+            ->willThrowException($failure);
+        $broken->expects(self::never())->method('isAvailable');
+        $broken->expects(self::never())->method('search');
+        $healthy = new FakeSearchBackend(
+            'database',
+            0,
+            sources: [FakeSearchBackend::source('database:1:0')],
+        );
+        $service = new KeywordSearchService([$broken, $healthy]);
+
+        self::assertSame(
+            ['database:1:0'],
+            array_map(
+                static fn(KeywordHit $hit): string => $hit->sourceId,
+                $service->search('term', 5),
+            ),
+        );
+        self::assertSame(1, $healthy->searchCalls);
+        self::assertTrue($service->isAvailable());
+    }
+
+    /**
+     * @return iterable<string, array{Throwable}>
+     */
+    public static function fullCascadePriorityFailures(): iterable
+    {
+        yield 'backend exception' => [new RuntimeException('Broken backend priority', 1770581101)];
+        yield 'backend engine error' => [new Error('Broken backend priority', 1770581102)];
     }
 }
