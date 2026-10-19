@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\Process;
 
+use ArrayObject;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\DroppedSourceReason;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
@@ -47,6 +48,7 @@ use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\ApprovalEventFailingRunRepository;
 use Netresearch\NrLlm\Tests\Unit\Fixture\RecordingLogger;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -576,6 +578,46 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
         ]);
 
         $this->assertRefused(ProcessInvocationRefusal::LINEAGE_UNREADABLE, $this->request($this->configuration($this->processSkill()), null, predecessor: $handle->uuid));
+    }
+
+    /**
+     * A store error on the predecessor's lineage refuses the continuation even
+     * when the next read of the same row would answer: the turn must not go on
+     * without the walk over the runs it was carried through (ADR-228). Once
+     * the store answers, the same request continues the process.
+     */
+    #[Test]
+    public function aLineageReadThatFailsOnceStillRefusesTheContinuation(): void
+    {
+        $configuration = $this->configuration($this->processSkill());
+        $predecessor   = $this->finishedProcessRun($configuration);
+        $request       = $this->request($configuration, null, predecessor: $predecessor);
+
+        /** @var ArrayObject<string, int> $failing */
+        $failing   = new ArrayObject(['lineage' => 1]);
+        $persister = new AgentRunPersister(
+            new ApprovalEventFailingRunRepository(
+                new AgentRunRepository($this->pool(), $this->get(AgentStateCodec::class)),
+                '',
+                failingLatestReads: $failing,
+            ),
+            FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL),
+            new NullLogger(),
+        );
+
+        try {
+            $this->preparer(persister: $persister)->prepare($request, $this->actingUser(self::OWNER), $this->begin());
+            self::fail('Expected a refusal: LINEAGE_UNREADABLE');
+        } catch (ProcessInvocationRefusedException $exception) {
+            self::assertSame(ProcessInvocationRefusal::LINEAGE_UNREADABLE, $exception->reason);
+        }
+
+        self::assertSame(0, $failing['lineage'], 'the one injected failure was the read that refused');
+        self::assertSame(
+            self::PROCESS,
+            $this->preparer(persister: $persister)->prepare($request, $this->actingUser(self::OWNER), $this->begin())->pin?->skillUid,
+            'once the store answers, the process is continued',
+        );
     }
 
     /**
@@ -1115,12 +1157,12 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
     /**
      * @param array<string, string> $skills the `skills` extension settings
      */
-    private function preparer(array $skills = [], ?LoggerInterface $logger = null): ProcessRunPreparer
+    private function preparer(array $skills = [], ?LoggerInterface $logger = null, ?AgentRunPersister $persister = null): ProcessRunPreparer
     {
         $factory = $this->composerFactory($skills);
 
         return new ProcessRunPreparer(
-            $this->persister,
+            $persister ?? $this->persister,
             new ConfigurationResolver(),
             $factory->create(),
             new SkillPinCheck(new SkillApprovalRepository($this->pool()), new SkillSourceLookup($this->pool()), new SkillRecordLookup($this->pool()), $factory),
