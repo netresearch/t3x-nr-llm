@@ -186,6 +186,8 @@ CREATE TABLE tx_nrllm_configuration (
 
     -- Attached skills (MM relation to tx_nrllm_skill)
     skills int(11) DEFAULT '0' NOT NULL,
+    -- ADR-214 item 4: count of the 'on_demand' attachments (shared MM table).
+    skills_on_demand int(11) DEFAULT '0' NOT NULL,
 
     -- Standard TYPO3 fields
     tstamp int(11) unsigned DEFAULT '0' NOT NULL,
@@ -544,6 +546,12 @@ CREATE TABLE tx_nrllm_skill (
     -- Lifecycle
     orphaned tinyint(1) DEFAULT '0' NOT NULL,
     enabled tinyint(1) DEFAULT '0' NOT NULL,
+    -- Who disabled the skill (ADR-214 item 3): 'sync' (the sync or the
+    -- digest wizard: a change, an injection finding, an orphan, a tampered
+    -- row) or 'admin' (an administrator's decision); empty while enabled or
+    -- for rows from before the field. A skill the sync disabled keeps
+    -- restricting the runs it is attached to.
+    disabled_by varchar(16) DEFAULT '' NOT NULL,
 
     -- Standard TYPO3 fields
     tstamp int(11) unsigned DEFAULT '0' NOT NULL,
@@ -622,6 +630,10 @@ CREATE TABLE tx_nrllm_configuration_skill_mm (
     uid_foreign int(11) unsigned DEFAULT '0' NOT NULL,
     sorting int(11) unsigned DEFAULT '0' NOT NULL,
     sorting_foreign int(11) unsigned DEFAULT '0' NOT NULL,
+    -- ADR-214 item 4: 'always' (composed at run start) or 'on_demand' (offered
+    -- in the run's catalogue, loaded by the model). The default makes every
+    -- attachment that exists when the column is added an 'always' one.
+    load_mode varchar(16) DEFAULT 'always' NOT NULL,
 
     KEY uid_local (uid_local),
     KEY uid_foreign (uid_foreign)

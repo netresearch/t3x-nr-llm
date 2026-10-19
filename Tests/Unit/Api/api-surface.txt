@@ -473,11 +473,13 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   const SELECTION_MODE_FIXED = "fixed"
   constructor()
   method addSkill(Netresearch\NrLlm\Domain\Model\Skill $skill): void
+  method addSkillOnDemand(Netresearch\NrLlm\Domain\Model\Skill $skill): void
   method getAllowedGroups(): int
   method getAllowedGuardrails(): string
   method getAllowedGuardrailsList(): array
   method getAllowedToolGroups(): string
   method getAllowedToolGroupsList(): array
+  method getAttachedSkills(): array
   method getBeGroups(): TYPO3\CMS\Extbase\Persistence\ObjectStorage
   method getCrdate(): int
   method getDescription(): string
@@ -508,6 +510,7 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method getProviderType(): string
   method getRequireSecondApprover(): bool
   method getSkills(): TYPO3\CMS\Extbase\Persistence\ObjectStorage
+  method getSkillsOnDemand(): TYPO3\CMS\Extbase\Persistence\ObjectStorage
   method getSnippetTagList(): array
   method getSnippetTags(): string
   method getSystemPrompt(): string
@@ -525,6 +528,7 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method isActive(): bool
   method isDefault(): bool
   method removeSkill(Netresearch\NrLlm\Domain\Model\Skill $skill): void
+  method removeSkillOnDemand(Netresearch\NrLlm\Domain\Model\Skill $skill): void
   method requiresSecondApprover(): bool
   method setAllowedGuardrails(string $allowedGuardrails): void
   method setAllowedToolGroups(string $allowedToolGroups): void
@@ -552,6 +556,7 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method setPresetChecksum(string $presetChecksum): void
   method setRequireSecondApprover(bool $requireSecondApprover): void
   method setSkills(TYPO3\CMS\Extbase\Persistence\ObjectStorage $skills): void
+  method setSkillsOnDemand(TYPO3\CMS\Extbase\Persistence\ObjectStorage $skills): void
   method setSnippetTags(string $snippetTags): void
   method setSystemPrompt(string $systemPrompt): void
   method setSystemPromptDataClass(string $systemPromptDataClass): void
@@ -684,6 +689,8 @@ Netresearch\NrLlm\Domain\Model\Provider (class)
   method toAdapterConfig(): array
 
 Netresearch\NrLlm\Domain\Model\Skill (class)
+  const DISABLED_BY_ADMIN = "admin"
+  const DISABLED_BY_SYNC = "sync"
   method getAllowedTools(): string
   method getAllowedToolsList(): ?array
   method getBody(): string
@@ -691,6 +698,7 @@ Netresearch\NrLlm\Domain\Model\Skill (class)
   method getDataClass(): string
   method getDataClassEnum(): ?Netresearch\NrLlm\Domain\Enum\ToolDataClass
   method getDescription(): string
+  method getDisabledBy(): string
   method getIdentifier(): string
   method getInjectionFindings(): array
   method getInjectionScan(): string
@@ -709,6 +717,7 @@ Netresearch\NrLlm\Domain\Model\Skill (class)
   method getUnsupportedNotes(): string
   method getVersionDigest(): string
   method hasInjectionFindings(): bool
+  method isDisabledBySync(): bool
   method isEnabled(): bool
   method isOrphaned(): bool
   method isProcess(): bool
@@ -717,6 +726,7 @@ Netresearch\NrLlm\Domain\Model\Skill (class)
   method setBodyChecksum(string $bodyChecksum): void
   method setDataClass(string $dataClass): void
   method setDescription(string $description): void
+  method setDisabledBy(string $disabledBy): void
   method setEnabled(bool $enabled): void
   method setIdentifier(string $identifier): void
   method setInjectionScan(string $injectionScan): void
@@ -1078,10 +1088,11 @@ Netresearch\NrLlm\Domain\ValueObject\SkillPin (class)
   property readonly versionDigest: string
 
 Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList (class)
-  constructor(?array $toolNames)
+  constructor(?array $toolNames, bool $processBound = …)
   method intersect(self $other): self
   method static fromStored(mixed $raw): ?self
   method toStored(): array
+  property readonly processBound: bool
   property readonly toolNames: ?array
 
 Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
@@ -1233,7 +1244,11 @@ Netresearch\NrLlm\Exception\GuardrailViolationException (class)
 
 Netresearch\NrLlm\Exception\InvalidArgumentException (class)
 
+Netresearch\NrLlm\Exception\LogicException (class)
+
 Netresearch\NrLlm\Exception\NrLlmExceptionInterface (interface)
+
+Netresearch\NrLlm\Exception\RuntimeException (class)
 
 Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException (class)
   constructor(Netresearch\NrLlm\Domain\ValueObject\SkillPin $pin, string $skillName, string $reason)

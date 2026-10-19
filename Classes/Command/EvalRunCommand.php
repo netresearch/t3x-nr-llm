@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Command;
 
 use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Decision\DecisionException;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepositoryInterface;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultSummary;
@@ -129,11 +130,17 @@ final class EvalRunCommand extends Command
         return $options;
     }
 
-    private function floatOption(InputInterface $input, string $name, float $default): float
+    private function floatOption(InputInterface $input, string $name): float
     {
         $value = $input->getOption($name);
+        if (!is_numeric($value) || !is_finite((float)$value) || (float)$value < 0.0 || (float)$value > 1.0) {
+            throw new InvalidArgumentException(
+                sprintf('Option "--%s" must be a finite number in 0..1.', $name),
+                1794000041,
+            );
+        }
 
-        return is_numeric($value) ? (float)$value : $default;
+        return (float)$value;
     }
 
     private function findSet(
@@ -177,12 +184,23 @@ final class EvalRunCommand extends Command
         string $graderId,
     ): int {
         try {
+            $thresholds = new RegressionThresholds(
+                $this->floatOption($input, 'max-pass-rate-drop'),
+                $this->floatOption($input, 'max-mean-score-drop'),
+            );
+        } catch (InvalidArgumentException $exception) {
+            $io->error($exception->getMessage());
+            return Command::FAILURE;
+        }
+
+        try {
             $result = $this->evaluationService->run(
                 $set,
                 $graderId,
                 $this->buildBaseOptions($input),
             );
         } catch (DecisionException $e) {
+            // The decision grader cannot grade this run at all; nothing was spent.
             $io->error(
                 sprintf(
                     'The "%s" grader cannot run: %s',
@@ -190,12 +208,14 @@ final class EvalRunCommand extends Command
                     $e->getMessage(),
                 ),
             );
+
             return Command::FAILURE;
         }
 
         $io->title(sprintf('Evaluation: %s', $set->identifier));
         $this->renderEvaluations($io, $result);
-        return $this->renderComparison($input, $io, $result);
+
+        return $this->renderComparison($input, $io, $result, $thresholds);
     }
 
     private function notComparedReason(SetEvaluationResult $result): ?string
@@ -239,6 +259,7 @@ final class EvalRunCommand extends Command
         InputInterface $input,
         SymfonyStyle $io,
         SetEvaluationResult $result,
+        RegressionThresholds $thresholds,
     ): int {
         $reason = $this->notComparedReason($result);
         if ($reason !== null) {
@@ -258,10 +279,7 @@ final class EvalRunCommand extends Command
         $report = $this->regressionDetector->compare(
             $result->toSummary(),
             $previous,
-            new RegressionThresholds(
-                $this->floatOption($input, 'max-pass-rate-drop', 0.1),
-                $this->floatOption($input, 'max-mean-score-drop', 0.1),
-            ),
+            $thresholds,
         );
         $io->section('Regression check');
         $io->writeln($report->summary);
