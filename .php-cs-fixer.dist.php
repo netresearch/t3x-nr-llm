@@ -65,10 +65,6 @@ return $createConfig(
         'php_unit_test_case_static_method_calls' => ['call_type' => 'self'],
         'phpdoc_line_span'                       => ['const' => 'single', 'property' => 'single'],
         'phpdoc_no_empty_return'                 => true,
-
-        // The shared set removes blank lines only between imports; this
-        // repository also removed consecutive blank lines everywhere.
-        'no_extra_blank_lines' => ['tokens' => ['extra', 'use']],
     ],
     // Rendered documentation (docs.typo3.org render container output).
     ['Documentation-GENERATED-temp'],
