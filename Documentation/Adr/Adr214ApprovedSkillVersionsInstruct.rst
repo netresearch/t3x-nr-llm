@@ -431,7 +431,15 @@ attachment decides which configuration offers it.
 
 **An attachment carries a load mode,** ``always`` or ``on_demand``. Existing
 attachments migrate to ``always``, which is today's full composition; new
-attachments default to ``on_demand``.
+attachments default to ``on_demand``. The implementing change stores the mode
+in the attachment table and shows it as two fields of the configuration,
+"Skills loaded on demand" first and "Skills loaded always", because FormEngine
+cannot edit a column of a select relation's MM row; the "default" is
+therefore the field order rather than a value, the column default ``always``
+is the migration, and ``LlmConfiguration::addSkill()`` keeps attaching
+``always`` for existing callers. Task attachments carry no mode: a task stays
+one prompt and one answer (:ref:`item 11 <adr-214-d11>`) and has no loop that
+could load (``specs/012-approved-skill-versions/spec.md``, section (c)).
 
 **A skill is named by its uid, not by its identifier.** Identifiers are unique
 only per source; :php:`SkillComposer` already keys skills by source and
@@ -505,7 +513,10 @@ tools, a load grants nothing.** Attaching or forcing a skill is an
 administrator's act; a load is something content can ask for. Content that
 talks the model into loading skill B therefore cannot grant tools the run did
 not already have. What changes against ADR-038 is the set the union is taken
-over, and that it is taken once.
+over, and that it is taken once. A process skill is effective here only in a
+run that invokes it or holds its pin: attached or forced without an
+invocation it contributes nothing, no tools and no restriction
+(:ref:`item 6 <adr-214-d6>`).
 
 **The resolved list is stored with the run** — on the run request a queued
 run persists and in :php:`SuspendedRunState` — and :php:`ToolCallPolicy`
@@ -546,7 +557,12 @@ gate (:php:`AllowedToolsResolver::applyGroupGate()`), so a skill declaring
 ``allowed-tools: []`` blocks every other tool but not the load tool. It still
 passes the global tool state (ADR-039) — an administrator who disables it
 switches model loading off — and the trust-zone gate. It reads only approved
-skill text and has no effect outside the run's system message.
+skill text and has no effect outside the run's system message. The exemption
+does not hold in a run that invokes a process skill: there the load tool is
+offered only when the process skill's vouched declaration lists it, so an
+invoked process skill without a vouched declaration leaves the run no tool.
+The binding takes effect once the process wiring of items 6 and 10 hands the
+invoked skills to the allow-list resolution.
 
 .. _adr-214-d6:
 
