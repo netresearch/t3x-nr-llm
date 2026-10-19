@@ -18,10 +18,10 @@ declare(strict_types=1);
  * conflicting PRs conflicted in CHANGELOG.md and nowhere else, and the merge
  * queue could take them only one at a time.
  *
- *   check    Refuse a malformed fragment, and refuse fragments in a release
- *            commit: when the topmost released section has no tag yet, the
- *            release is being prepared, and fragments left in `changelog.d/`
- *            would ship without their notes.
+ *   check    Refuse a malformed fragment, and refuse fragments while the
+ *            topmost released section has no tag yet: either the release
+ *            commit skipped `collect`, and those notes would not ship, or the
+ *            release is merged and its tag is not pushed yet.
  *   collect  Append every fragment under its heading in `## [Unreleased]` and
  *            delete the fragment. The release commit runs this before it
  *            renames `[Unreleased]`. Running it with no fragments changes
@@ -175,7 +175,8 @@ function collect(string $changelog, array $fragments): ?string
 
     // Block 0 is the heading line plus anything above the first `### `.
     $blocks = preg_split('/^(?=### )/m', $section) ?: [$section];
-    $heads = array_map(static fn(string $b): string => strtok($b, "\n") ?: '', $blocks);
+    // Trimmed, so a CRLF checkout or a trailing space still matches its heading.
+    $heads = array_map(static fn(string $b): string => rtrim(strtok($b, "\n") ?: ''), $blocks);
 
     $released = topmostReleased($changelog);
     $upgrading = '### Upgrading';
@@ -218,12 +219,12 @@ function collect(string $changelog, array $fragments): ?string
                 }
             }
 
-            $blocks[$index - 1] = rtrim($blocks[$index - 1], "\n") . "\n\n";
+            $blocks[$index - 1] = rtrim($blocks[$index - 1], "\r\n") . "\n\n";
             array_splice($blocks, $index, 0, [$heading . "\n"]);
             array_splice($heads, $index, 0, [$heading]);
         }
 
-        $blocks[$index] = rtrim($blocks[$index], "\n") . "\n\n" . $fragment['text'] . "\n\n";
+        $blocks[$index] = rtrim($blocks[$index], "\r\n") . "\n\n" . $fragment['text'] . "\n\n";
     }
 
     return substr($changelog, 0, $start) . implode('', $blocks) . substr($rest, $end);
@@ -237,11 +238,13 @@ if ($mode === 'check') {
     $released = topmostReleased($changelog);
     if ($fragments !== [] && $released !== null && !tagExists($root, $released)) {
         $problems[] = sprintf(
-            '  [%s] has no tag v%s yet, so this is a release commit, and %d fragment(s) would ship'
-            . ' without their notes — run `composer changelog:collect` before renaming [Unreleased]',
+            '  [%s] has no tag v%s yet, and %d fragment(s) are left. In the release commit, run'
+            . ' `composer changelog:collect` before renaming [Unreleased], or the release ships without'
+            . ' their notes. If the release is already merged, push tag v%s and run the check again.',
             $released,
             $released,
             count($fragments),
+            $released,
         );
     }
 }

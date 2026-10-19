@@ -137,6 +137,21 @@ final class ChangelogFragmentsTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function collectFindsAHeadingInACrlfChangelog(): void
+    {
+        // A Windows checkout with core.autocrlf: the heading line ends in "\r".
+        file_put_contents($this->repo . '/CHANGELOG.md', str_replace("\n", "\r\n", self::CHANGELOG));
+        $this->fragment('feat-x.fixed.md', "- A new fix.\n");
+
+        [$exit] = $this->runScript('collect');
+
+        $changelog = $this->changelog();
+        self::assertSame(0, $exit);
+        self::assertSame(2, substr_count($changelog, '### Fixed'), 'one in [Unreleased], one in [1.2.0]');
+        self::assertMatchesRegularExpression('/- A fixed line\.\r?\n\r?\n- A new fix\.\n/', $changelog);
+    }
+
+    #[Test]
     public function collectWithoutFragmentsChangesNothing(): void
     {
         file_put_contents($this->repo . '/changelog.d/README.md', "# Fragments\n");
@@ -221,8 +236,9 @@ final class ChangelogFragmentsTest extends AbstractUnitTestCase
         [$exit, , $stderr] = $this->runScript('check');
 
         self::assertSame(1, $exit);
-        self::assertStringContainsString('[1.3.0] has no tag v1.3.0 yet, so this is a release commit', $stderr);
+        self::assertStringContainsString('[1.3.0] has no tag v1.3.0 yet, and 1 fragment(s) are left', $stderr);
         self::assertStringContainsString('composer changelog:collect', $stderr);
+        self::assertStringContainsString('push tag v1.3.0', $stderr);
     }
 
     #[Test]
