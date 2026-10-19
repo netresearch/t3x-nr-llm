@@ -1,0 +1,1 @@
+- Circuit-breaker counters, lifetimes and retry hints stay within the native integer range for accepted cached state and positive cooldown settings, preserving successful answers and original provider failures.

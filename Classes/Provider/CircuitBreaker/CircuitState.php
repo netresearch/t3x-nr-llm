@@ -65,7 +65,12 @@ final readonly class CircuitState
             return 0;
         }
 
-        return max(0, $cooldownSeconds - ($now - $this->openedAt));
+        $elapsed = $now - $this->openedAt;
+        if ($elapsed < 0 && $cooldownSeconds > PHP_INT_MAX + $elapsed) {
+            return PHP_INT_MAX;
+        }
+
+        return max(0, $cooldownSeconds - $elapsed);
     }
 
     /**
