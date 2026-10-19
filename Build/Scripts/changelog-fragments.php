@@ -287,7 +287,12 @@ if ($collected === null) {
     exit(1);
 }
 
-file_put_contents($changelogPath, $collected);
+// The fragments are deleted only after the changelog holds their text; a
+// failed or short write keeps them, so nothing is lost.
+if (file_put_contents($changelogPath, $collected) !== strlen($collected)) {
+    fwrite(STDERR, sprintf("changelog-fragments: cannot write %s; the fragments are kept.\n", $changelogPath));
+    exit(2);
+}
 foreach ($fragments as $fragment) {
     // nosemgrep: php.lang.security.unlink-use.unlink-use - a fragment file this script just read from the repository's own changelog.d/ and validated by name
     unlink($fragment['file']);

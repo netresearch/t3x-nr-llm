@@ -74,6 +74,24 @@ final class ChangelogFragmentsTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function collectKeepsTheFragmentsWhenTheChangelogCannotBeWritten(): void
+    {
+        $this->fragment('feat-x.fixed.md', "- A new fix.\n");
+        chmod($this->repo . '/CHANGELOG.md', 0o444);
+        clearstatcache();
+        if (is_writable($this->repo . '/CHANGELOG.md')) {
+            self::markTestSkipped('The test user can write a read-only file (root).');
+        }
+
+        [$exit, , $stderr] = $this->runScript('collect');
+
+        self::assertSame(2, $exit);
+        self::assertStringContainsString('the fragments are kept', $stderr);
+        self::assertSame(self::CHANGELOG, $this->changelog());
+        self::assertFileExists($this->repo . '/changelog.d/feat-x.fixed.md');
+    }
+
+    #[Test]
     public function collectInsertsAMissingHeadingInKeepAChangelogOrder(): void
     {
         $this->fragment('a.removed.md', "- A removal.\n");
