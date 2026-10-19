@@ -135,6 +135,20 @@ return [
                 'placeholder' => 'Write for marketing professionals with limited technical background.',
             ],
         ],
+        // ADR-214 item 8: the digest of the composed block an administrator
+        // marked for a caller's system message. Written only by the mark
+        // action, which recomputes the digest the form posted; never shown
+        // or written by FormEngine.
+        'caller_system_digest' => [
+            'exclude' => true,
+            // Never written by anyone but an administrator, whatever a group
+            // is granted: the DataHandler skips it for everyone else, and
+            // the group form does not list it (ADR-214 item 8).
+            'displayCond' => 'HIDE_FOR_NON_ADMINS',
+            'config' => [
+                'type' => 'passthrough',
+            ],
+        ],
         'metadata' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet.metadata',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet.metadata.description',

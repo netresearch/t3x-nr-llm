@@ -105,6 +105,12 @@ class LlmConfiguration extends AbstractEntity
      */
     protected string $snippetTags = '';
 
+    /**
+     * Whether marked snippets also join a caller's own system message
+     * (ADR-214 item 8).
+     */
+    protected bool $snippetsInCallerSystemMessage = false;
+
     protected int $maxRequestsPerDay = 0;
 
     protected int $maxTokensPerDay = 0;
@@ -1022,6 +1028,16 @@ class LlmConfiguration extends AbstractEntity
     public function setSnippetTags(string $snippetTags): void
     {
         $this->snippetTags = $snippetTags;
+    }
+
+    public function isSnippetsInCallerSystemMessage(): bool
+    {
+        return $this->snippetsInCallerSystemMessage;
+    }
+
+    public function setSnippetsInCallerSystemMessage(bool $snippetsInCallerSystemMessage): void
+    {
+        $this->snippetsInCallerSystemMessage = $snippetsInCallerSystemMessage;
     }
 
     /**

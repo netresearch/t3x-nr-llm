@@ -169,6 +169,12 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      */
     private function injectConfigSkillsIntoMessages(array $messages, LlmConfiguration $configuration, array $optionOverrides): array
     {
+        // Marked snippets join a caller's own system message when the
+        // configuration opts in (ADR-214 item 8). First, so the instruction
+        // sections placed below follow them, as they follow the snippets of
+        // the configuration prompt.
+        $messages = $this->snippetResolver?->appendToCallerSystemMessage($messages, $configuration) ?? $messages;
+
         if (!$this->skillInjection instanceof SkillInjectionService) {
             return [$messages, $optionOverrides];
         }
@@ -669,7 +675,19 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         return $this->runThroughPipeline(
             $this->synthesizeTransientConfiguration(ProviderOperation::Chat, $providerKey),
             ProviderOperation::Chat,
-            fn(): CompletionResponse => $this->getProvider($providerKey)->chatCompletion($this->applyAndScreenSystemPrompt($normalisedMessages, $optionsArray), $optionsArray),
+            fn(): CompletionResponse => ServingGeneratorMetadata::attach(
+                $this
+                    ->getProvider($providerKey)
+                    ->chatCompletion(
+                        $this->applyAndScreenSystemPrompt(
+                            $normalisedMessages,
+                            $optionsArray,
+                        ),
+                        $optionsArray,
+                    ),
+                null,
+                $optionsArray,
+            ),
             $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->requestCount($options) + $this->metadata->callerSource($options),
         );
     }
@@ -701,7 +719,13 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         return $this->runThroughPipeline(
             $this->synthesizeTransientConfiguration(ProviderOperation::Completion, $providerKey),
             ProviderOperation::Completion,
-            fn(): CompletionResponse => $this->getProvider($providerKey)->complete($prompt, $optionsArray),
+            fn(): CompletionResponse => ServingGeneratorMetadata::attach(
+                $this
+                    ->getProvider($providerKey)
+                    ->complete($prompt, $optionsArray),
+                null,
+                $optionsArray,
+            ),
             $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options),
         );
     }
@@ -1301,7 +1325,14 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 $options  = $this->planner->callOptions($config, $llmModel, $optionOverrides);
                 $bounded  = $this->fitToContextWindow($normalisedMessages, $config, $llmModel, $options, [], $ctx->telemetrySignals);
 
-                return $adapter->chatCompletion($this->applyAndScreenSystemPrompt($bounded, $options), $options);
+                return ServingGeneratorMetadata::attach(
+                    $adapter->chatCompletion(
+                        $this->applyAndScreenSystemPrompt($bounded, $options),
+                        $options,
+                    ),
+                    $llmModel,
+                    $options,
+                );
             },
             $metadata,
             new PipelineScope($run, $injectedContext, $this->collectRequestFacts($normalisedMessages), $resolution),
@@ -1330,7 +1361,11 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 $options  = $this->planner->callOptions($config, $llmModel, $optionOverrides);
                 $this->reportPromptOverflow($prompt, $config, $llmModel, $options, $ctx->telemetrySignals);
 
-                return $adapter->complete($prompt, $options);
+                return ServingGeneratorMetadata::attach(
+                    $adapter->complete($prompt, $options),
+                    $llmModel,
+                    $options,
+                );
             },
             $metadata,
             // A raw prompt is one user turn — the same list

@@ -47,6 +47,12 @@ class PromptSnippet extends AbstractEntity
     protected string $snippet = '';
 
     /**
+     * The digest of the composed block an administrator marked for a caller's
+     * system message (ADR-214 item 8); '' when not marked.
+     */
+    protected string $callerSystemDigest = '';
+
+    /**
      * Optional metadata as JSON object string ('' when unused),
      * e.g. {"voice":"nova"} on persona snippets.
      */
@@ -174,6 +180,16 @@ class PromptSnippet extends AbstractEntity
     public function setSnippet(string $snippet): void
     {
         $this->snippet = $snippet;
+    }
+
+    public function getCallerSystemDigest(): string
+    {
+        return $this->callerSystemDigest;
+    }
+
+    public function setCallerSystemDigest(string $callerSystemDigest): void
+    {
+        $this->callerSystemDigest = $callerSystemDigest;
     }
 
     public function setMetadata(string $metadata): void

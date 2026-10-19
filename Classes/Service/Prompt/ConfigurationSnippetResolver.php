@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Prompt;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 
 /**
  * Composes the snippets a configuration selects by tag (ADR-031, extended by
@@ -33,7 +34,85 @@ final readonly class ConfigurationSnippetResolver
     public function __construct(
         private PromptSnippetRepository $promptSnippetRepository,
         private PromptSnippetComposer $promptSnippetComposer,
+        private SnippetCallerMark $callerMark = new SnippetCallerMark(),
     ) {}
+
+    /**
+     * Append the configuration's marked snippets to a caller's own system
+     * message (ADR-214 item 8).
+     *
+     * A caller that sends a system message suppresses the configuration's
+     * system prompt and its snippets (ADR-031, MessageShaper). A snippet still
+     * joins that caller's first system message when both hold: the
+     * configuration opts in, and an administrator marked the snippet's
+     * current block. Returns the messages unchanged otherwise, and when the
+     * caller sent no system message — the configuration prompt carries the
+     * snippets then.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     *
+     * @return list<ChatMessage|array<string, mixed>>
+     */
+    public function appendToCallerSystemMessage(array $messages, LlmConfiguration $configuration): array
+    {
+        if (!$configuration->isSnippetsInCallerSystemMessage()) {
+            return $messages;
+        }
+
+        foreach ($messages as $index => $message) {
+            $role = $message instanceof ChatMessage ? $message->role : ($message['role'] ?? null);
+            // Only the head carries the block — the messages before the first
+            // user turn, which the context fit keeps and where the skill
+            // sections go too; a system message after it may be dropped.
+            if ($role === 'user') {
+                return $messages;
+            }
+
+            if ($role !== 'system') {
+                continue;
+            }
+
+            $content = $message instanceof ChatMessage ? $message->content : ($message['content'] ?? null);
+            if (!is_string($content)) {
+                // A part list: nothing is appended into a shape this cannot
+                // extend faithfully.
+                return $messages;
+            }
+
+            $block = $this->callerSystemBlock($configuration);
+            if ($block === '') {
+                return $messages;
+            }
+
+            $joined = $content === '' ? $block : $content . "\n\n" . $block;
+            $messages[$index] = $message instanceof ChatMessage ? ChatMessage::system($joined) : ['role' => 'system', 'content' => $joined] + $message;
+
+            return $messages;
+        }
+
+        return $messages;
+    }
+
+    /**
+     * The block of the selected snippets whose current block is marked, in
+     * composition order.
+     */
+    public function callerSystemBlock(LlmConfiguration $configuration): string
+    {
+        $blocks = [];
+        foreach ($this->selectedSnippets($configuration) as $snippet) {
+            if (!$this->callerMark->isMarked($snippet)) {
+                continue;
+            }
+
+            $block = $this->callerMark->blockOf($snippet);
+            if ($block !== '') {
+                $blocks[] = $block;
+            }
+        }
+
+        return implode("\n\n", $blocks);
+    }
 
     /**
      * Append the configuration's tag-selected snippets to the given system

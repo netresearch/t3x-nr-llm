@@ -4,8 +4,7 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-
-declare(strict_types=1);
+declare (strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Skill;
 
@@ -83,6 +82,9 @@ final class SkillSyncService
         private readonly ?SkillAuditService $audit = null,
     ) {}
 
+    /**
+     * Returns diagnostics with URL credentials masked before they reach the module.
+     */
     public function sync(SkillSource $source): SyncResult
     {
         // A backend source (ADR-214 item 3) has nothing upstream. Syncing it
@@ -147,10 +149,7 @@ final class SkillSyncService
                 }
 
                 // Orphan by upstream PRESENCE (discovered identifiers), not by parse success.
-                $discoveredIds = array_map(
-                    static fn(string $path): string => $sourcePrefix . $path,
-                    $collected['discovered'],
-                );
+                $discoveredIds = array_map(static fn(string $path): string => $sourcePrefix . $path, $collected['discovered']);
                 $orphaned = $this->orphanRemoved(
                     $source,
                     $discoveredIds,
@@ -167,13 +166,16 @@ final class SkillSyncService
                 $source->setSyncError($this->sanitizeErrorMessage(implode("\n", $errors)));
             }
         } catch (Throwable $e) {
-            // Keep the full stack trace server-side (GitHub rate limits, network
-            // timeouts, DBAL/persistence errors) — the user only sees getMessage().
-            $this->logger->error('Skill sync failed', [
-                'exception'  => $e,
-                'source_uid' => $source->getUid(),
-                'source_url' => $source->getUrl(),
-            ]);
+            // Keep diagnostic identity without retaining credential-bearing exception objects.
+            $this->logger->error(
+                'Skill sync failed',
+                [
+                    'exception_class' => $e::class,
+                    'error' => $this->sanitizeErrorMessage($e->getMessage()),
+                    'source_uid' => $source->getUid(),
+                    'source_url' => $this->sanitizeErrorMessage($source->getUrl()),
+                ],
+            );
             $status = SyncStatus::ERROR;
             $orphaned = 0;
             $errors[] = $e->getMessage();
@@ -185,7 +187,15 @@ final class SkillSyncService
         $source->setLastSynced(time());
         $this->persistSource($source);
 
-        return new SyncResult($status, $created, $updated, $disabledOnChange, $orphaned, $errors, $injectionBlocked);
+        return new SyncResult(
+            $status,
+            $created,
+            $updated,
+            $disabledOnChange,
+            $orphaned,
+            array_map($this->sanitizeErrorMessage(...), $errors),
+            $injectionBlocked,
+        );
     }
 
     /**
@@ -235,9 +245,7 @@ final class SkillSyncService
      */
     private function isLockActive(SkillSource $source, int $now): bool
     {
-        return $source->getSyncStatusEnum() === SyncStatus::SYNCING
-            && $source->getLastSynced() !== 0
-            && abs($now - $source->getLastSynced()) <= self::STALE_LOCK_SECONDS;
+        return $source->getSyncStatusEnum() === SyncStatus::SYNCING && $source->getLastSynced() !== 0 && abs($now - $source->getLastSynced()) <= self::STALE_LOCK_SECONDS;
     }
 
     /**
@@ -276,8 +284,7 @@ final class SkillSyncService
     {
         // Resolve the type once and fail closed on an unknown/invalid stored value:
         // a malformed type must surface as a clear ERROR, never be silently treated as a repo.
-        $type = $source->getTypeEnum()
-            ?? throw new RuntimeException(sprintf('Unknown skill source type "%s".', $source->getType()), 4636357234);
+        $type = $source->getTypeEnum() ?? throw new RuntimeException(sprintf('Unknown skill source type "%s".', $source->getType()), 4636357234);
 
         if ($type === SkillSourceType::MARKETPLACE) {
             return $this->collectMarketplace($source, $errors);
@@ -286,9 +293,7 @@ final class SkillSyncService
         // Non-marketplace sources address a single GitHub repo; an unparseable URL is fatal and
         // surfaces as a clear ERROR rather than a malformed API call against an empty owner/repo.
         [$owner, $repo] = $this->requireOwnerRepo($source->getUrl());
-        return $type === SkillSourceType::SINGLE_FILE
-            ? $this->collectSingleFile($source, $owner, $repo, $errors)
-            : $this->collectRepo($source, $owner, $repo, $source->getRef(), $errors);
+        return $type === SkillSourceType::SINGLE_FILE ? $this->collectSingleFile($source, $owner, $repo, $errors) : $this->collectRepo($source, $owner, $repo, $source->getRef(), $errors);
     }
 
     /**
@@ -324,7 +329,13 @@ final class SkillSyncService
             $errors[] = $e->getMessage();
         }
 
-        return ['parsed' => $parsed, 'discovered' => $discovered, 'reachedPrefixes' => null, 'listedPrefixes' => null, 'rootSha' => $sha];
+        return [
+            'parsed' => $parsed,
+            'discovered' => $discovered,
+            'reachedPrefixes' => null,
+            'listedPrefixes' => null,
+            'rootSha' => $sha,
+        ];
     }
 
     /**
@@ -361,7 +372,13 @@ final class SkillSyncService
             }
         }
 
-        return ['parsed' => $parsed, 'discovered' => $paths, 'reachedPrefixes' => null, 'listedPrefixes' => null, 'rootSha' => $sha];
+        return [
+            'parsed' => $parsed,
+            'discovered' => $paths,
+            'reachedPrefixes' => null,
+            'listedPrefixes' => null,
+            'rootSha' => $sha,
+        ];
     }
 
     /**
@@ -393,8 +410,8 @@ final class SkillSyncService
 
             // "Listed" = present in the parsed index this run, even if unreached below. A skill whose
             // prefix is no longer listed (plugin de-listed) IS orphaned; one listed-but-unreached is not.
-            $listedPrefixes[]          = $prefix;
-            $listedPrefixSet[$prefix]  = true;
+            $listedPrefixes[] = $prefix;
+            $listedPrefixSet[$prefix] = true;
 
             // A bound hit leaves the remaining plugins listed (protected) but unvisited this run.
             if ($this->limitReached($source, $errors)) {
@@ -423,19 +440,28 @@ final class SkillSyncService
             }
 
             foreach ($repoResult['parsed'] as $row) {
-                $parsed[] = [$row[0], new ParsedSkill(
-                    $prefix . $row[1]->path,
-                    $row[1]->name,
-                    $row[1]->description,
-                    $row[1]->body,
-                    $row[1]->rawFrontmatter,
-                    $row[1]->supportStatus,
-                    $row[1]->unsupportedNotes,
-                )];
+                $parsed[] = [
+                    $row[0],
+                    new ParsedSkill(
+                        $prefix . $row[1]->path,
+                        $row[1]->name,
+                        $row[1]->description,
+                        $row[1]->body,
+                        $row[1]->rawFrontmatter,
+                        $row[1]->supportStatus,
+                        $row[1]->unsupportedNotes,
+                    ),
+                ];
             }
         }
 
-        return ['parsed' => $parsed, 'discovered' => $discovered, 'reachedPrefixes' => $reachedPrefixes, 'listedPrefixes' => $listedPrefixes, 'rootSha' => null];
+        return [
+            'parsed' => $parsed,
+            'discovered' => $discovered,
+            'reachedPrefixes' => $reachedPrefixes,
+            'listedPrefixes' => $listedPrefixes,
+            'rootSha' => null,
+        ];
     }
 
     /**
@@ -496,7 +522,7 @@ final class SkillSyncService
     private function upsert(SkillSource $source, string $identifier, string $sha, ParsedSkill $parsed): array
     {
         $checksum = hash('sha256', $parsed->body);
-        $scan     = $this->scanner?->scan($parsed->body);
+        $scan = $this->scanner?->scan($parsed->body);
         $highConf = $scan?->hasHighConfidence() ?? false;
         $existing = $this->skillRepository->findBySourceAndIdentifier($source->getUid() ?? 0, $identifier);
 
@@ -508,7 +534,7 @@ final class SkillSyncService
             $this->applyIsolationMetadata($skill, $source, $scan);
             // single_file defaults enabled; a high-confidence injection finding
             // force-disables it (fail-closed) regardless of source type.
-            $wouldEnable   = $source->getTypeEnum() === SkillSourceType::SINGLE_FILE;
+            $wouldEnable = $source->getTypeEnum() === SkillSourceType::SINGLE_FILE;
             $forcedDisable = $highConf && $wouldEnable;
             $skill->setEnabled($wouldEnable && !$highConf);
             $skill->setDisabledBy($skill->isEnabled() ? '' : Skill::DISABLED_BY_SYNC);
@@ -516,7 +542,11 @@ final class SkillSyncService
             $this->skillRepository->add($skill);
             $this->audit?->recordSkillEvent(SkillAuditEvent::INGEST_CREATED, $skill);
             if ($forcedDisable) {
-                $this->audit?->recordSkillEvent(SkillAuditEvent::INJECTION_BLOCKED, $skill, $this->highConfidenceLabels($scan));
+                $this->audit?->recordSkillEvent(
+                    SkillAuditEvent::INJECTION_BLOCKED,
+                    $skill,
+                    $this->highConfidenceLabels($scan),
+                );
             }
 
             return ['created', $forcedDisable];
@@ -529,7 +559,7 @@ final class SkillSyncService
         // from the stored fields first, so the first sync after the upgrade
         // compares like with like and an unchanged skill is not disabled
         // merely because its row was legacy.
-        $previous   = $existing->getVersionDigest() !== '' ? $existing->getVersionDigest() : SkillVersionDigest::of($existing);
+        $previous = $existing->getVersionDigest() !== '' ? $existing->getVersionDigest() : SkillVersionDigest::of($existing);
         $wasEnabled = $existing->isEnabled();
         $this->apply($existing, $parsed, $sha, $checksum);
         $changed = !hash_equals($previous, $existing->getVersionDigest());
@@ -542,7 +572,7 @@ final class SkillSyncService
         }
 
         $existing->setOrphaned(false);
-        $outcome       = 'updated';
+        $outcome = 'updated';
         $forcedDisable = $highConf && $wasEnabled;
         // Auto-disable an enabled skill on a version change (ADR-035, ADR-214)
         // OR on a high-confidence injection finding (ADR-061) — both are
@@ -560,7 +590,11 @@ final class SkillSyncService
             $existing,
         );
         if ($forcedDisable) {
-            $this->audit?->recordSkillEvent(SkillAuditEvent::INJECTION_BLOCKED, $existing, $this->highConfidenceLabels($scan));
+            $this->audit?->recordSkillEvent(
+                SkillAuditEvent::INJECTION_BLOCKED,
+                $existing,
+                $this->highConfidenceLabels($scan),
+            );
         }
 
         return [$outcome, $forcedDisable];
@@ -646,8 +680,12 @@ final class SkillSyncService
      * @param ?list<string> $listedPrefixes  Marketplace only (null otherwise): prefixes present in the
      *                                       parsed index this run (whether or not the child repo was reached).
      */
-    private function orphanRemoved(SkillSource $source, array $discovered, ?array $reachedPrefixes, ?array $listedPrefixes): int
-    {
+    private function orphanRemoved(
+        SkillSource $source,
+        array $discovered,
+        ?array $reachedPrefixes,
+        ?array $listedPrefixes,
+    ): int {
         // O(1) membership lookup instead of in_array() over the (unbounded)
         // discovered list for every DB skill. Identifiers are unique strings,
         // so array_flip is a faithful hash set.
@@ -659,11 +697,7 @@ final class SkillSyncService
                 continue;
             }
 
-            if (
-                $reachedPrefixes !== null
-                && $listedPrefixes !== null
-                && !$this->orphanEligible($identifier, $reachedPrefixes, $listedPrefixes)
-            ) {
+            if ($reachedPrefixes !== null && $listedPrefixes !== null && !$this->orphanEligible($identifier, $reachedPrefixes, $listedPrefixes)) {
                 continue;
             }
 
@@ -757,10 +791,10 @@ final class SkillSyncService
      */
     private function fetchMarketplaceIndex(SkillSource $source): string
     {
-        $url   = $source->getUrl();
+        $url = $source->getUrl();
         $token = $this->token($source);
-        $host  = parse_url($url, PHP_URL_HOST);
-        $host  = is_string($host) ? strtolower($host) : '';
+        $host = parse_url($url, PHP_URL_HOST);
+        $host = is_string($host) ? strtolower($host) : '';
 
         // Already a raw file URL → fetch verbatim (it is expected to BE the index).
         if ($host === 'raw.githubusercontent.com') {
@@ -787,9 +821,7 @@ final class SkillSyncService
         if ($owner === '' || $repo === '') {
             throw new RuntimeException(
                 sprintf(
-                    'Marketplace URL "%s" is neither a raw marketplace.json nor a GitHub repository URL. '
-                    . 'Use the repository URL (https://github.com/<owner>/<repo>) or the raw index URL '
-                    . '(https://raw.githubusercontent.com/<owner>/<repo>/<branch>/.claude-plugin/marketplace.json).',
+                    'Marketplace URL "%s" is neither a raw marketplace.json nor a GitHub repository URL. ' . 'Use the repository URL (https://github.com/<owner>/<repo>) or the raw index URL ' . '(https://raw.githubusercontent.com/<owner>/<repo>/<branch>/.claude-plugin/marketplace.json).',
                     $url,
                 ),
                 1751280001,

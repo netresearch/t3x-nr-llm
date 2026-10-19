@@ -24,6 +24,7 @@ use Netresearch\NrVault\Http\VaultHttpClientInterface;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
 use stdClass;
@@ -289,7 +290,7 @@ final class McpHttpTransport
 
         return [
             'status' => $status,
-            'body' => $this->readBounded($server, $response->getBody(), $replyExpected),
+            'body' => $this->readResponseBody($server, $response, $replyExpected),
             'contentType' => $response->getHeaderLine('Content-Type'),
             'sessionId' => $returnedSession === '' ? null : $returnedSession,
         ];
@@ -841,5 +842,23 @@ final class McpHttpTransport
     private function streamAtEnd(StreamInterface $stream): bool
     {
         return $stream->eof();
+    }
+
+    /**
+     * Keep failures obtaining or reading the remote body inside the typed MCP
+     * contract without repeating stream exception text or response contents.
+     */
+    private function readResponseBody(
+        McpServerRecord $server,
+        ResponseInterface $response,
+        bool $requireComplete,
+    ): string {
+        try {
+            return $this->readBounded($server, $response->getBody(), $requireComplete);
+        } catch (McpTransportException $e) {
+            throw $e;
+        } catch (Throwable) {
+            throw McpTransportException::forMalformedResponse($server->identifier, 'the response body could not be read');
+        }
     }
 }

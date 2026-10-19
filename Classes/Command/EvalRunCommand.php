@@ -9,10 +9,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Command;
 
+use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Decision\DecisionException;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepositoryInterface;
+use Netresearch\NrLlm\Service\Evaluation\EvaluationResultSummary;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationService;
+use Netresearch\NrLlm\Service\Evaluation\GeneratorEvaluationResultRepositoryInterface;
 use Netresearch\NrLlm\Service\Evaluation\GoldenPromptSet;
 use Netresearch\NrLlm\Service\Evaluation\GoldenPromptSetRegistry;
 use Netresearch\NrLlm\Service\Evaluation\Grader\DecisionGrader;
@@ -215,52 +218,77 @@ final class EvalRunCommand extends Command
         return $this->renderComparison($input, $io, $result, $thresholds);
     }
 
+    private function notComparedReason(SetEvaluationResult $result): ?string
+    {
+        $reason = null;
+        if (!$result->sharesOneYardstick() || $result->grader === DecisionGrader::FAILED_SERIES) {
+            $reason = $result->grader === DecisionGrader::FAILED_SERIES ? sprintf(
+                'Not compared: no decision of this run could be made (stored as "%s").',
+                $result->grader,
+            ) : sprintf(
+                'Not compared: the gradings of this run do not share one yardstick (stored as "%s"). A decision failed for some prompts, or the grading model changed during the run.',
+                $result->grader,
+            );
+        } elseif (!$result->verifiedGeneratorProvenance() instanceof GeneratorProvenance) {
+            $reason = 'Not compared: no single verified serving generator for this run. Aggregate grades remain stored.';
+        } elseif (!$this->repository instanceof GeneratorEvaluationResultRepositoryInterface) {
+            $reason = 'Not compared: configured evaluation repository has no verified-generator capability.';
+        }
+
+        return $reason;
+    }
+
+    private function findGeneratorBaseline(
+        SetEvaluationResult $result,
+    ): ?EvaluationResultSummary {
+        $record = $result->verifiedGeneratorProvenance();
+        if (!$record instanceof GeneratorProvenance || !$this->repository instanceof GeneratorEvaluationResultRepositoryInterface) {
+            return null;
+        }
+
+        return $this->repository->findLatestForGenerator(
+            $result->setIdentifier,
+            $record->providerIdentifier,
+            $record->modelId,
+            $record->reportedModelId,
+            $result->grader,
+        );
+    }
+
     private function renderComparison(
         InputInterface $input,
         SymfonyStyle $io,
         SetEvaluationResult $result,
         RegressionThresholds $thresholds,
     ): int {
-        $failOnRegression = $input->getOption('fail-on-regression') === true;
-
-        // A run without one yardstick, or one in which no model answered at
-        // all, cannot be compared — and a gate must not read "could not
-        // judge" as "no regression" (ADR-211).
-        if (!$result->sharesOneYardstick() || $result->grader === DecisionGrader::FAILED_SERIES) {
+        $reason = $this->notComparedReason($result);
+        if ($reason !== null) {
             $this->repository->save($result);
             $io->section('Regression check');
-            $reason = $result->grader === DecisionGrader::FAILED_SERIES ? 'Not compared: no decision of this run could be made (stored as "%s").' : 'Not compared: the gradings of this run do not share one yardstick (stored as "%s"). ' . 'A decision failed for some prompts, or the model changed during the run.';
-            if ($failOnRegression) {
-                $io->error(sprintf($reason, $result->grader));
+            if ($input->getOption('fail-on-regression') === true) {
+                $io->error($reason);
             } else {
-                $io->warning(sprintf($reason, $result->grader));
+                $io->warning($reason);
             }
 
-            return $failOnRegression ? Command::FAILURE : Command::SUCCESS;
+            return $input->getOption('fail-on-regression') === true ? Command::FAILURE : Command::SUCCESS;
         }
 
-        $previous = $this->repository->findLatest(
-            $result->setIdentifier,
-            $result->model,
-            $result->grader,
-        );
+        $previous = $this->findGeneratorBaseline($result);
         $this->repository->save($result);
-
         $report = $this->regressionDetector->compare(
             $result->toSummary(),
             $previous,
             $thresholds,
         );
-
         $io->section('Regression check');
         $io->writeln($report->summary);
-
         if ($report->isRegression) {
             $io->warning(
                 'Quality regression detected against the previous run.',
             );
         }
 
-        return $report->isRegression && $failOnRegression ? Command::FAILURE : Command::SUCCESS;
+        return $report->isRegression && $input->getOption('fail-on-regression') === true ? Command::FAILURE : Command::SUCCESS;
     }
 }

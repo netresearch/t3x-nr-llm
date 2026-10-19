@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Provider\CircuitBreaker\CircuitStatus;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Throwable;
 
 #[CoversClass(CircuitState::class)]
 #[CoversClass(CircuitStatus::class)]
@@ -92,5 +93,25 @@ final class CircuitStateTest extends AbstractUnitTestCase
 
         $empty = CircuitState::fromArray([]);
         self::assertTrue($empty->isPristine());
+    }
+
+    #[Test]
+    public function futureOpenTimestampKeepsLargeRetryHintsWithinTheIntegerRange(): void
+    {
+        $state = new CircuitState(5, 1001);
+        $actual = null;
+        $caught = null;
+        try {
+            $actual = $state->secondsUntilHalfOpen(1000, PHP_INT_MAX);
+        } catch (Throwable $failure) {
+            $caught = $failure;
+        }
+
+        self::assertNull(
+            $caught,
+            'Future cached timestamps must not overflow a valid positive cooldown hint.',
+        );
+        self::assertSame(PHP_INT_MAX, $actual);
+        self::assertSame(31, $state->secondsUntilHalfOpen(1000, 30));
     }
 }

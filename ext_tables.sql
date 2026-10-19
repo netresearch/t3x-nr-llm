@@ -184,6 +184,9 @@ CREATE TABLE tx_nrllm_configuration (
     -- Comma list of prompt-snippet tags composed into the system prompt (ADR-031)
     snippet_tags varchar(255) DEFAULT '' NOT NULL,
 
+    -- ADR-214 item 8: marked snippets also join a caller's own system message
+    snippets_in_caller_system_message tinyint(1) unsigned DEFAULT '0' NOT NULL,
+
     -- Attached skills (MM relation to tx_nrllm_skill)
     skills int(11) DEFAULT '0' NOT NULL,
     -- ADR-214 item 4: count of the 'on_demand' attachments (shared MM table).
@@ -334,6 +337,10 @@ CREATE TABLE tx_nrllm_promptsnippet (
 
     -- Fragment content
     snippet text,
+
+    -- ADR-214 item 8: digest of the composed block (label and text) an
+    -- administrator marked for a caller's system message; '' = not marked
+    caller_system_digest varchar(80) DEFAULT '' NOT NULL,
 
     -- Additional metadata (JSON object, e.g. {"voice":"nova"})
     metadata text,
@@ -924,6 +931,8 @@ CREATE TABLE tx_nrllm_eval_result (
     -- Run identity
     set_identifier varchar(190) DEFAULT '' NOT NULL,
     model_id varchar(150) DEFAULT '' NOT NULL,
+    -- Versioned, content-free serving evidence (ADR-220); NULL/empty legacy rows are ineligible.
+    generator_provenance text,
     -- The decision grader names its backend, model and profile version here
     -- ("decision:typesafe:jev-1.13.0:v1", ADR-211), hence the width.
     grader varchar(190) DEFAULT '' NOT NULL,
