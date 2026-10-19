@@ -41,7 +41,7 @@ non-admin users.
 The built-in tools
 ==================
 
-nr-llm ships forty-three read-only tools and seventeen writing tools. Each is a
+nr-llm ships forty-four read-only tools and seventeen writing tools. Each is a
 reference implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
 redacted or gated behind a separate ``_raw`` variant. Thirty-nine ship
