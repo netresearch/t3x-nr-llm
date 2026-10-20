@@ -25,6 +25,10 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
+use function is_array;
+use function is_int;
+use function is_numeric;
+
 /**
  * Applies the guardrail collection to every non-streaming provider response
  * (ADR-085).
@@ -145,7 +149,7 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
             }
 
             $screened = match ($verdict) {
-                GuardrailVerdict::ALLOW => $screened,
+                GuardrailVerdict::ALLOW  => $screened,
                 GuardrailVerdict::REDACT => $result->redactedContent ?? $screened,
                 GuardrailVerdict::DENY,
                 GuardrailVerdict::REQUIRE_APPROVAL => $this->recordAndThrow($verdict, $guardrail, $result, $candidate, $context),
@@ -192,7 +196,7 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
             // verdict left unhandled is a PHPStan error / runtime UnhandledMatchError
             // (fail closed), never a silent pass-through of an unscreened response.
             $response = match ($verdict) {
-                GuardrailVerdict::ALLOW => $response,
+                GuardrailVerdict::ALLOW  => $response,
                 GuardrailVerdict::REDACT => $this->withContent(
                     $response,
                     $result->redactedContent ?? $response->content,
@@ -324,7 +328,7 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
     {
         $fromMetadata = $context->metadata[self::METADATA_AGENT_RUN_UID] ?? null;
 
-        return \is_int($fromMetadata) ? $fromMetadata : 0;
+        return is_int($fromMetadata) ? $fromMetadata : 0;
     }
 
     /**
@@ -335,15 +339,15 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
     private function resolveBeUser(ProviderCallContext $context): int
     {
         $fromMetadata = $context->metadata[BudgetMiddleware::METADATA_BE_USER_UID] ?? null;
-        if (\is_int($fromMetadata)) {
+        if (is_int($fromMetadata)) {
             return $fromMetadata;
         }
 
         $backendUser = $GLOBALS['BE_USER'] ?? null;
-        if ($backendUser instanceof BackendUserAuthentication && \is_array($backendUser->user)) {
+        if ($backendUser instanceof BackendUserAuthentication && is_array($backendUser->user)) {
             $uid = $backendUser->user['uid'] ?? null;
 
-            return \is_numeric($uid) ? (int)$uid : 0;
+            return is_numeric($uid) ? (int) $uid : 0;
         }
 
         return 0;

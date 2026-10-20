@@ -221,7 +221,7 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
     ): void {
         $refusedForOperation = array_filter(
             $decision->rejectedCandidates(),
-            static fn(RoutingCandidate $candidate): bool => $candidate->rejectionReason === RoutingRejectionReason::OPERATION_CAPABILITY_MISSING,
+            static fn (RoutingCandidate $candidate): bool => $candidate->rejectionReason === RoutingRejectionReason::OPERATION_CAPABILITY_MISSING,
         );
 
         if ($refusedForOperation === []) {
@@ -286,7 +286,7 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
      */
     public function findCandidates(array $criteria): array
     {
-        $allModels = $this->modelRepository->findActive();
+        $allModels  = $this->modelRepository->findActive();
         $candidates = [];
 
         foreach ($allModels as $model) {
@@ -378,10 +378,10 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
             'Criteria-mode selection resolved a model that does not declare the capability the operation requires. '
             . 'Enforcement is set to observe, so the call proceeds.',
             [
-                'configuration'       => $configuration->getIdentifier(),
-                'operation'           => $operation->value,
-                'requiredCapability'  => $capability->value,
-                'model'               => $model->getModelId(),
+                'configuration'        => $configuration->getIdentifier(),
+                'operation'            => $operation->value,
+                'requiredCapability'   => $capability->value,
+                'model'                => $model->getModelId(),
                 'declaredCapabilities' => $capabilities->toCsv(),
             ],
         );
@@ -395,7 +395,7 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
     public static function getSelectionModes(): array
     {
         return [
-            LlmConfiguration::SELECTION_MODE_FIXED => 'Fixed Model',
+            LlmConfiguration::SELECTION_MODE_FIXED    => 'Fixed Model',
             LlmConfiguration::SELECTION_MODE_CRITERIA => 'Dynamic (Criteria)',
         ];
     }

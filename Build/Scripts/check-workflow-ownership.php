@@ -57,7 +57,7 @@ $problems = [];
 foreach ($files as $file) {
     $name = basename($file);
     $cmd  = sprintf('yq -r %s %s 2>/dev/null', escapeshellarg('.jobs | to_entries[] | select(.value.steps) | .key'), escapeshellarg($file));
-    $jobs = array_filter(array_map('trim', explode("\n", (string)shell_exec($cmd))));
+    $jobs = array_filter(array_map('trim', explode("\n", (string) shell_exec($cmd))));
 
     foreach ($jobs as $job) {
         if (in_array($job, ALLOWED[$name] ?? [], true)) {

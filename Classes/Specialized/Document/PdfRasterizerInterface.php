@@ -24,25 +24,25 @@ use Netresearch\NrLlm\Specialized\Exception\PdfRasterizationException;
 interface PdfRasterizerInterface
 {
     /**
-     * @throws PdfRasterizationException if the image inventory cannot be produced
-     *
      * @return list<int> 1-based page numbers that carry at least one embedded
      *                   raster image
+     *
+     * @throws PdfRasterizationException if the image inventory cannot be produced
      */
     public function imagePages(string $absolutePath): array;
 
     /**
-     * @throws PdfRasterizationException if the page cannot be rendered
-     *
      * @return string PNG bytes of the rasterized page
+     *
+     * @throws PdfRasterizationException if the page cannot be rendered
      */
     public function renderPage(string $absolutePath, int $page): string;
 
     /**
-     * @throws PdfRasterizationException if the document cannot be rendered
-     *
      * @return array<int, string> PNG bytes per 1-based page number, ascending,
      *                            covering every page of the document
+     *
+     * @throws PdfRasterizationException if the document cannot be rendered
      */
     public function renderDocument(string $absolutePath): array;
 

@@ -96,7 +96,7 @@ call by its id.
        $response = $this->llmManager->chat($messages);
    }
 
-Providers that implement :php:interface:`ToolCapableInterface` support
+Providers that implement :ref:`ToolCapableInterface <api-provider-tools>` support
 tool calling.
 
 Provider-owned conversation context

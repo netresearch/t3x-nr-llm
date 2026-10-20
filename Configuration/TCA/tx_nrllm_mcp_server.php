@@ -13,19 +13,19 @@ $delegatedModeCondition = 'FIELD:auth_mode:=:delegated';
 
 return [
     'ctrl' => [
-        'title' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server',
-        'label' => 'name',
-        'label_alt' => 'identifier,url',
-        'tstamp' => 'tstamp',
-        'crdate' => 'crdate',
-        'delete' => 'deleted',
+        'title'          => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server',
+        'label'          => 'name',
+        'label_alt'      => 'identifier,url',
+        'tstamp'         => 'tstamp',
+        'crdate'         => 'crdate',
+        'delete'         => 'deleted',
         'default_sortby' => 'name ASC',
-        'enablecolumns' => [
+        'enablecolumns'  => [
             'disabled' => 'hidden',
         ],
         'typeicon_classes' => ['default' => 'nrllm-record-mcp-server'],
-        'rootLevel' => -1,
-        'security' => [
+        'rootLevel'        => -1,
+        'security'         => [
             'ignorePageTypeRestriction' => true,
         ],
     ],
@@ -63,38 +63,38 @@ return [
     ],
     'columns' => [
         'hidden' => [
-            'label' => 'LLL:EXT:core/Resources/Private/Language/locallang_general.xlf:LGL.hidden',
+            'label'  => 'LLL:EXT:core/Resources/Private/Language/locallang_general.xlf:LGL.hidden',
             'config' => [
-                'type' => 'check',
+                'type'    => 'check',
                 'default' => 0,
             ],
         ],
         // Prefix of every imported tool name and of the group mcp_<identifier>,
         // so an edit renames the whole tool namespace of this server.
         'identifier' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.identifier',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.identifier',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.identifier.description',
-            'config' => [
-                'type' => 'input',
-                'size' => 30,
-                'max' => 32,
-                'trim' => true,
-                'eval' => 'alphanum_x,lower,unique',
+            'config'      => [
+                'type'     => 'input',
+                'size'     => 30,
+                'max'      => 32,
+                'trim'     => true,
+                'eval'     => 'alphanum_x,lower,unique',
                 'required' => true,
             ],
         ],
         'name' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.name',
+            'label'  => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.name',
             'config' => [
-                'type' => 'input',
-                'size' => 50,
-                'max' => 255,
-                'trim' => true,
+                'type'     => 'input',
+                'size'     => 50,
+                'max'      => 255,
+                'trim'     => true,
                 'required' => true,
             ],
         ],
         'description' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.description',
+            'label'  => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.description',
             'config' => [
                 'type' => 'text',
                 'cols' => 40,
@@ -102,13 +102,13 @@ return [
             ],
         ],
         'url' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.url',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.url',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.url.description',
-            'config' => [
-                'type' => 'input',
-                'size' => 50,
-                'max' => 2048,
-                'trim' => true,
+            'config'      => [
+                'type'     => 'input',
+                'size'     => 50,
+                'max'      => 2048,
+                'trim'     => true,
                 'required' => true,
             ],
         ],
@@ -117,34 +117,34 @@ return [
                 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.auth_credential',
                 [
                     'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.auth_credential.description',
-                    'size' => 50,
+                    'size'        => 50,
                 ],
             ),
             ['config' => ['searchable' => false]],
         ),
         'auth_placement' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.auth_placement',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.auth_placement',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.auth_placement.description',
-            'config' => [
-                'type' => 'select',
+            'config'      => [
+                'type'       => 'select',
                 'renderType' => 'selectSingle',
-                'items' => [
+                'items'      => [
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.auth_placement.bearer', 'value' => 'bearer'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.auth_placement.header', 'value' => 'header'],
                 ],
-                'default' => 'bearer',
+                'default'  => 'bearer',
                 'required' => true,
             ],
         ],
         'auth_header_name' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.auth_header_name',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.auth_header_name',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.auth_header_name.description',
             'displayCond' => 'FIELD:auth_placement:=:header',
-            'config' => [
-                'type' => 'input',
-                'size' => 30,
-                'max' => 190,
-                'trim' => true,
+            'config'      => [
+                'type'       => 'input',
+                'size'       => 30,
+                'max'        => 190,
+                'trim'       => true,
                 'searchable' => false,
             ],
         ],
@@ -152,12 +152,12 @@ return [
         // (ADR-094). No default — an operator has to declare it, and until then
         // the server contributes nothing.
         'data_class' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.data_class',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.data_class',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.data_class.description',
-            'config' => [
-                'type' => 'select',
+            'config'      => [
+                'type'       => 'select',
                 'renderType' => 'selectSingle',
-                'items' => [
+                'items'      => [
                     ['label' => '', 'value' => ''],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.tool_data_class.publicContent', 'value' => 'publicContent'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.tool_data_class.editorContent', 'value' => 'editorContent'],
@@ -176,19 +176,19 @@ return [
         // safe side of a yes/no is expressible while a data class has no safe
         // guess — a server nobody has judged asks first.
         'requires_approval' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.requires_approval',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.requires_approval',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.requires_approval.description',
-            'config' => [
-                'type' => 'check',
+            'config'      => [
+                'type'    => 'check',
                 'default' => 1,
             ],
         ],
         'import_status' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.import_status',
+            'label'  => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.import_status',
             'config' => [
-                'type' => 'select',
+                'type'       => 'select',
                 'renderType' => 'selectSingle',
-                'items' => [
+                'items'      => [
                     // No `importing`: the import runs to completion inside the
                     // one request that starts it, so no reader could ever
                     // observe that state, and a crashed request would leave a
@@ -198,33 +198,33 @@ return [
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.import_status.partial', 'value' => 'partial'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.import_status.error', 'value' => 'error'],
                 ],
-                'default' => 'never_imported',
+                'default'  => 'never_imported',
                 'readOnly' => true,
             ],
         ],
         'import_error' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.import_error',
+            'label'  => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.import_error',
             'config' => [
-                'type' => 'text',
-                'cols' => 40,
-                'rows' => 3,
-                'readOnly' => true,
+                'type'       => 'text',
+                'cols'       => 40,
+                'rows'       => 3,
+                'readOnly'   => true,
                 'searchable' => false,
             ],
         ],
         'last_imported' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.last_imported',
+            'label'  => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.last_imported',
             'config' => [
-                'type' => 'datetime',
-                'readOnly' => true,
+                'type'       => 'datetime',
+                'readOnly'   => true,
                 'searchable' => false,
             ],
         ],
         'tool_count' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.tool_count',
+            'label'  => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.tool_count',
             'config' => [
-                'type' => 'number',
-                'size' => 5,
+                'type'     => 'number',
+                'size'     => 5,
                 'readOnly' => true,
             ],
         ],
@@ -233,38 +233,38 @@ return [
         // operator reads them; they are here so the record form does not
         // pretend the row holds less than it does.
         'last_contact' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.last_contact',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.last_contact',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.last_contact.description',
-            'config' => [
-                'type' => 'datetime',
-                'readOnly' => true,
+            'config'      => [
+                'type'       => 'datetime',
+                'readOnly'   => true,
                 'searchable' => false,
             ],
         ],
         'last_latency_ms' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.last_latency_ms',
+            'label'  => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.last_latency_ms',
             'config' => [
-                'type' => 'number',
-                'size' => 8,
+                'type'     => 'number',
+                'size'     => 8,
                 'readOnly' => true,
             ],
         ],
         'enabled' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.enabled',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.enabled',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.enabled.description',
-            'config' => [
-                'type' => 'check',
+            'config'      => [
+                'type'    => 'check',
                 'default' => 0,
             ],
         ],
         'auth_mode' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.auth_mode',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.auth_mode',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.auth_mode.description',
-            'onChange' => 'reload',
-            'config' => [
-                'type' => 'select',
+            'onChange'    => 'reload',
+            'config'      => [
+                'type'       => 'select',
                 'renderType' => 'selectSingle',
-                'items' => [
+                'items'      => [
                     [
                         'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.auth_mode.legacy',
                         'value' => 'legacy',
@@ -274,46 +274,46 @@ return [
                         'value' => 'delegated',
                     ],
                 ],
-                'default' => 'legacy',
+                'default'  => 'legacy',
                 'required' => true,
             ],
         ],
         'delegation_profile' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.delegation_profile',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.delegation_profile',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.delegation_profile.description',
             'displayCond' => $delegatedModeCondition,
-            'config' => [
-                'type' => 'input',
-                'size' => 50,
-                'max' => 64,
-                'trim' => true,
-                'required' => true,
+            'config'      => [
+                'type'       => 'input',
+                'size'       => 50,
+                'max'        => 64,
+                'trim'       => true,
+                'required'   => true,
                 'searchable' => false,
             ],
         ],
         'delegation_audience' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.delegation_audience',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.delegation_audience',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.delegation_audience.description',
             'displayCond' => $delegatedModeCondition,
-            'config' => [
-                'type' => 'input',
-                'size' => 50,
-                'max' => 2048,
-                'trim' => true,
-                'required' => true,
+            'config'      => [
+                'type'       => 'input',
+                'size'       => 50,
+                'max'        => 2048,
+                'trim'       => true,
+                'required'   => true,
                 'searchable' => false,
             ],
         ],
         'delegation_scopes' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.delegation_scopes',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.delegation_scopes',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.delegation_scopes.description',
             'displayCond' => $delegatedModeCondition,
-            'config' => [
-                'type' => 'input',
-                'size' => 50,
-                'max' => 2048,
-                'trim' => true,
-                'required' => true,
+            'config'      => [
+                'type'       => 'input',
+                'size'       => 50,
+                'max'        => 2048,
+                'trim'       => true,
+                'required'   => true,
                 'searchable' => false,
             ],
         ],
@@ -322,12 +322,12 @@ return [
                 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.discovery_credential',
                 [
                     'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.discovery_credential.description',
-                    'size' => 50,
+                    'size'        => 50,
                 ],
             ),
             [
                 'displayCond' => $delegatedModeCondition,
-                'config' => ['searchable' => false],
+                'config'      => ['searchable' => false],
             ],
         ),
     ],

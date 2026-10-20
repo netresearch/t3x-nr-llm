@@ -94,7 +94,7 @@ final class ImportMcpCatalogueCommandTest extends AbstractFunctionalTestCase
             'hidden'           => 0,
         ]);
 
-        $server = $this->servers->findByUid((int)$connection->lastInsertId());
+        $server = $this->servers->findByUid((int) $connection->lastInsertId());
         self::assertInstanceOf(McpServerRecord::class, $server);
 
         return $server;
@@ -155,7 +155,7 @@ final class ImportMcpCatalogueCommandTest extends AbstractFunctionalTestCase
     private function liveToolNames(int $serverUid): array
     {
         return array_map(
-            static fn(object $tool): string => $tool->toolName,
+            static fn (object $tool): string => $tool->toolName,
             $this->catalogue->findLiveByServer($serverUid),
         );
     }

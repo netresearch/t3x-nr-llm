@@ -115,10 +115,10 @@ class TranslatorResultTest extends AbstractUnitTestCase
     {
         $metadata = [
             'string_key' => 'value',
-            'int_key' => 123,
-            'float_key' => 1.23,
-            'bool_key' => true,
-            'array_key' => ['nested' => 'data'],
+            'int_key'    => 123,
+            'float_key'  => 1.23,
+            'bool_key'   => true,
+            'array_key'  => ['nested' => 'data'],
         ];
 
         $result = new TranslatorResult(

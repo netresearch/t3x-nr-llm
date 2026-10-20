@@ -226,7 +226,7 @@ class ResponseParserTraitMutationTest extends AbstractUnitTestCase
     #[Test]
     public function getListReturnsListValue(): void
     {
-        $list = [['id' => 1], ['id' => 2]];
+        $list   = [['id' => 1], ['id' => 2]];
         $result = $this->invokeTraitMethod('getList', [['items' => $list], 'items']);
         self::assertEquals($list, $result);
     }
@@ -331,7 +331,7 @@ class ResponseParserTraitMutationTest extends AbstractUnitTestCase
     #[Test]
     public function getNestedArrayReturnsNestedValue(): void
     {
-        $data = ['level1' => ['level2' => ['a', 'b']]];
+        $data   = ['level1' => ['level2' => ['a', 'b']]];
         $result = $this->invokeTraitMethod('getNestedArray', [$data, 'level1.level2', []]);
         self::assertEquals(['a', 'b'], $result);
     }
@@ -339,7 +339,7 @@ class ResponseParserTraitMutationTest extends AbstractUnitTestCase
     #[Test]
     public function getNestedArrayReturnsDefaultForMissingPath(): void
     {
-        $data = ['level1' => ['level2' => ['a', 'b']]];
+        $data   = ['level1' => ['level2' => ['a', 'b']]];
         $result = $this->invokeTraitMethod('getNestedArray', [$data, 'level1.missing', ['default']]);
         self::assertEquals(['default'], $result);
     }
@@ -347,7 +347,7 @@ class ResponseParserTraitMutationTest extends AbstractUnitTestCase
     #[Test]
     public function getNestedArrayReturnsDefaultForNonArrayValue(): void
     {
-        $data = ['level1' => ['level2' => 'string']];
+        $data   = ['level1' => ['level2' => 'string']];
         $result = $this->invokeTraitMethod('getNestedArray', [$data, 'level1.level2', ['default']]);
         self::assertEquals(['default'], $result);
     }
@@ -355,7 +355,7 @@ class ResponseParserTraitMutationTest extends AbstractUnitTestCase
     #[Test]
     public function getNestedArrayHandlesNonArrayIntermediate(): void
     {
-        $data = ['level1' => 'string'];
+        $data   = ['level1' => 'string'];
         $result = $this->invokeTraitMethod('getNestedArray', [$data, 'level1.level2', ['default']]);
         self::assertEquals(['default'], $result);
     }
@@ -365,7 +365,7 @@ class ResponseParserTraitMutationTest extends AbstractUnitTestCase
     #[Test]
     public function getNestedStringReturnsNestedValue(): void
     {
-        $data = ['level1' => ['level2' => 'value']];
+        $data   = ['level1' => ['level2' => 'value']];
         $result = $this->invokeTraitMethod('getNestedString', [$data, 'level1.level2', '']);
         self::assertEquals('value', $result);
     }
@@ -373,7 +373,7 @@ class ResponseParserTraitMutationTest extends AbstractUnitTestCase
     #[Test]
     public function getNestedStringReturnsDefaultForMissingPath(): void
     {
-        $data = ['level1' => ['level2' => 'value']];
+        $data   = ['level1' => ['level2' => 'value']];
         $result = $this->invokeTraitMethod('getNestedString', [$data, 'level1.missing', 'default']);
         self::assertEquals('default', $result);
     }
@@ -381,7 +381,7 @@ class ResponseParserTraitMutationTest extends AbstractUnitTestCase
     #[Test]
     public function getNestedStringConvertsIntToString(): void
     {
-        $data = ['level1' => ['level2' => 123]];
+        $data   = ['level1' => ['level2' => 123]];
         $result = $this->invokeTraitMethod('getNestedString', [$data, 'level1.level2', '']);
         self::assertEquals('123', $result);
     }
@@ -389,7 +389,7 @@ class ResponseParserTraitMutationTest extends AbstractUnitTestCase
     #[Test]
     public function getNestedStringConvertsFloatToString(): void
     {
-        $data = ['level1' => ['level2' => 12.5]];
+        $data   = ['level1' => ['level2' => 12.5]];
         $result = $this->invokeTraitMethod('getNestedString', [$data, 'level1.level2', '']);
         self::assertEquals('12.5', $result);
     }
@@ -397,7 +397,7 @@ class ResponseParserTraitMutationTest extends AbstractUnitTestCase
     #[Test]
     public function getNestedStringReturnsDefaultForArrayValue(): void
     {
-        $data = ['level1' => ['level2' => ['nested']]];
+        $data   = ['level1' => ['level2' => ['nested']]];
         $result = $this->invokeTraitMethod('getNestedString', [$data, 'level1.level2', 'default']);
         self::assertEquals('default', $result);
     }
@@ -407,7 +407,7 @@ class ResponseParserTraitMutationTest extends AbstractUnitTestCase
     #[Test]
     public function getNestedIntReturnsNestedValue(): void
     {
-        $data = ['level1' => ['level2' => 42]];
+        $data   = ['level1' => ['level2' => 42]];
         $result = $this->invokeTraitMethod('getNestedInt', [$data, 'level1.level2', 0]);
         self::assertEquals(42, $result);
     }
@@ -415,7 +415,7 @@ class ResponseParserTraitMutationTest extends AbstractUnitTestCase
     #[Test]
     public function getNestedIntReturnsDefaultForMissingPath(): void
     {
-        $data = ['level1' => ['level2' => 42]];
+        $data   = ['level1' => ['level2' => 42]];
         $result = $this->invokeTraitMethod('getNestedInt', [$data, 'level1.missing', 99]);
         self::assertEquals(99, $result);
     }
@@ -423,7 +423,7 @@ class ResponseParserTraitMutationTest extends AbstractUnitTestCase
     #[Test]
     public function getNestedIntConvertsNumericStringToInt(): void
     {
-        $data = ['level1' => ['level2' => '123']];
+        $data   = ['level1' => ['level2' => '123']];
         $result = $this->invokeTraitMethod('getNestedInt', [$data, 'level1.level2', 0]);
         self::assertEquals(123, $result);
     }
@@ -431,7 +431,7 @@ class ResponseParserTraitMutationTest extends AbstractUnitTestCase
     #[Test]
     public function getNestedIntReturnsDefaultForNonNumericValue(): void
     {
-        $data = ['level1' => ['level2' => 'abc']];
+        $data   = ['level1' => ['level2' => 'abc']];
         $result = $this->invokeTraitMethod('getNestedInt', [$data, 'level1.level2', 99]);
         self::assertEquals(99, $result);
     }
@@ -464,7 +464,7 @@ class ResponseParserTraitMutationTest extends AbstractUnitTestCase
     #[Test]
     public function asListReturnsArrayValue(): void
     {
-        $list = [['id' => 1], ['id' => 2]];
+        $list   = [['id' => 1], ['id' => 2]];
         $result = $this->invokeTraitMethod('asList', [$list]);
         self::assertEquals($list, $result);
     }
@@ -599,7 +599,7 @@ class ResponseParserTraitMutationTest extends AbstractUnitTestCase
      */
     private function invokeTraitMethod(string $method, array $args): mixed
     {
-        $reflection = new ReflectionClass($this->traitObject);
+        $reflection       = new ReflectionClass($this->traitObject);
         $reflectionMethod = $reflection->getMethod($method);
 
         return $reflectionMethod->invokeArgs($this->traitObject, $args);

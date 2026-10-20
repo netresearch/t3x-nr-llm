@@ -39,11 +39,11 @@ final class EffectivePolicyReadoutTest extends TestCase
 
         self::assertSame(
             ['privacy.level', 'privacy.retentionDays', 'tools.dataClassEnforcement', 'skills.minTrustLevel'],
-            array_map(static fn(EffectivePolicyRow $row): string => $row->key, $rows),
+            array_map(static fn (EffectivePolicyRow $row): string => $row->key, $rows),
         );
         self::assertSame(
             ['redacted', '90', 'observe', 'verified'],
-            array_map(static fn(EffectivePolicyRow $row): ?string => $row->value, $rows),
+            array_map(static fn (EffectivePolicyRow $row): ?string => $row->value, $rows),
         );
         self::assertSame(
             [
@@ -52,7 +52,7 @@ final class EffectivePolicyReadoutTest extends TestCase
                 DataClassEnforcementResolver::class,
                 SkillComposerFactory::class,
             ],
-            array_map(static fn(EffectivePolicyRow $row): string => $row->reader, $rows),
+            array_map(static fn (EffectivePolicyRow $row): string => $row->reader, $rows),
         );
 
         foreach ($rows as $row) {
@@ -156,7 +156,7 @@ final class EffectivePolicyReadoutTest extends TestCase
 
         self::assertSame(
             ['privacy.level', 'privacy.retentionDays', 'tools.dataClassEnforcement', 'skills.minTrustLevel'],
-            array_map(static fn(EffectivePolicyRow $row): string => $row->key, $rows),
+            array_map(static fn (EffectivePolicyRow $row): string => $row->key, $rows),
         );
     }
 
@@ -180,7 +180,7 @@ final class EffectivePolicyReadoutTest extends TestCase
                 'tools.dataClassEnforcement',
                 'skills.minTrustLevel',
             ],
-            array_map(static fn(EffectivePolicyRow $row): string => $row->key, $rows),
+            array_map(static fn (EffectivePolicyRow $row): string => $row->key, $rows),
         );
         self::assertSame('30', $rows[1]->value);
         self::assertSame('7', $rows[2]->value);
@@ -202,7 +202,7 @@ final class EffectivePolicyReadoutTest extends TestCase
         self::assertFalse($rows[1]->isKnown());
         self::assertSame(
             ['privacy.level', 'privacy.retentionDays', 'tools.dataClassEnforcement', 'skills.minTrustLevel'],
-            array_map(static fn(EffectivePolicyRow $row): string => $row->key, $rows),
+            array_map(static fn (EffectivePolicyRow $row): string => $row->key, $rows),
         );
     }
 

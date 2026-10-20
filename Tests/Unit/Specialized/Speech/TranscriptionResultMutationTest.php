@@ -42,7 +42,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     public function hasSegmentsReturnsTrueForNonEmptyArray(): void
     {
         $segment = new Segment('Hello', 0.0, 1.0);
-        $result = new TranscriptionResult('Test', 'en', segments: [$segment]);
+        $result  = new TranscriptionResult('Test', 'en', segments: [$segment]);
 
         self::assertTrue($result->hasSegments());
     }
@@ -70,15 +70,15 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     public static function durationFormattingProvider(): array
     {
         return [
-            'zero seconds' => [0.0, '0:00'],
-            'one second' => [1.0, '0:01'],
-            'thirty seconds' => [30.0, '0:30'],
-            'one minute' => [60.0, '1:00'],
+            'zero seconds'      => [0.0, '0:00'],
+            'one second'        => [1.0, '0:01'],
+            'thirty seconds'    => [30.0, '0:30'],
+            'one minute'        => [60.0, '1:00'],
             'one minute thirty' => [90.0, '1:30'],
-            'two minutes' => [120.0, '2:00'],
-            'ten minutes' => [600.0, '10:00'],
-            'one hour' => [3600.0, '60:00'],
-            'with decimals' => [65.5, '1:05'],
+            'two minutes'       => [120.0, '2:00'],
+            'ten minutes'       => [600.0, '10:00'],
+            'one hour'          => [3600.0, '60:00'],
+            'with decimals'     => [65.5, '1:05'],
         ];
     }
 
@@ -105,11 +105,11 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     public static function confidenceFormattingProvider(): array
     {
         return [
-            'zero percent' => [0.0, '0.0%'],
-            'fifty percent' => [0.5, '50.0%'],
-            'hundred percent' => [1.0, '100.0%'],
+            'zero percent'        => [0.0, '0.0%'],
+            'fifty percent'       => [0.5, '50.0%'],
+            'hundred percent'     => [1.0, '100.0%'],
             'ninety five percent' => [0.95, '95.0%'],
-            'with decimals' => [0.876, '87.6%'],
+            'with decimals'       => [0.876, '87.6%'],
         ];
     }
 
@@ -128,10 +128,10 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     public static function wordCountProvider(): array
     {
         return [
-            'empty string' => ['', 0],
-            'one word' => ['Hello', 1],
-            'two words' => ['Hello World', 2],
-            'multiple words' => ['The quick brown fox', 4],
+            'empty string'     => ['', 0],
+            'one word'         => ['Hello', 1],
+            'two words'        => ['Hello World', 2],
+            'multiple words'   => ['The quick brown fox', 4],
             'with punctuation' => ['Hello, world!', 2],
         ];
     }
@@ -177,7 +177,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     public function toSrtFormatsTimesCorrectly(float $start, float $end, string $expectedStart, string $expectedEnd): void
     {
         $segments = [new Segment('Test', $start, $end)];
-        $result = new TranscriptionResult('Test', 'en', segments: $segments);
+        $result   = new TranscriptionResult('Test', 'en', segments: $segments);
 
         $srt = $result->toSrt();
 
@@ -192,11 +192,11 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     {
         return [
             'zero to one second' => [0.0, 1.0, '00:00:00,000', '00:00:01,000'],
-            'with milliseconds' => [0.0, 1.5, '00:00:00,000', '00:00:01,500'],
-            'one minute' => [60.0, 61.0, '00:01:00,000', '00:01:01,000'],
-            'one hour' => [3600.0, 3601.0, '01:00:00,000', '01:00:01,000'],
-            'complex time' => [3661.5, 3722.75, '01:01:01,500', '01:02:02,750'],
-            'two hours plus' => [7325.123, 7326.456, '02:02:05,123', '02:02:06,456'],
+            'with milliseconds'  => [0.0, 1.5, '00:00:00,000', '00:00:01,500'],
+            'one minute'         => [60.0, 61.0, '00:01:00,000', '00:01:01,000'],
+            'one hour'           => [3600.0, 3601.0, '01:00:00,000', '01:00:01,000'],
+            'complex time'       => [3661.5, 3722.75, '01:01:01,500', '01:02:02,750'],
+            'two hours plus'     => [7325.123, 7326.456, '02:02:05,123', '02:02:06,456'],
         ];
     }
 
@@ -220,7 +220,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     public function toVttStartsWithWebvttHeader(): void
     {
         $segments = [new Segment('Test', 0.0, 1.0)];
-        $result = new TranscriptionResult('Test', 'en', segments: $segments);
+        $result   = new TranscriptionResult('Test', 'en', segments: $segments);
 
         $vtt = $result->toVtt();
 
@@ -251,7 +251,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     public function toVttFormatsTimesCorrectly(float $start, float $end, string $expectedStart, string $expectedEnd): void
     {
         $segments = [new Segment('Test', $start, $end)];
-        $result = new TranscriptionResult('Test', 'en', segments: $segments);
+        $result   = new TranscriptionResult('Test', 'en', segments: $segments);
 
         $vtt = $result->toVtt();
 
@@ -266,10 +266,10 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     {
         return [
             'zero to one second' => [0.0, 1.0, '00:00:00.000', '00:00:01.000'],
-            'with milliseconds' => [0.0, 1.5, '00:00:00.000', '00:00:01.500'],
-            'one minute' => [60.0, 61.0, '00:01:00.000', '00:01:01.000'],
-            'one hour' => [3600.0, 3601.0, '01:00:00.000', '01:00:01.000'],
-            'complex time' => [3661.5, 3722.75, '01:01:01.500', '01:02:02.750'],
+            'with milliseconds'  => [0.0, 1.5, '00:00:00.000', '00:00:01.500'],
+            'one minute'         => [60.0, 61.0, '00:01:00.000', '00:01:01.000'],
+            'one hour'           => [3600.0, 3601.0, '01:00:00.000', '01:00:01.000'],
+            'complex time'       => [3661.5, 3722.75, '01:01:01.500', '01:02:02.750'],
             'fifty nine minutes' => [3540.0, 3599.0, '00:59:00.000', '00:59:59.000'],
         ];
     }
@@ -278,7 +278,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     public function srtAndVttDifferInTimeSeparator(): void
     {
         $segments = [new Segment('Test', 1.5, 2.5)];
-        $result = new TranscriptionResult('Test', 'en', segments: $segments);
+        $result   = new TranscriptionResult('Test', 'en', segments: $segments);
 
         $srt = $result->toSrt();
         $vtt = $result->toVtt();
@@ -307,7 +307,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
         $lines = explode("\n", $srt);
 
         // Find index lines (first line of each subtitle block)
-        $indices = array_filter($lines, static fn(string $line): bool => preg_match('/^\d+$/', $line) === 1);
+        $indices = array_filter($lines, static fn (string $line): bool => preg_match('/^\d+$/', $line) === 1);
         $indices = array_values($indices);
 
         self::assertEquals('1', $indices[0]);
@@ -336,7 +336,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     {
         // Test exactly at hour boundary (3600 seconds)
         $segments = [new Segment('Hour mark', 3600.0, 3601.0)];
-        $result = new TranscriptionResult('Test', 'en', segments: $segments);
+        $result   = new TranscriptionResult('Test', 'en', segments: $segments);
 
         $srt = $result->toSrt();
 
@@ -349,7 +349,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     {
         // Test at 1 hour, 1 minute, 1 second (3661 seconds)
         $segments = [new Segment('Test', 3661.0, 3662.0)];
-        $result = new TranscriptionResult('Test', 'en', segments: $segments);
+        $result   = new TranscriptionResult('Test', 'en', segments: $segments);
 
         $srt = $result->toSrt();
 
@@ -362,7 +362,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     {
         // Test at 1 hour, 1 minute, 1 second (3661 seconds)
         $segments = [new Segment('Test', 3661.0, 3662.0)];
-        $result = new TranscriptionResult('Test', 'en', segments: $segments);
+        $result   = new TranscriptionResult('Test', 'en', segments: $segments);
 
         $vtt = $result->toVtt();
 

@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Testing;
 
-use LogicException;
+use Netresearch\NrLlm\Exception\LogicException;
 use Netresearch\NrLlm\Service\Decision\DecisionRequest;
 use Netresearch\NrLlm\Service\Decision\DecisionResult;
 use Netresearch\NrLlm\Service\Decision\DecisionServiceInterface;
@@ -66,7 +66,7 @@ final class FakeDecisionService implements DecisionServiceInterface
         $this->requests[] = $request;
 
         if ($this->throwable instanceof Throwable) {
-            $throwable = $this->throwable;
+            $throwable       = $this->throwable;
             $this->throwable = null;
 
             throw $throwable;

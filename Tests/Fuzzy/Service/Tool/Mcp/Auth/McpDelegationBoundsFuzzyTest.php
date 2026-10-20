@@ -1,8 +1,11 @@
 <?php
 
-/* Copyright (c) 2025-2026 Netresearch DTT GmbH
- * SPDX-License-Identifier: GPL-2.0-or-later */
-declare (strict_types=1);
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Fuzzy\Service\Tool\Mcp\Auth;
 
@@ -14,7 +17,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
- * @internal Delegated MCP authentication tests.
+ * @internal delegated MCP authentication tests
  */
 #[CoversClass(McpDelegationProfile::class)]
 final class McpDelegationBoundsFuzzyTest extends AbstractFuzzyTestCase
@@ -27,11 +30,13 @@ final class McpDelegationBoundsFuzzyTest extends AbstractFuzzyTestCase
         try {
             $profile = $construct();
             self::assertSame('office', $profile->identifier);
+
             return true;
         } catch (InvalidArgumentException) {
             return false;
         }
     }
+
     /**
      * @param list<string> $scopes
      */
@@ -39,6 +44,7 @@ final class McpDelegationBoundsFuzzyTest extends AbstractFuzzyTestCase
     {
         return new McpDelegationProfile('office', 'https://idp.example.com/token', 'client', null, [$audience], $scopes);
     }
+
     #[Test]
     public function eachScopeLengthHasTheDeclaredBoundary(): void
     {
@@ -46,11 +52,12 @@ final class McpDelegationBoundsFuzzyTest extends AbstractFuzzyTestCase
             ->forAll(Generators::choose(0, 160))
             ->then(
                 function (int $length): void {
-                    $accepted = $this->accepts(fn(): McpDelegationProfile => $this->profile([str_repeat('a', $length)]));
+                    $accepted = $this->accepts(fn (): McpDelegationProfile => $this->profile([str_repeat('a', $length)]));
                     self::assertSame($length >= 1 && $length <= 128, $accepted);
                 },
             );
     }
+
     #[Test]
     public function eachPermissionListCountHasTheDeclaredBoundary(): void
     {
@@ -62,11 +69,12 @@ final class McpDelegationBoundsFuzzyTest extends AbstractFuzzyTestCase
                     for ($i = 0; $i < $count; ++$i) {
                         $values[] = 'scope_' . $i;
                     }
-                    $accepted = $this->accepts(fn(): McpDelegationProfile => $this->profile($values));
+                    $accepted = $this->accepts(fn (): McpDelegationProfile => $this->profile($values));
                     self::assertSame($count >= 1 && $count <= 64, $accepted);
                 },
             );
     }
+
     #[Test]
     public function scopeCharactersFollowTheOauthTokenGrammar(): void
     {
@@ -74,7 +82,7 @@ final class McpDelegationBoundsFuzzyTest extends AbstractFuzzyTestCase
             ->forAll(Generators::choose(0, 127))
             ->then(
                 function (int $byte): void {
-                    $accepted = $this->accepts(fn(): McpDelegationProfile => $this->profile(['scope' . chr($byte)]));
+                    $accepted = $this->accepts(fn (): McpDelegationProfile => $this->profile(['scope' . chr($byte)]));
                     self::assertSame(
                         $byte === 33 || $byte >= 35 && $byte <= 91 || $byte >= 93 && $byte <= 126,
                         $accepted,
@@ -82,6 +90,7 @@ final class McpDelegationBoundsFuzzyTest extends AbstractFuzzyTestCase
                 },
             );
     }
+
     #[Test]
     public function audienceLengthDoesNotAcceptEmptyOrOversizedRecipients(): void
     {
@@ -89,11 +98,12 @@ final class McpDelegationBoundsFuzzyTest extends AbstractFuzzyTestCase
             ->forAll(Generators::choose(0, 600))
             ->then(
                 function (int $length): void {
-                    $accepted = $this->accepts(fn(): McpDelegationProfile => $this->profile(audience: str_repeat('a', $length)));
+                    $accepted = $this->accepts(fn (): McpDelegationProfile => $this->profile(audience: str_repeat('a', $length)));
                     self::assertSame($length >= 1 && $length <= 512, $accepted);
                 },
             );
     }
+
     #[Test]
     public function credentialAliasLengthFollowsVaultBounds(): void
     {
@@ -102,7 +112,7 @@ final class McpDelegationBoundsFuzzyTest extends AbstractFuzzyTestCase
             ->then(
                 function (int $length): void {
                     $accepted = $this->accepts(
-                        fn(): McpDelegationProfile => new McpDelegationProfile(
+                        fn (): McpDelegationProfile => new McpDelegationProfile(
                             'office',
                             'https://idp.example.com/token',
                             'client',
@@ -115,6 +125,7 @@ final class McpDelegationBoundsFuzzyTest extends AbstractFuzzyTestCase
                 },
             );
     }
+
     #[Test]
     public function credentialAliasesPermitOnlyAsciiLettersDigitsAndUnderscores(): void
     {
@@ -123,7 +134,7 @@ final class McpDelegationBoundsFuzzyTest extends AbstractFuzzyTestCase
             ->then(
                 function (int $byte): void {
                     $accepted = $this->accepts(
-                        fn(): McpDelegationProfile => new McpDelegationProfile(
+                        fn (): McpDelegationProfile => new McpDelegationProfile(
                             'office',
                             'https://idp.example.com/token',
                             'client',

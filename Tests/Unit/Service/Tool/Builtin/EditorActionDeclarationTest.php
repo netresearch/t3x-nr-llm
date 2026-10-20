@@ -89,7 +89,7 @@ final class EditorActionDeclarationTest extends TestCase
     public static function writerClasses(): array
     {
         return array_map(
-            static fn(array $row): array => [$row[0]],
+            static fn (array $row): array => [$row[0]],
             self::writers(),
         );
     }

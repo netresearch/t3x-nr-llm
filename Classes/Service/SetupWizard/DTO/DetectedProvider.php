@@ -12,7 +12,7 @@ namespace Netresearch\NrLlm\Service\SetupWizard\DTO;
 /**
  * DTO for detected provider information from endpoint URL.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class DetectedProvider
 {
@@ -37,11 +37,11 @@ final readonly class DetectedProvider
     public function toArray(): array
     {
         return [
-            'adapterType' => $this->adapterType,
+            'adapterType'   => $this->adapterType,
             'suggestedName' => $this->suggestedName,
-            'endpoint' => $this->endpoint,
-            'confidence' => $this->confidence,
-            'metadata' => $this->metadata,
+            'endpoint'      => $this->endpoint,
+            'confidence'    => $this->confidence,
+            'metadata'      => $this->metadata,
         ];
     }
 }

@@ -51,13 +51,13 @@ final class ProviderControllerTest extends TestCase
         // The AJAX actions are guarded by RequiresBackendAdminTrait (ADR-037);
         // provide an admin backend user so these tests reach the action body.
         $this->previousBeUser = $GLOBALS['BE_USER'] ?? null;
-        $backendUser = new BackendUserAuthentication();
-        $backendUser->user = ['uid' => 1, 'admin' => 1];
-        $GLOBALS['BE_USER'] = $backendUser;
+        $backendUser          = new BackendUserAuthentication();
+        $backendUser->user    = ['uid' => 1, 'admin' => 1];
+        $GLOBALS['BE_USER']   = $backendUser;
 
-        $this->providerRepository = $this->createMock(ProviderRepository::class);
+        $this->providerRepository      = $this->createMock(ProviderRepository::class);
         $this->providerAdapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
-        $this->persistenceManager = $this->createMock(PersistenceManagerInterface::class);
+        $this->persistenceManager      = $this->createMock(PersistenceManagerInterface::class);
 
         // Create controller using reflection to inject only required dependencies
         $this->subject = $this->createControllerWithDependencies();
@@ -97,7 +97,7 @@ final class ProviderControllerTest extends TestCase
     private function setPrivateProperty(object $object, string $property, mixed $value): void
     {
         $reflection = new ReflectionClass($object);
-        $prop = $reflection->getProperty($property);
+        $prop       = $reflection->getProperty($property);
         $prop->setValue($object, $value);
     }
 
@@ -118,7 +118,7 @@ final class ProviderControllerTest extends TestCase
      */
     private function decodeJsonResponse(ResponseInterface $response): array
     {
-        $data = json_decode((string)$response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), true);
         self::assertIsArray($data);
 
         /** @var array<string, mixed> $data */
@@ -127,12 +127,13 @@ final class ProviderControllerTest extends TestCase
 
     private function createProvider(int $uid, bool $isActive): Provider
     {
-        $provider = new Provider();
-        $reflection = new ReflectionClass($provider);
+        $provider    = new Provider();
+        $reflection  = new ReflectionClass($provider);
         $uidProperty = $reflection->getProperty('uid');
         $uidProperty->setValue($provider, $uid);
 
         $provider->setIsActive($isActive);
+
         return $provider;
     }
 
@@ -156,7 +157,7 @@ final class ProviderControllerTest extends TestCase
             ->expects(self::once())
             ->method('persistAll');
 
-        $request = $this->createRequest(['uid' => 1]);
+        $request  = $this->createRequest(['uid' => 1]);
         $response = $this->subject->toggleActiveAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -187,7 +188,7 @@ final class ProviderControllerTest extends TestCase
             ->expects(self::once())
             ->method('persistAll');
 
-        $request = $this->createRequest(['uid' => 1]);
+        $request  = $this->createRequest(['uid' => 1]);
         $response = $this->subject->toggleActiveAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -205,7 +206,7 @@ final class ProviderControllerTest extends TestCase
             ->expects(self::never())
             ->method('findByUid');
 
-        $request = $this->createRequest([]);
+        $request  = $this->createRequest([]);
         $response = $this->subject->toggleActiveAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -225,7 +226,7 @@ final class ProviderControllerTest extends TestCase
             ->with(99999)
             ->willReturn(null);
 
-        $request = $this->createRequest(['uid' => 99999]);
+        $request  = $this->createRequest(['uid' => 99999]);
         $response = $this->subject->toggleActiveAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -249,7 +250,7 @@ final class ProviderControllerTest extends TestCase
             ->method('update')
             ->willThrowException(new RuntimeException('Database error'));
 
-        $request = $this->createRequest(['uid' => 1]);
+        $request  = $this->createRequest(['uid' => 1]);
         $response = $this->subject->toggleActiveAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -278,10 +279,10 @@ final class ProviderControllerTest extends TestCase
             ->willReturn([
                 'success' => true,
                 'message' => 'Connection successful',
-                'models' => ['gpt-4', 'gpt-3.5-turbo'],
+                'models'  => ['gpt-4', 'gpt-3.5-turbo'],
             ]);
 
-        $request = $this->createRequest(['uid' => 1]);
+        $request  = $this->createRequest(['uid' => 1]);
         $response = $this->subject->testConnectionAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -300,7 +301,7 @@ final class ProviderControllerTest extends TestCase
             ->expects(self::never())
             ->method('findByUid');
 
-        $request = $this->createRequest([]);
+        $request  = $this->createRequest([]);
         $response = $this->subject->testConnectionAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -318,7 +319,7 @@ final class ProviderControllerTest extends TestCase
             ->with(99999)
             ->willReturn(null);
 
-        $request = $this->createRequest(['uid' => 99999]);
+        $request  = $this->createRequest(['uid' => 99999]);
         $response = $this->subject->testConnectionAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -340,7 +341,7 @@ final class ProviderControllerTest extends TestCase
             ->method('testProviderConnection')
             ->willThrowException(new RuntimeException('Connection failed'));
 
-        $request = $this->createRequest(['uid' => 1]);
+        $request  = $this->createRequest(['uid' => 1]);
         $response = $this->subject->testConnectionAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -412,10 +413,10 @@ final class ProviderControllerTest extends TestCase
             ->willReturn([
                 'success' => false,
                 'message' => 'Invalid API key',
-                'models' => [],
+                'models'  => [],
             ]);
 
-        $request = $this->createRequest(['uid' => 1]);
+        $request  = $this->createRequest(['uid' => 1]);
         $response = $this->subject->testConnectionAction($request);
 
         $data = $this->decodeJsonResponse($response);

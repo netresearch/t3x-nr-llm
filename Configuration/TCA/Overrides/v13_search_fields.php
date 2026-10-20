@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 use TYPO3\CMS\Core\Information\Typo3Version;
 
-defined('TYPO3') || die();
+defined('TYPO3') || exit;
 
 // TYPO3 v13 reads the backend search scope from `ctrl.searchFields` and ignores
 // the per-column `searchable` flag the base TCA files set. TYPO3 v14 removed

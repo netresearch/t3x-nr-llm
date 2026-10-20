@@ -80,7 +80,7 @@ final class ClaudeProvider extends AbstractProvider implements
     {
         return [
             'headerName' => 'x-api-key',
-            'reason' => sprintf('LLM API call to %s', $this->getName()),
+            'reason'     => sprintf('LLM API call to %s', $this->getName()),
         ];
     }
 
@@ -96,16 +96,16 @@ final class ClaudeProvider extends AbstractProvider implements
     {
         return [
             // Claude 4.5 Series (Latest)
-            'claude-opus-4-5-20251124' => 'Claude Opus 4.5 (Most Capable)',
+            'claude-opus-4-5-20251124'   => 'Claude Opus 4.5 (Most Capable)',
             'claude-sonnet-4-5-20250929' => 'Claude Sonnet 4.5 (Recommended)',
             // Claude 4.1 Series
             'claude-opus-4-1-20250805' => 'Claude Opus 4.1',
             // Claude 4 Series
-            'claude-opus-4-20250514' => 'Claude Opus 4',
+            'claude-opus-4-20250514'   => 'Claude Opus 4',
             'claude-sonnet-4-20250514' => 'Claude Sonnet 4',
             // Claude 3.5 Series (Legacy)
             'claude-3-5-sonnet-20241022' => 'Claude 3.5 Sonnet (Legacy)',
-            'claude-3-5-haiku-20241022' => 'Claude 3.5 Haiku (Legacy)',
+            'claude-3-5-haiku-20241022'  => 'Claude 3.5 Haiku (Legacy)',
         ];
     }
 
@@ -118,9 +118,9 @@ final class ClaudeProvider extends AbstractProvider implements
      * lightweight GET to the models endpoint and let any failure surface as
      * the typed exception sendRequest() raises.
      *
-     * @throws ProviderConnectionException on connection failure
-     *
      * @return array{success: bool, message: string, models?: array<string, string>}
+     *
+     * @throws ProviderConnectionException on connection failure
      */
     public function testConnection(): array
     {
@@ -172,17 +172,16 @@ final class ClaudeProvider extends AbstractProvider implements
     public function chatCompletion(array $messages, array $options = []): CompletionResponse
     {
         $messages = array_map(
-            static fn(ChatMessage|array $m): array
-                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            static fn (ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m,
             $messages,
         );
 
         $converted = $this->convertMessagesForClaude($messages);
-        $model = $this->getString($options, 'model', $this->getDefaultModel());
+        $model     = $this->getString($options, 'model', $this->getDefaultModel());
 
         $payload = [
-            'model' => $model,
-            'messages' => $converted['messages'],
+            'model'      => $model,
+            'messages'   => $converted['messages'],
             'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
         ];
 
@@ -210,13 +209,13 @@ final class ClaudeProvider extends AbstractProvider implements
 
         $response = $this->sendRequest('messages', $payload, timeout: $this->resolveRequestTimeout($options));
 
-        $content = '';
-        $structuredContent = null;
+        $content              = '';
+        $structuredContent    = null;
         $nativeThinkingBlocks = [];
-        $contentBlocks = $this->getList($response, 'content');
+        $contentBlocks        = $this->getList($response, 'content');
         foreach ($contentBlocks as $block) {
             $blockArray = $this->asArray($block);
-            $blockType = $this->getString($blockArray, 'type');
+            $blockType  = $this->getString($blockArray, 'type');
             if ($blockType === 'text') {
                 $content .= $this->getString($blockArray, 'text');
             } elseif ($blockType === 'thinking') {
@@ -235,9 +234,9 @@ final class ClaudeProvider extends AbstractProvider implements
         // The structured answer wins over any preamble/trailing prose.
         $content = $structuredContent ?? $content;
 
-        $nativeThinking = implode("\n", $nativeThinkingBlocks);
+        $nativeThinking             = implode("\n", $nativeThinkingBlocks);
         [$content, $inlineThinking] = $this->extractThinkingBlocks($content);
-        $allThinking = trim(($nativeThinking !== '' ? $nativeThinking . "\n" : '') . ($inlineThinking ?? ''));
+        $allThinking                = trim(($nativeThinking !== '' ? $nativeThinking . "\n" : '') . ($inlineThinking ?? ''));
 
         $usage = $this->getArray($response, 'usage');
 
@@ -261,15 +260,14 @@ final class ClaudeProvider extends AbstractProvider implements
     public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
     {
         $messages = array_map(
-            static fn(ChatMessage|array $m): array
-                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            static fn (ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m,
             $messages,
         );
 
         $converted = $this->convertMessagesForClaude($messages);
 
         // Convert OpenAI-shaped ToolSpec into Claude's `input_schema` format.
-        $claudeTools = array_map(static fn(ToolSpec $spec): array => [
+        $claudeTools = array_map(static fn (ToolSpec $spec): array => [
             'name'         => $spec->name,
             'description'  => $spec->description,
             'input_schema' => $spec->parameters,
@@ -278,9 +276,9 @@ final class ClaudeProvider extends AbstractProvider implements
         $model = $this->getString($options, 'model', $this->getDefaultModel());
 
         $payload = [
-            'model' => $model,
-            'messages' => $converted['messages'],
-            'tools' => $claudeTools,
+            'model'      => $model,
+            'messages'   => $converted['messages'],
+            'tools'      => $claudeTools,
             'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
         ];
 
@@ -296,14 +294,14 @@ final class ClaudeProvider extends AbstractProvider implements
 
         $response = $this->sendRequest('messages', $payload, timeout: $this->resolveRequestTimeout($options));
 
-        $content = '';
+        $content              = '';
         $nativeThinkingBlocks = [];
-        $toolCalls = [];
+        $toolCalls            = [];
 
         $contentBlocks = $this->getList($response, 'content');
         foreach ($contentBlocks as $block) {
             $blockArray = $this->asArray($block);
-            $blockType = $this->getString($blockArray, 'type');
+            $blockType  = $this->getString($blockArray, 'type');
             if ($blockType === 'text') {
                 $content .= $this->getString($blockArray, 'text');
             } elseif ($blockType === 'thinking') {
@@ -317,9 +315,9 @@ final class ClaudeProvider extends AbstractProvider implements
             }
         }
 
-        $nativeThinking = implode("\n", $nativeThinkingBlocks);
+        $nativeThinking             = implode("\n", $nativeThinkingBlocks);
         [$content, $inlineThinking] = $this->extractThinkingBlocks($content);
-        $allThinking = trim(($nativeThinking !== '' ? $nativeThinking . "\n" : '') . ($inlineThinking ?? ''));
+        $allThinking                = trim(($nativeThinking !== '' ? $nativeThinking . "\n" : '') . ($inlineThinking ?? ''));
 
         $usage = $this->getArray($response, 'usage');
 
@@ -366,7 +364,7 @@ final class ClaudeProvider extends AbstractProvider implements
 
         $messages = [
             [
-                'role' => 'user',
+                'role'    => 'user',
                 'content' => $claudeContent,
             ],
         ];
@@ -374,8 +372,8 @@ final class ClaudeProvider extends AbstractProvider implements
         $model = $this->getString($options, 'model', 'claude-sonnet-4-5-20250929');
 
         $payload = [
-            'model' => $model,
-            'messages' => $messages,
+            'model'      => $model,
+            'messages'   => $messages,
             'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
         ];
 
@@ -386,7 +384,7 @@ final class ClaudeProvider extends AbstractProvider implements
 
         $response = $this->sendRequest('messages', $payload, timeout: $this->resolveRequestTimeout($options));
 
-        $description = '';
+        $description   = '';
         $contentBlocks = $this->getList($response, 'content');
         foreach ($contentBlocks as $block) {
             $blockArray = $this->asArray($block);
@@ -444,7 +442,7 @@ final class ClaudeProvider extends AbstractProvider implements
                     && str_starts_with($matches[1], 'image/')
                 ) {
                     $claudeContent[] = [
-                        'type' => 'image',
+                        'type'   => 'image',
                         'source' => [
                             'type'       => 'base64',
                             'media_type' => $matches[1],
@@ -455,7 +453,7 @@ final class ClaudeProvider extends AbstractProvider implements
             } else {
                 // For URLs, Claude accepts either url or base64 source.
                 $claudeContent[] = [
-                    'type' => 'image',
+                    'type'   => 'image',
                     'source' => [
                         'type' => 'url',
                         'url'  => $imageUrl,
@@ -511,18 +509,17 @@ final class ClaudeProvider extends AbstractProvider implements
         $this->validateConfiguration();
 
         $messages = array_map(
-            static fn(ChatMessage|array $m): array
-                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            static fn (ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m,
             $messages,
         );
 
         $converted = $this->convertMessagesForClaude($messages);
 
         $payload = [
-            'model' => $this->getString($options, 'model', $this->getDefaultModel()),
-            'messages' => $converted['messages'],
+            'model'      => $this->getString($options, 'model', $this->getDefaultModel()),
+            'messages'   => $converted['messages'],
             'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
-            'stream' => true,
+            'stream'     => true,
         ];
 
         if ($converted['systemMessage'] !== null) {
@@ -542,7 +539,7 @@ final class ClaudeProvider extends AbstractProvider implements
         // headers must be applied here.
         $request = $this->applyCustomHeaders($request);
 
-        $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
+        $body    = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         $request = $request->withBody($body);
 
         $response = $this->getHttpClient($this->resolveRequestTimeout($options))->sendRequest($request);
@@ -555,7 +552,7 @@ final class ClaudeProvider extends AbstractProvider implements
             $buffer .= $chunk;
 
             while (($pos = strpos($buffer, "\n")) !== false) {
-                $line = substr($buffer, 0, $pos);
+                $line   = substr($buffer, 0, $pos);
                 $buffer = substr($buffer, $pos + 1);
 
                 $event = $this->parseStreamEvent($line);
@@ -577,8 +574,8 @@ final class ClaudeProvider extends AbstractProvider implements
     /**
      * Parse a single SSE line from the Claude streaming response.
      *
-     * @return array{stop: bool, text: string}|null Null when the line carries no
-     *                                              actionable delta and is skipped.
+     * @return array{stop: bool, text: string}|null null when the line carries no
+     *                                              actionable delta and is skipped
      */
     private function parseStreamEvent(string $line): ?array
     {
@@ -638,15 +635,15 @@ final class ClaudeProvider extends AbstractProvider implements
      */
     private function convertMessagesForClaude(array $messages): array
     {
-        $systemMessage = null;
+        $systemMessage    = null;
         $filteredMessages = [];
         /** @var array<int, array<string, mixed>> $pendingToolResults */
         $pendingToolResults = [];
 
         foreach ($messages as $message) {
             $msgArray = $this->asArray($message);
-            $role = $this->getString($msgArray, 'role');
-            $content = $msgArray['content'] ?? '';
+            $role     = $this->getString($msgArray, 'role');
+            $content  = $msgArray['content'] ?? '';
 
             // System messages: extract for top-level field
             if ($role === 'system') {
@@ -658,9 +655,9 @@ final class ClaudeProvider extends AbstractProvider implements
             // Tool result messages: accumulate into user message with tool_result blocks
             if ($role === 'tool') {
                 $pendingToolResults[] = [
-                    'type' => 'tool_result',
+                    'type'        => 'tool_result',
                     'tool_use_id' => $this->getString($msgArray, 'tool_call_id'),
-                    'content' => $this->getString($msgArray, 'content'),
+                    'content'     => $this->getString($msgArray, 'content'),
                 ];
 
                 continue;
@@ -700,7 +697,7 @@ final class ClaudeProvider extends AbstractProvider implements
         // Assistant with tool_calls: convert to tool_use content blocks
         if ($role === 'assistant' && isset($msgArray['tool_calls']) && is_array($msgArray['tool_calls'])) {
             return [
-                'role' => 'assistant',
+                'role'    => 'assistant',
                 'content' => $this->buildAssistantContentBlocks($msgArray['tool_calls'], $content),
             ];
         }
@@ -724,14 +721,14 @@ final class ClaudeProvider extends AbstractProvider implements
     private function buildAssistantContentBlocks(array $toolCalls, mixed $content): array
     {
         $contentBlocks = [];
-        $textContent = is_string($content) ? $content : '';
+        $textContent   = is_string($content) ? $content : '';
         if ($textContent !== '') {
             $contentBlocks[] = ['type' => 'text', 'text' => $textContent];
         }
 
         foreach ($toolCalls as $call) {
             $callArray = $this->asArray($call);
-            $function = $this->getArray($callArray, 'function');
+            $function  = $this->getArray($callArray, 'function');
             $arguments = $function['arguments'] ?? [];
             if (is_string($arguments)) {
                 $arguments = json_decode($arguments, true) ?? [];
@@ -742,9 +739,9 @@ final class ClaudeProvider extends AbstractProvider implements
             }
 
             $contentBlocks[] = [
-                'type' => 'tool_use',
-                'id' => $this->getString($callArray, 'id'),
-                'name' => $this->getString($function, 'name'),
+                'type'  => 'tool_use',
+                'id'    => $this->getString($callArray, 'id'),
+                'name'  => $this->getString($function, 'name'),
                 'input' => $arguments !== [] ? $arguments : new stdClass(),
             ];
         }
@@ -768,29 +765,29 @@ final class ClaudeProvider extends AbstractProvider implements
 
         foreach ($content as $block) {
             $blockArray = $this->asArray($block);
-            $type = $this->getString($blockArray, 'type');
+            $type       = $this->getString($blockArray, 'type');
 
             if ($type === 'text') {
                 $claudeContent[] = ['type' => 'text', 'text' => $this->getString($blockArray, 'text')];
             } elseif ($type === 'image_url') {
                 $imageUrl = $this->getArray($blockArray, 'image_url');
-                $url = $this->getString($imageUrl, 'url');
+                $url      = $this->getString($imageUrl, 'url');
 
                 if (str_starts_with($url, 'data:')) {
                     preg_match('/^data:([^;]+);base64,(.+)$/', $url, $matches);
                     if ($matches !== []) {
                         $claudeContent[] = [
-                            'type' => 'image',
+                            'type'   => 'image',
                             'source' => [
-                                'type' => 'base64',
+                                'type'       => 'base64',
                                 'media_type' => $matches[1],
-                                'data' => $matches[2],
+                                'data'       => $matches[2],
                             ],
                         ];
                     }
                 } else {
                     $claudeContent[] = [
-                        'type' => 'image',
+                        'type'   => 'image',
                         'source' => ['type' => 'url', 'url' => $url],
                     ];
                 }
@@ -806,11 +803,11 @@ final class ClaudeProvider extends AbstractProvider implements
     private function mapStopReason(string $reason): string
     {
         return match ($reason) {
-            'end_turn' => 'stop',
-            'max_tokens' => 'length',
+            'end_turn'      => 'stop',
+            'max_tokens'    => 'length',
             'stop_sequence' => 'stop',
-            'tool_use' => 'tool_calls',
-            default => $reason,
+            'tool_use'      => 'tool_calls',
+            default         => $reason,
         };
     }
 
@@ -821,10 +818,10 @@ final class ClaudeProvider extends AbstractProvider implements
     {
         if (is_string($choice)) {
             return match ($choice) {
-                'auto' => ['type' => 'auto'],
-                'none' => ['type' => 'none'],
+                'auto'     => ['type' => 'auto'],
+                'none'     => ['type' => 'none'],
                 'required' => ['type' => 'any'],
-                default => ['type' => 'tool', 'name' => $choice],
+                default    => ['type' => 'tool', 'name' => $choice],
             };
         }
 

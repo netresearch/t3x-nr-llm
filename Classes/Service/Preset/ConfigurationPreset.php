@@ -163,16 +163,16 @@ final readonly class ConfigurationPreset
     {
         return [
             'allowedToolGroups' => $this->allowedToolGroups,
-            'criteria' => $this->criteria->toArray(),
-            'description' => $this->description,
-            'identifier' => $this->identifier,
-            'maxCostPerDay' => $this->maxCostPerDay,
+            'criteria'          => $this->criteria->toArray(),
+            'description'       => $this->description,
+            'identifier'        => $this->identifier,
+            'maxCostPerDay'     => $this->maxCostPerDay,
             'maxRequestsPerDay' => $this->maxRequestsPerDay,
-            'maxTokens' => $this->maxTokens,
-            'maxTokensPerDay' => $this->maxTokensPerDay,
-            'name' => $this->name,
-            'systemPrompt' => $this->systemPrompt,
-            'temperature' => $this->temperature,
+            'maxTokens'         => $this->maxTokens,
+            'maxTokensPerDay'   => $this->maxTokensPerDay,
+            'name'              => $this->name,
+            'systemPrompt'      => $this->systemPrompt,
+            'temperature'       => $this->temperature,
         ];
     }
 

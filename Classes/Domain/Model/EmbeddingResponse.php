@@ -11,6 +11,11 @@ namespace Netresearch\NrLlm\Domain\Model;
 
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 
+use function is_array;
+use function is_float;
+use function is_int;
+use function is_string;
+
 /**
  * Response object for embedding requests.
  *
@@ -60,7 +65,7 @@ final readonly class EmbeddingResponse
     public static function fromArray(array $data): self
     {
         $embeddings = $data['embeddings'] ?? [];
-        if (!\is_array($embeddings)) {
+        if (!is_array($embeddings)) {
             $embeddings = [];
         }
 
@@ -73,7 +78,7 @@ final readonly class EmbeddingResponse
         $embeddings = self::normalizeEmbeddings($embeddings);
 
         $usageData = $data['usage'] ?? [];
-        if (!\is_array($usageData)) {
+        if (!is_array($usageData)) {
             $usageData = [];
         }
 
@@ -81,9 +86,9 @@ final readonly class EmbeddingResponse
 
         return new self(
             embeddings: $embeddings,
-            model: \is_string($data['model'] ?? null) ? $data['model'] : '',
+            model: is_string($data['model'] ?? null) ? $data['model'] : '',
             usage: UsageStatistics::fromArray($usageData),
-            provider: \is_string($data['provider'] ?? null) ? $data['provider'] : '',
+            provider: is_string($data['provider'] ?? null) ? $data['provider'] : '',
         );
     }
 
@@ -105,17 +110,17 @@ final readonly class EmbeddingResponse
     {
         $normalized = [];
         foreach ($embeddings as $vector) {
-            if (!\is_array($vector)) {
+            if (!is_array($vector)) {
                 return [];
             }
 
             $floats = [];
             foreach ($vector as $component) {
-                if (!\is_int($component) && !\is_float($component)) {
+                if (!is_int($component) && !is_float($component)) {
                     return [];
                 }
 
-                $floats[] = (float)$component;
+                $floats[] = (float) $component;
             }
 
             $normalized[] = $floats;
@@ -150,6 +155,7 @@ final readonly class EmbeddingResponse
     public function getDimensions(): int
     {
         $vector = $this->getVector();
+
         return count($vector);
     }
 
@@ -170,13 +176,13 @@ final readonly class EmbeddingResponse
      */
     public function normalizeVector(array $vector): array
     {
-        $magnitude = sqrt(array_sum(array_map(static fn(float $x): float => $x * $x, $vector)));
+        $magnitude = sqrt(array_sum(array_map(static fn (float $x): float => $x * $x, $vector)));
 
         if ($magnitude === 0.0) {
             return $vector;
         }
 
-        return array_map(static fn(float $x): float => $x / $magnitude, $vector);
+        return array_map(static fn (float $x): float => $x / $magnitude, $vector);
     }
 
     /**

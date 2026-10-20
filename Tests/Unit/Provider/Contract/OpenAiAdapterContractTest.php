@@ -36,9 +36,9 @@ final class OpenAiAdapterContractTest extends AbstractOpenAiDialectContractTestC
     {
         return [
             'apiKeyIdentifier' => 'vault-openai',
-            'defaultModel' => 'gpt-4o',
-            'organizationId' => 'org-contract',
-            'timeout' => 30,
+            'defaultModel'     => 'gpt-4o',
+            'organizationId'   => 'org-contract',
+            'timeout'          => 30,
         ];
     }
 

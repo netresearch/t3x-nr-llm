@@ -42,7 +42,7 @@ final readonly class UnavailableToolsResolver implements UnavailableToolsResolve
         // No run: the configuration-only skill allow-list (ADR-038 item 5).
         return array_values(array_filter(
             $this->policy->explain($this->registry->names(), $configuration, $user),
-            fn(ToolPolicyDecision $decision): bool => !$decision->allowed
+            fn (ToolPolicyDecision $decision): bool => !$decision->allowed
                 && ($showRemote || !$this->registry->get($decision->toolName) instanceof RemoteToolInterface),
         ));
     }

@@ -1,8 +1,11 @@
 <?php
 
-/* Copyright (c) 2025-2026 Netresearch DTT GmbH
- * SPDX-License-Identifier: GPL-2.0-or-later */
-declare (strict_types=1);
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\Operations;
 
@@ -17,7 +20,7 @@ use TYPO3\CMS\Core\Attribute\AsEventListener;
 use WeakMap;
 
 /**
- * @internal Process liveness, independent of agent-run leases (ADR-219).
+ * @internal process liveness, independent of agent-run leases (ADR-219)
  */
 final class WorkerHeartbeatListener
 {
@@ -64,10 +67,11 @@ final class WorkerHeartbeatListener
         $queues = $worker->getMetadata()->getQueueNames();
         if ($queues !== null && !in_array('default', $queues, true)) {
             $this->onStopped(new WorkerStoppedEvent($worker));
+
             return;
         }
 
-        $now = $this->clock->now()->getTimestamp();
+        $now   = $this->clock->now()->getTimestamp();
         $entry = $this->workers[$worker] ?? null;
         if ($entry !== null && $now - $entry['lastAttempt'] < 30) {
             return;
@@ -75,7 +79,7 @@ final class WorkerHeartbeatListener
 
         // Preserve identity and throttle attempts even when the first or a partial write fails.
         $entry = [
-            'id' => $entry['id'] ?? bin2hex(random_bytes(16)),
+            'id'          => $entry['id'] ?? bin2hex(random_bytes(16)),
             'lastAttempt' => $now,
         ];
         $this->workers[$worker] = $entry;
