@@ -212,13 +212,13 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             $lines[] = $t(ApprovalPreviewLabel::ReplaceFileAfterwards, $count - 1);
             $lines[] = $t(ApprovalPreviewLabel::ReplaceFileFileStays);
         } else {
-            $lines[] = $t(ApprovalPreviewLabel::ReplaceFileCurrent, $q($plan['oldFileName']));
-            $lines[] = $t(ApprovalPreviewLabel::ReplaceFileProposed, $q($plan['fileName']));
+            $lines[]   = $t(ApprovalPreviewLabel::ReplaceFileCurrent, $q($plan['oldFileName']));
+            $lines[]   = $t(ApprovalPreviewLabel::ReplaceFileProposed, $q($plan['fileName']));
             $details[] = $t(ApprovalPreviewLabel::TechnicalFile, $plan['file']);
             // Nothing is carried over from the old reference; the card says
             // which texts the new one has.
             foreach (self::TEXT_FIELDS as $name) {
-                $label   = $t(match ($name) {
+                $label = $t(match ($name) {
                     'title'       => ApprovalPreviewLabel::FileFieldTitle,
                     'alternative' => ApprovalPreviewLabel::FileFieldAlternative,
                     default       => ApprovalPreviewLabel::FileFieldDescription,
@@ -231,8 +231,8 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
 
         if ($plan['translated'] !== []) {
             [$translatedLines, $translatedDetails] = $this->translatedLines($t, $plan['translated'], $remove);
-            $lines   = [...$lines, ...$translatedLines];
-            $details = [...$details, ...$translatedDetails];
+            $lines                                 = [...$lines, ...$translatedLines];
+            $details                               = [...$details, ...$translatedDetails];
         }
 
         $lines[] = $this->translator->technical($user, $details);
@@ -252,13 +252,13 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
     private function translatedLines(Closure $t, array $translated, bool $remove): array
     {
         $lines   = [$t($remove ? ApprovalPreviewLabel::ReplaceFileTranslationsRemoved : ApprovalPreviewLabel::ReplaceFileTranslationsReplaced, count($translated))];
-        $orphans = count(array_filter($translated, static fn(array $reference): bool => $reference['element'] === 0));
+        $orphans = count(array_filter($translated, static fn (array $reference): bool => $reference['element'] === 0));
         if ($orphans > 0) {
             $lines[] = $t(ApprovalPreviewLabel::ReplaceFileOrphans, $orphans);
         }
 
         $details  = [$t(ApprovalPreviewLabel::TechnicalTranslatedReferences, implode(', ', array_column($translated, 'reference')))];
-        $elements = array_values(array_unique(array_filter(array_column($translated, 'element'), static fn(int $element): bool => $element > 0)));
+        $elements = array_values(array_unique(array_filter(array_column($translated, 'element'), static fn (int $element): bool => $element > 0)));
         if ($elements !== []) {
             $details[] = $t(ApprovalPreviewLabel::TechnicalTranslatedElements, implode(', ', $elements));
         }
@@ -414,11 +414,11 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
 
         $ungranted = [
             ...array_map(
-                static fn(string $column): string => self::CONTENT_TABLE . ':' . $column,
+                static fn (string $column): string => self::CONTENT_TABLE . ':' . $column,
                 $this->columnsTheUserMayNotSet($user, self::CONTENT_TABLE, [$field]),
             ),
             ...array_map(
-                static fn(string $column): string => self::REFERENCE_TABLE . ':' . $column,
+                static fn (string $column): string => self::REFERENCE_TABLE . ':' . $column,
                 $this->columnsTheUserMayNotSet($user, self::REFERENCE_TABLE, array_keys($texts)),
             ),
         ];
@@ -513,7 +513,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
     {
         $placeholder = StringUtility::getUniqueId('NEW');
         $list        = array_map(
-            static fn(int $uid): string => $uid === $plan['reference'] ? $placeholder : (string)$uid,
+            static fn (int $uid): string => $uid === $plan['reference'] ? $placeholder : (string) $uid,
             $plan['references'],
         );
 
@@ -553,7 +553,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         // Read back BEFORE the old reference is deleted: the new row must
         // point at the element, the field and the file, and sit where the old
         // one sat. Otherwise the element goes back to the list it had.
-        $expected = array_map(static fn(int $uid): int => $uid === $plan['reference'] ? $newUid : $uid, $plan['references']);
+        $expected = array_map(static fn (int $uid): int => $uid === $plan['reference'] ? $newUid : $uid, $plan['references']);
         $mismatch = $this->mismatch($newUid, $plan, $expected, [$plan['reference']]);
         if ($mismatch !== null) {
             return ToolResult::error($mismatch . ' ' . $this->restore($newUid, $plan, $user));
@@ -580,7 +580,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         $notTaken = $this->textsThatDidNotTake($newUid, $plan['texts']);
         if ($notTaken !== []) {
             $settled = [
-                'sentence'     => $settled['sentence'] . sprintf(
+                'sentence' => $settled['sentence'] . sprintf(
                     ' Not completely: %s did not take on the new reference — the DataHandler dropped or changed the value.',
                     implode(', ', $notTaken),
                 ),
@@ -592,7 +592,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             'Replaced file [%d] "%s" with file [%d] "%s" in %s of tt_content [%d] "%s" (reference [%d] is now [%d]).%s',
             $plan['oldFile'],
             $this->excerpt($plan['oldFileName']),
-            (int)$plan['file'],
+            (int) $plan['file'],
             $this->excerpt($plan['fileName']),
             $plan['field'],
             $plan['element'],
@@ -611,7 +611,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      */
     private function remove(array $plan, BackendUserAuthentication $user): ToolResult
     {
-        $remaining = array_values(array_filter($plan['references'], static fn(int $uid): bool => $uid !== $plan['reference']));
+        $remaining = array_values(array_filter($plan['references'], static fn (int $uid): bool => $uid !== $plan['reference']));
 
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start(
@@ -770,10 +770,10 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         }
 
         $elements = array_values(array_filter(
-            array_unique(array_map(static fn(array $t): int => $t['element'], $plan['translated'])),
-            static fn(int $element): bool => $element > 0,
+            array_unique(array_map(static fn (array $t): int => $t['element'], $plan['translated'])),
+            static fn (int $element): bool => $element > 0,
         ));
-        $datamap  = [];
+        $datamap = [];
         foreach ($elements as $elementUid) {
             $datamap[$elementUid] = [$plan['field'] => implode(',', $this->liveReferenceUids($elementUid, $plan['field']))];
         }
@@ -880,7 +880,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             ->executeQuery()
             ->fetchAllAssociative();
 
-        return array_values(array_map(static fn(array $row): int => self::toInt($row['uid'] ?? 0), $rows));
+        return array_values(array_map(static fn (array $row): int => self::toInt($row['uid'] ?? 0), $rows));
     }
 
     /**
@@ -899,7 +899,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         }
 
         return array_values(array_filter(array_map(
-            static fn(string $part): string => strtolower(trim($part)),
+            static fn (string $part): string => strtolower(trim($part)),
             explode(',', $allowed),
         )));
     }

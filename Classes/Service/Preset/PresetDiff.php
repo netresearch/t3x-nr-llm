@@ -44,6 +44,6 @@ final readonly class PresetDiff
      */
     public function changedFields(): array
     {
-        return array_map(static fn(PresetFieldDiff $change): string => $change->field, $this->changes);
+        return array_map(static fn (PresetFieldDiff $change): string => $change->field, $this->changes);
     }
 }

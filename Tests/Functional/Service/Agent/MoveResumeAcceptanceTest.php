@@ -108,8 +108,8 @@ final class MoveResumeAcceptanceTest extends AbstractFunctionalTestCase
         $pages = $this->connectionPool->getConnectionForTable('pages');
         foreach ([self::SOURCE_PAGE => 'Source', self::TARGET_PAGE => 'Target'] as $uid => $title) {
             $pages->insert('pages', [
-                'uid' => $uid, 'pid' => 0, 'title' => $title, 'doktype' => 1, 'slug' => '/' . $uid, 'sorting' => $uid,
-                'perms_userid' => self::OWNER, 'perms_user' => Permission::ALL,
+                'uid'           => $uid, 'pid' => 0, 'title' => $title, 'doktype' => 1, 'slug' => '/' . $uid, 'sorting' => $uid,
+                'perms_userid'  => self::OWNER, 'perms_user' => Permission::ALL,
                 'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => 0,
             ]);
         }
@@ -131,7 +131,7 @@ final class MoveResumeAcceptanceTest extends AbstractFunctionalTestCase
             ]),
         ], ['uid' => self::TARGET_PAGE]);
         $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
-            'uid' => self::ELEMENT, 'pid' => self::SOURCE_PAGE, 'colPos' => 0, 'sorting' => 1,
+            'uid'   => self::ELEMENT, 'pid' => self::SOURCE_PAGE, 'colPos' => 0, 'sorting' => 1,
             'CType' => 'text', 'header' => 'Movable', 'sys_language_uid' => 0,
         ]);
         // The approver's user TSconfig renames the layout's column.
@@ -168,10 +168,10 @@ final class MoveResumeAcceptanceTest extends AbstractFunctionalTestCase
         $this->setUpBackendUser(self::OTHER_USER);
         $approved = $this->approve($runtime, $started->runUuid);
 
-        self::assertSame(AgentRunOutcome::COMPLETED, $approved->outcome, (string)$approved->error?->getMessage());
+        self::assertSame(AgentRunOutcome::COMPLETED, $approved->outcome, (string) $approved->error?->getMessage());
         $row = $this->elementRow();
-        self::assertSame(self::TARGET_PAGE, (int)($row['pid'] ?? 0));
-        self::assertSame(self::COLUMN, (int)($row['colPos'] ?? -1));
+        self::assertSame(self::TARGET_PAGE, (int) ($row['pid'] ?? 0));
+        self::assertSame(self::COLUMN, (int) ($row['colPos'] ?? -1));
         $tools = $this->toolEvents($started->runUuid);
         self::assertCount(1, $tools, 'the move executes once, on the first approval');
         self::assertNotTrue($tools[0]->payload['toolIsError'] ?? null);
@@ -199,7 +199,7 @@ final class MoveResumeAcceptanceTest extends AbstractFunctionalTestCase
         $tools = $this->toolEvents($started->runUuid);
         self::assertCount(1, $tools);
         self::assertTrue($tools[0]->payload['toolIsError'] ?? null);
-        self::assertSame(self::SOURCE_PAGE, (int)($this->elementRow()['pid'] ?? 0), 'nothing was moved');
+        self::assertSame(self::SOURCE_PAGE, (int) ($this->elementRow()['pid'] ?? 0), 'nothing was moved');
     }
 
     private function approve(AgentRuntime $runtime, string $uuid): AgentRunResult
@@ -318,7 +318,7 @@ final class MoveResumeAcceptanceTest extends AbstractFunctionalTestCase
     {
         return array_values(array_filter(
             $this->persister()->findEvents($this->storedRun($uuid)->uid),
-            static fn(AgentRunEvent $event): bool => $event->kindEnum() === AgentEventKind::TOOL,
+            static fn (AgentRunEvent $event): bool => $event->kindEnum() === AgentEventKind::TOOL,
         ));
     }
 

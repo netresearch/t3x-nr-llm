@@ -24,7 +24,7 @@ require_once dirname(__DIR__) . '/.Build/vendor/autoload.php';
 
 // Initialize the testing framework
 (static function (): void {
-    $testbase = new \TYPO3\TestingFramework\Core\Testbase();
+    $testbase = new TYPO3\TestingFramework\Core\Testbase();
     $testbase->defineOriginalRootPath();
     $testbase->createDirectory(ORIGINAL_ROOT . 'typo3temp/var/tests');
     $testbase->createDirectory(ORIGINAL_ROOT . 'typo3temp/var/transient');

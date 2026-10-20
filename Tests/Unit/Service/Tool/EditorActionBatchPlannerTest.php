@@ -57,7 +57,7 @@ final class EditorActionBatchPlannerTest extends AbstractUnitTestCase
         self::assertSame([], $plan->getSkipped());
         self::assertSame(
             [11, 12, 13],
-            array_map(static fn(EditorActionBatchEntry $e): int => $e->recordUid, $plan->entries),
+            array_map(static fn (EditorActionBatchEntry $e): int => $e->recordUid, $plan->entries),
         );
     }
 
@@ -154,7 +154,7 @@ final class EditorActionBatchPlannerTest extends AbstractUnitTestCase
         self::assertSame(0, $plan->discardedInputs);
         self::assertSame(
             array_slice($uids, 0, EditorActionBatchPlanner::MAX_INPUTS),
-            array_map(static fn(EditorActionBatchEntry $e): int => $e->recordUid, $plan->entries),
+            array_map(static fn (EditorActionBatchEntry $e): int => $e->recordUid, $plan->entries),
         );
     }
 
@@ -251,15 +251,15 @@ final class EditorActionBatchPlannerTest extends AbstractUnitTestCase
         // Low: input only. High: input plus the output ceiling on every request.
         self::assertEqualsWithDelta(
             $estimate->inputTokensTotal / 1000000,
-            (float)$estimate->costLow,
+            (float) $estimate->costLow,
             0.000001,
         );
         self::assertEqualsWithDelta(
             ($estimate->inputTokensTotal / 1000000) + (1000 * $estimate->providerRequests * 2 / 1000000),
-            (float)$estimate->costHigh,
+            (float) $estimate->costHigh,
             0.000001,
         );
-        self::assertGreaterThan((float)$estimate->costLow, (float)$estimate->costHigh);
+        self::assertGreaterThan((float) $estimate->costLow, (float) $estimate->costHigh);
     }
 
     /**

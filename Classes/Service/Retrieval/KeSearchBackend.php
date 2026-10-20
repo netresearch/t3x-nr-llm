@@ -78,7 +78,7 @@ final class KeSearchBackend implements SearchBackendInterface
         $sources = [];
         foreach ($this->searchRows($query) as $row) {
             $languageId = max(0, self::toInt($row['language'] ?? 0));
-            $url = $this->buildUrl($row, $languageId === 0 ? $query->languageId : $languageId, $query->siteIdentifier);
+            $url        = $this->buildUrl($row, $languageId === 0 ? $query->languageId : $languageId, $query->siteIdentifier);
             if ($url === null) {
                 continue;
             }
@@ -92,7 +92,7 @@ final class KeSearchBackend implements SearchBackendInterface
                 backend: self::IDENTIFIER,
                 languageId: self::toInt($row['language'] ?? 0),
                 pageUid: $this->isPageType(self::toStr($row['type'] ?? '')) && $targetPid > 0 ? $targetPid : null,
-                score: isset($row['score']) && is_numeric($row['score']) ? (float)$row['score'] : null,
+                score: isset($row['score']) && is_numeric($row['score']) ? (float) $row['score'] : null,
             );
             if (count($sources) >= $query->maxSources) {
                 break;
@@ -114,7 +114,7 @@ final class KeSearchBackend implements SearchBackendInterface
         }
 
         $queryBuilder = $this->publicQueryBuilder();
-        $row = $queryBuilder
+        $row          = $queryBuilder
             ->select('title', 'abstract', 'content')
             ->from(self::TABLE)
             ->andWhere(
@@ -127,9 +127,9 @@ final class KeSearchBackend implements SearchBackendInterface
             return null;
         }
 
-        $parts = ['# ' . ExcerptBuilder::plain(self::toStr($row['title'] ?? ''))];
+        $parts    = ['# ' . ExcerptBuilder::plain(self::toStr($row['title'] ?? ''))];
         $abstract = ExcerptBuilder::plain(self::toStr($row['abstract'] ?? ''));
-        $content = ExcerptBuilder::plain(self::toStr($row['content'] ?? ''));
+        $content  = ExcerptBuilder::plain(self::toStr($row['content'] ?? ''));
         if ($abstract !== '') {
             $parts[] = $abstract;
         }
@@ -147,7 +147,7 @@ final class KeSearchBackend implements SearchBackendInterface
     private function searchRows(RetrievalQuery $query): array
     {
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $isMysql = $connection->getDatabasePlatform() instanceof AbstractMySQLPlatform;
+        $isMysql    = $connection->getDatabasePlatform() instanceof AbstractMySQLPlatform;
 
         $queryBuilder = $this->publicQueryBuilder();
         $queryBuilder
@@ -196,7 +196,7 @@ final class KeSearchBackend implements SearchBackendInterface
         $required = [];
         $optional = [];
         foreach (preg_split('/\s+/', $query) ?: [] as $word) {
-            $clean = trim((string)preg_replace('/[+\-<>~*"()@]/', '', $word));
+            $clean  = trim((string) preg_replace('/[+\-<>~*"()@]/', '', $word));
             $length = mb_strlen($clean);
             if ($length >= 4) {
                 $required[] = '+' . $clean;
@@ -258,7 +258,7 @@ final class KeSearchBackend implements SearchBackendInterface
         }
 
         $arguments = [];
-        $params = ltrim(self::toStr($row['params'] ?? ''), '&');
+        $params    = ltrim(self::toStr($row['params'] ?? ''), '&');
         if ($params !== '') {
             parse_str($params, $arguments);
         }
@@ -266,7 +266,7 @@ final class KeSearchBackend implements SearchBackendInterface
         $arguments['_language'] = $languageId;
 
         try {
-            return (string)$site->getRouter()->generateUri($targetPid, $arguments);
+            return (string) $site->getRouter()->generateUri($targetPid, $arguments);
         } catch (Throwable) {
             return null;
         }
@@ -296,7 +296,7 @@ final class KeSearchBackend implements SearchBackendInterface
      */
     private function excerpt(array $row, string $query): string
     {
-        $content = self::toStr($row['content'] ?? '');
+        $content      = self::toStr($row['content'] ?? '');
         $plainContent = ExcerptBuilder::plain($content);
         if ($plainContent !== '' && mb_stripos($plainContent, $query) !== false) {
             return ExcerptBuilder::around($plainContent, $query);
@@ -351,7 +351,7 @@ final class KeSearchBackend implements SearchBackendInterface
             }
 
             $queryBuilder = $connection->createQueryBuilder();
-            $row = $queryBuilder
+            $row          = $queryBuilder
                 ->select('uid')
                 ->from(self::TABLE)
                 ->setMaxResults(1)

@@ -53,11 +53,11 @@ final class UseCasePackInstallerTest extends AbstractFunctionalTestCase
     {
         parent::setUp();
 
-        $this->installer = $this->getService(UseCasePackInstaller::class);
-        $this->taskRepository = $this->getService(TaskRepository::class);
-        $this->snippetRepository = $this->getService(PromptSnippetRepository::class);
+        $this->installer               = $this->getService(UseCasePackInstaller::class);
+        $this->taskRepository          = $this->getService(TaskRepository::class);
+        $this->snippetRepository       = $this->getService(PromptSnippetRepository::class);
         $this->configurationRepository = $this->getService(LlmConfigurationRepository::class);
-        $this->persistenceManager = $this->getService(PersistenceManagerInterface::class);
+        $this->persistenceManager      = $this->getService(PersistenceManagerInterface::class);
     }
 
     private function pack(): UseCasePack
@@ -190,9 +190,9 @@ final class UseCasePackInstallerTest extends AbstractFunctionalTestCase
 
         // The tag list is the means; being read is the end. Ask the one reader
         // that turns a selection into prompt text.
-        $selected = $this->getService(ConfigurationSnippetResolver::class)->selectedSnippets($configuration);
+        $selected    = $this->getService(ConfigurationSnippetResolver::class)->selectedSnippets($configuration);
         $identifiers = array_map(
-            static fn(PromptSnippet $snippet): string => $snippet->getIdentifier(),
+            static fn (PromptSnippet $snippet): string => $snippet->getIdentifier(),
             $selected,
         );
         foreach ($pack->snippets as $packSnippet) {
@@ -238,7 +238,7 @@ final class UseCasePackInstallerTest extends AbstractFunctionalTestCase
         self::assertNotContains('persona', $configuration->getSnippetTagList());
 
         $composed = array_map(
-            static fn(PromptSnippet $snippet): string => $snippet->getIdentifier(),
+            static fn (PromptSnippet $snippet): string => $snippet->getIdentifier(),
             $this->getService(ConfigurationSnippetResolver::class)->selectedSnippets($configuration),
         );
         self::assertNotContains('pack-test-persona-anna', $composed);
@@ -310,7 +310,7 @@ final class UseCasePackInstallerTest extends AbstractFunctionalTestCase
         // 242 characters: fits the varchar(255) column, and adding the pack's
         // `tone_of_voice,audience` (23 more) does not.
         $imported->setSnippetTags(implode(',', array_map(
-            static fn(int $i): string => 'tag' . $i,
+            static fn (int $i): string => 'tag' . $i,
             range(1, 42),
         )));
         $this->configurationRepository->update($imported);
@@ -388,8 +388,8 @@ final class UseCasePackInstallerTest extends AbstractFunctionalTestCase
         self::assertSame(
             [[
                 'identifier' => 'internal-voice',
-                'name' => 'Internal voice',
-                'dataClass' => ToolDataClass::SECRET_ADJACENT->value,
+                'name'       => 'Internal voice',
+                'dataClass'  => ToolDataClass::SECRET_ADJACENT->value,
             ]],
             $plan->incomingSnippets,
         );
@@ -473,7 +473,7 @@ final class UseCasePackInstallerTest extends AbstractFunctionalTestCase
         $this->installer->install($pack);
 
         $identifier = $pack->tasks[0]->identifier;
-        $task = $this->taskRepository->findOneByIdentifier($identifier);
+        $task       = $this->taskRepository->findOneByIdentifier($identifier);
         self::assertInstanceOf(Task::class, $task);
         $task->setName('Renamed by the operator');
         $task->setPromptTemplate('Our own prompt {{input}}');
@@ -505,7 +505,7 @@ final class UseCasePackInstallerTest extends AbstractFunctionalTestCase
         $this->installer->install($pack);
 
         $identifier = $pack->snippets[0]->identifier;
-        $snippet = $this->snippetRepository->findOneByIdentifier($identifier);
+        $snippet    = $this->snippetRepository->findOneByIdentifier($identifier);
         self::assertInstanceOf(PromptSnippet::class, $snippet);
         $snippet->setHidden(true);
         $this->snippetRepository->update($snippet);
@@ -517,7 +517,7 @@ final class UseCasePackInstallerTest extends AbstractFunctionalTestCase
         self::assertCount(1, $rows);
         $hidden = $rows[0]['hidden'];
         self::assertIsNumeric($hidden);
-        self::assertSame(1, (int)$hidden);
+        self::assertSame(1, (int) $hidden);
 
         $plan = $this->installer->plan($pack);
         self::assertTrue($plan->isFullyInstalled());

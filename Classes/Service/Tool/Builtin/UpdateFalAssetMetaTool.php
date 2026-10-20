@@ -261,7 +261,7 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
                 self::toInt($plan['uid']),
                 implode(', ', $missed),
                 implode(', ', array_map(
-                    static fn(string $field): string => self::METADATA_TABLE . ':' . $field,
+                    static fn (string $field): string => self::METADATA_TABLE . ':' . $field,
                     $missed,
                 )),
             ));
@@ -272,7 +272,7 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
             self::toInt($plan['uid']),
             $this->excerpt(self::toStr($plan['fileName'])),
             implode('; ', array_map(
-                fn(string $field): string => $field . ' → ' . $this->quoted($values[$field]),
+                fn (string $field): string => $field . ' → ' . $this->quoted($values[$field]),
                 array_keys($values),
             )),
         ))->withWriteTarget(new RecordReference(self::METADATA_TABLE, $metadataUid), WriteKind::UPDATED, WriteCompleteness::COMPLETE);
@@ -456,7 +456,7 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
                 . 'written — a call that set the remaining fields and reported a failure would leave the asset half '
                 . 'described.',
                 implode(', ', array_map(
-                    static fn(string $field): string => self::METADATA_TABLE . ':' . $field,
+                    static fn (string $field): string => self::METADATA_TABLE . ':' . $field,
                     $ungranted,
                 )),
             );
@@ -610,7 +610,7 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
      */
     private function enumerated(array $fields, string $conjunction): string
     {
-        $quoted = array_map(static fn(string $field): string => '"' . $field . '"', $fields);
+        $quoted = array_map(static fn (string $field): string => '"' . $field . '"', $fields);
         $last   = array_pop($quoted);
 
         return $quoted === [] ? $last : implode(', ', $quoted) . ' ' . $conjunction . ' ' . $last;

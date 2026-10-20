@@ -38,9 +38,9 @@ final class TableReadAccessServiceTest extends TestCase
         $this->tcaBackup = $GLOBALS['TCA'] ?? null;
 
         $GLOBALS['TCA'] = [
-            'pages'      => ['ctrl' => ['label' => 'title'], 'columns' => ['title' => []]],
-            'tt_content' => ['ctrl' => ['label' => 'header'], 'columns' => ['header' => []]],
-            'be_users'   => ['ctrl' => ['label' => 'username'], 'columns' => ['username' => []]],
+            'pages'             => ['ctrl' => ['label' => 'title'], 'columns' => ['title' => []]],
+            'tt_content'        => ['ctrl' => ['label' => 'header'], 'columns' => ['header' => []]],
+            'be_users'          => ['ctrl' => ['label' => 'username'], 'columns' => ['username' => []]],
             'tx_nrllm_provider' => ['ctrl' => ['label' => 'name'], 'columns' => ['name' => []]],
             'tx_secret_admin'   => ['ctrl' => ['label' => 'name', 'adminOnly' => true], 'columns' => ['name' => []]],
         ];
@@ -84,7 +84,7 @@ final class TableReadAccessServiceTest extends TestCase
         $editor = $this->createMock(BackendUserAuthentication::class);
         $editor->method('isAdmin')->willReturn(false);
         $editor->method('check')->willReturnCallback(
-            static fn(string $type, string $value): bool => $value === 'tt_content',
+            static fn (string $type, string $value): bool => $value === 'tt_content',
         );
 
         self::assertTrue($this->service->canReadTable($editor, 'tt_content'));
@@ -107,40 +107,40 @@ final class TableReadAccessServiceTest extends TestCase
     public static function fieldProvider(): array
     {
         return [
-            'password'          => ['password', true],
-            'api_key'           => ['api_key', true],
-            'identifier_hash'   => ['identifier_hash', true],
-            'ses_token'         => ['ses_token', true],
-            'mfa'               => ['mfa', true],
-            'salt'              => ['salt', true],
-            'dsn'               => ['dsn', true],
-            'authorization'     => ['authorization', true],
+            'password'        => ['password', true],
+            'api_key'         => ['api_key', true],
+            'identifier_hash' => ['identifier_hash', true],
+            'ses_token'       => ['ses_token', true],
+            'mfa'             => ['mfa', true],
+            'salt'            => ['salt', true],
+            'dsn'             => ['dsn', true],
+            'authorization'   => ['authorization', true],
             // camelCase concatenated credential columns (no underscore boundary):
-            'accesskey'         => ['accesskey', true],
-            'accessKey camel'   => ['accessKey', true],
-            'licensekey'        => ['licensekey', true],
-            'encryptionKey'     => ['encryptionKey', true],
+            'accesskey'       => ['accesskey', true],
+            'accessKey camel' => ['accessKey', true],
+            'licensekey'      => ['licensekey', true],
+            'encryptionKey'   => ['encryptionKey', true],
             // Concatenated / camelCase / digit-suffixed forms the segment
             // pattern misses, caught by the substring pattern:
-            'apikey'            => ['apikey', true],
-            'accessToken'       => ['accessToken', true],
-            'password2'         => ['password2', true],
-            'clientSecret'      => ['clientSecret', true],
-            'refreshtoken'      => ['refreshtoken', true],
-            'apitoken'          => ['apitoken', true],
+            'apikey'       => ['apikey', true],
+            'accessToken'  => ['accessToken', true],
+            'password2'    => ['password2', true],
+            'clientSecret' => ['clientSecret', true],
+            'refreshtoken' => ['refreshtoken', true],
+            'apitoken'     => ['apitoken', true],
             // Digit-suffixed segment secrets (confirm-style columns):
-            'secret2'           => ['secret2', true],
-            'token2'            => ['token2', true],
-            'key2'              => ['key2', true],
+            'secret2' => ['secret2', true],
+            'token2'  => ['token2', true],
+            'key2'    => ['key2', true],
             // No false positives on editorial columns:
-            'author'            => ['author', false],
-            'author_email'      => ['author_email', false],
-            'title'             => ['title', false],
-            'keywords'          => ['keywords', false],
-            'monkey'            => ['monkey', false],
+            'author'       => ['author', false],
+            'author_email' => ['author_email', false],
+            'title'        => ['title', false],
+            'keywords'     => ['keywords', false],
+            'monkey'       => ['monkey', false],
             // Bare secret/token as substrings must NOT flag these:
-            'secretary'         => ['secretary', false],
-            'tokenizer'         => ['tokenizer', false],
+            'secretary' => ['secretary', false],
+            'tokenizer' => ['tokenizer', false],
         ];
     }
 

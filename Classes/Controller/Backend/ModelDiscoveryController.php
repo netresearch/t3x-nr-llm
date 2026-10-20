@@ -35,7 +35,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * so bypass its `access => 'admin'`; every action calls denyNonAdmin() first
  * (ADR-037).
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class ModelDiscoveryController extends ActionController
@@ -64,13 +64,13 @@ final class ModelDiscoveryController extends ActionController
             return $deny;
         }
 
-        $body = $request->getParsedBody();
+        $body        = $request->getParsedBody();
         $providerUid = $this->extractIntFromBody($body, 'providerUid');
 
         if ($providerUid === 0) {
             return new JsonResponse([
                 'success' => false,
-                'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.model.noProviderUid', self::ERROR_NO_PROVIDER_UID),
+                'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.model.noProviderUid', self::ERROR_NO_PROVIDER_UID),
             ], 400);
         }
 
@@ -78,7 +78,7 @@ final class ModelDiscoveryController extends ActionController
         if ($provider === null) {
             return new JsonResponse([
                 'success' => false,
-                'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.provider.notFound', 'Provider not found'),
+                'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.provider.notFound', 'Provider not found'),
             ], 404);
         }
 
@@ -108,40 +108,40 @@ final class ModelDiscoveryController extends ActionController
             $models = [];
             foreach ($discoveredModels as $model) {
                 $models[] = [
-                    'id' => $model->modelId,
-                    'name' => $model->name,
-                    'description' => $model->description,
-                    'contextLength' => $model->contextLength,
+                    'id'              => $model->modelId,
+                    'name'            => $model->name,
+                    'description'     => $model->description,
+                    'contextLength'   => $model->contextLength,
                     'maxOutputTokens' => $model->maxOutputTokens,
-                    'capabilities' => $model->capabilities,
-                    'costInput' => $model->costInput,
-                    'costOutput' => $model->costOutput,
-                    'recommended' => $model->recommended,
+                    'capabilities'    => $model->capabilities,
+                    'costInput'       => $model->costInput,
+                    'costOutput'      => $model->costOutput,
+                    'recommended'     => $model->recommended,
                 ];
             }
 
             return new JsonResponse([
-                'success' => true,
-                'models' => $models,
+                'success'      => true,
+                'models'       => $models,
                 'providerName' => $provider->getName(),
-                'source' => $this->modelDiscovery->wasLastDiscoveryFromFallback() ? 'fallback' : 'live',
+                'source'       => $this->modelDiscovery->wasLastDiscoveryFromFallback() ? 'fallback' : 'live',
             ]);
         } catch (ProviderConfigurationException $e) {
-            $error = $this->describeMisconfiguration($e, $this->logger, 'Model detectLimits');
+            $error  = $this->describeMisconfiguration($e, $this->logger, 'Model detectLimits');
             $status = 502;
         } catch (ProviderException $e) {
             $this->logger->warning('Model fetchAvailableModels: provider error', ['exception' => $e]);
-            $error = 'LLM provider error while fetching model IDs. See system log for details.';
+            $error  = 'LLM provider error while fetching model IDs. See system log for details.';
             $status = 502;
         } catch (Throwable $e) {
             $this->logger->error('Model fetchAvailableModels: unexpected error', ['exception' => $e]);
-            $error = 'Failed to fetch model IDs. See system log for details.';
+            $error  = 'Failed to fetch model IDs. See system log for details.';
             $status = 500;
         }
 
         return new JsonResponse([
             'success' => false,
-            'error' => $error,
+            'error'   => $error,
         ], $status);
     }
 
@@ -157,9 +157,9 @@ final class ModelDiscoveryController extends ActionController
             return $deny;
         }
 
-        $body = $request->getParsedBody();
+        $body        = $request->getParsedBody();
         $providerUid = $this->extractIntFromBody($body, 'providerUid');
-        $modelId = $this->extractStringFromBody($body, 'modelId');
+        $modelId     = $this->extractStringFromBody($body, 'modelId');
 
         $validationError = $this->validateDetectLimitsInput($providerUid, $modelId);
         if ($validationError instanceof ResponseInterface) {
@@ -170,7 +170,7 @@ final class ModelDiscoveryController extends ActionController
         if ($provider === null) {
             return new JsonResponse([
                 'success' => false,
-                'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.provider.notFound', 'Provider not found'),
+                'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.provider.notFound', 'Provider not found'),
             ], 404);
         }
 
@@ -187,14 +187,14 @@ final class ModelDiscoveryController extends ActionController
         if ($providerUid === 0) {
             return new JsonResponse([
                 'success' => false,
-                'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.model.noProviderUid', self::ERROR_NO_PROVIDER_UID),
+                'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.model.noProviderUid', self::ERROR_NO_PROVIDER_UID),
             ], 400);
         }
 
         if ($modelId === '') {
             return new JsonResponse([
                 'success' => false,
-                'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.model.noModelId', 'No model ID specified'),
+                'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.model.noModelId', 'No model ID specified'),
             ], 400);
         }
 
@@ -232,20 +232,20 @@ final class ModelDiscoveryController extends ActionController
             if ($foundModel === null) {
                 return new JsonResponse([
                     'success' => false,
-                    'error' => sprintf($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.model.modelIdNotFound', 'Model "%s" not found in provider\'s available models'), $modelId),
+                    'error'   => sprintf($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.model.modelIdNotFound', 'Model "%s" not found in provider\'s available models'), $modelId),
                 ], 404);
             }
 
             return new JsonResponse([
-                'success' => true,
-                'modelId' => $foundModel->modelId,
-                'name' => $foundModel->name,
-                'description' => $foundModel->description,
-                'contextLength' => $foundModel->contextLength,
+                'success'         => true,
+                'modelId'         => $foundModel->modelId,
+                'name'            => $foundModel->name,
+                'description'     => $foundModel->description,
+                'contextLength'   => $foundModel->contextLength,
                 'maxOutputTokens' => $foundModel->maxOutputTokens,
-                'capabilities' => $foundModel->capabilities,
-                'costInput' => $foundModel->costInput,
-                'costOutput' => $foundModel->costOutput,
+                'capabilities'    => $foundModel->capabilities,
+                'costInput'       => $foundModel->costInput,
+                'costOutput'      => $foundModel->costOutput,
             ]);
         } catch (ProviderConfigurationException $e) {
             // A misconfiguration is our own diagnostic, not a provider response
@@ -253,21 +253,21 @@ final class ModelDiscoveryController extends ActionController
             // administrator on this screen has to act on. ErrorResponse redacts
             // credential-bearing URL parameters at the boundary.
             $this->logger->warning('Model detectLimits: provider is misconfigured', ['exception' => $e]);
-            $error = $this->sanitizeErrorMessage($e->getMessage());
+            $error  = $this->sanitizeErrorMessage($e->getMessage());
             $status = 502;
         } catch (ProviderException $e) {
             $this->logger->warning('Model detectLimits: provider error', ['exception' => $e]);
-            $error = 'LLM provider error while detecting model limits. See system log for details.';
+            $error  = 'LLM provider error while detecting model limits. See system log for details.';
             $status = 502;
         } catch (Throwable $e) {
             $this->logger->error('Model detectLimits: unexpected error', ['exception' => $e]);
-            $error = 'Failed to detect model limits. See system log for details.';
+            $error  = 'Failed to detect model limits. See system log for details.';
             $status = 500;
         }
 
         return new JsonResponse([
             'success' => false,
-            'error' => $error,
+            'error'   => $error,
         ], $status);
     }
 
@@ -282,7 +282,7 @@ final class ModelDiscoveryController extends ActionController
 
         $value = $body[$key] ?? 0;
 
-        return is_numeric($value) ? (int)$value : 0;
+        return is_numeric($value) ? (int) $value : 0;
     }
 
     /**
@@ -296,7 +296,6 @@ final class ModelDiscoveryController extends ActionController
 
         $value = $body[$key] ?? '';
 
-        return is_scalar($value) ? trim((string)$value) : '';
+        return is_scalar($value) ? trim((string) $value) : '';
     }
-
 }

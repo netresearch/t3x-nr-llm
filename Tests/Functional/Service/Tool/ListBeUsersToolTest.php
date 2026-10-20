@@ -45,9 +45,9 @@ final class ListBeUsersToolTest extends AbstractFunctionalTestCase
         $connection = $connectionPool->getConnectionForTable('be_users');
         self::assertInstanceOf(Connection::class, $connection);
         $this->insertUser($connection, 10, 'alice', [
-            'realName' => 'Alice Admin',
-            'email'    => 'alice@example.com',
-            'admin'    => 1,
+            'realName'  => 'Alice Admin',
+            'email'     => 'alice@example.com',
+            'admin'     => 1,
             'lastlogin' => 1700000000,
         ]);
         $this->insertUser($connection, 11, 'bob', [

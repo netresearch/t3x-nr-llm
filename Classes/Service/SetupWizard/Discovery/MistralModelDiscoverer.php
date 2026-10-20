@@ -16,7 +16,7 @@ use Throwable;
  * Mistral model discovery via the shared Bearer listing; falls back to a
  * small static catalog.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class MistralModelDiscoverer extends AbstractModelDiscoverer
 {

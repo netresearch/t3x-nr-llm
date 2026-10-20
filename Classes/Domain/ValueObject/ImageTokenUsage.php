@@ -24,7 +24,7 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  * {@see \Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface::estimateImageCost()}
  * stays readable at its call sites.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class ImageTokenUsage
 {

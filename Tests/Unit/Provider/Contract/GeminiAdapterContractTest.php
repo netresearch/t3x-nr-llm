@@ -38,8 +38,8 @@ final class GeminiAdapterContractTest extends AbstractAdapterContractTestCase
     {
         return [
             'apiKeyIdentifier' => 'vault-gemini',
-            'defaultModel' => self::MODEL,
-            'timeout' => 30,
+            'defaultModel'     => self::MODEL,
+            'timeout'          => 30,
         ];
     }
 
@@ -49,16 +49,16 @@ final class GeminiAdapterContractTest extends AbstractAdapterContractTestCase
             'candidates' => [
                 [
                     'content' => [
-                        'role' => 'model',
+                        'role'  => 'model',
                         'parts' => [['text' => $content]],
                     ],
                     'finishReason' => 'STOP',
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => $promptTokens,
+                'promptTokenCount'     => $promptTokens,
                 'candidatesTokenCount' => $completionTokens,
-                'totalTokenCount' => $promptTokens + $completionTokens,
+                'totalTokenCount'      => $promptTokens + $completionTokens,
             ],
             'modelVersion' => self::MODEL,
         ];
@@ -78,7 +78,7 @@ final class GeminiAdapterContractTest extends AbstractAdapterContractTestCase
             'candidates' => [
                 [
                     'content' => [
-                        'role' => 'model',
+                        'role'  => 'model',
                         'parts' => [
                             [
                                 'functionCall' => [
@@ -92,9 +92,9 @@ final class GeminiAdapterContractTest extends AbstractAdapterContractTestCase
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => 12,
+                'promptTokenCount'     => 12,
                 'candidatesTokenCount' => 8,
-                'totalTokenCount' => 20,
+                'totalTokenCount'      => 20,
             ],
             'modelVersion' => self::MODEL,
         ];

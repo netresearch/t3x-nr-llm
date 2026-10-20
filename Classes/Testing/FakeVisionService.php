@@ -123,6 +123,9 @@ final class FakeVisionService implements VisionServiceInterface
         return $this->echoArity($imageUrl, $this->analyzeImageResult);
     }
 
+    /**
+     * @throws Throwable the configured one-shot failure, when set
+     */
     public function analyzeImageFull(string $imageUrl, string $prompt, ?VisionOptions $options = null): VisionResponse
     {
         $this->analyzeImageFullCalls[] = ['imageUrl' => $imageUrl, 'prompt' => $prompt, 'options' => $options];
@@ -146,7 +149,7 @@ final class FakeVisionService implements VisionServiceInterface
     private function echoArity(string|array $imageUrl, string $canned): string|array
     {
         if (is_array($imageUrl)) {
-            return array_map(static fn(): string => $canned, $imageUrl);
+            return array_map(static fn (): string => $canned, $imageUrl);
         }
 
         return $canned;
@@ -155,7 +158,7 @@ final class FakeVisionService implements VisionServiceInterface
     private function guardThrow(): void
     {
         if ($this->throwable instanceof Throwable) {
-            $throwable = $this->throwable;
+            $throwable       = $this->throwable;
             $this->throwable = null;
 
             throw $throwable;

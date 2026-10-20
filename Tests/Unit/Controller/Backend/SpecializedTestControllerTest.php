@@ -51,13 +51,13 @@ final class SpecializedTestControllerTest extends TestCase
         // The actions are guarded by RequiresBackendAdminTrait (ADR-037);
         // provide an admin so the tests reach the action body.
         $this->previousBeUser = $GLOBALS['BE_USER'] ?? null;
-        $backendUser = new BackendUserAuthentication();
-        $backendUser->user = ['uid' => 1, 'admin' => 1];
-        $GLOBALS['BE_USER'] = $backendUser;
+        $backendUser          = new BackendUserAuthentication();
+        $backendUser->user    = ['uid' => 1, 'admin' => 1];
+        $GLOBALS['BE_USER']   = $backendUser;
 
         $this->translationService = $this->createMock(TranslationServiceInterface::class);
-        $this->openAiImage = $this->createMock(ImageGeneratorInterface::class);
-        $this->falImage = $this->createMock(ImageGeneratorInterface::class);
+        $this->openAiImage        = $this->createMock(ImageGeneratorInterface::class);
+        $this->falImage           = $this->createMock(ImageGeneratorInterface::class);
     }
 
     protected function tearDown(): void
@@ -165,7 +165,7 @@ final class SpecializedTestControllerTest extends TestCase
         );
 
         self::assertSame(500, $response->getStatusCode());
-        self::assertStringNotContainsString('upstream exploded', (string)$response->getBody());
+        self::assertStringNotContainsString('upstream exploded', (string) $response->getBody());
     }
 
     #[Test]
@@ -244,8 +244,8 @@ final class SpecializedTestControllerTest extends TestCase
     #[Test]
     public function everyActionRefusesANonAdmin(): void
     {
-        $editor = new BackendUserAuthentication();
-        $editor->user = ['uid' => 42, 'admin' => 0];
+        $editor             = new BackendUserAuthentication();
+        $editor->user       = ['uid' => 42, 'admin' => 0];
         $GLOBALS['BE_USER'] = $editor;
 
         $subject = $this->subject();
@@ -346,7 +346,7 @@ final class SpecializedTestControllerTest extends TestCase
      */
     private function decode(ResponseInterface $response): array
     {
-        $decoded = json_decode((string)$response->getBody(), true);
+        $decoded = json_decode((string) $response->getBody(), true);
         self::assertIsArray($decoded);
 
         /** @var array<string, mixed> $decoded */

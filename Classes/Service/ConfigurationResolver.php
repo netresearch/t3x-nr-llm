@@ -145,9 +145,9 @@ final readonly class ConfigurationResolver
      * The counterpart of {@see self::getActiveByIdentifier()} for callers that
      * do have a caller identity: a group-restricted configuration resolves when
      * the actor is an administrator, a service account that declares the
-     * {@see \Netresearch\NrLlm\Domain\Enum\ServiceAccountScope::CONFIGURATION_USE}
+     * {@see ServiceAccountScope::CONFIGURATION_USE}
      * scope (ADR-110), or a member of one of the configuration's backend groups.
-     * Unlike {@see \Netresearch\NrLlm\Service\LlmConfigurationService::hasAccess()},
+     * Unlike {@see LlmConfigurationService::hasAccess()},
      * the check runs against the passed actor rather than the ambient
      * `$GLOBALS['BE_USER']`, so a worker can act for the user who queued the
      * work (ADR-070, ADR-083).
@@ -203,7 +203,7 @@ final readonly class ConfigurationResolver
      * would have meant re-querying by identifier and catching one of three
      * exception types to tell "refused" from "not found" — and a second copy of
      * the group comparison in the simulator would be the copy that ages
-     * (the warning {@see \Netresearch\NrLlm\Service\Tool\EditorActionCatalogue}
+     * (the warning {@see Tool\EditorActionCatalogue}
      * already carries). One implementation, two callers.
      *
      * An anonymous actor — the fail-closed context a uid that no longer resolves
@@ -222,7 +222,7 @@ final readonly class ConfigurationResolver
      * evaluated instead of used as a reason to give up.
      *
      * Activity is not checked here because
-     * {@see \Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository::findDefault()}
+     * {@see LlmConfigurationRepository::findDefault()}
      * already matches on `isActive = true` — a deactivated default is not a
      * default. That matters more than it looks: binding a session to an
      * inactive configuration would open the session and then kill its first

@@ -37,11 +37,11 @@ final class McpServerRecordTest extends TestCase
      */
     public static function storedFlags(): iterable
     {
-        yield 'explicit off'                 => ['0', false];
-        yield 'explicit on'                  => ['1', true];
+        yield 'explicit off' => ['0', false];
+        yield 'explicit on' => ['1', true];
         yield 'missing column, hydrated as empty' => ['', true];
-        yield 'garbage'                      => ['maybe', true];
-        yield 'unknown future value'         => ['2', true];
+        yield 'garbage' => ['maybe', true];
+        yield 'unknown future value' => ['2', true];
         yield 'zero that is not the integer' => ['0.0', true];
     }
 

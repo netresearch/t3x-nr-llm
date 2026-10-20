@@ -19,6 +19,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
 
+use function sprintf;
+
 /**
  * Domain model for LLM Providers.
  *
@@ -155,7 +157,7 @@ class Provider extends AbstractEntity
         // Detect legacy plaintext API keys that were stored before vault integration
         if (!$this->isVaultIdentifier($this->apiKey)) {
             trigger_error(
-                \sprintf(
+                sprintf(
                     'Provider %d has a plaintext API key instead of a vault identifier. '
                     . 'Re-save the provider record to migrate it to the vault.',
                     $this->uid,
@@ -167,7 +169,7 @@ class Provider extends AbstractEntity
         }
 
         try {
-            $vault = GeneralUtility::makeInstance(VaultServiceInterface::class);
+            $vault  = GeneralUtility::makeInstance(VaultServiceInterface::class);
             $result = $vault->retrieve($this->apiKey) ?? '';
         } catch (Throwable) {
             // Vault retrieval failed — return empty string so callers fall
@@ -601,8 +603,8 @@ class Provider extends AbstractEntity
     public function toAdapterConfig(): array
     {
         $config = [
-            'api_key' => $this->getDecryptedApiKey(),
-            'endpoint' => $this->getEffectiveEndpointUrl(),
+            'api_key'     => $this->getDecryptedApiKey(),
+            'endpoint'    => $this->getEffectiveEndpointUrl(),
             'api_timeout' => $this->apiTimeout,
             'max_retries' => $this->maxRetries,
         ];

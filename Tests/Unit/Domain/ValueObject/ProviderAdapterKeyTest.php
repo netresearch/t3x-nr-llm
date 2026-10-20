@@ -25,7 +25,7 @@ final class ProviderAdapterKeyTest extends TestCase
         $key = new ProviderAdapterKey('openai');
 
         self::assertSame('openai', $key->value);
-        self::assertSame('openai', (string)$key);
+        self::assertSame('openai', (string) $key);
     }
 
     #[Test]
@@ -44,8 +44,8 @@ final class ProviderAdapterKeyTest extends TestCase
      */
     public static function blankValues(): iterable
     {
-        yield 'empty'      => [''];
-        yield 'space'      => [' '];
+        yield 'empty' => [''];
+        yield 'space' => [' '];
         yield 'whitespace' => ["\t\n "];
     }
 
@@ -63,7 +63,7 @@ final class ProviderAdapterKeyTest extends TestCase
         $key = new ProviderAdapterKey($value);
 
         self::assertSame('openai', $key->value);
-        self::assertSame('openai', (string)$key);
+        self::assertSame('openai', (string) $key);
     }
 
     /**
@@ -72,9 +72,9 @@ final class ProviderAdapterKeyTest extends TestCase
     public static function paddedValues(): iterable
     {
         yield 'trailing space' => ['openai '];
-        yield 'leading space'  => [' openai'];
-        yield 'both'           => ["  openai\t"];
-        yield 'newline'        => ["openai\n"];
+        yield 'leading space' => [' openai'];
+        yield 'both' => ["  openai\t"];
+        yield 'newline' => ["openai\n"];
     }
 
     /**
