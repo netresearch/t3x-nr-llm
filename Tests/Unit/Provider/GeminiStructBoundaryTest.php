@@ -1,9 +1,11 @@
 <?php
 
-/* Copyright (c) 2026 Netresearch DTT GmbH
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Provider;
 
@@ -40,12 +42,12 @@ final class GeminiStructBoundaryTest extends AbstractUnitTestCase
         string $arguments,
         array $expected,
     ): void {
-        $raw = '{"candidates":[{"content":{"role":"model","parts":[{"text":"Before."},{"functionCall":{"name":"struct_probe","args":' . $arguments . '},"thoughtSignature":"opaque+/signature=="},{"text":"After."}]},"finishReason":"STOP"}]}';
+        $raw      = '{"candidates":[{"content":{"role":"model","parts":[{"text":"Before."},{"functionCall":{"name":"struct_probe","args":' . $arguments . '},"thoughtSignature":"opaque+/signature=="},{"text":"After."}]},"finishReason":"STOP"}]}';
         $requests = [];
-        $subject = $this->provider([$raw, $this->finished($transport)], $requests);
-        $tools = [ToolSpec::function('struct_probe', 'Probe.', ['type' => 'object'])];
+        $subject  = $this->provider([$raw, $this->finished($transport)], $requests);
+        $tools    = [ToolSpec::function('struct_probe', 'Probe.', ['type' => 'object'])];
         $messages = [ChatMessage::user('Literal question.')];
-        $first = $subject->chatCompletionWithTools(
+        $first    = $subject->chatCompletionWithTools(
             $messages,
             $tools,
             ['_capture_raw' => true],
@@ -59,8 +61,8 @@ final class GeminiStructBoundaryTest extends AbstractUnitTestCase
             json_decode($raw, true, 512, JSON_THROW_ON_ERROR),
             $first->metadata['_raw'] ?? null,
         );
-        $items = $this->items($first);
-        $before = $items;
+        $items      = $this->items($first);
+        $before     = $items;
         $messages[] = ChatMessage::assistantToolCalls(
             $first->toolCalls,
             $first->content,
@@ -70,7 +72,7 @@ final class GeminiStructBoundaryTest extends AbstractUnitTestCase
         $this->invoke($subject, $transport, $messages, $tools);
         self::assertCount(2, $requests);
         $parts = $this->requestParts($requests[1], 1);
-        $call = $parts[1]->functionCall ?? null;
+        $call  = $parts[1]->functionCall ?? null;
         self::assertInstanceOf(stdClass::class, $call);
         self::assertSame('struct_probe', $call->name);
         self::assertInstanceOf(
@@ -102,8 +104,8 @@ final class GeminiStructBoundaryTest extends AbstractUnitTestCase
         foreach (['tools', 'chat', 'stream'] as $transport) {
             foreach ([true, false] as $owned) {
                 foreach ([
-                    'empty' => ['{}', []],
-                    'numeric' => ['{"0":"zero","1":"one"}', [0 => 'zero', 1 => 'one']],
+                    'empty'                          => ['{}', []],
+                    'numeric'                        => ['{"0":"zero","1":"one"}', [0 => 'zero', 1 => 'one']],
                     'ordinary with real nested list' => [
                         '{"label":"x","items":[]}',
                         ['label' => 'x', 'items' => []],
@@ -126,7 +128,7 @@ final class GeminiStructBoundaryTest extends AbstractUnitTestCase
         array $expected,
     ): void {
         $requests = [];
-        $subject = $this->provider([$this->finished($transport)], $requests);
+        $subject  = $this->provider([$this->finished($transport)], $requests);
         $messages = [
             ChatMessage::user('Literal question.'),
             ChatMessage::assistantToolCalls(
@@ -136,7 +138,7 @@ final class GeminiStructBoundaryTest extends AbstractUnitTestCase
         ];
         $this->invoke($subject, $transport, $messages, []);
         self::assertCount(1, $requests);
-        $parts = $this->requestParts($requests[0], 2);
+        $parts      = $this->requestParts($requests[0], 2);
         $resultPart = $parts[0]->functionResponse ?? null;
         self::assertInstanceOf(stdClass::class, $resultPart);
         self::assertSame('struct_probe', $resultPart->name);
@@ -155,13 +157,13 @@ final class GeminiStructBoundaryTest extends AbstractUnitTestCase
     {
         foreach (['tools', 'chat', 'stream'] as $transport) {
             foreach ([
-                'empty' => ['{}', []],
-                'numeric' => ['{"0":"zero","1":"one"}', [0 => 'zero', 1 => 'one']],
-                'list root' => ['["zero","one"]', [0 => 'zero', 1 => 'one']],
+                'empty'                => ['{}', []],
+                'numeric'              => ['{"0":"zero","1":"one"}', [0 => 'zero', 1 => 'one']],
+                'list root'            => ['["zero","one"]', [0 => 'zero', 1 => 'one']],
                 'ordinary nested list' => ['{"items":[]}', ['items' => []]],
-                'scalar' => ['7', ['result' => '7']],
-                'string scalar' => ['"value"', ['result' => '"value"']],
-                'invalid' => ['not json', ['result' => 'not json']],
+                'scalar'               => ['7', ['result' => '7']],
+                'string scalar'        => ['"value"', ['result' => '"value"']],
+                'invalid'              => ['not json', ['result' => 'not json']],
             ] as $name => [$json, $expected]) {
                 yield $transport . ' ' . $name => [$transport, $json, $expected];
             }
@@ -202,6 +204,7 @@ final class GeminiStructBoundaryTest extends AbstractUnitTestCase
     private function finished(string $transport): string
     {
         $body = '{"candidates":[{"content":{"role":"model","parts":[{"text":"Done."}]},"finishReason":"STOP"}]}';
+
         return $transport === 'stream' ? 'data: ' . $body . "\n\n" : $body;
     }
 
@@ -219,6 +222,7 @@ final class GeminiStructBoundaryTest extends AbstractUnitTestCase
         self::assertIsArray($parts);
         $validated = ['type' => 'nrllm_gemini_generate_content', 'parts' => $parts];
         self::assertSame([$validated], $items);
+
         return [$validated];
     }
 
@@ -231,7 +235,7 @@ final class GeminiStructBoundaryTest extends AbstractUnitTestCase
         array &$requests,
     ): GeminiProvider {
         $client = self::createMock(ClientInterface::class);
-        $index = 0;
+        $index  = 0;
         $client
             ->expects(self::exactly(count($responses)))
             ->method('sendRequest')
@@ -240,6 +244,7 @@ final class GeminiStructBoundaryTest extends AbstractUnitTestCase
                     RequestInterface $request,
                 ) use (&$requests, &$index, $responses): ResponseInterface {
                     $requests[] = $request;
+
                     return new Response(
                         200,
                         ['Content-Type' => 'application/json'],
@@ -258,11 +263,12 @@ final class GeminiStructBoundaryTest extends AbstractUnitTestCase
         $subject->configure(
             [
                 'apiKeyIdentifier' => 'fixture-key',
-                'defaultModel' => 'gemini-struct-fixture',
-                'maxRetries' => 0,
+                'defaultModel'     => 'gemini-struct-fixture',
+                'maxRetries'       => 0,
             ],
         );
         $subject->setHttpClient($client);
+
         return $subject;
     }
 
@@ -272,7 +278,7 @@ final class GeminiStructBoundaryTest extends AbstractUnitTestCase
     private function requestParts(RequestInterface $request, int $turn): array
     {
         $wire = json_decode(
-            (string)$request->getBody(),
+            (string) $request->getBody(),
             false,
             512,
             JSON_THROW_ON_ERROR,
