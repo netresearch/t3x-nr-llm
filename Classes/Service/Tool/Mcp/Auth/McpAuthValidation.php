@@ -1,16 +1,19 @@
 <?php
 
-/* Copyright (c) 2025-2026 Netresearch DTT GmbH
- * SPDX-License-Identifier: GPL-2.0-or-later */
-declare (strict_types=1);
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Mcp\Auth;
 
-use InvalidArgumentException;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * @internal Credential-free boundary validation for ADR-217.
+ * @internal credential-free boundary validation for ADR-217
  */
 final class McpAuthValidation
 {
@@ -27,7 +30,7 @@ final class McpAuthValidation
     public static function credentialIdentifier(string $value): void
     {
         $isUuidV7 = strlen($value) === 36 && Uuid::isValid($value) && $value[14] === '7';
-        $isAlias = preg_match('/\A[A-Za-z][A-Za-z0-9_]{2,254}\z/D', $value) === 1;
+        $isAlias  = preg_match('/\A[A-Za-z][A-Za-z0-9_]{2,254}\z/D', $value) === 1;
         if (preg_match('/[\x00-\x1F\x7F]/', $value) === 1 || !$isUuidV7 && !$isAlias) {
             throw new InvalidArgumentException(
                 'A delegation credential must be a canonical Vault identifier.',
@@ -138,6 +141,7 @@ final class McpAuthValidation
     {
         $values = array_values(array_unique($values));
         sort($values, SORT_STRING);
+
         return $values;
     }
 }

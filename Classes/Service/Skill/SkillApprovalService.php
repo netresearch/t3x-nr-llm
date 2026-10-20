@@ -39,7 +39,7 @@ use TYPO3\CMS\Core\Utility\DiffUtility;
  * Callers authorise: only administrators may approve or revoke until the
  * permission is decided (ADR-214, open questions).
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class SkillApprovalService
 {
@@ -56,8 +56,8 @@ final readonly class SkillApprovalService
      */
     public function review(Skill $skill): SkillVersionReview
     {
-        $uid       = (int)$skill->getUid();
-        $digest    = SkillVersionDigest::verified($skill);
+        $uid       = (int) $skill->getUid();
+        $digest    = $this->currentDigest($skill);
         $policy    = $this->composerFactory->instructionPolicy();
         $threshold = $policy?->threshold() ?? $this->composerFactory->instructionTrustLevel();
         $latest    = $this->approvals->findLatestUnrevoked($uid);
@@ -101,14 +101,14 @@ final readonly class SkillApprovalService
                 $skill,
                 $this->auditable($seenDigest),
                 $trust,
-                sprintf('%s; current digest %s', $outcome->value, SkillVersionDigest::verified($skill) ?? 'unverifiable'),
+                sprintf('%s; current digest %s', $outcome->value, $this->currentDigest($skill) ?? 'unverifiable'),
             );
 
             return $outcome;
         }
 
         $this->approvals->add(
-            (int)$skill->getUid(),
+            (int) $skill->getUid(),
             $skill->getSource(),
             $seenDigest,
             SkillVersionDigest::fieldsOf($skill),
@@ -127,7 +127,7 @@ final readonly class SkillApprovalService
      */
     public function revokeVersion(Skill $skill, string $versionDigest, int $actorUid): int
     {
-        $revoked = $this->approvals->revoke((int)$skill->getUid(), $versionDigest, $actorUid);
+        $revoked = $this->approvals->revoke((int) $skill->getUid(), $versionDigest, $actorUid);
         $this->audit->recordVersionEvent(
             SkillAuditEvent::VERSION_REVOKED,
             $skill,
@@ -161,7 +161,7 @@ final readonly class SkillApprovalService
             return SkillApprovalOutcome::REFUSED_ORPHANED;
         }
 
-        $current = SkillVersionDigest::verified($skill);
+        $current = $this->currentDigest($skill);
         if ($current === null) {
             return SkillApprovalOutcome::REFUSED_INTEGRITY;
         }
@@ -170,7 +170,7 @@ final readonly class SkillApprovalService
             return SkillApprovalOutcome::REFUSED_LEGACY;
         }
 
-        if ((int)$skill->getUid() <= 0 || !hash_equals($current, $seenDigest)) {
+        if ((int) $skill->getUid() <= 0 || !hash_equals($current, $seenDigest)) {
             return SkillApprovalOutcome::REFUSED_STALE;
         }
 
@@ -207,6 +207,16 @@ final readonly class SkillApprovalService
         $level = $this->provenanceOf($skill);
 
         return $level instanceof SkillTrustLevel ? $level->value : $skill->getTrustLevel();
+    }
+
+    /**
+     * The record's verified current digest, by the same rule the composer
+     * applies: stored and checked for a synced skill, computed for a skill of
+     * a backend source (ADR-214 item 3).
+     */
+    private function currentDigest(Skill $skill): ?string
+    {
+        return SkillVersionDigest::verified($skill, !SkillComposer::isEditedInPlace($skill, $this->sources->find($skill->getSource())));
     }
 
     private function provenanceOf(Skill $skill): ?SkillTrustLevel

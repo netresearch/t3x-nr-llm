@@ -15,6 +15,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+use function strlen;
+
 #[CoversClass(McpToolNameMapper::class)]
 final class McpToolNameMapperTest extends TestCase
 {
@@ -81,18 +83,18 @@ final class McpToolNameMapperTest extends TestCase
     #[Test]
     public function acceptsAResultOfExactlySixtyFourCharacters(): void
     {
-        $remoteName = str_repeat('a', 64 - \strlen('mcp_typo3_'));
+        $remoteName = str_repeat('a', 64 - strlen('mcp_typo3_'));
 
         $localName = $this->mapper->localName('typo3', $remoteName);
 
         self::assertNotNull($localName);
-        self::assertSame(64, \strlen($localName));
+        self::assertSame(64, strlen($localName));
     }
 
     #[Test]
     public function rejectsAResultExceedingSixtyFourCharacters(): void
     {
-        $remoteName = str_repeat('a', 64 - \strlen('mcp_typo3_') + 1);
+        $remoteName = str_repeat('a', 64 - strlen('mcp_typo3_') + 1);
 
         self::assertNull($this->mapper->localName('typo3', $remoteName));
     }

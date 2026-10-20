@@ -25,7 +25,7 @@ final class ModelIdentifierTest extends TestCase
         $identifier = new ModelIdentifier('gpt-image-2-a3f7c2');
 
         self::assertSame('gpt-image-2-a3f7c2', $identifier->value);
-        self::assertSame('gpt-image-2-a3f7c2', (string)$identifier);
+        self::assertSame('gpt-image-2-a3f7c2', (string) $identifier);
     }
 
     #[Test]
@@ -44,8 +44,8 @@ final class ModelIdentifierTest extends TestCase
      */
     public static function blankValues(): iterable
     {
-        yield 'empty'      => [''];
-        yield 'space'      => [' '];
+        yield 'empty' => [''];
+        yield 'space' => [' '];
         yield 'whitespace' => ["\t\n "];
     }
 
@@ -56,7 +56,7 @@ final class ModelIdentifierTest extends TestCase
         $identifier = new ModelIdentifier($value);
 
         self::assertSame('gpt-image-2-a3f7c2', $identifier->value);
-        self::assertSame('gpt-image-2-a3f7c2', (string)$identifier);
+        self::assertSame('gpt-image-2-a3f7c2', (string) $identifier);
     }
 
     /**
@@ -65,9 +65,9 @@ final class ModelIdentifierTest extends TestCase
     public static function paddedValues(): iterable
     {
         yield 'trailing space' => ['gpt-image-2-a3f7c2 '];
-        yield 'leading space'  => [' gpt-image-2-a3f7c2'];
-        yield 'both'           => ["  gpt-image-2-a3f7c2\t"];
-        yield 'newline'        => ["gpt-image-2-a3f7c2\n"];
+        yield 'leading space' => [' gpt-image-2-a3f7c2'];
+        yield 'both' => ["  gpt-image-2-a3f7c2\t"];
+        yield 'newline' => ["gpt-image-2-a3f7c2\n"];
     }
 
     #[Test]

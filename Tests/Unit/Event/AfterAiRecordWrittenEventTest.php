@@ -35,7 +35,7 @@ final class AfterAiRecordWrittenEventTest extends TestCase
         );
 
         self::assertSame('6f1d2f7e-0b7e-4f8b-9a3c-0d2f7e0b7e4f', $event->correlationId);
-        self::assertSame('pages:42', (string)$event->record);
+        self::assertSame('pages:42', (string) $event->record);
         self::assertSame(WriteKind::CREATED, $event->kind);
     }
 
@@ -79,7 +79,7 @@ final class AfterAiRecordWrittenEventTest extends TestCase
     public function itCarriesNoRecordPayloadBeyondTheReferenceAndTheKind(): void
     {
         $properties = array_map(
-            static fn(ReflectionProperty $p): string => $p->getName(),
+            static fn (ReflectionProperty $p): string => $p->getName(),
             (new ReflectionClass(AfterAiRecordWrittenEvent::class))->getProperties(),
         );
         sort($properties);

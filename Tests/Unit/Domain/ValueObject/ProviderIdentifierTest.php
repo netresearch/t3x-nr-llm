@@ -25,7 +25,7 @@ final class ProviderIdentifierTest extends TestCase
         $identifier = new ProviderIdentifier('openai-dcbd8f');
 
         self::assertSame('openai-dcbd8f', $identifier->value);
-        self::assertSame('openai-dcbd8f', (string)$identifier);
+        self::assertSame('openai-dcbd8f', (string) $identifier);
     }
 
     #[Test]
@@ -44,8 +44,8 @@ final class ProviderIdentifierTest extends TestCase
      */
     public static function blankValues(): iterable
     {
-        yield 'empty'      => [''];
-        yield 'space'      => [' '];
+        yield 'empty' => [''];
+        yield 'space' => [' '];
         yield 'whitespace' => ["\t\n "];
     }
 
@@ -56,7 +56,7 @@ final class ProviderIdentifierTest extends TestCase
         $identifier = new ProviderIdentifier($value);
 
         self::assertSame('openai-dcbd8f', $identifier->value);
-        self::assertSame('openai-dcbd8f', (string)$identifier);
+        self::assertSame('openai-dcbd8f', (string) $identifier);
     }
 
     /**
@@ -65,9 +65,9 @@ final class ProviderIdentifierTest extends TestCase
     public static function paddedValues(): iterable
     {
         yield 'trailing space' => ['openai-dcbd8f '];
-        yield 'leading space'  => [' openai-dcbd8f'];
-        yield 'both'           => ["  openai-dcbd8f\t"];
-        yield 'newline'        => ["openai-dcbd8f\n"];
+        yield 'leading space' => [' openai-dcbd8f'];
+        yield 'both' => ["  openai-dcbd8f\t"];
+        yield 'newline' => ["openai-dcbd8f\n"];
     }
 
     #[Test]

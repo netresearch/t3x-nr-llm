@@ -72,8 +72,8 @@ final class ToolCallTest extends TestCase
     public function fromArrayDecodesJsonStringArguments(): void
     {
         $wire = [
-            'id'   => 'call_abc',
-            'type' => 'function',
+            'id'       => 'call_abc',
+            'type'     => 'function',
             'function' => [
                 'name'      => 'get_weather',
                 'arguments' => '{"city":"Berlin","unit":"celsius"}',
@@ -93,8 +93,8 @@ final class ToolCallTest extends TestCase
         // OpenAiProvider's legacy extractor produces this shape after
         // `json_decode`. The factory must accept it without re-decoding.
         $alreadyDecoded = [
-            'id'   => 'call_abc',
-            'type' => 'function',
+            'id'       => 'call_abc',
+            'type'     => 'function',
             'function' => [
                 'name'      => 'fn',
                 'arguments' => ['x' => 1, 'y' => 2],
@@ -135,7 +135,7 @@ final class ToolCallTest extends TestCase
     public function fromArrayDefaultsTypeToFunctionWhenAbsent(): void
     {
         $call = ToolCall::fromArray([
-            'id' => 'id1',
+            'id'       => 'id1',
             'function' => ['name' => 'fn'],
         ]);
 
@@ -161,8 +161,8 @@ final class ToolCallTest extends TestCase
 
         self::assertSame(
             [
-                'id'   => 'call_abc',
-                'type' => 'function',
+                'id'       => 'call_abc',
+                'type'     => 'function',
                 'function' => [
                     'name'      => 'get_weather',
                     'arguments' => ['city' => 'Berlin'],
@@ -176,8 +176,8 @@ final class ToolCallTest extends TestCase
     public function fromArrayWithJsonStringArgumentsAndToArrayRoundTrip(): void
     {
         $wire = [
-            'id'   => 'call_abc',
-            'type' => 'function',
+            'id'       => 'call_abc',
+            'type'     => 'function',
             'function' => [
                 'name'      => 'get_weather',
                 'arguments' => '{"city":"Berlin"}',
@@ -185,8 +185,8 @@ final class ToolCallTest extends TestCase
         ];
 
         $expected = [
-            'id'   => 'call_abc',
-            'type' => 'function',
+            'id'       => 'call_abc',
+            'type'     => 'function',
             'function' => [
                 'name'      => 'get_weather',
                 'arguments' => ['city' => 'Berlin'],
@@ -208,8 +208,8 @@ final class ToolCallTest extends TestCase
     public function tryFromArrayReturnsInstanceForValidWire(): void
     {
         $call = ToolCall::tryFromArray([
-            'id'   => 'call_abc',
-            'type' => 'function',
+            'id'       => 'call_abc',
+            'type'     => 'function',
             'function' => [
                 'name'      => 'get_weather',
                 'arguments' => '{"city":"Berlin"}',
@@ -236,7 +236,7 @@ final class ToolCallTest extends TestCase
     public function tryFromArrayReturnsNullWhenNameEmpty(): void
     {
         self::assertNull(ToolCall::tryFromArray([
-            'id'   => 'call_abc',
+            'id'       => 'call_abc',
             'function' => ['name' => '', 'arguments' => '{}'],
         ]));
     }

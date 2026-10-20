@@ -93,7 +93,7 @@ final class RoutingDecisionServiceTest extends TestCase
         self::assertFalse($decision->hasSelection());
         self::assertSame(
             [RoutingRejectionReason::ADAPTER_NOT_ALLOWED],
-            array_map(static fn(RoutingCandidate $c): ?RoutingRejectionReason => $c->rejectionReason, $decision->candidates),
+            array_map(static fn (RoutingCandidate $c): ?RoutingRejectionReason => $c->rejectionReason, $decision->candidates),
         );
     }
 

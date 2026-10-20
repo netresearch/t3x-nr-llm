@@ -198,11 +198,11 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
             return ToolResult::error($plan);
         }
 
-        $table      = $plan['table'];
-        $recordUid  = self::toInt($plan['record']['uid'] ?? 0);
-        $field      = $plan['field'];
-        $texts      = $plan['texts'];
-        $existing   = $this->existingReferenceUids($table, $recordUid, $field);
+        $table       = $plan['table'];
+        $recordUid   = self::toInt($plan['record']['uid'] ?? 0);
+        $field       = $plan['field'];
+        $texts       = $plan['texts'];
+        $existing    = $this->existingReferenceUids($table, $recordUid, $field);
         $placeholder = 'NEW' . uniqid('nrllm', true);
 
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
@@ -210,11 +210,11 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
             [
                 self::REFERENCE_TABLE => [
                     $placeholder => $texts + [
-                        'uid_local'        => self::toInt($plan['file']['uid'] ?? 0),
-                        'tablenames'       => $table,
-                        'uid_foreign'      => $recordUid,
-                        'fieldname'        => $field,
-                        'pid'              => self::toInt($plan['record']['pid'] ?? 0),
+                        'uid_local'   => self::toInt($plan['file']['uid'] ?? 0),
+                        'tablenames'  => $table,
+                        'uid_foreign' => $recordUid,
+                        'fieldname'   => $field,
+                        'pid'         => self::toInt($plan['record']['pid'] ?? 0),
                         // Stated rather than defaulted, as in the content tool:
                         // the DataHandler checks language access against the
                         // record it is handed.
@@ -496,7 +496,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
         }
 
         foreach (['adminOnly', 'hideTable', 'readOnly'] as $flag) {
-            if ((bool)($ctrl[$flag] ?? false)) {
+            if ((bool) ($ctrl[$flag] ?? false)) {
                 return sprintf('Refused: %s is declared %s in its TCA, so this tool does not write it.', $table, $flag);
             }
         }
@@ -591,11 +591,11 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
         $column = ($this->tcaColumnsFor($table) ?? [])[$field] ?? null;
         $config = is_array($column) && is_array($column['config'] ?? null) ? $column['config'] : [];
 
-        $tca       = $GLOBALS['TCA'] ?? null;
+        $tca        = $GLOBALS['TCA'] ?? null;
         $definition = is_array($tca) && is_array($tca[$table] ?? null) ? $tca[$table] : [];
-        $ctrl      = is_array($definition['ctrl'] ?? null) ? $definition['ctrl'] : [];
-        $types     = is_array($definition['types'] ?? null) ? $definition['types'] : [];
-        $typeField = $ctrl['type'] ?? null;
+        $ctrl       = is_array($definition['ctrl'] ?? null) ? $definition['ctrl'] : [];
+        $types      = is_array($definition['types'] ?? null) ? $definition['types'] : [];
+        $typeField  = $ctrl['type'] ?? null;
         if (is_string($typeField) && str_contains($typeField, ':')) {
             return $config;
         }
@@ -639,8 +639,8 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
 
             if (isset(self::EXTENSION_ALIASES[$token])) {
                 [$section, $key] = self::EXTENSION_ALIASES[$token];
-                $confVars = $GLOBALS['TYPO3_CONF_VARS'] ?? null;
-                $group    = is_array($confVars) && is_array($confVars[$section] ?? null) ? $confVars[$section] : [];
+                $confVars        = $GLOBALS['TYPO3_CONF_VARS'] ?? null;
+                $group           = is_array($confVars) && is_array($confVars[$section] ?? null) ? $confVars[$section] : [];
                 foreach (explode(',', strtolower(self::toStr($group[$key] ?? ''))) as $extension) {
                     if (trim($extension) !== '') {
                         $list[] = trim($extension);
@@ -735,7 +735,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
             ->executeQuery()
             ->fetchAllAssociative();
 
-        return array_map(static fn(array $row): string => (string)self::toInt($row['uid'] ?? 0), $rows);
+        return array_map(static fn (array $row): string => (string) self::toInt($row['uid'] ?? 0), $rows);
     }
 
     /**
@@ -770,7 +770,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
         }
 
         $live = $this->existingReferenceUids($table, $recordUid, $field);
-        if ($live === [] || (int)$live[count($live) - 1] !== $referenceUid) {
+        if ($live === [] || (int) $live[count($live) - 1] !== $referenceUid) {
             return 'The reference was not appended last.';
         }
 
@@ -822,7 +822,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
         if ($strays !== []) {
             $cmdmap = [];
             foreach ($strays as $stray) {
-                $cmdmap[self::REFERENCE_TABLE][(int)$stray] = ['delete' => 1];
+                $cmdmap[self::REFERENCE_TABLE][(int) $stray] = ['delete' => 1];
             }
 
             $removal = GeneralUtility::makeInstance(ToolDataHandler::class);

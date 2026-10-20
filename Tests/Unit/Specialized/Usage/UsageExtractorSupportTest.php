@@ -40,12 +40,12 @@ final class UsageExtractorSupportTest extends TestCase
      */
     public static function supportMatrix(): iterable
     {
-        $cost  = self::createStub(SpecializedCostCalculatorInterface::class);
-        $dalle = new DallEUsageExtractor($cost);
-        $fal   = new FalUsageExtractor();
-        $tts   = new TextToSpeechUsageExtractor($cost);
+        $cost    = self::createStub(SpecializedCostCalculatorInterface::class);
+        $dalle   = new DallEUsageExtractor($cost);
+        $fal     = new FalUsageExtractor();
+        $tts     = new TextToSpeechUsageExtractor($cost);
         $whisper = new WhisperUsageExtractor($cost);
-        $deepl = new DeepLUsageExtractor();
+        $deepl   = new DeepLUsageExtractor();
 
         yield 'dall-e claims its own image call' => [$dalle, ProviderOperation::ImageGeneration, 'dall-e', true];
         yield 'dall-e ignores a FAL image call' => [$dalle, ProviderOperation::ImageGeneration, 'fal', false];

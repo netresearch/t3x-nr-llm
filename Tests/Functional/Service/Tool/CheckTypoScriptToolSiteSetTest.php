@@ -56,7 +56,7 @@ final class CheckTypoScriptToolSiteSetTest extends AbstractFunctionalTestCase
         $pages = $connectionPool->getConnectionForTable('pages');
         self::assertInstanceOf(Connection::class, $pages);
         $pages->insert('pages', [
-            'uid' => 1, 'pid' => 0, 'title' => 'Home', 'doktype' => 1,
+            'uid'     => 1, 'pid' => 0, 'title' => 'Home', 'doktype' => 1,
             'sorting' => 1, 'is_siteroot' => 1, 'slug' => '/',
         ]);
 

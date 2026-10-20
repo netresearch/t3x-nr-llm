@@ -70,10 +70,10 @@ final class DecisionValueObjectsTest extends TestCase
         $question = new YesNoQuestion('ok', 'Is it ok?');
 
         foreach ([
-            1795211010 => static fn(): DecisionProfile => new DecisionProfile(' ', 1, [$question]),
-            1795211011 => static fn(): DecisionProfile => new DecisionProfile('x.y', 0, [$question]),
-            1795211012 => static fn(): DecisionProfile => new DecisionProfile('x.y', 1, []),
-            1795211013 => static fn(): DecisionProfile => new DecisionProfile('x.y', 1, [$question, new YesNoQuestion('ok', 'Again?')]),
+            1795211010 => static fn (): DecisionProfile => new DecisionProfile(' ', 1, [$question]),
+            1795211011 => static fn (): DecisionProfile => new DecisionProfile('x.y', 0, [$question]),
+            1795211012 => static fn (): DecisionProfile => new DecisionProfile('x.y', 1, []),
+            1795211013 => static fn (): DecisionProfile => new DecisionProfile('x.y', 1, [$question, new YesNoQuestion('ok', 'Again?')]),
         ] as $code => $build) {
             try {
                 $build();
@@ -132,7 +132,7 @@ final class DecisionValueObjectsTest extends TestCase
     #[Test]
     public function anAnswerCarriesOnlyWhatWasReported(): void
     {
-        $yesNo = DecisionAnswer::yesNo('ok', 0.95);
+        $yesNo  = DecisionAnswer::yesNo('ok', 0.95);
         $choice = DecisionAnswer::choice('pick', 'billing', ['billing' => 0.88, 'technical' => 0.12], 0.81);
 
         self::assertSame([QuestionType::YesNo, 0.95, null, [], null], [$yesNo->type, $yesNo->value, $yesNo->choice, $yesNo->probabilities, $yesNo->confidence]);

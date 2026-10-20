@@ -131,8 +131,8 @@ final class GovernanceSimulatorTest extends TestCase
     {
         // ADR-138: the capability requirement follows the operation. Asking
         // with none would answer for a run this page does not describe.
-        $configuration     = $this->configuration();
-        $modelSelection    = $this->createMock(ModelSelectionServiceInterface::class);
+        $configuration  = $this->configuration();
+        $modelSelection = $this->createMock(ModelSelectionServiceInterface::class);
         $modelSelection->expects(self::once())
             ->method('explainRouting')
             ->with($configuration, ProviderOperation::Tools, null)
@@ -349,9 +349,9 @@ final class GovernanceSimulatorTest extends TestCase
      */
     private function user(int $uid, string $username, bool $admin, array $groups = []): BackendUserAuthentication
     {
-        $user                 = new BackendUserAuthentication();
-        $user->user           = ['uid' => $uid, 'username' => $username, 'admin' => $admin ? 1 : 0];
-        $user->userGroupsUID  = $groups;
+        $user                = new BackendUserAuthentication();
+        $user->user          = ['uid' => $uid, 'username' => $username, 'admin' => $admin ? 1 : 0];
+        $user->userGroupsUID = $groups;
 
         return $user;
     }

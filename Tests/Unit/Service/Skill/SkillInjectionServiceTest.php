@@ -176,7 +176,7 @@ final class SkillInjectionServiceTest extends TestCase
     #[Test]
     public function composeIntoMessagesWarnsWhenAComposedBlockFindsNoUserMessage(): void
     {
-        $logger  = $this->createMock(LoggerInterface::class);
+        $logger = $this->createMock(LoggerInterface::class);
         $logger->expects(self::once())
             ->method('warning')
             ->with(self::stringContains('no user message'));

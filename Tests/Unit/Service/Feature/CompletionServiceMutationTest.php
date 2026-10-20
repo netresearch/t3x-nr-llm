@@ -52,7 +52,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->willReturn($this->createMockResponse('Response'));
 
         $service = new CompletionService($llmManagerMock);
-        $result = $service->complete('Test prompt');
+        $result  = $service->complete('Test prompt');
 
         self::assertInstanceOf(CompletionResponse::class, $result);
     }
@@ -66,7 +66,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $opts): bool => $opts->getTemperature() === 0.2),
+                self::callback(fn (ChatOptions $opts): bool => $opts->getTemperature() === 0.2),
             )
             ->willReturn($this->createMockResponse('Factual response'));
 
@@ -83,7 +83,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $opts): bool => $opts->getTopP() === 0.9),
+                self::callback(fn (ChatOptions $opts): bool => $opts->getTopP() === 0.9),
             )
             ->willReturn($this->createMockResponse('Factual response'));
 
@@ -100,7 +100,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $opts): bool => $opts->getTemperature() === 0.5),
+                self::callback(fn (ChatOptions $opts): bool => $opts->getTemperature() === 0.5),
             )
             ->willReturn($this->createMockResponse('Response'));
 
@@ -118,7 +118,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $opts): bool => $opts->getTemperature() === 1.2),
+                self::callback(fn (ChatOptions $opts): bool => $opts->getTemperature() === 1.2),
             )
             ->willReturn($this->createMockResponse('Creative response'));
 
@@ -135,7 +135,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $opts): bool => $opts->getTopP() === 1.0),
+                self::callback(fn (ChatOptions $opts): bool => $opts->getTopP() === 1.0),
             )
             ->willReturn($this->createMockResponse('Creative response'));
 
@@ -152,7 +152,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $opts): bool => $opts->getPresencePenalty() === 0.6),
+                self::callback(fn (ChatOptions $opts): bool => $opts->getPresencePenalty() === 0.6),
             )
             ->willReturn($this->createMockResponse('Creative response'));
 
@@ -169,7 +169,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $opts): bool => $opts->getPresencePenalty() === 0.3),
+                self::callback(fn (ChatOptions $opts): bool => $opts->getPresencePenalty() === 0.3),
             )
             ->willReturn($this->createMockResponse('Response'));
 
@@ -188,7 +188,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->willReturn($this->createMockResponse('{"key": "value"}'));
 
         $service = new CompletionService($llmManagerMock);
-        $result = $service->completeJson('Generate JSON');
+        $result  = $service->completeJson('Generate JSON');
 
         self::assertEquals(['key' => 'value'], $result);
     }
@@ -203,7 +203,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->willReturn($this->createMockResponse('# Heading'));
 
         $service = new CompletionService($llmManagerMock);
-        $result = $service->completeMarkdown('Generate markdown');
+        $result  = $service->completeMarkdown('Generate markdown');
 
         self::assertEquals('# Heading', $result);
     }
@@ -218,6 +218,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->with(
                 self::callback(function (array $messages): bool {
                     $systemMessage = $messages[0] ?? null;
+
                     return $systemMessage instanceof ChatMessage
                         && $systemMessage->isSystem()
                         && str_contains($systemMessage->content, 'Markdown');
@@ -256,8 +257,8 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
         return [
             'zero' => [0.0],
             'half' => [0.5],
-            'one' => [1.0],
-            'max' => [2.0],
+            'one'  => [1.0],
+            'max'  => [2.0],
         ];
     }
 
@@ -266,7 +267,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     public function validateOptionsRejectsInvalidTemperature(float $temperature): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $service = new CompletionService($llmManagerStub);
+        $service        = new CompletionService($llmManagerStub);
 
         $this->expectException(InvalidArgumentException::class);
 
@@ -280,8 +281,8 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     public static function invalidTemperatureProvider(): array
     {
         return [
-            'negative' => [-0.1],
-            'too high' => [2.1],
+            'negative'  => [-0.1],
+            'too high'  => [2.1],
             'very high' => [3.0],
         ];
     }
@@ -311,7 +312,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
         return [
             'zero' => [0.0],
             'half' => [0.5],
-            'one' => [1.0],
+            'one'  => [1.0],
         ];
     }
 
@@ -320,7 +321,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     public function validateOptionsRejectsInvalidTopP(float $topP): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $service = new CompletionService($llmManagerStub);
+        $service        = new CompletionService($llmManagerStub);
 
         $this->expectException(InvalidArgumentException::class);
 
@@ -449,6 +450,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
                     // Should have system message when markdown format
                     function (array $messages): bool {
                         $msg = $messages[0] ?? null;
+
                         return $msg instanceof ChatMessage
                             && $msg->isSystem()
                             && str_contains($msg->content, 'Markdown');
@@ -478,6 +480,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
 
                     $msg0 = $messages[0];
                     $msg1 = $messages[1];
+
                     return $msg0 instanceof ChatMessage
                         && $msg1 instanceof ChatMessage
                         && $msg0->isSystem()
@@ -508,6 +511,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
                     }
 
                     $msg = $messages[0];
+
                     return $msg instanceof ChatMessage
                         && $msg->isUser()
                         && $msg->content === 'User prompt';
@@ -525,7 +529,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     public function validateOptionsRejectsZeroMaxTokens(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $service = new CompletionService($llmManagerStub);
+        $service        = new CompletionService($llmManagerStub);
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('max_tokens');
@@ -543,7 +547,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->willReturn($this->createMockResponse('Response'));
 
         $service = new CompletionService($llmManagerMock);
-        $result = $service->completeFactual('Question');
+        $result  = $service->completeFactual('Question');
 
         self::assertInstanceOf(CompletionResponse::class, $result);
     }
@@ -557,7 +561,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->willReturn($this->createMockResponse('Response'));
 
         $service = new CompletionService($llmManagerMock);
-        $result = $service->completeCreative('Prompt');
+        $result  = $service->completeCreative('Prompt');
 
         self::assertInstanceOf(CompletionResponse::class, $result);
     }
@@ -571,7 +575,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $opts): bool => $opts->getResponseFormat() === 'json'),
+                self::callback(fn (ChatOptions $opts): bool => $opts->getResponseFormat() === 'json'),
             )
             ->willReturn($this->createMockResponse('{"key": "value"}'));
 

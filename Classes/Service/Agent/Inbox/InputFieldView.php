@@ -14,17 +14,21 @@ namespace Netresearch\NrLlm\Service\Agent\Inbox;
  * (ADR-109). All Fluid form logic lives in the factory that builds these, so
  * the template stays logic-free.
  *
- * `$options` (enum) and `$description` are UX aids only — the server validator
- * ignores `enum`, so they are never presented as server-enforced constraints.
+ * `$options` are the members of the property's `enum`, which the input path
+ * enforces on submission (ADR-214 item 9); a field with options is a
+ * {@see self::CONTROL_SELECT}. `$description` is a UX aid only.
  */
 final readonly class InputFieldView
 {
+    /** A field whose schema enumerates its values, rendered as a select of them. */
+    public const CONTROL_SELECT = 'select';
+
     /**
-     * @param string       $controlType one of {@see \Netresearch\NrLlm\Service\Tool\SchemaPropertyClassifier}'s constants: 'text'|'number'|'integer'|'checkbox'|'unsupported'
+     * @param string       $controlType {@see self::CONTROL_SELECT} for an enumerated field, otherwise one of {@see \Netresearch\NrLlm\Service\Tool\SchemaPropertyClassifier}'s constants: 'text'|'number'|'integer'|'checkbox'|'unsupported'
      * @param string       $htmlType    the `<input type>` for a textual control ('text' or 'number') — precomputed so the template stays logic-free
      * @param string       $step        the numeric `step` ('' when not applicable)
      * @param string       $inputMode   the `inputmode` hint ('' when not applicable)
-     * @param list<string> $options     enum choices (UX only)
+     * @param list<string> $options     the enum's members, enforced on submission
      */
     public function __construct(
         public string $name,

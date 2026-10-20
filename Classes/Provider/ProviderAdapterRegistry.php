@@ -52,19 +52,19 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
      * @var array<string, class-string<AbstractProvider>>
      */
     private const ADAPTER_CLASS_MAP = [
-        AdapterType::OpenAI->value => OpenAiProvider::class,
-        AdapterType::Anthropic->value => ClaudeProvider::class,
-        AdapterType::Gemini->value => GeminiProvider::class,
-        AdapterType::OpenRouter->value => OpenRouterProvider::class,
-        AdapterType::Mistral->value => MistralProvider::class,
-        AdapterType::Groq->value => GroqProvider::class,
-        AdapterType::Together->value => OpenAiProvider::class, // Together AI is OpenAI-compatible
-        AdapterType::Fireworks->value => OpenAiProvider::class, // Fireworks AI is OpenAI-compatible
-        AdapterType::Perplexity->value => OpenAiProvider::class, // OpenAI-compatible chat; no /models listing endpoint
-        AdapterType::Ollama->value => OllamaProvider::class,
-        AdapterType::AzureOpenAI->value => OpenAiProvider::class, // Azure uses OpenAI-compatible API
-        AdapterType::Custom->value => OpenAiProvider::class, // Custom assumes OpenAI-compatible API
-        AdapterType::TypeSafe->value => TypeSafeProvider::class, // decisions only (ADR-211)
+        AdapterType::OpenAI->value          => OpenAiProvider::class,
+        AdapterType::Anthropic->value       => ClaudeProvider::class,
+        AdapterType::Gemini->value          => GeminiProvider::class,
+        AdapterType::OpenRouter->value      => OpenRouterProvider::class,
+        AdapterType::Mistral->value         => MistralProvider::class,
+        AdapterType::Groq->value            => GroqProvider::class,
+        AdapterType::Together->value        => OpenAiProvider::class, // Together AI is OpenAI-compatible
+        AdapterType::Fireworks->value       => OpenAiProvider::class, // Fireworks AI is OpenAI-compatible
+        AdapterType::Perplexity->value      => OpenAiProvider::class, // OpenAI-compatible chat; no /models listing endpoint
+        AdapterType::Ollama->value          => OllamaProvider::class,
+        AdapterType::AzureOpenAI->value     => OpenAiProvider::class, // Azure uses OpenAI-compatible API
+        AdapterType::Custom->value          => OpenAiProvider::class, // Custom assumes OpenAI-compatible API
+        AdapterType::TypeSafe->value        => TypeSafeProvider::class, // decisions only (ADR-211)
         AdapterType::DecisionSidecar->value => DecisionSidecarProvider::class, // local decisions (ADR-211)
     ];
 
@@ -174,6 +174,7 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
         $this->logger->warning('Unknown adapter type, falling back to OpenAI-compatible', [
             'adapterType' => $adapterType,
         ]);
+
         return OpenAiProvider::class;
     }
 
@@ -221,7 +222,7 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
         }
 
         $adapterClass = $this->getAdapterClass($provider->getAdapterType());
-        $adapter = $this->instantiateAdapter($adapterClass);
+        $adapter      = $this->instantiateAdapter($adapterClass);
 
         // Configure adapter with provider settings
         $config = $this->buildAdapterConfig($provider);
@@ -233,10 +234,10 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
         }
 
         $this->logger->debug('Created adapter from provider', [
-            'providerUid' => $providerUid,
+            'providerUid'        => $providerUid,
             'providerIdentifier' => $provider->getIdentifier(),
-            'adapterType' => $provider->getAdapterType(),
-            'adapterClass' => $adapterClass,
+            'adapterType'        => $provider->getAdapterType(),
+            'adapterClass'       => $adapterClass,
         ]);
 
         return $adapter;
@@ -322,9 +323,9 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
     {
         $config = [
             'apiKeyIdentifier' => $provider->getApiKey(),
-            'baseUrl' => $provider->getEffectiveEndpointUrl(),
-            'timeout' => $provider->getApiTimeout(),
-            'maxRetries' => $provider->getMaxRetries(),
+            'baseUrl'          => $provider->getEffectiveEndpointUrl(),
+            'timeout'          => $provider->getApiTimeout(),
+            'maxRetries'       => $provider->getMaxRetries(),
         ];
 
         // Add organization ID if set (for OpenAI, Azure)
@@ -366,11 +367,12 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
             return $adapter->testConnection();
         } catch (Throwable $e) {
             // Sanitize error message to prevent leaking secrets (API keys in URLs, etc.)
-            $sanitized = (string)preg_replace(
+            $sanitized = (string) preg_replace(
                 '/([?&])(key|api_key|apikey|token|secret|access_token)=[^&\s]+/i',
                 '$1$2=***',
                 $e->getMessage(),
             );
+
             return [
                 'success' => false,
                 'message' => sprintf('Connection failed: %s', $sanitized),

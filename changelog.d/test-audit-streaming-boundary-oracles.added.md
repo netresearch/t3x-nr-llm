@@ -1,0 +1,1 @@
+- Streaming regression oracles cover first-token timing, provider versus consumer retries, iterable guardrail ordering, failed-redactor continuation and numeric budget metadata.

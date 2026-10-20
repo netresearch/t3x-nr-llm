@@ -394,11 +394,11 @@ class Task extends AbstractEntity
     public static function getInputTypes(): array
     {
         return [
-            TaskInputType::MANUAL->value => 'Manual Input',
-            TaskInputType::SYSLOG->value => 'System Log (sys_log)',
+            TaskInputType::MANUAL->value          => 'Manual Input',
+            TaskInputType::SYSLOG->value          => 'System Log (sys_log)',
             TaskInputType::DEPRECATION_LOG->value => 'Deprecation Log',
-            TaskInputType::TABLE->value => 'Database Table',
-            TaskInputType::FILE->value => 'File',
+            TaskInputType::TABLE->value           => 'Database Table',
+            TaskInputType::FILE->value            => 'File',
         ];
     }
 
@@ -411,9 +411,9 @@ class Task extends AbstractEntity
     {
         return [
             TaskOutputFormat::MARKDOWN->value => 'Markdown',
-            TaskOutputFormat::JSON->value => 'JSON',
-            TaskOutputFormat::PLAIN->value => 'Plain Text',
-            TaskOutputFormat::HTML->value => 'HTML',
+            TaskOutputFormat::JSON->value     => 'JSON',
+            TaskOutputFormat::PLAIN->value    => 'Plain Text',
+            TaskOutputFormat::HTML->value     => 'HTML',
         ];
     }
 
@@ -426,10 +426,10 @@ class Task extends AbstractEntity
     {
         return [
             TaskCategory::LOG_ANALYSIS->value => 'Log Analysis',
-            TaskCategory::CONTENT->value => 'Content Operations',
-            TaskCategory::SYSTEM->value => 'System Health',
-            TaskCategory::DEVELOPER->value => 'Developer Assistance',
-            TaskCategory::GENERAL->value => 'General',
+            TaskCategory::CONTENT->value      => 'Content Operations',
+            TaskCategory::SYSTEM->value       => 'System Health',
+            TaskCategory::DEVELOPER->value    => 'Developer Assistance',
+            TaskCategory::GENERAL->value      => 'General',
         ];
     }
 }

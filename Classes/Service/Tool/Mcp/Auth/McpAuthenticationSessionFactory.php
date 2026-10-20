@@ -1,8 +1,11 @@
 <?php
 
-/* Copyright (c) 2025-2026 Netresearch DTT GmbH
- * SPDX-License-Identifier: GPL-2.0-or-later */
-declare (strict_types=1);
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Mcp\Auth;
 
@@ -19,7 +22,7 @@ use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
- * @internal Construction binds identity before a credential can reach MCP.
+ * @internal construction binds identity before a credential can reach MCP
  */
 final readonly class McpAuthenticationSessionFactory implements McpAuthenticationSessionFactoryInterface
 {
@@ -35,7 +38,7 @@ final readonly class McpAuthenticationSessionFactory implements McpAuthenticatio
         private McpClockInterface $clock,
     ) {
         $this->configuration = new McpDelegationConfiguration($configuration);
-        $this->exchange = new McpTokenExchange($vault, $httpClientFactory, $clock);
+        $this->exchange      = new McpTokenExchange($vault, $httpClientFactory, $clock);
     }
 
     public function openForExecution(
@@ -56,7 +59,7 @@ final readonly class McpAuthenticationSessionFactory implements McpAuthenticatio
             }
 
             $profile = $this->configuration->profile($server->delegationProfile);
-            $scopes = McpAuthValidation::scopeString($server->delegationScopes);
+            $scopes  = McpAuthValidation::scopeString($server->delegationScopes);
             McpAuthValidation::grant(
                 $server->delegationAudience,
                 $scopes,
@@ -71,6 +74,7 @@ final readonly class McpAuthenticationSessionFactory implements McpAuthenticatio
                 $subject->allowedAudiences,
                 $subject->allowedScopes,
             );
+
             return new McpDelegatedCredentialSession(
                 new McpDelegationBinding($server, $actor, $profile, $scopes, $deadline, $cancellation),
                 $this->resolver,
