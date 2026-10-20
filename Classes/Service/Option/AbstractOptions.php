@@ -68,7 +68,7 @@ abstract class AbstractOptions
      */
     public function withIdempotencyKey(string $idempotencyKey): static
     {
-        $clone = clone $this;
+        $clone                 = clone $this;
         $clone->idempotencyKey = $idempotencyKey;
 
         return $clone;
@@ -92,7 +92,7 @@ abstract class AbstractOptions
             return $this;
         }
 
-        $clone = clone $this;
+        $clone                = clone $this;
         $clone->correlationId = $correlationId;
 
         return $clone;
@@ -224,6 +224,6 @@ abstract class AbstractOptions
      */
     protected function filterNull(array $array): array
     {
-        return array_filter($array, static fn($v): bool => $v !== null);
+        return array_filter($array, static fn ($v): bool => $v !== null);
     }
 }

@@ -27,7 +27,7 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
  * Same shape as the prompt snippet module: a list with create and edit links
  * into FormEngine, which does the editing, validation and history.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class GlossaryController extends ActionController
@@ -74,11 +74,11 @@ final class GlossaryController extends ActionController
         $moduleTemplate->assignMultiple([
             'glossaries' => $glossaries,
             'totalCount' => $glossaries->count(),
-            'editUrls' => $editUrls,
-            'newUrl' => $newUrl,
+            'editUrls'   => $editUrls,
+            'newUrl'     => $newUrl,
         ]);
 
-        $buttonBar = $moduleTemplate->getDocHeaderComponent()->getButtonBar();
+        $buttonBar    = $moduleTemplate->getDocHeaderComponent()->getButtonBar();
         $createButton = $buttonBar->makeLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-plus', IconSize::SMALL))
             ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.translationGlossary.new', 'NrLlm') ?? 'New Glossary')

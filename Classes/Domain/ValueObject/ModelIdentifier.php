@@ -29,7 +29,7 @@ use Stringable;
  * name, found nothing, and silently priced from the static catalog instead
  * (#932).
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class ModelIdentifier implements Stringable
 {

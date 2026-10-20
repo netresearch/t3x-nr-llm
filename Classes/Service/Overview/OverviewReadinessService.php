@@ -82,7 +82,7 @@ final readonly class OverviewReadinessService
         $configHasDefault = $this->configurationRepository->findDefault() instanceof LlmConfiguration;
         // Models carry a default too (used for fallback model selection); show
         // the same "default set" badge. Providers use priority, not a default.
-        $modelHasDefault  = $this->modelRepository->findDefault() instanceof Model;
+        $modelHasDefault = $this->modelRepository->findDefault() instanceof Model;
 
         // Critical path: the first incomplete step is Next, later steps Locked.
         $providersState      = $providers > 0 ? OverviewCardState::Ready : OverviewCardState::Next;
@@ -92,8 +92,8 @@ final readonly class OverviewReadinessService
         $tryitState = $this->tryitState($providers > 0 && $models > 0 && $configurations > 0);
 
         // Optional modules — Ready when they hold active entries, else Empty.
-        $tasks    = $this->taskRepository->countActive();
-        $snippets = $this->promptSnippetRepository->countActive();
+        $tasks      = $this->taskRepository->countActive();
+        $snippets   = $this->promptSnippetRepository->countActive();
         $glossaries = $this->glossaryRepository->countActive();
 
         $skillsTotal   = $this->skillRepository->countAll();

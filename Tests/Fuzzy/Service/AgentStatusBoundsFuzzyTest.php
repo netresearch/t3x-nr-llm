@@ -1,8 +1,11 @@
 <?php
 
-/* Copyright (c) 2025-2026 Netresearch DTT GmbH
- * SPDX-License-Identifier: GPL-2.0-or-later */
-declare (strict_types=1);
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Fuzzy\Service;
 
@@ -33,13 +36,13 @@ final class AgentStatusBoundsFuzzyTest extends AbstractFuzzyTestCase
                 function (int $value, string $option): void {
                     $reader = $this->reader();
                     $tester = new CommandTester(new AgentStatusCommand($reader));
-                    $valid = $option === 'worker-max-age' ? $value > 0 : $value >= 0;
+                    $valid  = $option === 'worker-max-age' ? $value > 0 : $value >= 0;
                     self::assertSame(
                         $valid ? Command::SUCCESS : Command::INVALID,
                         $tester->execute(
                             [
-                                '--' . $option => (string)$value,
-                                '--json' => true,
+                                '--' . $option => (string) $value,
+                                '--json'       => true,
                             ],
                         ),
                     );
@@ -47,6 +50,7 @@ final class AgentStatusBoundsFuzzyTest extends AbstractFuzzyTestCase
                 },
             );
     }
+
     #[Test]
     public function transportNameLengthIsBoundedBeforeDatabaseAccess(): void
     {
@@ -56,13 +60,13 @@ final class AgentStatusBoundsFuzzyTest extends AbstractFuzzyTestCase
                 function (int $length): void {
                     $reader = $this->reader();
                     $tester = new CommandTester(new AgentStatusCommand($reader));
-                    $valid = $length >= 1 && $length <= 64;
+                    $valid  = $length >= 1 && $length <= 64;
                     self::assertSame(
                         $valid ? Command::SUCCESS : Command::INVALID,
                         $tester->execute(
                             [
                                 '--transport' => str_repeat('a', $length),
-                                '--json' => true,
+                                '--json'      => true,
                             ],
                         ),
                     );
@@ -70,6 +74,7 @@ final class AgentStatusBoundsFuzzyTest extends AbstractFuzzyTestCase
                 },
             );
     }
+
     /**
      * @return WorkerOperationsReaderInterface&object{reads:int}
      */
@@ -77,12 +82,14 @@ final class AgentStatusBoundsFuzzyTest extends AbstractFuzzyTestCase
     {
         return new class implements WorkerOperationsReaderInterface {
             public int $reads = 0;
+
             public function snapshot(
                 int $now,
                 int $workerMaxAge = 120,
                 string $transport = 'doctrine',
             ): WorkerOperationsSnapshot {
                 ++$this->reads;
+
                 return new WorkerOperationsSnapshot(0, 0, 0, 0, null, 0, 1000);
             }
         };

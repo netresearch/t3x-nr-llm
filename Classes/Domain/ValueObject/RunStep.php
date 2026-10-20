@@ -70,9 +70,19 @@ final readonly class RunStep
      * would make "no write" and "write not recorded" the same row.
      *
      * It carries an identity and nothing the record holds — see
-     * {@see \Netresearch\NrLlm\Domain\ValueObject\RecordReference}.
+     * {@see RecordReference}.
      */
     public const KIND_WRITE = 'tool_write';
+
+    /**
+     * The record the current point of a process is about (ADR-214 item 9):
+     * the target the highlight builtin named, which the chat maps to its
+     * element. Its own kind for the reason a write step is: the step's
+     * presence is what the chat reads, never the builtin's text.
+     *
+     * Identity only, like a write step's — table and uid, no field values.
+     */
+    public const KIND_HIGHLIGHT = 'highlight';
 
     /**
      * Every kind a step can carry, as the class's own statement of its
@@ -101,17 +111,18 @@ final readonly class RunStep
             self::KIND_CONTEXT,
             self::KIND_DROPPED,
             self::KIND_WRITE,
+            self::KIND_HIGHLIGHT,
         ];
     }
 
     /**
-     * @param list<array<string, mixed>>|null                                             $messagesSent       Snapshot of the messages sent this round (REQUEST/assembled).
-     * @param list<string>|null                                                           $toolSpecs          Names of the tools offered this round (REQUEST).
-     * @param list<array{id: string, name: string, arguments: array<string, mixed>}>|null $requestedToolCalls Tool calls the model asked for (LLM).
-     * @param array<string, mixed>|null                                                   $raw                Decoded raw provider response — only when capture was requested (LLM).
-     * @param array<string, mixed>|null                                                   $toolArguments      Arguments the model supplied for a tool call (TOOL).
-     * @param list<ToolArtifact>|null                                                     $toolArtifacts      Run-only structured artifacts a tool attached (TOOL); NEVER provider-facing.
-     * @param ContextBudgetBreakdown|null                                                 $contextBudget      Where the window went for this round (CONTEXT).
+     * @param list<array<string, mixed>>|null                                             $messagesSent       snapshot of the messages sent this round (REQUEST/assembled)
+     * @param list<string>|null                                                           $toolSpecs          names of the tools offered this round (REQUEST)
+     * @param list<array{id: string, name: string, arguments: array<string, mixed>}>|null $requestedToolCalls tool calls the model asked for (LLM)
+     * @param array<string, mixed>|null                                                   $raw                decoded raw provider response — only when capture was requested (LLM)
+     * @param array<string, mixed>|null                                                   $toolArguments      arguments the model supplied for a tool call (TOOL)
+     * @param list<ToolArtifact>|null                                                     $toolArtifacts      run-only structured artifacts a tool attached (TOOL); NEVER provider-facing
+     * @param ContextBudgetBreakdown|null                                                 $contextBudget      where the window went for this round (CONTEXT)
      */
     public function __construct(
         public string $kind,
@@ -164,7 +175,19 @@ final readonly class RunStep
          * where none did. Null on every other kind.
          */
         public ?bool $hookFailedAfterWrite = null,
+        /**
+         * @var RecordReference|null the record a highlight names; null on
+         *                           every other kind (ADR-214 item 9)
+         */
+        public ?RecordReference $highlightTarget = null,
     ) {
+        if ($highlightTarget instanceof RecordReference && $kind !== self::KIND_HIGHLIGHT) {
+            throw new InvalidArgumentException(
+                sprintf('A %s step names no highlight; only a highlight step does.', $kind),
+                1793500005,
+            );
+        }
+
         // Both are statements about a write and only a write step carries one.
         // Refused here, like the outcome pair below, because a completeness on
         // a tool step would be read by nobody and believed by somebody.
@@ -232,31 +255,34 @@ final readonly class RunStep
             // count alone would flatten the two reasons ADR-179 keeps apart.
             // uid and reason are metadata, not content — the privacy filter's
             // concern is the transcript, and nothing here carries prose.
-            'droppedSources'     => $this->droppedSources === null ? null : array_map(
-                static fn(DroppedSource $d): string => sprintf('%s#%d %s', $d->kind, $d->uid, $d->reason->value),
+            'droppedSources' => $this->droppedSources === null ? null : array_map(
+                static fn (DroppedSource $d): string => sprintf('%s#%d %s', $d->kind, $d->uid, $d->reason->value),
                 $this->droppedSources,
             ),
-            'toolName'           => $this->toolName,
-            'toolArguments'      => $this->toolArguments,
-            'toolResult'         => $this->toolResult,
-            'toolIsError'        => $this->toolIsError,
-            'toolOutcome'        => $this->toolOutcome?->value,
-            'toolArtifacts'      => $this->toolArtifacts === null
+            'toolName'      => $this->toolName,
+            'toolArguments' => $this->toolArguments,
+            'toolResult'    => $this->toolResult,
+            'toolIsError'   => $this->toolIsError,
+            'toolOutcome'   => $this->toolOutcome?->value,
+            'toolArtifacts' => $this->toolArtifacts === null
                 ? null
-                : array_map(static fn(ToolArtifact $a): array => $a->toArray(), $this->toolArtifacts),
-            'contextBudget'      => $this->contextBudget?->toArray(),
+                : array_map(static fn (ToolArtifact $a): array => $a->toArray(), $this->toolArtifacts),
+            'contextBudget' => $this->contextBudget?->toArray(),
             // Identity only: table and uid, never a field the record holds
             // (ADR-182, ADR-064). Two scalars rather than one nested pair, for
             // the reason droppedSources is flattened above: the timeline renders
             // scalars and simple lists, and the outcome join wants a value it can
             // read without parsing a composite string.
-            'writeTargetTable'   => $this->writeTarget?->table,
-            'writeTargetUid'     => $this->writeTarget?->uid,
+            'writeTargetTable' => $this->writeTarget?->table,
+            'writeTargetUid'   => $this->writeTarget?->uid,
             // Two facts beside the identity, never derived from the tool's
             // text (ADR-214): what the tool said of its plan, and whether a
             // hook failed after the write.
             'writeCompleteness'    => $this->writeCompleteness?->value,
             'hookFailedAfterWrite' => $this->hookFailedAfterWrite,
+            // Identity only, flattened like the write target above.
+            'highlightTable' => $this->highlightTarget?->table,
+            'highlightUid'   => $this->highlightTarget?->uid,
         ];
 
         foreach ($optional as $key => $value) {

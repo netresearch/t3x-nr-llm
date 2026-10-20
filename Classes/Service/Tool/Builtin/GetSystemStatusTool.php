@@ -55,7 +55,7 @@ final readonly class GetSystemStatusTool implements ToolInterface
         $lines[] = sprintf('TYPO3: %s', $typo3->getVersion());
         $lines[] = sprintf('PHP: %s', PHP_VERSION);
         $lines[] = sprintf('Database: %s', $this->databaseVersion());
-        $lines[] = sprintf('Application context: %s', (string)Environment::getContext());
+        $lines[] = sprintf('Application context: %s', (string) Environment::getContext());
         $lines[] = sprintf('Composer mode: %s', Environment::isComposerMode() ? 'yes' : 'no (classic)');
         $lines[] = sprintf('OS family: %s', PHP_OS_FAMILY);
         $lines[] = sprintf('Timezone: %s', date_default_timezone_get());

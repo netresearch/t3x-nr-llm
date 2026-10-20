@@ -49,10 +49,10 @@ class DocumentAnalysisServiceTest extends AbstractUnitTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $this->llmManager    = $this->createMock(LlmServiceManagerInterface::class);
         $this->visionService = $this->createMock(VisionServiceInterface::class);
-        $this->rasterizer = $this->createMock(PdfRasterizerInterface::class);
-        $this->subject = new DocumentAnalysisService(
+        $this->rasterizer    = $this->createMock(PdfRasterizerInterface::class);
+        $this->subject       = new DocumentAnalysisService(
             $this->llmManager,
             $this->visionService,
             $this->rasterizer,
@@ -104,13 +104,13 @@ class DocumentAnalysisServiceTest extends AbstractUnitTestCase
         $this->llmManager->expects(self::once())->method('getProvider')->with(null)->willReturn($this->createDocumentCapableProvider());
 
         $capturedMessages = null;
-        $capturedOptions = null;
+        $capturedOptions  = null;
         $this->llmManager
             ->expects(self::once())
             ->method('chat')
             ->willReturnCallback(function (array $messages, ChatOptions $options) use (&$capturedMessages, &$capturedOptions): CompletionResponse {
                 $capturedMessages = $messages;
-                $capturedOptions = $options;
+                $capturedOptions  = $options;
 
                 return $this->completionResponse('Whole-document summary');
             });
@@ -130,18 +130,18 @@ class DocumentAnalysisServiceTest extends AbstractUnitTestCase
         self::assertSame(
             [
                 [
-                    'role' => 'user',
+                    'role'    => 'user',
                     'content' => [
                         [
                             'type' => 'text',
                             'text' => self::PROMPT,
                         ],
                         [
-                            'type' => 'document',
+                            'type'   => 'document',
                             'source' => [
-                                'type' => 'base64',
+                                'type'       => 'base64',
                                 'media_type' => 'application/pdf',
-                                'data' => base64_encode(self::PDF),
+                                'data'       => base64_encode(self::PDF),
                             ],
                         ],
                     ],
@@ -290,13 +290,13 @@ class DocumentAnalysisServiceTest extends AbstractUnitTestCase
                 return [1 => 'PNG-ONE', 2 => 'PNG-TWO'];
             });
 
-        $capturedUris = [];
+        $capturedUris    = [];
         $capturedPrompts = [];
         $this->visionService
             ->expects(self::exactly(2))
             ->method('analyzeImageFull')
             ->willReturnCallback(function (string $imageUrl, string $prompt) use (&$capturedUris, &$capturedPrompts): VisionResponse {
-                $capturedUris[] = $imageUrl;
+                $capturedUris[]    = $imageUrl;
                 $capturedPrompts[] = $prompt;
 
                 return $this->visionResponse(sprintf('Answer for call %d', count($capturedUris)));

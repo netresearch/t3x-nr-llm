@@ -88,7 +88,7 @@ final class ConversationServiceAssemblyOrderTest extends TestCase
             ['system', 'user', 'assistant', 'user', 'assistant', 'user'],
             $this->roles(),
         );
-        self::assertCount(1, array_filter($this->roles(), static fn(string $role): bool => $role === 'system'));
+        self::assertCount(1, array_filter($this->roles(), static fn (string $role): bool => $role === 'system'));
     }
 
     /**
@@ -118,7 +118,7 @@ final class ConversationServiceAssemblyOrderTest extends TestCase
         self::assertSame(
             ['system', 'user', 'assistant', 'user'],
             array_map(
-                static fn(ChatMessage|array $message): string => $message instanceof ChatMessage
+                static fn (ChatMessage|array $message): string => $message instanceof ChatMessage
                     ? $message->role
                     : (is_string($message['role'] ?? null) ? $message['role'] : ''),
                 $shaped,

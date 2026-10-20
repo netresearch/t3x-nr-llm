@@ -50,9 +50,9 @@ final readonly class TranscriptionResult
             return null;
         }
 
-        $totalSeconds = (int)$this->duration;
-        $minutes = intdiv($totalSeconds, 60);
-        $seconds = $totalSeconds % 60;
+        $totalSeconds = (int) $this->duration;
+        $minutes      = intdiv($totalSeconds, 60);
+        $seconds      = $totalSeconds % 60;
 
         return sprintf('%d:%02d', $minutes, $seconds);
     }
@@ -88,7 +88,7 @@ final readonly class TranscriptionResult
             return null;
         }
 
-        $srt = '';
+        $srt   = '';
         $index = 1;
 
         foreach ($this->segments ?? [] as $segment) {
@@ -134,11 +134,11 @@ final readonly class TranscriptionResult
      */
     private function formatSrtTime(float $seconds): string
     {
-        $totalSeconds = (int)floor($seconds);
-        $hours = intdiv($totalSeconds, 3600);
-        $minutes = intdiv($totalSeconds % 3600, 60);
-        $secs = $totalSeconds % 60;
-        $ms = (int)round(($seconds - floor($seconds)) * 1000);
+        $totalSeconds = (int) floor($seconds);
+        $hours        = intdiv($totalSeconds, 3600);
+        $minutes      = intdiv($totalSeconds % 3600, 60);
+        $secs         = $totalSeconds % 60;
+        $ms           = (int) round(($seconds - floor($seconds)) * 1000);
 
         return sprintf('%02d:%02d:%02d,%03d', $hours, $minutes, $secs, $ms);
     }
@@ -148,11 +148,11 @@ final readonly class TranscriptionResult
      */
     private function formatVttTime(float $seconds): string
     {
-        $totalSeconds = (int)floor($seconds);
-        $hours = intdiv($totalSeconds, 3600);
-        $minutes = intdiv($totalSeconds % 3600, 60);
-        $secs = $totalSeconds % 60;
-        $ms = (int)round(($seconds - floor($seconds)) * 1000);
+        $totalSeconds = (int) floor($seconds);
+        $hours        = intdiv($totalSeconds, 3600);
+        $minutes      = intdiv($totalSeconds % 3600, 60);
+        $secs         = $totalSeconds % 60;
+        $ms           = (int) round(($seconds - floor($seconds)) * 1000);
 
         return sprintf('%02d:%02d:%02d.%03d', $hours, $minutes, $secs, $ms);
     }

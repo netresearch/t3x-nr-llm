@@ -139,7 +139,7 @@ final class FetchLogsToolTest extends AbstractFunctionalTestCase
     {
         return array_values(array_filter(
             explode("\n", $output),
-            static fn(string $line): bool => str_starts_with($line, '['),
+            static fn (string $line): bool => str_starts_with($line, '['),
         ));
     }
 }

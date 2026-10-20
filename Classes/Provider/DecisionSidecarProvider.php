@@ -94,7 +94,7 @@ final class DecisionSidecarProvider extends AbstractDecisionProvider
         return [
             'success' => true,
             'message' => sprintf('Connection successful. The sidecar serves %d model(s).', count($models)),
-            'models' => $models,
+            'models'  => $models,
         ];
     }
 
@@ -113,7 +113,7 @@ final class DecisionSidecarProvider extends AbstractDecisionProvider
         // The sidecar serves the one model it loaded; it reports which.
         return $this->sendRequest(
             'decide',
-            ['state' => (object)$subject->toState(), 'questions' => $questionsPayload],
+            ['state' => (object) $subject->toState(), 'questions' => $questionsPayload],
             'POST',
             $this->resolveRequestTimeout($options),
         );
@@ -167,7 +167,7 @@ final class DecisionSidecarProvider extends AbstractDecisionProvider
                     }
                 }
 
-                $payload['descriptions'] = (object)$descriptions;
+                $payload['descriptions'] = (object) $descriptions;
             }
 
             return $payload;

@@ -54,12 +54,12 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         }
 
         $this->startedRuns[] = [
-            'uuid'                     => $uuid,
-            'configurationUid'         => $configurationUid,
-            'configurationIdentifier'  => $configurationIdentifier,
-            'beUser'                   => $beUser,
-            'claimedBy'                => $claimedBy,
-            'leaseExpires'             => $leaseExpires,
+            'uuid'                    => $uuid,
+            'configurationUid'        => $configurationUid,
+            'configurationIdentifier' => $configurationIdentifier,
+            'beUser'                  => $beUser,
+            'claimedBy'               => $claimedBy,
+            'leaseExpires'            => $leaseExpires,
         ];
 
         return $this->nextUid++;
@@ -103,17 +103,17 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         }
 
         $this->finished = [
-            'runUid'           => $runUid,
-            'status'           => $status,
-            'iterations'       => $iterations,
-            'truncated'        => $truncated,
-            'promptTokens'     => $promptTokens,
-            'completionTokens' => $completionTokens,
-            'totalTokens'      => $totalTokens,
-            'estimatedCost'    => $estimatedCost,
-            'errorClass'         => $errorClass,
-            'terminationReason'  => $terminationReason,
-            'ownedBy'            => $ownedBy,
+            'runUid'            => $runUid,
+            'status'            => $status,
+            'iterations'        => $iterations,
+            'truncated'         => $truncated,
+            'promptTokens'      => $promptTokens,
+            'completionTokens'  => $completionTokens,
+            'totalTokens'       => $totalTokens,
+            'estimatedCost'     => $estimatedCost,
+            'errorClass'        => $errorClass,
+            'terminationReason' => $terminationReason,
+            'ownedBy'           => $ownedBy,
         ];
 
         return true;
@@ -135,20 +135,21 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
 
     public bool $throwOnSettleIfWaiting = false;
 
-    /** @var list<array{runUid: int, from: list<string>, to: string, reason: string}> */
+    /** @var list<array{runUid: int, from: list<string>, to: string, reason: string, errorClass: string}> */
     public array $settledIfWaiting = [];
 
-    public function settleIfWaiting(int $runUid, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason): bool
+    public function settleIfWaiting(int $runUid, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason, string $errorClass = ''): bool
     {
         if ($this->throwOnSettleIfWaiting) {
             throw new RuntimeException('settleIfWaiting failed', 1791600399);
         }
 
         $this->settledIfWaiting[] = [
-            'runUid' => $runUid,
-            'from'   => array_map(static fn(AgentRunStatus $status): string => $status->value, $from),
-            'to'     => $to->value,
-            'reason' => $reason->value,
+            'runUid'     => $runUid,
+            'from'       => array_map(static fn (AgentRunStatus $status): string => $status->value, $from),
+            'to'         => $to->value,
+            'reason'     => $reason->value,
+            'errorClass' => $errorClass,
         ];
 
         return !$this->refuseSettleIfWaiting;
@@ -315,8 +316,20 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         // Mirrors the SQL predicate: only events past the requested position.
         return array_values(array_filter(
             $this->eventsToReturn,
-            static fn(AgentRunEvent $event): bool => $event->sequence > $afterSequence,
+            static fn (AgentRunEvent $event): bool => $event->sequence > $afterSequence,
         ));
+    }
+
+    public function findLatestEvent(int $runUid, string $kind): ?AgentRunEvent
+    {
+        $latest = null;
+        foreach ($this->findEvents($runUid) as $event) {
+            if ($event->kind === $kind) {
+                $latest = $event;
+            }
+        }
+
+        return $latest;
     }
 
     public bool $throwOnMaxSequence = false;
@@ -435,7 +448,7 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
             return $this->awaiting;
         }
 
-        return array_values(array_filter($this->awaiting, static fn(AgentRun $run): bool => $run->beUser === $beUser));
+        return array_values(array_filter($this->awaiting, static fn (AgentRun $run): bool => $run->beUser === $beUser));
     }
 
     public function findRecentTerminal(int $limit = 20, ?int $beUser = null): array
@@ -444,7 +457,7 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
             return $this->recentTerminal;
         }
 
-        return array_values(array_filter($this->recentTerminal, static fn(AgentRun $run): bool => $run->beUser === $beUser));
+        return array_values(array_filter($this->recentTerminal, static fn (AgentRun $run): bool => $run->beUser === $beUser));
     }
 
     /** Simulates a run reclaimed by a heartbeat between SELECT and UPDATE. */

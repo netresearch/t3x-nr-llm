@@ -10,9 +10,8 @@ ADR-169: Record management belongs to TYPO3's permission model
 ============================================================================
 
 :Status: Accepted (section 6's recommendation is the one exception — it is
-    recorded as open, see `Disposition`_; section 4's exclude list is to grow by
-    the skill and skill-source fields :ref:`ADR-214 <adr-214>` names, not yet
-    implemented)
+    recorded as open, see `Disposition`_; section 4's exclude list grew by the
+    skill and skill-source fields :ref:`ADR-214 <adr-214>` names, implemented)
 :Date: 2026-08-13
 :Accepted: 2026-08-18
 :Amends: :ref:`ADR-130 <adr-130>` (named constraint 4 reserved ``tasks_manage``;

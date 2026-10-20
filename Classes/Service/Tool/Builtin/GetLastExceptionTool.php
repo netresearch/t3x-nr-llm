@@ -131,7 +131,7 @@ final readonly class GetLastExceptionTool implements ToolInterface, ToolDataClas
                 continue;
             }
 
-            $expanded++;
+            ++$expanded;
             foreach ($sourceLines as $sourceLine) {
                 $lines[] = $sourceLine;
             }

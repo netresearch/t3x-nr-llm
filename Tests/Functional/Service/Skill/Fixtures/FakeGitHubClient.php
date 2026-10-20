@@ -43,12 +43,14 @@ final readonly class FakeGitHubClient implements GitHubClientInterface
     public function resolveSha(string $owner, string $repo, string $ref, ?string $tokenUuid): string
     {
         $this->guard($owner, $repo);
+
         return $this->repo($owner, $repo)['sha'];
     }
 
     public function listTree(string $owner, string $repo, string $sha, ?string $tokenUuid): array
     {
         $this->guard($owner, $repo);
+
         return $this->repo($owner, $repo)['tree'];
     }
 
