@@ -25,7 +25,7 @@ use TYPO3\CMS\Dashboard\Widgets\ChartDataProviderInterface;
  * twice: `write_unapproved` and `context_blocked` were both added to the enum
  * without this text being touched (`#763`). The enum is the list.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class GovernanceBlocksOverTimeDataProvider implements ChartDataProviderInterface
 {
@@ -53,12 +53,12 @@ final readonly class GovernanceBlocksOverTimeDataProvider implements ChartDataPr
      * (neighbours are 1.00–1.43:1): each bar has its own axis label and a gap.
      */
     private const DECISION_COLORS = [
-        'tool_denied' => '#7692A0',
-        'response_blocked' => '#DF6A66',
+        'tool_denied'       => '#7692A0',
+        'response_blocked'  => '#DF6A66',
         'approval_required' => '#BD830F',
-        'content_filter' => '#C84179',
-        'write_unapproved' => '#8D5FBB',
-        'context_blocked' => '#178277',
+        'content_filter'    => '#C84179',
+        'write_unapproved'  => '#8D5FBB',
+        'context_blocked'   => '#178277',
         'invocation_denied' => '#597FAB',
     ];
 

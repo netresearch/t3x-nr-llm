@@ -69,9 +69,9 @@ class KeyedProviderRegistryTest extends AbstractUnitTestCase
     public function registeringTheSameIdentifierReplacesOnlyThatProvider(): void
     {
         $registry = $this->createRegistry();
-        $first = $this->providerStub('same', 'First');
-        $second = $this->providerStub('same', 'Second');
-        $other = $this->providerStub('other', 'Other');
+        $first    = $this->providerStub('same', 'First');
+        $second   = $this->providerStub('same', 'Second');
+        $other    = $this->providerStub('other', 'Other');
         $registry->registerProvider($first);
         $registry->registerProvider($other);
         self::assertSame(

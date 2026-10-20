@@ -9,10 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Fixtures\Mcp;
 
+use Closure;
 use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
+use stdClass;
 use TYPO3\CMS\Core\Http\Response;
 use TYPO3\CMS\Core\Http\Stream;
 
@@ -27,7 +29,7 @@ use TYPO3\CMS\Core\Http\Stream;
  */
 final class McpTestServer implements ClientInterface
 {
-    /** @var list<ResponseInterface> */
+    /** @var list<ResponseInterface|Closure(RequestInterface): ResponseInterface> */
     private array $queued = [];
 
     /**
@@ -62,7 +64,7 @@ final class McpTestServer implements ClientInterface
             usleep($this->delayMicroseconds);
         }
 
-        $raw     = (string)$request->getBody();
+        $raw     = (string) $request->getBody();
         $decoded = json_decode($raw, true);
         $body    = is_array($decoded) ? $decoded : [];
 
@@ -84,47 +86,55 @@ final class McpTestServer implements ClientInterface
             return (new Response())->withStatus(202);
         }
 
-        return array_shift($this->queued);
+        $response = array_shift($this->queued);
+
+        return $response instanceof Closure ? $response($request) : $response;
     }
 
     /**
-     * Queue a JSON-RPC result object.
+     * Queue a JSON-RPC result object that echoes the received request ID.
      *
      * @param array<string, mixed> $result
      */
     public function willReturn(array $result, ?string $sessionId = null): self
     {
-        return $this->willReturnRaw((string)json_encode(['jsonrpc' => '2.0', 'id' => 1, 'result' => $result]), 200, 'application/json', $sessionId);
-    }
-
-    /**
-     * Queue a JSON-RPC error object.
-     */
-    public function willReturnRpcError(int $code, string $message): self
-    {
-        return $this->willReturnRaw(
-            (string)json_encode(['jsonrpc' => '2.0', 'id' => 1, 'error' => ['code' => $code, 'message' => $message]]),
-            200,
-            'application/json',
+        return $this->willReturnRawForRequest(
+            static fn (array $request): string => json_encode(
+                [
+                    'jsonrpc' => '2.0',
+                    'id'      => $request['id'],
+                    'result'  => $result === [] ? new stdClass() : $result,
+                ],
+                JSON_THROW_ON_ERROR,
+            ),
+            sessionId: $sessionId,
         );
     }
 
-    public function willReturnRaw(string $body, int $status = 200, string $contentType = 'application/json', ?string $sessionId = null): self
+    /**
+     * Queue a JSON-RPC error object that echoes the received request ID.
+     */
+    public function willReturnRpcError(int $code, string $message): self
     {
-        $stream = new Stream('php://temp', 'rw');
-        $stream->write($body);
-        $stream->rewind();
+        return $this->willReturnRawForRequest(
+            static fn (array $request): string => json_encode(
+                [
+                    'jsonrpc' => '2.0',
+                    'id'      => $request['id'],
+                    'error'   => ['code' => $code, 'message' => $message],
+                ],
+                JSON_THROW_ON_ERROR,
+            ),
+        );
+    }
 
-        $response = (new Response())
-            ->withStatus($status)
-            ->withHeader('Content-Type', $contentType)
-            ->withBody($stream);
-
-        if ($sessionId !== null) {
-            $response = $response->withHeader('Mcp-Session-Id', $sessionId);
-        }
-
-        $this->queued[] = $response;
+    public function willReturnRaw(
+        string $body,
+        int $status = 200,
+        string $contentType = 'application/json',
+        ?string $sessionId = null,
+    ): self {
+        $this->queued[] = self::response($body, $status, $contentType, $sessionId);
 
         return $this;
     }
@@ -144,7 +154,7 @@ final class McpTestServer implements ClientInterface
      */
     public function methods(): array
     {
-        return array_map(static fn(array $call): ?string => $call['method'], $this->received);
+        return array_map(static fn (array $call): ?string => $call['method'], $this->received);
     }
 
     /**
@@ -175,5 +185,66 @@ final class McpTestServer implements ClientInterface
             tstamp: 0,
             crdate: 0,
         );
+    }
+
+    /**
+     * @param Closure(array<string, mixed>): string $body
+     */
+    public function willReturnRawForRequest(
+        Closure $body,
+        string $contentType = 'application/json',
+        ?string $sessionId = null,
+        int $status = 200,
+    ): self {
+        $this->queued[] = static function (
+            RequestInterface $request,
+        ) use ($body, $contentType, $sessionId, $status): ResponseInterface {
+            /** @var array<string, mixed> $decoded */
+            $decoded = json_decode(
+                (string) $request->getBody(),
+                true,
+                512,
+                JSON_THROW_ON_ERROR,
+            );
+
+            return self::response($body($decoded), $status, $contentType, $sessionId);
+        };
+
+        return $this;
+    }
+
+    public function willReturnResponse(ResponseInterface $response): self
+    {
+        $this->queued[] = $response;
+
+        return $this;
+    }
+
+    private static function response(
+        string $body,
+        int $status,
+        string $contentType,
+        ?string $sessionId,
+    ): ResponseInterface {
+        $stream = new Stream('php://temp', 'rw');
+        $stream->write($body);
+        $stream->rewind();
+
+        $response = (new Response())
+            ->withStatus($status)
+            ->withHeader('Content-Type', $contentType)
+            ->withBody($stream);
+
+        return $sessionId === null ? $response : $response->withHeader('Mcp-Session-Id', $sessionId);
+    }
+
+    /**
+     * @param Closure(RequestInterface): ResponseInterface $response
+     */
+    public function willRespond(Closure $response): self
+    {
+        $this->queued[] = $response;
+
+        return $this;
     }
 }

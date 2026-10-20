@@ -42,7 +42,7 @@ final class CacheMiddlewareTest extends AbstractUnitTestCase
 
         $result = $this->pipeline()->run(
             context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration()),
-            terminal: static fn(): string => 'ran',
+            terminal: static fn (): string => 'ran',
         );
 
         self::assertSame('ran', $result);
@@ -56,7 +56,7 @@ final class CacheMiddlewareTest extends AbstractUnitTestCase
 
         $result = $this->pipeline()->run(
             context: $this->context(key: '')->withConfiguration($this->configuration()),
-            terminal: static fn(): string => 'ran',
+            terminal: static fn (): string => 'ran',
         );
 
         self::assertSame('ran', $result);
@@ -75,7 +75,7 @@ final class CacheMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: $context->withConfiguration($this->configuration()),
-            terminal: static fn(): array => ['stored' => false],
+            terminal: static fn (): array => ['stored' => false],
         );
     }
 
@@ -111,7 +111,7 @@ final class CacheMiddlewareTest extends AbstractUnitTestCase
         $context = $this->context(key: 'embed:abc');
         $this->pipeline()->run(
             context: $context->withConfiguration($this->configuration()),
-            terminal: static fn(): array => ['vector' => [0.9]],
+            terminal: static fn (): array => ['vector' => [0.9]],
         );
 
         self::assertTrue($context->telemetrySignals->cacheHit, 'A cache hit must be flagged for TelemetryMiddleware.');
@@ -125,7 +125,7 @@ final class CacheMiddlewareTest extends AbstractUnitTestCase
         $context = $this->context(key: 'embed:new');
         $this->pipeline()->run(
             context: $context->withConfiguration($this->configuration()),
-            terminal: static fn(): array => ['x' => 1],
+            terminal: static fn (): array => ['x' => 1],
         );
 
         self::assertFalse($context->telemetrySignals->cacheHit);
@@ -146,7 +146,7 @@ final class CacheMiddlewareTest extends AbstractUnitTestCase
 
         $result = $this->pipeline()->run(
             context: $this->context(key: 'embed:new')->withConfiguration($this->configuration()),
-            terminal: static fn(): array => $produced,
+            terminal: static fn (): array => $produced,
         );
 
         self::assertSame($produced, $result);
@@ -162,7 +162,7 @@ final class CacheMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: $this->context(key: 'key', ttl: 86400)->withConfiguration($this->configuration()),
-            terminal: static fn(): array => ['x' => 1],
+            terminal: static fn (): array => ['x' => 1],
         );
     }
 
@@ -210,7 +210,7 @@ final class CacheMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: $context->withConfiguration($this->configuration()),
-            terminal: static fn(): array => ['x' => 1],
+            terminal: static fn (): array => ['x' => 1],
         );
     }
 
@@ -224,7 +224,7 @@ final class CacheMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: $this->context(key: 'key', tags: ['nr_llm_embed', 'user_42'])->withConfiguration($this->configuration()),
-            terminal: static fn(): array => ['x' => 1],
+            terminal: static fn (): array => ['x' => 1],
         );
     }
 
@@ -247,7 +247,7 @@ final class CacheMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: $context->withConfiguration($this->configuration()),
-            terminal: static fn(): array => ['x' => 1],
+            terminal: static fn (): array => ['x' => 1],
         );
     }
 
@@ -259,7 +259,7 @@ final class CacheMiddlewareTest extends AbstractUnitTestCase
 
         $result = $this->pipeline()->run(
             context: $this->context(key: 'key')->withConfiguration($this->configuration()),
-            terminal: static fn(): string => 'not-an-array',
+            terminal: static fn (): string => 'not-an-array',
         );
 
         self::assertSame('not-an-array', $result);

@@ -62,6 +62,9 @@ What is out of contract
   container, never via ``new``. Constructing option/value objects directly
   is fine — their constructors are part of the signature promise.
 - Anything reached by reflection or by reading private state.
+- Members of an ``@api`` class marked ``@internal`` in their docblock, such
+  as the process pin of ``RunAugmentation`` (ADR-228): the runtime sets
+  them, and the snapshot still lists them.
 
 The snapshot below records the constructor a caller reaches with ``new``,
 including the service ones that are out of contract here. That is

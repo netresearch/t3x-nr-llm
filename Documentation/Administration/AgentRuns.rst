@@ -160,6 +160,27 @@ description shown). Submitting validates and coerces the values against the
 current schema; invalid input re-renders the form in place, keeping what you
 typed and pointing at the error, rather than losing the run.
 
+.. _administration-agent-runs-diagnostics:
+
+Optional run diagnostics
+========================
+
+The run persister keeps its documented fallback when a repository operation
+fails, even if the optional diagnostic logger throws. Refused writes and
+failed claims retain ``false``; a failed ``begin()`` or ``findRun()``
+retains ``null``.
+Logging cannot make these operations succeed. Explicit validation exceptions
+still propagate.
+A configured logger is attempted once with the existing severity, message and
+context, without a fallback logging attempt. See :ref:`adr-225`.
+
+The executor also retains its original outcome and exception when optional
+logging fails after cancellation, lease loss, a guardrail verdict, a run failure
+or a refused approval/input suspension. A failed run keeps its ``FAILED``
+outcome and the exception that ended it. Ownership guards continue to protect a
+row reclaimed by another worker. Successful stored suspensions retain their
+resumable state.
+
 .. _administration-agent-runs-async:
 
 Running queued runs asynchronously

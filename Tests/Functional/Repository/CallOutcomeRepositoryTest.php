@@ -110,8 +110,8 @@ final class CallOutcomeRepositoryTest extends AbstractFunctionalTestCase
             self::assertContains($case->source(), CallOutcomeSource::cases());
         }
 
-        $explicit = array_filter(CallOutcome::cases(), static fn(CallOutcome $c): bool => $c->source() === CallOutcomeSource::EXPLICIT);
-        $observed = array_filter(CallOutcome::cases(), static fn(CallOutcome $c): bool => $c->source() === CallOutcomeSource::OBSERVED);
+        $explicit = array_filter(CallOutcome::cases(), static fn (CallOutcome $c): bool => $c->source() === CallOutcomeSource::EXPLICIT);
+        $observed = array_filter(CallOutcome::cases(), static fn (CallOutcome $c): bool => $c->source() === CallOutcomeSource::OBSERVED);
 
         self::assertNotSame([], $explicit);
         self::assertNotSame([], $observed);

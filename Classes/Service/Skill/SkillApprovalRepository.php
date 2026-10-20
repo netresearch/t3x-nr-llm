@@ -23,7 +23,7 @@ use TYPO3\CMS\Core\Database\Query\QueryBuilder;
  * flags them, so the history of who approved which version, and who revoked it,
  * stays readable next to the append-only audit trail.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class SkillApprovalRepository implements SkillApprovalRepositoryInterface
 {
@@ -47,7 +47,7 @@ final readonly class SkillApprovalRepository implements SkillApprovalRepositoryI
         }
 
         $queryBuilder = $this->queryBuilder();
-        $row = $queryBuilder
+        $row          = $queryBuilder
             ->select('*')
             ->from(self::TABLE)
             ->where(
@@ -71,11 +71,34 @@ final readonly class SkillApprovalRepository implements SkillApprovalRepositoryI
         }
 
         $queryBuilder = $this->queryBuilder();
-        $row = $queryBuilder
+        $row          = $queryBuilder
             ->select('*')
             ->from(self::TABLE)
             ->where(
                 $queryBuilder->expr()->eq('skill_uid', $queryBuilder->createNamedParameter($skillUid, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('revoked', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+            )
+            ->orderBy('uid', 'DESC')
+            ->setMaxResults(1)
+            ->executeQuery()
+            ->fetchAssociative();
+
+        return is_array($row) ? $this->hydrate($row) : null;
+    }
+
+    public function findLatestUnrevokedFromSource(int $skillUid, int $sourceUid): ?SkillApproval
+    {
+        if ($skillUid <= 0) {
+            return null;
+        }
+
+        $queryBuilder = $this->queryBuilder();
+        $row          = $queryBuilder
+            ->select('*')
+            ->from(self::TABLE)
+            ->where(
+                $queryBuilder->expr()->eq('skill_uid', $queryBuilder->createNamedParameter($skillUid, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('source_uid', $queryBuilder->createNamedParameter($sourceUid, Connection::PARAM_INT)),
                 $queryBuilder->expr()->eq('revoked', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
             )
             ->orderBy('uid', 'DESC')
@@ -93,7 +116,7 @@ final readonly class SkillApprovalRepository implements SkillApprovalRepositoryI
         }
 
         $queryBuilder = $this->queryBuilder();
-        $rows = $queryBuilder
+        $rows         = $queryBuilder
             ->select('*')
             ->from(self::TABLE)
             ->where($queryBuilder->expr()->eq('skill_uid', $queryBuilder->createNamedParameter($skillUid, Connection::PARAM_INT)))
@@ -119,7 +142,7 @@ final readonly class SkillApprovalRepository implements SkillApprovalRepositoryI
             'description'    => $fields['description'],
             'body'           => $fields['body'],
             'support_status' => $fields['support_status'],
-            'allowed_tools'  => $tools === null ? '' : (string)json_encode($tools, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'allowed_tools'  => $tools === null ? '' : (string) json_encode($tools, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'process'        => $fields['process'] ? 1 : 0,
             'trust_level'    => $trustLevel,
             'approved_by'    => $approvedBy,
@@ -194,7 +217,7 @@ final readonly class SkillApprovalRepository implements SkillApprovalRepositoryI
             return null;
         }
 
-        $decoded = json_decode($stored, true);
+        $decoded = json_decode($stored);
 
         // A stored value that is not a list is corrupt. Reading it as "no
         // declaration" would widen the run to every tool, so it reads as the

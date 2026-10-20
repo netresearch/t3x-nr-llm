@@ -19,7 +19,7 @@ use TYPO3\CMS\Core\Page\JavaScriptModuleInstruction;
  * Injects the ConfigurationConstraints JS module and provides
  * the AJAX URL for fetching model-specific parameter constraints.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class ModelConstraintsWizard extends AbstractNode
 {
@@ -32,7 +32,7 @@ final class ModelConstraintsWizard extends AbstractNode
     {
         $result = $this->initializeResultArray();
 
-        $constraintsUrl = (string)$this->uriBuilder->buildUriFromRoute('ajax_nrllm_config_model_constraints');
+        $constraintsUrl = (string) $this->uriBuilder->buildUriFromRoute('ajax_nrllm_config_model_constraints');
 
         $result['html'] = sprintf(
             '<div class="js-model-constraints-config" data-constraints-url="%s" style="display:none;"></div>',
@@ -40,7 +40,7 @@ final class ModelConstraintsWizard extends AbstractNode
         );
 
         /** @var list<JavaScriptModuleInstruction> $jsModules */
-        $jsModules = $result['javaScriptModules'] ?? [];
+        $jsModules   = $result['javaScriptModules'] ?? [];
         $jsModules[] = JavaScriptModuleInstruction::create(
             '@netresearch/nr-llm/Backend/ConfigurationConstraints.js',
         );

@@ -1,8 +1,11 @@
 <?php
 
-/* Copyright (c) 2025-2026 Netresearch DTT GmbH
- * SPDX-License-Identifier: GPL-2.0-or-later */
-declare (strict_types=1);
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent;
 
@@ -36,9 +39,9 @@ final class WorkerOperationsWiringTest extends AbstractFunctionalTestCase
     public function realWorkerIdleLifecycleReachesContainerListenersAndStops(): void
     {
         $dispatcher = $this->get(EventDispatcherInterface::class);
-        $pool = $this->get(ConnectionPool::class);
+        $pool       = $this->get(ConnectionPool::class);
         $repository = new WorkerOperationsRepository($pool);
-        $bus = $this->createMock(MessageBusInterface::class);
+        $bus        = $this->createMock(MessageBusInterface::class);
         $bus->expects(self::never())->method('dispatch');
         $receiver = $this->createMock(ReceiverInterface::class);
         $receiver
@@ -50,6 +53,7 @@ final class WorkerOperationsWiringTest extends AbstractFunctionalTestCase
                         1,
                         $repository->snapshot(time())->liveWorkers,
                     );
+
                     return [];
                 },
             );
@@ -85,7 +89,7 @@ final class WorkerOperationsWiringTest extends AbstractFunctionalTestCase
     public function workerRestrictedToAnotherQueueCannotClaimDefaultQueueHealth(): void
     {
         $dispatcher = $this->get(EventDispatcherInterface::class);
-        $worker = new Worker(
+        $worker     = new Worker(
             ['doctrine' => self::createStub(ReceiverInterface::class)],
             self::createStub(MessageBusInterface::class),
             $dispatcher,
@@ -99,9 +103,9 @@ final class WorkerOperationsWiringTest extends AbstractFunctionalTestCase
     #[Test]
     public function idleEventsRefreshAtThirtySecondsAndPruneExpiredProcessEntries(): void
     {
-        $pool = $this->get(ConnectionPool::class);
+        $pool       = $this->get(ConnectionPool::class);
         $repository = new WorkerOperationsRepository($pool);
-        $clock = $this->createMock(ClockInterface::class);
+        $clock      = $this->createMock(ClockInterface::class);
         $clock
             ->expects(self::exactly(3))
             ->method('now')
@@ -121,26 +125,26 @@ final class WorkerOperationsWiringTest extends AbstractFunctionalTestCase
         self::assertSame(1, $repository->snapshot(100000)->liveWorkers);
         self::assertSame(
             1,
-            (int)$connection->count('*', 'tx_nrllm_worker_heartbeat', []),
+            (int) $connection->count('*', 'tx_nrllm_worker_heartbeat', []),
         );
         $listener->onRunning(new WorkerRunningEvent($worker, true));
         self::assertSame(
             100000,
-            (int)$connection
+            (int) $connection
                 ->select(['last_seen'], 'tx_nrllm_worker_heartbeat', [])
                 ->fetchOne(),
         );
         $listener->onRunning(new WorkerRunningEvent($worker, true));
         self::assertSame(
             100030,
-            (int)$connection
+            (int) $connection
                 ->select(['last_seen'], 'tx_nrllm_worker_heartbeat', [])
                 ->fetchOne(),
         );
         $listener->onStopped(new WorkerStoppedEvent($worker));
         self::assertSame(
             0,
-            (int)$connection->count('*', 'tx_nrllm_worker_heartbeat', []),
+            (int) $connection->count('*', 'tx_nrllm_worker_heartbeat', []),
         );
     }
 
@@ -164,7 +168,7 @@ final class WorkerOperationsWiringTest extends AbstractFunctionalTestCase
                 },
             );
         $realPool = $this->get(ConnectionPool::class);
-        $pool = $this->createMock(ConnectionPool::class);
+        $pool     = $this->createMock(ConnectionPool::class);
         $attempts = 0;
         $pool
             ->method('getConnectionForTable')
@@ -208,10 +212,10 @@ final class WorkerOperationsWiringTest extends AbstractFunctionalTestCase
                 return $event;
             }
         };
-        $message = new stdClass();
+        $message   = new stdClass();
         $processed = false;
-        $acked = false;
-        $bus = self::createStub(MessageBusInterface::class);
+        $acked     = false;
+        $bus       = self::createStub(MessageBusInterface::class);
         $bus
             ->method('dispatch')
             ->willReturnCallback(
@@ -221,6 +225,7 @@ final class WorkerOperationsWiringTest extends AbstractFunctionalTestCase
                     self::assertInstanceOf(Envelope::class, $envelope);
                     self::assertSame($message, $envelope->getMessage());
                     $processed = true;
+
                     return $envelope;
                 },
             );
@@ -234,7 +239,7 @@ final class WorkerOperationsWiringTest extends AbstractFunctionalTestCase
                 },
             );
         $worker = new Worker(['doctrine' => $receiver], $bus, $dispatcher);
-        $error = null;
+        $error  = null;
         try {
             $worker->run(['sleep' => 0]);
         } catch (RuntimeException $e) {
@@ -274,7 +279,7 @@ final class WorkerOperationsWiringTest extends AbstractFunctionalTestCase
         int $failAt,
     ): void {
         $realPool = $this->get(ConnectionPool::class);
-        $pool = $this->createMock(ConnectionPool::class);
+        $pool     = $this->createMock(ConnectionPool::class);
         $attempts = 0;
         $pool
             ->method('getConnectionForTable')
@@ -292,7 +297,7 @@ final class WorkerOperationsWiringTest extends AbstractFunctionalTestCase
                     return $realPool->getConnectionForTable($table);
                 },
             );
-        $now = 0;
+        $now   = 0;
         $clock = self::createStub(ClockInterface::class);
         $clock
             ->method('now')
@@ -308,7 +313,7 @@ final class WorkerOperationsWiringTest extends AbstractFunctionalTestCase
         $worker = new Worker(
             [
                 'doctrine' => self::createStub(ReceiverInterface::class),
-                'other' => self::createStub(ReceiverInterface::class),
+                'other'    => self::createStub(ReceiverInterface::class),
             ],
             self::createStub(MessageBusInterface::class),
         );
@@ -322,7 +327,7 @@ final class WorkerOperationsWiringTest extends AbstractFunctionalTestCase
         }
 
         $attemptsAfterFailure = $attempts;
-        $now = 10;
+        $now                  = 10;
         $listener->onRunning(new WorkerRunningEvent($worker, true));
         self::assertSame(
             $attemptsAfterFailure,
@@ -333,7 +338,7 @@ final class WorkerOperationsWiringTest extends AbstractFunctionalTestCase
         $listener->onRunning(new WorkerRunningEvent($worker, true));
         self::assertSame($attemptsAfterFailure + 3, $attempts);
         $connection = $realPool->getConnectionForTable('tx_nrllm_worker_heartbeat');
-        $rows = $connection
+        $rows       = $connection
             ->select(
                 ['worker_id', 'transport', 'last_seen'],
                 'tx_nrllm_worker_heartbeat',
@@ -349,14 +354,14 @@ final class WorkerOperationsWiringTest extends AbstractFunctionalTestCase
         self::assertSame(
             [30, 30],
             array_map(
-                static fn(array $row): int => (int)$row['last_seen'],
+                static fn (array $row): int => (int) $row['last_seen'],
                 $rows,
             ),
         );
         $listener->onStopped(new WorkerStoppedEvent($worker));
         self::assertSame(
             0,
-            (int)$connection->count('*', 'tx_nrllm_worker_heartbeat', []),
+            (int) $connection->count('*', 'tx_nrllm_worker_heartbeat', []),
         );
     }
 
@@ -386,7 +391,7 @@ final class WorkerOperationsWiringTest extends AbstractFunctionalTestCase
         $clock = self::createStub(ClockInterface::class);
         $clock->method('now')->willReturn(new DateTimeImmutable(self::HEARTBEAT_TIME));
         $records = [];
-        $logger = $this->createMock(LoggerInterface::class);
+        $logger  = $this->createMock(LoggerInterface::class);
         $logger
             ->method('warning')
             ->willReturnCallback(
@@ -427,14 +432,14 @@ final class WorkerOperationsWiringTest extends AbstractFunctionalTestCase
                 [
                     'Worker heartbeat telemetry could not be persisted',
                     [
-                        'operation' => 'heartbeat',
+                        'operation'       => 'heartbeat',
                         'exception_class' => RuntimeException::class,
                     ],
                 ],
                 [
                     'Worker heartbeat telemetry could not be persisted',
                     [
-                        'operation' => 'remove',
+                        'operation'       => 'remove',
                         'exception_class' => RuntimeException::class,
                     ],
                 ],

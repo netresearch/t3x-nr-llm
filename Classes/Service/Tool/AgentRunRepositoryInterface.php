@@ -81,14 +81,16 @@ interface AgentRunRepositoryInterface
      * run that a resume already claimed, or that settled, does not move.
      *
      * Totals are left as the run recorded them; nothing ran in between.
+     * $errorClass names what stopped a run settled as FAILED, like the
+     * exception class {@see self::finishRun()} records; '' for a cancel.
      *
      * @param list<AgentRunStatus> $from the waiting states to move from; empty moves nothing
      *
-     * @throws InvalidArgumentException when $from names a state that is not a wait, or $to is neither CANCELLED nor FAILED
-     *
      * @return bool true when this call moved the run, false when it was no longer in $from (or gone)
+     *
+     * @throws InvalidArgumentException when $from names a state that is not a wait, or $to is neither CANCELLED nor FAILED
      */
-    public function settleIfWaiting(int $runUid, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason): bool;
+    public function settleIfWaiting(int $runUid, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason, string $errorClass = ''): bool;
 
     /**
      * Suspend a run for typed user input (ADR-105): the input sibling of
@@ -122,7 +124,7 @@ interface AgentRunRepositoryInterface
      * another process can claim, rehydrate and execute it (ADR-102).
      * started_at stays 0 until the claim.
      *
-     * @return int The new run's uid.
+     * @return int the new run's uid
      */
     public function enqueueRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $requestJson): int;
 
@@ -237,9 +239,16 @@ interface AgentRunRepositoryInterface
      *                           in SQL so a poller does not re-hydrate the whole
      *                           history on every page (ADR-101).
      *
-     * @return list<AgentRunEvent> Events for a run, ordered by sequence ascending.
+     * @return list<AgentRunEvent> events for a run, ordered by sequence ascending
      */
     public function findEvents(int $runUid, int $afterSequence = -1): array;
+
+    /**
+     * The run's latest event of one kind, or null when it has none: one
+     * query returning one row, for a check that runs at every step
+     * (ADR-228). Of two events with the same sequence the later insert wins.
+     */
+    public function findLatestEvent(int $runUid, string $kind): ?AgentRunEvent;
 
     /**
      * The `decidedBy` uids of the GRANTED approvals of several runs, keyed by run
@@ -275,7 +284,7 @@ interface AgentRunRepositoryInterface
      * needed to resume it; purging it by age alone would destroy work in flight.
      * Those are reaped separately by {@see purgeUnfinishedOlderThan()}.
      *
-     * @return int Number of run rows deleted.
+     * @return int number of run rows deleted
      */
     public function purgeOlderThan(int $timestamp): int;
 
@@ -285,7 +294,7 @@ interface AgentRunRepositoryInterface
      * ever decided. Governed by its own, deliberately longer retention window
      * ({@see \Netresearch\NrLlm\Domain\Enum\PrivacyDataCategory::APPROVAL}).
      *
-     * @return int Number of run rows deleted.
+     * @return int number of run rows deleted
      */
     public function purgeUnfinishedOlderThan(int $timestamp): int;
 }

@@ -166,7 +166,7 @@ final readonly class VisionService implements VisionServiceInterface
         string $prompt,
         ?VisionOptions $options = null,
     ): VisionResponse {
-        $options = $this->autoPopulateBeUserUid($options ?? new VisionOptions());
+        $options      = $this->autoPopulateBeUserUid($options ?? new VisionOptions());
         $optionsArray = $options->toArray();
         $this->validateImageUrl($imageUrl);
 
@@ -176,9 +176,9 @@ final readonly class VisionService implements VisionServiceInterface
                 'text' => $prompt,
             ],
             [
-                'type' => 'image_url',
+                'type'      => 'image_url',
                 'image_url' => [
-                    'url' => $imageUrl,
+                    'url'    => $imageUrl,
                     'detail' => $optionsArray['detail_level'] ?? 'auto',
                 ],
             ],
@@ -222,6 +222,7 @@ final readonly class VisionService implements VisionServiceInterface
         VisionOptions $options,
     ): string {
         $response = $this->analyzeImageFull($imageUrl, $prompt, $options);
+
         return $response->description;
     }
 

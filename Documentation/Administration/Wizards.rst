@@ -180,8 +180,8 @@ Recommended workflow
 For a fresh installation:
 
 1. Run the **Setup wizard** from the dashboard
-   to create your first provider, fetch models,
-   and test a configuration.
+   to create your first provider, select models
+   and save the generated configurations.
 2. Use the **Configuration wizard** to create
    additional use-case configurations (one per
    use case in your extensions).

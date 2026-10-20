@@ -168,7 +168,7 @@ final class RunTrace
         $requestedToolCalls = null;
         if ($response->toolCalls !== null) {
             $requestedToolCalls = array_map(
-                static fn(ToolCall $call): array => [
+                static fn (ToolCall $call): array => [
                     'id'        => $call->id,
                     'name'      => $call->name,
                     'arguments' => $call->arguments,
@@ -268,6 +268,18 @@ final class RunTrace
     public function recordToolResult(int $round, float $durationMs, string $name, array $arguments, ToolResult $result): void
     {
         $this->addToolStep($round, $durationMs, $name, $arguments, $result->content, $result->outcome, $result->artifacts);
+
+        // The record a process point is about (ADR-214 item 9), recorded as a
+        // step of its own after the tool step that named it.
+        if ($result->highlightTarget instanceof RecordReference) {
+            $this->add(new RunStep(
+                kind: RunStep::KIND_HIGHLIGHT,
+                round: $round,
+                durationMs: 0.0,
+                toolName: $name,
+                highlightTarget: $result->highlightTarget,
+            ));
+        }
 
         if (!$result->writeTarget instanceof RecordReference) {
             return;

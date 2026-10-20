@@ -64,7 +64,7 @@ final class TaskWizardControllerTest extends AbstractFunctionalTestCase
         $response = $controller->wizardFormAction();
 
         self::assertSame(200, $response->getStatusCode());
-        $body = (string)$response->getBody();
+        $body = (string) $response->getBody();
         self::assertStringContainsString('id="wizard-form"', $body);
         self::assertStringContainsString('id="wizard-description"', $body);
         self::assertStringContainsString('id="wizard-config"', $body);
@@ -93,7 +93,7 @@ final class TaskWizardControllerTest extends AbstractFunctionalTestCase
         $response = $controller->wizardGenerateAction('Summarize the weekly error logs');
 
         self::assertSame(200, $response->getStatusCode());
-        $body = (string)$response->getBody();
+        $body = (string) $response->getBody();
         self::assertStringContainsString('Summarize the weekly error logs', $body);
     }
 
@@ -151,7 +151,7 @@ final class TaskWizardControllerTest extends AbstractFunctionalTestCase
         // Unknown enum values fall back to their defaults.
         self::assertSame('general', $task['category']);
         self::assertSame('markdown', $task['output_format']);
-        self::assertSame(1, (int)$task['is_active']);
+        self::assertSame(1, (int) $task['is_active']);
 
         $config = $connection->select(
             ['*'],
@@ -161,12 +161,12 @@ final class TaskWizardControllerTest extends AbstractFunctionalTestCase
         self::assertIsArray($config);
         // Out-of-range numerics are clamped, not rejected.
         self::assertIsNumeric($config['temperature']);
-        self::assertSame(2.0, (float)$config['temperature']);
-        self::assertSame(128000, (int)$config['max_tokens']);
+        self::assertSame(2.0, (float) $config['temperature']);
+        self::assertSame(128000, (int) $config['max_tokens']);
         self::assertIsNumeric($config['top_p']);
-        self::assertSame(1.0, (float)$config['top_p']);
+        self::assertSame(1.0, (float) $config['top_p']);
         // The created task points at the created configuration.
-        self::assertSame((int)$config['uid'], (int)$task['configuration_uid']);
+        self::assertSame((int) $config['uid'], (int) $task['configuration_uid']);
     }
 
     #[Test]
@@ -186,7 +186,7 @@ final class TaskWizardControllerTest extends AbstractFunctionalTestCase
         $this->importFixture('Models.csv');
         $this->importFixture('LlmConfigurations.csv');
         $this->importFixture('BeUsers.csv');
-        $backendUser = $this->setUpBackendUser(1); // uid 1 is an admin (admin=1)
+        $backendUser     = $this->setUpBackendUser(1); // uid 1 is an admin (admin=1)
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
     }
 
@@ -249,7 +249,7 @@ final class TaskWizardControllerTest extends AbstractFunctionalTestCase
             $serverRequest = $serverRequest->withParsedBody($parsedBody);
         }
 
-        $serverRequest = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
+        $serverRequest            = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
         $GLOBALS['TYPO3_REQUEST'] = $serverRequest;
 
         return new ExtbaseRequest($serverRequest);

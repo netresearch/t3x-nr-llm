@@ -146,7 +146,7 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
         self::assertCount(2, $all);
         self::assertSame(
             [801, 802],
-            array_map(static fn(Model $model): ?int => $model->getUid(), array_values(iterator_to_array($all))),
+            array_map(static fn (Model $model): ?int => $model->getUid(), array_values(iterator_to_array($all))),
         );
     }
 
@@ -337,7 +337,7 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
     public function setAsDefaultChangesDefault(): void
     {
         // Find a non-default model
-        $models = $this->repository->findActive()->toArray();
+        $models     = $this->repository->findActive()->toArray();
         $nonDefault = null;
         foreach ($models as $model) {
             if (!$model->isDefault()) {
@@ -379,7 +379,7 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
     {
         // Verify data is in the database via direct SQL
         $connection = $this->getConnectionPool()->getConnectionForTable('tx_nrllm_model');
-        $row = $connection->select(['capabilities'], 'tx_nrllm_model', ['uid' => 1])->fetchAssociative();
+        $row        = $connection->select(['capabilities'], 'tx_nrllm_model', ['uid' => 1])->fetchAssociative();
         self::assertIsArray($row);
         $capabilities = $row['capabilities'];
         self::assertIsString($capabilities);
@@ -392,7 +392,7 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
         self::assertGreaterThan(0, $models->count());
 
         // Verify we got the expected models by UID
-        $uids = array_map(fn(Model $m): ?int => $m->getUid(), $models->toArray());
+        $uids = array_map(fn (Model $m): ?int => $m->getUid(), $models->toArray());
         self::assertContains(1, $uids, 'Should find gpt-5 (uid=1) with chat capability');
         self::assertContains(3, $uids, 'Should find llama3 (uid=3) with chat capability');
 
@@ -411,7 +411,7 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
         self::assertGreaterThan(0, $models->count());
 
         // Verify correct models returned by UID
-        $uids = array_map(fn(Model $m): ?int => $m->getUid(), $models->toArray());
+        $uids = array_map(fn (Model $m): ?int => $m->getUid(), $models->toArray());
         self::assertContains(1, $uids);
         self::assertContains(3, $uids);
     }
@@ -434,7 +434,7 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
         self::assertGreaterThan(0, $models->count());
 
         // Verify correct model returned by UID
-        $uids = array_map(fn(Model $m): ?int => $m->getUid(), $models->toArray());
+        $uids = array_map(fn (Model $m): ?int => $m->getUid(), $models->toArray());
         self::assertContains(1, $uids, 'Should find gpt-5 with vision capability');
     }
 

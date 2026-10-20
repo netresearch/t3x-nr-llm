@@ -48,7 +48,7 @@ final readonly class ModelSelectionCriteria implements JsonSerializable
             capabilities: $data['capabilities'] ?? [],
             adapterTypes: $data['adapterTypes'] ?? [],
             minContextLength: $data['minContextLength'] ?? 0,
-            maxCostInput: (float)($data['maxCostInput'] ?? 0.0),
+            maxCostInput: (float) ($data['maxCostInput'] ?? 0.0),
             preferLowestCost: $data['preferLowestCost'] ?? false,
         );
     }
@@ -79,10 +79,10 @@ final readonly class ModelSelectionCriteria implements JsonSerializable
     public function toArray(): array
     {
         return [
-            'capabilities' => $this->capabilities,
-            'adapterTypes' => $this->adapterTypes,
+            'capabilities'     => $this->capabilities,
+            'adapterTypes'     => $this->adapterTypes,
             'minContextLength' => $this->minContextLength,
-            'maxCostInput' => $this->maxCostInput,
+            'maxCostInput'     => $this->maxCostInput,
             'preferLowestCost' => $this->preferLowestCost,
         ];
     }
@@ -120,6 +120,7 @@ final readonly class ModelSelectionCriteria implements JsonSerializable
     public function requiresCapability(string|ModelCapability $capability): bool
     {
         $capabilityValue = $capability instanceof ModelCapability ? $capability->value : $capability;
+
         return in_array($capabilityValue, $this->capabilities, true);
     }
 

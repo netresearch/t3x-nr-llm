@@ -1,0 +1,1 @@
+- Governance documentation now describes effective retention override rows, the publisher-trust floor and reported-zero cost precedence. Typed and cache-codec usage tests preserve measured zero against positive model pricing.

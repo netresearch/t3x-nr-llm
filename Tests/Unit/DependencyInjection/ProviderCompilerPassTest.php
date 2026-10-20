@@ -43,7 +43,7 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
     #[Test]
     public function processRegistersTaggedProviders(): void
     {
-        $containerMock = $this->createMock(ContainerBuilder::class);
+        $containerMock  = $this->createMock(ContainerBuilder::class);
         $definitionMock = $this->createMock(Definition::class);
 
         $containerMock->expects(self::once())->method('has')
@@ -66,7 +66,7 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
             ->method('addMethodCall')
             ->with(
                 self::identicalTo('registerProvider'),
-                self::callback(static fn(mixed $arg): bool => is_array($arg)),
+                self::callback(static fn (mixed $arg): bool => is_array($arg)),
             );
 
         $compilerPass = new ProviderCompilerPass();
@@ -76,7 +76,7 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
     #[Test]
     public function processSortsProvidersByPriority(): void
     {
-        $containerMock = $this->createMock(ContainerBuilder::class);
+        $containerMock  = $this->createMock(ContainerBuilder::class);
         $definitionMock = $this->createMock(Definition::class);
 
         $containerMock->expects(self::once())->method('has')
@@ -90,8 +90,8 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
         $containerMock->expects(self::once())->method('findTaggedServiceIds')
             ->with('nr_llm.provider')
             ->willReturn([
-                'provider.low' => [['priority' => 5]],
-                'provider.high' => [['priority' => 100]],
+                'provider.low'    => [['priority' => 5]],
+                'provider.high'   => [['priority' => 100]],
                 'provider.medium' => [['priority' => 50]],
             ]);
 
@@ -100,6 +100,7 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
             ->method('addMethodCall')
             ->willReturnCallback(function (string $method, array $args) use (&$registrationOrder, $definitionMock): Definition {
                 $registrationOrder[] = $args[0];
+
                 return $definitionMock;
             });
 
@@ -110,15 +111,15 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
         self::assertInstanceOf(Reference::class, $registrationOrder[0]);
         self::assertInstanceOf(Reference::class, $registrationOrder[1]);
         self::assertInstanceOf(Reference::class, $registrationOrder[2]);
-        self::assertSame('provider.high', (string)$registrationOrder[0]);
-        self::assertSame('provider.medium', (string)$registrationOrder[1]);
-        self::assertSame('provider.low', (string)$registrationOrder[2]);
+        self::assertSame('provider.high', (string) $registrationOrder[0]);
+        self::assertSame('provider.medium', (string) $registrationOrder[1]);
+        self::assertSame('provider.low', (string) $registrationOrder[2]);
     }
 
     #[Test]
     public function processHandlesEmptyTaggedServices(): void
     {
-        $containerMock = $this->createMock(ContainerBuilder::class);
+        $containerMock  = $this->createMock(ContainerBuilder::class);
         $definitionMock = $this->createMock(Definition::class);
 
         $containerMock->expects(self::once())->method('has')
@@ -143,7 +144,7 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
     #[Test]
     public function processHandlesProvidersWithoutPriority(): void
     {
-        $containerMock = $this->createMock(ContainerBuilder::class);
+        $containerMock  = $this->createMock(ContainerBuilder::class);
         $definitionMock = $this->createMock(Definition::class);
 
         $containerMock->expects(self::once())->method('has')
@@ -166,7 +167,7 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
             ->method('addMethodCall')
             ->with(
                 self::identicalTo('registerProvider'),
-                self::callback(static fn(mixed $arg): bool => is_array($arg)),
+                self::callback(static fn (mixed $arg): bool => is_array($arg)),
             );
 
         $compilerPass = new ProviderCompilerPass();
@@ -176,7 +177,7 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
     #[Test]
     public function processHandlesNonArrayTagData(): void
     {
-        $containerMock = $this->createMock(ContainerBuilder::class);
+        $containerMock  = $this->createMock(ContainerBuilder::class);
         $definitionMock = $this->createMock(Definition::class);
 
         $containerMock->expects(self::once())->method('has')
@@ -198,7 +199,7 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
             ->method('addMethodCall')
             ->with(
                 self::identicalTo('registerProvider'),
-                self::callback(static fn(mixed $arg): bool => is_array($arg)),
+                self::callback(static fn (mixed $arg): bool => is_array($arg)),
             );
 
         $compilerPass = new ProviderCompilerPass();
@@ -208,7 +209,7 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
     #[Test]
     public function processHandlesNonIntPriority(): void
     {
-        $containerMock = $this->createMock(ContainerBuilder::class);
+        $containerMock  = $this->createMock(ContainerBuilder::class);
         $definitionMock = $this->createMock(Definition::class);
 
         $containerMock->expects(self::once())->method('has')
@@ -231,7 +232,7 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
             ->method('addMethodCall')
             ->with(
                 self::identicalTo('registerProvider'),
-                self::callback(static fn(mixed $arg): bool => is_array($arg)),
+                self::callback(static fn (mixed $arg): bool => is_array($arg)),
             );
 
         $compilerPass = new ProviderCompilerPass();
@@ -322,14 +323,14 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
         $calls = $container->getDefinition(LlmServiceManager::class)->getMethodCalls();
         self::assertCount(2, $calls);
 
-        $firstRef = $calls[0][1][0];
+        $firstRef  = $calls[0][1][0];
         $secondRef = $calls[1][1][0];
         self::assertInstanceOf(Reference::class, $firstRef);
         self::assertInstanceOf(Reference::class, $secondRef);
 
         // High-priority (500) comes before low-priority (42).
-        self::assertSame('provider.high', (string)$firstRef);
-        self::assertSame('provider.low', (string)$secondRef);
+        self::assertSame('provider.high', (string) $firstRef);
+        self::assertSame('provider.low', (string) $secondRef);
     }
 
     #[Test]

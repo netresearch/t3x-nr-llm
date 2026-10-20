@@ -116,10 +116,10 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
     public static function dimensionsProvider(): array
     {
         return [
-            'square 1024' => ['1024x1024', 1024, 1024],
-            'landscape' => ['1792x1024', 1792, 1024],
-            'portrait' => ['1024x1792', 1024, 1792],
-            'small square' => ['256x256', 256, 256],
+            'square 1024'   => ['1024x1024', 1024, 1024],
+            'landscape'     => ['1792x1024', 1792, 1024],
+            'portrait'      => ['1024x1792', 1024, 1792],
+            'small square'  => ['256x256', 256, 256],
             'medium square' => ['512x512', 512, 512],
         ];
     }
@@ -331,7 +331,7 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
     public function getBinaryContentDecodesBase64(): void
     {
         $originalData = 'This is fake image binary data';
-        $base64 = base64_encode($originalData);
+        $base64       = base64_encode($originalData);
 
         $result = new ImageGenerationResult(
             url: '',
@@ -438,8 +438,8 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
     public function saveToFileSavesBase64Content(): void
     {
         $originalData = 'This is fake PNG image data for testing';
-        $base64 = base64_encode($originalData);
-        $tempFile = sys_get_temp_dir() . '/test_image_' . uniqid() . '.png';
+        $base64       = base64_encode($originalData);
+        $tempFile     = sys_get_temp_dir() . '/test_image_' . uniqid() . '.png';
 
         try {
             $result = new ImageGenerationResult(
@@ -512,7 +512,7 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
     public function saveToFileReturnsFalseForInvalidPath(): void
     {
         $originalData = 'test data';
-        $base64 = base64_encode($originalData);
+        $base64       = base64_encode($originalData);
         // Use a path that cannot be written to
         $invalidPath = '/nonexistent/directory/that/cannot/exist/image.png';
 

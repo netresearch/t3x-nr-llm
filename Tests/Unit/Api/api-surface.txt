@@ -264,6 +264,29 @@ Netresearch\NrLlm\Domain\Enum\ModelSelectionMode (enum)
   property readonly name: string
   property readonly value: string
 
+Netresearch\NrLlm\Domain\Enum\ProcessInvocationRefusal (enum)
+  case CONFIGURATION_NOT_PERMITTED = "configuration_not_permitted"
+  case LINEAGE_NOT_STORED = "lineage_not_stored"
+  case LINEAGE_UNREADABLE = "lineage_unreadable"
+  case NOT_AN_INSTRUCTION = "not_an_instruction"
+  case NOT_A_PROCESS = "not_a_process"
+  case PIN_WITHDRAWN = "pin_withdrawn"
+  case PREDECESSOR_MISSING = "predecessor_missing"
+  case PREDECESSOR_NOT_FINISHED = "predecessor_not_finished"
+  case PROCESS_ENDED = "process_ended"
+  case PROCESS_HELD = "process_held"
+  case SECOND_APPROVER_REQUIRED = "second_approver_required"
+  case SERVICE_ACCOUNT = "service_account"
+  case SKILL_DISABLED = "skill_disabled"
+  case SKILL_NOT_ADMITTED = "skill_not_admitted"
+  case SKILL_NOT_ATTACHED = "skill_not_attached"
+  case SUBJECT_NOT_READABLE = "subject_not_readable"
+  method static cases(): array
+  method static from(int|string $value): static
+  method static tryFrom(int|string $value): ?static
+  property readonly name: string
+  property readonly value: string
+
 Netresearch\NrLlm\Domain\Enum\ReasoningEffort (enum)
   case High = "high"
   case Low = "low"
@@ -473,11 +496,13 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   const SELECTION_MODE_FIXED = "fixed"
   constructor()
   method addSkill(Netresearch\NrLlm\Domain\Model\Skill $skill): void
+  method addSkillOnDemand(Netresearch\NrLlm\Domain\Model\Skill $skill): void
   method getAllowedGroups(): int
   method getAllowedGuardrails(): string
   method getAllowedGuardrailsList(): array
   method getAllowedToolGroups(): string
   method getAllowedToolGroupsList(): array
+  method getAttachedSkills(): array
   method getBeGroups(): TYPO3\CMS\Extbase\Persistence\ObjectStorage
   method getCrdate(): int
   method getDescription(): string
@@ -508,6 +533,7 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method getProviderType(): string
   method getRequireSecondApprover(): bool
   method getSkills(): TYPO3\CMS\Extbase\Persistence\ObjectStorage
+  method getSkillsOnDemand(): TYPO3\CMS\Extbase\Persistence\ObjectStorage
   method getSnippetTagList(): array
   method getSnippetTags(): string
   method getSystemPrompt(): string
@@ -524,7 +550,9 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method hasUsageLimits(): bool
   method isActive(): bool
   method isDefault(): bool
+  method isSnippetsInCallerSystemMessage(): bool
   method removeSkill(Netresearch\NrLlm\Domain\Model\Skill $skill): void
+  method removeSkillOnDemand(Netresearch\NrLlm\Domain\Model\Skill $skill): void
   method requiresSecondApprover(): bool
   method setAllowedGuardrails(string $allowedGuardrails): void
   method setAllowedToolGroups(string $allowedToolGroups): void
@@ -552,7 +580,9 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method setPresetChecksum(string $presetChecksum): void
   method setRequireSecondApprover(bool $requireSecondApprover): void
   method setSkills(TYPO3\CMS\Extbase\Persistence\ObjectStorage $skills): void
+  method setSkillsOnDemand(TYPO3\CMS\Extbase\Persistence\ObjectStorage $skills): void
   method setSnippetTags(string $snippetTags): void
+  method setSnippetsInCallerSystemMessage(bool $snippetsInCallerSystemMessage): void
   method setSystemPrompt(string $systemPrompt): void
   method setSystemPromptDataClass(string $systemPromptDataClass): void
   method setTemperature(float $temperature): void
@@ -684,6 +714,8 @@ Netresearch\NrLlm\Domain\Model\Provider (class)
   method toAdapterConfig(): array
 
 Netresearch\NrLlm\Domain\Model\Skill (class)
+  const DISABLED_BY_ADMIN = "admin"
+  const DISABLED_BY_SYNC = "sync"
   method getAllowedTools(): string
   method getAllowedToolsList(): ?array
   method getBody(): string
@@ -691,6 +723,7 @@ Netresearch\NrLlm\Domain\Model\Skill (class)
   method getDataClass(): string
   method getDataClassEnum(): ?Netresearch\NrLlm\Domain\Enum\ToolDataClass
   method getDescription(): string
+  method getDisabledBy(): string
   method getIdentifier(): string
   method getInjectionFindings(): array
   method getInjectionScan(): string
@@ -709,6 +742,7 @@ Netresearch\NrLlm\Domain\Model\Skill (class)
   method getUnsupportedNotes(): string
   method getVersionDigest(): string
   method hasInjectionFindings(): bool
+  method isDisabledBySync(): bool
   method isEnabled(): bool
   method isOrphaned(): bool
   method isProcess(): bool
@@ -717,6 +751,7 @@ Netresearch\NrLlm\Domain\Model\Skill (class)
   method setBodyChecksum(string $bodyChecksum): void
   method setDataClass(string $dataClass): void
   method setDescription(string $description): void
+  method setDisabledBy(string $disabledBy): void
   method setEnabled(bool $enabled): void
   method setIdentifier(string $identifier): void
   method setInjectionScan(string $injectionScan): void
@@ -779,9 +814,10 @@ Netresearch\NrLlm\Domain\Model\VisionResponse (class)
   property readonly usage: Netresearch\NrLlm\Domain\Model\UsageStatistics
 
 Netresearch\NrLlm\Domain\ValueObject\AgentRun (class)
-  constructor(int $uid, string $uuid, string $status, int $configurationUid, string $configurationIdentifier, int $beUser, int $iterations, bool $truncated, int $totalPromptTokens, int $totalCompletionTokens, int $totalTokens, float $estimatedCost, string $errorClass, string $terminationReason, int $startedAt, int $finishedAt, int $crdate, ?string $suspendedState = …, ?string $queuedRequest = …, string $claimedBy = …, int $leaseExpires = …, int $requeueCount = …, string $pendingEffect = …)
+  constructor(int $uid, string $uuid, string $status, int $configurationUid, string $configurationIdentifier, int $beUser, int $iterations, bool $truncated, int $totalPromptTokens, int $totalCompletionTokens, int $totalTokens, float $estimatedCost, string $errorClass, string $terminationReason, int $startedAt, int $finishedAt, int $crdate, ?string $suspendedState = …, ?string $queuedRequest = …, string $claimedBy = …, int $leaseExpires = …, int $requeueCount = …, string $pendingEffect = …, ?bool $holdsProcess = …, string $processSkill = …)
   method statusEnum(): ?Netresearch\NrLlm\Domain\Enum\AgentRunStatus
   method terminationReasonEnum(): ?Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason
+  method withProcessState(?bool $holdsProcess, string $processSkill): self
   method withoutSuspendedState(): self
   property readonly beUser: int
   property readonly claimedBy: string
@@ -791,9 +827,11 @@ Netresearch\NrLlm\Domain\ValueObject\AgentRun (class)
   property readonly errorClass: string
   property readonly estimatedCost: float
   property readonly finishedAt: int
+  property readonly holdsProcess: ?bool
   property readonly iterations: int
   property readonly leaseExpires: int
   property readonly pendingEffect: string
+  property readonly processSkill: string
   property readonly queuedRequest: ?string
   property readonly requeueCount: int
   property readonly startedAt: int
@@ -997,6 +1035,22 @@ Netresearch\NrLlm\Domain\ValueObject\Decision\YesNoQuestion (class)
   property readonly noMeans: string
   property readonly yesMeans: string
 
+Netresearch\NrLlm\Domain\ValueObject\FieldMeasure (class)
+  constructor(int $count, ?int $min = …, ?int $max = …)
+  method toArray(): array
+  property readonly count: int
+  property readonly max: ?int
+  property readonly min: ?int
+
+Netresearch\NrLlm\Domain\ValueObject\FieldProposal (class)
+  constructor(string $field, string $label, ?string $current, string $proposed, ?Netresearch\NrLlm\Domain\ValueObject\FieldMeasure $measure = …)
+  method toArray(): array
+  property readonly current: ?string
+  property readonly field: string
+  property readonly label: string
+  property readonly measure: ?Netresearch\NrLlm\Domain\ValueObject\FieldMeasure
+  property readonly proposed: string
+
 Netresearch\NrLlm\Domain\ValueObject\GuardrailResult (class)
   method static allow(): self
   method static deny(string $reason): self
@@ -1012,6 +1066,14 @@ Netresearch\NrLlm\Domain\ValueObject\InjectedContext (class)
   constructor(array $snippets = …, array $skills = …)
   property readonly skills: array
   property readonly snippets: array
+
+Netresearch\NrLlm\Domain\ValueObject\InvocableProcessSkill (class)
+  constructor(int $uid, string $identifier, string $name, string $description)
+  method toArray(): array
+  property readonly description: string
+  property readonly identifier: string
+  property readonly name: string
+  property readonly uid: int
 
 Netresearch\NrLlm\Domain\ValueObject\ModelResolution (class)
   constructor(?Netresearch\NrLlm\Domain\Model\Model $model, ?Netresearch\NrLlm\Domain\ValueObject\RoutingSummary $routingSummary)
@@ -1067,6 +1129,13 @@ Netresearch\NrLlm\Domain\ValueObject\RoutingSummary (class)
   property readonly qualitySignalUsed: bool
   property readonly rejectionReasons: array
 
+Netresearch\NrLlm\Domain\ValueObject\SkillInvocation (class)
+  constructor(int $skillUid, ?Netresearch\NrLlm\Domain\ValueObject\SubjectRecord $subject = …)
+  method static fromArray(mixed $data): ?self
+  method toArray(): array
+  property readonly skillUid: int
+  property readonly subject: ?Netresearch\NrLlm\Domain\ValueObject\SubjectRecord
+
 Netresearch\NrLlm\Domain\ValueObject\SkillPin (class)
   constructor(int $skillUid, int $sourceUid, string $versionDigest)
   method static fromArray(mixed $data): ?self
@@ -1078,11 +1147,20 @@ Netresearch\NrLlm\Domain\ValueObject\SkillPin (class)
   property readonly versionDigest: string
 
 Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList (class)
-  constructor(?array $toolNames)
+  constructor(?array $toolNames, bool $processBound = …)
   method intersect(self $other): self
   method static fromStored(mixed $raw): ?self
   method toStored(): array
+  method withDeclaration(array $toolNames): self
+  property readonly processBound: bool
   property readonly toolNames: ?array
+
+Netresearch\NrLlm\Domain\ValueObject\SubjectRecord (class)
+  constructor(Netresearch\NrLlm\Domain\ValueObject\RecordReference $record, int $language = …)
+  method static fromArray(mixed $data): ?self
+  method toArray(): array
+  property readonly language: int
+  property readonly record: Netresearch\NrLlm\Domain\ValueObject\RecordReference
 
 Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
   constructor(array $messages, array $pendingCalls, int $iterations, int $promptTokens, int $completionTokens, ?array $allowedToolNames = …, array $options = …, ?string $inputToolName = …, array $inputSchema = …, array $callPreviews = …, array $forcedSnippetUids = …, array $forcedSkillUids = …, array $staleCallIndexes = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …, array $skillPins = …, ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory $invocationHistory = …, ?Netresearch\NrLlm\Domain\ValueObject\AiActorContext $initiatingActor = …, string $initiatingRunUuid = …)
@@ -1177,10 +1255,12 @@ Netresearch\NrLlm\Domain\ValueObject\ToolResult (class)
   method static error(string $content): self
   method static text(string $content, Netresearch\NrLlm\Domain\ValueObject\ToolArtifact ...$artifacts = …): self
   method withBoundedChannels(string $content, array $artifacts): self
+  method withHighlightTarget(Netresearch\NrLlm\Domain\ValueObject\RecordReference $target): self
   method withHookFailedAfterWrite(): self
   method withWriteTarget(Netresearch\NrLlm\Domain\ValueObject\RecordReference $target, Netresearch\NrLlm\Domain\Enum\WriteKind $kind, ?Netresearch\NrLlm\Domain\Enum\WriteCompleteness $completeness = …): self
   property readonly artifacts: array
   property readonly content: string
+  property readonly highlightTarget: ?Netresearch\NrLlm\Domain\ValueObject\RecordReference
   property readonly hookFailedAfterWrite: bool
   property readonly isError: bool
   property readonly outcome: Netresearch\NrLlm\Domain\Enum\ToolOutcome
@@ -1233,13 +1313,21 @@ Netresearch\NrLlm\Exception\GuardrailViolationException (class)
 
 Netresearch\NrLlm\Exception\InvalidArgumentException (class)
 
+Netresearch\NrLlm\Exception\LogicException (class)
+
 Netresearch\NrLlm\Exception\NrLlmExceptionInterface (interface)
+
+Netresearch\NrLlm\Exception\RuntimeException (class)
 
 Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException (class)
   constructor(Netresearch\NrLlm\Domain\ValueObject\SkillPin $pin, string $skillName, string $reason)
   property readonly pin: Netresearch\NrLlm\Domain\ValueObject\SkillPin
   property readonly reason: string
   property readonly skillName: string
+
+Netresearch\NrLlm\Exception\SkillSectionNotAdmittedException (class)
+  constructor(array $skillIdentifiers, int $code = …)
+  property readonly skillIdentifiers: array
 
 Netresearch\NrLlm\Exception\StructuredResponseMismatchException (class)
 
@@ -1414,15 +1502,17 @@ Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface (interface)
   method testProviderConnection(Netresearch\NrLlm\Domain\Model\Provider $provider): array
 
 Netresearch\NrLlm\Service\Agent\AgentRunRequest (class)
-  constructor(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $messages, Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, ?array $allowedToolNames = …, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunAugmentation $augmentation = …, bool $captureRaw = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …)
+  constructor(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $messages, Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, ?array $allowedToolNames = …, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunAugmentation $augmentation = …, bool $captureRaw = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillInvocation $invocation = …, string $predecessorRunUuid = …)
   property readonly actor: Netresearch\NrLlm\Domain\ValueObject\AiActorContext
   property readonly allowedToolNames: ?array
   property readonly augmentation: ?Netresearch\NrLlm\Service\Tool\RunAugmentation
   property readonly captureRaw: bool
   property readonly configuration: Netresearch\NrLlm\Domain\Model\LlmConfiguration
+  property readonly invocation: ?Netresearch\NrLlm\Domain\ValueObject\SkillInvocation
   property readonly maxIterations: ?int
   property readonly messages: array
   property readonly options: ?Netresearch\NrLlm\Service\Option\ToolOptions
+  property readonly predecessorRunUuid: string
   property readonly skillAllowList: ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList
 
 Netresearch\NrLlm\Service\Agent\AgentRunResult (class)
@@ -1439,6 +1529,7 @@ Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface (interface)
   method approve(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid, Netresearch\NrLlm\Service\Agent\ApprovalDecision $decision, ?Closure $onStep = …): Netresearch\NrLlm\Service\Agent\AgentRunResult
   method cancel(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid): bool
   method cancelIfWaiting(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid): Netresearch\NrLlm\Service\Agent\GuardedCancelResult
+  method endProcess(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid): Netresearch\NrLlm\Service\Agent\GuardedCancelResult
   method enqueue(Netresearch\NrLlm\Service\Agent\AgentRunRequest $request): string
   method events(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid, int $afterSequence = …): array
   method run(Netresearch\NrLlm\Service\Agent\AgentRunRequest $request, ?Closure $onStep = …): Netresearch\NrLlm\Service\Agent\AgentRunResult
@@ -1467,6 +1558,10 @@ Netresearch\NrLlm\Service\Agent\InputSubmission (class)
   property readonly data: array
   property readonly submittedByBeUser: int
   property readonly turnDigest: ?string
+
+Netresearch\NrLlm\Service\Agent\Process\ProcessSkillCatalogue (class)
+  constructor(Netresearch\NrLlm\Service\ConfigurationResolver $configurations, Netresearch\NrLlm\Service\Skill\SkillComposer $composer)
+  method forActor(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor): array
 
 Netresearch\NrLlm\Service\BudgetServiceInterface (interface)
   method check(int $beUserUid, float $plannedCost = …, ?Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration = …): Netresearch\NrLlm\Domain\DTO\BudgetCheckResult
@@ -2003,6 +2098,9 @@ Netresearch\NrLlm\Service\Tool\ApprovalPreviewHeadings (class)
   method static isHeading(string $line, TYPO3\CMS\Core\Localization\LanguageService $languageService): bool
   method static labelReferences(): array
 
+Netresearch\NrLlm\Service\Tool\ArgumentInputSchemaInterface (interface)
+  method inputSchemaFor(array $arguments): array
+
 Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpCredentialSessionInterface (interface)
   method close(): void
   method credentialIdentifier(): string
@@ -2032,12 +2130,17 @@ Netresearch\NrLlm\Service\Tool\RecordCreatorInterface (interface)
   method getCreatedTables(): array
 
 Netresearch\NrLlm\Service\Tool\RunAugmentation (class)
-  constructor(array $forcedSkills = …, array $forcedSnippets = …, bool $dryRun = …, array $droppedSources = …)
+  constructor(array $forcedSkills = …, array $forcedSnippets = …, bool $dryRun = …, array $droppedSources = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillPin $processPin = …, bool $bakesSystemPrompt = …, bool $admitsProcess = …)
   method injectedContext(): Netresearch\NrLlm\Domain\ValueObject\InjectedContext
+  method static forProcess(?Netresearch\NrLlm\Domain\ValueObject\SkillPin $pin, array $droppedSources = …, bool $admitsProcess = …): self
+  method withProcess(?Netresearch\NrLlm\Domain\ValueObject\SkillPin $pin, array $droppedSources = …, bool $admitsProcess = …): self
+  property readonly admitsProcess: bool
+  property readonly bakesSystemPrompt: bool
   property readonly droppedSources: array
   property readonly dryRun: bool
   property readonly forcedSkills: array
   property readonly forcedSnippets: array
+  property readonly processPin: ?Netresearch\NrLlm\Domain\ValueObject\SkillPin
 
 Netresearch\NrLlm\Service\Tool\RunTrace (class)
   constructor(bool $captureRaw = …, ?Closure $onRecord = …, ?Closure $onBeforeTool = …)
@@ -2052,6 +2155,9 @@ Netresearch\NrLlm\Service\Tool\RunTrace (class)
   method recordToolExecution(int $round, float $durationMs, string $name, array $arguments, string $result, bool $isError, array $artifacts = …): void
   method recordToolResult(int $round, float $durationMs, string $name, array $arguments, Netresearch\NrLlm\Domain\ValueObject\ToolResult $result): void
 
+Netresearch\NrLlm\Service\Tool\StructuredPreviewInterface (interface)
+  method structuredPreview(array $arguments, TYPO3\CMS\Core\Authentication\BackendUserAuthentication $reader): array
+
 Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface (interface)
   method decide(string $toolName, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $user, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $runAllowList = …): Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision
   method explain(?array $requested, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $user, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $runAllowList = …): array
@@ -2059,7 +2165,7 @@ Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface (interface)
   method skillAllowListForRun(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $forcedSkills = …): Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList
 
 Netresearch\NrLlm\Service\Tool\ToolExecutionContext (class)
-  constructor(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $backendUser = …, ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference $run = …, ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory $initialInvocationHistory = …)
+  constructor(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $backendUser = …, ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference $run = …, ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory $initialInvocationHistory = …, ?Netresearch\NrLlm\Domain\ValueObject\SubjectRecord $subjectRecord = …)
   method actingBackendUser(): ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication
   method isAdmin(): bool
   method static forBackendUser(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $backendUser): self
@@ -2069,6 +2175,7 @@ Netresearch\NrLlm\Service\Tool\ToolExecutionContext (class)
   property readonly backendUser: ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication
   property readonly initialInvocationHistory: ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory
   property readonly run: ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference
+  property readonly subjectRecord: ?Netresearch\NrLlm\Domain\ValueObject\SubjectRecord
 
 Netresearch\NrLlm\Service\Tool\ToolInterface (interface)
   const TAG_NAME = "nr_llm.tool"
@@ -2109,7 +2216,7 @@ Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface (interface)
   const DECIDED_BY_UNKNOWN = "unknown"
   const DENIAL_REASON_SKIP = "skip"
   const DENIAL_REASON_VARIANT = "variant"
-  method resume(Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState $state, bool $approved, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunTrace $runTrace = …, ?int $beUserUid = …): Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult
+  method resume(Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState $state, bool $approved, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunTrace $runTrace = …, ?int $beUserUid = …, ?Netresearch\NrLlm\Domain\Enum\ApprovalDenialReason $denialReason = …): Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult
   method resumeWithInput(Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState $state, array $inputData, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunTrace $runTrace = …, ?int $beUserUid = …): Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult
   method runLoop(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context, ?array $allowedToolNames, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunTrace $runTrace = …, ?Netresearch\NrLlm\Service\Tool\RunAugmentation $augmentation = …, bool $skipAssembly = …, int $seedIterations = …, int $seedPromptTokens = …, int $seedCompletionTokens = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …): Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult
 

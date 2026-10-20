@@ -46,8 +46,8 @@ final class UseCasePackRegistryTest extends TestCase
     #[Test]
     public function collectsPacksAcrossProvidersAndLooksUpByIdentifier(): void
     {
-        $alpha = $this->pack('alpha');
-        $beta = $this->pack('beta');
+        $alpha    = $this->pack('alpha');
+        $beta     = $this->pack('beta');
         $registry = new UseCasePackRegistry([
             new FixturePackProvider([$alpha]),
             new FixturePackProvider([$beta]),
@@ -74,9 +74,9 @@ final class UseCasePackRegistryTest extends TestCase
     #[Test]
     public function forUseCaseNarrowsToOneUseCaseAndAnswersEmptyForTheRest(): void
     {
-        $editorial = $this->pack('editorial-one', UseCase::EDITORIAL);
+        $editorial   = $this->pack('editorial-one', UseCase::EDITORIAL);
         $translation = $this->pack('translation-one', UseCase::TRANSLATION);
-        $registry = new UseCasePackRegistry([new FixturePackProvider([$editorial, $translation])]);
+        $registry    = new UseCasePackRegistry([new FixturePackProvider([$editorial, $translation])]);
 
         self::assertSame([$editorial], $registry->forUseCase(UseCase::EDITORIAL));
         self::assertSame([$translation], $registry->forUseCase(UseCase::TRANSLATION));
@@ -93,8 +93,8 @@ final class UseCasePackRegistryTest extends TestCase
     #[Test]
     public function thePresetBridgeExposesEveryPacksConfigurationPreset(): void
     {
-        $alpha = $this->pack('alpha');
-        $beta = $this->pack('beta');
+        $alpha    = $this->pack('alpha');
+        $beta     = $this->pack('beta');
         $registry = new UseCasePackRegistry([new FixturePackProvider([$alpha, $beta])]);
 
         self::assertSame(

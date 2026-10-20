@@ -47,7 +47,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             ->method('vision')
             ->with(
                 self::anything(),
-                self::callback(fn(VisionOptions $opts): bool => $opts->getMaxTokens() === 100),
+                self::callback(fn (VisionOptions $opts): bool => $opts->getMaxTokens() === 100),
             )
             ->willReturn($this->createMockVisionResponse('Alt text'));
 
@@ -64,7 +64,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             ->method('vision')
             ->with(
                 self::anything(),
-                self::callback(fn(VisionOptions $opts): bool => $opts->getMaxTokens() === 200),
+                self::callback(fn (VisionOptions $opts): bool => $opts->getMaxTokens() === 200),
             )
             ->willReturn($this->createMockVisionResponse('Alt text'));
 
@@ -82,7 +82,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             ->method('vision')
             ->with(
                 self::anything(),
-                self::callback(fn(VisionOptions $opts): bool => $opts->getTemperature() === 0.5),
+                self::callback(fn (VisionOptions $opts): bool => $opts->getTemperature() === 0.5),
             )
             ->willReturn($this->createMockVisionResponse('Alt text'));
 
@@ -99,7 +99,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             ->method('vision')
             ->with(
                 self::anything(),
-                self::callback(fn(VisionOptions $opts): bool => $opts->getTemperature() === 0.8),
+                self::callback(fn (VisionOptions $opts): bool => $opts->getTemperature() === 0.8),
             )
             ->willReturn($this->createMockVisionResponse('Alt text'));
 
@@ -117,7 +117,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             ->method('vision')
             ->with(
                 self::anything(),
-                self::callback(fn(VisionOptions $opts): bool => $opts->getMaxTokens() === 50),
+                self::callback(fn (VisionOptions $opts): bool => $opts->getMaxTokens() === 50),
             )
             ->willReturn($this->createMockVisionResponse('Title'));
 
@@ -134,7 +134,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             ->method('vision')
             ->with(
                 self::anything(),
-                self::callback(fn(VisionOptions $opts): bool => $opts->getMaxTokens() === 75),
+                self::callback(fn (VisionOptions $opts): bool => $opts->getMaxTokens() === 75),
             )
             ->willReturn($this->createMockVisionResponse('Title'));
 
@@ -152,7 +152,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             ->method('vision')
             ->with(
                 self::anything(),
-                self::callback(fn(VisionOptions $opts): bool => $opts->getTemperature() === 0.7),
+                self::callback(fn (VisionOptions $opts): bool => $opts->getTemperature() === 0.7),
             )
             ->willReturn($this->createMockVisionResponse('Title'));
 
@@ -169,7 +169,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             ->method('vision')
             ->with(
                 self::anything(),
-                self::callback(fn(VisionOptions $opts): bool => $opts->getMaxTokens() === 500),
+                self::callback(fn (VisionOptions $opts): bool => $opts->getMaxTokens() === 500),
             )
             ->willReturn($this->createMockVisionResponse('Description'));
 
@@ -186,7 +186,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             ->method('vision')
             ->with(
                 self::anything(),
-                self::callback(fn(VisionOptions $opts): bool => $opts->getTemperature() === 0.7),
+                self::callback(fn (VisionOptions $opts): bool => $opts->getTemperature() === 0.7),
             )
             ->willReturn($this->createMockVisionResponse('Description'));
 
@@ -278,6 +278,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
                 self::callback(static function (array $content) use ($customPrompt): bool {
                     /** @var array{text: string} $item */
                     $item = $content[0];
+
                     return $item['text'] === $customPrompt;
                 }),
                 self::anything(),
@@ -285,7 +286,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             ->willReturn($this->createMockVisionResponse('3 cats'));
 
         $service = new VisionService($llmManagerMock);
-        $result = $service->analyzeImage('https://example.com/cats.jpg', $customPrompt);
+        $result  = $service->analyzeImage('https://example.com/cats.jpg', $customPrompt);
 
         self::assertEquals('3 cats', $result);
     }
@@ -324,7 +325,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             ->willReturn($expectedResponse);
 
         $service = new VisionService($llmManagerMock);
-        $result = $service->analyzeImageFull('https://example.com/image.jpg', 'Analyze this');
+        $result  = $service->analyzeImageFull('https://example.com/image.jpg', 'Analyze this');
 
         self::assertInstanceOf(VisionResponse::class, $result);
         self::assertEquals('Full analysis', $result->description);
@@ -334,7 +335,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
     public function analyzeImageFullBuildsCorrectContent(): void
     {
         $imageUrl = 'https://example.com/test.jpg';
-        $prompt = 'Test prompt';
+        $prompt   = 'Test prompt';
 
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
@@ -346,6 +347,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
                     $textItem = $content[0];
                     /** @var array{type: string, image_url: array{url: string}} $imageItem */
                     $imageItem = $content[1];
+
                     return $textItem['type'] === 'text'
                         && $textItem['text'] === $prompt
                         && $imageItem['type'] === 'image_url'
@@ -363,7 +365,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
     public function analyzeImageFullThrowsExceptionForInvalidUrl(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $service = new VisionService($llmManagerStub);
+        $service        = new VisionService($llmManagerStub);
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid image URL or base64 data URI');
@@ -426,10 +428,10 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
     public static function validBase64DataUriProvider(): array
     {
         return [
-            'png' => ['data:image/png;base64,iVBORw0KGgoAAAANSUhEUg=='],
+            'png'  => ['data:image/png;base64,iVBORw0KGgoAAAANSUhEUg=='],
             'jpeg' => ['data:image/jpeg;base64,/9j/4AAQSkZJRg=='],
-            'jpg' => ['data:image/jpg;base64,/9j/4AAQSkZJRg=='],
-            'gif' => ['data:image/gif;base64,R0lGODlhAQABAIAA'],
+            'jpg'  => ['data:image/jpg;base64,/9j/4AAQSkZJRg=='],
+            'gif'  => ['data:image/gif;base64,R0lGODlhAQABAIAA'],
             'webp' => ['data:image/webp;base64,UklGRhIAAABXRUJQ'],
         ];
     }
@@ -445,6 +447,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
                 self::callback(static function (array $content): bool {
                     /** @var array{image_url: array{detail: string}} $imageItem */
                     $imageItem = $content[1];
+
                     return $imageItem['image_url']['detail'] === 'high';
                 }),
                 self::anything(),
@@ -467,6 +470,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
                 self::callback(static function (array $content): bool {
                     /** @var array{image_url: array{detail: string}} $imageItem */
                     $imageItem = $content[1];
+
                     return $imageItem['image_url']['detail'] === 'auto';
                 }),
                 self::anything(),

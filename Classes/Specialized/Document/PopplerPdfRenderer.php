@@ -12,6 +12,8 @@ namespace Netresearch\NrLlm\Specialized\Document;
 use Netresearch\NrLlm\Specialized\Exception\PdfRasterizationException;
 use Throwable;
 
+use function in_array;
+
 /**
  * poppler-backed PDF rasterizer: `pdfimages -list` to find image-bearing
  * pages, `pdftoppm` to rasterize a single page or the whole document to PNG.
@@ -31,7 +33,7 @@ final readonly class PopplerPdfRenderer implements PdfRasterizerInterface
     public function imagePages(string $absolutePath): array
     {
         $listing = $this->run(['pdfimages', '-list', $absolutePath]);
-        $pages = [];
+        $pages   = [];
         foreach (explode("\n", $listing) as $index => $line) {
             if ($index < 2) {
                 // First two lines are the column header and its underline rule.
@@ -39,7 +41,7 @@ final readonly class PopplerPdfRenderer implements PdfRasterizerInterface
             }
 
             if (preg_match('/^\s*(\d+)\s/', $line, $matches) === 1) {
-                $pages[(int)$matches[1]] = true;
+                $pages[(int) $matches[1]] = true;
             }
         }
 
@@ -53,7 +55,7 @@ final readonly class PopplerPdfRenderer implements PdfRasterizerInterface
     {
         $rendered = $this->rasterize(
             $absolutePath,
-            ['-f', (string)$page, '-l', (string)$page],
+            ['-f', (string) $page, '-l', (string) $page],
             sprintf('pdftoppm produced no output for page %d.', $page),
         );
 
@@ -88,9 +90,9 @@ final readonly class PopplerPdfRenderer implements PdfRasterizerInterface
      *
      * @param list<string> $rangeArguments
      *
-     * @throws PdfRasterizationException
-     *
      * @return array<int, string> PNG bytes per page, ascending
+     *
+     * @throws PdfRasterizationException
      */
     private function rasterize(string $absolutePath, array $rangeArguments, string $emptyOutputMessage): array
     {
@@ -108,7 +110,7 @@ final readonly class PopplerPdfRenderer implements PdfRasterizerInterface
                 'pdftoppm',
                 '-png',
                 '-r',
-                (string)self::RENDER_DPI,
+                (string) self::RENDER_DPI,
                 ...$rangeArguments,
                 $absolutePath,
                 $stub,
@@ -126,10 +128,10 @@ final readonly class PopplerPdfRenderer implements PdfRasterizerInterface
 
                 $png = file_get_contents($file);
                 if ($png === false || $png === '') {
-                    throw new PdfRasterizationException(sprintf('Rendered page %d could not be read.', (int)$matches[1]), 1784211006);
+                    throw new PdfRasterizationException(sprintf('Rendered page %d could not be read.', (int) $matches[1]), 1784211006);
                 }
 
-                $pages[(int)$matches[1]] = $png;
+                $pages[(int) $matches[1]] = $png;
             }
 
             if ($pages === []) {
@@ -185,17 +187,17 @@ final readonly class PopplerPdfRenderer implements PdfRasterizerInterface
         stream_set_blocking($pipes[1], false);
         stream_set_blocking($pipes[2], false);
         $output = [1 => '', 2 => ''];
-        $open = $pipes;
+        $open   = $pipes;
         while ($open !== []) {
-            $read = array_values($open);
-            $write = null;
+            $read   = array_values($open);
+            $write  = null;
             $except = null;
             if (stream_select($read, $write, $except, null) === false) {
                 break;
             }
 
             foreach ($open as $fd => $pipe) {
-                if (!\in_array($pipe, $read, true)) {
+                if (!in_array($pipe, $read, true)) {
                     continue;
                 }
 

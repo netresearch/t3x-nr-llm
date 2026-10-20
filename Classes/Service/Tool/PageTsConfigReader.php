@@ -124,7 +124,7 @@ final readonly class PageTsConfigReader implements PageTsConfigReaderInterface
             }
 
             $pid      = $row['pid'] ?? 0;
-            $uid      = is_numeric($pid) ? (int)$pid : 0;
+            $uid      = is_numeric($pid) ? (int) $pid : 0;
             $walked[] = $row;
         }
 

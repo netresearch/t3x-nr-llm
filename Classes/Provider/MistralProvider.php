@@ -57,16 +57,16 @@ final class MistralProvider extends AbstractProvider implements
 
     /** @var array<string, string> */
     private const MODELS = [
-        'mistral-large-latest' => 'Mistral Large (Latest)',
-        'mistral-large-2411' => 'Mistral Large 2411',
+        'mistral-large-latest'  => 'Mistral Large (Latest)',
+        'mistral-large-2411'    => 'Mistral Large 2411',
         'mistral-medium-latest' => 'Mistral Medium',
-        'mistral-small-latest' => 'Mistral Small (Latest)',
-        'mistral-small-2409' => 'Mistral Small 2409',
-        'open-mistral-nemo' => 'Mistral Nemo (Open)',
-        'codestral-latest' => 'Codestral (Code)',
-        'codestral-2405' => 'Codestral 2405',
-        'ministral-8b-latest' => 'Ministral 8B',
-        'ministral-3b-latest' => 'Ministral 3B',
+        'mistral-small-latest'  => 'Mistral Small (Latest)',
+        'mistral-small-2409'    => 'Mistral Small 2409',
+        'open-mistral-nemo'     => 'Mistral Nemo (Open)',
+        'codestral-latest'      => 'Codestral (Code)',
+        'codestral-2405'        => 'Codestral 2405',
+        'ministral-8b-latest'   => 'Ministral 8B',
+        'ministral-3b-latest'   => 'Ministral 3B',
     ];
 
     public function getName(): string
@@ -106,9 +106,9 @@ final class MistralProvider extends AbstractProvider implements
      * lightweight GET to the OpenAI-compatible models endpoint and let any
      * failure surface as the typed exception sendRequest() raises.
      *
-     * @throws ProviderConnectionException on connection failure
-     *
      * @return array{success: bool, message: string, models?: array<string, string>}
+     *
+     * @throws ProviderConnectionException on connection failure
      */
     public function testConnection(): array
     {
@@ -122,18 +122,17 @@ final class MistralProvider extends AbstractProvider implements
     public function chatCompletion(array $messages, array $options = []): CompletionResponse
     {
         $messages = array_map(
-            static fn(ChatMessage|array $m): array
-                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            static fn (ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m,
             $messages,
         );
 
         $model = $this->getString($options, 'model', $this->getDefaultModel());
 
         $payload = [
-            'model' => $model,
-            'messages' => $messages,
+            'model'       => $model,
+            'messages'    => $messages,
             'temperature' => $this->getFloat($options, 'temperature', 0.7),
-            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
+            'max_tokens'  => $this->getInt($options, 'max_tokens', 4096),
         ];
 
         $responseFormat = $this->buildResponseFormat($options);
@@ -169,9 +168,9 @@ final class MistralProvider extends AbstractProvider implements
         $response = $this->sendRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload, timeout: $this->resolveRequestTimeout($options));
 
         $choices = $this->getList($response, 'choices');
-        $choice = $this->asArray($choices[0] ?? []);
+        $choice  = $this->asArray($choices[0] ?? []);
         $message = $this->getArray($choice, 'message');
-        $usage = $this->getArray($response, 'usage');
+        $usage   = $this->getArray($response, 'usage');
 
         return $this->createCompletionResponse(
             content: $this->getString($message, 'content'),
@@ -192,19 +191,18 @@ final class MistralProvider extends AbstractProvider implements
     public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
     {
         $messages = array_map(
-            static fn(ChatMessage|array $m): array
-                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            static fn (ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m,
             $messages,
         );
 
         $model = $this->getString($options, 'model', $this->getDefaultModel());
 
         $payload = [
-            'model' => $model,
-            'messages' => $messages,
-            'tools' => array_map(static fn(ToolSpec $spec): array => $spec->toArray(), $tools),
+            'model'       => $model,
+            'messages'    => $messages,
+            'tools'       => array_map(static fn (ToolSpec $spec): array => $spec->toArray(), $tools),
             'temperature' => $this->getFloat($options, 'temperature', 0.7),
-            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
+            'max_tokens'  => $this->getInt($options, 'max_tokens', 4096),
         ];
 
         if (isset($options['tool_choice'])) {
@@ -214,9 +212,9 @@ final class MistralProvider extends AbstractProvider implements
         $response = $this->sendRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload, timeout: $this->resolveRequestTimeout($options));
 
         $choices = $this->getList($response, 'choices');
-        $choice = $this->asArray($choices[0] ?? []);
+        $choice  = $this->asArray($choices[0] ?? []);
         $message = $this->getArray($choice, 'message');
-        $usage = $this->getArray($response, 'usage');
+        $usage   = $this->getArray($response, 'usage');
 
         $toolCalls    = null;
         $rawToolCalls = $this->getArray($message, 'tool_calls');
@@ -258,7 +256,7 @@ final class MistralProvider extends AbstractProvider implements
     public function embeddings(string|array $input, array $options = []): EmbeddingResponse
     {
         $inputs = is_array($input) ? $input : [$input];
-        $model = $this->getString($options, 'model', self::DEFAULT_EMBEDDING_MODEL);
+        $model  = $this->getString($options, 'model', self::DEFAULT_EMBEDDING_MODEL);
 
         $payload = [
             'model' => $model,
@@ -279,8 +277,8 @@ final class MistralProvider extends AbstractProvider implements
             $itemArray = $this->asArray($item);
             $embedding = $this->getArray($itemArray, 'embedding');
             /** @var list<float> $floatEmbedding */
-            $floatEmbedding = array_values(array_map(fn($v): float => $this->asFloat($v), $embedding));
-            $embeddings[] = $floatEmbedding;
+            $floatEmbedding = array_values(array_map(fn ($v): float => $this->asFloat($v), $embedding));
+            $embeddings[]   = $floatEmbedding;
         }
 
         $usage = $this->getArray($response, 'usage');
@@ -308,17 +306,16 @@ final class MistralProvider extends AbstractProvider implements
         $this->validateConfiguration();
 
         $messages = array_map(
-            static fn(ChatMessage|array $m): array
-                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            static fn (ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m,
             $messages,
         );
 
         $payload = [
-            'model' => $this->getString($options, 'model', $this->getDefaultModel()),
-            'messages' => $messages,
+            'model'       => $this->getString($options, 'model', $this->getDefaultModel()),
+            'messages'    => $messages,
             'temperature' => $this->getFloat($options, 'temperature', 0.7),
-            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
-            'stream' => true,
+            'max_tokens'  => $this->getInt($options, 'max_tokens', 4096),
+            'stream'      => true,
         ];
 
         $url = rtrim($this->baseUrl, '/') . '/' . self::ENDPOINT_CHAT_COMPLETIONS;
@@ -331,7 +328,7 @@ final class MistralProvider extends AbstractProvider implements
         // headers must be applied here.
         $request = $this->applyCustomHeaders($request);
 
-        $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
+        $body    = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         $request = $request->withBody($body);
 
         $response = $this->getHttpClient($this->resolveRequestTimeout($options))->sendRequest($request);
@@ -344,7 +341,7 @@ final class MistralProvider extends AbstractProvider implements
             $buffer .= $chunk;
 
             while (($pos = strpos($buffer, "\n")) !== false) {
-                $line = substr($buffer, 0, $pos);
+                $line   = substr($buffer, 0, $pos);
                 $buffer = substr($buffer, $pos + 1);
 
                 if (!str_starts_with($line, 'data: ')) {
@@ -385,11 +382,11 @@ final class MistralProvider extends AbstractProvider implements
             return null;
         }
 
-        $json = $this->asArray($decoded);
-        $choices = $this->getList($json, 'choices');
+        $json        = $this->asArray($decoded);
+        $choices     = $this->getList($json, 'choices');
         $firstChoice = $this->asArray($choices[0] ?? []);
-        $delta = $this->getArray($firstChoice, 'delta');
-        $content = $this->getString($delta, 'content');
+        $delta       = $this->getArray($firstChoice, 'delta');
+        $content     = $this->getString($delta, 'content');
 
         return $content !== '' ? $content : null;
     }

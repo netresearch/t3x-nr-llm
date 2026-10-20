@@ -116,7 +116,7 @@ final class ApprovalPreviewHeadingsTest extends TestCase
             $headings = [];
             $others   = [];
             foreach (ApprovalPreviewLabel::cases() as $label) {
-                $text = (string)($side === 'source' ? LabelCatalogue::source($label->reference()) : LabelCatalogue::target($label->reference()));
+                $text = (string) ($side === 'source' ? LabelCatalogue::source($label->reference()) : LabelCatalogue::target($label->reference()));
                 if ($label->isHeading()) {
                     self::assertDoesNotMatchRegularExpression('/%/', $text, $label->value . ' (' . $side . ') takes a placeholder');
                     $headings[] = $text;
@@ -133,18 +133,18 @@ final class ApprovalPreviewHeadingsTest extends TestCase
     #[Test]
     public function aLineIsAHeadingOnlyWhenItEqualsAHeadingText(): void
     {
-        $german = $this->languageService('de', static fn(string $key): string => LabelCatalogue::target($key) ?? '');
+        $german = $this->languageService('de', static fn (string $key): string => LabelCatalogue::target($key) ?? '');
 
-        $heading = (string)LabelCatalogue::target(ApprovalPreviewLabel::DeletePageHeading->reference());
+        $heading = (string) LabelCatalogue::target(ApprovalPreviewLabel::DeletePageHeading->reference());
         self::assertTrue(ApprovalPreviewHeadings::isHeading($heading, $german));
         self::assertTrue(ApprovalPreviewHeadings::isHeading(' ' . $heading . "\n", $german));
 
-        $object = sprintf((string)LabelCatalogue::target(ApprovalPreviewLabel::ObjectPage->reference()), '„Start“');
+        $object = sprintf((string) LabelCatalogue::target(ApprovalPreviewLabel::ObjectPage->reference()), '„Start“');
         self::assertFalse(ApprovalPreviewHeadings::isHeading($object, $german));
         self::assertFalse(ApprovalPreviewHeadings::isHeading('Refused: this tool attaches to content elements in the default language only.', $german));
         self::assertFalse(ApprovalPreviewHeadings::isHeading('', $german));
         // The English heading is no heading for a German reader's lines.
-        self::assertFalse(ApprovalPreviewHeadings::isHeading((string)LabelCatalogue::source(ApprovalPreviewLabel::DeletePageHeading->reference()), $german));
+        self::assertFalse(ApprovalPreviewHeadings::isHeading((string) LabelCatalogue::source(ApprovalPreviewLabel::DeletePageHeading->reference()), $german));
     }
 
     #[Test]
@@ -152,7 +152,7 @@ final class ApprovalPreviewHeadingsTest extends TestCase
     {
         $calls   = 0;
         $count   = count(ApprovalPreviewHeadings::labelReferences());
-        $heading = (string)LabelCatalogue::target(ApprovalPreviewLabel::MovePageHeading->reference());
+        $heading = (string) LabelCatalogue::target(ApprovalPreviewLabel::MovePageHeading->reference());
         $german  = $this->languageService('de', static function (string $key) use (&$calls): string {
             ++$calls;
 
@@ -215,7 +215,7 @@ final class ApprovalPreviewHeadingsTest extends TestCase
         $lines = file($file);
         self::assertIsArray($lines);
 
-        return implode('', array_slice($lines, (int)$method->getStartLine() - 1, (int)$method->getEndLine() - (int)$method->getStartLine() + 1));
+        return implode('', array_slice($lines, (int) $method->getStartLine() - 1, (int) $method->getEndLine() - (int) $method->getStartLine() + 1));
     }
 
     /**

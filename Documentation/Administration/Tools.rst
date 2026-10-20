@@ -41,12 +41,12 @@ non-admin users.
 The built-in tools
 ==================
 
-nr-llm ships forty-two read-only tools and seventeen writing tools. Each is a
+nr-llm ships forty-five read-only tools and seventeen writing tools. Each is a
 reference implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
-redacted or gated behind a separate ``_raw`` variant. Thirty-eight ship
+redacted or gated behind a separate ``_raw`` variant. Thirty-nine ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
-``get_php_info_raw`` and ``list_be_users_raw``), ``fetch_external_url``
+``get_php_info_raw`` and ``list_be_users_raw``), ``ask_choice``, ``highlight_record``, ``fetch_external_url``
 (see :ref:`administration-tools-external-pages`) and all seventeen writing tools
 (``update_page_metadata``, ``set_page_social_image``,
 ``set_file_alternative_text``, ``update_fal_asset_meta``,
@@ -69,7 +69,12 @@ backend users — those self-enforce the acting user's TYPO3 permissions
 ever sees what the backend already grants them (see
 :ref:`ADR-042 <adr-042>`). ``fetch_external_url`` is offered to non-admins
 too; it reads public web pages only, which no TYPO3 permission covers, under
-the controls in :ref:`administration-tools-external-pages`.
+the controls in :ref:`administration-tools-external-pages`. ``load_skill`` is
+offered to non-admins as well; it brings in only skill text an administrator
+approved for the run's configuration (see below).
+``ask_choice`` is offered to non-admins as well; it reads nothing.
+``highlight_record`` is offered to non-admins as well; it accepts only the
+record the run is about and the content elements on that page.
 
 The two tools below are the fullest illustrations of the contract:
 
@@ -304,6 +309,31 @@ The remaining tools follow the same pattern:
    main text and links, wrapped as untrusted third-party content. Ships
    disabled; see :ref:`administration-tools-external-pages`.
 
+``ask_choice``
+   Asks the person one question with 2 to 10 short answers given in the call,
+   and suspends the run until one is picked (``waiting_for_input``,
+   :ref:`ADR-105 <adr-105>`). For the choices of a guided process that write
+   nothing — which page, which finding first, whether to continue
+   (:ref:`ADR-214 <adr-214>`). The answers form the ``enum`` of the input
+   form, shown as a select, and a submission that is not one of them is
+   refused. Typographic spaces in the question and the answers become plain
+   spaces and soft hyphens are dropped; any other invisible character is
+   refused by name. Reads and writes nothing; it never stands in for the approval of
+   a write. Not admin-only. Ships disabled: enable it only where the client
+   handles a run that waits for input — a chat that cannot answer such a
+   pause ends the conversation's run as failed.
+
+``highlight_record``
+   Names the record the current point of a guided process is about, so the
+   chat can show the editor where it is (:ref:`ADR-228 <adr-228>`). It
+   accepts only the run's subject record — which the runtime checked the
+   acting user may read before the run started — and, when that record is a
+   page, a non-deleted ``tt_content`` element on it in the subject's language
+   or in all languages, if the acting user may read ``tt_content``. The run
+   records it as a ``highlight`` step holding the table and uid. Writes
+   nothing. Not admin-only. Ships disabled: only a client that renders a
+   highlight can use it.
+
 .. _administration-tools-writing:
 
 The writing tools
@@ -354,6 +384,14 @@ What holds for all of them:
   of both values — so a change past the visible part, such as an appended
   link, still shows. A character a reader cannot see, such as a zero-width
   space or a direction mark, is written as its code point.
+- ``update_page_metadata``, ``update_content_element`` and
+  ``set_page_social_image`` also give the card each field as structured
+  values: its label, the value stored now and the value proposed, read with
+  the rights of the user the card is shown to (:ref:`ADR-214 <adr-214>`,
+  item 9). A text field carries its length. The recommended range comes from
+  the extension configuration ``tools.structuredPreview.ranges``, entries
+  ``table.field:min-max``, shipped as ``pages.description:140-160``. An empty
+  value removes every range.
 
 ``update_page_metadata``
    Sets a fixed set of descriptive fields on one page. Editable: ``title``,
@@ -1055,7 +1093,8 @@ identifier alone. The built-in taxonomy:
 Group              Tools
 =================  ============================================================
 ``content``        ``search_records``, ``get_page_content``, ``read_records``,
-                   ``get_record_history``
+                   ``get_record_history``, ``ask_choice``,
+                   ``highlight_record``
 ``structure``      ``get_pagetree``, ``get_tca``, ``read_fal_asset_meta``,
                    ``get_full_tca``, ``get_table_schema``, ``get_flexform_schema``,
                    ``resolve_url``, ``validate_tca``
@@ -1065,7 +1104,8 @@ Group              Tools
                    ``list_deprecations``, ``list_middlewares``
 ``accounts``       ``list_be_users`` (+ raw), ``list_be_groups``
 ``configuration``  ``get_typoscript``, ``get_tsconfig``, ``fluid_resolve``,
-                   ``check_typoscript``, ``get_site_config``
+                   ``check_typoscript``, ``get_site_config``,
+                   ``load_skill``
 ``code``           ``get_last_exception``, ``read_source``, ``search_code``
 ``files``          ``list_fal_storages``, ``browse_fal_folder``,
                    ``search_fal_files``, ``get_fal_references``,
@@ -1084,6 +1124,19 @@ Group              Tools
                    ``replace_file_reference``
                    — the only WRITING group
 =================  ============================================================
+
+``load_skill`` loads an approved skill into an agent run's system message
+(ADR-214). It is offered only to a run whose configuration has skills attached
+as *loaded on demand* and at least one of them is an approved instruction; its
+description lists those skills by uid, name and description. The skill
+allow-list and the configuration's allowed tool groups do not restrict it, so
+a skill declaring ``allowed-tools: []`` does not switch it off; the global tool
+state and the trust zone do. Loading a skill grants no tools. It does not
+require admin: a non-admin backend user's run may load a skill, because the
+text it adds is an approved version an administrator vouched for, attached
+to the configuration, and it widens nothing the user may do. In a run that
+invokes a process skill the exemption does not hold; there the process
+skill's approved declaration decides whether ``load_skill`` is offered.
 
 Groups can be switched on three levels, and the result cascades
 **fail-closed** — a tool is offered only when *every* level permits it:
