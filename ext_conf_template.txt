@@ -145,6 +145,13 @@ tools.dataClassEnforcement = enforce
 tools.createRecordDraft.deniedTables =
 
 # =============================================================================
+# Structured write preview (ADR-214)
+# =============================================================================
+
+# cat=tools; type=string; label=Recommended text lengths on a write proposal: Comma-separated entries "table.field:min-max" (characters of the plain text). A write proposal shows the length of the proposed value against this range, for example "pages.description:140-160". The range comes from here and never from the model. A field without an entry gets no range, and a single-line or meta field still shows its length. An empty value removes every range, including the default. An entry that cannot be read is ignored.
+tools.structuredPreview.ranges = pages.description:140-160
+
+# =============================================================================
 # External web pages (ADR-202)
 # =============================================================================
 

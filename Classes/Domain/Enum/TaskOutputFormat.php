@@ -17,9 +17,9 @@ namespace Netresearch\NrLlm\Domain\Enum;
 enum TaskOutputFormat: string
 {
     case MARKDOWN = 'markdown';
-    case JSON = 'json';
-    case PLAIN = 'plain';
-    case HTML = 'html';
+    case JSON     = 'json';
+    case PLAIN    = 'plain';
+    case HTML     = 'html';
 
     /**
      * Get all output format values as an array.
@@ -29,7 +29,7 @@ enum TaskOutputFormat: string
     public static function values(): array
     {
         return array_map(
-            static fn(self $case): string => $case->value,
+            static fn (self $case): string => $case->value,
             self::cases(),
         );
     }
@@ -57,9 +57,9 @@ enum TaskOutputFormat: string
     {
         return match ($this) {
             self::MARKDOWN => 'text/markdown',
-            self::JSON => 'application/json',
-            self::PLAIN => 'text/plain',
-            self::HTML => 'text/html',
+            self::JSON     => 'application/json',
+            self::PLAIN    => 'text/plain',
+            self::HTML     => 'text/html',
         };
     }
 
@@ -70,9 +70,9 @@ enum TaskOutputFormat: string
     {
         return match ($this) {
             self::MARKDOWN => 'md',
-            self::JSON => 'json',
-            self::PLAIN => 'txt',
-            self::HTML => 'html',
+            self::JSON     => 'json',
+            self::PLAIN    => 'txt',
+            self::HTML     => 'html',
         };
     }
 }

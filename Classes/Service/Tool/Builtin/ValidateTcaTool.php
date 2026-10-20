@@ -94,7 +94,7 @@ final readonly class ValidateTcaTool implements ToolInterface
         $findings = [];
         $checked  = 0;
         foreach ($allTca as $name => $definition) {
-            $tableName = (string)$name;
+            $tableName = (string) $name;
             if (!is_array($definition)) {
                 continue;
             }
@@ -180,7 +180,7 @@ final readonly class ValidateTcaTool implements ToolInterface
                 $findings[] = sprintf(
                     '%s: column "%s" foreign_table "%s" is not a TCA table',
                     $table,
-                    (string)$field,
+                    (string) $field,
                     $foreign,
                 );
             }
@@ -192,7 +192,7 @@ final readonly class ValidateTcaTool implements ToolInterface
                 $findings[] = sprintf(
                     '%s: column "%s" uses ds_pointerField — removed in TYPO3 v14 (use record types)',
                     $table,
-                    (string)$field,
+                    (string) $field,
                 );
             }
         }
@@ -202,7 +202,7 @@ final readonly class ValidateTcaTool implements ToolInterface
         foreach ($types as $typeName => $typeConf) {
             $showitem = is_array($typeConf) ? self::toStr($typeConf['showitem'] ?? '') : '';
             foreach ($this->showitemFindings($showitem, $columns, $ctrlFields, $palettes) as $message) {
-                $findings[] = sprintf('%s: types[%s] %s', $table, (string)$typeName, $message);
+                $findings[] = sprintf('%s: types[%s] %s', $table, (string) $typeName, $message);
             }
         }
 
@@ -210,7 +210,7 @@ final readonly class ValidateTcaTool implements ToolInterface
         foreach ($palettes as $paletteName => $paletteConf) {
             $showitem = is_array($paletteConf) ? self::toStr($paletteConf['showitem'] ?? '') : '';
             foreach ($this->showitemFindings($showitem, $columns, $ctrlFields, null) as $message) {
-                $findings[] = sprintf('%s: palettes[%s] %s', $table, (string)$paletteName, $message);
+                $findings[] = sprintf('%s: palettes[%s] %s', $table, (string) $paletteName, $message);
             }
         }
 

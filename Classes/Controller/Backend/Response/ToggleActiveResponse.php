@@ -29,7 +29,7 @@ final readonly class ToggleActiveResponse implements JsonSerializable
     public function jsonSerialize(): array
     {
         return [
-            'success' => $this->success,
+            'success'  => $this->success,
             'isActive' => $this->isActive,
         ];
     }

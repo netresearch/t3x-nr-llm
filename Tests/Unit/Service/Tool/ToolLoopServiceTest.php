@@ -12,7 +12,6 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 use LogicException;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
-
 use Netresearch\NrLlm\Domain\Enum\ArtifactType;
 use Netresearch\NrLlm\Domain\Enum\GovernanceDecision;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
@@ -243,7 +242,7 @@ final class ToolLoopServiceTest extends TestCase
         // The second provider call carries the tool-result turn: content only.
         self::assertArrayHasKey(1, $captured);
         $wire = json_encode(
-            array_map(static fn(mixed $m): mixed => $m instanceof ChatMessage ? $m->toArray() : $m, $captured[1]),
+            array_map(static fn (mixed $m): mixed => $m instanceof ChatMessage ? $m->toArray() : $m, $captured[1]),
             JSON_THROW_ON_ERROR,
         );
         self::assertStringContainsString('PUBLIC content', $wire);
@@ -470,7 +469,7 @@ final class ToolLoopServiceTest extends TestCase
             ->with(
                 self::stringContains('boom_tool'),
                 self::callback(
-                    static fn(mixed $context): bool => is_array($context)
+                    static fn (mixed $context): bool => is_array($context)
                         && ($context['exception'] ?? null) instanceof Throwable,
                 ),
             );
@@ -554,14 +553,14 @@ final class ToolLoopServiceTest extends TestCase
         // tools, and the sole LLM step whose content is the synthesised answer.
         $synthesisRequests = array_values(array_filter(
             $runTrace->getSteps(),
-            static fn(RunStep $s): bool => $s->kind === RunStep::KIND_REQUEST && $s->toolSpecs === [],
+            static fn (RunStep $s): bool => $s->kind === RunStep::KIND_REQUEST && $s->toolSpecs === [],
         ));
         self::assertCount(1, $synthesisRequests);
         self::assertSame(3, $synthesisRequests[0]->round);
 
         $synthesisLlm = array_values(array_filter(
             $runTrace->getSteps(),
-            static fn(RunStep $s): bool => $s->kind === RunStep::KIND_LLM && $s->content === 'SYNTHESISED',
+            static fn (RunStep $s): bool => $s->kind === RunStep::KIND_LLM && $s->content === 'SYNTHESISED',
         ));
         self::assertCount(1, $synthesisLlm);
         self::assertSame(3, $synthesisLlm[0]->round);
@@ -592,7 +591,7 @@ final class ToolLoopServiceTest extends TestCase
 
         $specs = $this->arr($capturedTools[0] ?? null);
         $names = array_map(
-            static fn(mixed $s): string => $s instanceof ToolSpec ? $s->name : '<not-a-spec>',
+            static fn (mixed $s): string => $s instanceof ToolSpec ? $s->name : '<not-a-spec>',
             array_values($specs),
         );
         self::assertSame(['fetch_logs'], $names);
@@ -646,7 +645,7 @@ final class ToolLoopServiceTest extends TestCase
             ->method('warning')
             ->with(
                 self::stringContains('budget'),
-                self::callback(static fn(array $ctx): bool => ($ctx['exception'] ?? null) instanceof BudgetExceededException),
+                self::callback(static fn (array $ctx): bool => ($ctx['exception'] ?? null) instanceof BudgetExceededException),
             );
 
         $service = $this->service($mgr, new ToolRegistry([new FakeTool('fetch_logs', 'LOGS')]), $logger);
@@ -857,7 +856,7 @@ final class ToolLoopServiceTest extends TestCase
 
         $specs = $this->arr($capturedTools[0] ?? null);
         $names = array_map(
-            static fn(mixed $s): string => $s instanceof ToolSpec ? $s->name : '<not-a-spec>',
+            static fn (mixed $s): string => $s instanceof ToolSpec ? $s->name : '<not-a-spec>',
             array_values($specs),
         );
         self::assertSame(['fetch_logs'], $names);
@@ -908,7 +907,7 @@ final class ToolLoopServiceTest extends TestCase
 
         self::assertSame('deleted and done', $result->finalContent);
         // The approved tool really executed (recorded on the trace) with its result.
-        $toolSteps = array_values(array_filter($trace->getSteps(), static fn(RunStep $s): bool => $s->kind === RunStep::KIND_TOOL));
+        $toolSteps = array_values(array_filter($trace->getSteps(), static fn (RunStep $s): bool => $s->kind === RunStep::KIND_TOOL));
         self::assertCount(1, $toolSteps);
         self::assertSame('delete_thing', $toolSteps[0]->toolName);
         self::assertSame('DELETED', $toolSteps[0]->toolResult);
@@ -985,7 +984,7 @@ final class ToolLoopServiceTest extends TestCase
         assert(is_array($captured) && isset($captured[1]));
         $assistantTurns = array_values(array_filter(
             $captured[1],
-            static fn(mixed $m): bool => ($m instanceof ChatMessage && $m->isAssistant())
+            static fn (mixed $m): bool => ($m instanceof ChatMessage && $m->isAssistant())
                 || (is_array($m) && ($m['role'] ?? null) === 'assistant'),
         ));
 
@@ -1326,7 +1325,7 @@ final class ToolLoopServiceTest extends TestCase
 
         self::assertSame('ok, cancelled', $result->finalContent);
         // The pending tool was NOT executed; a denial result was fed back instead.
-        $toolSteps = array_values(array_filter($trace->getSteps(), static fn(RunStep $s): bool => $s->kind === RunStep::KIND_TOOL));
+        $toolSteps = array_values(array_filter($trace->getSteps(), static fn (RunStep $s): bool => $s->kind === RunStep::KIND_TOOL));
         self::assertCount(1, $toolSteps);
         self::assertTrue($toolSteps[0]->toolIsError);
         self::assertStringStartsWith('Error: approval_denied (decided_by: unknown).', $toolSteps[0]->toolResult ?? '');
@@ -1374,7 +1373,7 @@ final class ToolLoopServiceTest extends TestCase
         $context = ToolExecutionContext::forBackendUser(AiActorContext::backendUser(7), null);
         $service->resume($state, false, $this->localConfiguration(), $context, null, $trace, $decidedBy);
 
-        $toolSteps = array_values(array_filter($trace->getSteps(), static fn(RunStep $s): bool => $s->kind === RunStep::KIND_TOOL));
+        $toolSteps = array_values(array_filter($trace->getSteps(), static fn (RunStep $s): bool => $s->kind === RunStep::KIND_TOOL));
         self::assertCount(1, $toolSteps);
         $result = $toolSteps[0]->toolResult ?? '';
         self::assertStringStartsWith($prefix, $result);
@@ -1525,7 +1524,7 @@ final class ToolLoopServiceTest extends TestCase
         $result = $service->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none(), null, $trace);
 
         // Approved, but the tool is no longer offered → fail-closed, NOT executed.
-        $toolSteps = array_values(array_filter($trace->getSteps(), static fn(RunStep $s): bool => $s->kind === RunStep::KIND_TOOL));
+        $toolSteps = array_values(array_filter($trace->getSteps(), static fn (RunStep $s): bool => $s->kind === RunStep::KIND_TOOL));
         self::assertCount(1, $toolSteps);
         self::assertTrue($toolSteps[0]->toolIsError);
         self::assertStringContainsString('no longer permitted', $toolSteps[0]->toolResult ?? '');
@@ -1706,7 +1705,7 @@ final class ToolLoopServiceTest extends TestCase
     public static function writeEffects(): iterable
     {
         yield 'non-idempotent write' => [ToolEffect::NON_IDEMPOTENT_WRITE];
-        yield 'idempotent write'     => [ToolEffect::IDEMPOTENT_WRITE];
+        yield 'idempotent write' => [ToolEffect::IDEMPOTENT_WRITE];
     }
 
     /**
@@ -1987,7 +1986,7 @@ final class ToolLoopServiceTest extends TestCase
         $mgr      = self::createStub(LlmServiceManagerInterface::class);
         $mgr->method('chatWithToolsForConfiguration')->willReturnCallback(
             function (array $messages, array $tools) use (&$captured): CompletionResponse {
-                $captured = array_map(static fn(ToolSpec $spec): string => $spec->name, $tools);
+                $captured = array_map(static fn (ToolSpec $spec): string => $spec->name, $tools);
 
                 return $this->response('done');
             },
@@ -2122,7 +2121,7 @@ final class ToolLoopServiceTest extends TestCase
 
         // The second input tool got no data — fail-closed refusal, never executed.
         self::assertNull($second->capturedArguments);
-        $refused = array_values(array_filter($trace->getSteps(), static fn(RunStep $s): bool => $s->kind === RunStep::KIND_TOOL && $s->toolIsError));
+        $refused = array_values(array_filter($trace->getSteps(), static fn (RunStep $s): bool => $s->kind === RunStep::KIND_TOOL && $s->toolIsError));
         self::assertNotSame([], $refused);
     }
 
@@ -2189,7 +2188,7 @@ final class ToolLoopServiceTest extends TestCase
 
         $writes = array_values(array_filter(
             $trace->getSteps(),
-            static fn(RunStep $s): bool => $s->kind === RunStep::KIND_TOOL && $s->toolName === 'write_page',
+            static fn (RunStep $s): bool => $s->kind === RunStep::KIND_TOOL && $s->toolName === 'write_page',
         ));
         self::assertCount(1, $writes);
         self::assertTrue(
@@ -2242,7 +2241,7 @@ final class ToolLoopServiceTest extends TestCase
 
         $rows = array_values(array_filter(
             $events->recorded,
-            static fn(GovernanceEvent $e): bool => $e->decision === GovernanceDecision::WRITE_UNAPPROVED->value,
+            static fn (GovernanceEvent $e): bool => $e->decision === GovernanceDecision::WRITE_UNAPPROVED->value,
         ));
 
         self::assertCount(1, $rows, 'exactly one row, for the refused write');
@@ -2365,7 +2364,7 @@ final class ToolLoopServiceTest extends TestCase
         $trace = new RunTrace();
         $service->runLoop([$this->userTurn('a')], $this->localConfiguration(), ToolExecutionContext::none(), null, runTrace: $trace);
 
-        $kinds = array_map(static fn(RunStep $step): string => $step->kind, $trace->getSteps());
+        $kinds = array_map(static fn (RunStep $step): string => $step->kind, $trace->getSteps());
         self::assertSame([RunStep::KIND_CONTEXT, RunStep::KIND_REQUEST, RunStep::KIND_LLM], $kinds);
         self::assertSame($breakdown, $trace->getSteps()[0]->contextBudget);
     }
@@ -2451,7 +2450,7 @@ final class ToolLoopServiceTest extends TestCase
 
         $refused = array_filter(
             $result->trace,
-            static fn(ToolInvocation $t): bool => str_contains($t->result, 'budget'),
+            static fn (ToolInvocation $t): bool => str_contains($t->result, 'budget'),
         );
 
         self::assertCount(3, $refused, 'every call past the budget is refused');
@@ -2491,7 +2490,7 @@ final class ToolLoopServiceTest extends TestCase
 
         $refused = array_filter(
             $second->trace,
-            static fn(ToolInvocation $t): bool => str_contains($t->result, 'budget'),
+            static fn (ToolInvocation $t): bool => str_contains($t->result, 'budget'),
         );
 
         self::assertSame([], $refused, 'the second run got its own budget');
@@ -2520,7 +2519,7 @@ final class ToolLoopServiceTest extends TestCase
 
         $refused = array_filter(
             $result->trace,
-            static fn(ToolInvocation $t): bool => str_contains($t->result, 'budget'),
+            static fn (ToolInvocation $t): bool => str_contains($t->result, 'budget'),
         );
 
         self::assertSame([], $refused);
@@ -2760,9 +2759,9 @@ final class ToolLoopServiceTest extends TestCase
     #[Test]
     public function adminOnlyToolIsNeverOfferedToNonAdmin(): void
     {
-        $beUserBackup    = $GLOBALS['BE_USER'] ?? null;
-        $nonAdmin        = new BackendUserAuthentication();
-        $nonAdmin->user  = ['uid' => 2, 'admin' => 0];
+        $beUserBackup       = $GLOBALS['BE_USER'] ?? null;
+        $nonAdmin           = new BackendUserAuthentication();
+        $nonAdmin->user     = ['uid' => 2, 'admin' => 0];
         $GLOBALS['BE_USER'] = $nonAdmin;
 
         try {
@@ -3094,13 +3093,13 @@ final class ToolLoopServiceTest extends TestCase
         // what the observed outcome joins sys_history against.
         $writeSteps = array_values(array_filter(
             $trace->getSteps(),
-            static fn(RunStep $step): bool => $step->kind === RunStep::KIND_WRITE,
+            static fn (RunStep $step): bool => $step->kind === RunStep::KIND_WRITE,
         ));
 
         self::assertCount(1, $writeSteps);
         self::assertSame('update_page_metadata', $writeSteps[0]->toolName);
         self::assertInstanceOf(RecordReference::class, $writeSteps[0]->writeTarget);
-        self::assertSame('pages:42', (string)$writeSteps[0]->writeTarget);
+        self::assertSame('pages:42', (string) $writeSteps[0]->writeTarget);
 
         // And it reaches the persisted payload as two scalars, not as a nested
         // pair the timeline's allow-list would drop.
@@ -3134,7 +3133,7 @@ final class ToolLoopServiceTest extends TestCase
         $service  = $this->service($mgr, new ToolRegistry([new FakeTool('fetch_records', 'rows')]));
         $service->runLoop([$this->userTurn('go')], $this->localConfiguration(), ToolExecutionContext::none(), null, null, null, $runTrace);
 
-        $kinds = array_map(static fn(RunStep $step): string => $step->kind, $runTrace->getSteps());
+        $kinds = array_map(static fn (RunStep $step): string => $step->kind, $runTrace->getSteps());
 
         self::assertNotContains(RunStep::KIND_WRITE, $kinds);
     }
@@ -3404,7 +3403,7 @@ final class ToolLoopServiceTest extends TestCase
         ]));
         $service = $this->service($mgr, new ToolRegistry([$moving, $steady]));
 
-        $state        = $this->suspend($service);
+        $state         = $this->suspend($service);
         $moving->lines = ['3 reference(s) → 4, appended last'];
 
         try {
@@ -3482,8 +3481,8 @@ final class ToolLoopServiceTest extends TestCase
     #[Test]
     public function aFailedPreviewIsCarriedIntoAStateRebuiltForASibling(): void
     {
-        $moving  = new ShiftingPreviewTool('attach_file');
-        $broken  = new PreviewingApprovalTool('delete_thing', throw: true);
+        $moving = new ShiftingPreviewTool('attach_file');
+        $broken = new PreviewingApprovalTool('delete_thing', throw: true);
 
         $mgr = self::createStub(LlmServiceManagerInterface::class);
         $mgr->method('chatWithToolsForConfiguration')->willReturn($this->response('', [
@@ -3539,9 +3538,9 @@ final class ToolLoopServiceTest extends TestCase
     #[Test]
     public function invocationRulesObserveEveryCallAndAuthoritativePriorOutcomes(): void
     {
-        $tool = new FakeTool('read_record');
+        $tool     = new FakeTool('read_record');
         $registry = new ToolRegistry([$tool]);
-        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr      = self::createStub(LlmServiceManagerInterface::class);
         $mgr
             ->method('chatWithToolsForConfiguration')
             ->willReturnCallback(
@@ -3577,6 +3576,7 @@ final class ToolLoopServiceTest extends TestCase
                     ToolInvocationContext $context,
                 ) use (&$seen): ToolInvocationDecision {
                     $seen[] = $context;
+
                     return $context->arguments['uid'] === 8 ? ToolInvocationDecision::deny('outside_site') : ToolInvocationDecision::allow();
                 },
             );
@@ -3584,7 +3584,7 @@ final class ToolLoopServiceTest extends TestCase
         $resolver
             ->method('resolve')
             ->willReturnCallback(
-                static fn(
+                static fn (
                     ToolCall $call,
                 ): ToolInvocationTarget => new ToolInvocationTarget(
                     'pages',
@@ -3601,8 +3601,8 @@ final class ToolLoopServiceTest extends TestCase
             invocationPolicy: new ToolInvocationPolicy([$rule], [$resolver]),
         );
         $configuration = $this->localConfiguration();
-        $context = ToolExecutionContext::none();
-        $result = $service->runLoop(
+        $context       = ToolExecutionContext::none();
+        $result        = $service->runLoop(
             [$this->userTurn('read')],
             $configuration,
             $context,
@@ -3616,9 +3616,9 @@ final class ToolLoopServiceTest extends TestCase
         self::assertSame(
             [
                 [
-                    'tool' => 'read_record',
+                    'tool'    => 'read_record',
                     'outcome' => 'ok',
-                    'target' => ['kind' => 'pages', 'identifier' => '7'],
+                    'target'  => ['kind' => 'pages', 'identifier' => '7'],
                 ],
             ],
             $seen[1]->history->entries,
@@ -3635,7 +3635,7 @@ final class ToolLoopServiceTest extends TestCase
     public function approvalResumeRechecksInvocationWithPersistedHistory(): void
     {
         $registry = new ToolRegistry([$this->approvalTool()]);
-        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr      = self::createStub(LlmServiceManagerInterface::class);
         $mgr
             ->method('chatWithToolsForConfiguration')
             ->willReturnCallback(
@@ -3668,6 +3668,7 @@ final class ToolLoopServiceTest extends TestCase
                     self::assertTrue($context->history->complete);
                     self::assertSame([], $context->history->entries);
                     self::assertSame(7, $context->arguments['id']);
+
                     return ToolInvocationDecision::deny('record_changed');
                 },
             );
@@ -3691,7 +3692,7 @@ final class ToolLoopServiceTest extends TestCase
         self::assertTrue(array_values(
             array_filter(
                 $trace->getSteps(),
-                static fn(
+                static fn (
                     RunStep $step,
                 ): bool => $step->kind === RunStep::KIND_TOOL,
             ),
@@ -3701,7 +3702,7 @@ final class ToolLoopServiceTest extends TestCase
             array_values(
                 array_filter(
                     $trace->getSteps(),
-                    static fn(
+                    static fn (
                         RunStep $step,
                     ): bool => $step->kind === RunStep::KIND_TOOL,
                 ),
@@ -3713,7 +3714,7 @@ final class ToolLoopServiceTest extends TestCase
     public function legacyResumeFailsClosedForAHistoryDependentRule(): void
     {
         $registry = new ToolRegistry([$this->approvalTool()]);
-        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr      = self::createStub(LlmServiceManagerInterface::class);
         $mgr
             ->method('chatWithToolsForConfiguration')
             ->willReturn($this->response('done'));
@@ -3748,7 +3749,7 @@ final class ToolLoopServiceTest extends TestCase
         self::assertTrue(array_values(
             array_filter(
                 $trace->getSteps(),
-                static fn(
+                static fn (
                     RunStep $step,
                 ): bool => $step->kind === RunStep::KIND_TOOL,
             ),
@@ -3758,7 +3759,7 @@ final class ToolLoopServiceTest extends TestCase
             array_values(
                 array_filter(
                     $trace->getSteps(),
-                    static fn(
+                    static fn (
                         RunStep $step,
                     ): bool => $step->kind === RunStep::KIND_TOOL,
                 ),
@@ -3769,9 +3770,9 @@ final class ToolLoopServiceTest extends TestCase
     #[Test]
     public function inputResumeChecksTheValidatedHumanArgumentsBeforeExecuting(): void
     {
-        $tool = new FakeInputTool('ask_user');
+        $tool     = new FakeInputTool('ask_user');
         $registry = new ToolRegistry([$tool]);
-        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr      = self::createStub(LlmServiceManagerInterface::class);
         $mgr
             ->method('chatWithToolsForConfiguration')
             ->willReturn($this->response('done'));
@@ -3786,6 +3787,7 @@ final class ToolLoopServiceTest extends TestCase
                     ToolInvocationContext $context,
                 ): ToolInvocationDecision {
                     self::assertSame(['city' => 'Berlin'], $context->arguments);
+
                     return ToolInvocationDecision::deny('city_restricted');
                 },
             );
@@ -3821,7 +3823,7 @@ final class ToolLoopServiceTest extends TestCase
         self::assertTrue(array_values(
             array_filter(
                 $trace->getSteps(),
-                static fn(
+                static fn (
                     RunStep $step,
                 ): bool => $step->kind === RunStep::KIND_TOOL,
             ),
@@ -3831,7 +3833,7 @@ final class ToolLoopServiceTest extends TestCase
             array_values(
                 array_filter(
                     $trace->getSteps(),
-                    static fn(
+                    static fn (
                         RunStep $step,
                     ): bool => $step->kind === RunStep::KIND_TOOL,
                 ),
@@ -3861,13 +3863,13 @@ final class ToolLoopServiceTest extends TestCase
                 ),
             );
         $registry = new ToolRegistry([$this->remoteTool()]);
-        $rule = self::createStub(ToolInvocationRuleInterface::class);
+        $rule     = self::createStub(ToolInvocationRuleInterface::class);
         $rule->method('identifier')->willReturn('remote.boundary');
         $rule->method('requiresCompleteHistory')->willReturn(false);
         $rule
             ->method('decide')
             ->willReturnCallback(
-                static fn(
+                static fn (
                     ToolInvocationContext $context,
                 ): ToolInvocationDecision => $context->arguments['deny'] ? ToolInvocationDecision::deny('forbidden_target') : ToolInvocationDecision::allow(),
             );
@@ -3881,7 +3883,7 @@ final class ToolLoopServiceTest extends TestCase
             invocationPolicy: new ToolInvocationPolicy([$rule]),
         );
         $fenced = [];
-        $trace = new RunTrace(
+        $trace  = new RunTrace(
             onBeforeTool: static function (string $toolName) use (&$fenced): void {
                 $fenced[] = $toolName;
             },
@@ -3905,7 +3907,7 @@ final class ToolLoopServiceTest extends TestCase
     public function invocationFailureMetadataContainsCodesRatherThanArgumentsOrExceptionText(): void
     {
         $registry = new ToolRegistry([new FakeTool('lookup')]);
-        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr      = self::createStub(LlmServiceManagerInterface::class);
         $mgr
             ->method('chatWithToolsForConfiguration')
             ->willReturnCallback(
@@ -3931,7 +3933,7 @@ final class ToolLoopServiceTest extends TestCase
         $rule
             ->method('decide')
             ->willThrowException(new RuntimeException('secret-exception'));
-        $events = new InMemoryGovernanceEventRepository();
+        $events  = new InMemoryGovernanceEventRepository();
         $service = new ToolLoopService(
             $mgr,
             $registry,
@@ -3963,7 +3965,7 @@ final class ToolLoopServiceTest extends TestCase
     public function pruningTheModelTranscriptDoesNotEraseInvocationHistory(): void
     {
         $registry = new ToolRegistry([new FakeTool('private_lookup'), new FakeTool('noop')]);
-        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr      = self::createStub(LlmServiceManagerInterface::class);
         $mgr
             ->method('chatWithToolsForConfiguration')
             ->willReturnCallback(
@@ -3982,7 +3984,7 @@ final class ToolLoopServiceTest extends TestCase
                     ],
                 ),
             );
-        $fits = 0;
+        $fits   = 0;
         $window = self::createStub(ContextWindowManagerInterface::class);
         $window
             ->method('fit')
@@ -4024,6 +4026,7 @@ final class ToolLoopServiceTest extends TestCase
                             'private_lookup',
                             $context->history->entries[0]['tool'],
                         );
+
                         return ToolInvocationDecision::deny('private_already_read');
                     }
 
@@ -4064,7 +4067,7 @@ final class ToolLoopServiceTest extends TestCase
         }
 
         $calls[] = new ToolCall('observe', 'noop', []);
-        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr     = self::createStub(LlmServiceManagerInterface::class);
         $mgr
             ->method('chatWithToolsForConfiguration')
             ->willReturnCallback(
@@ -4073,7 +4076,7 @@ final class ToolLoopServiceTest extends TestCase
                 ),
             );
         $registry = new ToolRegistry([$this->remoteTool(), new FakeTool('noop')]);
-        $rule = self::createStub(ToolInvocationRuleInterface::class);
+        $rule     = self::createStub(ToolInvocationRuleInterface::class);
         $rule->method('identifier')->willReturn('outcome.observer');
         $rule->method('requiresCompleteHistory')->willReturn(true);
         $rule
@@ -4130,7 +4133,7 @@ final class ToolLoopServiceTest extends TestCase
         bool $expectedAllowed,
     ): void {
         $registry = new ToolRegistry([new FakeTool('lookup')]);
-        $manager = self::createStub(LlmServiceManagerInterface::class);
+        $manager  = self::createStub(LlmServiceManagerInterface::class);
         $manager
             ->method('chatWithToolsForConfiguration')
             ->willReturn(
@@ -4155,7 +4158,7 @@ final class ToolLoopServiceTest extends TestCase
             initialInvocationHistory: $providedComplete === null ? null : new ToolInvocationHistory(complete: $providedComplete),
         );
         $executed = [];
-        $trace = new RunTrace(
+        $trace    = new RunTrace(
             onBeforeTool: static function (string $tool) use (&$executed): void {
                 $executed[] = $tool;
             },

@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Mcp;
 
@@ -42,6 +43,7 @@ final class McpDelegatedLifecycleTest extends AbstractUnitTestCase
         string $discovery = '',
     ): McpServerRecord {
         $base = McpTestServer::server();
+
         return new McpServerRecord(
             uid: $base->uid,
             pid: $base->pid,
@@ -80,6 +82,7 @@ final class McpDelegatedLifecycleTest extends AbstractUnitTestCase
             new StreamFactory(),
         );
         $transport->setHttpClient($wire);
+
         return $transport;
     }
 
@@ -108,13 +111,14 @@ final class McpDelegatedLifecycleTest extends AbstractUnitTestCase
             ->method('credentialIdentifier')
             ->willReturn($identifier);
         $session->expects(self::once())->method('close');
+
         return $session;
     }
 
     #[Test]
     public function missingActorDeniesBeforeOpeningOrSendingAnything(): void
     {
-        $wire = new McpTestServer();
+        $wire    = new McpTestServer();
         $factory = self::createMock(McpAuthenticationSessionFactoryInterface::class);
         $factory->expects(self::never())->method('openForExecution');
         try {
@@ -155,7 +159,7 @@ final class McpDelegatedLifecycleTest extends AbstractUnitTestCase
     #[Test]
     public function aNullFactorySessionCannotBecomeAnAnonymousCall(): void
     {
-        $wire = new McpTestServer();
+        $wire    = new McpTestServer();
         $factory = self::createStub(McpAuthenticationSessionFactoryInterface::class);
         $factory->method('openForExecution')->willReturn(null);
         $this->expectException(McpTransportException::class);
@@ -198,6 +202,7 @@ final class McpDelegatedLifecycleTest extends AbstractUnitTestCase
                     self::assertSame(SecretPlacement::Bearer, $placement);
                     self::assertSame([], $options);
                     $sent[] = $id;
+
                     return $client;
                 },
             );
@@ -218,8 +223,8 @@ final class McpDelegatedLifecycleTest extends AbstractUnitTestCase
             AiActorContext::serviceAccount('worker'),
         ];
         $sessions = [$this->session('ephemeral-a', 3), $this->session('ephemeral-b', 3)];
-        $factory = self::createMock(McpAuthenticationSessionFactoryInterface::class);
-        $index = 0;
+        $factory  = self::createMock(McpAuthenticationSessionFactoryInterface::class);
+        $index    = 0;
         $factory
             ->expects(self::exactly(2))
             ->method('openForExecution')
@@ -234,6 +239,7 @@ final class McpDelegatedLifecycleTest extends AbstractUnitTestCase
                     self::assertSame('mcp-api', $server->delegationAudience);
                     self::assertFalse($deadline->isExhausted());
                     self::assertNull($cancellation);
+
                     return $sessions[$index++];
                 },
             );
@@ -258,7 +264,7 @@ final class McpDelegatedLifecycleTest extends AbstractUnitTestCase
     #[Test]
     public function aFailedToolResponseStillClosesTheOperationCredential(): void
     {
-        $wire = (new McpTestServer())->willHandshake()->willReturnRaw('{}', 500);
+        $wire    = (new McpTestServer())->willHandshake()->willReturnRaw('{}', 500);
         $factory = self::createStub(McpAuthenticationSessionFactoryInterface::class);
         $factory
             ->method('openForExecution')
@@ -288,7 +294,7 @@ final class McpDelegatedLifecycleTest extends AbstractUnitTestCase
             ->expects(self::exactly(2))
             ->method('openForDiscovery')
             ->willReturnOnConsecutiveCalls($this->session('discovery', 3), $this->session('discovery', 2));
-        $mcp = $this->client($this->seam($wire), $factory);
+        $mcp    = $this->client($this->seam($wire), $factory);
         $server = $this->server(discovery: 'configured-discovery');
         self::assertSame([], $mcp->listTools($server));
         self::assertTrue($mcp->ping($server)->reachable);
@@ -297,7 +303,7 @@ final class McpDelegatedLifecycleTest extends AbstractUnitTestCase
     #[Test]
     public function missingDiscoveryIdentityDoesNotFallBackToTheLegacyCredential(): void
     {
-        $wire = new McpTestServer();
+        $wire    = new McpTestServer();
         $factory = self::createMock(McpAuthenticationSessionFactoryInterface::class);
         $factory->expects(self::never())->method('openForDiscovery');
         $mcp = $this->client($this->seam($wire), $factory);
@@ -308,7 +314,7 @@ final class McpDelegatedLifecycleTest extends AbstractUnitTestCase
     #[Test]
     public function directTransportCannotBypassTheModeOrSessionGate(): void
     {
-        $wire = new McpTestServer();
+        $wire      = new McpTestServer();
         $transport = $this->seam($wire);
         foreach (['delegated', 'unknown', ''] as $mode) {
             try {
@@ -330,7 +336,7 @@ final class McpDelegatedLifecycleTest extends AbstractUnitTestCase
     #[Test]
     public function delegatedCredentialCannotBeForwardedToALegacyServer(): void
     {
-        $wire = new McpTestServer();
+        $wire    = new McpTestServer();
         $session = self::createMock(McpCredentialSessionInterface::class);
         $session->expects(self::never())->method('credentialIdentifier');
         $this->expectException(McpTransportException::class);
@@ -349,7 +355,7 @@ final class McpDelegatedLifecycleTest extends AbstractUnitTestCase
     #[Test]
     public function delegatedTransportExceptionsDoNotExposeCredentialText(): void
     {
-        $wire = new McpTestServer();
+        $wire    = new McpTestServer();
         $session = self::createStub(McpCredentialSessionInterface::class);
         $session
             ->method('credentialIdentifier')
@@ -382,9 +388,9 @@ final class McpDelegatedLifecycleTest extends AbstractUnitTestCase
     #[Test]
     public function credentialRenewalSpendsTimeBeforeTheMcpLegTimeoutIsChosen(): void
     {
-        $clock = new FakeMcpClock();
-        $timeouts = [];
-        $wire = (new McpTestServer())->willReturn(['ok' => true]);
+        $clock                 = new FakeMcpClock();
+        $timeouts              = [];
+        $wire                  = (new McpTestServer())->willReturn(['ok' => true]);
         [$transport, $session] = $this->delayedCredentialTransport($clock, 7.0, $timeouts, $wire);
         $transport->call(
             $this->server(),
@@ -400,9 +406,9 @@ final class McpDelegatedLifecycleTest extends AbstractUnitTestCase
     #[Test]
     public function credentialStorageThatExhaustsTheBudgetPreventsMcpContact(): void
     {
-        $clock = new FakeMcpClock();
-        $timeouts = [];
-        $wire = new McpTestServer();
+        $clock                 = new FakeMcpClock();
+        $timeouts              = [];
+        $wire                  = new McpTestServer();
         [$transport, $session] = $this->delayedCredentialTransport($clock, 10.0, $timeouts, $wire);
         try {
             $transport->call(
@@ -429,14 +435,14 @@ final class McpDelegatedLifecycleTest extends AbstractUnitTestCase
     #[Test]
     public function cancellationAfterCredentialResolutionPreventsMcpContact(): void
     {
-        $clock = new FakeMcpClock();
-        $timeouts = [];
-        $wire = new McpTestServer();
+        $clock                 = new FakeMcpClock();
+        $timeouts              = [];
+        $wire                  = new McpTestServer();
         [$transport, $session] = $this->delayedCredentialTransport($clock, 1.0, $timeouts, $wire);
-        $signal = self::createStub(CancellationSignalInterface::class);
+        $signal                = self::createStub(CancellationSignalInterface::class);
         $signal
             ->method('isCancelled')
-            ->willReturnCallback(static fn(): bool => $clock->monotonicNanoseconds() >= 4243000000000);
+            ->willReturnCallback(static fn (): bool => $clock->monotonicNanoseconds() >= 4243000000000);
         try {
             $transport->call(
                 $this->server(),
@@ -480,6 +486,7 @@ final class McpDelegatedLifecycleTest extends AbstractUnitTestCase
                     int $seconds,
                 ) use (&$timeouts, $client): VaultHttpClientInterface {
                     $timeouts[] = $seconds;
+
                     return $client;
                 },
             );
@@ -502,9 +509,11 @@ final class McpDelegatedLifecycleTest extends AbstractUnitTestCase
                 static function () use ($clock, $delay): string {
                     // Models the complete exchange and subsequent Vault store/cleanup work.
                     $clock->advanceSeconds($delay);
+
                     return 'ephemeral-delayed';
                 },
             );
+
         return [$transport, $session];
     }
 }

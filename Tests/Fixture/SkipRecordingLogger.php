@@ -30,7 +30,7 @@ final class SkipRecordingLogger extends AbstractLogger
     public function log($level, string|Stringable $message, array $context = []): void
     {
         $this->records[] = [
-            'message'       => (string)$message,
+            'message'       => (string) $message,
             'configuration' => $context['configuration'] ?? null,
         ];
     }

@@ -63,7 +63,7 @@ final readonly class ListFalStoragesTool implements ToolInterface
                 continue;
             }
 
-            $flags = [];
+            $flags   = [];
             $flags[] = $storage->isOnline() ? 'online' : 'offline';
             if ($storage->isBrowsable()) {
                 $flags[] = 'browsable';

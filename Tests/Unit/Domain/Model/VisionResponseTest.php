@@ -155,7 +155,7 @@ final class VisionResponseTest extends AbstractUnitTestCase
     public function getTextAndGetDescriptionReturnSameValue(): void
     {
         $description = 'A detailed analysis of the image content.';
-        $response = new VisionResponse(
+        $response    = new VisionResponse(
             description: $description,
             model: 'gpt-4o',
             usage: $this->defaultUsage,
@@ -268,12 +268,12 @@ final class VisionResponseTest extends AbstractUnitTestCase
     public static function meetsConfidenceProvider(): array
     {
         return [
-            'null confidence always fails' => [null, 0.5, false],
+            'null confidence always fails'              => [null, 0.5, false],
             'null confidence with zero threshold fails' => [null, 0.0, false],
-            '0.9 meets 0.8' => [0.9, 0.8, true],
-            '0.9 meets 0.9' => [0.9, 0.9, true],
-            '0.8 fails 0.9' => [0.8, 0.9, false],
-            'perfect confidence meets any threshold' => [1.0, 0.99, true],
+            '0.9 meets 0.8'                             => [0.9, 0.8, true],
+            '0.9 meets 0.9'                             => [0.9, 0.9, true],
+            '0.8 fails 0.9'                             => [0.8, 0.9, false],
+            'perfect confidence meets any threshold'    => [1.0, 0.99, true],
         ];
     }
 

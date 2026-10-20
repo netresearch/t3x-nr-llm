@@ -60,9 +60,9 @@ class OpenAiProviderTest extends AbstractUnitTestCase
 
         $this->subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gpt-4o',
-            'baseUrl' => '',
-            'timeout' => 30,
+            'defaultModel'     => 'gpt-4o',
+            'baseUrl'          => '',
+            'timeout'          => 30,
         ]);
 
         // setHttpClient must be called AFTER configure() since configure() resets the client
@@ -88,9 +88,9 @@ class OpenAiProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gpt-4o',
-            'baseUrl' => '',
-            'timeout' => 30,
+            'defaultModel'     => 'gpt-4o',
+            'baseUrl'          => '',
+            'timeout'          => 30,
         ]);
 
         // setHttpClient must be called AFTER configure() since configure() resets the client
@@ -143,24 +143,24 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'id' => 'chatcmpl-' . $this->faker->uuid(),
-            'object' => 'chat.completion',
+            'id'      => 'chatcmpl-' . $this->faker->uuid(),
+            'object'  => 'chat.completion',
             'created' => time(),
-            'model' => 'gpt-4o',
+            'model'   => 'gpt-4o',
             'choices' => [
                 [
-                    'index' => 0,
+                    'index'   => 0,
                     'message' => [
-                        'role' => 'assistant',
+                        'role'    => 'assistant',
                         'content' => 'Test response content',
                     ],
                     'finish_reason' => 'stop',
                 ],
             ],
             'usage' => [
-                'prompt_tokens' => 10,
+                'prompt_tokens'     => 10,
                 'completion_tokens' => 20,
-                'total_tokens' => 30,
+                'total_tokens'      => 30,
             ],
         ];
 
@@ -187,10 +187,10 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'id' => 'chatcmpl-test',
+            'id'      => 'chatcmpl-test',
             'choices' => [['message' => ['content' => 'Hi'], 'finish_reason' => 'stop']],
-            'model' => 'gpt-4o',
-            'usage' => ['prompt_tokens' => 5, 'completion_tokens' => 1, 'total_tokens' => 6],
+            'model'   => 'gpt-4o',
+            'usage'   => ['prompt_tokens' => 5, 'completion_tokens' => 1, 'total_tokens' => 6],
         ];
 
         $this->httpClientStub
@@ -294,14 +294,15 @@ class OpenAiProviderTest extends AbstractUnitTestCase
      */
     private function captureChatCompletionPayload(array $options): array
     {
-        $captured = null;
+        $captured      = null;
         $streamFactory = self::createStub(StreamFactoryInterface::class);
         $streamFactory->method('createStream')->willReturnCallback(
             function (string $content) use (&$captured): StreamInterface {
                 $captured = $content;
-                $stream = self::createStub(StreamInterface::class);
+                $stream   = self::createStub(StreamInterface::class);
                 $stream->method('__toString')->willReturn($content);
                 $stream->method('getContents')->willReturn($content);
+
                 return $stream;
             },
         );
@@ -315,17 +316,17 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         );
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gpt-4o',
-            'baseUrl' => '',
-            'timeout' => 30,
+            'defaultModel'     => 'gpt-4o',
+            'baseUrl'          => '',
+            'timeout'          => 30,
         ]);
 
         $httpClientStub = $this->createHttpClientMock();
         $httpClientStub->method('sendRequest')->willReturn($this->createJsonResponseMock([
-            'id' => 'chatcmpl-test',
+            'id'      => 'chatcmpl-test',
             'choices' => [['message' => ['content' => '{}'], 'finish_reason' => 'stop']],
-            'model' => 'gpt-4o',
-            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            'model'   => 'gpt-4o',
+            'usage'   => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
         ]));
         $subject->setHttpClient($httpClientStub);
 
@@ -385,17 +386,17 @@ class OpenAiProviderTest extends AbstractUnitTestCase
 
         $apiResponse = [
             'object' => 'list',
-            'data' => [
+            'data'   => [
                 [
-                    'object' => 'embedding',
-                    'index' => 0,
+                    'object'    => 'embedding',
+                    'index'     => 0,
                     'embedding' => array_fill(0, 1536, 0.1),
                 ],
             ],
             'model' => 'text-embedding-3-small',
             'usage' => [
                 'prompt_tokens' => 10,
-                'total_tokens' => 10,
+                'total_tokens'  => 10,
             ],
         ];
 
@@ -418,7 +419,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
 
         $apiResponse = [
             'object' => 'list',
-            'data' => [
+            'data'   => [
                 ['embedding' => array_fill(0, 1536, 0.1), 'index' => 0],
                 ['embedding' => array_fill(0, 1536, 0.2), 'index' => 1],
             ],
@@ -469,10 +470,10 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     public function chatCompletionAcceptsValidTemperature(float $temperature): void
     {
         $apiResponse = [
-            'id' => 'test',
+            'id'      => 'test',
             'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
-            'model' => 'gpt-4o',
-            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            'model'   => 'gpt-4o',
+            'usage'   => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
         ];
         $this->httpClientStub
             ->method('sendRequest')
@@ -493,8 +494,8 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     {
         return [
             'zero' => [0.0],
-            'mid' => [1.0],
-            'max' => [2.0],
+            'mid'  => [1.0],
+            'max'  => [2.0],
         ];
     }
 
@@ -502,10 +503,10 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     public function chatCompletionHandlesEmptyChoices(): void
     {
         $apiResponse = [
-            'id' => 'test',
+            'id'      => 'test',
             'choices' => [],
-            'model' => 'gpt-4o',
-            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 0, 'total_tokens' => 1],
+            'model'   => 'gpt-4o',
+            'usage'   => ['prompt_tokens' => 1, 'completion_tokens' => 0, 'total_tokens' => 1],
         ];
 
         $this->httpClientStub
@@ -524,10 +525,10 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         $customModel = 'gpt-4-turbo';
 
         $apiResponse = [
-            'id' => 'test',
+            'id'      => 'test',
             'choices' => [['message' => ['content' => 'test'], 'finish_reason' => 'stop']],
-            'model' => $customModel,
-            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            'model'   => $customModel,
+            'usage'   => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
         ];
 
         $this->httpClientStub
@@ -546,14 +547,14 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithToolsReturnsToolCalls(): void
     {
         $messages = [['role' => 'user', 'content' => 'What is the weather?']];
-        $tools = [
+        $tools    = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => [
-                    'name' => 'get_weather',
+                    'name'        => 'get_weather',
                     'description' => 'Get weather for a location',
-                    'parameters' => [
-                        'type' => 'object',
+                    'parameters'  => [
+                        'type'       => 'object',
                         'properties' => ['location' => ['type' => 'string']],
                     ],
                 ],
@@ -561,18 +562,18 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'id' => 'chatcmpl-test',
-            'model' => 'gpt-4o',
+            'id'      => 'chatcmpl-test',
+            'model'   => 'gpt-4o',
             'choices' => [
                 [
                     'message' => [
-                        'content' => '',
+                        'content'    => '',
                         'tool_calls' => [
                             [
-                                'id' => 'call_123',
-                                'type' => 'function',
+                                'id'       => 'call_123',
+                                'type'     => 'function',
                                 'function' => [
-                                    'name' => 'get_weather',
+                                    'name'      => 'get_weather',
                                     'arguments' => '{"location": "Tokyo"}',
                                 ],
                             ],
@@ -602,11 +603,11 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithToolsSkipsMalformedToolCall(): void
     {
         $messages = [['role' => 'user', 'content' => 'What is the weather?']];
-        $tools = [
+        $tools    = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => [
-                    'name' => 'get_weather',
+                    'name'       => 'get_weather',
                     'parameters' => ['type' => 'object', 'properties' => []],
                 ],
             ]),
@@ -616,21 +617,21 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         // previously make ToolCall::fromArray() throw and abort the whole
         // response; the malformed entry must now be skipped, keeping the valid one.
         $apiResponse = [
-            'id'    => 'chatcmpl-test',
-            'model' => 'gpt-4o',
+            'id'      => 'chatcmpl-test',
+            'model'   => 'gpt-4o',
             'choices' => [
                 [
                     'message' => [
                         'content'    => '',
                         'tool_calls' => [
                             [
-                                'id'   => 'call_bad',
-                                'type' => 'function',
+                                'id'       => 'call_bad',
+                                'type'     => 'function',
                                 'function' => ['name' => '', 'arguments' => '{}'],
                             ],
                             [
-                                'id'   => 'call_ok',
-                                'type' => 'function',
+                                'id'       => 'call_ok',
+                                'type'     => 'function',
                                 'function' => ['name' => 'get_weather', 'arguments' => '{"location": "Tokyo"}'],
                             ],
                         ],
@@ -656,19 +657,19 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithToolsAndToolChoice(): void
     {
         $messages = [['role' => 'user', 'content' => 'Get weather']];
-        $tools = [
+        $tools    = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => ['name' => 'get_weather', 'parameters' => []],
             ]),
         ];
 
         $apiResponse = [
-            'id' => 'test',
-            'model' => 'gpt-4o',
+            'id'      => 'test',
+            'model'   => 'gpt-4o',
             'choices' => [
                 [
-                    'message' => ['content' => '', 'tool_calls' => []],
+                    'message'       => ['content' => '', 'tool_calls' => []],
                     'finish_reason' => 'stop',
                 ],
             ],
@@ -690,12 +691,12 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         // Transport-path proof for #345: an assistantToolCalls + toolResult
         // ChatMessage pair must reach the HTTP payload intact — nothing between
         // the public API and the request body may flatten them to role+content.
-        $captured = null;
+        $captured      = null;
         $streamFactory = self::createStub(StreamFactoryInterface::class);
         $streamFactory->method('createStream')->willReturnCallback(
             function (string $content) use (&$captured): StreamInterface {
                 $captured = $content;
-                $stream = self::createStub(StreamInterface::class);
+                $stream   = self::createStub(StreamInterface::class);
                 $stream->method('__toString')->willReturn($content);
                 $stream->method('getContents')->willReturn($content);
 
@@ -712,17 +713,17 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         );
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gpt-4o',
-            'baseUrl' => '',
-            'timeout' => 30,
+            'defaultModel'     => 'gpt-4o',
+            'baseUrl'          => '',
+            'timeout'          => 30,
         ]);
 
         $httpClientStub = $this->createHttpClientMock();
         $httpClientStub->method('sendRequest')->willReturn($this->createJsonResponseMock([
-            'id' => 'chatcmpl-test',
+            'id'      => 'chatcmpl-test',
             'choices' => [['message' => ['content' => 'Sunny, 20 °C.'], 'finish_reason' => 'stop']],
-            'model' => 'gpt-4o',
-            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            'model'   => 'gpt-4o',
+            'usage'   => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
         ]));
         $subject->setHttpClient($httpClientStub);
 
@@ -733,7 +734,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         ];
         $tools = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => ['name' => 'get_weather', 'parameters' => ['type' => 'object', 'properties' => []]],
             ]),
         ];
@@ -747,26 +748,26 @@ class OpenAiProviderTest extends AbstractUnitTestCase
 
         self::assertSame([
             [
-                'role' => 'user',
+                'role'    => 'user',
                 'content' => 'What is the weather in Leipzig?',
             ],
             [
-                'role' => 'assistant',
-                'content' => '',
+                'role'       => 'assistant',
+                'content'    => '',
                 'tool_calls' => [
                     [
-                        'id' => 'call_1',
-                        'type' => 'function',
+                        'id'       => 'call_1',
+                        'type'     => 'function',
                         'function' => [
-                            'name' => 'get_weather',
+                            'name'      => 'get_weather',
                             'arguments' => '{"location":"Leipzig"}',
                         ],
                     ],
                 ],
             ],
             [
-                'role' => 'tool',
-                'content' => '{"temp": 20}',
+                'role'         => 'tool',
+                'content'      => '{"temp": 20}',
                 'tool_call_id' => 'call_1',
             ],
         ], $payload['messages']);
@@ -781,11 +782,11 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'id' => 'chatcmpl-test',
-            'model' => 'gpt-5.2',
+            'id'      => 'chatcmpl-test',
+            'model'   => 'gpt-5.2',
             'choices' => [
                 [
-                    'message' => ['content' => 'This image shows a cat sitting on a couch.'],
+                    'message'       => ['content' => 'This image shows a cat sitting on a couch.'],
                     'finish_reason' => 'stop',
                 ],
             ],
@@ -812,11 +813,11 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'id' => 'test',
-            'model' => 'gpt-5.2',
+            'id'      => 'test',
+            'model'   => 'gpt-5.2',
             'choices' => [
                 [
-                    'message' => ['content' => 'A detailed description'],
+                    'message'       => ['content' => 'A detailed description'],
                     'finish_reason' => 'stop',
                 ],
             ],
@@ -840,7 +841,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
             . "data: {\"choices\":[{\"delta\":{\"content\":\" World\"}}]}\n\n"
             . "data: [DONE]\n\n";
 
-        $stream = self::createStub(StreamInterface::class);
+        $stream       = self::createStub(StreamInterface::class);
         $eofCallCount = 0;
         $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
             return ++$eofCallCount > 1;
@@ -870,7 +871,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
             . "data: {\"choices\":[{\"delta\":{\"content\":\"Valid\"}}]}\n\n"
             . "data: [DONE]\n\n";
 
-        $stream = self::createStub(StreamInterface::class);
+        $stream       = self::createStub(StreamInterface::class);
         $eofCallCount = 0;
         $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
             return ++$eofCallCount > 1;
@@ -901,7 +902,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         // once the residual passes the per-line limit.
         $streamData = str_repeat('a', 1_048_577);
 
-        $stream = self::createStub(StreamInterface::class);
+        $stream       = self::createStub(StreamInterface::class);
         $eofCallCount = 0;
         $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
             return ++$eofCallCount > 1;
@@ -974,10 +975,10 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithMaxTokensOption(): void
     {
         $apiResponse = [
-            'id' => 'test',
+            'id'      => 'test',
             'choices' => [['message' => ['content' => 'response'], 'finish_reason' => 'length']],
-            'model' => 'gpt-4o',
-            'usage' => ['prompt_tokens' => 5, 'completion_tokens' => 100, 'total_tokens' => 105],
+            'model'   => 'gpt-4o',
+            'usage'   => ['prompt_tokens' => 5, 'completion_tokens' => 100, 'total_tokens' => 105],
         ];
 
         $this->httpClientStub
@@ -1121,7 +1122,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     {
         $apiResponse = [
             'object' => 'list',
-            'data' => [
+            'data'   => [
                 ['id' => 'gpt-5.2', 'object' => 'model'],
                 ['id' => 'gpt-4o', 'object' => 'model'],
                 ['id' => 'gpt-4o-mini', 'object' => 'model'],
@@ -1148,7 +1149,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     {
         $apiResponse = [
             'object' => 'list',
-            'data' => [],
+            'data'   => [],
         ];
 
         $this->httpClientStub
@@ -1169,7 +1170,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     {
         $apiResponse = [
             'object' => 'list',
-            'data' => [
+            'data'   => [
                 ['id' => 'gpt-5.2', 'object' => 'model'],
                 ['object' => 'model'], // No id field
                 ['id' => '', 'object' => 'model'], // Empty id
@@ -1205,17 +1206,17 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithToolsReturnsNullToolCallsWhenNoneInResponse(): void
     {
         $messages = [['role' => 'user', 'content' => 'Hello']];
-        $tools = [
+        $tools    = [
             ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'parameters' => []]]),
         ];
 
         // Response has no tool_calls key at all (not even empty)
         $apiResponse = [
-            'id' => 'chatcmpl-test',
-            'model' => 'gpt-4o',
+            'id'      => 'chatcmpl-test',
+            'model'   => 'gpt-4o',
             'choices' => [
                 [
-                    'message' => ['content' => 'Hello! How can I help?'],
+                    'message'       => ['content' => 'Hello! How can I help?'],
                     'finish_reason' => 'stop',
                 ],
             ],
@@ -1237,23 +1238,23 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithToolsWithInvalidJsonArgumentsUsesEmptyArray(): void
     {
         $messages = [['role' => 'user', 'content' => 'Get weather']];
-        $tools = [
+        $tools    = [
             ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'get_weather', 'parameters' => []]]),
         ];
 
         $apiResponse = [
-            'id' => 'chatcmpl-test',
-            'model' => 'gpt-4o',
+            'id'      => 'chatcmpl-test',
+            'model'   => 'gpt-4o',
             'choices' => [
                 [
                     'message' => [
-                        'content' => '',
+                        'content'    => '',
                         'tool_calls' => [
                             [
-                                'id' => 'call_abc',
-                                'type' => 'function',
+                                'id'       => 'call_abc',
+                                'type'     => 'function',
                                 'function' => [
-                                    'name' => 'get_weather',
+                                    'name'      => 'get_weather',
                                     'arguments' => '{invalid json}',
                                 ],
                             ],
@@ -1286,7 +1287,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
 
         $apiResponse = [
             'object' => 'list',
-            'data' => [
+            'data'   => [
                 ['embedding' => array_fill(0, 1536, 0.1), 'index' => 0],
                 ['embedding' => array_fill(0, 1536, 0.2), 'index' => 1],
                 ['embedding' => array_fill(0, 1536, 0.3), 'index' => 2],
@@ -1315,7 +1316,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
             . "data: {\"choices\":[{\"delta\":{\"content\":\"Hello\"}}]}\n\n"
             . "data: [DONE]\n\n";
 
-        $stream = self::createStub(StreamInterface::class);
+        $stream       = self::createStub(StreamInterface::class);
         $eofCallCount = 0;
         $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
             return ++$eofCallCount > 1;
@@ -1348,7 +1349,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
             . "data: {\"choices\":[{\"delta\":{\"content\":\"World\"}}]}\n\n"
             . "data: [DONE]\n\n";
 
-        $stream = self::createStub(StreamInterface::class);
+        $stream       = self::createStub(StreamInterface::class);
         $eofCallCount = 0;
         $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
             return ++$eofCallCount > 1;
@@ -1375,10 +1376,10 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithTopPOption(): void
     {
         $apiResponse = [
-            'id' => 'test',
+            'id'      => 'test',
             'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
-            'model' => 'gpt-4o',
-            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            'model'   => 'gpt-4o',
+            'usage'   => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
         ];
 
         $this->httpClientStub
@@ -1397,10 +1398,10 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithFrequencyPenaltyOption(): void
     {
         $apiResponse = [
-            'id' => 'test',
+            'id'      => 'test',
             'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
-            'model' => 'gpt-4o',
-            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            'model'   => 'gpt-4o',
+            'usage'   => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
         ];
 
         $this->httpClientStub
@@ -1419,10 +1420,10 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithPresencePenaltyOption(): void
     {
         $apiResponse = [
-            'id' => 'test',
+            'id'      => 'test',
             'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
-            'model' => 'gpt-4o',
-            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            'model'   => 'gpt-4o',
+            'usage'   => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
         ];
 
         $this->httpClientStub
@@ -1441,10 +1442,10 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithStopOption(): void
     {
         $apiResponse = [
-            'id' => 'test',
+            'id'      => 'test',
             'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
-            'model' => 'gpt-4o',
-            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            'model'   => 'gpt-4o',
+            'usage'   => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
         ];
 
         $this->httpClientStub
@@ -1468,11 +1469,11 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'id' => 'test',
-            'model' => 'gpt-4o',
+            'id'      => 'test',
+            'model'   => 'gpt-4o',
             'choices' => [
                 [
-                    'message' => ['content' => 'An image of something'],
+                    'message'       => ['content' => 'An image of something'],
                     'finish_reason' => 'stop',
                 ],
             ],
@@ -1495,11 +1496,11 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     public function chatCompletionExtractsThinkingFromContent(): void
     {
         $apiResponse = [
-            'id' => 'chatcmpl-test',
+            'id'      => 'chatcmpl-test',
             'choices' => [
                 [
                     'message' => [
-                        'role' => 'assistant',
+                        'role'    => 'assistant',
                         'content' => '<think>Let me reason about this</think>The answer is 42.',
                     ],
                     'finish_reason' => 'stop',
@@ -1526,11 +1527,11 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     public function chatCompletionReturnsNullThinkingWhenNoTags(): void
     {
         $apiResponse = [
-            'id' => 'chatcmpl-test',
+            'id'      => 'chatcmpl-test',
             'choices' => [
                 [
                     'message' => [
-                        'role' => 'assistant',
+                        'role'    => 'assistant',
                         'content' => 'Plain response without thinking.',
                     ],
                     'finish_reason' => 'stop',
@@ -1560,7 +1561,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     {
         $messages = [
             [
-                'role' => 'user',
+                'role'    => 'user',
                 'content' => [
                     ['type' => 'text', 'text' => 'Describe this image'],
                     ['type' => 'image_url', 'image_url' => ['url' => 'data:image/png;base64,iVBORw0KGgo=']],
@@ -1569,10 +1570,10 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'id' => 'test',
+            'id'      => 'test',
             'choices' => [
                 [
-                    'message' => ['content' => 'This is an image of a diagram.'],
+                    'message'       => ['content' => 'This is an image of a diagram.'],
                     'finish_reason' => 'stop',
                 ],
             ],
@@ -1759,7 +1760,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     {
         $apiResponse = [
             'object' => 'list',
-            'data' => [
+            'data'   => [
                 ['embedding' => [0, 1, 0.5], 'index' => 0],
             ],
             'model' => 'text-embedding-3-small',
@@ -1836,7 +1837,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         $streamFactory->method('createStream')->willReturnCallback(
             function (string $content) use (&$capturedBody): StreamInterface {
                 $capturedBody = $content;
-                $stream = self::createStub(StreamInterface::class);
+                $stream       = self::createStub(StreamInterface::class);
                 $stream->method('__toString')->willReturn($content);
                 $stream->method('getContents')->willReturn($content);
 
@@ -1848,9 +1849,9 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         $requestFactory->method('createRequest')->willReturnCallback(
             function (string $method, string $uri) use (&$capturedUrl): RequestInterface {
                 $capturedUrl = $uri;
-                $request = self::createStub(RequestInterface::class);
-                $request->method('withHeader')->willReturnCallback(fn(): RequestInterface => $request);
-                $request->method('withBody')->willReturnCallback(fn(): RequestInterface => $request);
+                $request     = self::createStub(RequestInterface::class);
+                $request->method('withHeader')->willReturnCallback(fn (): RequestInterface => $request);
+                $request->method('withBody')->willReturnCallback(fn (): RequestInterface => $request);
 
                 return $request;
             },
@@ -1866,13 +1867,13 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         // Trailing slash on the base URL makes the rtrim() + '/' concatenation observable.
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gpt-4o',
-            'baseUrl' => 'https://api.example.test/v1/',
-            'timeout' => 30,
+            'defaultModel'     => 'gpt-4o',
+            'baseUrl'          => 'https://api.example.test/v1/',
+            'timeout'          => 30,
         ]);
 
         $responseStream = self::createStub(StreamInterface::class);
-        $eofCallCount = 0;
+        $eofCallCount   = 0;
         $responseStream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
             return ++$eofCallCount > 1;
         });
@@ -1926,14 +1927,14 @@ class OpenAiProviderTest extends AbstractUnitTestCase
                 $capturedRequest = $request;
 
                 return $this->createJsonResponseMock([
-                    'id' => 'chatcmpl-test',
-                    'object' => 'chat.completion',
+                    'id'      => 'chatcmpl-test',
+                    'object'  => 'chat.completion',
                     'created' => time(),
-                    'model' => 'gpt-4o',
+                    'model'   => 'gpt-4o',
                     'choices' => [
                         [
-                            'index' => 0,
-                            'message' => ['role' => 'assistant', 'content' => 'ok'],
+                            'index'         => 0,
+                            'message'       => ['role' => 'assistant', 'content' => 'ok'],
                             'finish_reason' => 'stop',
                         ],
                     ],
@@ -1950,7 +1951,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         );
         $subject->configure(array_merge([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gpt-4o',
+            'defaultModel'     => 'gpt-4o',
         ], $config));
         $subject->setHttpClient($httpClient);
 
@@ -1961,7 +1962,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     public function chatCompletionSendsOpenAiOrganizationHeaderWhenConfigured(): void
     {
         $capturedRequest = null;
-        $subject = $this->createHeaderCapturingProvider(['organizationId' => 'org-abc123'], $capturedRequest);
+        $subject         = $this->createHeaderCapturingProvider(['organizationId' => 'org-abc123'], $capturedRequest);
 
         $subject->chatCompletion([['role' => 'user', 'content' => 'hi']]);
 
@@ -1973,7 +1974,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     public function chatCompletionOmitsOrganizationHeaderWhenUnset(): void
     {
         $capturedRequest = null;
-        $subject = $this->createHeaderCapturingProvider([], $capturedRequest);
+        $subject         = $this->createHeaderCapturingProvider([], $capturedRequest);
 
         $subject->chatCompletion([['role' => 'user', 'content' => 'hi']]);
 
@@ -1985,7 +1986,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     public function streamChatCompletionSendsOrganizationAndCustomHeaders(): void
     {
         $capturedRequest = null;
-        $httpFactory = new HttpFactory();
+        $httpFactory     = new HttpFactory();
 
         $subject = new OpenAiProvider(
             $httpFactory,
@@ -1996,13 +1997,13 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         );
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gpt-4o',
-            'organizationId' => 'org-abc123',
-            'customHeaders' => ['X-Custom-Header' => 'v1'],
+            'defaultModel'     => 'gpt-4o',
+            'organizationId'   => 'org-abc123',
+            'customHeaders'    => ['X-Custom-Header' => 'v1'],
         ]);
 
         $responseStream = self::createStub(StreamInterface::class);
-        $eofCallCount = 0;
+        $eofCallCount   = 0;
         $responseStream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
             return ++$eofCallCount > 1;
         });
@@ -2100,7 +2101,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
             . "data: [DONE]\n\n"
             . "data: {\"choices\":[{\"delta\":{\"content\":\"B\"}}]}\n\n";
 
-        $stream = self::createStub(StreamInterface::class);
+        $stream       = self::createStub(StreamInterface::class);
         $eofCallCount = 0;
         $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
             return ++$eofCallCount > 1;
@@ -2134,7 +2135,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         ];
         $readIndex = 0;
 
-        $stream = self::createStub(StreamInterface::class);
+        $stream       = self::createStub(StreamInterface::class);
         $eofCallCount = 0;
         $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
             return ++$eofCallCount > 2;
@@ -2170,7 +2171,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         $streamFactory->method('createStream')->willReturnCallback(
             function (string $content) use (&$capturedBody): StreamInterface {
                 $capturedBody = $content;
-                $stream = self::createStub(StreamInterface::class);
+                $stream       = self::createStub(StreamInterface::class);
                 $stream->method('__toString')->willReturn($content);
                 $stream->method('getContents')->willReturn($content);
 
@@ -2187,9 +2188,9 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         );
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gpt-4o',
-            'baseUrl' => '',
-            'timeout' => 30,
+            'defaultModel'     => 'gpt-4o',
+            'baseUrl'          => '',
+            'timeout'          => 30,
         ]);
 
         $responseStream = self::createStub(StreamInterface::class);
@@ -2224,7 +2225,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         $streamFactory->method('createStream')->willReturnCallback(
             function (string $content) use (&$captured): StreamInterface {
                 $captured = $content;
-                $stream = self::createStub(StreamInterface::class);
+                $stream   = self::createStub(StreamInterface::class);
                 $stream->method('__toString')->willReturn($content);
                 $stream->method('getContents')->willReturn($content);
 
@@ -2241,9 +2242,9 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         );
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gpt-4o',
-            'baseUrl' => '',
-            'timeout' => 30,
+            'defaultModel'     => 'gpt-4o',
+            'baseUrl'          => '',
+            'timeout'          => 30,
         ]);
 
         $httpClientStub = $this->createHttpClientMock();
@@ -2279,10 +2280,10 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     {
         $captured = null;
         $subject  = $this->createCapturingSubject($captured, [
-            'id' => 'chatcmpl-test',
+            'id'      => 'chatcmpl-test',
             'choices' => [['message' => ['content' => '{}'], 'finish_reason' => 'stop']],
-            'model' => 'gpt-4o',
-            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            'model'   => 'gpt-4o',
+            'usage'   => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
         ]);
 
         $subject->chatCompletionWithTools($messages, $tools, $options);
@@ -2303,9 +2304,9 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         $captured = null;
         $subject  = $this->createCapturingSubject($captured, [
             'object' => 'list',
-            'data' => [['embedding' => [0.1], 'index' => 0]],
-            'model' => 'text-embedding-3-small',
-            'usage' => ['prompt_tokens' => 1, 'total_tokens' => 1],
+            'data'   => [['embedding' => [0.1], 'index' => 0]],
+            'model'  => 'text-embedding-3-small',
+            'usage'  => ['prompt_tokens' => 1, 'total_tokens' => 1],
         ]);
 
         $subject->embeddings($input, $options);
@@ -2325,10 +2326,10 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     {
         $captured = null;
         $subject  = $this->createCapturingSubject($captured, [
-            'id' => 'chatcmpl-test',
-            'model' => 'gpt-5.2',
+            'id'      => 'chatcmpl-test',
+            'model'   => 'gpt-5.2',
             'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
-            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            'usage'   => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
         ]);
 
         $subject->analyzeImage($content, $options);

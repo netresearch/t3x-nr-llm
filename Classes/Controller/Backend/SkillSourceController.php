@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Controller\Backend;
 
 use Netresearch\NrLlm\Domain\Enum\SkillAuditEvent;
+use Netresearch\NrLlm\Domain\Enum\SkillSourceType;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillSourceRepository;
@@ -32,7 +33,7 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
 /**
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class SkillSourceController extends ActionController
@@ -72,7 +73,7 @@ final class SkillSourceController extends ActionController
 
         // "Add source" button in the docheader → FormEngine new-record form for
         // tx_nrllm_skill_source, returning to this module after save/close.
-        $buttonBar = $moduleTemplate->getDocHeaderComponent()->getButtonBar();
+        $buttonBar    = $moduleTemplate->getDocHeaderComponent()->getButtonBar();
         $createButton = $buttonBar->makeLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-plus', IconSize::SMALL))
             ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.skill.source.new', 'NrLlm') ?? 'Add source')
@@ -86,6 +87,10 @@ final class SkillSourceController extends ActionController
         // (mirrors the docheader "Add source" button's buildNewUrl pattern).
         /** @var array<int, string> $sourceEditUrls */
         $sourceEditUrls = [];
+        /** @var array<int, string> $newSkillUrls */
+        $newSkillUrls = [];
+        /** @var array<int, true> $backendSourceUids */
+        $backendSourceUids = [];
         foreach ($sources as $source) {
             // Surface an interrupted sync (a stale SYNCING lock) as a retryable ERROR here, so the
             // list never shows a source wedged on "Syncing" after a crash; a live sync is untouched.
@@ -96,13 +101,34 @@ final class SkillSourceController extends ActionController
             }
 
             $sourceEditUrls[$uid] = $this->formEngineUrlBuilder->buildEditUrl('tx_nrllm_skill_source', $uid, 'nrllm_skills');
+            // A backend source (ADR-214 item 3) holds skills written here:
+            // it gets "new skill" instead of sync and token.
+            if ($source->getTypeEnum() === SkillSourceType::BACKEND) {
+                $newSkillUrls[$uid]      = $this->formEngineUrlBuilder->buildNewUrlWithDefaults('tx_nrllm_skill', ['source' => $uid], 'nrllm_skills');
+                $backendSourceUids[$uid] = true;
+            }
+        }
+
+        $skills = $this->skillRepository->findAll();
+        // Backend-authored skills are written through FormEngine and the
+        // DataHandler, which keeps sys_history and the exclude boundary.
+        /** @var array<int, string> $skillEditUrls */
+        $skillEditUrls = [];
+        foreach ($skills as $skill) {
+            $skillUid = $skill->getUid();
+            if ($skillUid !== null && isset($backendSourceUids[$skill->getSource()])) {
+                $skillEditUrls[$skillUid] = $this->formEngineUrlBuilder->buildEditUrl('tx_nrllm_skill', $skillUid, 'nrllm_skills');
+            }
         }
 
         $moduleTemplate->assignMultiple([
-            'sources' => $sources,
+            'sources'        => $sources,
             'sourceEditUrls' => $sourceEditUrls,
-            'skills' => $this->skillRepository->findAll(),
+            'newSkillUrls'   => $newSkillUrls,
+            'skills'         => $skills,
+            'skillEditUrls'  => $skillEditUrls,
         ]);
+
         return $moduleTemplate->renderResponse('Backend/Skill/List');
     }
 
@@ -112,22 +138,23 @@ final class SkillSourceController extends ActionController
             return $deny;
         }
 
-        $uid = $this->intFromBody($request->getParsedBody(), 'source');
+        $uid    = $this->intFromBody($request->getParsedBody(), 'source');
         $source = $this->sourceRepository->findByUid($uid);
         if ($source === null) {
             return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.skill.unknownSource', 'Unknown source')], 404);
         }
 
         $result = $this->syncService->sync($source);
+
         return new JsonResponse([
-            'success' => true,
-            'status' => $result->status->value,
-            'created' => $result->created,
-            'updated' => $result->updated,
+            'success'          => true,
+            'status'           => $result->status->value,
+            'created'          => $result->created,
+            'updated'          => $result->updated,
             'disabledOnChange' => $result->disabledOnChange,
             'injectionBlocked' => $result->injectionBlocked,
-            'orphaned' => $result->orphaned,
-            'errors' => $result->errors,
+            'orphaned'         => $result->orphaned,
+            'errors'           => $result->errors,
         ]);
     }
 
@@ -137,14 +164,28 @@ final class SkillSourceController extends ActionController
             return $deny;
         }
 
-        $body = $request->getParsedBody();
+        $body            = $request->getParsedBody();
         [$skill, $error] = $this->resolveToggleableSkill($body);
         if ($error instanceof ResponseInterface) {
             return $error;
         }
 
         assert($skill instanceof Skill);
-        $skill->setEnabled($this->boolFromBody($body, 'enabled'));
+        $enabled = $this->boolFromBody($body, 'enabled');
+        if ($enabled === $skill->isEnabled()) {
+            // Nothing changes, the mark included: a repeated disable of a
+            // skill the sync disabled must not turn the sync's mark into an
+            // administrator's, which would lift its restriction (the rule
+            // SkillDisabledByHook enforces: the mark follows a change of
+            // `enabled` only).
+            return new JsonResponse(['success' => true, 'enabled' => $enabled]);
+        }
+
+        $skill->setEnabled($enabled);
+        // An administrator's decision: a disable drops the skill out of the
+        // runs it is attached to, a re-enable clears the sync's mark.
+        $skill->setDisabledBy($enabled ? '' : Skill::DISABLED_BY_ADMIN);
+
         $this->skillRepository->update($skill);
         $this->persistenceManager->persistAll();
         // Append-only audit record of the admin's enable/disable (ADR-061).
@@ -152,14 +193,15 @@ final class SkillSourceController extends ActionController
             $skill->isEnabled() ? SkillAuditEvent::ENABLED : SkillAuditEvent::DISABLED,
             $skill,
         );
+
         return new JsonResponse(['success' => true, 'enabled' => $skill->isEnabled()]);
     }
 
     /**
      * Resolve and validate the skill targeted by a toggle request (early-return guard, like denyNonAdmin).
      *
-     * @return array{0:?Skill,1:?ResponseInterface} The skill on success (error null), or a JSON error
-     *                                              response (skill null) for an unknown or orphaned skill.
+     * @return array{0:?Skill,1:?ResponseInterface} the skill on success (error null), or a JSON error
+     *                                              response (skill null) for an unknown or orphaned skill
      */
     private function resolveToggleableSkill(mixed $body): array
     {
@@ -181,14 +223,14 @@ final class SkillSourceController extends ActionController
             return $deny;
         }
 
-        $body = $request->getParsedBody();
+        $body   = $request->getParsedBody();
         $source = $this->sourceRepository->findByUid($this->intFromBody($body, 'source'));
         if ($source === null) {
             return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.skill.unknownSource', 'Unknown source')], 404);
         }
 
         $token = $this->stringFromBody($body, 'token');
-        $uuid = $source->getGithubToken() !== '' ? $source->getGithubToken() : StringUtility::getUniqueId('ghtoken_');
+        $uuid  = $source->getGithubToken() !== '' ? $source->getGithubToken() : StringUtility::getUniqueId('ghtoken_');
         try {
             $this->vault->store($uuid, $token);
             $source->setGithubToken($uuid);
@@ -217,7 +259,8 @@ final class SkillSourceController extends ActionController
         }
 
         $value = $body[$key] ?? 0;
-        return is_numeric($value) ? (int)$value : 0;
+
+        return is_numeric($value) ? (int) $value : 0;
     }
 
     private function stringFromBody(mixed $body, string $key): string
@@ -227,7 +270,8 @@ final class SkillSourceController extends ActionController
         }
 
         $value = $body[$key] ?? '';
-        return is_scalar($value) ? (string)$value : '';
+
+        return is_scalar($value) ? (string) $value : '';
     }
 
     private function boolFromBody(mixed $body, string $key): bool

@@ -133,7 +133,7 @@ final readonly class RunTimelineFactory
         // belong: they happen inside the step that triggered them.
         usort(
             $entries,
-            static fn(RunTimelineEntry $a, RunTimelineEntry $b): int => [$a->occurredAt, self::orderKey($a)] <=> [$b->occurredAt, self::orderKey($b)],
+            static fn (RunTimelineEntry $a, RunTimelineEntry $b): int => [$a->occurredAt, self::orderKey($a)] <=> [$b->occurredAt, self::orderKey($b)],
         );
 
         return $entries;
@@ -162,10 +162,10 @@ final readonly class RunTimelineFactory
             $facts['servedModel']    = $call->servedModel;
         }
 
-        $facts['latencyMs'] = (string)$call->latencyMs;
+        $facts['latencyMs'] = (string) $call->latencyMs;
 
         if ($call->timeToFirstTokenMs !== null) {
-            $facts['ttftMs'] = (string)$call->timeToFirstTokenMs;
+            $facts['ttftMs'] = (string) $call->timeToFirstTokenMs;
         }
 
         if ($call->cacheHit) {
@@ -173,7 +173,7 @@ final readonly class RunTimelineFactory
         }
 
         if ($call->fallbackAttempts > 0) {
-            $facts['fallbackAttempts'] = (string)$call->fallbackAttempts;
+            $facts['fallbackAttempts'] = (string) $call->fallbackAttempts;
         }
 
         if ($call->errorClass !== '') {
@@ -186,7 +186,7 @@ final readonly class RunTimelineFactory
             occurredAt: $call->crdate,
             sequence: -1,
             round: 0,
-            durationMs: (float)$call->latencyMs,
+            durationMs: (float) $call->latencyMs,
             detail: $this->join($facts),
             outcome: $call->success ? RunTimelineEntry::OUTCOME_OK : RunTimelineEntry::OUTCOME_FAILED,
         );
@@ -315,14 +315,14 @@ final readonly class RunTimelineFactory
         }
 
         if (is_int($value) || is_float($value) || is_string($value)) {
-            return (string)$value;
+            return (string) $value;
         }
 
         if (is_array($value)) {
             $parts = [];
             foreach ($value as $item) {
                 if (is_string($item) || is_int($item) || is_float($item)) {
-                    $parts[] = (string)$item;
+                    $parts[] = (string) $item;
                 }
             }
 

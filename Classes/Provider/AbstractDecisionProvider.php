@@ -64,10 +64,10 @@ abstract class AbstractDecisionProvider extends AbstractProvider implements Deci
     public function decide(DecisionSubject $subject, array $questions, array $options = []): DecisionResponse
     {
         $model = $this->getString($options, 'model', $this->getDefaultModel());
-        $body = $this->sendDecision($subject, $questions, $model, $options);
+        $body  = $this->sendDecision($subject, $questions, $model, $options);
 
         $answers = $this->asArray($body['answers'] ?? null);
-        $parsed = [];
+        $parsed  = [];
         foreach ($questions as $question) {
             $raw = $answers[$question->key()] ?? null;
             if (!is_array($raw)) {
@@ -161,7 +161,7 @@ abstract class AbstractDecisionProvider extends AbstractProvider implements Deci
             throw InvalidDecisionResponseException::forQuestion($this->getName(), $question->key(), sprintf('"%s" is not a number', $field));
         }
 
-        return (float)$value;
+        return (float) $value;
     }
 
     /**
@@ -202,7 +202,7 @@ abstract class AbstractDecisionProvider extends AbstractProvider implements Deci
 
         $probabilities = [];
         foreach ($map as $name => $probability) {
-            if (!in_array((string)$name, $allowed, true)) {
+            if (!in_array((string) $name, $allowed, true)) {
                 throw InvalidDecisionResponseException::forQuestion($this->getName(), $question->key(), sprintf('a probability for "%s", which the question does not offer', $name));
             }
 
@@ -210,7 +210,7 @@ abstract class AbstractDecisionProvider extends AbstractProvider implements Deci
                 throw InvalidDecisionResponseException::forQuestion($this->getName(), $question->key(), sprintf('the probability of "%s" is not a number', $name));
             }
 
-            $probabilities[$name] = (float)$probability;
+            $probabilities[$name] = (float) $probability;
         }
 
         return $probabilities;

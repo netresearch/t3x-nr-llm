@@ -74,12 +74,12 @@ final class TranscriptEstimator
         }
 
         // The tool JSON-schema block is on the wire for every tool-enabled call.
-        $denseChars += strlen((string)json_encode($toolSpecs, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $denseChars += strlen((string) json_encode($toolSpecs, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
-        $raw = (int)ceil($proseChars / self::CHARS_PER_TOKEN_PROSE)
-            + (int)ceil($denseChars / self::CHARS_PER_TOKEN_DENSE)
+        $raw = (int) ceil($proseChars / self::CHARS_PER_TOKEN_PROSE)
+            + (int) ceil($denseChars / self::CHARS_PER_TOKEN_DENSE)
             + $tokens;
 
-        return (int)ceil($raw * max(1.0, $calibration));
+        return (int) ceil($raw * max(1.0, $calibration));
     }
 }

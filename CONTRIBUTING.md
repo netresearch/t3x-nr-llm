@@ -135,17 +135,23 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 - [ ] Tests added/updated
 - [ ] All CI checks pass
 - [ ] Documentation updated (if applicable)
-- [ ] `CHANGELOG.md` entry added under `## [Unreleased]`
+- [ ] Changelog fragment added under `changelog.d/`
 - [ ] ADR added under `Documentation/Adr/` if the public surface changed
 - [ ] No secrets committed
 - [ ] Follows existing code style
 
 ### Changelog and ADRs
 
-Every change that a consumer or an integrator can notice gets a `CHANGELOG.md`
-entry under `## [Unreleased]`, in the Keep a Changelog section that fits
-(`Added` / `Changed` / `Deprecated` / `Removed` / `Fixed` / `Security`).
-Version bumps belong to the release commit, never to a feature PR.
+Every change that a consumer or an integrator can notice gets a changelog
+fragment: one file `changelog.d/<branch-slug>.<section>.md` holding the bullet
+or bullets, where `<section>` is the Keep a Changelog section that fits
+(`added` / `changed` / `deprecated` / `removed` / `fixed` / `security`), or
+`upgrading` for an upgrade instruction. Do not edit `## [Unreleased]` in
+`CHANGELOG.md` directly: every PR that did conflicted with every other open
+PR as soon as one of them merged. `changelog.d/README.md` describes the format;
+`composer ci:test:changelog` checks it. The release commit folds the fragments
+into `CHANGELOG.md` with `composer changelog:collect`. Version bumps belong to
+the release commit, never to a feature PR.
 
 A change to the public surface also gets an Architecture Decision Record under
 `Documentation/Adr/`, named `Adr<N><Description>.rst` — take the next free

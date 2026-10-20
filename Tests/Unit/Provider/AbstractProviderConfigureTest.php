@@ -41,7 +41,7 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
 
         // Access the timeout via reflection to verify default
         $reflection = new ReflectionClass($provider);
-        $timeout = $reflection->getProperty('timeout');
+        $timeout    = $reflection->getProperty('timeout');
 
         self::assertEquals(120, $timeout->getValue($provider));
     }
@@ -127,11 +127,11 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
 
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'timeout' => 60,
+            'timeout'          => 60,
         ]);
 
         $reflection = new ReflectionClass($provider);
-        $timeout = $reflection->getProperty('timeout');
+        $timeout    = $reflection->getProperty('timeout');
 
         self::assertEquals(60, $timeout->getValue($provider));
     }
@@ -150,7 +150,7 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
 
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'maxRetries' => 5,
+            'maxRetries'       => 5,
         ]);
 
         $reflection = new ReflectionClass($provider);
@@ -192,10 +192,10 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
 
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'organizationId' => 'org-abc123',
+            'organizationId'   => 'org-abc123',
         ]);
 
-        $reflection = new ReflectionClass($provider);
+        $reflection     = new ReflectionClass($provider);
         $organizationId = $reflection->getProperty('organizationId');
 
         self::assertEquals('org-abc123', $organizationId->getValue($provider));
@@ -217,7 +217,7 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
             'apiKeyIdentifier' => $this->randomApiKey(),
         ]);
 
-        $reflection = new ReflectionClass($provider);
+        $reflection     = new ReflectionClass($provider);
         $organizationId = $reflection->getProperty('organizationId');
 
         self::assertEquals('', $organizationId->getValue($provider));
@@ -237,10 +237,10 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
 
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'customHeaders' => ['X-A' => '1', 'X-B' => '2'],
+            'customHeaders'    => ['X-A' => '1', 'X-B' => '2'],
         ]);
 
-        $reflection = new ReflectionClass($provider);
+        $reflection    = new ReflectionClass($provider);
         $customHeaders = $reflection->getProperty('customHeaders');
 
         self::assertEquals(['X-A' => '1', 'X-B' => '2'], $customHeaders->getValue($provider));
@@ -262,7 +262,7 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
             'apiKeyIdentifier' => $this->randomApiKey(),
         ]);
 
-        $reflection = new ReflectionClass($provider);
+        $reflection    = new ReflectionClass($provider);
         $customHeaders = $reflection->getProperty('customHeaders');
 
         self::assertSame([], $customHeaders->getValue($provider));
@@ -282,17 +282,17 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
 
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'customHeaders' => [
-                'X-Valid'           => 'ok',
-                'X-Int-Value'       => 42,
-                'X Space Name'      => 'dropped',
-                'X-Invalid-(Name)'  => 'dropped',
-                'X-Crlf-Value'      => "evil\r\nInjected: yes",
-                'X-Also-Valid'      => 'kept',
+            'customHeaders'    => [
+                'X-Valid'          => 'ok',
+                'X-Int-Value'      => 42,
+                'X Space Name'     => 'dropped',
+                'X-Invalid-(Name)' => 'dropped',
+                'X-Crlf-Value'     => "evil\r\nInjected: yes",
+                'X-Also-Valid'     => 'kept',
             ],
         ]);
 
-        $reflection = new ReflectionClass($provider);
+        $reflection    = new ReflectionClass($provider);
         $customHeaders = $reflection->getProperty('customHeaders');
 
         self::assertSame(
@@ -315,10 +315,10 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
 
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'customHeaders' => 'not-an-array',
+            'customHeaders'    => 'not-an-array',
         ]);
 
-        $reflection = new ReflectionClass($provider);
+        $reflection    = new ReflectionClass($provider);
         $customHeaders = $reflection->getProperty('customHeaders');
 
         self::assertSame([], $customHeaders->getValue($provider));
@@ -339,11 +339,11 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
         $customBaseUrl = 'https://custom-api.example.com';
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'baseUrl' => $customBaseUrl,
+            'baseUrl'          => $customBaseUrl,
         ]);
 
         $reflection = new ReflectionClass($provider);
-        $baseUrl = $reflection->getProperty('baseUrl');
+        $baseUrl    = $reflection->getProperty('baseUrl');
 
         self::assertEquals($customBaseUrl, $baseUrl->getValue($provider));
     }
@@ -365,7 +365,7 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
         ]);
 
         $reflection = new ReflectionClass($provider);
-        $baseUrl = $reflection->getProperty('baseUrl');
+        $baseUrl    = $reflection->getProperty('baseUrl');
 
         // GeminiProvider has a specific default base URL
         $baseUrlValue = $baseUrl->getValue($provider);
@@ -389,7 +389,7 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
         $customModel = 'gemini-custom-model';
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => $customModel,
+            'defaultModel'     => $customModel,
         ]);
 
         self::assertEquals($customModel, $provider->getDefaultModel());
@@ -430,10 +430,10 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
 
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'timeout' => $timeout,
+            'timeout'          => $timeout,
         ]);
 
-        $reflection = new ReflectionClass($provider);
+        $reflection  = new ReflectionClass($provider);
         $timeoutProp = $reflection->getProperty('timeout');
 
         self::assertEquals($timeout, $timeoutProp->getValue($provider));
@@ -445,11 +445,11 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
     public static function timeoutValuesProvider(): array
     {
         return [
-            'minimum' => [1],
+            'minimum'           => [1],
             'default minus one' => [119],
-            'default' => [120],
-            'default plus one' => [121],
-            'low' => [30],
+            'default'           => [120],
+            'default plus one'  => [121],
+            'low'               => [30],
         ];
     }
 
@@ -468,10 +468,10 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
 
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'maxRetries' => $maxRetries,
+            'maxRetries'       => $maxRetries,
         ]);
 
-        $reflection = new ReflectionClass($provider);
+        $reflection     = new ReflectionClass($provider);
         $maxRetriesProp = $reflection->getProperty('maxRetries');
 
         self::assertEquals($maxRetries, $maxRetriesProp->getValue($provider));
@@ -483,11 +483,11 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
     public static function maxRetriesValuesProvider(): array
     {
         return [
-            'minimum' => [1],
+            'minimum'           => [1],
             'default minus one' => [2],
-            'default' => [3],
-            'default plus one' => [4],
-            'high' => [10],
+            'default'           => [3],
+            'default plus one'  => [4],
+            'high'              => [10],
         ];
     }
 
@@ -578,8 +578,8 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
 
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'timeout' => '60',
-            'maxRetries' => '5',
+            'timeout'          => '60',
+            'maxRetries'       => '5',
         ]);
 
         self::assertSame(60, $this->intProperty($provider, 'timeout'));
@@ -596,8 +596,8 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
 
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'timeout' => 'soon',
-            'maxRetries' => 'lots',
+            'timeout'          => 'soon',
+            'maxRetries'       => 'lots',
         ]);
 
         self::assertSame(120, $this->intProperty($provider, 'timeout'));
@@ -613,7 +613,7 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
 
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'baseUrl' => ['not', 'a', 'string'],
+            'baseUrl'          => ['not', 'a', 'string'],
         ]);
 
         $baseUrl = $this->stringProperty($provider, 'baseUrl');

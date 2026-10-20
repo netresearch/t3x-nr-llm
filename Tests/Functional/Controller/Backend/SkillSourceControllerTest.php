@@ -69,6 +69,7 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
             $this->get(PersistenceManagerInterface::class),
             new NullLogger(),
         );
+
         return new SkillSourceController(
             $this->get(ModuleTemplateFactory::class),
             $this->get(SkillSourceRepository::class),
@@ -93,6 +94,7 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
         $repository = $this->get(SkillSourceRepository::class);
         $repository->add($source);
         $this->get(PersistenceManagerInterface::class)->persistAll();
+
         return $source;
     }
 
@@ -106,11 +108,11 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
         $controller = $this->get(SkillSourceController::class);
         self::assertInstanceOf(SkillSourceController::class, $controller);
 
-        $request = (new ServerRequest())->withParsedBody(['skill' => 1, 'enabled' => 0]);
+        $request  = (new ServerRequest())->withParsedBody(['skill' => 1, 'enabled' => 0]);
         $response = $controller->toggleSkillAction($request);
 
         self::assertSame(200, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertTrue($payload['success']);
 
@@ -118,6 +120,58 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
         $skill = $this->get(SkillRepository::class)->findBySourceAndIdentifier(1, '1:SKILL.md');
         self::assertNotNull($skill);
         self::assertFalse($skill->isEnabled());
+        self::assertSame('admin', $this->disabledBy(1), "an administrator's disable is marked as such");
+
+        // A sync's mark is cleared by an administrator's re-enable.
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill')->update('tx_nrllm_skill', ['disabled_by' => 'sync'], ['uid' => 1]);
+        $this->get(PersistenceManagerInterface::class)->clearState();
+        $controller->toggleSkillAction((new ServerRequest())->withParsedBody(['skill' => 1, 'enabled' => 1]));
+        $this->get(PersistenceManagerInterface::class)->persistAll();
+
+        self::assertSame('', $this->disabledBy(1));
+    }
+
+    /**
+     * The mark follows a change of `enabled` only. A disable sent for a
+     * skill the sync already disabled keeps the sync's mark, so the
+     * restriction stays; a real disable marks it as the administrator's,
+     * and a re-enable clears the mark.
+     */
+    #[Test]
+    public function aRepeatedDisableKeepsTheSyncMark(): void
+    {
+        $this->importFixture('Skills.csv');
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+        $this->setUpBackendRequest();
+        $controller = $this->get(SkillSourceController::class);
+        self::assertInstanceOf(SkillSourceController::class, $controller);
+        $connection = $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill');
+
+        $connection->update('tx_nrllm_skill', ['enabled' => 0, 'disabled_by' => 'sync'], ['uid' => 1]);
+
+        $controller->toggleSkillAction((new ServerRequest())->withParsedBody(['skill' => 1, 'enabled' => 0]));
+        $this->get(PersistenceManagerInterface::class)->persistAll();
+        self::assertSame('sync', $this->disabledBy(1), "a repeated disable keeps the sync's mark");
+
+        $connection->update('tx_nrllm_skill', ['enabled' => 1, 'disabled_by' => ''], ['uid' => 1]);
+        $this->get(PersistenceManagerInterface::class)->clearState();
+        $controller->toggleSkillAction((new ServerRequest())->withParsedBody(['skill' => 1, 'enabled' => 0]));
+        $this->get(PersistenceManagerInterface::class)->persistAll();
+        self::assertSame('admin', $this->disabledBy(1), "a real disable is the administrator's");
+
+        $this->get(PersistenceManagerInterface::class)->clearState();
+        $controller->toggleSkillAction((new ServerRequest())->withParsedBody(['skill' => 1, 'enabled' => 1]));
+        $this->get(PersistenceManagerInterface::class)->persistAll();
+        self::assertSame('', $this->disabledBy(1), 'a re-enable clears the mark');
+    }
+
+    private function disabledBy(int $skillUid): string
+    {
+        $value = $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill')
+            ->select(['disabled_by'], 'tx_nrllm_skill', ['uid' => $skillUid])->fetchOne();
+
+        return is_string($value) ? $value : '';
     }
 
     #[Test]
@@ -130,11 +184,11 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
         $controller = $this->get(SkillSourceController::class);
         self::assertInstanceOf(SkillSourceController::class, $controller);
 
-        $request = (new ServerRequest())->withParsedBody(['skill' => 1, 'enabled' => 0]);
+        $request  = (new ServerRequest())->withParsedBody(['skill' => 1, 'enabled' => 0]);
         $response = $controller->toggleSkillAction($request);
 
         self::assertSame(403, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
 
@@ -155,11 +209,11 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
         $controller = $this->get(SkillSourceController::class);
         self::assertInstanceOf(SkillSourceController::class, $controller);
 
-        $request = (new ServerRequest())->withParsedBody(['source' => $source->getUid()]);
+        $request  = (new ServerRequest())->withParsedBody(['source' => $source->getUid()]);
         $response = $controller->syncAction($request);
 
         self::assertSame(403, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
 
@@ -184,11 +238,11 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
         $vault->expects(self::never())->method('store');
         $controller = $this->controllerWithVault($vault);
 
-        $request = (new ServerRequest())->withParsedBody(['source' => $source->getUid(), 'token' => 'ghp_secret']);
+        $request  = (new ServerRequest())->withParsedBody(['source' => $source->getUid(), 'token' => 'ghp_secret']);
         $response = $controller->setTokenAction($request);
 
         self::assertSame(403, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
 
@@ -210,9 +264,9 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
         // admin
         $this->setUpBackendRequest();
 
-        $capturedId = '';
+        $capturedId     = '';
         $capturedSecret = '';
-        $vault = $this->createMock(VaultServiceInterface::class);
+        $vault          = $this->createMock(VaultServiceInterface::class);
         $vault
             ->expects(self::once())
             ->method('store')
@@ -221,7 +275,7 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
                     string $id,
                     string $secret,
                 ) use (&$capturedId, &$capturedSecret): void {
-                    $capturedId = $id;
+                    $capturedId     = $id;
                     $capturedSecret = $secret;
                 },
             );
@@ -237,7 +291,7 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
         $response = $controller->setTokenAction($request);
 
         self::assertSame(200, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertTrue($payload['success']);
 
@@ -272,11 +326,11 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
 
         $uid = $source->getUid();
         self::assertNotNull($uid);
-        $request = (new ServerRequest())->withParsedBody(['source' => $uid, 'token' => 'ghp_plaintext_secret']);
+        $request  = (new ServerRequest())->withParsedBody(['source' => $uid, 'token' => 'ghp_plaintext_secret']);
         $response = $controller->setTokenAction($request);
 
         self::assertSame(500, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
         self::assertArrayHasKey('error', $payload);
@@ -292,14 +346,14 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
         $this->importFixture('BeUsers.csv');
         $this->setUpBackendUser(1);
         $this->setUpBackendRequest();
-        $cause = $nativeError ? new Error('private vault failure ghp_secret', 1770611095) : new RuntimeException('private vault failure ghp_secret', 1770611095);
+        $cause             = $nativeError ? new Error('private vault failure ghp_secret', 1770611095) : new RuntimeException('private vault failure ghp_secret', 1770611095);
         $diagnosticFailure = $diagnosticMode === 'error' ? new Error('private diagnostic failure ghp_secret', 1770611096) : new RuntimeException(
             'private diagnostic failure ghp_secret',
             1770611096,
         );
-        $capturedId = '';
+        $capturedId     = '';
         $capturedSecret = '';
-        $vault = $this->createMock(VaultServiceInterface::class);
+        $vault          = $this->createMock(VaultServiceInterface::class);
         $vault
             ->method('store')
             ->willReturnCallback(
@@ -307,14 +361,14 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
                     string $id,
                     string $secret,
                 ) use ($cause, &$capturedId, &$capturedSecret): never {
-                    $capturedId = $id;
+                    $capturedId     = $id;
                     $capturedSecret = $secret;
                     throw $cause;
                 },
             );
         $messages = [];
         $contexts = [];
-        $logger = null;
+        $logger   = null;
         if ($diagnosticMode !== 'absent') {
             $logger = $this->createMock(LoggerInterface::class);
             $logger
@@ -334,13 +388,13 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
         }
 
         $controller = $this->controllerWithVault($vault, $logger);
-        $uid = $source->getUid();
+        $uid        = $source->getUid();
         self::assertNotNull($uid);
         $request = (new ServerRequest())->withParsedBody(
             ['source' => $uid, 'token' => 'ghp_secret'],
         );
         $response = null;
-        $escaped = null;
+        $escaped  = null;
         try {
             $response = $controller->setTokenAction($request);
         } catch (Throwable $failure) {
@@ -353,12 +407,12 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
         );
         self::assertInstanceOf(ResponseInterface::class, $response);
         self::assertSame(500, $response->getStatusCode());
-        $body = (string)$response->getBody();
+        $body    = (string) $response->getBody();
         $payload = json_decode($body, true);
         self::assertSame(
             [
                 'success' => false,
-                'error' => 'Failed to store the token securely. See the system log for details.',
+                'error'   => 'Failed to store the token securely. See the system log for details.',
             ],
             $payload,
         );

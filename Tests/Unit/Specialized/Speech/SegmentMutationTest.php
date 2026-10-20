@@ -57,7 +57,7 @@ class SegmentMutationTest extends AbstractUnitTestCase
     #[Test]
     public function hasWordsReturnsTrueForNonEmptyArray(): void
     {
-        $word = new Word('Test', 0.0, 0.5);
+        $word    = new Word('Test', 0.0, 0.5);
         $segment = new Segment('Test', 0.0, 1.0, words: [$word]);
 
         self::assertTrue($segment->hasWords());
@@ -67,9 +67,9 @@ class SegmentMutationTest extends AbstractUnitTestCase
     public function fromWhisperResponseCreatesSegment(): void
     {
         $data = [
-            'text' => 'Hello world',
+            'text'  => 'Hello world',
             'start' => 0.5,
-            'end' => 2.5,
+            'end'   => 2.5,
         ];
 
         $segment = Segment::fromWhisperResponse($data);
@@ -97,9 +97,9 @@ class SegmentMutationTest extends AbstractUnitTestCase
     public function fromWhisperResponseParsesWords(): void
     {
         $data = [
-            'text' => 'Hello',
+            'text'  => 'Hello',
             'start' => 0.0,
-            'end' => 1.0,
+            'end'   => 1.0,
             'words' => [
                 ['word' => 'Hello', 'start' => 0.0, 'end' => 0.5],
             ],
@@ -116,9 +116,9 @@ class SegmentMutationTest extends AbstractUnitTestCase
     public function fromWhisperResponseCalculatesConfidenceFromLogProb(): void
     {
         $data = [
-            'text' => 'Test',
-            'start' => 0.0,
-            'end' => 1.0,
+            'text'        => 'Test',
+            'start'       => 0.0,
+            'end'         => 1.0,
             'avg_logprob' => -0.5,
         ];
 
@@ -144,9 +144,9 @@ class SegmentMutationTest extends AbstractUnitTestCase
     public static function durationProvider(): array
     {
         return [
-            'simple' => [0.0, 1.0, 1.0],
-            'non-zero start' => [1.5, 3.5, 2.0],
-            'same values' => [5.0, 5.0, 0.0],
+            'simple'            => [0.0, 1.0, 1.0],
+            'non-zero start'    => [1.5, 3.5, 2.0],
+            'same values'       => [5.0, 5.0, 0.0],
             'decimal precision' => [0.123, 0.456, 0.333],
         ];
     }

@@ -59,12 +59,12 @@ final readonly class HttpReranker implements RerankerInterface
     private function fetchScores(string $query, array $candidates): array
     {
         $payload = [
-            'query' => $query,
+            'query'     => $query,
             'documents' => array_map(
                 // Cast liberally: TYPO3 consumers naturally hold integer uids,
                 // and a strict string contract would silently mismatch on the
                 // score mapping.
-                static fn(array $candidate): array => ['id' => (string)$candidate['id'], 'text' => $candidate['text']],
+                static fn (array $candidate): array => ['id' => (string) $candidate['id'], 'text' => $candidate['text']],
                 $candidates,
             ),
         ];
@@ -74,7 +74,7 @@ final readonly class HttpReranker implements RerankerInterface
                 rtrim($this->endpoint, '/') . '/rerank',
                 'POST',
                 [
-                    'json' => $payload,
+                    'json'    => $payload,
                     'headers' => ['Accept' => 'application/json'],
                     'timeout' => $this->timeout,
                     // Return 4xx/5xx responses instead of throwing, regardless
@@ -92,7 +92,7 @@ final readonly class HttpReranker implements RerankerInterface
         }
 
         try {
-            $decoded = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+            $decoded = json_decode((string) $response->getBody(), true, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException $e) {
             throw RerankerException::forInvalidJson($this->endpoint, $e);
         }
@@ -117,7 +117,7 @@ final readonly class HttpReranker implements RerankerInterface
                 continue;
             }
 
-            $scores[] = ['id' => $id, 'score' => (float)$score];
+            $scores[] = ['id' => $id, 'score' => (float) $score];
         }
 
         return $scores;
