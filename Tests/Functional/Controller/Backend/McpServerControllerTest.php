@@ -456,14 +456,14 @@ final class McpServerControllerTest extends AbstractFunctionalTestCase
             ->update(
                 'tx_nrllm_mcp_server',
                 [
-                    'auth_mode' => $mode,
-                    'auth_credential' => $legacyReference,
-                    'auth_placement' => $placement,
-                    'auth_header_name' => $header,
+                    'auth_mode'            => $mode,
+                    'auth_credential'      => $legacyReference,
+                    'auth_placement'       => $placement,
+                    'auth_header_name'     => $header,
                     'discovery_credential' => $discoveryReference,
-                    'delegation_profile' => 'hidden-delegation-profile',
-                    'delegation_audience' => 'hidden-delegation-audience',
-                    'delegation_scopes' => 'hidden-delegation-scopes',
+                    'delegation_profile'   => 'hidden-delegation-profile',
+                    'delegation_audience'  => 'hidden-delegation-audience',
+                    'delegation_scopes'    => 'hidden-delegation-scopes',
                 ],
                 ['uid' => 1],
             );
@@ -478,8 +478,8 @@ final class McpServerControllerTest extends AbstractFunctionalTestCase
         );
         $response = $controller->listAction();
         self::assertSame(200, $response->getStatusCode());
-        $body = (string)$response->getBody();
-        $dom = new DOMDocument();
+        $body                   = (string) $response->getBody();
+        $dom                    = new DOMDocument();
         $previousInternalErrors = libxml_use_internal_errors(true);
         try {
             $loaded = $dom->loadHTML($body, LIBXML_NONET);
@@ -489,7 +489,7 @@ final class McpServerControllerTest extends AbstractFunctionalTestCase
         }
 
         self::assertTrue($loaded);
-        $xpath = new DOMXPath($dom);
+        $xpath    = new DOMXPath($dom);
         $readouts = $xpath->query(
             '//dt[normalize-space(.)="Authentication"]/following-sibling::dd[1]',
         );
