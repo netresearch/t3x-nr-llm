@@ -617,6 +617,8 @@ Tools
    Adr220EvaluationResultsNameTheirGenerator
    Adr222GeminiReplayKeepsNativeSignatures
    Adr223GeminiSeparatesNativeThoughtsFromText
+   Adr224GeminiKeepsKnownStructRootsAsObjects
    Adr225AgentOutcomesSurviveOptionalDiagnosticFailures
+   Adr226GeminiCorrelatesNativeFunctionCallIds
    Adr227McpRepliesBelongToTheirRequest
    Adr228ProcessRunsRecordTheirLineage

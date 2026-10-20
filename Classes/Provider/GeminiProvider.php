@@ -133,10 +133,8 @@ final class GeminiProvider extends AbstractProvider implements
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param array<string, mixed>                   $options
      */
-    public function chatCompletion(
-        array $messages,
-        array $options = [],
-    ): CompletionResponse {
+    public function chatCompletion(array $messages, array $options = []): CompletionResponse
+    {
         $messages = $this->normaliseReplayMessages($messages);
 
         $model = $this->getString($options, 'model', $this->getDefaultModel());
@@ -257,22 +255,37 @@ final class GeminiProvider extends AbstractProvider implements
         $parts      = $this->getList($contentObj, 'parts');
 
         $toolCalls = [];
+        $bindings  = [];
+        $nativeIds = [];
 
         foreach ($parts as $part) {
             $partArray    = $this->asArray($part);
             $functionCall = $this->getArray($partArray, 'functionCall');
             if ($functionCall !== []) {
-                // Gemini does not return tool-call IDs; synthesise a
-                // conversation-unique one. A per-response part index would
-                // reset to 0 each loop turn and collide across turns in
-                // buildToolCallIdToName(); uniqid(more_entropy: true) is
-                // collision-free even for multiple calls in one response.
+                // Keep public synthesized IDs independent of optional native IDs.
+                // A per-response index resets each turn; the entropy suffix
+                // reduces collisions across turns and parallel calls. Owned
+                // replay separately refuses ambiguous duplicate public IDs.
                 // Untrusted provider output: skip a functionCall with no name
                 // instead of crashing the whole response.
                 $functionName = $this->getString($functionCall, 'name');
                 if ($functionName !== '') {
+                    $nativeId = GeminiReplayMetadata::nativeId($functionCall);
+                    if ($nativeId !== null && isset($nativeIds[$nativeId])) {
+                        throw new ProviderConfigurationException(
+                            'Gemini replay state is malformed or ambiguous.',
+                            1791619001,
+                        );
+                    }
+
+                    $publicId = uniqid('call_', true);
+                    if ($nativeId !== null) {
+                        $nativeIds[$nativeId] = true;
+                        $bindings[]           = ['tool_call_id' => $publicId, 'native_id' => $nativeId];
+                    }
+
                     $toolCalls[] = ToolCall::function(
-                        id: uniqid('call_', true),
+                        id: $publicId,
                         name: $functionName,
                         arguments: $this->getArray($functionCall, 'args'),
                     );
@@ -299,7 +312,7 @@ final class GeminiProvider extends AbstractProvider implements
                 $options,
                 $response,
                 $toolCalls !== [] || GeminiReplayMetadata::hasSignature($parts) ? [
-                    OpenAiCallMetadata::KEY_PROVIDER_ITEMS => GeminiReplayMetadata::itemsFromParts($parts),
+                    OpenAiCallMetadata::KEY_PROVIDER_ITEMS => GeminiReplayMetadata::itemsFromParts($parts, $bindings),
                 ] : null,
             ),
             thinking: $thinking,
@@ -624,14 +637,14 @@ final class GeminiProvider extends AbstractProvider implements
 
             if ($role === 'system') {
                 $content           = $msgArray['content'] ?? '';
-                $systemInstruction = [
-                    'parts' => [['text' => is_string($content) ? $content : '']],
-                ];
+                $systemInstruction = ['parts' => [['text' => is_string($content) ? $content : '']]];
 
                 continue;
             }
 
-            $contents[] = $this->convertMessage($role, $msgArray, $toolCallIdToName);
+            $converted          = $this->convertMessage($role, $msgArray, $toolCallIdToName);
+            $converted['parts'] = $this->encodeKnownStructRoots($this->getList($converted, 'parts'));
+            $contents[]         = $converted;
         }
 
         $result = ['contents' => $contents];
@@ -643,42 +656,72 @@ final class GeminiProvider extends AbstractProvider implements
     }
 
     /**
-     * Pre-scan: build a tool_call_id → function_name mapping from assistant tool_calls.
+     * Pre-scan existing assistant calls and enrich only owned native associations.
      *
-     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<ChatMessage|array<string,mixed>> $messages
      *
-     * @return array<string, string>
+     * @return array<string,array{name:string,nativeId?:string}>
      */
     private function buildToolCallIdToName(array $messages): array
     {
-        $toolCallIdToName = [];
+        $mapping  = [];
+        $counts   = [];
+        $ownedIds = [];
         foreach ($messages as $msg) {
             $m = $this->asArray($msg);
-            if (($m['role'] ?? '') === 'assistant' && isset($m['tool_calls']) && is_array($m['tool_calls'])) {
-                foreach ($m['tool_calls'] as $tc) {
-                    $tcArray  = $this->asArray($tc);
-                    $function = $this->getArray($tcArray, 'function');
-                    $id       = $this->getString($tcArray, 'id');
-                    if ($id !== '') {
-                        $toolCallIdToName[$id] = $this->getString($function, 'name');
-                    }
+            if (($m['role'] ?? '') !== 'assistant') {
+                continue;
+            }
+
+            $calls = [];
+            foreach (is_array($m['tool_calls'] ?? null) ? $m['tool_calls'] : [] as $rawCall) {
+                $call    = $this->asArray($rawCall);
+                $calls[] = $call;
+                $id      = $this->getString($call, 'id');
+                if ($id !== '') {
+                    $function     = $this->getArray($call, 'function');
+                    $mapping[$id] = ['name' => $this->getString($function, 'name')];
+                    $counts[$id]  = ($counts[$id] ?? 0) + 1;
                 }
+            }
+
+            $items     = $m['provider_items'] ?? null;
+            $nativeIds = GeminiReplayMetadata::nativeIdsForCalls(
+                is_array($items) ? $items : null,
+                $calls,
+            );
+            foreach ($nativeIds as $id => $nativeId) {
+                $ownedIds[$id] = $nativeId;
             }
         }
 
-        return $toolCallIdToName;
+        foreach ($ownedIds as $id => $nativeId) {
+            if (($counts[$id] ?? 0) !== 1 || !isset($mapping[$id])) {
+                throw new ProviderConfigurationException(
+                    'Gemini replay state is malformed or ambiguous.',
+                    1791619001,
+                );
+            }
+
+            $mapping[$id]['nativeId'] = $nativeId;
+        }
+
+        return $mapping;
     }
 
     /**
      * Convert a single non-system message to its Gemini `contents` entry.
      *
-     * @param array<string, mixed>  $msgArray
-     * @param array<string, string> $toolCallIdToName
+     * @param array<string, mixed>                               $msgArray
+     * @param array<string, array{name:string,nativeId?:string}> $toolCallIdToName
      *
      * @return array<string, mixed>
      */
-    private function convertMessage(string $role, array $msgArray, array $toolCallIdToName): array
-    {
+    private function convertMessage(
+        string $role,
+        array $msgArray,
+        array $toolCallIdToName,
+    ): array {
         // Tool result messages: convert to Gemini functionResponse format
         if ($role === 'tool') {
             return $this->convertToolMessage($msgArray, $toolCallIdToName);
@@ -708,37 +751,41 @@ final class GeminiProvider extends AbstractProvider implements
 
         return [
             'role'  => $geminiRole,
-            'parts' => [['text' => is_string($content) ? $content : $this->getString($msgArray, 'content')]],
+            'parts' => [
+                [
+                    'text' => is_string($content) ? $content : $this->getString($msgArray, 'content'),
+                ],
+            ],
         ];
     }
 
     /**
-     * @param array<string, mixed>  $msgArray
-     * @param array<string, string> $toolCallIdToName
+     * @param array<string, mixed>                               $msgArray
+     * @param array<string, array{name:string,nativeId?:string}> $toolCallIdToName
      *
      * @return array<string, mixed>
      */
-    private function convertToolMessage(array $msgArray, array $toolCallIdToName): array
-    {
+    private function convertToolMessage(
+        array $msgArray,
+        array $toolCallIdToName,
+    ): array {
         $toolCallId = $this->getString($msgArray, 'tool_call_id');
         // Resolve function name from pre-scanned mapping
-        $name         = $toolCallIdToName[$toolCallId] ?? $this->getString($msgArray, 'name', 'unknown');
+        $name         = $toolCallIdToName[$toolCallId]['name'] ?? $this->getString($msgArray, 'name', 'unknown');
         $contentStr   = $this->getString($msgArray, 'content');
         $responseData = json_decode($contentStr, true);
         if (!is_array($responseData)) {
             $responseData = ['result' => $contentStr];
         }
 
+        $functionResponse = ['name' => $name, 'response' => $responseData];
+        if (isset($toolCallIdToName[$toolCallId]['nativeId'])) {
+            $functionResponse['id'] = $toolCallIdToName[$toolCallId]['nativeId'];
+        }
+
         return [
             'role'  => 'user',
-            'parts' => [
-                [
-                    'functionResponse' => [
-                        'name'     => $name,
-                        'response' => $responseData,
-                    ],
-                ],
-            ],
+            'parts' => [['functionResponse' => $functionResponse]],
         ];
     }
 
@@ -990,6 +1037,33 @@ final class GeminiProvider extends AbstractProvider implements
             },
             $messages,
         );
+    }
+
+    /**
+     * Restore only the API-known Struct roots in the final request copy (ADR-224).
+     * Carrier arrays and arbitrary nested values retain their current shape.
+     *
+     * @param array<int,mixed> $parts
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function encodeKnownStructRoots(array $parts): array
+    {
+        $encoded = [];
+        foreach ($parts as $index => $part) {
+            $partArray = $this->asArray($part);
+            foreach (['functionCall' => 'args', 'functionResponse' => 'response'] as $function => $member) {
+                $functionData = $partArray[$function] ?? null;
+                if (is_array($functionData) && is_array($functionData[$member] ?? null)) {
+                    $functionData[$member] = (object) $functionData[$member];
+                    $partArray[$function]  = $functionData;
+                }
+            }
+
+            $encoded[$index] = $partArray;
+        }
+
+        return $encoded;
     }
 
     /**
