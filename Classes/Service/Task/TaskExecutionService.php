@@ -106,7 +106,7 @@ final readonly class TaskExecutionService implements TaskExecutionServiceInterfa
         // budget field instead; the manager builds the same metadata from it.
         $fallbackOptions = new ChatOptions();
         if ($jsonOutput) {
-            $fallbackOptions = $fallbackOptions->withResponseFormat('json');
+            $fallbackOptions              = $fallbackOptions->withResponseFormat('json');
             $overrides['response_format'] = 'json';
         }
 

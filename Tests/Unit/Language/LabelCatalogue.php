@@ -96,11 +96,11 @@ final class LabelCatalogue
         $xml   = new SimpleXMLElement($contents);
         $units = [];
         foreach ($xml->xpath('//*[local-name()="trans-unit"]') ?? [] as $unit) {
-            $id = (string)($unit['id'] ?? '');
+            $id = (string) ($unit['id'] ?? '');
             /** @var SimpleXMLElement|null $value */
             $value = $unit->{$element}[0] ?? null;
             if ($id !== '' && $value instanceof SimpleXMLElement) {
-                $units[$id] = trim((string)$value);
+                $units[$id] = trim((string) $value);
             }
         }
 

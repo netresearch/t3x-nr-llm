@@ -97,8 +97,8 @@ final readonly class TaskExecutionResponse implements JsonSerializable
                 'completionTokens' => $this->completionTokens,
                 'totalTokens'      => $this->totalTokens,
             ],
-            'appliedSkills'  => $this->appliedSkills,
-            'correlationId'  => $this->correlationId,
+            'appliedSkills' => $this->appliedSkills,
+            'correlationId' => $this->correlationId,
         ];
     }
 }

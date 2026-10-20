@@ -51,10 +51,41 @@ final class InputContextClassifierTest extends TestCase
                 ['skill "house-style"', ToolDataClass::EDITOR_CONTENT],
             ],
             array_map(
-                static fn(InputContextClassification $c): array => [$c->source, $c->effective],
+                static fn (InputContextClassification $c): array => [$c->source, $c->effective],
                 $sources,
             ),
         );
+    }
+
+    /**
+     * An on-demand skill can enter the run through a load (ADR-214 item 4),
+     * so it is classified up front like an always one, and listed once when
+     * it is attached in both modes.
+     */
+    #[Test]
+    public function anOnDemandSkillIsClassifiedOnceLikeAnAlwaysOne(): void
+    {
+        $onDemand = $this->skill('secret-howto', ToolDataClass::SECRET_ADJACENT->value);
+        $onDemand->_setProperty('uid', 5);
+
+        $configuration = $this->configuration([]);
+        $configuration->addSkillOnDemand($onDemand);
+
+        self::assertSame([['skill "secret-howto"', ToolDataClass::SECRET_ADJACENT]], $this->listed($this->classifier([])->sources($configuration)));
+
+        $configuration->addSkill($onDemand);
+
+        self::assertSame([['skill "secret-howto"', ToolDataClass::SECRET_ADJACENT]], $this->listed($this->classifier([])->sources($configuration)), 'attached in both modes, listed once');
+    }
+
+    /**
+     * @param list<InputContextClassification> $sources
+     *
+     * @return list<array{string, ToolDataClass|null}>
+     */
+    private function listed(array $sources): array
+    {
+        return array_map(static fn (InputContextClassification $c): array => [$c->source, $c->effective], $sources);
     }
 
     #[Test]
@@ -78,7 +109,7 @@ final class InputContextClassifierTest extends TestCase
     #[Test]
     public function theEffectiveClassIsTheFoldOverTheListedSources(): void
     {
-        $classifier    = $this->classifier([
+        $classifier = $this->classifier([
             $this->snippet('tone-of-voice', ToolDataClass::PUBLIC_CONTENT->value),
             $this->snippet('legal-policy', ToolDataClass::SECRET_ADJACENT->value),
             $this->snippet('undeclared-fragment', ''),
@@ -120,7 +151,7 @@ final class InputContextClassifierTest extends TestCase
                 ['skill "forced-style"', ToolDataClass::EDITOR_CONTENT],
             ],
             array_map(
-                static fn(InputContextClassification $c): array => [$c->source, $c->effective],
+                static fn (InputContextClassification $c): array => [$c->source, $c->effective],
                 $sources,
             ),
         );
@@ -139,7 +170,7 @@ final class InputContextClassifierTest extends TestCase
 
         self::assertSame(
             ['snippet "legal-policy"', 'skill "house-style"'],
-            array_map(static fn(InputContextClassification $c): string => $c->source, $sources),
+            array_map(static fn (InputContextClassification $c): string => $c->source, $sources),
         );
     }
 

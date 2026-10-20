@@ -49,7 +49,7 @@ final class UpdateContentElementToolTest extends AbstractUnitTestCase
             'BE_USER' => $GLOBALS['BE_USER'] ?? null,
         ];
 
-        $GLOBALS['TCA'] = ['tt_content' => ['columns' => ['header' => ['config' => ['type' => 'input']]]]];
+        $GLOBALS['TCA']     = ['tt_content' => ['columns' => ['header' => ['config' => ['type' => 'input']]]]];
         $GLOBALS['LANG']    = self::createStub(LanguageService::class);
         $GLOBALS['BE_USER'] = $this->liveUser();
 
@@ -127,11 +127,11 @@ final class UpdateContentElementToolTest extends AbstractUnitTestCase
      */
     public static function refusedArguments(): iterable
     {
-        yield 'no uid'            => [['fields' => ['header' => 'x']], 'exactly one content element'];
-        yield 'zero uid'          => [['uid' => 0, 'fields' => ['header' => 'x']], 'exactly one content element'];
-        yield 'no fields'         => [['uid' => 1], 'at least one column'];
-        yield 'empty fields'      => [['uid' => 1, 'fields' => []], 'at least one column'];
-        yield 'fields as a list'  => [['uid' => 1, 'fields' => ['x']], 'at least one column'];
+        yield 'no uid' => [['fields' => ['header' => 'x']], 'exactly one content element'];
+        yield 'zero uid' => [['uid' => 0, 'fields' => ['header' => 'x']], 'exactly one content element'];
+        yield 'no fields' => [['uid' => 1], 'at least one column'];
+        yield 'empty fields' => [['uid' => 1, 'fields' => []], 'at least one column'];
+        yield 'fields as a list' => [['uid' => 1, 'fields' => ['x']], 'at least one column'];
         yield 'fields as a string' => [['uid' => 1, 'fields' => 'header=x'], 'at least one column'];
         // A column outside "fields" is an unknown argument, not a shortcut.
         yield 'column at the top' => [['uid' => 1, 'header' => 'x'], 'not an argument of this tool'];

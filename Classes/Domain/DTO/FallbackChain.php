@@ -131,8 +131,9 @@ final readonly class FallbackChain implements JsonSerializable
 
         $filtered = array_values(array_filter(
             $this->configurationIdentifiers,
-            static fn(string $link): bool => $link !== $normalised,
+            static fn (string $link): bool => $link !== $normalised,
         ));
+
         return new self($filtered);
     }
 
@@ -149,7 +150,7 @@ final readonly class FallbackChain implements JsonSerializable
     private static function sanitize(array $identifiers): array
     {
         $seen = [];
-        $out = [];
+        $out  = [];
         foreach ($identifiers as $identifier) {
             if (!is_string($identifier)) {
                 continue;
@@ -165,7 +166,7 @@ final readonly class FallbackChain implements JsonSerializable
             }
 
             $seen[$normalised] = true;
-            $out[] = $normalised;
+            $out[]             = $normalised;
         }
 
         return $out;

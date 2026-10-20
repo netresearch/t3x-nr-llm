@@ -50,10 +50,9 @@ interface AiSessionRepositoryInterface
      * same sequence, because the unique key on (session, sequence) decides the
      * race and the loser retries on the next free slot.
      *
+     * @return int the sequence the turn was stored at
      *
      * @throws RuntimeException when no free sequence could be claimed
-     *
-     * @return int the sequence the turn was stored at
      */
     public function appendMessageAtNextSequence(
         int $sessionUid,
@@ -90,7 +89,7 @@ interface AiSessionRepositoryInterface
     public function findByUuid(string $uuid): ?AiSession;
 
     /**
-     * @return list<AiSessionMessage> The session's turns, ordered by sequence ascending.
+     * @return list<AiSessionMessage> the session's turns, ordered by sequence ascending
      */
     public function findMessages(int $sessionUid): array;
 
@@ -98,7 +97,7 @@ interface AiSessionRepositoryInterface
      * Delete sessions whose last activity predates the given timestamp, together
      * with their messages.
      *
-     * @return int Number of session rows deleted.
+     * @return int number of session rows deleted
      */
     public function purgeInactiveSince(int $timestamp): int;
 }

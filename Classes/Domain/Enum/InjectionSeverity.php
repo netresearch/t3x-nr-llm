@@ -19,16 +19,16 @@ namespace Netresearch\NrLlm\Domain\Enum;
  */
 enum InjectionSeverity: string
 {
-    case LOW = 'low';
+    case LOW    = 'low';
     case MEDIUM = 'medium';
-    case HIGH = 'high';
+    case HIGH   = 'high';
 
     /**
      * @return list<string>
      */
     public static function values(): array
     {
-        return array_map(static fn(self $c): string => $c->value, self::cases());
+        return array_map(static fn (self $c): string => $c->value, self::cases());
     }
 
     public static function isValid(string $value): bool

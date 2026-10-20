@@ -47,14 +47,14 @@ final class EditorActionIconRegistrationTest extends AbstractFunctionalTestCase
     public static function writerClasses(): array
     {
         return [
-            'update_page_metadata'         => [UpdatePageMetadataTool::class],
-            'set_file_alternative_text'    => [SetFileAlternativeTextTool::class],
+            'update_page_metadata'           => [UpdatePageMetadataTool::class],
+            'set_file_alternative_text'      => [SetFileAlternativeTextTool::class],
             'attach_file_to_content_element' => [AttachFileToContentElementTool::class],
-            'set_page_social_image'        => [SetPageSocialImageTool::class],
-            'move_content_element'         => [MoveContentElementTool::class],
-            'create_content_element_draft' => [CreateContentElementDraftTool::class],
-            'create_page_draft'            => [CreatePageDraftTool::class],
-            'create_translation_draft'     => [CreateTranslationDraftTool::class],
+            'set_page_social_image'          => [SetPageSocialImageTool::class],
+            'move_content_element'           => [MoveContentElementTool::class],
+            'create_content_element_draft'   => [CreateContentElementDraftTool::class],
+            'create_page_draft'              => [CreatePageDraftTool::class],
+            'create_translation_draft'       => [CreateTranslationDraftTool::class],
         ];
     }
 

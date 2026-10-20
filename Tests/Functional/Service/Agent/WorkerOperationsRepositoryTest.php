@@ -1,8 +1,11 @@
 <?php
 
-/* Copyright (c) 2025-2026 Netresearch DTT GmbH
- * SPDX-License-Identifier: GPL-2.0-or-later */
-declare (strict_types=1);
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent;
 
@@ -22,7 +25,7 @@ final class WorkerOperationsRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function aggregatesDistinguishUnknownFutureAndMeasuredZero(): void
     {
-        $pool = $this->get(ConnectionPool::class);
+        $pool       = $this->get(ConnectionPool::class);
         $connection = $pool->getConnectionForTable('tx_nrllm_agentrun');
         foreach ([
             ['status' => 'queued', 'queued_at' => 1000],
@@ -49,13 +52,13 @@ final class WorkerOperationsRepositoryTest extends AbstractFunctionalTestCase
         $snapshot = $repository->snapshot(1000, 120, 'doctrine');
         self::assertSame(
             [
-                'queued' => 4,
-                'running' => 3,
-                'dead_lettered' => 2,
-                'expired_leases' => 1,
+                'queued'                    => 4,
+                'running'                   => 3,
+                'dead_lettered'             => 2,
+                'expired_leases'            => 1,
                 'oldest_queue_wait_seconds' => 100,
-                'unknown_queue_wait' => 2,
-                'live_workers' => 2,
+                'unknown_queue_wait'        => 2,
+                'live_workers'              => 2,
             ],
             $snapshot->toArray(),
         );
@@ -75,10 +78,10 @@ final class WorkerOperationsRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function enqueueAndBothRequeuesStampOnlySuccessfulTransitions(): void
     {
-        $pool = $this->get(ConnectionPool::class);
+        $pool       = $this->get(ConnectionPool::class);
         $repository = new AgentRunRepository($pool, $this->get(AgentStateCodec::class));
         $connection = $pool->getConnectionForTable('tx_nrllm_agentrun');
-        $uid = $repository->enqueueRun('ops-run', 0, 'ops', 0, '{}');
+        $uid        = $repository->enqueueRun('ops-run', 0, 'ops', 0, '{}');
         self::assertGreaterThanOrEqual(
             time() - 2,
             $this->queuedAt($connection, $uid),
@@ -122,6 +125,7 @@ final class WorkerOperationsRepositoryTest extends AbstractFunctionalTestCase
             ->select(['queued_at'], 'tx_nrllm_agentrun', ['uid' => $uid])
             ->fetchOne();
         self::assertIsNumeric($value);
-        return (int)$value;
+
+        return (int) $value;
     }
 }

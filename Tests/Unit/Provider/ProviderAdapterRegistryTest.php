@@ -74,19 +74,19 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
     public static function adapterTypeClassMappingProvider(): array
     {
         return [
-            'openai' => [AdapterType::OpenAI->value, OpenAiProvider::class],
-            'anthropic' => [AdapterType::Anthropic->value, ClaudeProvider::class],
-            'gemini' => [AdapterType::Gemini->value, GeminiProvider::class],
-            'openrouter' => [AdapterType::OpenRouter->value, OpenRouterProvider::class],
-            'mistral' => [AdapterType::Mistral->value, MistralProvider::class],
-            'groq' => [AdapterType::Groq->value, GroqProvider::class],
-            'together' => [AdapterType::Together->value, OpenAiProvider::class],
-            'fireworks' => [AdapterType::Fireworks->value, OpenAiProvider::class],
-            'perplexity' => [AdapterType::Perplexity->value, OpenAiProvider::class],
-            'ollama' => [AdapterType::Ollama->value, OllamaProvider::class],
-            'azure_openai' => [AdapterType::AzureOpenAI->value, OpenAiProvider::class],
-            'custom' => [AdapterType::Custom->value, OpenAiProvider::class],
-            'typesafe' => [AdapterType::TypeSafe->value, TypeSafeProvider::class],
+            'openai'           => [AdapterType::OpenAI->value, OpenAiProvider::class],
+            'anthropic'        => [AdapterType::Anthropic->value, ClaudeProvider::class],
+            'gemini'           => [AdapterType::Gemini->value, GeminiProvider::class],
+            'openrouter'       => [AdapterType::OpenRouter->value, OpenRouterProvider::class],
+            'mistral'          => [AdapterType::Mistral->value, MistralProvider::class],
+            'groq'             => [AdapterType::Groq->value, GroqProvider::class],
+            'together'         => [AdapterType::Together->value, OpenAiProvider::class],
+            'fireworks'        => [AdapterType::Fireworks->value, OpenAiProvider::class],
+            'perplexity'       => [AdapterType::Perplexity->value, OpenAiProvider::class],
+            'ollama'           => [AdapterType::Ollama->value, OllamaProvider::class],
+            'azure_openai'     => [AdapterType::AzureOpenAI->value, OpenAiProvider::class],
+            'custom'           => [AdapterType::Custom->value, OpenAiProvider::class],
+            'typesafe'         => [AdapterType::TypeSafe->value, TypeSafeProvider::class],
             'decision_sidecar' => [AdapterType::DecisionSidecar->value, DecisionSidecarProvider::class],
         ];
     }
@@ -239,16 +239,16 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
     public static function hasAdapterProvider(): array
     {
         return [
-            'openai exists' => [AdapterType::OpenAI->value, true],
-            'anthropic exists' => [AdapterType::Anthropic->value, true],
-            'gemini exists' => [AdapterType::Gemini->value, true],
-            'together exists' => [AdapterType::Together->value, true],
-            'fireworks exists' => [AdapterType::Fireworks->value, true],
-            'perplexity exists' => [AdapterType::Perplexity->value, true],
-            'typesafe exists' => [AdapterType::TypeSafe->value, true],
+            'openai exists'           => [AdapterType::OpenAI->value, true],
+            'anthropic exists'        => [AdapterType::Anthropic->value, true],
+            'gemini exists'           => [AdapterType::Gemini->value, true],
+            'together exists'         => [AdapterType::Together->value, true],
+            'fireworks exists'        => [AdapterType::Fireworks->value, true],
+            'perplexity exists'       => [AdapterType::Perplexity->value, true],
+            'typesafe exists'         => [AdapterType::TypeSafe->value, true],
             'decision_sidecar exists' => [AdapterType::DecisionSidecar->value, true],
-            'unknown does not exist' => ['unknown_type', false],
-            'empty does not exist' => ['', false],
+            'unknown does not exist'  => ['unknown_type', false],
+            'empty does not exist'    => ['', false],
         ];
     }
 
@@ -483,14 +483,14 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
             function (string $method, string $uri) use (&$headers): RequestInterface {
                 $uriStub = self::createStub(UriInterface::class);
                 $uriStub->method('__toString')->willReturn($uri);
-                $uriStub->method('getHost')->willReturn((string)(parse_url($uri, PHP_URL_HOST) ?? ''));
+                $uriStub->method('getHost')->willReturn((string) (parse_url($uri, PHP_URL_HOST) ?? ''));
 
                 $request = self::createStub(RequestInterface::class);
                 $request->method('withHeader')->willReturnCallback(
                     static function (string $name, mixed $value) use ($request, &$headers): RequestInterface {
                         $parts = [];
                         foreach (is_array($value) ? $value : [$value] as $part) {
-                            $parts[] = is_scalar($part) ? (string)$part : '';
+                            $parts[] = is_scalar($part) ? (string) $part : '';
                         }
 
                         $headers[$name] = implode(', ', $parts);
@@ -498,8 +498,8 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
                         return $request;
                     },
                 );
-                $request->method('withoutHeader')->willReturnCallback(static fn(): RequestInterface => $request);
-                $request->method('withBody')->willReturnCallback(static fn(): RequestInterface => $request);
+                $request->method('withoutHeader')->willReturnCallback(static fn (): RequestInterface => $request);
+                $request->method('withBody')->willReturnCallback(static fn (): RequestInterface => $request);
                 $request->method('getMethod')->willReturn($method);
                 $request->method('getUri')->willReturn($uriStub);
 
@@ -521,10 +521,10 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
         self::assertInstanceOf(OpenAiProvider::class, $adapter);
 
         $client = self::createStub(ClientInterface::class);
-        $client->method('sendRequest')->willReturn($this->createHttpResponseMock(200, (string)json_encode([
-            'model' => 'gpt-4o',
+        $client->method('sendRequest')->willReturn($this->createHttpResponseMock(200, (string) json_encode([
+            'model'   => 'gpt-4o',
             'choices' => [['message' => ['role' => 'assistant', 'content' => 'ok'], 'finish_reason' => 'stop']],
-            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1],
+            'usage'   => ['prompt_tokens' => 1, 'completion_tokens' => 1],
         ])));
         $adapter->setHttpClient($client);
 

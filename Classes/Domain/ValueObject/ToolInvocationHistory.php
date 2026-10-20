@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\ValueObject;
 
@@ -32,10 +33,10 @@ final readonly class ToolInvocationHistory
             [
                 ...$this->entries,
                 [
-                    'tool' => $tool,
+                    'tool'    => $tool,
                     'outcome' => $outcome,
-                    'target' => $target instanceof ToolInvocationTarget ? [
-                        'kind' => $target->kind,
+                    'target'  => $target instanceof ToolInvocationTarget ? [
+                        'kind'       => $target->kind,
                         'identifier' => $target->identifier,
                     ] : null,
                 ],
@@ -90,9 +91,9 @@ final readonly class ToolInvocationHistory
         }
 
         return [
-            'tool' => $entry['tool'],
+            'tool'    => $entry['tool'],
             'outcome' => $entry['outcome'],
-            'target' => $target === null ? null : ['kind' => $target['kind'], 'identifier' => $target['identifier']],
+            'target'  => $target === null ? null : ['kind' => $target['kind'], 'identifier' => $target['identifier']],
         ];
     }
 }

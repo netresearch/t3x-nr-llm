@@ -13,6 +13,9 @@ use JsonSerializable;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use stdClass;
 
+use function is_array;
+use function is_string;
+
 /**
  * Value Object describing a tool the model is allowed to call.
  *
@@ -48,14 +51,14 @@ final readonly class ToolSpec implements JsonSerializable
     /**
      * @var array<string, mixed> JSON-Schema-shaped parameter description;
      *                           passed verbatim to the provider (with the
-     *                           empty-`properties` normalisation below applied).
+     *                           empty-`properties` normalisation below applied)
      */
     public array $parameters;
 
     /**
      * @param array<string, mixed> $parameters JSON-Schema-shaped parameter
      *                                         description; passed verbatim
-     *                                         to the provider.
+     *                                         to the provider
      */
     public function __construct(
         public string $name,
@@ -131,7 +134,7 @@ final readonly class ToolSpec implements JsonSerializable
      */
     public static function fromArray(array $data): self
     {
-        if (!isset($data['function']) || !\is_array($data['function'])) {
+        if (!isset($data['function']) || !is_array($data['function'])) {
             throw new InvalidArgumentException(
                 'ToolSpec array requires a "function" key with an array value.',
                 1745410003,
@@ -139,7 +142,7 @@ final readonly class ToolSpec implements JsonSerializable
         }
 
         $function = $data['function'];
-        if (!isset($function['name']) || !\is_string($function['name'])) {
+        if (!isset($function['name']) || !is_string($function['name'])) {
             throw new InvalidArgumentException(
                 'ToolSpec function.name must be a non-empty string.',
                 1745410004,
@@ -152,9 +155,9 @@ final readonly class ToolSpec implements JsonSerializable
 
         return new self(
             name: $function['name'],
-            description: \is_string($description) ? $description : '',
-            parameters: \is_array($parameters) ? $parameters : [],
-            type: \is_string($type) && $type !== '' ? $type : self::TYPE_FUNCTION,
+            description: is_string($description) ? $description : '',
+            parameters: is_array($parameters) ? $parameters : [],
+            type: is_string($type) && $type !== '' ? $type : self::TYPE_FUNCTION,
         );
     }
 
@@ -175,7 +178,7 @@ final readonly class ToolSpec implements JsonSerializable
     public function toArray(): array
     {
         return [
-            'type' => $this->type,
+            'type'     => $this->type,
             'function' => [
                 'name'        => $this->name,
                 'description' => $this->description,

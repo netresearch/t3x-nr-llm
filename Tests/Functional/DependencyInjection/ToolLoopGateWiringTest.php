@@ -13,14 +13,24 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Service\Agent\AgentRunExecutor;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequestCodec;
+use Netresearch\NrLlm\Service\Agent\AgentRuntime;
+use Netresearch\NrLlm\Service\Agent\Process\ApprovedProcessPinProbe;
+use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
+use Netresearch\NrLlm\Service\Agent\Process\ProcessRunPreparer;
+use Netresearch\NrLlm\Service\Agent\QueuedRunCoordinator;
+use Netresearch\NrLlm\Service\Agent\ResumeCoordinator;
+use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Skill\SkillApprovalRepositoryInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposerFactory;
 use Netresearch\NrLlm\Service\Skill\SkillInstructionPolicy;
+use Netresearch\NrLlm\Service\Skill\SkillLoadService;
 use Netresearch\NrLlm\Service\Skill\SkillPinCheck;
 use Netresearch\NrLlm\Service\Skill\SkillRecordLookupInterface;
 use Netresearch\NrLlm\Service\Skill\SkillSourceLookupInterface;
+use Netresearch\NrLlm\Service\Tool\Builtin\HighlightRecordTool;
 use Netresearch\NrLlm\Service\Tool\Mcp\Auth\ConfiguredMcpSubjectResolver;
 use Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpAuthenticationSessionFactory;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpClient;
@@ -34,6 +44,8 @@ use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionProperty;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
+
+use const E_WARNING;
 
 /**
  * Pins the production wiring of the agent loop's tool gate (ADR-120).
@@ -73,9 +85,9 @@ final class ToolLoopGateWiringTest extends FunctionalTestCase
     protected function setUp(): void
     {
         set_error_handler(
-            static fn(int $errno, string $errstr, string $errfile): bool => str_contains($errfile, 'Crypto/HashService.php')
+            static fn (int $errno, string $errstr, string $errfile): bool => str_contains($errfile, 'Crypto/HashService.php')
                 && (str_contains($errstr, 'TYPO3_CONF_VARS') || str_contains($errstr, 'array offset')),
-            \E_WARNING,
+            E_WARNING,
         );
 
         try {
@@ -147,6 +159,51 @@ final class ToolLoopGateWiringTest extends FunctionalTestCase
     }
 
     /**
+     * The skill load service is optional on the loop (ADR-214 item 4); an
+     * install whose container left it null would never offer the load tool.
+     */
+    #[Test]
+    public function productionWiresTheSkillLoadServiceIntoTheLoop(): void
+    {
+        $loop = $this->get(ToolLoopService::class);
+        self::assertInstanceOf(ToolLoopService::class, $loop);
+
+        self::assertInstanceOf(SkillLoadService::class, (new ReflectionProperty(ToolLoopService::class, 'skillLoad'))->getValue($loop));
+    }
+
+    /**
+     * Without the model selection a criteria-mode configuration resolves no
+     * model, and every load is refused for want of a window (ADR-214 item 7);
+     * pinned here.
+     */
+    #[Test]
+    public function productionWiresTheModelSelectionIntoTheLoop(): void
+    {
+        $loop = $this->get(ToolLoopService::class);
+        self::assertInstanceOf(ToolLoopService::class, $loop);
+
+        self::assertInstanceOf(ModelSelectionServiceInterface::class, (new ReflectionProperty(ToolLoopService::class, 'modelSelection'))->getValue($loop));
+    }
+
+    /**
+     * The process rules (ADR-214 items 6 and 9) hang on an optional probe in
+     * the loop, the resume coordinator and the runtime. A container that left
+     * it null, or kept the null probe, would compile and leave every process
+     * run without its rules; pinned here.
+     */
+    #[Test]
+    public function productionAnswersTheProcessPinQuestionFromTheApprovals(): void
+    {
+        self::assertInstanceOf(ApprovedProcessPinProbe::class, $this->get(ProcessPinProbe::class));
+
+        foreach ([ToolLoopService::class, ResumeCoordinator::class, AgentRuntime::class] as $class) {
+            $service = $this->get($class);
+            self::assertInstanceOf($class, $service);
+            self::assertInstanceOf(ApprovedProcessPinProbe::class, (new ReflectionProperty($class, 'processPinProbe'))->getValue($service), $class);
+        }
+    }
+
+    /**
      * The factory takes the approval store, the source lookup and the record
      * lookup as optional arguments (ADR-214 item 2). A container that left any
      * of them null would compile and silently compose every skill fenced, or
@@ -164,6 +221,49 @@ final class ToolLoopGateWiringTest extends FunctionalTestCase
         $policy = $factory->instructionPolicy();
         self::assertInstanceOf(SkillInstructionPolicy::class, $policy);
         self::assertInstanceOf(SkillRecordLookupInterface::class, (new ReflectionProperty(SkillInstructionPolicy::class, 'records'))->getValue($policy), 'the policy applies the record rule');
+    }
+
+    /**
+     * The executor takes the process preparer as an optional argument
+     * (ADR-228), and without one it refuses every invocation and
+     * continuation. A container that left it null would compile and refuse
+     * every process run; pinned here on each path that builds a run: the
+     * runtime, the queue worker and the resume coordinator.
+     */
+    #[Test]
+    public function productionWiresTheProcessPreparerIntoEveryExecutor(): void
+    {
+        $runtime = $this->get(AgentRuntime::class);
+        self::assertInstanceOf(AgentRuntime::class, $runtime);
+        $executors = [
+            AgentRuntime::class         => (new ReflectionProperty(AgentRuntime::class, 'runExecutor'))->getValue($runtime),
+            QueuedRunCoordinator::class => (new ReflectionProperty(QueuedRunCoordinator::class, 'executor'))->getValue(
+                (new ReflectionProperty(AgentRuntime::class, 'queueCoordinator'))->getValue($runtime),
+            ),
+            ResumeCoordinator::class => (new ReflectionProperty(ResumeCoordinator::class, 'executor'))->getValue(
+                (new ReflectionProperty(AgentRuntime::class, 'resumeCoordinator'))->getValue($runtime),
+            ),
+        ];
+
+        foreach ($executors as $path => $executor) {
+            self::assertInstanceOf(AgentRunExecutor::class, $executor, $path);
+            self::assertInstanceOf(ProcessRunPreparer::class, (new ReflectionProperty(AgentRunExecutor::class, 'processPreparer'))->getValue($executor), $path);
+        }
+    }
+
+    /**
+     * The highlight builtin (ADR-228) reaches the registry through the tool
+     * tag like every builtin, and ships disabled.
+     */
+    #[Test]
+    public function productionRegistersTheHighlightBuiltin(): void
+    {
+        $registry = $this->get(ToolRegistry::class);
+        self::assertInstanceOf(ToolRegistry::class, $registry);
+
+        $tool = $registry->get(HighlightRecordTool::NAME);
+        self::assertInstanceOf(HighlightRecordTool::class, $tool);
+        self::assertFalse($tool->isEnabledByDefault());
     }
 
     #[Test]
@@ -212,6 +312,7 @@ final class ToolLoopGateWiringTest extends FunctionalTestCase
                 ConfiguredMcpSubjectResolver::class,
                 $resolver,
             );
+
             return;
         }
 

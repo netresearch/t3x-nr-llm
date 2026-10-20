@@ -33,7 +33,7 @@ final class ReadSourceToolTest extends TestCase
         mkdir($this->root . '/config/system', 0o777, true);
         file_put_contents(
             $this->root . '/Classes/Demo.php',
-            implode("\n", array_map(static fn(int $i): string => sprintf('// line %d', $i), range(1, 10))),
+            implode("\n", array_map(static fn (int $i): string => sprintf('// line %d', $i), range(1, 10))),
         );
         file_put_contents($this->root . '/config/system/settings.php', '<?php // secret');
 

@@ -16,6 +16,7 @@ use Netresearch\NrVault\Http\CancellationSignalInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
+use stdClass;
 use TYPO3\CMS\Core\Http\Response;
 use TYPO3\CMS\Core\Http\Stream;
 
@@ -68,24 +69,28 @@ final class RecordingCancellableClient implements CancellableHttpClientInterface
     {
         $this->calls[] = 'sendRequest';
 
-        return $this->answer();
+        return $this->answer($request);
     }
 
-    public function sendCancellable(RequestInterface $request, CancellationSignalInterface $signal): ResponseInterface
-    {
+    public function sendCancellable(
+        RequestInterface $request,
+        CancellationSignalInterface $signal,
+    ): ResponseInterface {
         $this->calls[] = 'sendCancellable';
         ++$this->cancellableSends;
 
         // What nr-vault does between ticks of its event loop: ask, and tear the
         // transfer down when the answer is yes.
-        $wanted = $this->cancelMidFlight
-            || $this->cancelOnCancellableSend === $this->cancellableSends;
+        $wanted = $this->cancelMidFlight || $this->cancelOnCancellableSend === $this->cancellableSends;
 
         if ($wanted && $signal->isCancelled()) {
-            throw new RequestCancelledException('the caller cancelled the request', 1788400001);
+            throw new RequestCancelledException(
+                'the caller cancelled the request',
+                1788400001,
+            );
         }
 
-        return $this->answer();
+        return $this->answer($request);
     }
 
     public function supportsCancellation(): bool
@@ -93,10 +98,23 @@ final class RecordingCancellableClient implements CancellableHttpClientInterface
         return $this->supportsCancellation;
     }
 
-    private function answer(): ResponseInterface
+    private function answer(RequestInterface $request): ResponseInterface
     {
+        $requestBody = json_decode((string) $request->getBody(), true);
+        if (!is_array($requestBody) || !array_key_exists('id', $requestBody)) {
+            return (new Response())->withStatus(202);
+        }
+
         $stream = new Stream('php://temp', 'rw');
-        $stream->write((string)json_encode(['jsonrpc' => '2.0', 'id' => 1, 'result' => []]));
+        $stream->write(
+            (string) json_encode(
+                [
+                    'jsonrpc' => '2.0',
+                    'id'      => $requestBody['id'],
+                    'result'  => new stdClass(),
+                ],
+            ),
+        );
         $stream->rewind();
 
         return (new Response())
