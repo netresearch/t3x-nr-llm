@@ -73,7 +73,7 @@ class SpecializedCostCalculatorTest extends AbstractUnitTestCase
         $repository = self::createStub(ModelRepository::class);
         $repository->method('findOneByIdentifier')->willReturn(null);
         $repository->method('findOneByModelId')->willReturnCallback(
-            static fn(ProviderModelName $modelName): ?Model => $modelName->value === 'gpt-image-2' ? $model : null,
+            static fn (ProviderModelName $modelName): ?Model => $modelName->value === 'gpt-image-2' ? $model : null,
         );
 
         $calculator = new SpecializedCostCalculator($repository);

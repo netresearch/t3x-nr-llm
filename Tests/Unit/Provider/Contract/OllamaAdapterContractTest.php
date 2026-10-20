@@ -42,9 +42,9 @@ final class OllamaAdapterContractTest extends AbstractAdapterContractTestCase
     {
         return [
             'apiKeyIdentifier' => '',
-            'defaultModel' => self::MODEL,
-            'baseUrl' => 'http://localhost:11434',
-            'timeout' => 30,
+            'defaultModel'     => self::MODEL,
+            'baseUrl'          => 'http://localhost:11434',
+            'timeout'          => 30,
         ];
     }
 
@@ -61,13 +61,13 @@ final class OllamaAdapterContractTest extends AbstractAdapterContractTestCase
     protected function chatResponseBody(int $promptTokens, int $completionTokens, string $content = 'ok'): array
     {
         return [
-            'model' => self::MODEL,
-            'created_at' => '2026-08-11T10:00:00Z',
-            'message' => ['role' => 'assistant', 'content' => $content],
-            'done' => true,
-            'done_reason' => 'stop',
+            'model'             => self::MODEL,
+            'created_at'        => '2026-08-11T10:00:00Z',
+            'message'           => ['role' => 'assistant', 'content' => $content],
+            'done'              => true,
+            'done_reason'       => 'stop',
             'prompt_eval_count' => $promptTokens,
-            'eval_count' => $completionTokens,
+            'eval_count'        => $completionTokens,
         ];
     }
 
@@ -82,24 +82,24 @@ final class OllamaAdapterContractTest extends AbstractAdapterContractTestCase
     protected function toolCallResponseBody(): array
     {
         return [
-            'model' => self::MODEL,
+            'model'      => self::MODEL,
             'created_at' => '2026-08-11T10:00:00Z',
-            'message' => [
-                'role' => 'assistant',
-                'content' => '',
+            'message'    => [
+                'role'       => 'assistant',
+                'content'    => '',
                 'tool_calls' => [
                     [
                         'function' => [
-                            'name' => 'get_weather',
+                            'name'      => 'get_weather',
                             'arguments' => ['city' => 'Leipzig'],
                         ],
                     ],
                 ],
             ],
-            'done' => true,
-            'done_reason' => 'stop',
+            'done'              => true,
+            'done_reason'       => 'stop',
             'prompt_eval_count' => 12,
-            'eval_count' => 8,
+            'eval_count'        => 8,
         ];
     }
 

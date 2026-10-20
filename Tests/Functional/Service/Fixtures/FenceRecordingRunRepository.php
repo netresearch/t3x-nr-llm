@@ -91,9 +91,9 @@ final class FenceRecordingRunRepository implements AgentRunRepositoryInterface
         return $this->inner->finishRun($runUid, $status, $iterations, $truncated, $promptTokens, $completionTokens, $totalTokens, $estimatedCost, $errorClass, $terminationReason, $ownedBy);
     }
 
-    public function settleIfWaiting(int $runUid, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason): bool
+    public function settleIfWaiting(int $runUid, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason, string $errorClass = ''): bool
     {
-        return $this->inner->settleIfWaiting($runUid, $from, $to, $reason);
+        return $this->inner->settleIfWaiting($runUid, $from, $to, $reason, $errorClass);
     }
 
     public function suspendRun(int $runUid, string $stateJson): bool
@@ -177,6 +177,11 @@ final class FenceRecordingRunRepository implements AgentRunRepositoryInterface
     public function findEvents(int $runUid, int $afterSequence = -1): array
     {
         return $this->inner->findEvents($runUid, $afterSequence);
+    }
+
+    public function findLatestEvent(int $runUid, string $kind): ?AgentRunEvent
+    {
+        return $this->inner->findLatestEvent($runUid, $kind);
     }
 
     public function findApprovalDeciders(array $runUids): array

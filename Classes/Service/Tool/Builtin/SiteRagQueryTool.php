@@ -54,22 +54,22 @@ final readonly class SiteRagQueryTool implements ToolInterface
             . 'evidence and cite the source URLs; when the evidence is insufficient, say so instead of '
             . "guessing. Use site_fetch_source(source_id) to read a source's full indexed text.",
             [
-                'type' => 'object',
+                'type'       => 'object',
                 'properties' => [
                     'question' => [
-                        'type' => 'string',
+                        'type'        => 'string',
                         'description' => 'The question or search phrase (2-200 characters). Plain keywords work best.',
                     ],
                     'site' => [
-                        'type' => 'string',
+                        'type'        => 'string',
                         'description' => 'Optional: restrict to one site identifier (see get_site_config).',
                     ],
                     'language' => [
-                        'type' => 'integer',
+                        'type'        => 'integer',
                         'description' => 'Optional: language id to search in (default 0).',
                     ],
                     'max_sources' => [
-                        'type' => 'integer',
+                        'type'        => 'integer',
                         'description' => 'Maximum evidence sources (default 8, hard cap 20).',
                     ],
                 ],
@@ -100,7 +100,7 @@ final readonly class SiteRagQueryTool implements ToolInterface
 
         $maxSources = min($maxSources, RetrievalQuery::MAX_SOURCES);
 
-        $site = trim(self::toStr($arguments['site'] ?? ''));
+        $site       = trim(self::toStr($arguments['site'] ?? ''));
         $languageId = max(0, self::toInt($arguments['language'] ?? 0));
 
         $result = $this->retrievalService->search(

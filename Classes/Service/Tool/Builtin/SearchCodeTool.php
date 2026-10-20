@@ -87,13 +87,13 @@ final readonly class SearchCodeTool implements ToolInterface
             return ToolResult::text('Error: "pattern" is required.');
         }
 
-        $isRegex = (bool)($arguments['regex'] ?? false);
+        $isRegex = (bool) ($arguments['regex'] ?? false);
         $regex   = null;
         if ($isRegex) {
             $regex = '~' . str_replace('~', '\~', $pattern) . '~';
             // preg_match() signals an invalid pattern with a warning + false;
             // a scoped no-op handler keeps the probe silent without "@".
-            set_error_handler(static fn(): bool => true);
+            set_error_handler(static fn (): bool => true);
             try {
                 $patternIsValid = preg_match($regex, '') !== false;
             } finally {
@@ -138,7 +138,7 @@ final readonly class SearchCodeTool implements ToolInterface
         $truncated    = '';
 
         foreach ($this->sourceFiles($base) as $file) {
-            $filesVisited++;
+            ++$filesVisited;
             if ($filesVisited > self::MAX_FILES || microtime(true) - $started > self::TIME_BUDGET_SECONDS) {
                 $truncated = sprintf(
                     '… search stopped early (budget: %d files / %.0fs) — narrow the path to search further.',

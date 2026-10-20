@@ -29,7 +29,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
  * translators outside the scan namespace can opt in via the legacy yaml
  * tag path, which remains the supported escape hatch.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class TranslatorCompilerPass implements CompilerPassInterface
 {
@@ -41,9 +41,9 @@ final readonly class TranslatorCompilerPass implements CompilerPassInterface
     public const DEFAULT_SCAN_NAMESPACE_PREFIX = 'Netresearch\\NrLlm\\Specialized\\Translation\\';
 
     /**
-     * @param string $scanNamespacePrefix Override the default for tests
+     * @param string $scanNamespacePrefix override the default for tests
      *                                    that need fixture classes outside
-     *                                    the production namespace.
+     *                                    the production namespace
      */
     public function __construct(
         private string $scanNamespacePrefix = self::DEFAULT_SCAN_NAMESPACE_PREFIX,

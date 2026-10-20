@@ -37,13 +37,14 @@ structured output. Which one answers is a matter of configuration, not of code.
          configuration identifier, budget subject (``beUserUid``) and caller
          source
       :returns: DecisionResult
-      :throws: ``DecisionException`` for every failure except the ones below —
+      :throws: ``DecisionException`` for operational failures, including
+         configuration lookup, routing and budget-subject resolution —
          its code names the cause (see :ref:`api-decision-service-failures`);
          ``BudgetExceededException``, ``GuardrailViolationException``,
          ``GuardrailApprovalRequiredException`` and
          ``InputContextTrustZoneException`` keep their own types, because a
          caller may handle them as policy. A failure is never returned as an
-         answer.
+         answer. Engine ``\Error`` defects propagate without wrapping.
 
    .. php:method:: assertAvailable(string $profile, ?string $configuration = null): void
 
@@ -54,7 +55,8 @@ structured output. Which one answers is a matter of configuration, not of code.
       ``nrllm:eval:run --grader decision`` does.
 
       :throws: ``DecisionException`` with the code ``evaluate()`` would fail
-         with
+         with; policy exceptions and engine ``\Error`` defects propagate
+         as in ``evaluate()``
 
 Declaring a profile
 ===================
@@ -325,7 +327,11 @@ Failures
        round-trip.
    * - ``FAILED``
      - Every other failure: an outage, a timeout, a rate limit, an exhausted
-       fallback chain. The cause is the previous exception. An ``\Error`` — a
+       fallback chain, an unreadable extension setting, a failed repository
+       lookup, model routing or budget-subject resolution. The cause is the
+       previous exception. Before configuration resolution, the diagnostic
+       names the requested identifier or ``decision.configuration``.
+       An ``\Error`` — a
        defect in code — is not wrapped and propagates.
    * - ``NO_SUCH_ANSWER``
      - :php:`DecisionResult::answer()` was asked for a key the profile does

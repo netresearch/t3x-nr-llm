@@ -53,7 +53,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
             'translators' => [
                 'deepl' => [
                     'apiKeyIdentifier' => $this->randomApiKey(),
-                    'timeout' => 30,
+                    'timeout'          => 30,
                 ],
             ],
         ];
@@ -123,7 +123,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
         $translator->detectLanguage('text');
 
         $reflection = new ReflectionClass($translator);
-        $baseUrl = $reflection->getProperty('baseUrl')->getValue($translator);
+        $baseUrl    = $reflection->getProperty('baseUrl')->getValue($translator);
         self::assertIsString($baseUrl);
 
         return $baseUrl;
@@ -139,7 +139,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
 
         // Use reflection to test private method
         $reflection = new ReflectionClass($translator);
-        $method = $reflection->getMethod('mapFormality');
+        $method     = $reflection->getMethod('mapFormality');
 
         $result = $method->invoke($translator, $input);
 
@@ -152,14 +152,14 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
     public static function formalityMappingProvider(): array
     {
         return [
-            'formal maps to more' => ['formal', 'more'],
-            'more maps to more' => ['more', 'more'],
-            'informal maps to less' => ['informal', 'less'],
-            'less maps to less' => ['less', 'less'],
+            'formal maps to more'             => ['formal', 'more'],
+            'more maps to more'               => ['more', 'more'],
+            'informal maps to less'           => ['informal', 'less'],
+            'less maps to less'               => ['less', 'less'],
             'prefer_more maps to prefer_more' => ['prefer_more', 'prefer_more'],
             'prefer_less maps to prefer_less' => ['prefer_less', 'prefer_less'],
-            'unknown maps to default' => ['unknown', 'default'],
-            'empty maps to default' => ['', 'default'],
+            'unknown maps to default'         => ['unknown', 'default'],
+            'empty maps to default'           => ['', 'default'],
             'any other value maps to default' => ['random_value', 'default'],
         ];
     }
@@ -176,7 +176,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
         $translator = $this->createTranslator();
 
         $reflection = new ReflectionClass($translator);
-        $method = $reflection->getMethod('normalizeLanguageCode');
+        $method     = $reflection->getMethod('normalizeLanguageCode');
 
         $result = $method->invoke($translator, $input, $isSource);
 
@@ -190,14 +190,14 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
     {
         return [
             // Norwegian normalization
-            'NO source becomes NB' => ['NO', true, 'NB'],
-            'NO target becomes NB' => ['NO', false, 'NB'],
+            'NO source becomes NB'           => ['NO', true, 'NB'],
+            'NO target becomes NB'           => ['NO', false, 'NB'],
             'no lowercase source becomes NB' => ['no', true, 'NB'],
 
             // Chinese normalization - different for source vs target
-            'ZH source stays ZH' => ['ZH', true, 'ZH'],
-            'ZH target becomes ZH-HANS' => ['ZH', false, 'ZH-HANS'],
-            'zh lowercase source stays ZH' => ['zh', true, 'ZH'],
+            'ZH source stays ZH'                  => ['ZH', true, 'ZH'],
+            'ZH target becomes ZH-HANS'           => ['ZH', false, 'ZH-HANS'],
+            'zh lowercase source stays ZH'        => ['zh', true, 'ZH'],
             'zh lowercase target becomes ZH-HANS' => ['zh', false, 'ZH-HANS'],
 
             // Regular codes pass through uppercased
@@ -209,7 +209,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
 
             // Regional variants
             'en-gb becomes EN-GB' => ['en-gb', false, 'EN-GB'],
-            'PT-BR stays PT-BR' => ['pt-br', false, 'PT-BR'],
+            'PT-BR stays PT-BR'   => ['pt-br', false, 'PT-BR'],
         ];
     }
 
@@ -221,7 +221,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
         $translator = $this->createTranslator();
 
         $reflection = new ReflectionClass($translator);
-        $method = $reflection->getMethod('countBilledCharacters');
+        $method     = $reflection->getMethod('countBilledCharacters');
 
         // ASCII text
         $asciiResult = $method->invoke($translator, 'Hello');
@@ -251,7 +251,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
             'translators' => [
                 'deepl' => [
                     'apiKeyIdentifier' => 'deepl-free-id',
-                    'timeout' => 30,
+                    'timeout'          => 30,
                 ],
             ],
         ];
@@ -271,7 +271,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
             'translators' => [
                 'deepl' => [
                     'apiKeyIdentifier' => 'deepl-pro-id',
-                    'timeout' => 30,
+                    'timeout'          => 30,
                 ],
             ],
         ];
@@ -294,8 +294,8 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
             'translators' => [
                 'deepl' => [
                     'apiKeyIdentifier' => 'deepl-pro-id',
-                    'baseUrl' => 'https://custom-deepl-api.example.com',
-                    'timeout' => 30,
+                    'baseUrl'          => 'https://custom-deepl-api.example.com',
+                    'timeout'          => 30,
                 ],
             ],
         ];
@@ -401,8 +401,8 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
             'de',
             null,
             [
-                'tag_handling' => 'html',
-                'ignore_tags' => ['script', 'style'],
+                'tag_handling'       => 'html',
+                'ignore_tags'        => ['script', 'style'],
                 'non_splitting_tags' => ['span'],
             ],
         );
@@ -479,7 +479,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
             ->with(
                 'translation',
                 'deepl',
-                self::callback(fn(array $data): bool => $data['batch_size'] === 2 && $data['characters'] === 10),
+                self::callback(fn (array $data): bool => $data['batch_size'] === 2 && $data['characters'] === 10),
             );
 
         $translator = new DeepLTranslator(

@@ -73,7 +73,7 @@ final class PurgeGovernanceCommandTest extends TestCase
     {
         $extensionConfiguration = $this->createMock(ExtensionConfiguration::class);
         $extensionConfiguration->method('get')->willReturn([
-            'privacy' => ['retention' => ['governance' => (string)$days]],
+            'privacy' => ['retention' => ['governance' => (string) $days]],
         ]);
 
         return new PrivacyPolicy($extensionConfiguration, new ContentRedactor());

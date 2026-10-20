@@ -56,7 +56,7 @@ enum RoutingPolicyMode: string
 
     public static function fromValue(?string $value): self
     {
-        return self::tryFrom(trim((string)$value)) ?? self::PROVIDER_PRIORITY;
+        return self::tryFrom(trim((string) $value)) ?? self::PROVIDER_PRIORITY;
     }
 
     /**
@@ -139,6 +139,6 @@ enum RoutingPolicyMode: string
      */
     public static function values(): array
     {
-        return array_map(static fn(self $case): string => $case->value, self::cases());
+        return array_map(static fn (self $case): string => $case->value, self::cases());
     }
 }

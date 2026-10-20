@@ -93,39 +93,44 @@ class VisionOptions extends AbstractOptions implements BudgetAwareOptionsInterfa
 
     public function withDetailLevel(string $detailLevel): static
     {
-        $clone = clone $this;
+        $clone              = clone $this;
         $clone->detailLevel = $detailLevel;
         $clone->validate();
+
         return $clone;
     }
 
     public function withMaxTokens(int $maxTokens): static
     {
-        $clone = clone $this;
+        $clone            = clone $this;
         $clone->maxTokens = $maxTokens;
         $clone->validate();
+
         return $clone;
     }
 
     public function withTemperature(float $temperature): static
     {
-        $clone = clone $this;
+        $clone              = clone $this;
         $clone->temperature = $temperature;
         $clone->validate();
+
         return $clone;
     }
 
     public function withProvider(string $provider): static
     {
-        $clone = clone $this;
+        $clone           = clone $this;
         $clone->provider = $provider;
+
         return $clone;
     }
 
     public function withModel(string $model): static
     {
-        $clone = clone $this;
+        $clone        = clone $this;
         $clone->model = $model;
+
         return $clone;
     }
 
@@ -170,10 +175,10 @@ class VisionOptions extends AbstractOptions implements BudgetAwareOptionsInterfa
     {
         return $this->filterNull([
             'detail_level' => $this->detailLevel,
-            'max_tokens' => $this->maxTokens,
-            'temperature' => $this->temperature,
-            'provider' => $this->provider,
-            'model' => $this->model,
+            'max_tokens'   => $this->maxTokens,
+            'temperature'  => $this->temperature,
+            'provider'     => $this->provider,
+            'model'        => $this->model,
         ]);
     }
 

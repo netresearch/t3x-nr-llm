@@ -32,7 +32,7 @@ class ExecuteTaskRequestTest extends AbstractUnitTestCase
     public function fromRequestExtractsValidData(): void
     {
         $serverRequest = $this->createServerRequestMock([
-            'uid' => 42,
+            'uid'   => 42,
             'input' => 'Execute this task',
         ]);
 
@@ -46,7 +46,7 @@ class ExecuteTaskRequestTest extends AbstractUnitTestCase
     public function fromRequestHandlesStringNumericUid(): void
     {
         $serverRequest = $this->createServerRequestMock([
-            'uid' => '123',
+            'uid'   => '123',
             'input' => 'test',
         ]);
 
@@ -83,7 +83,7 @@ class ExecuteTaskRequestTest extends AbstractUnitTestCase
     public function fromRequestHandlesInvalidUid(mixed $uid, int $expected): void
     {
         $serverRequest = $this->createServerRequestMock([
-            'uid' => $uid,
+            'uid'   => $uid,
             'input' => 'test',
         ]);
 
@@ -99,8 +99,8 @@ class ExecuteTaskRequestTest extends AbstractUnitTestCase
     {
         return [
             'non-numeric string' => ['abc', 0],
-            'array' => [['test'], 0],
-            'float string' => ['12.5', 12],
+            'array'              => [['test'], 0],
+            'float string'       => ['12.5', 12],
             // A negative uid is invalid (never a real record id) and is rejected
             // to the default, matching the other invalid inputs above.
             'negative' => [-5, 0],
@@ -112,7 +112,7 @@ class ExecuteTaskRequestTest extends AbstractUnitTestCase
     public function fromRequestHandlesInvalidInput(mixed $input, string $expected): void
     {
         $serverRequest = $this->createServerRequestMock([
-            'uid' => 1,
+            'uid'   => 1,
             'input' => $input,
         ]);
 
@@ -127,11 +127,11 @@ class ExecuteTaskRequestTest extends AbstractUnitTestCase
     public static function invalidInputProvider(): array
     {
         return [
-            'array' => [['test'], ''],
-            'integer' => [123, '123'],
-            'boolean true' => [true, '1'],
+            'array'         => [['test'], ''],
+            'integer'       => [123, '123'],
+            'boolean true'  => [true, '1'],
             'boolean false' => [false, ''],
-            'null' => [null, ''],
+            'null'          => [null, ''],
         ];
     }
 
@@ -142,6 +142,7 @@ class ExecuteTaskRequestTest extends AbstractUnitTestCase
     {
         $request = self::createStub(ServerRequestInterface::class);
         $request->method('getParsedBody')->willReturn($body);
+
         return $request;
     }
 }

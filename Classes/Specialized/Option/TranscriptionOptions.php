@@ -67,11 +67,11 @@ final class TranscriptionOptions extends AbstractOptions implements BudgetAwareO
         // they are consumer metadata for usage attribution, not
         // transcription API parameters, and must never reach the provider.
         return $this->filterNull([
-            'model' => $this->model,
-            'language' => $this->language,
+            'model'           => $this->model,
+            'language'        => $this->language,
             'response_format' => $this->format,
-            'prompt' => $this->prompt,
-            'temperature' => $this->temperature,
+            'prompt'          => $this->prompt,
+            'temperature'     => $this->temperature,
         ]);
     }
 
@@ -80,24 +80,24 @@ final class TranscriptionOptions extends AbstractOptions implements BudgetAwareO
      */
     public static function fromArray(array $options): static
     {
-        $model = $options['model'] ?? null;
-        $language = $options['language'] ?? null;
-        $format = $options['format'] ?? $options['response_format'] ?? null;
-        $prompt = $options['prompt'] ?? null;
-        $temperature = $options['temperature'] ?? null;
+        $model         = $options['model'] ?? null;
+        $language      = $options['language'] ?? null;
+        $format        = $options['format'] ?? $options['response_format'] ?? null;
+        $prompt        = $options['prompt'] ?? null;
+        $temperature   = $options['temperature'] ?? null;
         $configuration = $options['configuration'] ?? null;
-        $beUserUid = $options['beUserUid'] ?? null;
-        $plannedCost = $options['plannedCost'] ?? null;
+        $beUserUid     = $options['beUserUid'] ?? null;
+        $plannedCost   = $options['plannedCost'] ?? null;
 
         return (new self(
             model: is_string($model) ? $model : null,
             language: is_string($language) ? $language : null,
             format: is_string($format) ? $format : null,
             prompt: is_string($prompt) ? $prompt : null,
-            temperature: is_float($temperature) || is_int($temperature) ? (float)$temperature : null,
+            temperature: is_float($temperature) || is_int($temperature) ? (float) $temperature : null,
             configuration: is_string($configuration) ? $configuration : null,
             beUserUid: is_int($beUserUid) ? $beUserUid : null,
-            plannedCost: is_float($plannedCost) || is_int($plannedCost) ? (float)$plannedCost : null,
+            plannedCost: is_float($plannedCost) || is_int($plannedCost) ? (float) $plannedCost : null,
         ))->withCallerSourceFromArray($options);
     }
 

@@ -70,16 +70,16 @@ final class RoutingTelemetryTest extends AbstractFunctionalTestCase
         $row = $this->row('corr-decided');
 
         self::assertSame('balanced', $row['routing_policy_mode']);
-        self::assertSame(5, (int)$row['routing_candidates']);
+        self::assertSame(5, (int) $row['routing_candidates']);
         self::assertSame('CAPABILITY_MISSING,COST_ABOVE_LIMIT', $row['routing_rejections']);
-        self::assertSame(1, (int)$row['routing_signal_quality']);
-        self::assertSame(0, (int)$row['routing_signal_health']);
-        self::assertSame(1, (int)$row['routing_signal_cost']);
-        self::assertSame(64, (int)$row['complexity_score']);
-        self::assertSame(4096, (int)$row['complexity_payload_bytes']);
-        self::assertSame(1200, (int)$row['complexity_tokens']);
-        self::assertSame(3, (int)$row['complexity_tools']);
-        self::assertSame(40, (int)$row['complexity_context_percent']);
+        self::assertSame(1, (int) $row['routing_signal_quality']);
+        self::assertSame(0, (int) $row['routing_signal_health']);
+        self::assertSame(1, (int) $row['routing_signal_cost']);
+        self::assertSame(64, (int) $row['complexity_score']);
+        self::assertSame(4096, (int) $row['complexity_payload_bytes']);
+        self::assertSame(1200, (int) $row['complexity_tokens']);
+        self::assertSame(3, (int) $row['complexity_tools']);
+        self::assertSame(40, (int) $row['complexity_context_percent']);
         self::assertSame('toolAssisted', $row['complexity_shape']);
     }
 
@@ -94,7 +94,7 @@ final class RoutingTelemetryTest extends AbstractFunctionalTestCase
         $row = $this->row('corr-fixed');
 
         self::assertSame('', $row['routing_policy_mode']);
-        self::assertSame(0, (int)$row['routing_candidates']);
+        self::assertSame(0, (int) $row['routing_candidates']);
         self::assertSame('', $row['routing_rejections']);
         self::assertSame('', $row['complexity_shape']);
     }
@@ -112,7 +112,7 @@ final class RoutingTelemetryTest extends AbstractFunctionalTestCase
 
         self::assertNull($row['complexity_tokens']);
         self::assertNull($row['complexity_context_percent']);
-        self::assertSame(12, (int)$row['complexity_payload_bytes']);
+        self::assertSame(12, (int) $row['complexity_payload_bytes']);
     }
 
     #[Test]
@@ -223,12 +223,12 @@ final class RoutingTelemetryTest extends AbstractFunctionalTestCase
         self::assertSame(RequestShape::TOOL_ASSISTED->value, $row['complexity_shape']);
 
         // The prose reached the estimator — it is counted — and got no further.
-        self::assertSame(strlen($prose) * 2, (int)$row['complexity_payload_bytes']);
+        self::assertSame(strlen($prose) * 2, (int) $row['complexity_payload_bytes']);
         foreach ($row as $column => $value) {
             self::assertTrue($value === null || is_scalar($value), $column . ' is not a scalar column');
             self::assertStringNotContainsString(
                 'Wilkins',
-                is_scalar($value) ? (string)$value : '',
+                is_scalar($value) ? (string) $value : '',
                 $column . ' carries a fragment of the request; the row must stay prompt-free.',
             );
         }
