@@ -1,1 +1,0 @@
-- Functional test initialization and teardown failures now fail the suite instead of becoming skips or being swallowed. Bounded child-PHPUnit checks cover broken bootstrap, teardown integrity, success and deliberate absent-database skipping.

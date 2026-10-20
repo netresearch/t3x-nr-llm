@@ -1,1 +1,0 @@
-- **Skill sync diagnostics redact URL credentials.** Fatal and partial sync results now apply the same credential masking as the stored error. Fatal logging records the exception class and sanitized message/source URL instead of retaining a credential-bearing exception object.
