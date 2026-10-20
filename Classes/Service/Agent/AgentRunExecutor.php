@@ -28,6 +28,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Exception\RuntimeException;
+use Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException;
 use Netresearch\NrLlm\Service\Agent\Exception\AuditPersistenceFailedException;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessInvocationRefusedException;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunNeedsSecondApproverException;
@@ -115,28 +116,41 @@ final readonly class AgentRunExecutor
             ? min($request->maxIterations, AgentRuntime::MAX_ITERATIONS)
             : null;
 
-        $trace = $this->trace($handle, $onStep, $request->captureRaw, $leaseOwner);
+        $holdsProcess = false;
+        $trace        = $this->trace($handle, $onStep, $request->captureRaw, $leaseOwner, $this->processProbe($holdsProcess));
 
         return $this->execute(
             $handle,
             $trace,
-            function () use ($request, $handle, $initialInvocationHistory, $maxIterations, $trace): ToolLoopResult {
-                $context  = $this->toolContext($request->actor, $handle, $initialInvocationHistory);
-                $prepared = $this->prepareProcess($request, $context, $handle);
+            function () use ($request, $handle, $initialInvocationHistory, $maxIterations, $trace, &$holdsProcess): ToolLoopResult {
+                $context      = $this->toolContext($request->actor, $handle, $initialInvocationHistory);
+                $prepared     = $this->prepareProcess($request, $context, $handle);
+                $holdsProcess = $prepared->pin instanceof SkillPin;
 
-                return $this->toolLoop->runLoop(
-                    $request->messages,
-                    $request->configuration,
-                    $prepared->subject instanceof SubjectRecord
-                        ? new ToolExecutionContext($context->actor, $context->backendUser, $context->run, $context->initialInvocationHistory, $prepared->subject)
-                        : $context,
-                    $request->allowedToolNames,
-                    $request->options,
-                    $maxIterations,
-                    $trace,
-                    $this->augmentationFor($request->augmentation, $prepared),
-                    skillAllowList: $request->skillAllowList,
-                );
+                try {
+                    return $this->toolLoop->runLoop(
+                        $request->messages,
+                        $request->configuration,
+                        $prepared->subject instanceof SubjectRecord
+                            ? new ToolExecutionContext($context->actor, $context->backendUser, $context->run, $context->initialInvocationHistory, $prepared->subject)
+                            : $context,
+                        $request->allowedToolNames,
+                        $request->options,
+                        $maxIterations,
+                        $trace,
+                        $this->augmentationFor($request->augmentation, $prepared),
+                        skillAllowList: $request->skillAllowList,
+                    );
+                } catch (SkillInstructionWithdrawnException $withdrawn) {
+                    // The process's approval went away between the start
+                    // checks and the loop: a refusal like the start's, not a
+                    // failure a retry could fix (ADR-228).
+                    if ($prepared->pin instanceof SkillPin && $withdrawn->pin == $prepared->pin) {
+                        throw ProcessInvocationRefusedException::forRun($handle->uuid ?? '', ProcessInvocationRefusal::PIN_WITHDRAWN, $withdrawn->reason);
+                    }
+
+                    throw $withdrawn;
+                }
             },
             $recover,
             $leaseOwner,
@@ -210,13 +224,14 @@ final readonly class AgentRunExecutor
         Closure $loopCall,
         ?string $leaseOwner = null,
     ): AgentRunResult {
-        $trace = $this->trace($handle, $onStep, false, $leaseOwner);
+        $holdsProcess = false;
+        $trace        = $this->trace($handle, $onStep, false, $leaseOwner, $this->processProbe($holdsProcess));
 
         return $this->execute(
             $handle,
             $trace,
-            function () use ($owner, $handle, $loopCall, $trace): ToolLoopResult {
-                $this->assertProcessNotEnded($handle);
+            function () use ($owner, $handle, $loopCall, $trace, &$holdsProcess): ToolLoopResult {
+                $holdsProcess = $this->assertProcessNotEnded($handle);
 
                 return $loopCall($this->resumeContext($owner, $handle), $trace);
             },
@@ -254,9 +269,14 @@ final readonly class AgentRunExecutor
      * before-tool guard is installed either way and REFUSES a side-effecting
      * tool it cannot fence.
      *
-     * @param (Closure(RunStep): void)|null $onStep
+     * $processProbe answers, at each step boundary, why a turn of a process
+     * may not go on (ADR-228): ending the process from another turn reaches a
+     * turn that is already running at its next step, as a cancel does.
+     *
+     * @param (Closure(RunStep): void)|null                        $onStep
+     * @param (Closure(?AgentRun): ?ProcessInvocationRefusal)|null $processProbe
      */
-    private function trace(?AgentRunHandle $handle, ?Closure $onStep, bool $captureRaw, ?string $leaseOwner = null): RunTrace
+    private function trace(?AgentRunHandle $handle, ?Closure $onStep, bool $captureRaw, ?string $leaseOwner = null, ?Closure $processProbe = null): RunTrace
     {
         // The write guard below is installed even when there is nothing to
         // record: a run that could not be persisted at all (begin() returned
@@ -264,7 +284,7 @@ final readonly class AgentRunExecutor
         // guard must refuse rather than the case it may skip.
         return new RunTrace(
             captureRaw: $captureRaw,
-            onRecord: !$handle instanceof AgentRunHandle && !$onStep instanceof Closure ? null : function (RunStep $step) use ($handle, $onStep, $leaseOwner): void {
+            onRecord: !$handle instanceof AgentRunHandle && !$onStep instanceof Closure ? null : function (RunStep $step) use ($handle, $onStep, $leaseOwner, $processProbe): void {
                 // The live observer sees the step FIRST (emit-before-persist),
                 // so a step is shown even when its persistence or the checks
                 // below abort the loop.
@@ -279,7 +299,8 @@ final readonly class AgentRunExecutor
                 // A single indexed read drives the cancellation probe (ADR-103).
                 // findRun is fail-soft (null on a store hiccup), so a read
                 // failure can never fabricate a cancellation.
-                if ($this->persister->findRun($handle->uuid)?->statusEnum() === AgentRunStatus::CANCELLED) {
+                $run = $this->persister->findRun($handle->uuid);
+                if ($run?->statusEnum() === AgentRunStatus::CANCELLED) {
                     // Persist the step that already happened, then stop: the
                     // audit stream stays complete up to the abort point. A
                     // writing tool whose audit cannot be stored fails the run
@@ -288,6 +309,16 @@ final readonly class AgentRunExecutor
                     $this->recordStepFailClosedForWrites($handle, $step);
 
                     throw RunCancellationRequestedException::forRun($handle->uuid);
+                }
+
+                // A turn of a process stops at the step after the process was
+                // ended, the same way (ADR-228). Unlike the cancellation probe
+                // this one fails closed: a row it cannot read stops the turn.
+                $refusal = $processProbe instanceof Closure ? $processProbe($run) : null;
+                if ($refusal instanceof ProcessInvocationRefusal) {
+                    $this->recordStepFailClosedForWrites($handle, $step);
+
+                    throw ProcessInvocationRefusedException::forRun($handle->uuid, $refusal);
                 }
 
                 // Heartbeat + lease-lost guard for a worker run (ADR-104). The
@@ -362,31 +393,73 @@ final readonly class AgentRunExecutor
      * A waiting turn of a process resumes only while the process still holds
      * (ADR-228): ending it from another turn of the conversation releases
      * the run that started it, and this turn's suspended pins would
-     * otherwise carry it on. A run without a process resumes as before; a
-     * lineage that cannot be read refuses.
+     * otherwise carry it on. A run without a process resumes as before. A
+     * lineage that cannot be read refuses, and so does a run row that cannot
+     * be read: the resume claimed that row a moment ago, so its absence is a
+     * store error, not a run without a process.
+     *
      *
      * @throws ProcessInvocationRefusedException
+     *
+     * @return bool whether the resumed turn holds a process
      */
-    private function assertProcessNotEnded(AgentRunHandle $handle): void
+    private function assertProcessNotEnded(AgentRunHandle $handle): bool
     {
         $run = $this->persister->findRun($handle->uuid);
         if (!$run instanceof AgentRun) {
-            return;
+            throw ProcessInvocationRefusedException::forRun($handle->uuid, ProcessInvocationRefusal::LINEAGE_UNREADABLE);
         }
 
         try {
             $lineage = $this->persister->lineageOf($run);
-            if (!$lineage?->processPin instanceof SkillPin) {
-                return;
-            }
-
-            $held = $this->persister->heldProcessOf($run);
         } catch (RunLineageUnreadableException) {
             throw ProcessInvocationRefusedException::forRun($handle->uuid, ProcessInvocationRefusal::LINEAGE_UNREADABLE);
         }
 
-        if (!$held instanceof RunLineage) {
-            throw ProcessInvocationRefusedException::forRun($handle->uuid, ProcessInvocationRefusal::PROCESS_ENDED);
+        if (!$lineage?->processPin instanceof SkillPin) {
+            return false;
+        }
+
+        $refusal = $this->processEndedFor($run);
+        if ($refusal instanceof ProcessInvocationRefusal) {
+            throw ProcessInvocationRefusedException::forRun($handle->uuid, $refusal);
+        }
+
+        return true;
+    }
+
+    /**
+     * The step-boundary probe of a segment (ADR-228): silent while the
+     * segment holds no process, which $holdsProcess says once the start
+     * checks or the resume check have run.
+     *
+     * @return Closure(?AgentRun): ?ProcessInvocationRefusal
+     */
+    private function processProbe(bool &$holdsProcess): Closure
+    {
+        return function (?AgentRun $run) use (&$holdsProcess): ?ProcessInvocationRefusal {
+            if (!$holdsProcess) {
+                return null;
+            }
+
+            return $run instanceof AgentRun
+                ? $this->processEndedFor($run)
+                : ProcessInvocationRefusal::LINEAGE_UNREADABLE;
+        };
+    }
+
+    /**
+     * Why a turn that held a process may not go on, or null while the
+     * process still holds.
+     */
+    private function processEndedFor(AgentRun $run): ?ProcessInvocationRefusal
+    {
+        try {
+            return $this->persister->heldProcessOf($run) instanceof RunLineage
+                ? null
+                : ProcessInvocationRefusal::PROCESS_ENDED;
+        } catch (RunLineageUnreadableException) {
+            return ProcessInvocationRefusal::LINEAGE_UNREADABLE;
         }
     }
 

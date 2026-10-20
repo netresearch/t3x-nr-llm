@@ -154,7 +154,9 @@ interface AgentRuntimeInterface
      * {@see self::cancelIfWaiting()}; a run that already ended stays as it is.
      * Either way its process is released: a continuation of the run derives
      * no process pin, composes no process section, and the one-approval rule
-     * no longer applies. What the process wrote stays written — every write
+     * no longer applies. Another turn of the conversation that is running
+     * stops at its next step boundary, and one that waits is refused on
+     * resume. What the process wrote stays written — every write
      * was approved on its own card.
      *
      * Only the run's initiator or an administrator may call it, as for

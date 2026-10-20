@@ -341,8 +341,10 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             return new GuardedCancelResult(false, $status);
         }
 
-        $ended = $this->persister->findRun($runUuid);
-        if (!$ended instanceof AgentRun || !$this->release($ended)) {
+        // release() needs the run's identity only, so the row read above
+        // serves: a second read that failed would report a process not
+        // ended that was ended for every turn a moment ago.
+        if (!$this->release($run)) {
             return new GuardedCancelResult(false, $status);
         }
 

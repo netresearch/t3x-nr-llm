@@ -131,7 +131,11 @@ Decision
    every such turn says it holds none. The origin is released only when the
    actor may end that run as well; otherwise the named run alone lets go of
    the process. A turn that already waits for a decision when the process is
-   ended does not resume: its resume is refused as ``process_ended``. A
+   ended does not resume: its resume is refused as ``process_ended``. A turn
+   that is already running stops at its next step boundary, where the
+   cancellation probe runs, and is settled failed as ``process_ended``; until
+   then it may finish the step it is in. That probe fails closed: a run row
+   or lineage it cannot read stops the turn. A
    release that fails leaves the named run holding, and a retry completes
    it. An origin that no longer exists ends the process for every turn; one
    the store cannot read refuses, as an unreadable lineage does. Applied

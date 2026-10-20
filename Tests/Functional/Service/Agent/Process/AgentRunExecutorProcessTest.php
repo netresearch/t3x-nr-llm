@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\Process;
 
+use Closure;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
@@ -16,6 +17,7 @@ use Netresearch\NrLlm\Domain\Enum\ProcessInvocationRefusal;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
@@ -24,6 +26,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SkillInvocation;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SubjectRecord;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
+use Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException;
 use Netresearch\NrLlm\Service\Agent\AgentRunExecutor;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessInvocationRefusedException;
@@ -41,6 +44,7 @@ use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
+use Netresearch\NrLlm\Service\Tool\RunTrace;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
@@ -70,6 +74,13 @@ final class AgentRunExecutorProcessTest extends AbstractFunctionalTestCase
     private ?ToolExecutionContext $contextSeen = null;
 
     private bool $looped = false;
+
+    private int $rounds = 0;
+
+    /** @var (Closure(RunTrace): void)|null */
+    private ?Closure $loopBody = null;
+
+    private ?SkillInstructionWithdrawnException $loopThrows = null;
 
     protected function setUp(): void
     {
@@ -237,6 +248,195 @@ final class AgentRunExecutorProcessTest extends AbstractFunctionalTestCase
         }
     }
 
+    /**
+     * A resume claims its run row a moment before the check reads it, so a
+     * row the check cannot read is a store error: the resume is refused, not
+     * let through as a run without a process.
+     */
+    #[Test]
+    public function aResumeWhoseRunCannotBeReadIsRefused(): void
+    {
+        $result = $this->executor(true)->executeResume(
+            new AgentRunHandle(999999, 'no-such-run'),
+            null,
+            AiActorContext::backendUser(2),
+            function (): ToolLoopResult {
+                $this->looped = true;
+
+                return new ToolLoopResult('done', [], 1, false, UsageStatistics::fromTokens(1, 1));
+            },
+        );
+
+        self::assertFalse($this->looped);
+        self::assertInstanceOf(ProcessInvocationRefusedException::class, $result->error);
+        self::assertSame(ProcessInvocationRefusal::LINEAGE_UNREADABLE, $result->error->reason);
+    }
+
+    /**
+     * A turn that is already running when its process is ended stops at its
+     * next step boundary and is settled failed as process_ended (ADR-228). A
+     * turn whose process still holds, and one without a process, go on.
+     */
+    #[Test]
+    public function aRunningTurnStopsAtTheStepAfterItsProcessWasEnded(): void
+    {
+        $pin = new SkillPin(5, self::SOURCE, str_repeat('a', 64));
+
+        foreach (['process ended' => true, 'process holds' => false, 'no process' => null] as $case => $end) {
+            $origin = $this->begin();
+            self::assertTrue($this->persister->recordLineage($origin, new RunLineage(30, $pin, originRunUuid: $origin->uuid)));
+            $turn = $this->begin();
+            if ($end !== null) {
+                self::assertTrue($this->persister->recordLineage($turn, new RunLineage(30, $pin, originRunUuid: $origin->uuid)));
+            }
+
+            $this->rounds = 0;
+            $result = $this->executor(true)->executeResume(
+                $turn,
+                null,
+                AiActorContext::backendUser(2),
+                function (ToolExecutionContext $context, RunTrace $trace) use ($origin, $pin, $end): ToolLoopResult {
+                    $trace->recordRequest(1, [], []);
+                    $this->rounds = 1;
+                    if ($end === true) {
+                        self::assertTrue($this->persister->recordLineage($origin, (new RunLineage(30, $pin, originRunUuid: $origin->uuid))->withReleasedProcess()));
+                    }
+
+                    $trace->recordRequest(2, [], []);
+                    $this->rounds = 2;
+
+                    return new ToolLoopResult('done', [], 2, false, UsageStatistics::fromTokens(1, 1));
+                },
+            );
+
+            if ($end === true) {
+                self::assertSame(1, $this->rounds, $case);
+                self::assertSame(AgentRunOutcome::FAILED, $result->outcome, $case);
+                self::assertInstanceOf(ProcessInvocationRefusedException::class, $result->error, $case);
+                self::assertSame(ProcessInvocationRefusal::PROCESS_ENDED, $result->error->reason, $case);
+                self::assertSame(AgentRunStatus::FAILED, $this->persister->findRun($turn->uuid)?->statusEnum(), $case);
+            } else {
+                self::assertSame(2, $this->rounds, $case);
+                self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome, $case);
+            }
+        }
+    }
+
+    /**
+     * The step-boundary probe fails closed: a turn of a process whose run row
+     * can no longer be read stops. A run without a process does not depend
+     * on that read and goes on.
+     */
+    #[Test]
+    public function aRunningTurnOfAProcessStopsWhenItsRunCannotBeRead(): void
+    {
+        $pin = new SkillPin(5, self::SOURCE, str_repeat('a', 64));
+
+        foreach (['process' => true, 'no process' => false] as $case => $withProcess) {
+            $turn = $this->begin();
+            if ($withProcess) {
+                self::assertTrue($this->persister->recordLineage($turn, new RunLineage(30, $pin, originRunUuid: $turn->uuid)));
+            }
+
+            $this->rounds = 0;
+            $result = $this->executor(true)->executeResume(
+                $turn,
+                null,
+                AiActorContext::backendUser(2),
+                function (ToolExecutionContext $context, RunTrace $trace) use ($turn): ToolLoopResult {
+                    $this->pool()->getConnectionForTable('tx_nrllm_agentrun')->delete('tx_nrllm_agentrun', ['uuid' => $turn->uuid]);
+                    $trace->recordRequest(1, [], []);
+                    $this->rounds = 1;
+
+                    return new ToolLoopResult('done', [], 1, false, UsageStatistics::fromTokens(1, 1));
+                },
+            );
+
+            if ($withProcess) {
+                self::assertSame(0, $this->rounds, $case);
+                self::assertInstanceOf(ProcessInvocationRefusedException::class, $result->error, $case);
+                self::assertSame(ProcessInvocationRefusal::LINEAGE_UNREADABLE, $result->error->reason, $case);
+            } else {
+                self::assertSame(1, $this->rounds, $case);
+            }
+        }
+    }
+
+    /**
+     * A process whose approval goes away between the start checks and the
+     * loop is refused like a start (ADR-228), so a queued run is settled, not
+     * retried. A withdrawn pin of another skill keeps its own exception.
+     */
+    #[Test]
+    public function aProcessWithdrawnBeforeTheLoopIsRefused(): void
+    {
+        $skill = $this->approvedSkill(5, self::SOURCE, process: true);
+        $own   = new SkillPin(5, self::SOURCE, $skill->getVersionDigest());
+
+        foreach (['the process pin' => [$own, true], 'another pin' => [new SkillPin(6, self::SOURCE, str_repeat('b', 64)), false]] as $case => [$pin, $refused]) {
+            $this->loopThrows = new SkillInstructionWithdrawnException($pin, 'tour', 'its approval was revoked');
+
+            $result = $this->executor(withPreparer: true)->executeRequest(
+                $this->request($this->configuration($skill), new SkillInvocation(5)),
+                $this->begin(),
+                null,
+            );
+
+            if ($refused) {
+                self::assertInstanceOf(ProcessInvocationRefusedException::class, $result->error, $case);
+                self::assertSame(ProcessInvocationRefusal::PIN_WITHDRAWN, $result->error->reason, $case);
+                self::assertSame(AgentRunStatus::FAILED, $this->persister->findRun($result->runUuid)?->statusEnum(), $case);
+            } else {
+                self::assertSame($this->loopThrows, $result->error, $case);
+            }
+        }
+    }
+
+    /**
+     * The step-boundary probe covers a turn that started its process too:
+     * ended mid-segment, it stops at the next step; still held, it completes.
+     */
+    #[Test]
+    public function aStartedProcessStopsAtTheStepAfterItWasEnded(): void
+    {
+        $skill = $this->approvedSkill(5, self::SOURCE, process: true);
+
+        foreach (['process ended' => true, 'process holds' => false] as $case => $end) {
+            $handle         = $this->begin();
+            $this->rounds   = 0;
+            $this->loopBody = function (RunTrace $trace) use ($handle, $end): void {
+                $trace->recordRequest(1, [], []);
+                $this->rounds = 1;
+                if ($end) {
+                    $run     = $this->persister->findRun($handle->uuid);
+                    $lineage = $run instanceof AgentRun ? $this->persister->lineageOf($run) : null;
+                    self::assertInstanceOf(RunLineage::class, $lineage);
+                    self::assertTrue($this->persister->recordLineage($handle, $lineage->withReleasedProcess()));
+                }
+
+                $trace->recordRequest(2, [], []);
+                $this->rounds = 2;
+            };
+
+            $result = $this->executor(withPreparer: true)->executeRequest(
+                $this->request($this->configuration($skill), new SkillInvocation(5)),
+                $handle,
+                null,
+            );
+
+            if ($end) {
+                self::assertSame(1, $this->rounds, $case);
+                self::assertInstanceOf(ProcessInvocationRefusedException::class, $result->error, $case);
+                self::assertSame(ProcessInvocationRefusal::PROCESS_ENDED, $result->error->reason, $case);
+            } else {
+                self::assertSame(2, $this->rounds, $case);
+                self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome, $case);
+            }
+        }
+
+        $this->loopBody = null;
+    }
+
     private function request(LlmConfiguration $configuration, ?SkillInvocation $invocation = null, ?RunAugmentation $augmentation = null): AgentRunRequest
     {
         return new AgentRunRequest(
@@ -272,6 +472,15 @@ final class AgentRunExecutorProcessTest extends AbstractFunctionalTestCase
     {
         $loop = self::createStub(ToolLoopServiceInterface::class);
         $loop->method('runLoop')->willReturnCallback(function (mixed ...$arguments): ToolLoopResult {
+            if ($this->loopThrows instanceof SkillInstructionWithdrawnException) {
+                throw $this->loopThrows;
+            }
+
+            $trace = $arguments[6] ?? null;
+            if ($this->loopBody instanceof Closure && $trace instanceof RunTrace) {
+                ($this->loopBody)($trace);
+            }
+
             $this->looped           = true;
             $context                = $arguments[2] ?? null;
             $augmentation           = $arguments[7] ?? null;
