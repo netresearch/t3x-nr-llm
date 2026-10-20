@@ -41,14 +41,14 @@ final readonly class SchemaPropertyClassifier
     public function classify(array $propSchema): string
     {
         return match ($this->scalarType($propSchema['type'] ?? null)) {
-            'integer'          => self::INTEGER,
-            'number'           => self::NUMBER,
-            'boolean'          => self::CHECKBOX,
-            'object', 'array'  => self::UNSUPPORTED,
+            'integer'         => self::INTEGER,
+            'number'          => self::NUMBER,
+            'boolean'         => self::CHECKBOX,
+            'object', 'array' => self::UNSUPPORTED,
             // 'string' and any unknown/absent type render as a text field and
             // coerce as a string — the safe pass-through (the server validator
             // stays authoritative).
-            default            => self::TEXT,
+            default => self::TEXT,
         };
     }
 

@@ -47,10 +47,10 @@ final readonly class SiteFetchSourceTool implements ToolInterface
             'Fetch the full indexed text behind a source_id returned by site_rag_query (capped at '
             . '8000 characters). Use it to read a promising source in full before answering.',
             [
-                'type' => 'object',
+                'type'       => 'object',
                 'properties' => [
                     'source_id' => [
-                        'type' => 'string',
+                        'type'        => 'string',
                         'description' => 'A source_id exactly as returned by site_rag_query, e.g. "ke_search:42".',
                     ],
                 ],

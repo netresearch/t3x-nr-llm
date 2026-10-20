@@ -21,7 +21,7 @@ final class AverageLatencyDataProviderTest extends AbstractUnitTestCase
     #[Test]
     public function returnsTheAverageLatencyFromTheRepository(): void
     {
-        $repository = new InMemoryTelemetryRepository();
+        $repository                          = new InMemoryTelemetryRepository();
         $repository->averageLatencyMsReturns = 842;
 
         $provider = new AverageLatencyDataProvider($repository, 7);

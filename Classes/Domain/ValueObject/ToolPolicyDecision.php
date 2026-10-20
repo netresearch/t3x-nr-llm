@@ -43,10 +43,10 @@ final readonly class ToolPolicyDecision
     public function message(): string
     {
         return match ($this->reason) {
-            ToolDenialReason::NONE => sprintf('%s is available.', $this->toolName),
-            ToolDenialReason::NOT_REGISTERED => sprintf('%s is not a registered tool.', $this->toolName),
-            ToolDenialReason::TOOL_DISABLED => sprintf('%s is disabled globally or its group is switched off.', $this->toolName),
-            ToolDenialReason::REQUIRES_ADMIN => sprintf('%s is available to administrators only.', $this->toolName),
+            ToolDenialReason::NONE                => sprintf('%s is available.', $this->toolName),
+            ToolDenialReason::NOT_REGISTERED      => sprintf('%s is not a registered tool.', $this->toolName),
+            ToolDenialReason::TOOL_DISABLED       => sprintf('%s is disabled globally or its group is switched off.', $this->toolName),
+            ToolDenialReason::REQUIRES_ADMIN      => sprintf('%s is available to administrators only.', $this->toolName),
             ToolDenialReason::CONFIGURATION_GROUP => sprintf(
                 '%s is outside the tool groups this configuration allows.',
                 $this->toolName,

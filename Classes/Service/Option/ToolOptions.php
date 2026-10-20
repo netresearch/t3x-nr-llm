@@ -118,16 +118,18 @@ class ToolOptions extends ChatOptions
 
     public function withToolChoice(string $toolChoice): static
     {
-        $clone = clone $this;
+        $clone             = clone $this;
         $clone->toolChoice = $toolChoice;
         $clone->validateToolOptions();
+
         return $clone;
     }
 
     public function withParallelToolCalls(bool $parallelToolCalls): static
     {
-        $clone = clone $this;
+        $clone                    = clone $this;
         $clone->parallelToolCalls = $parallelToolCalls;
+
         return $clone;
     }
 
@@ -157,8 +159,9 @@ class ToolOptions extends ChatOptions
 
     public function withCaptureRaw(bool $captureRaw): static
     {
-        $clone = clone $this;
+        $clone             = clone $this;
         $clone->captureRaw = $captureRaw;
+
         return $clone;
     }
 
@@ -187,11 +190,11 @@ class ToolOptions extends ChatOptions
         $effort = ReasoningEffort::tryFromOption($data['reasoning_effort'] ?? null);
 
         $options = new static(
-            temperature: is_numeric($data['temperature'] ?? null) ? (float)$data['temperature'] : null,
-            maxTokens: is_numeric($data['max_tokens'] ?? null) ? (int)$data['max_tokens'] : null,
-            topP: is_numeric($data['top_p'] ?? null) ? (float)$data['top_p'] : null,
-            frequencyPenalty: is_numeric($data['frequency_penalty'] ?? null) ? (float)$data['frequency_penalty'] : null,
-            presencePenalty: is_numeric($data['presence_penalty'] ?? null) ? (float)$data['presence_penalty'] : null,
+            temperature: is_numeric($data['temperature'] ?? null) ? (float) $data['temperature'] : null,
+            maxTokens: is_numeric($data['max_tokens'] ?? null) ? (int) $data['max_tokens'] : null,
+            topP: is_numeric($data['top_p'] ?? null) ? (float) $data['top_p'] : null,
+            frequencyPenalty: is_numeric($data['frequency_penalty'] ?? null) ? (float) $data['frequency_penalty'] : null,
+            presencePenalty: is_numeric($data['presence_penalty'] ?? null) ? (float) $data['presence_penalty'] : null,
             responseFormat: is_string($data['response_format'] ?? null) ? $data['response_format'] : null,
             systemPrompt: is_string($data['system_prompt'] ?? null) ? $data['system_prompt'] : null,
             stopSequences: $stopSequences,
@@ -212,7 +215,7 @@ class ToolOptions extends ChatOptions
     public function toArray(): array
     {
         $extra = $this->filterNull([
-            'tool_choice' => $this->toolChoice,
+            'tool_choice'         => $this->toolChoice,
             'parallel_tool_calls' => $this->parallelToolCalls,
         ]);
 

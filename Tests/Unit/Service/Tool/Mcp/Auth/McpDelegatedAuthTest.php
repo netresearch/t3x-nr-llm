@@ -1,8 +1,11 @@
 <?php
 
-/* Copyright (c) 2025-2026 Netresearch DTT GmbH
- * SPDX-License-Identifier: GPL-2.0-or-later */
-declare (strict_types=1);
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Mcp\Auth;
 
@@ -79,6 +82,7 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
     private function server(array $overrides = []): McpServerRecord
     {
         $s = McpTestServer::server();
+
         return new McpServerRecord(
             uid: $s->uid,
             pid: $s->pid,
@@ -114,10 +118,10 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
     private function response(string $token = 'issued-token', int $lifetime = 60): array
     {
         return [
-            'access_token' => $token,
-            'token_type' => 'Bearer',
+            'access_token'      => $token,
+            'token_type'        => 'Bearer',
             'issued_token_type' => 'urn:ietf:params:oauth:token-type:access_token',
-            'expires_in' => $lifetime,
+            'expires_in'        => $lifetime,
         ];
     }
 
@@ -127,18 +131,19 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
     private function profile(): array
     {
         $grant = [
-            'enabled' => true,
+            'enabled'              => true,
             'credentialIdentifier' => self::SUBJECT_ONE,
-            'allowedAudiences' => ['urn:one', 'urn:two'],
-            'allowedScopes' => ['read', 'write'],
+            'allowedAudiences'     => ['urn:one', 'urn:two'],
+            'allowedScopes'        => ['read', 'write'],
         ];
+
         return [
-            'tokenEndpoint' => 'https://idp.example.com/token',
-            'clientId' => 'public-client',
+            'tokenEndpoint'    => 'https://idp.example.com/token',
+            'clientId'         => 'public-client',
             'allowedAudiences' => ['urn:one', 'urn:two'],
-            'allowedScopes' => ['read', 'write'],
-            'backendUsers' => [7 => $grant, 8 => array_replace($grant, ['credentialIdentifier' => self::SUBJECT_TWO])],
-            'serviceAccounts' => ['worker' => array_replace($grant, ['credentialIdentifier' => self::SUBJECT_TWO])],
+            'allowedScopes'    => ['read', 'write'],
+            'backendUsers'     => [7 => $grant, 8 => array_replace($grant, ['credentialIdentifier' => self::SUBJECT_TWO])],
+            'serviceAccounts'  => ['worker' => array_replace($grant, ['credentialIdentifier' => self::SUBJECT_TWO])],
         ];
     }
 
@@ -156,16 +161,17 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
         ?callable $onStore = null,
         ?callable $onDelete = null,
     ): McpAuthenticationSessionFactory {
-        $this->clock = new FakeMcpClock();
+        $this->clock    = new FakeMcpClock();
         $this->profiles = ['office' => $this->profile()];
-        $configuration = self::createStub(ExtensionConfiguration::class);
-        $configuration->method('get')->willReturnCallback(fn(): array => $this->profiles);
+        $configuration  = self::createStub(ExtensionConfiguration::class);
+        $configuration->method('get')->willReturnCallback(fn (): array => $this->profiles);
         $dns = self::createStub(DnsResolverInterface::class);
         $dns->method('resolve')->willReturn([['ip' => $hostAllowed ? '93.184.215.14' : '127.0.0.1']]);
         $factory = new SecureHttpClientFactory($dns);
-        $vault = $this->vaultFor($onStore, $onDelete);
+        $vault   = $this->vaultFor($onStore, $onDelete);
         $http ??= $this->recordingClient($vault, $factory, $responses, $onSend);
         $vault->method('http')->willReturn($http);
+
         return new McpAuthenticationSessionFactory(
             $configuration,
             new ConfiguredMcpSubjectResolver($configuration),
@@ -191,6 +197,7 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
     private function requireSession(?McpCredentialSessionInterface $session): McpCredentialSessionInterface
     {
         self::assertNotNull($session);
+
         return $session;
     }
 
@@ -234,13 +241,13 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
     public function publicExchangeInjectsOnlyTheMappedSubjectAndStoresAnExpiringUuid(): void
     {
         $factory = $this->kernel([$this->jsonResponse($this->response('new-access', 600))]);
-        $before = time();
+        $before  = time();
         $session = $this->requireSession(
             $factory->openForExecution($this->server(), AiActorContext::backendUser(7), $this->deadline()),
         );
         $reference = $session->credentialIdentifier();
         self::assertSame('7', Uuid::fromString($reference)->toRfc4122()[14]);
-        parse_str((string)$this->posted[0]->getBody(), $fields);
+        parse_str((string) $this->posted[0]->getBody(), $fields);
         self::assertSame('subject-one', $fields['subject_token']);
         self::assertSame('urn:one', $fields['audience']);
         self::assertSame('read', $fields['scope']);
@@ -281,7 +288,7 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
     public function twoActorsAndTwoAudiencesNeverShareAnExchangedReference(): void
     {
         $factory = $this->kernel(
-            array_map(fn(int $index): ResponseInterface => $this->jsonResponse($this->response()), range(1, 4)),
+            array_map(fn (int $index): ResponseInterface => $this->jsonResponse($this->response()), range(1, 4)),
         );
         $references = [];
         foreach ([7, 8] as $uid) {
@@ -329,7 +336,7 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
         $session = $this->requireSession(
             $factory->openForExecution($this->server(), AiActorContext::backendUser(7), $this->deadline()),
         );
-        $reference = $session->credentialIdentifier();
+        $reference                                              = $session->credentialIdentifier();
         $this->profiles['office']['backendUsers'][7]['enabled'] = false;
         $this->clock->advanceSeconds(3);
         try {
@@ -363,7 +370,7 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
             }
         }
 
-        $factory = $this->kernel([]);
+        $factory                                                      = $this->kernel([]);
         $this->profiles['office']['backendUsers'][7]['allowedScopes'] = ['read'];
         $this->expectException(McpTransportException::class);
         $factory->openForExecution(
@@ -402,7 +409,7 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
         self::assertSame([], $this->reads);
         self::assertSame([], $this->posted);
         $factory = $this->kernel([]);
-        $signal = self::createStub(CancellationSignalInterface::class);
+        $signal  = self::createStub(CancellationSignalInterface::class);
         $signal->method('isCancelled')->willReturn(true);
         try {
             $session = $factory->openForExecution($this->server(), AiActorContext::backendUser(7), $this->deadline(), $signal);
@@ -446,7 +453,7 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
     public function invalidResponsesCannotBroadenAuthorityOrLeakRemoteText(): void
     {
         $base = $this->response();
-        $bad = [
+        $bad  = [
             array_replace($base, ['token_type' => 'MAC']),
             array_replace($base, ['issued_token_type' => 'urn:unknown']),
             array_replace($base, ['access_token' => "remote-secret\nvalue"]),
@@ -506,9 +513,9 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
         $http = self::createStub(VaultHttpClientInterface::class);
         $http->method('withTimeout')->willReturnSelf();
         $http->method('withReason')->willReturnSelf();
-        $factory = $this->kernel([], http: $http);
+        $factory                                            = $this->kernel([], http: $http);
         $this->profiles['office']['clientSecretIdentifier'] = self::CLIENT_SECRET;
-        $session = $this->requireSession(
+        $session                                            = $this->requireSession(
             $factory->openForExecution($this->server(), AiActorContext::backendUser(7), $this->deadline()),
         );
         try {
@@ -532,13 +539,13 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
             self::markTestSkipped('Requires optional nr-vault additional body credential capability.');
         }
 
-        $factory = $this->kernel([$this->jsonResponse($this->response())]);
+        $factory                                            = $this->kernel([$this->jsonResponse($this->response())]);
         $this->profiles['office']['clientSecretIdentifier'] = self::CLIENT_SECRET;
-        $session = $this->requireSession(
+        $session                                            = $this->requireSession(
             $factory->openForExecution($this->server(), AiActorContext::backendUser(7), $this->deadline()),
         );
         $session->credentialIdentifier();
-        parse_str((string)$this->posted[0]->getBody(), $fields);
+        parse_str((string) $this->posted[0]->getBody(), $fields);
         self::assertSame('confidential-secret', $fields['client_secret']);
         self::assertSame('subject-one', $fields['subject_token']);
         self::assertSame([self::CLIENT_SECRET, self::SUBJECT_ONE], $this->reads);
@@ -576,7 +583,7 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
     public function cleanupRefusalIsSanitizedAndMayBeRetriedWithoutReopening(): void
     {
         $attempts = 0;
-        $factory = $this->kernel(
+        $factory  = $this->kernel(
             [$this->jsonResponse($this->response())],
             onDelete: static function () use (&$attempts): void {
                 if (++$attempts === 1) {
@@ -673,7 +680,7 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
             ),
         );
         $session->credentialIdentifier();
-        parse_str((string)$this->posted[0]->getBody(), $fields);
+        parse_str((string) $this->posted[0]->getBody(), $fields);
         self::assertSame('read write', $fields['scope']);
         self::assertSame('urn:one', $fields['audience']);
         $session->close();
@@ -693,10 +700,11 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
             ->willReturnCallback(
                 function (string $id): string {
                     $this->reads[] = $id;
+
                     return match ($id) {
                         self::SUBJECT_ONE => 'subject-one',
                         self::SUBJECT_TWO => 'subject-two',
-                        default => 'confidential-secret',
+                        default           => 'confidential-secret',
                     };
                 },
             );
@@ -730,6 +738,7 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
                         if ($entry['identifier'] === $identifier) {
                             $owner = $entry['options']['owner'];
                             self::assertIsInt($owner);
+
                             return SecretDetails::fromSecret(
                                 new Secret(
                                     identifier: $identifier,
@@ -745,6 +754,7 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
                     );
                 },
             );
+
         return $vault;
     }
 
@@ -772,9 +782,9 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
                 },
             );
         $capability = $this->capabilityName();
-        $http = interface_exists($capability) ? $this->createMock($capability) : $this->createMock(VaultHttpClientInterface::class);
+        $http       = interface_exists($capability) ? $this->createMock($capability) : $this->createMock(VaultHttpClientInterface::class);
         self::assertInstanceOf(VaultHttpClientInterface::class, $http);
-        $primary = null;
+        $primary    = null;
         $additional = [];
         $http->method('withTimeout')->willReturnSelf();
         $http->method('withReason')->willReturnSelf();
@@ -791,8 +801,9 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
                         throw new RuntimeException('Invalid fixture field.', 8889547255);
                     }
 
-                    $primary = ['identifier' => $id, 'placement' => $placement, 'bodyField' => $field];
+                    $primary    = ['identifier' => $id, 'placement' => $placement, 'bodyField' => $field];
                     $additional = [];
+
                     return $http;
                 },
             );
@@ -802,6 +813,7 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
                 ->willReturnCallback(
                     static function (string $id, string $field) use (&$additional, $http): VaultHttpClientInterface {
                         $additional[$field] = $id;
+
                         return $http;
                     },
                 );
@@ -824,9 +836,11 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
                         secureHttpClientFactory: $factory,
                     ))->withAuthentication($primary['identifier'], $primary['placement'], ['bodyField' => $primary['bodyField']]);
                     $client = self::withAdditionalBindings($client, $additional);
+
                     return $client->sendRequest($request);
                 },
             );
+
         return $http;
     }
 
@@ -865,15 +879,15 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
     public function narrowedProfileGrantDeniesRenewalBeforeReadingSubject(): void
     {
         foreach (['allowedScopes' => ['write'], 'allowedAudiences' => ['urn:two']] as $field => $allowed) {
-            $this->reads = [];
-            $this->posted = [];
+            $this->reads   = [];
+            $this->posted  = [];
             $this->deleted = [];
-            $this->stored = [];
-            $factory = $this->kernel([$this->jsonResponse($this->response('first', 2))]);
-            $session = $this->requireSession(
+            $this->stored  = [];
+            $factory       = $this->kernel([$this->jsonResponse($this->response('first', 2))]);
+            $session       = $this->requireSession(
                 $factory->openForExecution($this->server(), AiActorContext::backendUser(7), $this->deadline()),
             );
-            $reference = $session->credentialIdentifier();
+            $reference                        = $session->credentialIdentifier();
             $this->profiles['office'][$field] = $allowed;
             $this->clock->advanceSeconds(3);
             try {
@@ -909,6 +923,7 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
             ->willReturnCallback(
                 static function (int $seconds) use ($calls, $http): VaultHttpClientInterface {
                     $calls->timeout = $seconds;
+
                     return $http;
                 },
             );
@@ -924,7 +939,7 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
                     CancellationSignalInterface $signal,
                 ) use ($calls): ResponseInterface {
                     $calls->request = $request;
-                    $calls->signal = $signal;
+                    $calls->signal  = $signal;
                     throw new RequestCancelledException('private-token-value', 8246346433);
                 },
             );
@@ -944,7 +959,7 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
 
         self::assertInstanceOf(RequestInterface::class, $calls->request);
         self::assertSame('POST', $calls->request->getMethod());
-        self::assertSame('https://idp.example.com/token', (string)$calls->request->getUri());
+        self::assertSame('https://idp.example.com/token', (string) $calls->request->getUri());
         self::assertSame($signal, $calls->signal);
         self::assertSame(20, $calls->timeout);
         self::assertInstanceOf(McpTransportException::class, $caught);
@@ -1067,7 +1082,7 @@ final class McpDelegatedAuthTest extends AbstractUnitTestCase
     public function noncanonicalCredentialReferencesAreRefusedBeforeIdpContact(): void
     {
         foreach (['subject', 'client', 'discovery'] as $purpose) {
-            $factory = $this->kernel([]);
+            $factory    = $this->kernel([]);
             $identifier = '11111111-1111-4111-8111-111111111111';
             if ($purpose === 'subject') {
                 $this->profiles['office']['backendUsers'][7]['credentialIdentifier'] = $identifier;

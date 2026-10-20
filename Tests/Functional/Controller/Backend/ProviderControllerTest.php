@@ -104,7 +104,7 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
     private function setPrivateProperty(object $object, string $property, mixed $value): void
     {
         $reflection = new ReflectionClass($object);
-        $prop = $reflection->getProperty($property);
+        $prop       = $reflection->getProperty($property);
         $prop->setValue($object, $value);
     }
 
@@ -128,7 +128,7 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertFalse($body['isActive']);
@@ -159,7 +159,7 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertTrue($body['isActive']);
@@ -176,7 +176,7 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame(self::NO_PROVIDER_UID_SPECIFIED, $body['error']);
@@ -193,7 +193,7 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame('Provider not found', $body['error']);
@@ -216,7 +216,7 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
 
         // Assert - response is either success or connection failure (expected without real API)
         self::assertContains($response->getStatusCode(), [200, 500]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
     }
@@ -232,7 +232,7 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame('Provider not found', $body['error']);
@@ -249,7 +249,7 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame(self::NO_PROVIDER_UID_SPECIFIED, $body['error']);
@@ -267,7 +267,7 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
     }
@@ -284,7 +284,7 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
 
         // Assert: treated as missing UID
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame(self::NO_PROVIDER_UID_SPECIFIED, $body['error']);
@@ -302,7 +302,7 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
 
         // Assert - response is either success or failure but handles string conversion
         self::assertContains($response->getStatusCode(), [200, 500]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
     }
@@ -319,7 +319,7 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
 
         // Assert: treated as missing UID
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame(self::NO_PROVIDER_UID_SPECIFIED, $body['error']);

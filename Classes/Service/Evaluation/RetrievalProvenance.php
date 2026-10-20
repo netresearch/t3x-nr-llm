@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Evaluation;
 
@@ -61,10 +62,10 @@ final readonly class RetrievalProvenance
     public function toArray(): array
     {
         return [
-            'corpusRevision' => $this->corpusRevision,
-            'modelRevision' => $this->modelRevision,
-            'chunkingIdentity' => $this->chunkingIdentity,
-            'pipelineIdentity' => $this->pipelineIdentity,
+            'corpusRevision'    => $this->corpusRevision,
+            'modelRevision'     => $this->modelRevision,
+            'chunkingIdentity'  => $this->chunkingIdentity,
+            'pipelineIdentity'  => $this->pipelineIdentity,
             'executionRevision' => $this->executionRevision,
         ];
     }

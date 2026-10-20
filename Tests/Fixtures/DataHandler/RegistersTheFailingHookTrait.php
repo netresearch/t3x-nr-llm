@@ -70,7 +70,7 @@ trait RegistersTheFailingHookTrait
     {
         $this->storeHooks($list, array_values(array_filter(
             $this->hooks($list),
-            static fn(mixed $registered): bool => $registered !== $hook,
+            static fn (mixed $registered): bool => $registered !== $hook,
         )));
     }
 

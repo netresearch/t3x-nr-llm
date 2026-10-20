@@ -175,20 +175,20 @@ final class OpenRouterProvider extends AbstractProvider implements
     {
         return [
             // Anthropic (December 2025)
-            'anthropic/claude-opus-4-5' => 'Claude Opus 4.5 (Anthropic)',
+            'anthropic/claude-opus-4-5'   => 'Claude Opus 4.5 (Anthropic)',
             'anthropic/claude-sonnet-4-5' => 'Claude Sonnet 4.5 (Anthropic)',
-            'anthropic/claude-opus-4-1' => 'Claude Opus 4.1 (Anthropic)',
+            'anthropic/claude-opus-4-1'   => 'Claude Opus 4.1 (Anthropic)',
             // OpenAI (December 2025)
-            'openai/gpt-5.2' => 'GPT-5.2 (OpenAI)',
+            'openai/gpt-5.2'     => 'GPT-5.2 (OpenAI)',
             'openai/gpt-5.2-pro' => 'GPT-5.2 Pro (OpenAI)',
-            'openai/o3' => 'O3 Reasoning (OpenAI)',
-            'openai/o4-mini' => 'O4 Mini (OpenAI)',
+            'openai/o3'          => 'O3 Reasoning (OpenAI)',
+            'openai/o4-mini'     => 'O4 Mini (OpenAI)',
             // Google (December 2025)
-            'google/gemini-3-flash' => 'Gemini 3 Flash (Google)',
-            'google/gemini-3-pro' => 'Gemini 3 Pro (Google)',
+            'google/gemini-3-flash'   => 'Gemini 3 Flash (Google)',
+            'google/gemini-3-pro'     => 'Gemini 3 Pro (Google)',
             'google/gemini-2.5-flash' => 'Gemini 2.5 Flash (Google)',
             // Meta
-            'meta-llama/llama-3.3-70b-instruct' => 'Llama 3.3 70B (Meta)',
+            'meta-llama/llama-3.3-70b-instruct'  => 'Llama 3.3 70B (Meta)',
             'meta-llama/llama-3.1-405b-instruct' => 'Llama 3.1 405B (Meta)',
             // Mistral
             'mistralai/mistral-large' => 'Mistral Large (Mistral AI)',
@@ -207,9 +207,9 @@ final class OpenRouterProvider extends AbstractProvider implements
      * lightweight GET to the models endpoint and let any failure surface as
      * the typed exception sendRequest() raises.
      *
-     * @throws ProviderConnectionException on connection failure
-     *
      * @return array{success: bool, message: string, models?: array<string, string>}
+     *
+     * @throws ProviderConnectionException on connection failure
      */
     public function testConnection(): array
     {
@@ -233,18 +233,18 @@ final class OpenRouterProvider extends AbstractProvider implements
             $response = $this->sendRequest('models', [], 'GET');
 
             $models = [];
-            $data = $this->getList($response, 'data');
+            $data   = $this->getList($response, 'data');
             foreach ($data as $model) {
-                $modelArray = $this->asArray($model);
-                $modelId = $this->getString($modelArray, 'id');
+                $modelArray   = $this->asArray($model);
+                $modelId      = $this->getString($modelArray, 'id');
                 $architecture = $this->getArray($modelArray, 'architecture');
-                $pricing = $this->getArray($modelArray, 'pricing');
+                $pricing      = $this->getArray($modelArray, 'pricing');
 
                 $models[$modelId] = [
-                    'name' => $this->getString($modelArray, 'name', $modelId),
+                    'name'           => $this->getString($modelArray, 'name', $modelId),
                     'context_length' => $this->getInt($modelArray, 'context_length'),
-                    'pricing' => [
-                        'prompt' => $this->asFloat($pricing['prompt'] ?? 0),
+                    'pricing'        => [
+                        'prompt'     => $this->asFloat($pricing['prompt'] ?? 0),
                         'completion' => $this->asFloat($pricing['completion'] ?? 0),
                     ],
                     'capabilities' => [
@@ -265,6 +265,7 @@ final class OpenRouterProvider extends AbstractProvider implements
 
             /** @var array<string, array{name: string, context_length: int, pricing: array{prompt: float, completion: float}, capabilities: array{vision: bool, function_calling: bool}, provider: string}> $models */
             $this->cachedModels = $models;
+
             return $models;
         } catch (Throwable) {
             // Return empty array on failure, static list still available via getAvailableModels()
@@ -280,13 +281,13 @@ final class OpenRouterProvider extends AbstractProvider implements
     public function getCredits(): array
     {
         $response = $this->sendRequest('auth/key', [], 'GET');
-        $data = $this->getArray($response, 'data');
+        $data     = $this->getArray($response, 'data');
 
         return [
-            'balance' => $this->asFloat($data['limit'] ?? 0),
-            'usage' => $this->asFloat($data['usage'] ?? 0),
+            'balance'      => $this->asFloat($data['limit'] ?? 0),
+            'usage'        => $this->asFloat($data['usage'] ?? 0),
             'is_free_tier' => $this->getBool($data, 'is_free_tier'),
-            'rate_limit' => $this->getArray($data, 'rate_limit'),
+            'rate_limit'   => $this->getArray($data, 'rate_limit'),
         ];
     }
 
@@ -297,18 +298,17 @@ final class OpenRouterProvider extends AbstractProvider implements
     public function chatCompletion(array $messages, array $options = []): CompletionResponse
     {
         $messages = array_map(
-            static fn(ChatMessage|array $m): array
-                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            static fn (ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m,
             $messages,
         );
 
-        $model = $this->router()->select($options, $this->routingStrategy, $this->getDefaultModel(), fn(): array => $this->fetchAvailableModels());
+        $model = $this->router()->select($options, $this->routingStrategy, $this->getDefaultModel(), fn (): array => $this->fetchAvailableModels());
 
         $payload = [
-            'model' => $model,
-            'messages' => $messages,
+            'model'       => $model,
+            'messages'    => $messages,
             'temperature' => $this->getFloat($options, 'temperature', 0.7),
-            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
+            'max_tokens'  => $this->getInt($options, 'max_tokens', 4096),
         ];
 
         $responseFormat = $this->buildResponseFormat($options);
@@ -357,9 +357,9 @@ final class OpenRouterProvider extends AbstractProvider implements
         $response = $this->sendOpenRouterRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload, $this->resolveRequestTimeout($options));
 
         $choices = $this->getList($response, 'choices');
-        $choice = $this->asArray($choices[0] ?? []);
+        $choice  = $this->asArray($choices[0] ?? []);
         $message = $this->getArray($choice, 'message');
-        $usage = $this->getArray($response, 'usage');
+        $usage   = $this->getArray($response, 'usage');
 
         [$content, $thinking] = $this->extractThinkingBlocks($this->getString($message, 'content'));
 
@@ -374,9 +374,9 @@ final class OpenRouterProvider extends AbstractProvider implements
             provider: $this->getIdentifier(),
             metadata: [
                 'actual_provider' => $this->getString($response, 'provider', 'unknown'),
-                'cost' => $response['total_cost'] ?? null,
-                'native_tokens' => [
-                    'prompt' => $response['native_tokens_prompt'] ?? null,
+                'cost'            => $response['total_cost'] ?? null,
+                'native_tokens'   => [
+                    'prompt'     => $response['native_tokens_prompt'] ?? null,
                     'completion' => $response['native_tokens_completion'] ?? null,
                 ],
             ],
@@ -392,19 +392,18 @@ final class OpenRouterProvider extends AbstractProvider implements
     public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
     {
         $messages = array_map(
-            static fn(ChatMessage|array $m): array
-                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            static fn (ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m,
             $messages,
         );
 
-        $model = $this->router()->select($options, $this->routingStrategy, $this->getDefaultModel(), fn(): array => $this->fetchAvailableModels());
+        $model = $this->router()->select($options, $this->routingStrategy, $this->getDefaultModel(), fn (): array => $this->fetchAvailableModels());
 
         $payload = [
-            'model' => $model,
-            'messages' => $messages,
-            'tools' => array_map(static fn(ToolSpec $spec): array => $spec->toArray(), $tools),
+            'model'       => $model,
+            'messages'    => $messages,
+            'tools'       => array_map(static fn (ToolSpec $spec): array => $spec->toArray(), $tools),
             'temperature' => $this->getFloat($options, 'temperature', 0.7),
-            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
+            'max_tokens'  => $this->getInt($options, 'max_tokens', 4096),
         ];
 
         if (isset($options['tool_choice'])) {
@@ -422,9 +421,9 @@ final class OpenRouterProvider extends AbstractProvider implements
         $response = $this->sendOpenRouterRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload, $this->resolveRequestTimeout($options));
 
         $choices = $this->getList($response, 'choices');
-        $choice = $this->asArray($choices[0] ?? []);
+        $choice  = $this->asArray($choices[0] ?? []);
         $message = $this->getArray($choice, 'message');
-        $usage = $this->getArray($response, 'usage');
+        $usage   = $this->getArray($response, 'usage');
 
         $toolCalls    = null;
         $rawToolCalls = $this->getArray($message, 'tool_calls');
@@ -454,7 +453,7 @@ final class OpenRouterProvider extends AbstractProvider implements
             toolCalls: $toolCalls,
             metadata: $this->rawResponseMetadata($options, $response, [
                 'actual_provider' => $this->getString($response, 'provider', 'unknown'),
-                'cost' => $response['total_cost'] ?? null,
+                'cost'            => $response['total_cost'] ?? null,
             ]),
             thinking: $thinking,
         );
@@ -472,7 +471,7 @@ final class OpenRouterProvider extends AbstractProvider implements
     public function embeddings(string|array $input, array $options = []): EmbeddingResponse
     {
         $inputs = is_array($input) ? $input : [$input];
-        $model = $this->getString($options, 'model', self::DEFAULT_EMBEDDING_MODEL);
+        $model  = $this->getString($options, 'model', self::DEFAULT_EMBEDDING_MODEL);
 
         $payload = [
             'model' => $model,
@@ -492,8 +491,8 @@ final class OpenRouterProvider extends AbstractProvider implements
             $itemArray = $this->asArray($item);
             $embedding = $this->getArray($itemArray, 'embedding');
             /** @var list<float> $floatEmbedding */
-            $floatEmbedding = array_values(array_map(fn($v): float => $this->asFloat($v), $embedding));
-            $embeddings[] = $floatEmbedding;
+            $floatEmbedding = array_values(array_map(fn ($v): float => $this->asFloat($v), $embedding));
+            $embeddings[]   = $floatEmbedding;
         }
 
         $usage = $this->getArray($response, 'usage');
@@ -519,22 +518,22 @@ final class OpenRouterProvider extends AbstractProvider implements
 
         $messages = [
             [
-                'role' => 'user',
-                'content' => array_values(array_map(static fn(VisionContent $vc): array => $vc->toArray(), $content)),
+                'role'    => 'user',
+                'content' => array_values(array_map(static fn (VisionContent $vc): array => $vc->toArray(), $content)),
             ],
         ];
 
         $systemPrompt = $this->getNullableString($options, 'system_prompt');
         if ($systemPrompt !== null) {
             array_unshift($messages, [
-                'role' => 'system',
+                'role'    => 'system',
                 'content' => $systemPrompt,
             ]);
         }
 
         $payload = [
-            'model' => $model,
-            'messages' => $messages,
+            'model'      => $model,
+            'messages'   => $messages,
             'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
         ];
 
@@ -546,9 +545,9 @@ final class OpenRouterProvider extends AbstractProvider implements
         $response = $this->sendOpenRouterRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload, $this->resolveRequestTimeout($options));
 
         $choices = $this->getList($response, 'choices');
-        $choice = $this->asArray($choices[0] ?? []);
+        $choice  = $this->asArray($choices[0] ?? []);
         $message = $this->getArray($choice, 'message');
-        $usage = $this->getArray($response, 'usage');
+        $usage   = $this->getArray($response, 'usage');
 
         return new VisionResponse(
             description: $this->getString($message, 'content'),
@@ -560,7 +559,7 @@ final class OpenRouterProvider extends AbstractProvider implements
             provider: $this->getIdentifier(),
             metadata: [
                 'actual_provider' => $this->getString($response, 'provider', 'unknown'),
-                'cost' => $response['total_cost'] ?? null,
+                'cost'            => $response['total_cost'] ?? null,
             ],
         );
     }
@@ -596,12 +595,11 @@ final class OpenRouterProvider extends AbstractProvider implements
         $this->validateConfiguration();
 
         $messages = array_map(
-            static fn(ChatMessage|array $m): array
-                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            static fn (ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m,
             $messages,
         );
 
-        $model = $this->router()->select($options, $this->routingStrategy, $this->getDefaultModel(), fn(): array => $this->fetchAvailableModels());
+        $model = $this->router()->select($options, $this->routingStrategy, $this->getDefaultModel(), fn (): array => $this->fetchAvailableModels());
 
         $payload = $this->buildStreamPayload($messages, $model, $options);
 
@@ -618,7 +616,7 @@ final class OpenRouterProvider extends AbstractProvider implements
             $buffer .= $stream->read(1024);
 
             while (($pos = strpos($buffer, "\n")) !== false) {
-                $line = substr($buffer, 0, $pos);
+                $line   = substr($buffer, 0, $pos);
                 $buffer = substr($buffer, $pos + 1);
 
                 if (!str_starts_with($line, 'data: ')) {
@@ -652,11 +650,11 @@ final class OpenRouterProvider extends AbstractProvider implements
     private function buildStreamPayload(array $messages, string $model, array $options): array
     {
         $payload = [
-            'model' => $model,
-            'messages' => $messages,
+            'model'       => $model,
+            'messages'    => $messages,
             'temperature' => $this->getFloat($options, 'temperature', 0.7),
-            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
-            'stream' => true,
+            'max_tokens'  => $this->getInt($options, 'max_tokens', 4096),
+            'stream'      => true,
         ];
 
         // OpenRouter-specific: automatic fallback
@@ -717,10 +715,10 @@ final class OpenRouterProvider extends AbstractProvider implements
             return '';
         }
 
-        $json = $this->asArray($decoded);
-        $choices = $this->getList($json, 'choices');
+        $json        = $this->asArray($decoded);
+        $choices     = $this->getList($json, 'choices');
         $firstChoice = $this->asArray($choices[0] ?? []);
-        $delta = $this->getArray($firstChoice, 'delta');
+        $delta       = $this->getArray($firstChoice, 'delta');
 
         return $this->getString($delta, 'content');
     }
@@ -782,7 +780,7 @@ final class OpenRouterProvider extends AbstractProvider implements
         // so operator-configured custom headers must be applied here.
         $request = $this->applyCustomHeaders($request);
 
-        $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
+        $body    = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         $request = $request->withBody($body);
 
         $httpClient = $this->getHttpClient($timeout);
@@ -803,7 +801,7 @@ final class OpenRouterProvider extends AbstractProvider implements
             );
         }
 
-        $statusCode = $response->getStatusCode();
+        $statusCode   = $response->getStatusCode();
         $responseBody = $response->getBody()->getContents();
 
         if ($statusCode !== 200) {
@@ -829,8 +827,8 @@ final class OpenRouterProvider extends AbstractProvider implements
         $decoded = json_decode($responseBody, true);
         /** @var array<string, mixed> $decodedArray */
         $decodedArray = is_array($decoded) ? $decoded : [];
-        $error = $this->getArray($decodedArray, 'error');
-        $rawMessage = $this->getString($error, 'message', 'Unknown OpenRouter API error');
+        $error        = $this->getArray($decodedArray, 'error');
+        $rawMessage   = $this->getString($error, 'message', 'Unknown OpenRouter API error');
         // Sanitize the error message to prevent leaking sensitive data from raw API responses
         $message = $this->sanitizeErrorMessage($rawMessage);
 

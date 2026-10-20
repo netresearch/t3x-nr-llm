@@ -59,7 +59,7 @@ final class EditorActionCatalogueTest extends AbstractUnitTestCase
         );
         self::assertSame(
             [self::FILE_ACTION, self::PAGE_ACTION],
-            array_map(static fn(object $o): string => $o->toolName, $groups[0]->offers),
+            array_map(static fn (object $o): string => $o->toolName, $groups[0]->offers),
         );
     }
 
@@ -89,7 +89,7 @@ final class EditorActionCatalogueTest extends AbstractUnitTestCase
         self::assertCount(1, $groups);
         self::assertSame(
             [self::PAGE_ACTION],
-            array_map(static fn(object $o): string => $o->toolName, $groups[0]->offers),
+            array_map(static fn (object $o): string => $o->toolName, $groups[0]->offers),
         );
     }
 
@@ -107,7 +107,7 @@ final class EditorActionCatalogueTest extends AbstractUnitTestCase
         self::assertCount(1, $groups);
         self::assertSame(
             [self::FILE_ACTION],
-            array_map(static fn(object $o): string => $o->toolName, $groups[0]->offers),
+            array_map(static fn (object $o): string => $o->toolName, $groups[0]->offers),
         );
     }
 
@@ -286,7 +286,7 @@ final class EditorActionCatalogueTest extends AbstractUnitTestCase
 
         $policy = $this->createMock(ToolCallPolicyInterface::class);
         $policy->method('decide')->willReturnCallback(
-            static fn(string $toolName): ToolPolicyDecision => in_array($toolName, $allowed, true)
+            static fn (string $toolName): ToolPolicyDecision => in_array($toolName, $allowed, true)
                 ? new ToolPolicyDecision($toolName, true, ToolDataClass::PUBLIC_CONTENT, TrustZone::LOCAL, ToolDataClass::SECRET_ADJACENT)
                 : new ToolPolicyDecision($toolName, false, ToolDataClass::PUBLIC_CONTENT, TrustZone::LOCAL, ToolDataClass::SECRET_ADJACENT, ToolDenialReason::TOOL_DISABLED),
         );

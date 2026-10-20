@@ -32,7 +32,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * table; the AJAX {@see toggleToolAction()} persists the global override that
  * the fail-closed runtime gate then enforces on every later run (ADR-038).
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class ToolController extends ActionController
@@ -64,6 +64,7 @@ final class ToolController extends ActionController
             'editorActions' => $this->toolAvailability->editorActions(),
             'groupStates'   => $this->groupStatesByName(),
         ]);
+
         return $moduleTemplate->renderResponse('Backend/Tool/List');
     }
 
@@ -145,7 +146,8 @@ final class ToolController extends ActionController
         }
 
         $value = $body[$key] ?? '';
-        return is_scalar($value) ? (string)$value : '';
+
+        return is_scalar($value) ? (string) $value : '';
     }
 
     private function boolFromBody(mixed $body, string $key): bool

@@ -63,8 +63,8 @@ class ChatOptionsTest extends AbstractUnitTestCase
     public static function invalidTemperatureProvider(): array
     {
         return [
-            'negative' => [-0.1],
-            'too high' => [2.1],
+            'negative'     => [-0.1],
+            'too high'     => [2.1],
             'way too high' => [5.0],
         ];
     }
@@ -85,8 +85,8 @@ class ChatOptionsTest extends AbstractUnitTestCase
     {
         return [
             'zero' => [0.0],
-            'low' => [0.2],
-            'mid' => [1.0],
+            'low'  => [0.2],
+            'mid'  => [1.0],
             'high' => [2.0],
         ];
     }
@@ -147,7 +147,7 @@ class ChatOptionsTest extends AbstractUnitTestCase
     public static function invalidPenaltyProvider(): array
     {
         return [
-            'too low' => [-2.1],
+            'too low'  => [-2.1],
             'too high' => [2.1],
         ];
     }

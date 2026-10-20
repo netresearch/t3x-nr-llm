@@ -111,7 +111,7 @@ final class TranslationServiceSiteGlossaryTest extends AbstractFunctionalTestCas
         // Both collaborators are optional constructor arguments, so a missing
         // alias would not fail the build: the service would silently translate
         // without any site glossary.
-        $service = $this->getService(TranslationService::class);
+        $service    = $this->getService(TranslationService::class);
         $reflection = new ReflectionClass($service);
 
         self::assertInstanceOf(GlossaryResolver::class, $reflection->getProperty('glossaryResolver')->getValue($service));
@@ -123,7 +123,7 @@ final class TranslationServiceSiteGlossaryTest extends AbstractFunctionalTestCas
         $llmManager = self::createStub(LlmServiceManagerInterface::class);
         $llmManager->method('chat')->willReturnCallback(function (array $messages): CompletionResponse {
             /** @var array<int, ChatMessage> $messages */
-            $this->prompts[] = implode("\n", array_map(static fn(ChatMessage $message): string => $message->content, $messages));
+            $this->prompts[] = implode("\n", array_map(static fn (ChatMessage $message): string => $message->content, $messages));
 
             return new CompletionResponse('translated', 'test-model', new UsageStatistics(1, 1, 2), 'stop', 'test');
         });

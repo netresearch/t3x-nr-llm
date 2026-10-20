@@ -57,10 +57,10 @@ final class TaskCategoryTest extends TestCase
     {
         return [
             'log_analysis' => ['log_analysis'],
-            'content' => ['content'],
-            'system' => ['system'],
-            'developer' => ['developer'],
-            'general' => ['general'],
+            'content'      => ['content'],
+            'system'       => ['system'],
+            'developer'    => ['developer'],
+            'general'      => ['general'],
         ];
     }
 
@@ -77,11 +77,11 @@ final class TaskCategoryTest extends TestCase
     public static function invalidCategoryValueProvider(): array
     {
         return [
-            'empty string' => [''],
+            'empty string'      => [''],
             'uppercase CONTENT' => ['CONTENT'],
-            'unknown value' => ['unknown'],
-            'partial match' => ['log'],
-            'whitespace' => [' system'],
+            'unknown value'     => ['unknown'],
+            'partial match'     => ['log'],
+            'whitespace'        => [' system'],
         ];
     }
 
@@ -99,10 +99,10 @@ final class TaskCategoryTest extends TestCase
     {
         return [
             'log_analysis' => ['log_analysis', TaskCategory::LOG_ANALYSIS],
-            'content' => ['content', TaskCategory::CONTENT],
-            'system' => ['system', TaskCategory::SYSTEM],
-            'developer' => ['developer', TaskCategory::DEVELOPER],
-            'general' => ['general', TaskCategory::GENERAL],
+            'content'      => ['content', TaskCategory::CONTENT],
+            'system'       => ['system', TaskCategory::SYSTEM],
+            'developer'    => ['developer', TaskCategory::DEVELOPER],
+            'general'      => ['general', TaskCategory::GENERAL],
         ];
     }
 
@@ -121,8 +121,8 @@ final class TaskCategoryTest extends TestCase
     public static function tryFromStringInvalidProvider(): array
     {
         return [
-            'empty string' => [''],
-            'invalid value' => ['invalid'],
+            'empty string'      => [''],
+            'invalid value'     => ['invalid'],
             'uppercase GENERAL' => ['GENERAL'],
         ];
     }
@@ -141,10 +141,10 @@ final class TaskCategoryTest extends TestCase
     {
         return [
             'LOG_ANALYSIS' => [TaskCategory::LOG_ANALYSIS, 'Log Analysis'],
-            'CONTENT' => [TaskCategory::CONTENT, 'Content'],
-            'SYSTEM' => [TaskCategory::SYSTEM, 'System'],
-            'DEVELOPER' => [TaskCategory::DEVELOPER, 'Developer'],
-            'GENERAL' => [TaskCategory::GENERAL, 'General'],
+            'CONTENT'      => [TaskCategory::CONTENT, 'Content'],
+            'SYSTEM'       => [TaskCategory::SYSTEM, 'System'],
+            'DEVELOPER'    => [TaskCategory::DEVELOPER, 'Developer'],
+            'GENERAL'      => [TaskCategory::GENERAL, 'General'],
         ];
     }
 
@@ -173,10 +173,10 @@ final class TaskCategoryTest extends TestCase
     {
         return [
             'LOG_ANALYSIS' => [TaskCategory::LOG_ANALYSIS, 'actions-document-info'],
-            'CONTENT' => [TaskCategory::CONTENT, 'actions-document-edit'],
-            'SYSTEM' => [TaskCategory::SYSTEM, 'actions-cog'],
-            'DEVELOPER' => [TaskCategory::DEVELOPER, 'actions-code'],
-            'GENERAL' => [TaskCategory::GENERAL, 'actions-rocket'],
+            'CONTENT'      => [TaskCategory::CONTENT, 'actions-document-edit'],
+            'SYSTEM'       => [TaskCategory::SYSTEM, 'actions-cog'],
+            'DEVELOPER'    => [TaskCategory::DEVELOPER, 'actions-code'],
+            'GENERAL'      => [TaskCategory::GENERAL, 'actions-rocket'],
         ];
     }
 

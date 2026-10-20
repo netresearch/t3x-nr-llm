@@ -88,8 +88,8 @@ class AbstractProviderTest extends AbstractUnitTestCase
 
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'test-model',
-            'timeout' => 30,
+            'defaultModel'     => 'test-model',
+            'timeout'          => 30,
         ]);
 
         self::assertTrue($provider->isAvailable());
@@ -134,8 +134,8 @@ class AbstractProviderTest extends AbstractUnitTestCase
 
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'test-model',
-            'timeout' => 30,
+            'defaultModel'     => 'test-model',
+            'timeout'          => 30,
         ]);
 
         $models = $provider->getAvailableModels();
@@ -150,9 +150,9 @@ class AbstractProviderTest extends AbstractUnitTestCase
     public static function providerConfigProvider(): array
     {
         return [
-            'Gemini' => [GeminiProvider::class, 'Google Gemini'],
+            'Gemini'  => [GeminiProvider::class, 'Google Gemini'],
             'Mistral' => [MistralProvider::class, 'Mistral AI'],
-            'Groq' => [GroqProvider::class, 'Groq'],
+            'Groq'    => [GroqProvider::class, 'Groq'],
         ];
     }
 
@@ -163,8 +163,8 @@ class AbstractProviderTest extends AbstractUnitTestCase
 
         $apiResponse = [
             'choices' => [['message' => ['content' => 'Test reply'], 'finish_reason' => 'stop']],
-            'model' => 'gemini-2.5-flash',
-            'usage' => ['prompt_tokens' => 5, 'completion_tokens' => 3, 'total_tokens' => 8],
+            'model'   => 'gemini-2.5-flash',
+            'usage'   => ['prompt_tokens' => 5, 'completion_tokens' => 3, 'total_tokens' => 8],
         ];
 
         $httpClientMock
@@ -181,8 +181,8 @@ class AbstractProviderTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'mistral-large-latest',
-            'maxRetries' => 1,
+            'defaultModel'     => 'mistral-large-latest',
+            'maxRetries'       => 1,
         ]);
         $provider->setHttpClient($httpClientMock);
 
@@ -199,22 +199,23 @@ class AbstractProviderTest extends AbstractUnitTestCase
     #[Test]
     public function completePrependsConfiguredSystemPromptAsSystemMessage(): void
     {
-        $capturedBody = null;
+        $capturedBody  = null;
         $streamFactory = self::createStub(StreamFactoryInterface::class);
         $streamFactory->method('createStream')->willReturnCallback(
             function (string $content) use (&$capturedBody): StreamInterface {
                 $capturedBody = $content;
-                $stream = self::createStub(StreamInterface::class);
+                $stream       = self::createStub(StreamInterface::class);
                 $stream->method('__toString')->willReturn($content);
                 $stream->method('getContents')->willReturn($content);
+
                 return $stream;
             },
         );
 
         $apiResponse = [
             'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
-            'model' => 'mistral-large-latest',
-            'usage' => ['prompt_tokens' => 5, 'completion_tokens' => 3, 'total_tokens' => 8],
+            'model'   => 'mistral-large-latest',
+            'usage'   => ['prompt_tokens' => 5, 'completion_tokens' => 3, 'total_tokens' => 8],
         ];
         $httpClientMock = $this->createHttpClientMock();
         $httpClientMock->method('sendRequest')->willReturn($this->createJsonResponseMock($apiResponse));
@@ -228,8 +229,8 @@ class AbstractProviderTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'mistral-large-latest',
-            'maxRetries' => 1,
+            'defaultModel'     => 'mistral-large-latest',
+            'maxRetries'       => 1,
         ]);
         $provider->setHttpClient($httpClientMock);
 
@@ -363,13 +364,13 @@ class AbstractProviderTest extends AbstractUnitTestCase
     #[Test]
     public function setHttpClientOverridesConfiguredClient(): void
     {
-        $firstClient = $this->createHttpClientMock();
+        $firstClient  = $this->createHttpClientMock();
         $secondClient = $this->createHttpClientWithExpectations();
 
         $apiResponse = [
             'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
-            'model' => 'mistral-large-latest',
-            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            'model'   => 'mistral-large-latest',
+            'usage'   => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
         ];
 
         // Only the second client should be called
@@ -387,8 +388,8 @@ class AbstractProviderTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'mistral-large-latest',
-            'maxRetries' => 1,
+            'defaultModel'     => 'mistral-large-latest',
+            'maxRetries'       => 1,
         ]);
         $provider->setHttpClient($firstClient);
         $provider->setHttpClient($secondClient);
@@ -433,10 +434,10 @@ class AbstractProviderTest extends AbstractUnitTestCase
         // After re-configure, inject a fresh client (simulates the reset)
         $freshClient = $this->createHttpClientWithExpectations();
         $apiResponse = [
-            'id' => 'test',
+            'id'      => 'test',
             'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
-            'model' => 'gpt-5.2',
-            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            'model'   => 'gpt-5.2',
+            'usage'   => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
         ];
         $freshClient->expects(self::once())->method('sendRequest')->willReturn($this->createJsonResponseMock($apiResponse));
         $provider->setHttpClient($freshClient);
@@ -459,8 +460,8 @@ class AbstractProviderTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gpt-5.2',
-            'maxRetries' => 1,
+            'defaultModel'     => 'gpt-5.2',
+            'maxRetries'       => 1,
         ]);
 
         $errorBody = [
@@ -574,8 +575,8 @@ class AbstractProviderTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gpt-5.2',
-            'maxRetries' => 1,
+            'defaultModel'     => 'gpt-5.2',
+            'maxRetries'       => 1,
         ]);
 
         $client = $this->createHttpClientMock();
@@ -608,8 +609,8 @@ class AbstractProviderTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gpt-5.2',
-            'maxRetries' => 0,
+            'defaultModel'     => 'gpt-5.2',
+            'maxRetries'       => 0,
         ]);
 
         $client = $this->createHttpClientMock();
@@ -642,7 +643,7 @@ class AbstractProviderTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gpt-5.2',
+            'defaultModel'     => 'gpt-5.2',
         ]);
 
         $errorBody = [
@@ -679,7 +680,7 @@ class AbstractProviderTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gpt-5.2',
+            'defaultModel'     => 'gpt-5.2',
         ]);
 
         $client = $this->createHttpClientMock();
@@ -710,14 +711,15 @@ class AbstractProviderTest extends AbstractUnitTestCase
         $vaultHttpClient->method('withReason')->willReturnCallback(
             function (string $reason) use (&$capturedReasons, $vaultHttpClient): VaultHttpClientInterface {
                 $capturedReasons[] = $reason;
+
                 return $vaultHttpClient;
             },
         );
         $vaultHttpClient->method('sendRequest')->willReturn($this->createJsonResponseMock([
-            'id' => 'test',
+            'id'      => 'test',
             'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
-            'model' => 'gpt-4o',
-            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            'model'   => 'gpt-4o',
+            'usage'   => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
         ]));
 
         $vault = self::createStub(VaultServiceInterface::class);
@@ -733,7 +735,7 @@ class AbstractProviderTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => 'vault-id',
-            'defaultModel' => 'gpt-4o',
+            'defaultModel'     => 'gpt-4o',
         ]);
 
         $provider->complete('hello, do not leak me');
@@ -758,12 +760,12 @@ class AbstractProviderTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gpt-5.2',
-            'maxRetries' => 1,
+            'defaultModel'     => 'gpt-5.2',
+            'maxRetries'       => 1,
         ]);
 
         $clientException = new class ('Client error reaching https://api.openai.com/v1/chat/completions?key=sk-secret123', 1799990100) extends RuntimeException implements ClientExceptionInterface {};
-        $client = $this->createHttpClientMock();
+        $client          = $this->createHttpClientMock();
         $client->method('sendRequest')->willThrowException($clientException);
         $provider->setHttpClient($client);
 
@@ -794,8 +796,8 @@ class AbstractProviderTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gpt-5.2',
-            'maxRetries' => 1,
+            'defaultModel'     => 'gpt-5.2',
+            'maxRetries'       => 1,
         ]);
 
         $networkException = new class ('DNS lookup failed for https://api.openai.com/v1/chat/completions?token=sk-secret456', 1799990101) extends RuntimeException implements NetworkExceptionInterface {
@@ -827,12 +829,12 @@ class AbstractProviderTest extends AbstractUnitTestCase
     #[Test]
     public function completeDoesNotPrependEmptySystemPrompt(): void
     {
-        $capturedBody = null;
+        $capturedBody   = null;
         $httpClientMock = $this->createHttpClientMock();
         $httpClientMock->method('sendRequest')->willReturn($this->createJsonResponseMock([
             'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
-            'model' => 'mistral-large-latest',
-            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            'model'   => 'mistral-large-latest',
+            'usage'   => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
         ]));
 
         $provider = new MistralProvider(
@@ -844,8 +846,8 @@ class AbstractProviderTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'mistral-large-latest',
-            'maxRetries' => 1,
+            'defaultModel'     => 'mistral-large-latest',
+            'maxRetries'       => 1,
         ]);
         $provider->setHttpClient($httpClientMock);
 
@@ -869,14 +871,15 @@ class AbstractProviderTest extends AbstractUnitTestCase
     public function sendRequestBuildsAbsoluteUrlFromBaseUrlAndEndpoint(): void
     {
         $capturedUrl = null;
-        $client = $this->createHttpClientMock();
+        $client      = $this->createHttpClientMock();
         $client->method('sendRequest')->willReturnCallback(
             function (RequestInterface $request) use (&$capturedUrl): ResponseInterface {
-                $capturedUrl = (string)$request->getUri();
+                $capturedUrl = (string) $request->getUri();
+
                 return $this->createJsonResponseMock([
                     'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
-                    'model' => 'mistral-large-latest',
-                    'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+                    'model'   => 'mistral-large-latest',
+                    'usage'   => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
                 ]);
             },
         );
@@ -890,9 +893,9 @@ class AbstractProviderTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'baseUrl' => 'https://mock.test/v1',
-            'defaultModel' => 'mistral-large-latest',
-            'maxRetries' => 1,
+            'baseUrl'          => 'https://mock.test/v1',
+            'defaultModel'     => 'mistral-large-latest',
+            'maxRetries'       => 1,
         ]);
         $provider->setHttpClient($client);
 
@@ -912,12 +915,12 @@ class AbstractProviderTest extends AbstractUnitTestCase
     #[Test]
     public function sendRequestSubstitutesInvalidUtf8InEncodedBody(): void
     {
-        $capturedBody = null;
+        $capturedBody   = null;
         $httpClientMock = $this->createHttpClientMock();
         $httpClientMock->method('sendRequest')->willReturn($this->createJsonResponseMock([
             'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
-            'model' => 'mistral-large-latest',
-            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            'model'   => 'mistral-large-latest',
+            'usage'   => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
         ]));
 
         $provider = new MistralProvider(
@@ -929,8 +932,8 @@ class AbstractProviderTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'mistral-large-latest',
-            'maxRetries' => 1,
+            'defaultModel'     => 'mistral-large-latest',
+            'maxRetries'       => 1,
         ]);
         $provider->setHttpClient($httpClientMock);
 
@@ -964,12 +967,12 @@ class AbstractProviderTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'mistral-large-latest',
-            'maxRetries' => 0,
+            'defaultModel'     => 'mistral-large-latest',
+            'maxRetries'       => 0,
         ]);
 
         $underlying = new RuntimeException('socket reset');
-        $client = $this->createMock(ClientInterface::class);
+        $client     = $this->createMock(ClientInterface::class);
         $client->expects(self::once())
             ->method('sendRequest')
             ->willThrowException($underlying);
@@ -1016,7 +1019,7 @@ class AbstractProviderTest extends AbstractUnitTestCase
             // The send loop treats an attempt that consumed the timeout as a
             // client-side timeout and refuses to retry it. A generous timeout
             // keeps this test on the retry path.
-            'timeout'          => 3600,
+            'timeout' => 3600,
         ]);
 
         $client = $this->createMock(ClientInterface::class);
@@ -1087,8 +1090,8 @@ class AbstractProviderTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'mistral-large-latest',
-            'maxRetries' => -3,
+            'defaultModel'     => 'mistral-large-latest',
+            'maxRetries'       => -3,
         ]);
 
         $client = $this->createMock(ClientInterface::class);
@@ -1120,8 +1123,8 @@ class AbstractProviderTest extends AbstractUnitTestCase
         $client = $this->createHttpClientMock();
         $client->method('sendRequest')->willReturn($this->createJsonResponseMock([
             'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
-            'model' => 'mistral-large-latest',
-            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            'model'   => 'mistral-large-latest',
+            'usage'   => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
         ], 300));
 
         $provider = new MistralProvider(
@@ -1133,8 +1136,8 @@ class AbstractProviderTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'mistral-large-latest',
-            'maxRetries' => 1,
+            'defaultModel'     => 'mistral-large-latest',
+            'maxRetries'       => 1,
         ]);
         $provider->setHttpClient($client);
 
@@ -1167,8 +1170,8 @@ class AbstractProviderTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'mistral-large-latest',
-            'maxRetries' => 1,
+            'defaultModel'     => 'mistral-large-latest',
+            'maxRetries'       => 1,
         ]);
         $provider->setHttpClient($client);
 
@@ -1197,7 +1200,7 @@ class AbstractProviderTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gpt-5.2',
+            'defaultModel'     => 'gpt-5.2',
         ]);
 
         $client = $this->createHttpClientMock();
@@ -1231,7 +1234,7 @@ class AbstractProviderTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gpt-5.2',
+            'defaultModel'     => 'gpt-5.2',
         ]);
 
         $client = $this->createHttpClientMock();
@@ -1259,7 +1262,7 @@ class AbstractProviderTest extends AbstractUnitTestCase
     {
         // No apiKeyIdentifier configured -> validateConfiguration() must throw.
         $provider = $this->makeGateProbe(['baseUrl' => 'https://ok.test/v1']);
-        $client = $this->createHttpClientMock();
+        $client   = $this->createHttpClientMock();
         $client->method('sendRequest')->willReturn($this->createJsonResponseMock(['data' => []]));
         $provider->setHttpClient($client);
 
@@ -1284,6 +1287,7 @@ class AbstractProviderTest extends AbstractUnitTestCase
         $vaultHttpClient->method('withAuthentication')->willReturnCallback(
             function (string $secretIdentifier, SecretPlacement $placement, array $options) use (&$capturedOptions, $vaultHttpClient): VaultHttpClientInterface {
                 $capturedOptions = $options;
+
                 return $vaultHttpClient;
             },
         );
@@ -1435,7 +1439,7 @@ class AbstractProviderTest extends AbstractUnitTestCase
     public function sendRequestAppliesProviderApiTimeoutToVaultClient(): void
     {
         $vaultClient = $this->createVaultHttpClientExpectingTimeout(120);
-        $provider = $this->openAiProviderWithVaultClient($vaultClient, providerTimeout: 120);
+        $provider    = $this->openAiProviderWithVaultClient($vaultClient, providerTimeout: 120);
 
         $response = $provider->complete('hi');
 
@@ -1451,7 +1455,7 @@ class AbstractProviderTest extends AbstractUnitTestCase
     public function perRequestOptionsTimeoutWinsOverProviderApiTimeout(): void
     {
         $vaultClient = $this->createVaultHttpClientExpectingTimeout(240);
-        $provider = $this->openAiProviderWithVaultClient($vaultClient, providerTimeout: 30);
+        $provider    = $this->openAiProviderWithVaultClient($vaultClient, providerTimeout: 30);
 
         $response = $provider->chatCompletion(
             [['role' => 'user', 'content' => 'hi']],
@@ -1472,8 +1476,8 @@ class AbstractProviderTest extends AbstractUnitTestCase
     {
         $provider = $this->makeGateProbe([
             'apiKeyIdentifier' => '',
-            'baseUrl' => 'https://ok.test',
-            'timeout' => 77,
+            'baseUrl'          => 'https://ok.test',
+            'timeout'          => 77,
         ]);
 
         // Provider api_timeout applies when no per-request timeout is given.
@@ -1501,9 +1505,9 @@ class AbstractProviderTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'mistral-large-latest',
-            'timeout' => 1,
-            'maxRetries' => 3,
+            'defaultModel'     => 'mistral-large-latest',
+            'timeout'          => 1,
+            'maxRetries'       => 3,
         ]);
 
         $client = $this->createMock(ClientInterface::class);
@@ -1538,8 +1542,8 @@ class AbstractProviderTest extends AbstractUnitTestCase
     {
         $apiResponse = [
             'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
-            'model' => 'gpt-5.2',
-            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            'model'   => 'gpt-5.2',
+            'usage'   => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
         ];
 
         $vaultClient = $this->createMock(VaultHttpClientInterface::class);
@@ -1576,8 +1580,8 @@ class AbstractProviderTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gpt-5.2',
-            'timeout' => $providerTimeout,
+            'defaultModel'     => 'gpt-5.2',
+            'timeout'          => $providerTimeout,
         ]);
 
         return $provider;
@@ -1608,9 +1612,10 @@ class AbstractProviderTest extends AbstractUnitTestCase
         $factory->method('createStream')->willReturnCallback(
             function (string $content) use (&$captured): StreamInterface {
                 $captured = $content;
-                $stream = self::createStub(StreamInterface::class);
+                $stream   = self::createStub(StreamInterface::class);
                 $stream->method('__toString')->willReturn($content);
                 $stream->method('getContents')->willReturn($content);
+
                 return $stream;
             },
         );

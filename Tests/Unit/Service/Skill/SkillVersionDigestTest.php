@@ -36,15 +36,15 @@ final class SkillVersionDigestTest extends TestCase
      */
     public static function fieldsTheModelReads(): iterable
     {
-        yield 'name' => [static fn(Skill $s) => $s->setName('Other name')];
-        yield 'description' => [static fn(Skill $s) => $s->setDescription('Other description')];
-        yield 'body' => [static fn(Skill $s) => $s->setBody('Other body.')];
-        yield 'support status' => [static fn(Skill $s) => $s->setSupportStatus('partial')];
-        yield 'a tool added' => [static fn(Skill $s) => $s->setAllowedTools('["GetTca","GetEnv","ListPages"]')];
-        yield 'a tool removed' => [static fn(Skill $s) => $s->setAllowedTools('["GetTca"]')];
-        yield 'declaration dropped' => [static fn(Skill $s) => $s->setAllowedTools('')];
-        yield 'declared empty' => [static fn(Skill $s) => $s->setAllowedTools('[]')];
-        yield 'process marker' => [static fn(Skill $s) => $s->setProcess(true)];
+        yield 'name' => [static fn (Skill $s) => $s->setName('Other name')];
+        yield 'description' => [static fn (Skill $s) => $s->setDescription('Other description')];
+        yield 'body' => [static fn (Skill $s) => $s->setBody('Other body.')];
+        yield 'support status' => [static fn (Skill $s) => $s->setSupportStatus('partial')];
+        yield 'a tool added' => [static fn (Skill $s) => $s->setAllowedTools('["GetTca","GetEnv","ListPages"]')];
+        yield 'a tool removed' => [static fn (Skill $s) => $s->setAllowedTools('["GetTca"]')];
+        yield 'declaration dropped' => [static fn (Skill $s) => $s->setAllowedTools('')];
+        yield 'declared empty' => [static fn (Skill $s) => $s->setAllowedTools('[]')];
+        yield 'process marker' => [static fn (Skill $s) => $s->setProcess(true)];
     }
 
     /**

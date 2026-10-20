@@ -40,7 +40,7 @@ return [
         // them (TcaSchemaBuilder): an override's label, and a showitem
         // `field;Label` that takes precedence over it.
         'event' => [
-            'showitem'        => 'title;Event title, kind, teaser, body, --palette--;;timing',
+            'showitem'         => 'title;Event title, kind, teaser, body, --palette--;;timing',
             'columnsOverrides' => [
                 'title'  => ['label' => 'Overridden title'],
                 'teaser' => ['label' => 'Event teaser', 'config' => ['required' => true]],
@@ -91,7 +91,7 @@ return [
             'config' => ['type' => 'input', 'max' => 100, 'required' => true, 'eval' => 'trim'],
         ],
         'teaser' => [
-            'label'  => 'Teaser',
+            'label' => 'Teaser',
             // `min`: the DataHandler resets a shorter value to '' without an
             // errorLog entry, so the tool refuses one before the write.
             'config' => ['type' => 'text', 'rows' => 3, 'min' => 8],
@@ -146,13 +146,13 @@ return [
             ],
         ],
         'rating' => [
-            'label'  => 'Rating',
+            'label' => 'Rating',
             // The DataHandler stores two decimals and clamps by ceil/floor
             // against the range, so 4.2 would come out as 4.5.
             'config' => ['type' => 'number', 'format' => 'decimal', 'range' => ['lower' => 0, 'upper' => 4.5], 'default' => 0],
         ],
         'mood' => [
-            'label'  => 'Mood',
+            'label' => 'Mood',
             // A radio: FormEngine's TCEFORM `config.` override matrix has no
             // entry for it, so page TSconfig cannot make it read-only.
             'config' => [
@@ -164,7 +164,7 @@ return [
             ],
         ],
         'locked' => [
-            'label'  => 'Locked',
+            'label' => 'Locked',
             // Read-only in the TCA: FormEngine renders it read-only unless page
             // TSconfig `config.readOnly = 0` lifts it; the DataHandler stores it
             // either way.

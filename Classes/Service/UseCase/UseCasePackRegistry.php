@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\UseCase;
 
-use LogicException;
+use Netresearch\NrLlm\Exception\LogicException;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 /**
@@ -74,7 +74,7 @@ final class UseCasePackRegistry
     {
         return array_values(array_filter(
             $this->byIdentifier,
-            static fn(UseCasePack $pack): bool => $pack->useCase === $useCase,
+            static fn (UseCasePack $pack): bool => $pack->useCase === $useCase,
         ));
     }
 }

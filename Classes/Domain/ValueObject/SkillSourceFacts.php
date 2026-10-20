@@ -18,7 +18,7 @@ use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
  * ``tx_nrllm_skill_source`` rather than from the column the sync denormalises
  * onto the skill, so a re-classified source takes effect at once.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class SkillSourceFacts
 {

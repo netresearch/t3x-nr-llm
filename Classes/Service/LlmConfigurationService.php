@@ -135,7 +135,7 @@ final readonly class LlmConfigurationService implements LlmConfigurationServiceI
             $hasAccess = true;
         } else {
             // Check group membership
-            $userGroupIds = $this->getCurrentUserGroupIds();
+            $userGroupIds    = $this->getCurrentUserGroupIds();
             $allowedGroupIds = $this->getConfigurationGroupIds($configuration);
 
             // Check if user is in any allowed group
@@ -210,7 +210,7 @@ final readonly class LlmConfigurationService implements LlmConfigurationServiceI
     private function isBackendUserLoggedIn(): bool
     {
         try {
-            return (bool)$this->context->getAspect('backend.user')->get('isLoggedIn');
+            return (bool) $this->context->getAspect('backend.user')->get('isLoggedIn');
         } catch (AspectNotFoundException) {
             return false;
         }
@@ -222,7 +222,7 @@ final readonly class LlmConfigurationService implements LlmConfigurationServiceI
     private function isCurrentUserAdmin(): bool
     {
         try {
-            return (bool)$this->context->getAspect('backend.user')->get('isAdmin');
+            return (bool) $this->context->getAspect('backend.user')->get('isAdmin');
         } catch (AspectNotFoundException) {
             return false;
         }
@@ -238,6 +238,7 @@ final readonly class LlmConfigurationService implements LlmConfigurationServiceI
         try {
             /** @var array<int, int<-2, max>> $groupIds */
             $groupIds = $this->context->getAspect('backend.user')->get('groupIds');
+
             return $groupIds;
         } catch (AspectNotFoundException) {
             return [];

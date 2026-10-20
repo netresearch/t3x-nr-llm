@@ -62,7 +62,7 @@ final class ApprovalDecisionTest extends TestCase
     {
         self::assertSame(
             [ToolLoopServiceInterface::DENIAL_REASON_VARIANT, ToolLoopServiceInterface::DENIAL_REASON_SKIP],
-            array_map(static fn(ApprovalDenialReason $reason): string => $reason->value, ApprovalDenialReason::cases()),
+            array_map(static fn (ApprovalDenialReason $reason): string => $reason->value, ApprovalDenialReason::cases()),
         );
     }
 }
