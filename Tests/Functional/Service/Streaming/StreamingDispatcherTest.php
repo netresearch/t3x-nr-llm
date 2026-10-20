@@ -37,7 +37,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 #[CoversClass(StreamingDispatcher::class)]
 final class StreamingDispatcherTest extends AbstractFunctionalTestCase
 {
-    private const USAGE_TABLE     = 'tx_nrllm_service_usage';
+    private const USAGE_TABLE = 'tx_nrllm_service_usage';
 
     private const TELEMETRY_TABLE = 'tx_nrllm_telemetry';
 
@@ -73,8 +73,8 @@ final class StreamingDispatcherTest extends AbstractFunctionalTestCase
             'func-stream-corr',
             metadata: [
                 BudgetMiddleware::METADATA_BE_USER_UID     => 5,
-                StreamingDispatcher::METADATA_PROVIDER      => 'openai',
-                StreamingDispatcher::METADATA_PROMPT_CHARS  => 8,
+                StreamingDispatcher::METADATA_PROVIDER     => 'openai',
+                StreamingDispatcher::METADATA_PROMPT_CHARS => 8,
             ],
         );
 
@@ -97,10 +97,10 @@ final class StreamingDispatcherTest extends AbstractFunctionalTestCase
 
         self::assertIsArray($usage, 'A streamed call must write a usage row.');
         self::assertSame('openai', $usage['service_provider']);
-        self::assertSame(5, (int)$usage['be_user']);
-        self::assertGreaterThan(0, (int)$usage['tokens_used']);
-        self::assertGreaterThan(0, (int)$usage['completion_tokens']);
-        self::assertSame(1, (int)$usage['request_count']);
+        self::assertSame(5, (int) $usage['be_user']);
+        self::assertGreaterThan(0, (int) $usage['tokens_used']);
+        self::assertGreaterThan(0, (int) $usage['completion_tokens']);
+        self::assertSame(1, (int) $usage['request_count']);
 
         // Telemetry row: tx_nrllm_telemetry.
         $telemetry = $this->connectionPool
@@ -110,7 +110,7 @@ final class StreamingDispatcherTest extends AbstractFunctionalTestCase
 
         self::assertIsArray($telemetry, 'A streamed call must write a telemetry row.');
         self::assertSame('stream', $telemetry['operation']);
-        self::assertSame(1, (int)$telemetry['success']);
+        self::assertSame(1, (int) $telemetry['success']);
         self::assertSame('ad-hoc:stream:openai', $telemetry['configuration_identifier']);
         // TTFT is populated for a streamed run (NULL only for non-streaming rows).
         self::assertNotNull($telemetry['time_to_first_token_ms']);

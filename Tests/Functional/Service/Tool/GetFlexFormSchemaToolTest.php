@@ -18,6 +18,8 @@ use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Information\Typo3Version;
 
+use function assert;
+
 /**
  * Functional tests for GetFlexFormSchemaTool (ADR-045): non-flex fields are
  * reported, ambiguous multi-structure fields list their keys, and a single
@@ -56,7 +58,7 @@ final class GetFlexFormSchemaToolTest extends AbstractFunctionalTestCase
             : ['default' => self::DS];
         // Re-narrow here: the assertIsArray() above does not carry across the
         // intervening statement, so $GLOBALS['TCA'] is mixed again by this line.
-        \assert(is_array($GLOBALS['TCA']));
+        assert(is_array($GLOBALS['TCA']));
         $GLOBALS['TCA']['tx_demo_flex'] = [
             'ctrl'    => ['title' => 'Demo Flex'],
             'columns' => [

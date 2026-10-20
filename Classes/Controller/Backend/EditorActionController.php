@@ -46,7 +46,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * write suspends for approval (ADR-134), the preview is captured at suspension
  * (ADR-136), and the operator decides it on the existing inbox card.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class EditorActionController extends ActionController
@@ -86,7 +86,7 @@ final class EditorActionController extends ActionController
         $moduleTemplate->setFlashMessageQueue($this->getFlashMessageQueue());
         $this->applyModuleChrome($moduleTemplate, $this->request);
         $moduleTemplate->assignMultiple([
-            'groups'      => $this->catalogue->groupsFor($this->viewer(), $hasSubject ? $recordTable : ''),
+            'groups' => $this->catalogue->groupsFor($this->viewer(), $hasSubject ? $recordTable : ''),
             // A uid of 0 is falsy in Fluid and would take the else branch of a
             // condition on the uid itself, so the template asks this flag.
             'hasSubject'  => $hasSubject,
@@ -305,7 +305,7 @@ final class EditorActionController extends ActionController
         // an editor has to reverse-engineer.
         $byReason = [];
         foreach ($plan->getSkipped() as $entry) {
-            $byReason[(string)$entry->skipReasonKey][] = $entry->recordUid;
+            $byReason[(string) $entry->skipReasonKey][] = $entry->recordUid;
         }
 
         foreach ($byReason as $reasonKey => $uids) {
@@ -337,7 +337,7 @@ final class EditorActionController extends ActionController
             // the last record names nothing, and must still say the budget ran
             // out.
             if ($notAttempted !== []) {
-                $listKey  = 'editorActions.batch.flash.notAttempted';
+                $listKey = 'editorActions.batch.flash.notAttempted';
                 $message .= ' ' . $this->localize(self::LL . $listKey, $listKey) . ' ' . implode(', ', $notAttempted);
             }
 
@@ -401,10 +401,10 @@ final class EditorActionController extends ActionController
     private function terminalLabel(AgentRunOutcome $outcome, string $prefix): array
     {
         return match ($outcome) {
-            AgentRunOutcome::COMPLETED => [$prefix . 'completedWithoutWrite', ContextualFeedbackSeverity::INFO],
+            AgentRunOutcome::COMPLETED                                                       => [$prefix . 'completedWithoutWrite', ContextualFeedbackSeverity::INFO],
             AgentRunOutcome::GUARDRAIL_BLOCKED, AgentRunOutcome::GUARDRAIL_APPROVAL_REQUIRED => [$prefix . 'blocked', ContextualFeedbackSeverity::WARNING],
-            AgentRunOutcome::CANCELLED => [$prefix . 'cancelled', ContextualFeedbackSeverity::INFO],
-            default => [$prefix . 'failed', ContextualFeedbackSeverity::ERROR],
+            AgentRunOutcome::CANCELLED                                                       => [$prefix . 'cancelled', ContextualFeedbackSeverity::INFO],
+            default                                                                          => [$prefix . 'failed', ContextualFeedbackSeverity::ERROR],
         };
     }
 

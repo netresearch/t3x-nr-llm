@@ -20,7 +20,7 @@ use TYPO3\CMS\Dashboard\Widgets\NumberWithIconDataProviderInterface;
  * truncated deliberately — the dashboard tile is an at-a-glance indicator,
  * not an accounting source. Precise figures belong in the usage report.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class MonthlyCostDataProvider implements NumberWithIconDataProviderInterface
 {
@@ -30,6 +30,6 @@ final readonly class MonthlyCostDataProvider implements NumberWithIconDataProvid
 
     public function getNumber(): int
     {
-        return (int)floor($this->usageTracker->getCurrentMonthCost());
+        return (int) floor($this->usageTracker->getCurrentMonthCost());
     }
 }

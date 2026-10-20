@@ -38,9 +38,9 @@ interface CompletionServiceInterface
     /**
      * Generate a JSON-formatted completion (response_format=json).
      *
-     * @throws InvalidArgumentException when the response is not valid JSON
-     *
      * @return array<string, mixed> Parsed JSON response
+     *
+     * @throws InvalidArgumentException when the response is not valid JSON
      */
     public function completeJson(string $prompt, ?ChatOptions $options = null): array;
 
@@ -52,10 +52,10 @@ interface CompletionServiceInterface
      *                                     object `required` keys, per-key
      *                                     `properties` types)
      *
+     * @return StructuredCompletionResponse the decoded, schema-valid payload with the answering response and the usage of every attempt
+     *
      * @throws InvalidArgumentException when the response still fails to match the
      *                                  schema after one repair attempt
-     *
-     * @return StructuredCompletionResponse the decoded, schema-valid payload with the answering response and the usage of every attempt
      */
     public function completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): StructuredCompletionResponse;
 
@@ -94,9 +94,9 @@ interface CompletionServiceInterface
     /**
      * Generate a JSON-formatted completion against a specific LlmConfiguration record.
      *
-     * @throws InvalidArgumentException when the response is not valid JSON
-     *
      * @return array<string, mixed> Parsed JSON response
+     *
+     * @throws InvalidArgumentException when the response is not valid JSON
      */
     public function completeJsonForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): array;
 

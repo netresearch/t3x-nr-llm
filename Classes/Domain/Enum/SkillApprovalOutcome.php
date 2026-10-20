@@ -12,7 +12,7 @@ namespace Netresearch\NrLlm\Domain\Enum;
 /**
  * What became of an approval request for a skill version (ADR-214 item 2).
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 enum SkillApprovalOutcome: string
 {

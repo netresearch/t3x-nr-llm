@@ -37,8 +37,8 @@ final readonly class ExcerptBuilder
         }
 
         $position = $query === '' ? false : mb_stripos($plain, $query);
-        $start = $position === false ? 0 : max(0, $position - (int)($length / 2));
-        $excerpt = mb_substr($plain, $start, $length);
+        $start    = $position === false ? 0 : max(0, $position - (int) ($length / 2));
+        $excerpt  = mb_substr($plain, $start, $length);
 
         return ($start > 0 ? '…' : '')
             . $excerpt
@@ -49,8 +49,8 @@ final readonly class ExcerptBuilder
     {
         // Space before each non-inline tag so adjacent text nodes stay
         // separated after strip_tags; the collapse removes the extra spaces.
-        $spaced = (string)preg_replace(self::NON_INLINE_TAG_PATTERN, ' <', $text);
+        $spaced = (string) preg_replace(self::NON_INLINE_TAG_PATTERN, ' <', $text);
 
-        return trim((string)preg_replace('/\s+/', ' ', strip_tags($spaced)));
+        return trim((string) preg_replace('/\s+/', ' ', strip_tags($spaced)));
     }
 }

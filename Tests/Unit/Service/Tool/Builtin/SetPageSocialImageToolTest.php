@@ -190,19 +190,19 @@ final class SetPageSocialImageToolTest extends AbstractUnitTestCase
     {
         $valid = ['page' => 1, 'field' => 'og_image', 'file' => 1];
 
-        yield 'no page'        => [['field' => 'og_image', 'file' => 1], 'exactly one page'];
-        yield 'zero page'      => [['page' => 0, 'field' => 'og_image', 'file' => 1], 'exactly one page'];
-        yield 'negative page'  => [['page' => -1, 'field' => 'og_image', 'file' => 1], 'exactly one page'];
-        yield 'no field'       => [['page' => 1, 'file' => 1], 'not a page field this tool sets'];
-        yield 'unknown field'  => [['page' => 1, 'field' => 'media', 'file' => 1], 'not a page field this tool sets'];
-        yield 'no file'        => [['page' => 1, 'field' => 'og_image'], 'exactly one existing file'];
-        yield 'zero file'      => [['page' => 1, 'field' => 'og_image', 'file' => 0], 'exactly one existing file'];
+        yield 'no page' => [['field' => 'og_image', 'file' => 1], 'exactly one page'];
+        yield 'zero page' => [['page' => 0, 'field' => 'og_image', 'file' => 1], 'exactly one page'];
+        yield 'negative page' => [['page' => -1, 'field' => 'og_image', 'file' => 1], 'exactly one page'];
+        yield 'no field' => [['page' => 1, 'file' => 1], 'not a page field this tool sets'];
+        yield 'unknown field' => [['page' => 1, 'field' => 'media', 'file' => 1], 'not a page field this tool sets'];
+        yield 'no file' => [['page' => 1, 'field' => 'og_image'], 'exactly one existing file'];
+        yield 'zero file' => [['page' => 1, 'field' => 'og_image', 'file' => 0], 'exactly one existing file'];
         yield 'string replace' => [$valid + ['replace' => 'yes'], '"replace" must be true or false'];
         yield 'unknown argument' => [$valid + ['title' => 'x'], 'not an argument of this tool'];
         // The ones that would defeat the tool's guarantees.
-        yield 'uid smuggled in'      => [$valid + ['uid' => 5], 'not an argument of this tool'];
+        yield 'uid smuggled in' => [$valid + ['uid' => 5], 'not an argument of this tool'];
         yield 'language smuggled in' => [$valid + ['language' => 1], 'not an argument of this tool'];
-        yield 'crop smuggled in'     => [$valid + ['crop' => '{}'], 'not an argument of this tool'];
+        yield 'crop smuggled in' => [$valid + ['crop' => '{}'], 'not an argument of this tool'];
     }
 
     /**

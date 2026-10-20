@@ -74,7 +74,7 @@ final readonly class ToolResultBounder
         }
 
         $coerced = array_map(
-            fn(ToolArtifact $a): ToolArtifact => new ToolArtifact(
+            fn (ToolArtifact $a): ToolArtifact => new ToolArtifact(
                 $a->type,
                 $this->toValidUtf8($a->label),
                 $this->coerceLeaves($a->data),
@@ -89,7 +89,7 @@ final readonly class ToolResultBounder
             // nests ~4 deep; a malicious deep structure trips the fail-closed
             // marker.
             $json = json_encode(
-                array_map(static fn(ToolArtifact $a): array => $a->toArray(), $coerced),
+                array_map(static fn (ToolArtifact $a): array => $a->toArray(), $coerced),
                 JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE,
                 64,
             );

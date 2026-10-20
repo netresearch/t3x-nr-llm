@@ -97,12 +97,12 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
     {
         try {
             $response = $this->sendRequest('api/tags', [], 'GET');
-            $models = $this->getList($response, 'models');
+            $models   = $this->getList($response, 'models');
 
             $result = [];
             foreach ($models as $model) {
                 $modelArray = $this->asArray($model);
-                $name = $this->getString($modelArray, 'name');
+                $name       = $this->getString($modelArray, 'name');
                 if ($name !== '') {
                     $result[$name] = $name;
                 }
@@ -173,8 +173,7 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
     public function chatCompletion(array $messages, array $options = []): CompletionResponse
     {
         $messages = array_map(
-            static fn(ChatMessage|array $m): array
-                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            static fn (ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m,
             $messages,
         );
 
@@ -203,9 +202,9 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
         }
 
         $payload = [
-            'model' => $model,
+            'model'    => $model,
             'messages' => $messages,
-            'stream' => false,
+            'stream'   => false,
         ];
 
         // Top-level request field (not an `options` entry): forces hybrid
@@ -261,8 +260,7 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
     public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
     {
         $messages = array_map(
-            static fn(ChatMessage|array $m): array
-                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            static fn (ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m,
             $messages,
         );
 
@@ -286,10 +284,10 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
         }
 
         $payload = [
-            'model' => $model,
+            'model'    => $model,
             'messages' => $messages,
-            'stream' => false,
-            'tools' => array_map(static fn(ToolSpec $spec): array => $spec->toArray(), $tools),
+            'stream'   => false,
+            'tools'    => array_map(static fn (ToolSpec $spec): array => $spec->toArray(), $tools),
         ];
 
         if (isset($options['think']) && is_bool($options['think'])) {
@@ -447,20 +445,20 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
      */
     public function embeddings(string|array $input, array $options = []): EmbeddingResponse
     {
-        $model = $this->getString($options, 'model', 'nomic-embed-text');
+        $model  = $this->getString($options, 'model', 'nomic-embed-text');
         $inputs = is_array($input) ? $input : [$input];
 
-        $embeddings = [];
+        $embeddings  = [];
         $totalTokens = 0;
 
         foreach ($inputs as $text) {
             $response = $this->sendRequest('api/embeddings', [
-                'model' => $model,
+                'model'  => $model,
                 'prompt' => $text,
             ], timeout: $this->resolveRequestTimeout($options));
 
             $rawEmbedding = $this->getList($response, 'embedding');
-            $embedding = array_values(array_map(fn(mixed $v): float => (float)$v, $rawEmbedding));
+            $embedding    = array_values(array_map(fn (mixed $v): float => (float) $v, $rawEmbedding));
             $embeddings[] = $embedding;
             $totalTokens += $this->getInt($response, 'prompt_eval_count', 0);
         }
@@ -488,8 +486,7 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
         $this->validateConfiguration();
 
         $messages = array_map(
-            static fn(ChatMessage|array $m): array
-                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            static fn (ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m,
             $messages,
         );
 
@@ -503,9 +500,9 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
         }
 
         $payload = [
-            'model' => $model,
+            'model'    => $model,
             'messages' => $messages,
-            'stream' => true,
+            'stream'   => true,
         ];
 
         if (isset($options['think']) && is_bool($options['think'])) {
@@ -525,7 +522,7 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
         // headers must be applied here.
         $request = $this->applyCustomHeaders($request);
 
-        $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
+        $body    = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         $request = $request->withBody($body);
 
         $response = $this->getHttpClient($this->resolveRequestTimeout($options))->sendRequest($request);
@@ -600,21 +597,20 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
      * Unlike getAvailableModels(), this method does NOT return fallback models
      * on failure. It makes an actual HTTP request and throws on any error.
      *
+     * @return array{success: bool, message: string, models?: array<string, string>}
      *
      * @throws ProviderConnectionException on connection failure
-     *
-     * @return array{success: bool, message: string, models?: array<string, string>}
      */
     public function testConnection(): array
     {
         // Make actual HTTP request - do NOT catch exceptions
         $response = $this->sendRequest('api/tags', [], 'GET');
-        $models = $this->getList($response, 'models');
+        $models   = $this->getList($response, 'models');
 
         $result = [];
         foreach ($models as $model) {
             $modelArray = $this->asArray($model);
-            $name = $this->getString($modelArray, 'name');
+            $name       = $this->getString($modelArray, 'name');
             if ($name !== '') {
                 $result[$name] = $name;
             }
@@ -623,7 +619,7 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
         return [
             'success' => true,
             'message' => sprintf('Connection successful. Found %d models.', count($result)),
-            'models' => $result,
+            'models'  => $result,
         ];
     }
 }

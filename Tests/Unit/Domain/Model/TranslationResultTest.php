@@ -234,11 +234,11 @@ final class TranslationResultTest extends AbstractUnitTestCase
     public static function confidenceThresholdProvider(): array
     {
         return [
-            'confidence 0.9 threshold 0.7 is confident' => [0.9, 0.7, true],
-            'confidence 0.7 threshold 0.7 is confident' => [0.7, 0.7, true],
+            'confidence 0.9 threshold 0.7 is confident'      => [0.9, 0.7, true],
+            'confidence 0.7 threshold 0.7 is confident'      => [0.7, 0.7, true],
             'confidence 0.69 threshold 0.7 is not confident' => [0.69, 0.7, false],
-            'confidence 0.5 threshold 0.4 is confident' => [0.5, 0.4, true],
-            'confidence 0.3 threshold 0.5 is not confident' => [0.3, 0.5, false],
+            'confidence 0.5 threshold 0.4 is confident'      => [0.5, 0.4, true],
+            'confidence 0.3 threshold 0.5 is not confident'  => [0.3, 0.5, false],
         ];
     }
 

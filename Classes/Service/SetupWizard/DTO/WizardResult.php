@@ -12,7 +12,7 @@ namespace Netresearch\NrLlm\Service\SetupWizard\DTO;
 /**
  * Complete result from the setup wizard.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class WizardResult
 {
@@ -37,11 +37,11 @@ final readonly class WizardResult
     public function toArray(): array
     {
         return [
-            'provider' => $this->provider->toArray(),
-            'models' => array_map(fn(DiscoveredModel $m): array => $m->toArray(), $this->models),
-            'configurations' => array_map(fn(SuggestedConfiguration $c): array => $c->toArray(), $this->configurations),
+            'provider'             => $this->provider->toArray(),
+            'models'               => array_map(fn (DiscoveredModel $m): array => $m->toArray(), $this->models),
+            'configurations'       => array_map(fn (SuggestedConfiguration $c): array => $c->toArray(), $this->configurations),
             'connectionSuccessful' => $this->connectionSuccessful,
-            'connectionMessage' => $this->connectionMessage,
+            'connectionMessage'    => $this->connectionMessage,
         ];
     }
 }

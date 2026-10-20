@@ -55,7 +55,7 @@ final class GlossaryResolverTest extends AbstractFunctionalTestCase
         // does (ADR-208).
         $this->getConnectionPool()->getConnectionForTable('tx_nrllm_glossary')
             ->insert('tx_nrllm_glossary', [
-                'uid' => 20, 'pid' => 0, 'name' => '0 first by name', 'site_identifier' => 'main',
+                'uid'             => 20, 'pid' => 0, 'name' => '0 first by name', 'site_identifier' => 'main',
                 'source_language' => 'de', 'target_language' => 'en', 'entries' => 'Warenkorb = trolley',
             ]);
 

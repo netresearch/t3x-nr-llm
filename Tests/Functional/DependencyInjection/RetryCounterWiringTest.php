@@ -17,6 +17,8 @@ use PHPUnit\Framework\Attributes\Test;
 use ReflectionProperty;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
+use const E_WARNING;
+
 /**
  * Pins the production wiring of the retry counter (ADR-174).
  *
@@ -59,9 +61,9 @@ final class RetryCounterWiringTest extends FunctionalTestCase
     protected function setUp(): void
     {
         set_error_handler(
-            static fn(int $errno, string $errstr, string $errfile): bool => str_contains($errfile, 'Crypto/HashService.php')
+            static fn (int $errno, string $errstr, string $errfile): bool => str_contains($errfile, 'Crypto/HashService.php')
                 && (str_contains($errstr, 'TYPO3_CONF_VARS') || str_contains($errstr, 'array offset')),
-            \E_WARNING,
+            E_WARNING,
         );
 
         try {

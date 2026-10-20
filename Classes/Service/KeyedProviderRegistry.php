@@ -50,12 +50,12 @@ final class KeyedProviderRegistry implements SingletonInterface
 
     public function registerProvider(ProviderInterface $provider): void
     {
-        $identifier = $provider->getIdentifier();
+        $identifier                   = $provider->getIdentifier();
         $this->providers[$identifier] = $provider;
 
         // Configure provider if configuration exists
         /** @var array<string, array<string, mixed>> $providers */
-        $providers = is_array($this->configuration['providers'] ?? null) ? $this->configuration['providers'] : [];
+        $providers      = is_array($this->configuration['providers'] ?? null) ? $this->configuration['providers'] : [];
         $providerConfig = $providers[$identifier] ?? [];
         if ($providerConfig !== []) {
             $provider->configure($providerConfig);
@@ -100,7 +100,7 @@ final class KeyedProviderRegistry implements SingletonInterface
     {
         return array_filter(
             $this->providers,
-            static fn(ProviderInterface $provider): bool => $provider->isAvailable(),
+            static fn (ProviderInterface $provider): bool => $provider->isAvailable(),
         );
     }
 
@@ -132,6 +132,7 @@ final class KeyedProviderRegistry implements SingletonInterface
     {
         try {
             $providerInstance = $this->getProvider($provider);
+
             return $providerInstance->supportsFeature($feature);
         } catch (ProviderException) {
             return false;
@@ -169,7 +170,7 @@ final class KeyedProviderRegistry implements SingletonInterface
     {
         try {
             /** @var array<string, mixed> $config */
-            $config = $this->extensionConfiguration->get('nr_llm');
+            $config              = $this->extensionConfiguration->get('nr_llm');
             $this->configuration = $config;
         } catch (Exception $e) {
             $this->logger->warning('Failed to load extension configuration', ['exception' => $e]);

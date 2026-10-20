@@ -120,12 +120,12 @@ abstract class AbstractProvider implements ProviderInterface
     public function configure(array $config): void
     {
         $this->apiKeyIdentifier = $this->getString($config, 'apiKeyIdentifier');
-        $this->baseUrl = $this->getString($config, 'baseUrl', $this->getDefaultBaseUrl());
-        $this->defaultModel = $this->getString($config, 'defaultModel', $this->getDefaultModel());
-        $this->timeout = $this->getInt($config, 'timeout', 120);
-        $this->maxRetries = max(0, min(self::MAX_RETRIES_LIMIT, $this->getInt($config, 'maxRetries', 3)));
-        $this->organizationId = $this->getString($config, 'organizationId');
-        $this->customHeaders = $this->extractCustomHeaders($config);
+        $this->baseUrl          = $this->getString($config, 'baseUrl', $this->getDefaultBaseUrl());
+        $this->defaultModel     = $this->getString($config, 'defaultModel', $this->getDefaultModel());
+        $this->timeout          = $this->getInt($config, 'timeout', 120);
+        $this->maxRetries       = max(0, min(self::MAX_RETRIES_LIMIT, $this->getInt($config, 'maxRetries', 3)));
+        $this->organizationId   = $this->getString($config, 'organizationId');
+        $this->customHeaders    = $this->extractCustomHeaders($config);
 
         // Reset HTTP client when configuration changes
         $this->configuredHttpClient = null;
@@ -141,6 +141,7 @@ abstract class AbstractProvider implements ProviderInterface
     public function supportsFeature(string|ModelCapability $feature): bool
     {
         $featureValue = $feature instanceof ModelCapability ? $feature->value : $feature;
+
         return in_array($featureValue, $this->supportedFeatures, true);
     }
 
@@ -211,6 +212,7 @@ abstract class AbstractProvider implements ProviderInterface
         // private/metadata IP literal cannot bypass the private-range filter.
         if ($this->apiKeyIdentifier === '') {
             $this->assertEndpointHostAllowed();
+
             return $this->httpClientFactory->create($effective > 0 ? $effective : null);
         }
 
@@ -346,7 +348,7 @@ abstract class AbstractProvider implements ProviderInterface
             $httpClient = $httpClient->withReason($this->buildAuditReason($endpoint, $payload));
         }
 
-        $attempt = 0;
+        $attempt       = 0;
         $lastException = null;
         // maxRetries counts retries after the initial attempt; max_retries = 0
         // still sends one request. configure() clamps the stored value to
@@ -363,7 +365,7 @@ abstract class AbstractProvider implements ProviderInterface
                 throw $e;
             } catch (Throwable $e) {
                 $lastException = $e;
-                $attempt++;
+                ++$attempt;
 
                 // A client-side timeout must not be retried: retrying would
                 // multiply the caller's wait by maxAttempts. Guzzle raises the
@@ -428,7 +430,7 @@ abstract class AbstractProvider implements ProviderInterface
             return null;
         }
 
-        $seconds = (int)$raw;
+        $seconds = (int) $raw;
 
         return $seconds > 0 ? $seconds : null;
     }
@@ -437,25 +439,25 @@ abstract class AbstractProvider implements ProviderInterface
      * Map an HTTP response to the decoded payload or the matching typed
      * exception, mirroring the status handling expected by {@see sendRequest()}.
      *
+     * @return array<string, mixed>
+     *
      * @throws ProviderResponseException   on a 4xx response
      * @throws ProviderConnectionException on any other non-2xx response
-     *
-     * @return array<string, mixed>
      */
     private function handleResponse(ResponseInterface $response, string $endpoint): array
     {
         $statusCode = $response->getStatusCode();
 
         if ($statusCode >= 200 && $statusCode < 300) {
-            $body = (string)$response->getBody();
+            $body = (string) $response->getBody();
 
             return $this->decodeJsonResponse($body);
         }
 
         if ($statusCode >= 400 && $statusCode < 500) {
-            $body = (string)$response->getBody();
+            $body    = (string) $response->getBody();
             $decoded = json_decode($body, true);
-            $error = is_array($decoded) ? $this->asArray($decoded) : ['error' => ['message' => self::UNKNOWN_ERROR]];
+            $error   = is_array($decoded) ? $this->asArray($decoded) : ['error' => ['message' => self::UNKNOWN_ERROR]];
             throw $this->clientErrorException(
                 $statusCode,
                 $this->sanitizeErrorMessage($this->extractErrorMessage($error)),
@@ -516,7 +518,7 @@ abstract class AbstractProvider implements ProviderInterface
             // PHP casts numeric-string array keys ("123") to int on decode;
             // cast back so such names reach the token check instead of being
             // dropped for not being strings.
-            $name = (string)$name;
+            $name = (string) $name;
             if (preg_match('/^[A-Za-z0-9!#$%&\'*+.^_`|~-]+$/', $name) !== 1) {
                 continue;
             }
@@ -558,7 +560,7 @@ abstract class AbstractProvider implements ProviderInterface
             str_contains($endpoint, 'messages'),
             str_contains($endpoint, 'generateContent'),
             str_contains($endpoint, 'api/generate') => 'chat',
-            default => 'API',
+            default                                 => 'API',
         };
 
         $model = isset($payload['model']) && is_string($payload['model']) ? $payload['model'] : '';
@@ -590,11 +592,11 @@ abstract class AbstractProvider implements ProviderInterface
             return;
         }
 
-        $body = (string)$response->getBody();
+        $body = (string) $response->getBody();
 
         if ($statusCode >= 400 && $statusCode < 500) {
             $decoded = json_decode($body, true);
-            $error = is_array($decoded) ? $this->asArray($decoded) : ['error' => ['message' => self::UNKNOWN_ERROR]];
+            $error   = is_array($decoded) ? $this->asArray($decoded) : ['error' => ['message' => self::UNKNOWN_ERROR]];
             throw $this->clientErrorException(
                 $statusCode,
                 $this->sanitizeErrorMessage($this->extractErrorMessage($error)),
@@ -621,8 +623,8 @@ abstract class AbstractProvider implements ProviderInterface
     private function clientErrorException(int $statusCode, string $message, string $responseBody, string $endpoint): ProviderResponseException
     {
         return match ($statusCode) {
-            401 => new ProviderAuthenticationException(message: $message, httpStatus: $statusCode, responseBody: $responseBody, endpoint: $endpoint),
-            429 => new ProviderRateLimitException(message: $message, httpStatus: $statusCode, responseBody: $responseBody, endpoint: $endpoint),
+            401     => new ProviderAuthenticationException(message: $message, httpStatus: $statusCode, responseBody: $responseBody, endpoint: $endpoint),
+            429     => new ProviderRateLimitException(message: $message, httpStatus: $statusCode, responseBody: $responseBody, endpoint: $endpoint),
             default => new ProviderResponseException(message: $message, httpStatus: $statusCode, responseBody: $responseBody, endpoint: $endpoint),
         };
     }
@@ -733,7 +735,7 @@ abstract class AbstractProvider implements ProviderInterface
             // Replace with space to prevent word-gluing (e.g. "foo<think>...</think>bar" → "foo bar")
             $cleaned = preg_replace('#<think>[\s\S]*?</think>#i', ' ', $content) ?? $content;
             // Normalize horizontal whitespace (spaces/tabs) but preserve newlines for formatting
-            $content = trim((string)preg_replace('/[ \t]+/', ' ', $cleaned));
+            $content = trim((string) preg_replace('/[ \t]+/', ' ', $cleaned));
         }
 
         return [$content, $thinking !== '' ? $thinking : null];
@@ -761,10 +763,9 @@ abstract class AbstractProvider implements ProviderInterface
      * Default implementation makes a simple HTTP request to verify connectivity.
      * Providers can override this for provider-specific connection tests.
      *
+     * @return array{success: bool, message: string, models?: array<string, string>}
      *
      * @throws ProviderConnectionException on connection failure
-     *
-     * @return array{success: bool, message: string, models?: array<string, string>}
      */
     public function testConnection(): array
     {
@@ -775,7 +776,7 @@ abstract class AbstractProvider implements ProviderInterface
         return [
             'success' => true,
             'message' => sprintf('Connection successful. Found %d models.', count($models)),
-            'models' => $models,
+            'models'  => $models,
         ];
     }
 
@@ -791,12 +792,12 @@ abstract class AbstractProvider implements ProviderInterface
     protected function testConnectionViaModelsList(): array
     {
         $response = $this->sendRequest('models', [], 'GET');
-        $data = $this->getList($response, 'data');
+        $data     = $this->getList($response, 'data');
 
         $models = [];
         foreach ($data as $model) {
             $modelArray = $this->asArray($model);
-            $id = $this->getString($modelArray, 'id');
+            $id         = $this->getString($modelArray, 'id');
             if ($id !== '') {
                 $models[$id] = $id;
             }
@@ -805,7 +806,7 @@ abstract class AbstractProvider implements ProviderInterface
         return [
             'success' => true,
             'message' => sprintf('Connection successful. Found %d models.', count($models)),
-            'models' => $models,
+            'models'  => $models,
         ];
     }
 }

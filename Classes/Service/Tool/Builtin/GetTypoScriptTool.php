@@ -203,7 +203,7 @@ final readonly class GetTypoScriptTool implements ToolInterface
 
         $lines = [sprintf('TypoScript setup for page %d at "%s":', $pageUid, $path)];
         if ($value !== null) {
-            $lastSegment = substr((string)strrchr('.' . $path, '.'), 1);
+            $lastSegment = substr((string) strrchr('.' . $path, '.'), 1);
             $lines[]     = sprintf('%s = %s', $path, $this->redactSecretValue($lastSegment, $value));
         }
 
@@ -225,8 +225,8 @@ final readonly class GetTypoScriptTool implements ToolInterface
 
         $lines = [];
         foreach ($constants as $key => $value) {
-            $key   = (string)$key;
-            $value = is_scalar($value) ? (string)$value : '';
+            $key   = (string) $key;
+            $value = is_scalar($value) ? (string) $value : '';
             if ($path !== '' && $key !== $path && !str_starts_with($key, $path . '.')) {
                 continue;
             }
@@ -236,7 +236,7 @@ final readonly class GetTypoScriptTool implements ToolInterface
                 break;
             }
 
-            $lastSegment = substr((string)strrchr('.' . $key, '.'), 1);
+            $lastSegment = substr((string) strrchr('.' . $key, '.'), 1);
             $lines[]     = sprintf('%s = %s', $key, $this->redactSecretValue($lastSegment, $value));
         }
 
