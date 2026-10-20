@@ -155,7 +155,7 @@ final readonly class TableReadAccessService
     {
         return array_values(array_filter(
             $fields,
-            fn(string $field): bool => !$this->isSensitiveField($field),
+            fn (string $field): bool => !$this->isSensitiveField($field),
         ));
     }
 }

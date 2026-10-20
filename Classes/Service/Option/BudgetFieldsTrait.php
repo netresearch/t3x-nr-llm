@@ -54,17 +54,19 @@ trait BudgetFieldsTrait
 
     public function withBeUserUid(int $beUserUid): static
     {
-        $clone = clone $this;
+        $clone            = clone $this;
         $clone->beUserUid = $beUserUid;
         $clone->validate();
+
         return $clone;
     }
 
     public function withPlannedCost(float $plannedCost): static
     {
-        $clone = clone $this;
+        $clone              = clone $this;
         $clone->plannedCost = $plannedCost;
         $clone->validate();
+
         return $clone;
     }
 
@@ -75,7 +77,7 @@ trait BudgetFieldsTrait
      */
     private function setBudgetFields(?int $beUserUid, ?float $plannedCost): void
     {
-        $this->beUserUid = $beUserUid;
+        $this->beUserUid   = $beUserUid;
         $this->plannedCost = $plannedCost;
     }
 

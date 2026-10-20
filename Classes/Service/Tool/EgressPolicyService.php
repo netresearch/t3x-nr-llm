@@ -46,7 +46,7 @@ final readonly class EgressPolicyService
      * `system` carries `probe_url` and is limited to the instance's own sites.
      * `rag` reaches the search backend the site configuration declares. `web`
      * carries `fetch_external_url` and reaches public internet hosts through
-     * the address guard of ADR-202 ({@see \Netresearch\NrLlm\Service\Tool\Web\ExternalUrlGuard}),
+     * the address guard of ADR-202 ({@see Web\ExternalUrlGuard}),
      * never through {@see self::resolveAllowedUrl()}. Every other group
      * (`content`, `structure`, `configuration`, `code`, `files`, `accounts`)
      * reads local state only and is denied egress.
@@ -123,7 +123,7 @@ final readonly class EgressPolicyService
 
         // Exact host:port match with scheme-defaulted ports on BOTH sides — a
         // bare-host match would let http://localhost:6379/ (Redis, …) through.
-        $port     = isset($parts['port']) ? (int)$parts['port'] : ($scheme === 'https' ? 443 : 80);
+        $port     = isset($parts['port']) ? (int) $parts['port'] : ($scheme === 'https' ? 443 : 80);
         $hostPort = $host . ':' . $port;
 
         return in_array($hostPort, $this->allowedHosts(), true) ? $input : null;
@@ -163,7 +163,7 @@ final readonly class EgressPolicyService
             return null;
         }
 
-        $port     = isset($parts['port']) ? (int)$parts['port'] : ($scheme === 'https' ? 443 : 80);
+        $port     = isset($parts['port']) ? (int) $parts['port'] : ($scheme === 'https' ? 443 : 80);
         $hostPort = $host . ':' . $port;
 
         $normalised = [];
@@ -245,9 +245,9 @@ final readonly class EgressPolicyService
             }
         }
 
-        $normalised = array_map(static fn(string $host): string => rtrim(trim(strtolower($host), '[]'), '.'), $hosts);
+        $normalised = array_map(static fn (string $host): string => rtrim(trim(strtolower($host), '[]'), '.'), $hosts);
 
-        return array_values(array_unique(array_filter($normalised, static fn(string $host): bool => $host !== '')));
+        return array_values(array_unique(array_filter($normalised, static fn (string $host): bool => $host !== '')));
     }
 
     /**
@@ -261,7 +261,7 @@ final readonly class EgressPolicyService
         foreach (is_array($variants) ? $variants : [] as $variant) {
             $base = is_array($variant) ? ($variant['base'] ?? null) : null;
             if (is_string($base) && $base !== '') {
-                $hosts[] = (string)parse_url(str_contains($base, '//') ? $base : '//' . $base, PHP_URL_HOST);
+                $hosts[] = (string) parse_url(str_contains($base, '//') ? $base : '//' . $base, PHP_URL_HOST);
             }
         }
 
@@ -284,7 +284,7 @@ final readonly class EgressPolicyService
     private function firstSiteBase(): ?string
     {
         foreach ($this->siteFinder->getAllSites() as $site) {
-            $base = (string)$site->getBase();
+            $base = (string) $site->getBase();
             if ($base !== '' && $site->getBase()->getHost() !== '') {
                 return $base;
             }

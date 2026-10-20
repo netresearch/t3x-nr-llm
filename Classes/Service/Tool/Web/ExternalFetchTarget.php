@@ -54,7 +54,7 @@ final readonly class ExternalFetchTarget
         }
 
         $addresses = array_map(
-            static fn(string $ip): string => str_contains($ip, ':') ? '[' . $ip . ']' : $ip,
+            static fn (string $ip): string => str_contains($ip, ':') ? '[' . $ip . ']' : $ip,
             $this->addresses,
         );
 

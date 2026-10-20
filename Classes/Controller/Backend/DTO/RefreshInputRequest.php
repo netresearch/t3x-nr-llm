@@ -14,7 +14,7 @@ use Psr\Http\Message\ServerRequestInterface;
 /**
  * Request DTO for refreshing task input data AJAX endpoint.
  *
- * @internal Not part of public API, may change without notice.
+ * @internal not part of public API, may change without notice
  */
 final readonly class RefreshInputRequest
 {
@@ -39,9 +39,10 @@ final readonly class RefreshInputRequest
     private static function extractInt(array $data, string $key, int $default = 0): int
     {
         $value = $data[$key] ?? $default;
+
         // The only field extracted here is the record uid, which must be a
         // positive identifier — reject non-positive values so a negative id
         // never reaches findByUid().
-        return (is_numeric($value) && (int)$value > 0) ? (int)$value : $default;
+        return (is_numeric($value) && (int) $value > 0) ? (int) $value : $default;
     }
 }

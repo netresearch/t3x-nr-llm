@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Domain\ValueObject;
 
@@ -27,7 +28,7 @@ final class ToolInvocationHistoryTest extends TestCase
             'ok',
             new ToolInvocationTarget('pages', '7'),
         );
-        $state = new SuspendedRunState([], [], 1, 0, 0, invocationHistory: $history);
+        $state    = new SuspendedRunState([], [], 1, 0, 0, invocationHistory: $history);
         $restored = SuspendedRunState::fromArray($state->toArray());
         self::assertSame(
             $history->toStored(),
@@ -60,7 +61,7 @@ final class ToolInvocationHistoryTest extends TestCase
         yield 'string flag' => [['entries' => [], 'complete' => 'true']];
         yield 'invalid outcome' => [
             [
-                'entries' => [['tool' => 'read', 'outcome' => 'invented', 'target' => null]],
+                'entries'  => [['tool' => 'read', 'outcome' => 'invented', 'target' => null]],
                 'complete' => true,
             ],
         ];
@@ -68,9 +69,9 @@ final class ToolInvocationHistoryTest extends TestCase
             [
                 'entries' => [
                     [
-                        'tool' => 'read',
+                        'tool'    => 'read',
                         'outcome' => 'ok',
-                        'target' => ['kind' => 'pages', 'identifier' => ''],
+                        'target'  => ['kind' => 'pages', 'identifier' => ''],
                     ],
                 ],
                 'complete' => true,
@@ -78,7 +79,7 @@ final class ToolInvocationHistoryTest extends TestCase
         ];
         yield 'non-list entries' => [
             [
-                'entries' => [2 => ['tool' => 'read', 'outcome' => 'ok', 'target' => null]],
+                'entries'  => [2 => ['tool' => 'read', 'outcome' => 'ok', 'target' => null]],
                 'complete' => true,
             ],
         ];

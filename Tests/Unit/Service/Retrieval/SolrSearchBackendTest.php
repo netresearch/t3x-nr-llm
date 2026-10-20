@@ -35,7 +35,7 @@ final class SolrSearchBackendTest extends TestCase
     public function buildsSelectUrlWithAccessFilterAndMapsDocuments(): void
     {
         $requestFactory = FakeSolrHttpClient::withJson(self::DOCS_JSON);
-        $backend = new SolrSearchBackend(new FakeSiteFinder([$this->site()]), $requestFactory);
+        $backend        = new SolrSearchBackend(new FakeSiteFinder([$this->site()]), $requestFactory);
 
         $result = $backend->search(RetrievalQuery::create('aikido'), AccessContext::publicOnly());
 
@@ -88,7 +88,7 @@ final class SolrSearchBackendTest extends TestCase
     public function escapesLuceneQuerySyntaxInTheTerm(): void
     {
         $requestFactory = FakeSolrHttpClient::withJson('{"response":{"docs":[]}}');
-        $backend = new SolrSearchBackend(new FakeSiteFinder([$this->site()]), $requestFactory);
+        $backend        = new SolrSearchBackend(new FakeSiteFinder([$this->site()]), $requestFactory);
 
         $backend->search(RetrievalQuery::create('aikido (hack:* OR "x")'), AccessContext::publicOnly());
 
@@ -100,9 +100,9 @@ final class SolrSearchBackendTest extends TestCase
     #[Test]
     public function stripsTrailingSolrSegmentFromConfiguredPath(): void
     {
-        $site = $this->site(['solr_path_read' => '/solr']);
+        $site           = $this->site(['solr_path_read' => '/solr']);
         $requestFactory = FakeSolrHttpClient::withJson('{"response":{"docs":[]}}');
-        $backend = new SolrSearchBackend(new FakeSiteFinder([$site]), $requestFactory);
+        $backend        = new SolrSearchBackend(new FakeSiteFinder([$site]), $requestFactory);
 
         $backend->search(RetrievalQuery::create('aikido'), AccessContext::publicOnly());
 
@@ -114,9 +114,9 @@ final class SolrSearchBackendTest extends TestCase
     #[Test]
     public function disabledOrCorelessSiteYieldsNoRequestAndEmptyResult(): void
     {
-        $disabled = $this->site(['solr_enabled_read' => false]);
+        $disabled       = $this->site(['solr_enabled_read' => false]);
         $requestFactory = FakeSolrHttpClient::withJson(self::DOCS_JSON);
-        $backend = new SolrSearchBackend(new FakeSiteFinder([$disabled]), $requestFactory);
+        $backend        = new SolrSearchBackend(new FakeSiteFinder([$disabled]), $requestFactory);
 
         $result = $backend->search(RetrievalQuery::create('aikido'), AccessContext::publicOnly());
 
@@ -132,7 +132,7 @@ final class SolrSearchBackendTest extends TestCase
             ['languageId' => 1, 'title' => 'DE', 'locale' => 'de_DE.UTF-8', 'base' => '/de/', 'solr_core_read' => 'core_de'],
         ]);
         $requestFactory = FakeSolrHttpClient::withJson('{"response":{"docs":[]}}');
-        $backend = new SolrSearchBackend(new FakeSiteFinder([$site]), $requestFactory);
+        $backend        = new SolrSearchBackend(new FakeSiteFinder([$site]), $requestFactory);
 
         $backend->search(RetrievalQuery::create('aikido', 8, null, 1), AccessContext::publicOnly());
 
@@ -175,9 +175,9 @@ final class SolrSearchBackendTest extends TestCase
     #[Test]
     public function fetchSourceQueriesByTypeUidLanguageAndFormatsText(): void
     {
-        $json = '{"response":{"docs":[{"title":"Aikido Migration Services","content":"Full page text."}]}}';
+        $json           = '{"response":{"docs":[{"title":"Aikido Migration Services","content":"Full page text."}]}}';
         $requestFactory = FakeSolrHttpClient::withJson($json);
-        $backend = new SolrSearchBackend(new FakeSiteFinder([$this->site()]), $requestFactory);
+        $backend        = new SolrSearchBackend(new FakeSiteFinder([$this->site()]), $requestFactory);
 
         $reference = SourceReference::parse('solr:main:pages:2:0');
         self::assertNotNull($reference);
@@ -219,17 +219,17 @@ final class SolrSearchBackendTest extends TestCase
         // The first site is disabled (no endpoint); the loop must CONTINUE to
         // the enabled site — a break would abort the cascade after the first.
         $disabled = new Site('secondary', 2, [
-            'base' => 'https://secondary.example/',
+            'base'              => 'https://secondary.example/',
             'solr_enabled_read' => false,
-            'solr_scheme_read' => 'https',
-            'solr_host_read' => 'solr.example',
-            'solr_port_read' => 8983,
-            'solr_path_read' => '',
-            'solr_core_read' => 'core_en',
-            'languages' => [['languageId' => 0, 'title' => 'EN', 'locale' => 'en_US.UTF-8', 'base' => '/']],
+            'solr_scheme_read'  => 'https',
+            'solr_host_read'    => 'solr.example',
+            'solr_port_read'    => 8983,
+            'solr_path_read'    => '',
+            'solr_core_read'    => 'core_en',
+            'languages'         => [['languageId' => 0, 'title' => 'EN', 'locale' => 'en_US.UTF-8', 'base' => '/']],
         ]);
         $requestFactory = FakeSolrHttpClient::withJson(self::DOCS_JSON);
-        $backend = new SolrSearchBackend(new FakeSiteFinder([$disabled, $this->site()]), $requestFactory);
+        $backend        = new SolrSearchBackend(new FakeSiteFinder([$disabled, $this->site()]), $requestFactory);
 
         $result = $backend->search(RetrievalQuery::create('aikido'), AccessContext::publicOnly());
 
@@ -245,7 +245,7 @@ final class SolrSearchBackendTest extends TestCase
         // Two mappable documents, but the query caps at one source: the `>=`
         // cap must return AT the limit, never one past it.
         $requestFactory = FakeSolrHttpClient::withJson(self::DOCS_JSON);
-        $backend = new SolrSearchBackend(new FakeSiteFinder([$this->site()]), $requestFactory);
+        $backend        = new SolrSearchBackend(new FakeSiteFinder([$this->site()]), $requestFactory);
 
         $result = $backend->search(RetrievalQuery::create('aikido', 1), AccessContext::publicOnly());
 
@@ -466,7 +466,7 @@ final class SolrSearchBackendTest extends TestCase
             ['languageId' => 0, 'title' => 'EN2', 'locale' => 'en_US.UTF-8', 'base' => '/', 'solr_core_read' => 'core_second'],
         ]);
         $requestFactory = FakeSolrHttpClient::withJson('{"response":{"docs":[]}}');
-        $backend = new SolrSearchBackend(new FakeSiteFinder([$site]), $requestFactory);
+        $backend        = new SolrSearchBackend(new FakeSiteFinder([$site]), $requestFactory);
 
         $backend->search(RetrievalQuery::create('aikido'), AccessContext::publicOnly());
 
@@ -481,16 +481,16 @@ final class SolrSearchBackendTest extends TestCase
         // No solr_enabled_read key → the default (true) applies → a request is
         // made. A default of false would silently disable read.
         $site = new Site('main', 1, [
-            'base' => 'https://example.org/',
+            'base'             => 'https://example.org/',
             'solr_scheme_read' => 'https',
-            'solr_host_read' => 'solr.example',
-            'solr_port_read' => 8983,
-            'solr_path_read' => '',
-            'solr_core_read' => 'core_en',
-            'languages' => [['languageId' => 0, 'title' => 'EN', 'locale' => 'en_US.UTF-8', 'base' => '/']],
+            'solr_host_read'   => 'solr.example',
+            'solr_port_read'   => 8983,
+            'solr_path_read'   => '',
+            'solr_core_read'   => 'core_en',
+            'languages'        => [['languageId' => 0, 'title' => 'EN', 'locale' => 'en_US.UTF-8', 'base' => '/']],
         ]);
         $requestFactory = FakeSolrHttpClient::withJson('{"response":{"docs":[]}}');
-        $backend = new SolrSearchBackend(new FakeSiteFinder([$site]), $requestFactory);
+        $backend        = new SolrSearchBackend(new FakeSiteFinder([$site]), $requestFactory);
 
         $backend->search(RetrievalQuery::create('aikido'), AccessContext::publicOnly());
 
@@ -518,7 +518,7 @@ final class SolrSearchBackendTest extends TestCase
     {
         // port 1 is inside the accepted range: the floor is `< 1`, not `<= 1`.
         $requestFactory = FakeSolrHttpClient::withJson('{"response":{"docs":[]}}');
-        $backend = new SolrSearchBackend(new FakeSiteFinder([$this->site(['solr_port_read' => 1])]), $requestFactory);
+        $backend        = new SolrSearchBackend(new FakeSiteFinder([$this->site(['solr_port_read' => 1])]), $requestFactory);
 
         $backend->search(RetrievalQuery::create('aikido'), AccessContext::publicOnly());
 
@@ -532,7 +532,7 @@ final class SolrSearchBackendTest extends TestCase
     {
         // port 65535 is inside the accepted range: the ceiling is `> 65535`.
         $requestFactory = FakeSolrHttpClient::withJson('{"response":{"docs":[]}}');
-        $backend = new SolrSearchBackend(new FakeSiteFinder([$this->site(['solr_port_read' => 65535])]), $requestFactory);
+        $backend        = new SolrSearchBackend(new FakeSiteFinder([$this->site(['solr_port_read' => 65535])]), $requestFactory);
 
         $backend->search(RetrievalQuery::create('aikido'), AccessContext::publicOnly());
 
@@ -546,7 +546,7 @@ final class SolrSearchBackendTest extends TestCase
     {
         // port 0 is out of range → no request. Guards the `$port < 1` term.
         $requestFactory = FakeSolrHttpClient::withJson(self::DOCS_JSON);
-        $backend = new SolrSearchBackend(new FakeSiteFinder([$this->site(['solr_port_read' => 0])]), $requestFactory);
+        $backend        = new SolrSearchBackend(new FakeSiteFinder([$this->site(['solr_port_read' => 0])]), $requestFactory);
 
         $backend->search(RetrievalQuery::create('aikido'), AccessContext::publicOnly());
 
@@ -558,7 +558,7 @@ final class SolrSearchBackendTest extends TestCase
     {
         // A scheme outside {http,https} → no request. Guards the in_array term.
         $requestFactory = FakeSolrHttpClient::withJson(self::DOCS_JSON);
-        $backend = new SolrSearchBackend(new FakeSiteFinder([$this->site(['solr_scheme_read' => 'ftp'])]), $requestFactory);
+        $backend        = new SolrSearchBackend(new FakeSiteFinder([$this->site(['solr_scheme_read' => 'ftp'])]), $requestFactory);
 
         $backend->search(RetrievalQuery::create('aikido'), AccessContext::publicOnly());
 
@@ -572,7 +572,7 @@ final class SolrSearchBackendTest extends TestCase
         // slash-trim, the '/solr' guard (must NOT fire for a non-solr path),
         // and the leading-slash join.
         $requestFactory = FakeSolrHttpClient::withJson('{"response":{"docs":[]}}');
-        $backend = new SolrSearchBackend(new FakeSiteFinder([$this->site(['solr_path_read' => '/custom/'])]), $requestFactory);
+        $backend        = new SolrSearchBackend(new FakeSiteFinder([$this->site(['solr_path_read' => '/custom/'])]), $requestFactory);
 
         $backend->search(RetrievalQuery::create('aikido'), AccessContext::publicOnly());
 
@@ -587,7 +587,7 @@ final class SolrSearchBackendTest extends TestCase
         // 'foo/solr' → the trailing '/solr' is peeled to 'foo'. Pins the
         // substr offsets and the rtrim in the '/solr' handling.
         $requestFactory = FakeSolrHttpClient::withJson('{"response":{"docs":[]}}');
-        $backend = new SolrSearchBackend(new FakeSiteFinder([$this->site(['solr_path_read' => '/foo/solr'])]), $requestFactory);
+        $backend        = new SolrSearchBackend(new FakeSiteFinder([$this->site(['solr_path_read' => '/foo/solr'])]), $requestFactory);
 
         $backend->search(RetrievalQuery::create('aikido'), AccessContext::publicOnly());
 
@@ -603,7 +603,7 @@ final class SolrSearchBackendTest extends TestCase
         // trim inside the emptiness check makes this a fallback, not an empty
         // (invalid) scheme that would suppress the request.
         $requestFactory = FakeSolrHttpClient::withJson('{"response":{"docs":[]}}');
-        $backend = new SolrSearchBackend(new FakeSiteFinder([$this->site(['solr_scheme_read' => '   '])]), $requestFactory);
+        $backend        = new SolrSearchBackend(new FakeSiteFinder([$this->site(['solr_scheme_read' => '   '])]), $requestFactory);
 
         $backend->search(RetrievalQuery::create('aikido'), AccessContext::publicOnly());
 
@@ -618,16 +618,16 @@ final class SolrSearchBackendTest extends TestCase
         // No solr_scheme_read key → default 'http'. If the null fallback were
         // skipped the scheme would be '' and no request made.
         $site = new Site('main', 1, [
-            'base' => 'https://example.org/',
+            'base'              => 'https://example.org/',
             'solr_enabled_read' => true,
-            'solr_host_read' => 'solr.example',
-            'solr_port_read' => 8983,
-            'solr_path_read' => '',
-            'solr_core_read' => 'core_en',
-            'languages' => [['languageId' => 0, 'title' => 'EN', 'locale' => 'en_US.UTF-8', 'base' => '/']],
+            'solr_host_read'    => 'solr.example',
+            'solr_port_read'    => 8983,
+            'solr_path_read'    => '',
+            'solr_core_read'    => 'core_en',
+            'languages'         => [['languageId' => 0, 'title' => 'EN', 'locale' => 'en_US.UTF-8', 'base' => '/']],
         ]);
         $requestFactory = FakeSolrHttpClient::withJson('{"response":{"docs":[]}}');
-        $backend = new SolrSearchBackend(new FakeSiteFinder([$site]), $requestFactory);
+        $backend        = new SolrSearchBackend(new FakeSiteFinder([$site]), $requestFactory);
 
         $backend->search(RetrievalQuery::create('aikido'), AccessContext::publicOnly());
 
@@ -643,14 +643,14 @@ final class SolrSearchBackendTest extends TestCase
     private function site(array $overrides = [], ?array $languages = null): Site
     {
         $configuration = array_merge([
-            'base' => 'https://example.org/',
+            'base'              => 'https://example.org/',
             'solr_enabled_read' => true,
-            'solr_scheme_read' => 'https',
-            'solr_host_read' => 'solr.example',
-            'solr_port_read' => 8983,
-            'solr_path_read' => '',
-            'solr_core_read' => 'core_en',
-            'languages' => $languages ?? [
+            'solr_scheme_read'  => 'https',
+            'solr_host_read'    => 'solr.example',
+            'solr_port_read'    => 8983,
+            'solr_path_read'    => '',
+            'solr_core_read'    => 'core_en',
+            'languages'         => $languages ?? [
                 ['languageId' => 0, 'title' => 'EN', 'locale' => 'en_US.UTF-8', 'base' => '/'],
             ],
         ], $overrides);

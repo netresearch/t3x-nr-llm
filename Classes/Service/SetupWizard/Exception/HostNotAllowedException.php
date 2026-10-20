@@ -9,14 +9,14 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\SetupWizard\Exception;
 
-use RuntimeException;
+use Netresearch\NrLlm\Exception\RuntimeException;
 
 /**
  * Thrown when the setup wizard refuses to dispatch an HTTP request because
  * the target host is not covered by the nr-vault SSRF host allowlist
  * (`SecureHttpClientFactory::isHostAllowed()`).
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class HostNotAllowedException extends RuntimeException
 {

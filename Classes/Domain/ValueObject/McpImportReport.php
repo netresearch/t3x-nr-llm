@@ -19,7 +19,7 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
 final readonly class McpImportReport
 {
     /**
-     * @param list<string> $skipReasons One entry per rejected tool, plus the refusal reason when $refused.
+     * @param list<string> $skipReasons one entry per rejected tool, plus the refusal reason when $refused
      * @param bool         $refused     True when the import was declined before writing anything — an
      *                                  inert server, an unreachable endpoint. Distinct from an import
      *                                  that ran and wrote no tools, where the catalogue was still

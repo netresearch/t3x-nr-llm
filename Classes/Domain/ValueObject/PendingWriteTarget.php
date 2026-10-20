@@ -94,7 +94,7 @@ final readonly class PendingWriteTarget
         }
 
         if (is_string($uid) && preg_match('/\A[1-9][0-9]{0,18}\z/', $uid) === 1) {
-            $uid = (int)$uid;
+            $uid = (int) $uid;
         }
 
         if (!is_int($uid)) {

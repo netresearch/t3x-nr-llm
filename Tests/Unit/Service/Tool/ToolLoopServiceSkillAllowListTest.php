@@ -260,7 +260,7 @@ final class ToolLoopServiceSkillAllowListTest extends TestCase
             $this->response('', [new ToolCall('call_1', 'attach_file', ['uid' => 7])]),
         ]);
 
-        $state = $this->suspend($service, $configuration);
+        $state       = $this->suspend($service, $configuration);
         $tool->lines = ['3 reference(s) → 4, appended last'];
 
         try {
@@ -342,7 +342,7 @@ final class ToolLoopServiceSkillAllowListTest extends TestCase
     private function registry(string ...$names): ToolRegistry
     {
         return new ToolRegistry(array_map(
-            static fn(string $name): ToolInterface => match ($name) {
+            static fn (string $name): ToolInterface => match ($name) {
                 'approve'  => new PreviewingApprovalTool($name),
                 'ask_user' => new FakeInputTool($name),
                 default    => new FakeTool($name),

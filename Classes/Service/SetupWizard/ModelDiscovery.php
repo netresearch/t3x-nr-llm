@@ -34,7 +34,7 @@ use Throwable;
  * Discovers available models from LLM provider APIs.
  *
  * A facade over one discoverer per provider
- * ({@see Discovery\AbstractModelDiscoverer}): this class routes by adapter
+ * ({@see AbstractModelDiscoverer}): this class routes by adapter
  * type, owns the connection test, and reports whether the last discovery was
  * served from a static fallback catalog. The provider-specific listing,
  * filtering and enrichment live in `Discovery/`.
@@ -92,7 +92,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
     ) {
         // Initialise the readonly collaborators declared in
         // SecureHttpDispatchTrait (no promotion — the trait owns them).
-        $this->vault = $vault;
+        $this->vault             = $vault;
         $this->httpClientFactory = $httpClientFactory;
 
         // Built here rather than injected: the discoverers are an
@@ -138,13 +138,13 @@ final class ModelDiscovery implements ModelDiscoveryInterface
     public function testConnection(DetectedProvider $provider, string $apiKey): array
     {
         try {
-            $base = rtrim($provider->endpoint, '/');
+            $base     = rtrim($provider->endpoint, '/');
             $endpoint = match ($provider->adapterType) {
                 // Ollama's base URL is a bare host (OllamaProvider adds "api/" per
                 // request); model discovery must do the same to hit /api/tags. A legacy
                 // or user-entered trailing "/api" is stripped first to avoid /api/api.
                 'ollama' => OllamaModelDiscoverer::baseUrl($base) . '/api/tags',
-                default => $base . self::MODELS_PATH,
+                default  => $base . self::MODELS_PATH,
             };
 
             $request = $this->requestFactory->createRequest('GET', $endpoint);
@@ -154,12 +154,12 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                 'anthropic' => $request
                     ->withHeader('x-api-key', $apiKey)
                     ->withHeader('anthropic-version', '2023-06-01'),
-                'gemini' => $request->withHeader('x-goog-api-key', $apiKey),
+                'gemini'                     => $request->withHeader('x-goog-api-key', $apiKey),
                 'ollama', 'decision_sidecar' => $request, // No auth needed
-                default => $request->withHeader('Authorization', self::AUTH_BEARER_PREFIX . $apiKey),
+                default                      => $request->withHeader('Authorization', self::AUTH_BEARER_PREFIX . $apiKey),
             };
 
-            $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
+            $response   = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
             $statusCode = $response->getStatusCode();
 
             if ($statusCode >= 200 && $statusCode < 300) {
@@ -207,7 +207,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
     public function discover(DetectedProvider $provider, string $apiKey): array
     {
         $this->lastDiscoveryUsedFallback = false;
-        $endpoint = rtrim($provider->endpoint, '/');
+        $endpoint                        = rtrim($provider->endpoint, '/');
 
         $discoverer = $this->discoverers[$provider->adapterType] ?? null;
         if (!$discoverer instanceof AbstractModelDiscoverer) {
@@ -218,7 +218,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             return $this->getDefaultModels($provider->adapterType);
         }
 
-        $result = $discoverer->discover($endpoint, $apiKey);
+        $result                          = $discoverer->discover($endpoint, $apiKey);
         $this->lastDiscoveryUsedFallback = $result->usedFallback;
 
         return $result->models;

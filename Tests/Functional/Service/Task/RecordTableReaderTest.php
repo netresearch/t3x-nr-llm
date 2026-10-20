@@ -42,7 +42,7 @@ final class RecordTableReaderTest extends AbstractFunctionalTestCase
     public function listAllowedTablesContainsRealTablesButNotExcludedOnes(): void
     {
         $tables = $this->reader->listAllowedTables();
-        $names = array_column($tables, 'name');
+        $names  = array_column($tables, 'name');
 
         self::assertContains('be_users', $names);
         self::assertContains('tx_nrllm_task', $names);
@@ -132,7 +132,7 @@ final class RecordTableReaderTest extends AbstractFunctionalTestCase
             'service_type' => 'completion',
             'request_date' => 1700000000,
         ]);
-        $uid = (int)$connection->lastInsertId();
+        $uid = (int) $connection->lastInsertId();
 
         $records = $this->reader->fetchSampleRecords('tx_nrllm_service_usage', '', 5);
 

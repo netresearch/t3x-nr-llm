@@ -50,7 +50,7 @@ final class ReplaceFileReferenceToolTest extends AbstractUnitTestCase
             'BE_USER' => $GLOBALS['BE_USER'] ?? null,
         ];
 
-        $GLOBALS['TCA'] = ['sys_file_reference' => ['columns' => ['title' => ['config' => ['type' => 'input']]]]];
+        $GLOBALS['TCA']     = ['sys_file_reference' => ['columns' => ['title' => ['config' => ['type' => 'input']]]]];
         $GLOBALS['LANG']    = self::createStub(LanguageService::class);
         $GLOBALS['BE_USER'] = $this->liveUser();
 
@@ -134,17 +134,17 @@ final class ReplaceFileReferenceToolTest extends AbstractUnitTestCase
      */
     public static function refusedArguments(): iterable
     {
-        yield 'no reference'       => [['action' => 'remove'], 'exactly one reference'];
-        yield 'zero reference'     => [['reference' => 0, 'action' => 'remove'], 'exactly one reference'];
-        yield 'no action'          => [['reference' => 1], '"action" must be "replace" or "remove"'];
-        yield 'unknown action'     => [['reference' => 1, 'action' => 'delete'], '"action" must be "replace" or "remove"'];
-        yield 'replace, no file'   => [['reference' => 1, 'action' => 'replace'], '"replace" needs "file"'];
-        yield 'remove with file'   => [['reference' => 1, 'action' => 'remove', 'file' => 2], '"file" belongs to "replace"'];
-        yield 'remove with text'   => [['reference' => 1, 'action' => 'remove', 'title' => 'x'], '"title" belongs to "replace"'];
-        yield 'text too long'      => [['reference' => 1, 'action' => 'replace', 'file' => 2, 'alternative' => str_repeat('a', 1001)], 'longer than 1000'];
-        yield 'text not a string'  => [['reference' => 1, 'action' => 'replace', 'file' => 2, 'title' => ['x']], 'must be a string'];
+        yield 'no reference' => [['action' => 'remove'], 'exactly one reference'];
+        yield 'zero reference' => [['reference' => 0, 'action' => 'remove'], 'exactly one reference'];
+        yield 'no action' => [['reference' => 1], '"action" must be "replace" or "remove"'];
+        yield 'unknown action' => [['reference' => 1, 'action' => 'delete'], '"action" must be "replace" or "remove"'];
+        yield 'replace, no file' => [['reference' => 1, 'action' => 'replace'], '"replace" needs "file"'];
+        yield 'remove with file' => [['reference' => 1, 'action' => 'remove', 'file' => 2], '"file" belongs to "replace"'];
+        yield 'remove with text' => [['reference' => 1, 'action' => 'remove', 'title' => 'x'], '"title" belongs to "replace"'];
+        yield 'text too long' => [['reference' => 1, 'action' => 'replace', 'file' => 2, 'alternative' => str_repeat('a', 1001)], 'longer than 1000'];
+        yield 'text not a string' => [['reference' => 1, 'action' => 'replace', 'file' => 2, 'title' => ['x']], 'must be a string'];
         // A crop describes the old file; it is never an argument.
-        yield 'crop smuggled in'   => [['reference' => 1, 'action' => 'replace', 'file' => 2, 'crop' => '{}'], 'not an argument of this tool'];
+        yield 'crop smuggled in' => [['reference' => 1, 'action' => 'replace', 'file' => 2, 'crop' => '{}'], 'not an argument of this tool'];
     }
 
     /**

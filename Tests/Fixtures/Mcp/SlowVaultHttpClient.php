@@ -29,7 +29,7 @@ use Psr\Http\Message\ResponseInterface;
  * is how a leg "takes" time without the suite sleeping.
  *
  * It is not
- * {@see \Netresearch\NrLlm\Tests\Fixtures\Mcp\Conformance\RecordingVaultHttpClient}
+ * {@see Conformance\RecordingVaultHttpClient}
  * widened: that one exists to prove a client is CONFIGURED and never sends, and
  * a double that both refuses to send and sends is a double that proves neither.
  *

@@ -76,7 +76,7 @@ final class SkillSyncServiceOrphanEligibilityTest extends AbstractUnitTestCase
     {
         $method = (new ReflectionClass($this->subject))->getMethod('orphanEligible');
 
-        return (bool)$method->invoke($this->subject, $identifier, $reachedPrefixes, $listedPrefixes);
+        return (bool) $method->invoke($this->subject, $identifier, $reachedPrefixes, $listedPrefixes);
     }
 
     /**
@@ -86,7 +86,7 @@ final class SkillSyncServiceOrphanEligibilityTest extends AbstractUnitTestCase
     {
         $method = (new ReflectionClass($this->subject))->getMethod('inScope');
 
-        return (bool)$method->invoke($this->subject, $identifier, $prefixes);
+        return (bool) $method->invoke($this->subject, $identifier, $prefixes);
     }
 
     #[Test]

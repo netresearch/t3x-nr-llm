@@ -16,7 +16,7 @@ use Throwable;
  * Groq model discovery via the shared Bearer listing, carrying the API's
  * context_window. A failure yields an empty list.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class GroqModelDiscoverer extends AbstractModelDiscoverer
 {
@@ -43,7 +43,7 @@ final class GroqModelDiscoverer extends AbstractModelDiscoverer
                 }
 
                 $contextWindow = isset($model['context_window']) && is_numeric($model['context_window'])
-                    ? (int)$model['context_window']
+                    ? (int) $model['context_window']
                     : 0;
 
                 $models[] = new DiscoveredModel(

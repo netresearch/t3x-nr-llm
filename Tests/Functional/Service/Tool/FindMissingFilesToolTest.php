@@ -39,16 +39,16 @@ final class FindMissingFilesToolTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(Connection::class, $files);
 
         $files->insert('sys_file', [
-            'uid' => 30, 'storage' => 1, 'identifier' => '/lost.pdf',
+            'uid'  => 30, 'storage' => 1, 'identifier' => '/lost.pdf',
             'name' => 'lost.pdf', 'mime_type' => 'application/pdf', 'size' => 1234, 'missing' => 1,
         ]);
         $files->insert('sys_file', [
-            'uid' => 31, 'storage' => 1, 'identifier' => '/present.pdf',
+            'uid'  => 31, 'storage' => 1, 'identifier' => '/present.pdf',
             'name' => 'present.pdf', 'mime_type' => 'application/pdf', 'size' => 10, 'missing' => 0,
         ]);
         // Missing, but in a storage outside the gate.
         $files->insert('sys_file', [
-            'uid' => 32, 'storage' => 2, 'identifier' => '/foreign-lost.pdf',
+            'uid'  => 32, 'storage' => 2, 'identifier' => '/foreign-lost.pdf',
             'name' => 'foreign-lost.pdf', 'mime_type' => 'application/pdf', 'size' => 20, 'missing' => 1,
         ]);
 
@@ -62,7 +62,7 @@ final class FindMissingFilesToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function listsOnlyMissingFilesOfTheEffectiveStorages(): void
     {
-        $user = $this->setUpBackendUser(1);
+        $user    = $this->setUpBackendUser(1);
         $context = ToolExecutionContext::fromBackendUser($user);
 
         $output = $this->tool->execute([], $context)->content;
@@ -76,7 +76,7 @@ final class FindMissingFilesToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function storageArgumentOutsideTheGateIsDenied(): void
     {
-        $user = $this->setUpBackendUser(1);
+        $user    = $this->setUpBackendUser(1);
         $context = ToolExecutionContext::fromBackendUser($user);
 
         self::assertSame('No accessible file storages.', $this->tool->execute(['storage' => 2], $context)->content);

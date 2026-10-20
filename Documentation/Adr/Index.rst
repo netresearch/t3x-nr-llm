@@ -616,3 +616,6 @@ Tools
    Adr219WorkerOperations
    Adr220EvaluationResultsNameTheirGenerator
    Adr221SkillSynchronizationHoldsADurableLease
+   Adr225AgentOutcomesSurviveOptionalDiagnosticFailures
+   Adr227McpRepliesBelongToTheirRequest
+   Adr228ProcessRunsRecordTheirLineage

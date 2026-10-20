@@ -144,33 +144,33 @@ final class ExternalUrlGuardTest extends TestCase
     public static function refusedUrls(): array
     {
         return [
-            'file scheme'              => ['file:///etc/passwd', 'only http and https'],
-            'gopher scheme'            => ['gopher://example.org/', 'only http and https'],
-            'ftp scheme'               => ['ftp://example.org/', 'only http and https'],
-            'no scheme'                => ['example.org/page', 'only http and https'],
-            'userinfo'                 => ['https://user:pw@example.org/', 'credentials'],
-            'user only'                => ['https://user@example.org/', 'credentials'],
-            'non-default port'         => ['https://example.org:8443/', 'port 8443'],
-            'http on 443'              => ['http://example.org:443/', 'port 443'],
-            'loopback literal'         => ['http://127.0.0.1/', 'private'],
-            'metadata literal'         => ['http://169.254.169.254/latest/meta-data/', 'private'],
-            'ipv6 loopback'            => ['http://[::1]/', 'private'],
-            'ipv4-mapped loopback'     => ['http://[::ffff:127.0.0.1]/', 'private'],
-            'aws ipv6 metadata'        => ['http://[fd00:ec2::254]/', 'private'],
-            'decimal ip'               => ['http://2130706433/', 'numeric host'],
-            'octal ip'                 => ['http://0177.0.0.1/', 'numeric host'],
-            'hex ip'                   => ['http://0x7f.0.0.1/', 'numeric host'],
-            'short ip'                 => ['http://127.1/', 'numeric host'],
-            'resolves to private'      => ['https://internal.example.org/', 'resolves to a private'],
-            'one of two is private'    => ['https://rebind.example.org/', 'resolves to a private'],
-            'resolves to metadata'     => ['https://metadata.example.org/', 'resolves to a private'],
-            'does not resolve'         => ['https://nowhere.example.org/', 'does not resolve'],
-            'hosts-file-only name'     => ['http://db/', 'does not resolve'],
-            'idn'                      => ['https://bücher.example/', 'no valid host'],
+            'file scheme'           => ['file:///etc/passwd', 'only http and https'],
+            'gopher scheme'         => ['gopher://example.org/', 'only http and https'],
+            'ftp scheme'            => ['ftp://example.org/', 'only http and https'],
+            'no scheme'             => ['example.org/page', 'only http and https'],
+            'userinfo'              => ['https://user:pw@example.org/', 'credentials'],
+            'user only'             => ['https://user@example.org/', 'credentials'],
+            'non-default port'      => ['https://example.org:8443/', 'port 8443'],
+            'http on 443'           => ['http://example.org:443/', 'port 443'],
+            'loopback literal'      => ['http://127.0.0.1/', 'private'],
+            'metadata literal'      => ['http://169.254.169.254/latest/meta-data/', 'private'],
+            'ipv6 loopback'         => ['http://[::1]/', 'private'],
+            'ipv4-mapped loopback'  => ['http://[::ffff:127.0.0.1]/', 'private'],
+            'aws ipv6 metadata'     => ['http://[fd00:ec2::254]/', 'private'],
+            'decimal ip'            => ['http://2130706433/', 'numeric host'],
+            'octal ip'              => ['http://0177.0.0.1/', 'numeric host'],
+            'hex ip'                => ['http://0x7f.0.0.1/', 'numeric host'],
+            'short ip'              => ['http://127.1/', 'numeric host'],
+            'resolves to private'   => ['https://internal.example.org/', 'resolves to a private'],
+            'one of two is private' => ['https://rebind.example.org/', 'resolves to a private'],
+            'resolves to metadata'  => ['https://metadata.example.org/', 'resolves to a private'],
+            'does not resolve'      => ['https://nowhere.example.org/', 'does not resolve'],
+            'hosts-file-only name'  => ['http://db/', 'does not resolve'],
+            'idn'                   => ['https://bücher.example/', 'no valid host'],
             // parse_url reads `example.org\` as a user name; refused either way.
-            'backslash before @'       => ['https://example.org\\@evil.org/', 'credentials'],
-            'percent in host'          => ['https://exa%6Dple.org/', 'no valid host'],
-            'empty host'               => ['https:///path', 'cannot be parsed'],
+            'backslash before @' => ['https://example.org\\@evil.org/', 'credentials'],
+            'percent in host'    => ['https://exa%6Dple.org/', 'no valid host'],
+            'empty host'         => ['https:///path', 'cannot be parsed'],
         ];
     }
 
@@ -396,7 +396,7 @@ final class ExternalUrlGuardTest extends TestCase
     #[Test]
     public function aHostIsExcludedOnlyWhenEveryNoProxyListExcludesIt(): void
     {
-        $dns = ['example.org' => ['93.184.215.14']];
+        $dns   = ['example.org' => ['93.184.215.14']];
         $proxy = ['HTTPS_PROXY' => 'http://proxy.corp:3128'];
 
         self::assertFalse($this->guard($dns, env: $proxy + ['NO_PROXY' => 'example.org', 'no_proxy' => 'other.org'])->check('web', 'https://example.org/')->allowed);
@@ -448,8 +448,8 @@ final class ExternalUrlGuardTest extends TestCase
         }
 
         $GLOBALS['TYPO3_CONF_VARS']['HTTP']['proxy'] = ['https' => 'http://proxy.corp:3128', 'no' => ['example.org']];
-        $dns = ['example.org' => ['93.184.215.14'], 'other.org' => ['93.184.215.15']];
-        $env = ['HTTPS_PROXY' => 'http://env-proxy.corp:3128'];
+        $dns                                         = ['example.org' => ['93.184.215.14'], 'other.org' => ['93.184.215.15']];
+        $env                                         = ['HTTPS_PROXY' => 'http://env-proxy.corp:3128'];
 
         self::assertTrue($this->guard($dns, env: $env)->check('web', 'https://example.org/')->allowed);
         self::assertFalse($this->guard($dns, env: $env)->check('web', 'https://other.org/')->allowed);
@@ -459,7 +459,7 @@ final class ExternalUrlGuardTest extends TestCase
     public function theProxyIsPermittedOnlyTogetherWithAnAllowlist(): void
     {
         $GLOBALS['TYPO3_CONF_VARS']['HTTP']['proxy'] = 'http://proxy.corp:3128';
-        $dns = ['example.org' => ['93.184.215.14']];
+        $dns                                         = ['example.org' => ['93.184.215.14']];
 
         self::assertFalse($this->guard($dns, settings: ['allowViaProxy' => '1'])->check('web', 'https://example.org/')->allowed);
         self::assertTrue($this->guard($dns, allowed: 'example.org', settings: ['allowViaProxy' => '1'])->check('web', 'https://example.org/')->allowed);

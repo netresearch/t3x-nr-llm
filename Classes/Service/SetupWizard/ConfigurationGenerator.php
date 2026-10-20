@@ -31,7 +31,7 @@ use Throwable;
  * cannot be coerced into an SSRF request — the same hardened path the
  * providers and specialised services use.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class ConfigurationGenerator
 {
@@ -80,7 +80,7 @@ final class ConfigurationGenerator
     ) {
         // Initialise the readonly collaborators declared in
         // SecureHttpDispatchTrait (no promotion — the trait owns them).
-        $this->vault = $vault;
+        $this->vault             = $vault;
         $this->httpClientFactory = $httpClientFactory;
     }
 
@@ -138,7 +138,7 @@ final class ConfigurationGenerator
     private function selectGenerationModel(array $models): ?DiscoveredModel
     {
         // Prefer recommended models, then by context length
-        $candidates = array_filter($models, fn(DiscoveredModel $m): bool => $m->recommended);
+        $candidates = array_filter($models, fn (DiscoveredModel $m): bool => $m->recommended);
 
         if ($candidates === []) {
             $candidates = $models;
@@ -151,8 +151,7 @@ final class ConfigurationGenerator
         // Sort by context length (prefer larger context)
         usort(
             $candidates,
-            fn(DiscoveredModel $a, DiscoveredModel $b): int
-            => $b->contextLength <=> $a->contextLength,
+            fn (DiscoveredModel $a, DiscoveredModel $b): int => $b->contextLength <=> $a->contextLength,
         );
 
         return $candidates[0];
@@ -166,7 +165,7 @@ final class ConfigurationGenerator
     private function buildPrompt(array $models): string
     {
         $modelList = array_map(
-            fn(DiscoveredModel $m): string => sprintf(
+            fn (DiscoveredModel $m): string => sprintf(
                 '- %s (%s): %s',
                 $m->name,
                 $m->modelId,
@@ -192,8 +191,8 @@ final class ConfigurationGenerator
     ): string {
         $body = match ($provider->adapterType) {
             'anthropic' => $this->buildAnthropicRequest($model->modelId, $prompt),
-            'gemini' => $this->buildGeminiRequest($prompt),
-            default => $this->buildOpenAIRequest($model->modelId, $prompt),
+            'gemini'    => $this->buildGeminiRequest($prompt),
+            default     => $this->buildOpenAIRequest($model->modelId, $prompt),
         };
 
         $endpoint = $this->getCompletionEndpoint($provider);
@@ -208,7 +207,7 @@ final class ConfigurationGenerator
                 ->withHeader('x-api-key', $apiKey)
                 ->withHeader('anthropic-version', '2023-06-01'),
             'gemini' => $request, // Key is in URL
-            default => $request->withHeader('Authorization', 'Bearer ' . $apiKey),
+            default  => $request->withHeader('Authorization', 'Bearer ' . $apiKey),
         };
 
         $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
@@ -236,8 +235,8 @@ final class ConfigurationGenerator
     {
         return match ($adapterType) {
             'anthropic' => $this->extractAnthropicContent($data),
-            'gemini' => $this->extractGeminiContent($data),
-            default => $this->extractOpenAIContent($data),
+            'gemini'    => $this->extractGeminiContent($data),
+            default     => $this->extractOpenAIContent($data),
         };
     }
 
@@ -259,6 +258,7 @@ final class ConfigurationGenerator
         }
 
         $text = $firstBlock['text'] ?? '';
+
         return is_string($text) ? $text : '';
     }
 
@@ -281,6 +281,7 @@ final class ConfigurationGenerator
         }
 
         $text = $this->arrayAt($parts, 0)['text'] ?? '';
+
         return is_string($text) ? $text : '';
     }
 
@@ -295,6 +296,7 @@ final class ConfigurationGenerator
     private function arrayAt(array $data, int|string $key): array
     {
         $value = $data[$key] ?? [];
+
         return is_array($value) ? $value : [];
     }
 
@@ -312,6 +314,7 @@ final class ConfigurationGenerator
 
         $message = $this->arrayAt($this->arrayAt($choices, 0), 'message');
         $content = $message['content'] ?? '';
+
         return is_string($content) ? $content : '';
     }
 
@@ -321,10 +324,11 @@ final class ConfigurationGenerator
     private function getCompletionEndpoint(DetectedProvider $provider): string
     {
         $endpoint = rtrim($provider->endpoint, '/');
+
         return match ($provider->adapterType) {
             'anthropic' => $endpoint . '/messages',
-            'gemini' => $endpoint . '/models/gemini-3-flash:generateContent',
-            default => $endpoint . '/chat/completions',
+            'gemini'    => $endpoint . '/models/gemini-3-flash:generateContent',
+            default     => $endpoint . '/chat/completions',
         };
     }
 
@@ -336,13 +340,13 @@ final class ConfigurationGenerator
     private function buildOpenAIRequest(string $model, string $prompt): array
     {
         return [
-            'model' => $model,
+            'model'    => $model,
             'messages' => [
                 ['role' => 'system', 'content' => self::SYSTEM_PROMPT],
                 ['role' => 'user', 'content' => $prompt],
             ],
-            'temperature' => 0.7,
-            'max_tokens' => 4096,
+            'temperature'     => 0.7,
+            'max_tokens'      => 4096,
             'response_format' => ['type' => 'json_object'],
         ];
     }
@@ -355,13 +359,13 @@ final class ConfigurationGenerator
     private function buildAnthropicRequest(string $model, string $prompt): array
     {
         return [
-            'model' => $model,
-            'system' => self::SYSTEM_PROMPT,
+            'model'    => $model,
+            'system'   => self::SYSTEM_PROMPT,
             'messages' => [
                 ['role' => 'user', 'content' => $prompt . "\n\nRespond with valid JSON only."],
             ],
             'temperature' => 0.7,
-            'max_tokens' => 4096,
+            'max_tokens'  => 4096,
         ];
     }
 
@@ -381,8 +385,8 @@ final class ConfigurationGenerator
                 ],
             ],
             'generationConfig' => [
-                'temperature' => 0.7,
-                'maxOutputTokens' => 4096,
+                'temperature'      => 0.7,
+                'maxOutputTokens'  => 4096,
                 'responseMimeType' => 'application/json',
             ],
         ];
@@ -433,16 +437,16 @@ final class ConfigurationGenerator
     private function buildConfiguration(array $item, string $modelId): ?SuggestedConfiguration
     {
         $identifier = $item['identifier'] ?? null;
-        $name = $item['name'] ?? null;
+        $name       = $item['name'] ?? null;
 
         if (!is_string($identifier) || !is_string($name)) {
             return null;
         }
 
-        $description = $item['description'] ?? '';
+        $description  = $item['description'] ?? '';
         $systemPrompt = $item['systemPrompt'] ?? $item['system_prompt'] ?? '';
-        $temperature = $item['temperature'] ?? 0.7;
-        $maxTokens = $item['maxTokens'] ?? $item['max_tokens'] ?? 4096;
+        $temperature  = $item['temperature'] ?? 0.7;
+        $maxTokens    = $item['maxTokens'] ?? $item['max_tokens'] ?? 4096;
 
         return new SuggestedConfiguration(
             identifier: $this->sanitizeIdentifier($identifier),
@@ -450,8 +454,8 @@ final class ConfigurationGenerator
             description: is_string($description) ? $description : '',
             systemPrompt: is_string($systemPrompt) ? $systemPrompt : '',
             recommendedModelId: $modelId,
-            temperature: is_numeric($temperature) ? (float)$temperature : 0.7,
-            maxTokens: is_numeric($maxTokens) ? (int)$maxTokens : 4096,
+            temperature: is_numeric($temperature) ? (float) $temperature : 0.7,
+            maxTokens: is_numeric($maxTokens) ? (int) $maxTokens : 4096,
         );
     }
 
@@ -494,9 +498,9 @@ final class ConfigurationGenerator
     {
         // Convert to lowercase, replace spaces/underscores with hyphens
         $identifier = strtolower(trim($identifier));
-        $identifier = (string)preg_replace('/[\s_]+/', '-', $identifier);
-        $identifier = (string)preg_replace('/[^a-z0-9-]/', '', $identifier);
-        $identifier = (string)preg_replace('/-+/', '-', $identifier);
+        $identifier = (string) preg_replace('/[\s_]+/', '-', $identifier);
+        $identifier = (string) preg_replace('/[^a-z0-9-]/', '', $identifier);
+        $identifier = (string) preg_replace('/-+/', '-', $identifier);
 
         return trim($identifier, '-');
     }

@@ -42,34 +42,34 @@ final class PackToolReadinessTest extends TestCase
             {
                 return [
                     [
-                        'name' => PackToolReadinessTest::ALT_TEXT,
-                        'description' => 'Sets a file alternative text.',
-                        'group' => 'editing',
-                        'enabled' => true,
-                        'toolEnabled' => true,
-                        'groupEnabled' => true,
+                        'name'           => PackToolReadinessTest::ALT_TEXT,
+                        'description'    => 'Sets a file alternative text.',
+                        'group'          => 'editing',
+                        'enabled'        => true,
+                        'toolEnabled'    => true,
+                        'groupEnabled'   => true,
                         'defaultEnabled' => false,
-                        'overridden' => true,
+                        'overridden'     => true,
                     ],
                     [
-                        'name' => PackToolReadinessTest::TRANSLATION,
-                        'description' => 'Creates a translation draft.',
-                        'group' => 'editing',
-                        'enabled' => false,
-                        'toolEnabled' => false,
-                        'groupEnabled' => true,
+                        'name'           => PackToolReadinessTest::TRANSLATION,
+                        'description'    => 'Creates a translation draft.',
+                        'group'          => 'editing',
+                        'enabled'        => false,
+                        'toolEnabled'    => false,
+                        'groupEnabled'   => true,
                         'defaultEnabled' => false,
-                        'overridden' => false,
+                        'overridden'     => false,
                     ],
                     [
-                        'name' => 'get_page',
-                        'description' => 'Reads a page.',
-                        'group' => 'content',
-                        'enabled' => true,
-                        'toolEnabled' => true,
-                        'groupEnabled' => true,
+                        'name'           => 'get_page',
+                        'description'    => 'Reads a page.',
+                        'group'          => 'content',
+                        'enabled'        => true,
+                        'toolEnabled'    => true,
+                        'groupEnabled'   => true,
                         'defaultEnabled' => true,
-                        'overridden' => false,
+                        'overridden'     => false,
                     ],
                 ];
             }
@@ -173,7 +173,7 @@ final class PackToolReadinessTest extends TestCase
 
         self::assertSame(
             [self::TRANSLATION, 'nope', self::ALT_TEXT],
-            array_map(static fn(PackEditorActionState $state): string => $state->toolName, $states),
+            array_map(static fn (PackEditorActionState $state): string => $state->toolName, $states),
         );
     }
 

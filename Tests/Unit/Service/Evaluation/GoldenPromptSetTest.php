@@ -42,11 +42,11 @@ final class GoldenPromptSetTest extends TestCase
     public static function invalidIdentifierProvider(): array
     {
         return [
-            'empty' => [''],
-            'uppercase' => ['NrAiSearch.chat'],
-            'leading dot' => ['.chat'],
+            'empty'        => [''],
+            'uppercase'    => ['NrAiSearch.chat'],
+            'leading dot'  => ['.chat'],
             'trailing dot' => ['chat.'],
-            'spaces' => ['nr ai search'],
+            'spaces'       => ['nr ai search'],
         ];
     }
 
@@ -94,7 +94,7 @@ final class GoldenPromptSetTest extends TestCase
     public function withSystemPromptReplacesOnlyTheSystemPrompt(): void
     {
         $assertions = [Assertion::contains('Bonjour')];
-        $prompt = new GoldenPrompt('greet', 'Greet the user', $assertions, 'Be brief.', 'Bonjour !');
+        $prompt     = new GoldenPrompt('greet', 'Greet the user', $assertions, 'Be brief.', 'Bonjour !');
 
         $applied = $prompt->withSystemPrompt('Answer in French.');
 

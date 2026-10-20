@@ -12,6 +12,11 @@ namespace Netresearch\NrLlm\Provider\CircuitBreaker;
 use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
+use function array_key_exists;
+use function is_array;
+use function is_int;
+use function is_string;
+
 /**
  * Resolved circuit breaker tunables (ADR-063).
  *
@@ -54,10 +59,10 @@ final readonly class CircuitBreakerConfig
             $config = [];
         }
 
-        $circuit = \is_array($config['circuitBreaker'] ?? null) ? $config['circuitBreaker'] : [];
+        $circuit = is_array($config['circuitBreaker'] ?? null) ? $config['circuitBreaker'] : [];
 
         return new self(
-            enabled: !\array_key_exists('enabled', $circuit) || (bool)$circuit['enabled'],
+            enabled: !array_key_exists('enabled', $circuit) || (bool) $circuit['enabled'],
             failureThreshold: self::positiveIntOr($circuit['failureThreshold'] ?? null, self::DEFAULT_FAILURE_THRESHOLD),
             cooldownSeconds: self::positiveIntOr($circuit['cooldownSeconds'] ?? null, self::DEFAULT_COOLDOWN_SECONDS),
         );
@@ -65,12 +70,12 @@ final readonly class CircuitBreakerConfig
 
     private static function positiveIntOr(mixed $value, int $default): int
     {
-        if (\is_int($value) && $value > 0) {
+        if (is_int($value) && $value > 0) {
             return $value;
         }
 
-        if (\is_string($value) && ctype_digit($value) && (int)$value > 0) {
-            return (int)$value;
+        if (is_string($value) && ctype_digit($value) && (int) $value > 0) {
+            return (int) $value;
         }
 
         return $default;

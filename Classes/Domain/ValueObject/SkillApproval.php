@@ -18,7 +18,7 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  * approved and when. A pinned run composes a section from this snapshot, and
  * the approval form diffs the current version against it.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class SkillApproval
 {

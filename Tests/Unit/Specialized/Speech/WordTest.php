@@ -59,9 +59,9 @@ class WordTest extends AbstractUnitTestCase
     public function fromWhisperResponseCreatesWord(): void
     {
         $data = [
-            'word' => 'transcribed',
+            'word'  => 'transcribed',
             'start' => 5.2,
-            'end' => 6.8,
+            'end'   => 6.8,
         ];
 
         $word = Word::fromWhisperResponse($data);
@@ -85,9 +85,9 @@ class WordTest extends AbstractUnitTestCase
     public function fromWhisperResponseHandlesInvalidWordType(): void
     {
         $data = [
-            'word' => 123,
+            'word'  => 123,
             'start' => 1.0,
-            'end' => 2.0,
+            'end'   => 2.0,
         ];
 
         $word = Word::fromWhisperResponse($data);
@@ -99,9 +99,9 @@ class WordTest extends AbstractUnitTestCase
     public function fromWhisperResponseHandlesIntegerTimings(): void
     {
         $data = [
-            'word' => 'test',
+            'word'  => 'test',
             'start' => 5,
-            'end' => 10,
+            'end'   => 10,
         ];
 
         $word = Word::fromWhisperResponse($data);
@@ -114,9 +114,9 @@ class WordTest extends AbstractUnitTestCase
     public function fromWhisperResponseHandlesInvalidTimingTypes(): void
     {
         $data = [
-            'word' => 'test',
+            'word'  => 'test',
             'start' => 'invalid',
-            'end' => ['array'],
+            'end'   => ['array'],
         ];
 
         $word = Word::fromWhisperResponse($data);

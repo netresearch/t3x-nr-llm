@@ -52,11 +52,11 @@ trait ServiceConfigurationTrait
     protected function loadOpenAiServiceConfiguration(array $config, array $servicePath): void
     {
         $apiKeyIdentifier = $this->resolveScalarConfig($config, ['providers', 'openai', 'apiKeyIdentifier']);
-        $baseUrl = $this->resolveScalarConfig($config, [...$servicePath, 'baseUrl']);
-        $timeout = $this->resolveScalarConfig($config, [...$servicePath, 'timeout']);
+        $baseUrl          = $this->resolveScalarConfig($config, [...$servicePath, 'baseUrl']);
+        $timeout          = $this->resolveScalarConfig($config, [...$servicePath, 'timeout']);
 
         $this->apiKeyIdentifier = is_string($apiKeyIdentifier) ? $apiKeyIdentifier : '';
-        $this->baseUrl = $this->nonEmptyStringOrDefault($baseUrl, $this->getDefaultBaseUrl());
-        $this->timeout = is_numeric($timeout) ? (int)$timeout : $this->getDefaultTimeout();
+        $this->baseUrl          = $this->nonEmptyStringOrDefault($baseUrl, $this->getDefaultBaseUrl());
+        $this->timeout          = is_numeric($timeout) ? (int) $timeout : $this->getDefaultTimeout();
     }
 }
