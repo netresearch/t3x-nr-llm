@@ -14,6 +14,8 @@ use Throwable;
 use TYPO3\CMS\Core\Cache\CacheManager as Typo3CacheManager;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 
+use function is_array;
+
 /**
  * Cache-backed circuit state store (ADR-063).
  *
@@ -52,7 +54,7 @@ final class CacheCircuitBreakerStore implements CircuitBreakerStoreInterface
             return CircuitState::closed();
         }
 
-        if (!\is_array($cached)) {
+        if (!is_array($cached)) {
             return CircuitState::closed();
         }
 

@@ -67,6 +67,8 @@ Optional
 
    Maximum context window in tokens.
 
+.. _confval-model-max-output-tokens:
+
 .. confval:: max_output_tokens
    :name: confval-model-max-output-tokens
    :type: integer

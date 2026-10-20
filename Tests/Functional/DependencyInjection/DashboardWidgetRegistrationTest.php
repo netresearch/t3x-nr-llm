@@ -14,6 +14,8 @@ use TYPO3\CMS\Core\Imaging\IconRegistry;
 use TYPO3\CMS\Dashboard\WidgetRegistry;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
+use const E_WARNING;
+
 /**
  * Regression test for the optional dashboard widget registration.
  *
@@ -60,9 +62,9 @@ final class DashboardWidgetRegistrationTest extends FunctionalTestCase
     protected function setUp(): void
     {
         set_error_handler(
-            static fn(int $errno, string $errstr, string $errfile): bool => str_contains($errfile, 'Crypto/HashService.php')
+            static fn (int $errno, string $errstr, string $errfile): bool => str_contains($errfile, 'Crypto/HashService.php')
                 && (str_contains($errstr, 'TYPO3_CONF_VARS') || str_contains($errstr, 'array offset')),
-            \E_WARNING,
+            E_WARNING,
         );
 
         try {
@@ -114,7 +116,7 @@ final class DashboardWidgetRegistrationTest extends FunctionalTestCase
 
         $checked = 0;
         foreach ($registry->getAllWidgets() as $identifier => $widget) {
-            if (!str_starts_with((string)$identifier, 'nrllm-')) {
+            if (!str_starts_with((string) $identifier, 'nrllm-')) {
                 continue;
             }
 

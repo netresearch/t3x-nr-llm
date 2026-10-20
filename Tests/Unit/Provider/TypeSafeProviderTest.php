@@ -267,9 +267,9 @@ final class TypeSafeProviderTest extends AbstractDecisionProviderTestCase
         $provider = $this->typeSafe([]);
 
         foreach ([
-            'chat'       => static fn(): mixed => $provider->chatCompletion([]),
-            'completion' => static fn(): mixed => $provider->complete('hi'),
-            'embeddings' => static fn(): mixed => $provider->embeddings('hi'),
+            'chat'       => static fn (): mixed => $provider->chatCompletion([]),
+            'completion' => static fn (): mixed => $provider->complete('hi'),
+            'embeddings' => static fn (): mixed => $provider->embeddings('hi'),
         ] as $feature => $call) {
             try {
                 $call();

@@ -13,6 +13,9 @@ use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Http\RequestFactory;
 
+use function is_float;
+use function is_int;
+
 /**
  * Selects the reranker implementation from configuration (ADR-075): an
  * empty ``rerankerEndpoint`` keeps candidates in input order
@@ -50,8 +53,8 @@ final readonly class RerankerFactory
     {
         $raw = trim($this->readString('rerankerTimeout'));
 
-        if ($raw !== '' && is_numeric($raw) && (float)$raw > 0.0) {
-            return (float)$raw;
+        if ($raw !== '' && is_numeric($raw) && (float) $raw > 0.0) {
+            return (float) $raw;
         }
 
         return self::DEFAULT_TIMEOUT;
@@ -68,8 +71,8 @@ final readonly class RerankerFactory
         // Values saved through the install tool arrive as strings, but int-
         // typed template fields (rerankerTimeout, int+) may come back as int
         // when set programmatically.
-        if (\is_int($raw) || \is_float($raw)) {
-            return (string)$raw;
+        if (is_int($raw) || is_float($raw)) {
+            return (string) $raw;
         }
 
         return is_string($raw) ? $raw : '';

@@ -42,13 +42,13 @@ final readonly class QuestionEvaluation
     public function toArray(): array
     {
         return [
-            'questionId' => $this->questionId,
-            'form' => $this->form->value,
-            'hardClass' => $this->hardClass,
-            'top1Hit' => $this->top1Hit,
-            'top3Hit' => $this->top3Hit,
+            'questionId'           => $this->questionId,
+            'form'                 => $this->form->value,
+            'hardClass'            => $this->hardClass,
+            'top1Hit'              => $this->top1Hit,
+            'top3Hit'              => $this->top3Hit,
             'retrievedDocumentIds' => $this->retrievedDocumentIds,
-            'latencyMs' => $this->latencyMs,
+            'latencyMs'            => $this->latencyMs,
         ];
     }
 }

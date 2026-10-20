@@ -85,9 +85,9 @@ final class FailsLikeAFlashMessageHook
 
     public static function reset(): void
     {
-        self::$failAt     = null;
-        self::$throw      = null;
-        self::$onlyForUid = null;
+        self::$failAt        = null;
+        self::$throw         = null;
+        self::$onlyForUid    = null;
         self::$onlyWithField = null;
         self::$onlyUpdates   = false;
         self::$dropField     = null;
@@ -129,7 +129,7 @@ final class FailsLikeAFlashMessageHook
         }
 
         if (self::$failAt === self::POST_PROCESS_FIELD_ARRAY
-            && (self::$onlyForUid === null || (int)$id === self::$onlyForUid)
+            && (self::$onlyForUid === null || (int) $id === self::$onlyForUid)
             && (self::$onlyWithField === null || array_key_exists(self::$onlyWithField, $fieldArray))
             && (!self::$onlyUpdates || $status === 'update')
         ) {

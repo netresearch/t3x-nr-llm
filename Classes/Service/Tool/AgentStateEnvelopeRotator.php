@@ -17,6 +17,8 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Expression\CompositeExpression;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 
+use function is_string;
+
 /**
  * Re-wraps the encrypted agent-state columns when the nr-vault master key is
  * rotated (ADR-114, nr-vault ADR-033).
@@ -46,7 +48,7 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
      * load-bearing rather than cosmetic.
      */
     private const SEALED_COLUMNS = [
-        'queued_request' => AgentStateCodec::PURPOSE_QUEUED_REQUEST,
+        'queued_request'  => AgentStateCodec::PURPOSE_QUEUED_REQUEST,
         'suspended_state' => AgentStateCodec::PURPOSE_SUSPENDED_STATE,
     ];
 
@@ -73,7 +75,7 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
     public function countEnvelopes(): int
     {
         $connection = $this->connection();
-        $total = 0;
+        $total      = 0;
 
         foreach (array_keys(self::SEALED_COLUMNS) as $column) {
             $queryBuilder = $connection->createQueryBuilder();
@@ -92,7 +94,7 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
     public function rewrapAll(EnvelopeRotationContext $context): int
     {
         $connection = $this->connection();
-        $rewrapped = 0;
+        $rewrapped  = 0;
 
         foreach (self::SEALED_COLUMNS as $column => $identifier) {
             $lastUid = 0;
@@ -170,8 +172,8 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
             $value = $row[$column] ?? null;
 
             $rows[] = [
-                'uid' => self::toInt($row['uid'] ?? null),
-                'value' => \is_string($value) ? $value : '',
+                'uid'   => self::toInt($row['uid'] ?? null),
+                'value' => is_string($value) ? $value : '',
             ];
         }
 
@@ -192,7 +194,7 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
     {
         return $queryBuilder->expr()->or(
             ...array_map(
-                static fn(string $prefix): string => $queryBuilder->expr()->like(
+                static fn (string $prefix): string => $queryBuilder->expr()->like(
                     $column,
                     $queryBuilder->createNamedParameter(
                         $queryBuilder->escapeLikeWildcards($prefix) . '%',

@@ -26,33 +26,12 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 
 /**
- * One tool imported from one MCP server (ADR-116).
- *
- * Constructed per catalogue row by {@see McpToolProvider}, never by the
- * container: its arguments are a database row. It is therefore excluded from
- * autowiring in `Configuration/Services.yaml` — without that entry the
- * `nr_llm.tool` autoconfigure tag on {@see ToolInterface} would have the
- * container try to build it, and compilation fails on the scalar arguments.
- *
- * It declares both classifications explicitly, which is what makes
- * {@see RemoteToolInterface}'s rules effective without touching the resolvers:
- * each resolver already prefers an explicit declaration over its default, so
- * the operator's choice simply wins.
- *
- * - The DATA CLASS is the one the operator declared on the server. There is no
- *   code here to derive it from, and the group-default path would have landed
- *   on the fail-closed `SECRET_ADJACENT` for every `mcp_*` group, which reads
- *   like a decision but is only an absence.
- * - The EFFECT is a non-idempotent write unless the catalogue says otherwise.
- *   The builtin default is the opposite because every builtin reads; a remote
- *   tool's body is not ours to inspect, so the assumption has to be that it
- *   changed something and must not be replayed on a retry (ADR-111/112).
- * - The APPROVAL requirement is the one the operator declared on the server
- *   (ADR-134). It cannot be read off the effect: `getEffect()` below is a
- *   fail-closed assumption about an uninspectable body, and treating that as
- *   consent-worthy would suspend every remote call including a pure search.
- * - `requiresAdmin()` is hard-wired true. It is not derived from anything the
- *   server sends, because the server is the party the guard exists against.
+ * A catalogue-backed MCP tool with the operator's server data classification.
+ * Remote tools always declare NON_IDEMPOTENT_WRITE: their implementation is
+ * uninspectable, and remote read-only annotations cannot permit replay.
+ * Approval follows the operator-declared server flag independently of that
+ * effect. The administrator requirement is unconditional; a remote server
+ * cannot grant permission through its catalogue or annotations.
  */
 final readonly class McpTool implements ToolInterface, RemoteToolInterface, RemoteApprovalInterface, ToolDataClassInterface, ToolEffectInterface
 {

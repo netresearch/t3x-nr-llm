@@ -52,17 +52,17 @@ final class TextToSpeechService extends AbstractSpecializedService
 
     /** Available voices with their characteristics. */
     private const VOICES = [
-        'alloy' => 'Neutral and balanced',
-        'echo' => 'Warm and conversational',
-        'fable' => 'British-accented, expressive',
-        'onyx' => 'Deep and authoritative',
-        'nova' => 'Youthful and bright',
+        'alloy'   => 'Neutral and balanced',
+        'echo'    => 'Warm and conversational',
+        'fable'   => 'British-accented, expressive',
+        'onyx'    => 'Deep and authoritative',
+        'nova'    => 'Youthful and bright',
         'shimmer' => 'Soft and pleasant',
     ];
 
     /** Available models. */
     private const MODELS = [
-        'tts-1' => 'Standard quality, low latency',
+        'tts-1'    => 'Standard quality, low latency',
         'tts-1-hd' => 'High definition quality',
     ];
 
@@ -75,9 +75,9 @@ final class TextToSpeechService extends AbstractSpecializedService
      * @param string                                      $text    Text to convert to speech (max 4096 chars)
      * @param SpeechSynthesisOptions|array<string, mixed> $options Synthesis options
      *
-     * @throws ServiceUnavailableException
-     *
      * @return SpeechSynthesisResult Speech synthesis result
+     *
+     * @throws ServiceUnavailableException
      */
     public function synthesize(
         string $text,
@@ -94,21 +94,21 @@ final class TextToSpeechService extends AbstractSpecializedService
         $this->enforceBudget($options->getBeUserUid(), $options->getPlannedCost(), $options->configuration);
 
         $optionsArray = $options->toArray();
-        $modelValue = $optionsArray['model'] ?? null;
-        $model = is_string($modelValue) ? $modelValue : self::DEFAULT_MODEL;
-        $voiceValue = $optionsArray['voice'] ?? null;
-        $voice = is_string($voiceValue) ? $voiceValue : self::DEFAULT_VOICE;
-        $formatValue = $optionsArray['response_format'] ?? null;
-        $format = is_string($formatValue) ? $formatValue : 'mp3';
-        $speedValue = $optionsArray['speed'] ?? null;
-        $speed = is_float($speedValue) || is_int($speedValue) ? (float)$speedValue : 1.0;
+        $modelValue   = $optionsArray['model'] ?? null;
+        $model        = is_string($modelValue) ? $modelValue : self::DEFAULT_MODEL;
+        $voiceValue   = $optionsArray['voice'] ?? null;
+        $voice        = is_string($voiceValue) ? $voiceValue : self::DEFAULT_VOICE;
+        $formatValue  = $optionsArray['response_format'] ?? null;
+        $format       = is_string($formatValue) ? $formatValue : 'mp3';
+        $speedValue   = $optionsArray['speed'] ?? null;
+        $speed        = is_float($speedValue) || is_int($speedValue) ? (float) $speedValue : 1.0;
 
         $payload = [
-            'model' => $model,
-            'input' => $text,
-            'voice' => $voice,
+            'model'           => $model,
+            'input'           => $text,
+            'voice'           => $voice,
             'response_format' => $format,
-            'speed' => $speed,
+            'speed'           => $speed,
         ];
 
         // ADR-100: the input character count is the billed unit — carry it on the
@@ -196,7 +196,7 @@ final class TextToSpeechService extends AbstractSpecializedService
             return [$this->synthesize($text, $options)];
         }
 
-        $chunks = $this->splitTextIntoChunks($text);
+        $chunks  = $this->splitTextIntoChunks($text);
         $results = [];
 
         foreach ($chunks as $chunk) {
@@ -331,7 +331,7 @@ final class TextToSpeechService extends AbstractSpecializedService
             return mb_str_split($text, self::MAX_INPUT_LENGTH) ?: [$text];
         }
 
-        $chunks = [];
+        $chunks       = [];
         $currentChunk = '';
 
         foreach ($sentences as $sentence) {
@@ -355,7 +355,7 @@ final class TextToSpeechService extends AbstractSpecializedService
     {
         if (mb_strlen($sentence) > self::MAX_INPUT_LENGTH) {
             if ($currentChunk !== '') {
-                $chunks[] = $currentChunk;
+                $chunks[]     = $currentChunk;
                 $currentChunk = '';
             }
 
@@ -394,9 +394,9 @@ final class TextToSpeechService extends AbstractSpecializedService
             return mb_str_split($sentence, self::MAX_INPUT_LENGTH) ?: [$sentence];
         }
 
-        $chunks = [];
+        $chunks       = [];
         $currentChunk = '';
-        $lastIndex = count($parts) - 1;
+        $lastIndex    = count($parts) - 1;
 
         foreach ($parts as $i => $part) {
             $separator = $i < $lastIndex ? ', ' : '';
@@ -427,7 +427,7 @@ final class TextToSpeechService extends AbstractSpecializedService
         }
 
         if ($currentChunk !== '') {
-            $chunks[] = rtrim($currentChunk, ', ');
+            $chunks[]     = rtrim($currentChunk, ', ');
             $currentChunk = '';
         }
 
@@ -473,14 +473,14 @@ final class TextToSpeechService extends AbstractSpecializedService
         $this->assertWithinLifecycle();
 
         try {
-            $response = $this->getSecureClient()->sendRequest($request);
+            $response   = $this->getSecureClient()->sendRequest($request);
             $statusCode = $response->getStatusCode();
 
             if ($statusCode >= 200 && $statusCode < 300) {
-                return (string)$response->getBody();
+                return (string) $response->getBody();
             }
 
-            $errorMessage = $this->decodeErrorMessage((string)$response->getBody());
+            $errorMessage = $this->decodeErrorMessage((string) $response->getBody());
 
             $this->logger->error('TTS API error', [
                 'status_code' => $statusCode,

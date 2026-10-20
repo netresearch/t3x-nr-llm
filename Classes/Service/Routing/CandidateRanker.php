@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\RoutingPolicyMode;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingCandidate;
 use Netresearch\NrLlm\Service\Evaluation\ModelQualityScoreProviderInterface;
+use Netresearch\NrLlm\Service\Evaluation\ProviderModelQualityScoreProviderInterface;
 use Netresearch\NrLlm\Service\Health\ProviderHealthScore;
 use Netresearch\NrLlm\Service\Health\ProviderHealthServiceInterface;
 
@@ -81,10 +82,10 @@ final readonly class CandidateRanker
 
         usort(
             $scored,
-            fn(array $a, array $b): int => $this->compare($a, $b, $preferLowestCost),
+            fn (array $a, array $b): int => $this->compare($a, $b, $preferLowestCost),
         );
 
-        return array_map(static fn(array $entry): RoutingCandidate => $entry['candidate'], $scored);
+        return array_map(static fn (array $entry): RoutingCandidate => $entry['candidate'], $scored);
     }
 
     /**
@@ -103,7 +104,7 @@ final readonly class CandidateRanker
         }
 
         $signals = [
-            'quality' => $this->qualityScoreProvider?->getQualityScore($model->getModelId()),
+            'quality' => $this->qualitySignal($model),
             'health'  => $this->healthSignal($model),
         ];
 
@@ -165,8 +166,8 @@ final readonly class CandidateRanker
             'cost'    => $preferLowestCost || $mode->alwaysWeighsCost() ? $mode->costWeight() : 0.0,
         ];
 
-        $weighted   = 0.0;
-        $weightSum  = 0.0;
+        $weighted  = 0.0;
+        $weightSum = 0.0;
         foreach ($weights as $signal => $weight) {
             $value = $signals[$signal] ?? null;
             if ($weight <= 0.0) {
@@ -177,7 +178,7 @@ final readonly class CandidateRanker
                 continue;
             }
 
-            $weighted  += $weight * $value;
+            $weighted += $weight * $value;
             $weightSum += $weight;
         }
 
@@ -250,5 +251,17 @@ final readonly class CandidateRanker
         }
 
         return $a->getSorting() <=> $b->getSorting();
+    }
+
+    private function qualitySignal(Model $model): ?float
+    {
+        if ($this->qualityScoreProvider instanceof ProviderModelQualityScoreProviderInterface) {
+            return $this->qualityScoreProvider->getQualityScoreForProviderModel(
+                $model->getProvider()?->getIdentifier() ?? '',
+                $model->getModelId(),
+            );
+        }
+
+        return $this->qualityScoreProvider?->getQualityScore($model->getModelId());
     }
 }

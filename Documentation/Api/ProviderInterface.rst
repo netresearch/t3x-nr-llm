@@ -25,7 +25,7 @@ Provider interface
 
    .. php:method:: configure(array $config): void
 
-      Configure the provider with API key and settings.
+      Configure the provider with its Vault credential identifier and settings.
 
       :param array $config: Configuration key-value pairs
 
@@ -41,9 +41,10 @@ Provider interface
 
       Execute chat completion.
 
-      :param array $messages: Messages with ``role`` and ``content``.
-         Content can be a string (plain text) or an array of content
-         blocks for multimodal input (text, image_url, document).
+      :param array $messages: A list of typed ``ChatMessage`` values or legacy
+         arrays with ``role`` and ``content``. Rich provider-specific arrays
+         retain their additional fields, including tool results and multimodal
+         content. Implementations normalize typed messages with ``toArray()``.
 
    .. php:method:: complete(string $prompt, array $options = []): CompletionResponse
 
@@ -77,8 +78,9 @@ Provider interface
 
       Analyze an image.
 
-      :param array $content: Array of content parts
-         (text and image_url entries)
+      :param array $content: A list of typed ``VisionContent`` values.
+         ``LlmServiceManager::vision()`` normalizes legacy content-part arrays
+         before calling the provider; direct adapter calls use typed values.
       :param array $options: Optional configuration
       :returns: VisionResponse
 
@@ -94,6 +96,8 @@ Provider interface
 
       Get maximum image size in bytes.
 
+.. _api-provider-streaming:
+
 .. php:interface:: StreamingCapableInterface
 
    Contract for providers supporting streaming.
@@ -106,6 +110,8 @@ Provider interface
 
       Check if streaming is supported.
 
+.. _api-provider-tools:
+
 .. php:interface:: ToolCapableInterface
 
    Contract for providers supporting tool/function
@@ -116,6 +122,39 @@ Provider interface
       Chat with tool calling. Messages support multimodal content
       (string or array of content blocks).
 
+      :param array $messages: Typed ``ChatMessage`` values or provider-specific
+         legacy message arrays
+      :param array $tools: A list of typed ``ToolSpec`` values.
+         ``LlmServiceManager::chatWithTools()`` normalizes legacy tool arrays
+         before calling the provider.
+
    .. php:method:: supportsTools(): bool
 
       Check if tool calling is supported.
+
+.. php:interface:: DocumentCapableInterface
+
+   Optional capability for Base64 inline document content in chat messages.
+   It adds capability discovery, not a separate completion method.
+
+   .. php:method:: supportsDocuments(): bool
+
+      Check if inline document input is supported.
+
+   .. php:method:: getSupportedDocumentFormats(): array
+
+      Return supported document formats, for example ``['pdf']``.
+
+.. php:interface:: DecisionCapableInterface
+
+   Optional capability for providers that natively answer typed questions
+   about a screened subject (ADR-211).
+
+   .. php:method:: decide(DecisionSubject $subject, array $questions, array $options = []): DecisionResponse
+
+      :param DecisionSubject $subject: Typed subject to evaluate
+      :param array $questions: A list of ``DecisionQuestion`` values
+      :param array $options: Configuration call options, including ``model``
+      :returns: Typed answers with one valid answer per question
+      :throws: InvalidDecisionResponseException for malformed answers;
+         ProviderException for other provider failures

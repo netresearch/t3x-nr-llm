@@ -45,7 +45,7 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
  * Uses TYPO3 FormEngine for record editing (TCA-based forms).
  * Custom actions for AJAX operations (toggle active, test model, etc.).
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class ModelController extends ActionController
@@ -87,12 +87,12 @@ final class ModelController extends ActionController
 
         // Register AJAX URLs for JavaScript
         $this->pageRenderer->addInlineSettingArray('ajaxUrls', [
-            'nrllm_model_toggle_active' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_toggle_active'),
-            'nrllm_model_set_default' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_set_default'),
-            'nrllm_model_test' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_test'),
-            'nrllm_model_fetch_available' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_fetch_available'),
-            'nrllm_model_detect_limits' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_detect_limits'),
-            'nrllm_model_verify_capabilities' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_verify_capabilities'),
+            'nrllm_model_toggle_active'       => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_toggle_active'),
+            'nrllm_model_set_default'         => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_set_default'),
+            'nrllm_model_test'                => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_test'),
+            'nrllm_model_fetch_available'     => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_fetch_available'),
+            'nrllm_model_detect_limits'       => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_detect_limits'),
+            'nrllm_model_verify_capabilities' => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_verify_capabilities'),
         ]);
 
         // Load JavaScript for model list actions (ES6 module)
@@ -104,7 +104,7 @@ final class ModelController extends ActionController
      */
     public function listAction(): ResponseInterface
     {
-        $models = $this->modelRepository->findAll();
+        $models    = $this->modelRepository->findAll();
         $providers = $this->providerRepository->findActive();
 
         // Build FormEngine URLs for each model
@@ -121,21 +121,21 @@ final class ModelController extends ActionController
         }
 
         $period = AnalyticsPeriod::fromPreset('30d', new DateTimeImmutable());
-        $usage = UsageAnalyticsService::formatUsageColumns(
+        $usage  = UsageAnalyticsService::formatUsageColumns(
             $this->analytics->getTotalsGroupedBy('model_uid', $period->from, $period->to),
         );
 
         $this->moduleTemplate->assignMultiple([
-            'models' => $models,
-            'providers' => $providers,
-            'capabilities' => Model::getAllCapabilities(),
-            'editUrls' => $editUrls,
-            'newUrl' => $this->buildNewUrl(),
-            'wizardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
+            'models'          => $models,
+            'providers'       => $providers,
+            'capabilities'    => Model::getAllCapabilities(),
+            'editUrls'        => $editUrls,
+            'newUrl'          => $this->buildNewUrl(),
+            'wizardUrl'       => (string) $this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
             'hasDefaultModel' => $this->modelRepository->findDefault() instanceof Model,
-            'costByModel' => $usage['cost'],
-            'reqByModel' => $usage['requests'],
-            'tokByModel' => $usage['tokens'],
+            'costByModel'     => $usage['cost'],
+            'reqByModel'      => $usage['requests'],
+            'tokByModel'      => $usage['tokens'],
         ]);
 
         if (method_exists($this->moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
@@ -146,7 +146,7 @@ final class ModelController extends ActionController
         }
 
         // Add "New Model" button to docheader (links to FormEngine)
-        $buttonBar = $this->moduleTemplate->getDocHeaderComponent()->getButtonBar();
+        $buttonBar    = $this->moduleTemplate->getDocHeaderComponent()->getButtonBar();
         $createButton = $buttonBar->makeLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-plus', IconSize::SMALL))
             ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.model.new', 'NrLlm') ?? 'New Model')
@@ -167,7 +167,7 @@ final class ModelController extends ActionController
         }
 
         $body = $request->getParsedBody();
-        $uid = $this->extractIntFromBody($body, 'uid');
+        $uid  = $this->extractIntFromBody($body, 'uid');
 
         $model = $this->resolveModelOrError($uid);
         if (!$model instanceof Model) {
@@ -178,6 +178,7 @@ final class ModelController extends ActionController
             $model->setIsActive(!$model->isActive());
             $this->modelRepository->update($model);
             $this->persistenceManager->persistAll();
+
             return new JsonResponse((new ToggleActiveResponse(
                 success: true,
                 isActive: $model->isActive(),
@@ -203,7 +204,7 @@ final class ModelController extends ActionController
         }
 
         $body = $request->getParsedBody();
-        $uid = $this->extractIntFromBody($body, 'uid');
+        $uid  = $this->extractIntFromBody($body, 'uid');
 
         $model = $this->resolveModelOrError($uid);
         if (!$model instanceof Model) {
@@ -213,6 +214,7 @@ final class ModelController extends ActionController
         try {
             $this->modelRepository->setAsDefault($model);
             $this->persistenceManager->persistAll();
+
             return new JsonResponse((new SuccessResponse())->jsonSerialize());
         } catch (DbalException $e) {
             $this->logger->error('Model setDefault: persistence failed', ['exception' => $e, 'model_uid' => $uid]);
@@ -289,7 +291,7 @@ final class ModelController extends ActionController
             return $deny;
         }
 
-        $body = $request->getParsedBody();
+        $body        = $request->getParsedBody();
         $providerUid = $this->extractIntFromBody($body, 'providerUid');
 
         if ($providerUid === 0) {
@@ -298,6 +300,7 @@ final class ModelController extends ActionController
 
         try {
             $models = $this->modelRepository->findByProviderUid($providerUid);
+
             return new JsonResponse(ModelListResponse::fromModels($models)->jsonSerialize());
         } catch (DbalException $e) {
             $this->logger->error('Model getByProvider: query failed', ['exception' => $e, 'provider_uid' => $providerUid]);
@@ -315,8 +318,8 @@ final class ModelController extends ActionController
      */
     private function buildEditUrl(int $uid): string
     {
-        return (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', [
-            'edit' => [self::TABLE_NAME => [$uid => 'edit']],
+        return (string) $this->backendUriBuilder->buildUriFromRoute('record_edit', [
+            'edit'      => [self::TABLE_NAME => [$uid => 'edit']],
             'returnUrl' => $this->buildReturnUrl(),
         ]);
     }
@@ -326,8 +329,8 @@ final class ModelController extends ActionController
      */
     private function buildNewUrl(): string
     {
-        return (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', [
-            'edit' => [self::TABLE_NAME => [0 => 'new']],
+        return (string) $this->backendUriBuilder->buildUriFromRoute('record_edit', [
+            'edit'      => [self::TABLE_NAME => [0 => 'new']],
             'returnUrl' => $this->buildReturnUrl(),
         ]);
     }
@@ -337,7 +340,7 @@ final class ModelController extends ActionController
      */
     private function buildReturnUrl(): string
     {
-        return (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_models');
+        return (string) $this->backendUriBuilder->buildUriFromRoute('nrllm_models');
     }
 
     /**
@@ -368,7 +371,6 @@ final class ModelController extends ActionController
 
         $value = $body[$key] ?? 0;
 
-        return is_numeric($value) ? (int)$value : 0;
+        return is_numeric($value) ? (int) $value : 0;
     }
-
 }

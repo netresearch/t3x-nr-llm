@@ -31,7 +31,7 @@ class EmbeddingResponseFuzzyTest extends AbstractFuzzyTestCase
                 /** @var array<int, float> $vector */
                 // Normalize to avoid floating point issues with very small values
                 $normalizedVector = $this->normalizeVector($vector);
-                $similarity = EmbeddingResponse::cosineSimilarity($normalizedVector, $normalizedVector);
+                $similarity       = EmbeddingResponse::cosineSimilarity($normalizedVector, $normalizedVector);
                 $this->assertEqualsWithDelta(1.0, $similarity, 0.001);
             });
     }
@@ -77,7 +77,7 @@ class EmbeddingResponseFuzzyTest extends AbstractFuzzyTestCase
             ->forAll(
                 $this->embeddingVector(50),
                 Generator\suchThat( // @phpstan-ignore function.notFound
-                    static fn(string $s) => strlen(trim($s)) > 0 && strlen($s) < 100,
+                    static fn (string $s) => strlen(trim($s)) > 0 && strlen($s) < 100,
                     Generator\string(), // @phpstan-ignore function.notFound
                 ),
                 Generator\pos(), // @phpstan-ignore function.notFound
@@ -116,7 +116,7 @@ class EmbeddingResponseFuzzyTest extends AbstractFuzzyTestCase
             ->then(function (array $embedding1, array $embedding2): void {
                 /** @var array<int, float> $embedding1 */
                 /** @var array<int, float> $embedding2 */
-                $usage = new UsageStatistics(10, 0, 10);
+                $usage    = new UsageStatistics(10, 0, 10);
                 $response = new EmbeddingResponse(
                     embeddings: [$embedding1, $embedding2],
                     model: 'test-model',
@@ -142,7 +142,7 @@ class EmbeddingResponseFuzzyTest extends AbstractFuzzyTestCase
                 /** @var array<int, float> $emb1 */
                 /** @var array<int, float> $emb2 */
                 /** @var array<int, float> $emb3 */
-                $usage = new UsageStatistics(10, 0, 10);
+                $usage    = new UsageStatistics(10, 0, 10);
                 $response = new EmbeddingResponse(
                     embeddings: [$emb1, $emb2, $emb3],
                     model: 'test-model',
@@ -167,7 +167,7 @@ class EmbeddingResponseFuzzyTest extends AbstractFuzzyTestCase
                 // Normalize vector
                 $normalizedVector = $this->normalizeVector($vector);
                 // Create opposite vector (negate all elements)
-                $oppositeVector = array_map(static fn($x) => -$x, $normalizedVector);
+                $oppositeVector = array_map(static fn ($x) => -$x, $normalizedVector);
 
                 $similarity = EmbeddingResponse::cosineSimilarity($normalizedVector, $oppositeVector);
                 $this->assertEqualsWithDelta(-1.0, $similarity, 0.001);
@@ -183,10 +183,11 @@ class EmbeddingResponseFuzzyTest extends AbstractFuzzyTestCase
      */
     private function normalizeVector(array $vector): array
     {
-        $magnitude = sqrt(array_sum(array_map(static fn($x) => $x * $x, $vector)));
+        $magnitude = sqrt(array_sum(array_map(static fn ($x) => $x * $x, $vector)));
         if ($magnitude == 0) {
             return $vector;
         }
-        return array_map(static fn($x) => $x / $magnitude, $vector);
+
+        return array_map(static fn ($x) => $x / $magnitude, $vector);
     }
 }

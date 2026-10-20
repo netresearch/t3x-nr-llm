@@ -54,7 +54,7 @@ final readonly class TestConnectionResponse implements JsonSerializable
         return [
             'success' => $this->success,
             'message' => $this->message,
-            'models' => $this->models,
+            'models'  => $this->models,
         ];
     }
 }

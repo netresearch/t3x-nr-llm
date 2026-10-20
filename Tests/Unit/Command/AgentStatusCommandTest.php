@@ -1,8 +1,11 @@
 <?php
 
-/* Copyright (c) 2025-2026 Netresearch DTT GmbH
- * SPDX-License-Identifier: GPL-2.0-or-later */
-declare (strict_types=1);
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Command;
 
@@ -26,7 +29,7 @@ final class AgentStatusCommandTest extends TestCase
             ->expects(self::once())
             ->method('snapshot')
             ->with(
-                self::callback(static fn(mixed $value): bool => is_int($value)),
+                self::callback(static fn (mixed $value): bool => is_int($value)),
                 120,
                 'doctrine',
             )
@@ -36,14 +39,14 @@ final class AgentStatusCommandTest extends TestCase
         $data = json_decode($tester->getDisplay(), true, 512, JSON_THROW_ON_ERROR);
         self::assertSame(
             [
-                'queued' => 1,
-                'running' => 2,
-                'dead_lettered' => 0,
-                'expired_leases' => 0,
+                'queued'                    => 1,
+                'running'                   => 2,
+                'dead_lettered'             => 0,
+                'expired_leases'            => 0,
                 'oldest_queue_wait_seconds' => 0,
-                'unknown_queue_wait' => 0,
-                'live_workers' => 3,
-                'healthy' => true,
+                'unknown_queue_wait'        => 0,
+                'live_workers'              => 3,
+                'healthy'                   => true,
             ],
             $data,
         );

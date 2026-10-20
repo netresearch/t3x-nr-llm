@@ -31,7 +31,7 @@ use Psr\Log\NullLogger;
  * result pairing the provider requires is never broken, and the leading
  * system/task messages and the newest turn are always preserved.
  */
-final class ContextWindowManager implements ContextWindowManagerInterface
+final class ContextWindowManager implements ContextWindowManagerInterface, SectionAdmissionInterface
 {
     /** Applied when the model's context length is unknown — never leave a run unprotected. */
     private const UNKNOWN_WINDOW_FALLBACK = 8192;
@@ -51,6 +51,12 @@ final class ContextWindowManager implements ContextWindowManagerInterface
         private readonly TranscriptEstimator $estimator = new TranscriptEstimator(),
         private readonly LoggerInterface $logger = new NullLogger(),
     ) {}
+
+    public function beginRun(): void
+    {
+        $this->calibration      = self::CALIBRATION_SEED;
+        $this->lastSentEstimate = null;
+    }
 
     public function fit(
         array $messages,
@@ -86,7 +92,7 @@ final class ContextWindowManager implements ContextWindowManagerInterface
         $this->recalibrate($lastUsage);
 
         $reserve = $this->reserve($options, $model, $ctx);
-        $safety  = (int)ceil($ctx * self::SAFETY_FRACTION);
+        $safety  = (int) ceil($ctx * self::SAFETY_FRACTION);
         $budget  = $ctx - $reserve - $safety;
         if ($budget <= 0) {
             // Misconfiguration (reserve larger than window): defer to the provider.
@@ -174,6 +180,43 @@ final class ContextWindowManager implements ContextWindowManagerInterface
         return $result;
     }
 
+    public function admitsSection(
+        array $messages,
+        string $section,
+        LlmConfiguration $configuration,
+        ?ChatOptions $options,
+        array $toolSpecs = [],
+        ?string $effectiveSystemPrompt = null,
+        ?Model $resolvedModel = null,
+    ): bool {
+        $model = $resolvedModel ?? $configuration->getLlmModel();
+        $ctx   = $model?->getContextLength() ?? 0;
+        if ($ctx <= 0) {
+            // An unknown window admits nothing: the unknown-model fallback is
+            // a guess, and a section admitted against it may not be sendable.
+            return false;
+        }
+
+        $budget = $ctx - $this->reserve($options, $model, $ctx) - (int) ceil($ctx * self::SAFETY_FRACTION);
+        if ($budget <= 0) {
+            // No budget to admit against: refuse rather than append text the
+            // fit would then defer to the provider unbounded.
+            return false;
+        }
+
+        // The floor fit() reaches by dropping older turns (ADR-107): the head,
+        // which it never drops, and the newest turn. The calibration is the
+        // run's current one; admission does not reset or advance it.
+        [$head, $turns] = $this->partition($messages);
+        $floor          = $turns === [] ? $head : $this->assemble($head, [$turns[count($turns) - 1]]);
+
+        $estimated = $this->estimator->estimate($floor, $toolSpecs, $this->calibration)
+            + $this->missingSystemPromptTokens($floor, $configuration, $effectiveSystemPrompt)
+            + $this->injectedTokens($section);
+
+        return $estimated <= $budget - (int) ceil($budget * self::HEADROOM_FRACTION);
+    }
+
     private function recalibrate(?UsageStatistics $lastUsage): void
     {
         if (!$lastUsage instanceof UsageStatistics || $this->lastSentEstimate === null || $this->lastSentEstimate <= 0) {
@@ -197,7 +240,7 @@ final class ContextWindowManager implements ContextWindowManagerInterface
             return $modelMax;
         }
 
-        return max(1000, (int)ceil($ctx * 0.02));
+        return max(1000, (int) ceil($ctx * 0.02));
     }
 
     /**
@@ -321,7 +364,7 @@ final class ContextWindowManager implements ContextWindowManagerInterface
             ++$dropped;
         }
 
-        $messages = $this->assemble($head, $kept);
+        $messages  = $this->assemble($head, $kept);
         $estimated = $estimate($messages);
         $overflow  = $estimated > $budget;
 
