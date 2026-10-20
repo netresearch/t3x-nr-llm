@@ -281,8 +281,8 @@ final readonly class RunStep
             'writeCompleteness'    => $this->writeCompleteness?->value,
             'hookFailedAfterWrite' => $this->hookFailedAfterWrite,
             // Identity only, flattened like the write target above.
-            'highlightTable'       => $this->highlightTarget?->table,
-            'highlightUid'         => $this->highlightTarget?->uid,
+            'highlightTable' => $this->highlightTarget?->table,
+            'highlightUid'   => $this->highlightTarget?->uid,
         ];
 
         foreach ($optional as $key => $value) {

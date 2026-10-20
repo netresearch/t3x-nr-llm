@@ -148,7 +148,7 @@ final readonly class AgentRunExecutor
                     // its lineage without the process, as a refusal at derive
                     // time does, so the next turn goes on without it.
                     if ($prepared->pin instanceof SkillPin && $withdrawn->pin == $prepared->pin) {
-                        if ($handle instanceof AgentRunHandle && !$this->persister->recordLineage($handle, new RunLineage((int)$request->configuration->getUid(), null, $prepared->subject))) {
+                        if ($handle instanceof AgentRunHandle && !$this->persister->recordLineage($handle, new RunLineage((int) $request->configuration->getUid(), null, $prepared->subject))) {
                             // Fails safe: the next turn derives the pin again
                             // and is refused again.
                             $this->logger?->notice('The lineage without the withdrawn process could not be stored; the next turn is refused again', ['run' => $handle->uuid]);
@@ -358,7 +358,7 @@ final readonly class AgentRunExecutor
                 // turn instead. Unlike the cancellation probe this one fails
                 // closed: a row it cannot read stops the turn.
                 $toolResultStep = in_array($step->kind, [RunStep::KIND_TOOL, RunStep::KIND_HIGHLIGHT, RunStep::KIND_WRITE], true);
-                $refusal        = $processProbe instanceof Closure && !$toolResultStep ? $processProbe(static fn(): ?AgentRun => $run) : null;
+                $refusal        = $processProbe instanceof Closure && !$toolResultStep ? $processProbe(static fn (): ?AgentRun => $run) : null;
                 if ($refusal instanceof ProcessInvocationRefusal) {
                     throw ProcessInvocationRefusedException::forRun($handle->uuid, $refusal);
                 }
@@ -366,7 +366,7 @@ final readonly class AgentRunExecutor
             onBeforeTool: function (string $toolName) use ($handle, $leaseOwner, $processProbe): void {
                 // No tool of a turn runs after its process was ended (ADR-228).
                 if ($handle instanceof AgentRunHandle && $processProbe instanceof Closure) {
-                    $refusal = $processProbe(fn(): ?AgentRun => $this->persister->findRun($handle->uuid));
+                    $refusal = $processProbe(fn (): ?AgentRun => $this->persister->findRun($handle->uuid));
                     if ($refusal instanceof ProcessInvocationRefusal) {
                         throw ProcessInvocationRefusedException::forRun($handle->uuid, $refusal);
                     }
@@ -435,10 +435,9 @@ final readonly class AgentRunExecutor
      * be read: the resume claimed that row a moment ago, so its absence is a
      * store error, not a run without a process.
      *
+     * @return bool whether the resumed turn holds a process
      *
      * @throws ProcessInvocationRefusedException
-     *
-     * @return bool whether the resumed turn holds a process
      */
     private function assertProcessNotEnded(AgentRunHandle $handle): bool
     {

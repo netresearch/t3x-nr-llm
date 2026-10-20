@@ -104,7 +104,7 @@ final class AgentRuntimeProcessStatusTest extends AbstractFunctionalTestCase
     #[Test]
     public function theStatusOfARunWithoutAProcessSaysSo(): void
     {
-        $plain = $this->begin();
+        $plain  = $this->begin();
         $status = $this->runtime()->status(AiActorContext::backendUser(self::OWNER), $plain->uuid);
         self::assertFalse($status?->holdsProcess);
         self::assertSame('', $status?->processSkill);
@@ -232,7 +232,7 @@ final class AgentRuntimeProcessStatusTest extends AbstractFunctionalTestCase
         ));
 
         $bus = self::createStub(MessageBusInterface::class);
-        $bus->method('dispatch')->willReturnCallback(static fn(object $message): Envelope => $message instanceof Envelope ? $message : new Envelope($message));
+        $bus->method('dispatch')->willReturnCallback(static fn (object $message): Envelope => $message instanceof Envelope ? $message : new Envelope($message));
 
         return new AgentRuntime(
             $loop,

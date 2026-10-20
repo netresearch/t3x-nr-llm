@@ -67,32 +67,32 @@ final class HighlightRecordToolTest extends AbstractFunctionalTestCase
         $result = $this->call('pages', 1, $this->page(1));
 
         self::assertFalse($result->isError);
-        self::assertSame('pages:1', (string)$result->highlightTarget);
+        self::assertSame('pages:1', (string) $result->highlightTarget);
     }
 
     #[Test]
     public function aContentElementOnTheSubjectPageInItsLanguageOrAllLanguagesIsATarget(): void
     {
-        self::assertSame('tt_content:10', (string)$this->call('tt_content', 10, $this->page(1))->highlightTarget);
-        self::assertSame('tt_content:12', (string)$this->call('tt_content', 12, $this->page(1))->highlightTarget, 'all languages');
-        self::assertSame('tt_content:11', (string)$this->call('tt_content', 11, $this->page(1, 1))->highlightTarget, 'the subject language');
+        self::assertSame('tt_content:10', (string) $this->call('tt_content', 10, $this->page(1))->highlightTarget);
+        self::assertSame('tt_content:12', (string) $this->call('tt_content', 12, $this->page(1))->highlightTarget, 'all languages');
+        self::assertSame('tt_content:11', (string) $this->call('tt_content', 11, $this->page(1, 1))->highlightTarget, 'the subject language');
     }
 
     #[Test]
     public function anythingElseIsRefused(): void
     {
         foreach ([
-            'another page'                    => ['pages', 2, $this->page(1)],
-            'an element on another page'      => ['tt_content', 13, $this->page(1)],
-            'an element in another language'  => ['tt_content', 11, $this->page(1)],
-            'a deleted element'               => ['tt_content', 14, $this->page(1)],
-            'a draft in another workspace'    => ['tt_content', 15, $this->page(1)],
-            'an element that does not exist'  => ['tt_content', 99, $this->page(1)],
-            'another table'                   => ['sys_file', 10, $this->page(1)],
+            'another page'                   => ['pages', 2, $this->page(1)],
+            'an element on another page'     => ['tt_content', 13, $this->page(1)],
+            'an element in another language' => ['tt_content', 11, $this->page(1)],
+            'a deleted element'              => ['tt_content', 14, $this->page(1)],
+            'a draft in another workspace'   => ['tt_content', 15, $this->page(1)],
+            'an element that does not exist' => ['tt_content', 99, $this->page(1)],
+            'another table'                  => ['sys_file', 10, $this->page(1)],
             // Element 10 sits on pid 1: a non-page subject with uid 1 must
             // not reach it through the pid match.
             'an element of a non-page subject' => ['tt_content', 10, new SubjectRecord(new RecordReference('tt_content', 1))],
-            'a malformed table'               => ['pages; drop', 1, $this->page(1)],
+            'a malformed table'                => ['pages; drop', 1, $this->page(1)],
         ] as $case => [$table, $uid, $subject]) {
             $result = $this->call($table, $uid, $subject);
             self::assertTrue($result->isError, $case);
@@ -118,7 +118,7 @@ final class HighlightRecordToolTest extends AbstractFunctionalTestCase
         $pool->getConnectionForTable('be_users')->update('be_users', ['usergroup' => '1'], ['uid' => 2]);
         $editor = $this->setUpBackendUser(2);
         $result = $tool->execute(['table' => 'tt_content', 'uid' => 10], new ToolExecutionContext(AiActorContext::backendUser(2), $editor, subjectRecord: $this->page(1)));
-        self::assertSame('tt_content:10', (string)$result->highlightTarget);
+        self::assertSame('tt_content:10', (string) $result->highlightTarget);
     }
 
     #[Test]

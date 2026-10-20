@@ -119,7 +119,7 @@ final class AgentRunExecutorProcessTest extends AbstractFunctionalTestCase
         self::assertEquals(new SkillPin(5, self::SOURCE, $skill->getVersionDigest()), $this->augmentationSeen->processPin);
         self::assertFalse($this->augmentationSeen->bakesSystemPrompt, 'a carrier, not a playground bake');
         self::assertTrue($this->augmentationSeen->admitsProcess, 'a new start is admitted against the window');
-        self::assertSame('pages:1', (string)$this->contextSeen?->subjectRecord?->record);
+        self::assertSame('pages:1', (string) $this->contextSeen?->subjectRecord?->record);
     }
 
     /**
@@ -189,9 +189,9 @@ final class AgentRunExecutorProcessTest extends AbstractFunctionalTestCase
     public function aResumedRunCarriesItsSubjectOnlyWhileItIsReadable(): void
     {
         foreach ([
-            'readable'          => [1, true, 'pages:1'],
-            'no longer there'   => [999, true, ''],
-            'without preparer'  => [1, false, ''],
+            'readable'         => [1, true, 'pages:1'],
+            'no longer there'  => [999, true, ''],
+            'without preparer' => [1, false, ''],
         ] as $case => [$page, $withPreparer, $expected]) {
             $handle = $this->begin();
             self::assertTrue($this->persister->recordLineage($handle, new RunLineage(30, new SkillPin(5, self::SOURCE, str_repeat('a', 64)), new SubjectRecord(new RecordReference('pages', $page)))));
@@ -202,7 +202,7 @@ final class AgentRunExecutorProcessTest extends AbstractFunctionalTestCase
                 null,
                 AiActorContext::backendUser(2),
                 static function (ToolExecutionContext $context) use (&$seen): ToolLoopResult {
-                    $seen = (string)$context->subjectRecord?->record;
+                    $seen = (string) $context->subjectRecord?->record;
 
                     return new ToolLoopResult('done', [], 1, false, UsageStatistics::fromTokens(1, 1));
                 },
@@ -300,7 +300,7 @@ final class AgentRunExecutorProcessTest extends AbstractFunctionalTestCase
             }
 
             $this->rounds = 0;
-            $result = $this->executor(true)->executeResume(
+            $result       = $this->executor(true)->executeResume(
                 $turn,
                 null,
                 AiActorContext::backendUser(2),
@@ -348,7 +348,7 @@ final class AgentRunExecutorProcessTest extends AbstractFunctionalTestCase
             }
 
             $this->rounds = 0;
-            $result = $this->executor(true)->executeResume(
+            $result       = $this->executor(true)->executeResume(
                 $turn,
                 null,
                 AiActorContext::backendUser(2),
@@ -494,7 +494,7 @@ final class AgentRunExecutorProcessTest extends AbstractFunctionalTestCase
         self::assertSame(ProcessInvocationRefusal::PROCESS_ENDED, $result->error->reason);
         $run = $this->persister->findRun($handle->uuid);
         self::assertInstanceOf(AgentRun::class, $run);
-        $kinds = array_map(static fn(AgentRunEvent $event): string => $event->kind, $this->persister->findEvents($run->uid));
+        $kinds = array_map(static fn (AgentRunEvent $event): string => $event->kind, $this->persister->findEvents($run->uid));
         self::assertContains(RunStep::KIND_TOOL, $kinds);
         self::assertContains(RunStep::KIND_HIGHLIGHT, $kinds, 'the highlight step is kept too');
         self::assertContains(RunStep::KIND_WRITE, $kinds, 'the write keeps its audit step');

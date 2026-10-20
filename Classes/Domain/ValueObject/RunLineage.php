@@ -29,7 +29,7 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  * run follows that name back, so a refusal neither ends the process nor
  * skips the checks the run it came from is held to (ADR-228).
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class RunLineage
 {

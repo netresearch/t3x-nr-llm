@@ -257,13 +257,13 @@ final class ToolResultTest extends TestCase
     {
         $highlighted = ToolResult::text('Highlighted pages:42.')->withHighlightTarget(new RecordReference('pages', 42));
 
-        self::assertSame('pages:42', (string)$highlighted->highlightTarget);
-        self::assertSame('pages:42', (string)$highlighted->withBoundedChannels('bounded', [])->highlightTarget);
+        self::assertSame('pages:42', (string) $highlighted->highlightTarget);
+        self::assertSame('pages:42', (string) $highlighted->withBoundedChannels('bounded', [])->highlightTarget);
         self::assertSame(
             'pages:42',
-            (string)$highlighted->withWriteTarget(new RecordReference('pages', 42), WriteKind::UPDATED)->highlightTarget,
+            (string) $highlighted->withWriteTarget(new RecordReference('pages', 42), WriteKind::UPDATED)->highlightTarget,
         );
-        self::assertSame('pages:42', (string)$highlighted->withHookFailedAfterWrite()->highlightTarget);
+        self::assertSame('pages:42', (string) $highlighted->withHookFailedAfterWrite()->highlightTarget);
 
         self::assertNull(ToolResult::text('read something')->highlightTarget);
         self::assertNull(ToolResult::error('nope')->withHighlightTarget(new RecordReference('pages', 42))->highlightTarget);

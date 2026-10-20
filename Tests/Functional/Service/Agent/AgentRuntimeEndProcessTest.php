@@ -75,7 +75,7 @@ final class AgentRuntimeEndProcessTest extends AbstractFunctionalTestCase
         $lineage = $this->lineage($handle->uuid);
         self::assertTrue($lineage->released);
         self::assertFalse($lineage->holdsProcess());
-        self::assertSame('pages:1', (string)$lineage->subject?->record, 'the subject stays on record');
+        self::assertSame('pages:1', (string) $lineage->subject?->record, 'the subject stays on record');
     }
 
     /**
@@ -119,9 +119,9 @@ final class AgentRuntimeEndProcessTest extends AbstractFunctionalTestCase
     public function nobodyElseEndsAProcess(): void
     {
         foreach ([
-            'another editor'     => AiActorContext::backendUser(3),
-            'an approve grant'   => AiActorContext::backendUser(3, grants: [BackendUserGrant::AGENT_APPROVE]),
-            'a service account'  => AiActorContext::serviceAccount('nightly', [ServiceAccountScope::AGENT_APPROVE]),
+            'another editor'    => AiActorContext::backendUser(3),
+            'an approve grant'  => AiActorContext::backendUser(3, grants: [BackendUserGrant::AGENT_APPROVE]),
+            'a service account' => AiActorContext::serviceAccount('nightly', [ServiceAccountScope::AGENT_APPROVE]),
         ] as $who => $actor) {
             $handle = $this->waitingProcessRun();
 
@@ -148,7 +148,7 @@ final class AgentRuntimeEndProcessTest extends AbstractFunctionalTestCase
     {
         $start = $this->processRun();
         self::assertTrue($this->persister->settleCancelled($start));
-        $left  = $this->processRun($start->uuid);
+        $left = $this->processRun($start->uuid);
         self::assertTrue($this->persister->settleCancelled($left));
         $right = $this->processRun($start->uuid);
         self::assertTrue($this->persister->suspend($right, $this->state()));

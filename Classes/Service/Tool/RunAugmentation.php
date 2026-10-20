@@ -81,7 +81,7 @@ final readonly class RunAugmentation
          * a run whose caller sent none: that run assembles exactly as it would
          * without an augmentation, its caller's own system message included.
          *
-         * @internal Set by the runtime only (ADR-228).
+         * @internal set by the runtime only (ADR-228)
          */
         public bool $bakesSystemPrompt = true,
         /**
@@ -91,7 +91,7 @@ final readonly class RunAugmentation
          * holds is not admitted again, or a long tour would fail once its
          * history grew past the headroom.
          *
-         * @internal Set by the runtime only (ADR-228).
+         * @internal set by the runtime only (ADR-228)
          */
         public bool $admitsProcess = false,
     ) {}
@@ -102,7 +102,7 @@ final readonly class RunAugmentation
      *
      * @param list<DroppedSource> $droppedSources the process pins the continuation dropped
      *
-     * @internal Called by the runtime only (ADR-228).
+     * @internal called by the runtime only (ADR-228)
      */
     public static function forProcess(?SkillPin $pin, array $droppedSources = [], bool $admitsProcess = false): self
     {
@@ -116,7 +116,7 @@ final readonly class RunAugmentation
      *
      * @param list<DroppedSource> $droppedSources
      *
-     * @internal Called by the runtime only (ADR-228).
+     * @internal called by the runtime only (ADR-228)
      */
     public function withProcess(?SkillPin $pin, array $droppedSources = [], bool $admitsProcess = false): self
     {

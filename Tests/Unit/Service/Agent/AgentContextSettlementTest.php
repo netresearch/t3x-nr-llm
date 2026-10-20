@@ -87,7 +87,7 @@ final class AgentContextSettlementTest extends AbstractUnitTestCase
         // The claimed row: a resume reads it before the loop (ADR-228).
         $repository->findResult = new AgentRun(17, 'claimed-resume', 'running', 1, 'fixture', 9, 0, false, 0, 0, 0, 0.0, '', '', 0, 0, 0);
 
-        $error = new RuntimeException('Backend user database unavailable', 1800100012);
+        $error    = new RuntimeException('Backend user database unavailable', 1800100012);
         $executor = new AgentRunExecutor(
             $this->unusedLoop(),
             new AgentRunPersister(

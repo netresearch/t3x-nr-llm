@@ -118,10 +118,10 @@ final readonly class AgentRunRequestCodec
                 ))),
                 'dryRun' => $augmentation->dryRun,
             ] : null,
-            'skillAllowList'   => $skillAllowList?->toStored(),
+            'skillAllowList' => $skillAllowList?->toStored(),
             // What the worker checks again at pickup and derives the process
             // from (ADR-228): the invocation and the predecessor, never a pin.
-            'invocation'       => $request->invocation?->toArray(),
+            'invocation'         => $request->invocation?->toArray(),
             'predecessorRunUuid' => $request->predecessorRunUuid,
         ];
     }

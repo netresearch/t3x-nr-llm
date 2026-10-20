@@ -72,7 +72,7 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * a withdrawn pin, an explicit end and a predecessor that is gone let the
  * process go, the last with a notice.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class ProcessRunPreparer
 {
@@ -165,7 +165,7 @@ final readonly class ProcessRunPreparer
 
         if ($pin instanceof SkillPin) {
             $this->assertMayRunProcess($request, $actor, $runUuid, $derived instanceof RunLineage);
-            if ($subject instanceof SubjectRecord && !$this->readApprovals($pin->skillUid, fn(): bool => $this->subjectAccess->isReadable($actingUser, $subject))) {
+            if ($subject instanceof SubjectRecord && !$this->readApprovals($pin->skillUid, fn (): bool => $this->subjectAccess->isReadable($actingUser, $subject))) {
                 throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::SUBJECT_NOT_READABLE);
             }
 
@@ -181,7 +181,7 @@ final readonly class ProcessRunPreparer
         $this->record(
             $handle,
             new RunLineage(
-                (int)$configuration->getUid(),
+                (int) $configuration->getUid(),
                 $pin,
                 $subject,
                 processSkill: $this->attachedSkill($configuration, $pin->skillUid)?->getIdentifier() ?? '',
@@ -225,7 +225,7 @@ final readonly class ProcessRunPreparer
         }
 
         for ($hops = 0;; ++$hops) {
-            $own = $this->lineageOrRefuse($predecessor, $runUuid);
+            $own   = $this->lineageOrRefuse($predecessor, $runUuid);
             $ended = $own?->processPin instanceof SkillPin && $own->released;
             if (!$own instanceof RunLineage || $own->carriedFromRunUuid === '' || $ended) {
                 break;
@@ -277,7 +277,7 @@ final readonly class ProcessRunPreparer
             throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::PREDECESSOR_NOT_FINISHED);
         }
 
-        if ($lineage->configurationUid !== (int)$request->configuration->getUid()) {
+        if ($lineage->configurationUid !== (int) $request->configuration->getUid()) {
             // A refusal of this run names the predecessor instead, so its next
             // turn reports the drop again rather than holding the process.
             $carry = null;
@@ -358,7 +358,7 @@ final readonly class ProcessRunPreparer
             return;
         }
 
-        $lineage = $carry ?? new RunLineage((int)$request->configuration->getUid(), carriedFromRunUuid: $request->predecessorRunUuid);
+        $lineage = $carry ?? new RunLineage((int) $request->configuration->getUid(), carriedFromRunUuid: $request->predecessorRunUuid);
         if (!$this->persister->recordLineage($handle, $lineage)) {
             $this->logger?->warning('A refused continuation could not record the process it carries; its next turn may go on without it.', ['run' => $handle->uuid]);
         }
@@ -383,7 +383,7 @@ final readonly class ProcessRunPreparer
         return AiActorContext::backendUser(
             $actor->backendUserUid,
             $user->isAdmin(),
-            array_values(array_map(static fn(mixed $g): int => is_numeric($g) ? (int)$g : 0, $user->userGroupsUID)),
+            array_values(array_map(static fn (mixed $g): int => is_numeric($g) ? (int) $g : 0, $user->userGroupsUID)),
             $actor->grants,
         );
     }
@@ -405,12 +405,12 @@ final readonly class ProcessRunPreparer
 
         // The trust floor (ADR-061) the catalogue applies too: a skill the
         // composer does not admit is neither listed nor started.
-        $admitted = $this->readApprovals($skillUid, fn(): array => $this->composer->admittedSkills([$skill], []));
+        $admitted = $this->readApprovals($skillUid, fn (): array => $this->composer->admittedSkills([$skill], []));
         if (!in_array($skill, $admitted, true)) {
             throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::SKILL_NOT_ADMITTED);
         }
 
-        $version = $this->readApprovals($skillUid, fn(): ?SkillApproval => $this->composer->approvedVersion($skill));
+        $version = $this->readApprovals($skillUid, fn (): ?SkillApproval => $this->composer->approvedVersion($skill));
         if (!$version instanceof SkillApproval) {
             throw ProcessInvocationRefusedException::forRun($runUuid, ProcessInvocationRefusal::NOT_AN_INSTRUCTION);
         }
@@ -453,12 +453,12 @@ final readonly class ProcessRunPreparer
      */
     private function assertDerivedPinHolds(SkillPin $pin, LlmConfiguration $configuration, ?AgentRunHandle $handle, ?SubjectRecord $subject): void
     {
-        $reason = $this->readApprovals($pin->skillUid, fn(): ?string => $this->pinCheck->failure($pin));
+        $reason = $this->readApprovals($pin->skillUid, fn (): ?string => $this->pinCheck->failure($pin));
         if ($reason === null && $this->processPins->processSnapshot($pin) instanceof SkillApproval) {
             return;
         }
 
-        $this->record($handle, new RunLineage((int)$configuration->getUid(), null, $subject), $handle->uuid ?? '');
+        $this->record($handle, new RunLineage((int) $configuration->getUid(), null, $subject), $handle->uuid ?? '');
 
         throw ProcessInvocationRefusedException::forRun(
             $handle->uuid ?? '',
@@ -479,9 +479,9 @@ final readonly class ProcessRunPreparer
      *
      * @param Closure(): T $read
      *
-     * @throws ProcessVerdictUnavailableException
-     *
      * @return T
+     *
+     * @throws ProcessVerdictUnavailableException
      */
     private function readApprovals(int $skillUid, Closure $read): mixed
     {

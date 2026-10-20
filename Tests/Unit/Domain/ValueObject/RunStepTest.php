@@ -226,7 +226,7 @@ final class RunStepTest extends TestCase
     public function onlyAHighlightStepNamesAHighlightTarget(): void
     {
         $step = new RunStep(kind: RunStep::KIND_HIGHLIGHT, round: 1, durationMs: 0.0, highlightTarget: new RecordReference('pages', 3));
-        self::assertSame('pages:3', (string)$step->highlightTarget);
+        self::assertSame('pages:3', (string) $step->highlightTarget);
         self::assertContains(RunStep::KIND_HIGHLIGHT, RunStep::kinds());
         self::assertArrayNotHasKey('highlightTable', (new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 0.0))->toArray());
 

@@ -286,7 +286,7 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
         }
 
         $prepared = $this->prepare($this->request($configuration, new SkillInvocation(self::PROCESS, new SubjectRecord(new RecordReference('pages', 1)))));
-        self::assertSame('pages:1', (string)$prepared->subject?->record);
+        self::assertSame('pages:1', (string) $prepared->subject?->record);
     }
 
     #[Test]
@@ -511,7 +511,7 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
                 self::assertSame($request->predecessorRunUuid, $carried?->carriedFromRunUuid, $case);
             }
 
-            $warnings = array_values(array_filter($logger->records, static fn(array $record): bool => $record['level'] === LogLevel::WARNING));
+            $warnings = array_values(array_filter($logger->records, static fn (array $record): bool => $record['level'] === LogLevel::WARNING));
             self::assertCount(1, $warnings, $case . ': the cause is logged');
             self::assertInstanceOf(Throwable::class, $warnings[0]['context']['exception'] ?? null, $case);
             self::assertInstanceOf(PreparedProcess::class, $this->preparer()->prepare($request, $this->actingUser(self::OWNER), $this->begin()), $case . ': the retry goes through');
@@ -727,7 +727,7 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
         $this->assertRefused(ProcessInvocationRefusal::PREDECESSOR_NOT_FINISHED, $this->request($configuration, null, predecessor: $refused));
 
         self::assertTrue($this->persister->settleCancelled($waiting));
-        $next = $this->begin();
+        $next     = $this->begin();
         $prepared = $this->preparer()->prepare($this->request($configuration, null, predecessor: $refused), $this->actingUser(self::OWNER), $next);
         self::assertSame(self::PROCESS, $prepared->pin?->skillUid, 'the turn after the refused one keeps the process');
         self::assertFalse($prepared->newStart, 'admitted by the run that ran, not again');
@@ -799,7 +799,7 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
             $configuration->setRequireSecondApprover(false);
             $configuration->setBeGroups($this->beGroups(7));
             if ($kind === 'lineage') {
-                $this->appendRawLineage($origin, (string)json_encode((new RunLineage(self::CONFIGURATION, $this->pinOf(self::PROCESS), originRunUuid: $origin))->toArray()));
+                $this->appendRawLineage($origin, (string) json_encode((new RunLineage(self::CONFIGURATION, $this->pinOf(self::PROCESS), originRunUuid: $origin))->toArray()));
             }
 
             $next = $this->prepare($this->request($configuration, null, predecessor: $refusedHandle->uuid));

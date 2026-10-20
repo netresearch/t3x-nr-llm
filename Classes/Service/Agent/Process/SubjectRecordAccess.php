@@ -33,7 +33,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * outside the user's mounts or without show permission. Hidden records count
  * as existing: an editor works on hidden pages.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class SubjectRecordAccess
 {
@@ -126,6 +126,6 @@ final readonly class SubjectRecordAccess
 
     private function toInt(mixed $value): int
     {
-        return is_numeric($value) ? (int)$value : 0;
+        return is_numeric($value) ? (int) $value : 0;
     }
 }

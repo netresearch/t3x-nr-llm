@@ -2030,15 +2030,15 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         $pins           = [];
         $instructionIds = [];
         if ($this->skillInjection instanceof SkillInjectionService) {
-            $injected     = $this->skillInjection->composeIntoMessages(
+            $injected = $this->skillInjection->composeIntoMessages(
                 $messages,
                 $configSkills,
                 $forcedSkills,
                 $processVersion instanceof SkillApproval ? [$processVersion] : [],
             );
-            $messages     = $injected['messages'];
-            $instructions = $injected['instructions'];
-            $pins         = $injected['pins'];
+            $messages       = $injected['messages'];
+            $instructions   = $injected['instructions'];
+            $pins           = $injected['pins'];
             $instructionIds = $injected['instructionIds'];
         }
 

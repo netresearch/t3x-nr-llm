@@ -36,7 +36,7 @@ final readonly class FailureClassifier
     public static function classify(Throwable $e): FailureClass
     {
         return match (true) {
-            $e instanceof CircuitOpenException => FailureClass::CIRCUIT_OPEN,
+            $e instanceof CircuitOpenException            => FailureClass::CIRCUIT_OPEN,
             $e instanceof FallbackChainExhaustedException => self::fromChain($e),
             $e instanceof ProviderConnectionException,
             $e instanceof NetworkExceptionInterface      => FailureClass::CONNECTION,

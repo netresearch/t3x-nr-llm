@@ -192,7 +192,7 @@ final class ToolLoopServiceProcessPinTest extends TestCase
 
         self::assertContainsEquals($this->pin, $state->skillPins);
 
-        $edited = $this->skill('Something else.', '[]');
+        $edited        = $this->skill('Something else.', '[]');
         $this->offered = [];
         $this->queue[] = $this->response('done');
         $this->service()->resume($state, true, $this->configuration($edited, $guide), ToolExecutionContext::none());
@@ -429,8 +429,8 @@ final class ToolLoopServiceProcessPinTest extends TestCase
         $manager->method('chatWithToolsForConfiguration')->willReturnCallback(
             function (array $messages, array $tools): CompletionResponse {
                 $this->offered[]    = array_values(array_map($this->toolName(...), $tools));
-                $system             = array_filter($messages, static fn(mixed $m): bool => $m instanceof ChatMessage && $m->role === 'system');
-                $this->systemSent[] = implode("\n", array_map(static fn(ChatMessage $m): string => $m->content, $system));
+                $system             = array_filter($messages, static fn (mixed $m): bool => $m instanceof ChatMessage && $m->role === 'system');
+                $this->systemSent[] = implode("\n", array_map(static fn (ChatMessage $m): string => $m->content, $system));
                 $next               = array_shift($this->queue);
                 if (!$next instanceof CompletionResponse) {
                     throw new RuntimeException('Scripted response queue underflow.', 1793500900);

@@ -248,11 +248,11 @@ final class RunTraceTest extends TestCase
 
         $trace->recordToolResult(2, 3.0, 'highlight_record', ['table' => 'tt_content', 'uid' => 7], ToolResult::text('Highlighted tt_content:7.')->withHighlightTarget(new RecordReference('tt_content', 7)));
 
-        $kinds = array_map(static fn(RunStep $step): string => $step->kind, $trace->getSteps());
+        $kinds = array_map(static fn (RunStep $step): string => $step->kind, $trace->getSteps());
         self::assertSame([RunStep::KIND_TOOL, RunStep::KIND_HIGHLIGHT], $kinds);
 
         $highlight = $trace->getSteps()[1];
-        self::assertSame('tt_content:7', (string)$highlight->highlightTarget);
+        self::assertSame('tt_content:7', (string) $highlight->highlightTarget);
         self::assertSame(2, $highlight->round);
         self::assertNull($highlight->toolResult);
         self::assertNull($highlight->writeTarget);

@@ -218,7 +218,7 @@ return [
     // slash-command menu (ADR-214 item 10, ADR-228). Any backend user: the
     // catalogue applies the configuration's own access check.
     'nrllm_process_skills' => [
-        'path' => '/nrllm/process-skills',
+        'path'   => '/nrllm/process-skills',
         'target' => ProcessSkillCatalogueController::class . '::listAction',
     ],
     // Tool management route (global enable/disable)

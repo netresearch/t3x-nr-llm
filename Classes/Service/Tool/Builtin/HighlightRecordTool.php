@@ -151,6 +151,6 @@ final readonly class HighlightRecordTool implements ToolInterface
             ->executeQuery()
             ->fetchOne();
 
-        return is_numeric($count) && (int)$count > 0;
+        return is_numeric($count) && (int) $count > 0;
     }
 }

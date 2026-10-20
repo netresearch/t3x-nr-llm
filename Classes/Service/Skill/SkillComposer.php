@@ -130,7 +130,7 @@ final readonly class SkillComposer
      */
     public function composeBlock(array $configSkills, array $taskSkills, array $processVersions = []): SkillCompositionResult
     {
-        $invokedUids = array_flip(array_map(static fn(SkillApproval $version): int => $version->skillUid, $processVersions));
+        $invokedUids = array_flip(array_map(static fn (SkillApproval $version): int => $version->skillUid, $processVersions));
 
         $candidates = $this->selectCandidates($configSkills, $taskSkills);
 
@@ -163,7 +163,7 @@ final readonly class SkillComposer
             // version it is measured against is one: switching the marker
             // off in the form does not turn a process version into data.
             if ($skill->isProcess() || $this->isApprovedAsProcess($skill, $digest)) {
-                if (!isset($invokedUids[(int)$skill->getUid()])) {
+                if (!isset($invokedUids[(int) $skill->getUid()])) {
                     $warnings[] = sprintf(self::WARN_PROCESS, $skill->getName(), $skill->getIdentifier());
                 }
 
@@ -591,7 +591,7 @@ final readonly class SkillComposer
     public static function processSectionId(array $skills, SkillApproval $version): string
     {
         foreach ($skills as $skill) {
-            if ((int)$skill->getUid() === $version->skillUid) {
+            if ((int) $skill->getUid() === $version->skillUid) {
                 return $skill->getIdentifier();
             }
         }

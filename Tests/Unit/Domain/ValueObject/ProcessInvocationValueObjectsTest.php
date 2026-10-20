@@ -57,12 +57,12 @@ final class ProcessInvocationValueObjectsTest extends TestCase
     public function aMalformedSubjectRecordReadsAsUnreadable(): void
     {
         foreach ([
-            'not an array'       => 'pages:1',
-            'a string uid'       => ['table' => 'pages', 'uid' => '1', 'language' => 0],
-            'no language'        => ['table' => 'pages', 'uid' => 1],
+            'not an array'        => 'pages:1',
+            'a string uid'        => ['table' => 'pages', 'uid' => '1', 'language' => 0],
+            'no language'         => ['table' => 'pages', 'uid' => 1],
             'a negative language' => ['table' => 'pages', 'uid' => 1, 'language' => -1],
-            'a malformed table'  => ['table' => 'pages; drop', 'uid' => 1, 'language' => 0],
-            'a zero uid'         => ['table' => 'pages', 'uid' => 0, 'language' => 0],
+            'a malformed table'   => ['table' => 'pages; drop', 'uid' => 1, 'language' => 0],
+            'a zero uid'          => ['table' => 'pages', 'uid' => 0, 'language' => 0],
         ] as $case => $data) {
             self::assertNull(SubjectRecord::fromArray($data), $case);
         }

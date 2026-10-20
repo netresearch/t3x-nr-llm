@@ -25,7 +25,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\ProcessVerdictUnavailableException
  *
  * A process pin is a pin (ADR-214 item 6) whose approved version is a
  * process: the `process` flag of the approval snapshot of its digest
- * ({@see \Netresearch\NrLlm\Domain\ValueObject\SkillApproval}), not of
+ * ({@see SkillApproval}), not of
  * the skill record, which a later sync may have changed.
  *
  * Two questions, because a run's pins live in two places. A run that waits

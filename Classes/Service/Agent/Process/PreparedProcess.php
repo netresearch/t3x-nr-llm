@@ -18,7 +18,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SubjectRecord;
  * process pin the loop composes from its snapshot, the record the process is
  * about, and the pins the continuation dropped, which the run reports.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class PreparedProcess
 {

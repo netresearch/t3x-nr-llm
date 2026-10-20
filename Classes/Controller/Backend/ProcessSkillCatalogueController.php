@@ -29,7 +29,7 @@ use TYPO3\CMS\Core\Http\JsonResponse;
  * route does not tell configurations the user may not see apart from ones
  * that do not exist.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final readonly class ProcessSkillCatalogueController
@@ -45,7 +45,7 @@ final readonly class ProcessSkillCatalogueController
     public function listAction(ServerRequestInterface $request): ResponseInterface
     {
         $raw = $request->getQueryParams()['configuration'] ?? null;
-        $uid = is_string($raw) && ctype_digit($raw) ? (int)$raw : 0;
+        $uid = is_string($raw) && ctype_digit($raw) ? (int) $raw : 0;
 
         $configuration = $uid > 0 ? $this->configurationRepository->findByUid($uid) : null;
         $actor         = $this->currentActor();
@@ -56,7 +56,7 @@ final readonly class ProcessSkillCatalogueController
         return new JsonResponse([
             'success' => true,
             'skills'  => array_map(
-                static fn(InvocableProcessSkill $skill): array => $skill->toArray(),
+                static fn (InvocableProcessSkill $skill): array => $skill->toArray(),
                 $this->catalogue->forActor($configuration, $actor),
             ),
         ]);

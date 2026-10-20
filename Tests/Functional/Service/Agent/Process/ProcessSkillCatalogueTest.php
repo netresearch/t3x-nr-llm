@@ -115,7 +115,7 @@ final class ProcessSkillCatalogueTest extends AbstractFunctionalTestCase
         $response = $this->controller($configuration)->listAction((new ServerRequest('/'))->withQueryParams(['configuration' => '30']));
 
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertSame([['uid' => 5, 'identifier' => '10:skills/tour-5/SKILL.md', 'name' => 'Tour 5', 'description' => 'A guided tour.']], $body['skills']);
@@ -168,7 +168,7 @@ final class ProcessSkillCatalogueTest extends AbstractFunctionalTestCase
     private function controller(LlmConfiguration $configuration): ProcessSkillCatalogueController
     {
         $repository = self::createStub(LlmConfigurationRepository::class);
-        $repository->method('findByUid')->willReturnCallback(static fn(int $uid): ?LlmConfiguration => $uid === 30 ? $configuration : null);
+        $repository->method('findByUid')->willReturnCallback(static fn (int $uid): ?LlmConfiguration => $uid === 30 ? $configuration : null);
 
         return new ProcessSkillCatalogueController($repository, $this->catalogue(), new ConfigurationResolver());
     }
@@ -198,6 +198,6 @@ final class ProcessSkillCatalogueTest extends AbstractFunctionalTestCase
      */
     private function uids(array $skills): array
     {
-        return array_map(static fn(InvocableProcessSkill $skill): int => $skill->uid, $skills);
+        return array_map(static fn (InvocableProcessSkill $skill): int => $skill->uid, $skills);
     }
 }

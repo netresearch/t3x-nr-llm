@@ -56,7 +56,7 @@ final readonly class ProcessSkillCatalogue
                 continue;
             }
 
-            $invocable[] = new InvocableProcessSkill((int)$skill->getUid(), $skill->getIdentifier(), $version->name, $version->description);
+            $invocable[] = new InvocableProcessSkill((int) $skill->getUid(), $skill->getIdentifier(), $version->name, $version->description);
         }
 
         return $invocable;
