@@ -15,7 +15,6 @@ use Netresearch\NrLlm\Domain\Enum\SyncStatus;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\SkillSource;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
-use Netresearch\NrLlm\Domain\Repository\SkillSourceRepository;
 use Netresearch\NrLlm\Service\Privacy\ContentRedactor;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicy;
 use Netresearch\NrLlm\Service\Skill\MarketplaceParser;
@@ -27,6 +26,7 @@ use Netresearch\NrLlm\Service\Skill\SkillComposerFactory;
 use Netresearch\NrLlm\Service\Skill\SkillDiscovery;
 use Netresearch\NrLlm\Service\Skill\SkillMarkdownParser;
 use Netresearch\NrLlm\Service\Skill\SkillSourceLookup;
+use Netresearch\NrLlm\Service\Skill\SkillSyncLeaseRepository;
 use Netresearch\NrLlm\Service\Skill\SkillSyncService;
 use Netresearch\NrLlm\Service\Skill\SkillVersionDigest;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -191,9 +191,9 @@ final class BackendSkillSourceTest extends AbstractFunctionalTestCase
             new MarketplaceParser(),
             new SkillDiscovery(),
             $this->get(SkillRepository::class),
-            $this->get(SkillSourceRepository::class),
             $this->get(PersistenceManagerInterface::class),
             new NullLogger(),
+            new SkillSyncLeaseRepository($this->pool()),
         );
     }
 
