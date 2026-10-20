@@ -106,9 +106,9 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         $this->persistenceManager = $persistenceManager;
 
         // Create controllers
-        $this->configController = $this->createConfigurationController();
-        $this->providerController = $this->createProviderController();
-        $this->modelController = $this->createModelController();
+        $this->configController    = $this->createConfigurationController();
+        $this->providerController  = $this->createProviderController();
+        $this->modelController     = $this->createModelController();
         $this->llmModuleController = $this->createLlmModuleController();
     }
 
@@ -147,7 +147,7 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         $analytics = $this->get(UsageAnalyticsServiceInterface::class);
         self::assertInstanceOf(UsageAnalyticsServiceInterface::class, $analytics);
 
-        $presetRegistry = $this->getService(ConfigurationPresetRegistry::class);
+        $presetRegistry      = $this->getService(ConfigurationPresetRegistry::class);
         $presetImportService = $this->getService(ConfigurationPresetImportService::class);
 
         return new ConfigurationController(
@@ -246,7 +246,7 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
     private function setPrivateProperty(object $object, string $property, mixed $value): void
     {
         $reflection = new ReflectionClass($object);
-        $prop = $reflection->getProperty($property);
+        $prop       = $reflection->getProperty($property);
         $prop->setValue($object, $value);
     }
 
@@ -281,7 +281,7 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
 
         $response1 = $this->modelController->getByProviderAction($request);
         self::assertSame(200, $response1->getStatusCode());
-        $body1 = json_decode((string)$response1->getBody(), true);
+        $body1 = json_decode((string) $response1->getBody(), true);
         self::assertIsArray($body1);
         self::assertTrue($body1['success']);
 
@@ -291,7 +291,7 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
 
         $response2 = $this->modelController->getByProviderAction($request2);
         self::assertSame(200, $response2->getStatusCode());
-        $body2 = json_decode((string)$response2->getBody(), true);
+        $body2 = json_decode((string) $response2->getBody(), true);
         self::assertIsArray($body2);
         self::assertTrue($body2['success']);
 
@@ -306,7 +306,7 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         // Execute with first provider
         $extbaseRequest1 = $this->createExtbaseRequest([
             'provider' => 'openai-test',
-            'prompt' => 'Hello from provider 1',
+            'prompt'   => 'Hello from provider 1',
         ]);
         $this->setPrivateProperty($this->llmModuleController, 'request', $extbaseRequest1);
         $response1 = $this->llmModuleController->executeTestAction();
@@ -314,7 +314,7 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         // Execute with second provider
         $extbaseRequest2 = $this->createExtbaseRequest([
             'provider' => 'anthropic-test',
-            'prompt' => 'Hello from provider 2',
+            'prompt'   => 'Hello from provider 2',
         ]);
         $this->setPrivateProperty($this->llmModuleController, 'request', $extbaseRequest2);
         $response2 = $this->llmModuleController->executeTestAction();
@@ -323,8 +323,8 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         self::assertContains($response1->getStatusCode(), [200, 500, 502]);
         self::assertContains($response2->getStatusCode(), [200, 500, 502]);
 
-        $body1 = json_decode((string)$response1->getBody(), true);
-        $body2 = json_decode((string)$response2->getBody(), true);
+        $body1 = json_decode((string) $response1->getBody(), true);
+        $body2 = json_decode((string) $response2->getBody(), true);
 
         self::assertIsArray($body1);
         self::assertIsArray($body2);
@@ -360,8 +360,8 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         self::assertSame(200, $response1->getStatusCode());
         self::assertSame(200, $response2->getStatusCode());
 
-        $body1 = json_decode((string)$response1->getBody(), true);
-        $body2 = json_decode((string)$response2->getBody(), true);
+        $body1 = json_decode((string) $response1->getBody(), true);
+        $body2 = json_decode((string) $response2->getBody(), true);
 
         self::assertIsArray($body1);
         self::assertIsArray($body2);
@@ -426,8 +426,8 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         self::assertSame(200, $response2->getStatusCode());
 
         // Both providers should be manageable independently
-        $body1 = json_decode((string)$response1->getBody(), true);
-        $body2 = json_decode((string)$response2->getBody(), true);
+        $body1 = json_decode((string) $response1->getBody(), true);
+        $body2 = json_decode((string) $response2->getBody(), true);
 
         self::assertIsArray($body1);
         self::assertIsArray($body2);
@@ -456,7 +456,7 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         $response2 = $this->modelController->getByProviderAction($request2);
         self::assertSame(200, $response2->getStatusCode());
 
-        $body = json_decode((string)$response2->getBody(), true);
+        $body = json_decode((string) $response2->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
     }
@@ -507,8 +507,8 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         self::assertContains($response1->getStatusCode(), [200, 500]);
         self::assertContains($response2->getStatusCode(), [200, 500]);
 
-        $body1 = json_decode((string)$response1->getBody(), true);
-        $body2 = json_decode((string)$response2->getBody(), true);
+        $body1 = json_decode((string) $response1->getBody(), true);
+        $body2 = json_decode((string) $response2->getBody(), true);
 
         self::assertIsArray($body1);
         self::assertIsArray($body2);
@@ -525,7 +525,7 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
 
         $response1 = $this->modelController->getByProviderAction($request1);
 
-        $body1 = json_decode((string)$response1->getBody(), true);
+        $body1 = json_decode((string) $response1->getBody(), true);
         self::assertIsArray($body1);
         self::assertTrue($body1['success']);
         self::assertArrayHasKey('models', $body1);
@@ -540,7 +540,7 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
 
         $response2 = $this->modelController->getByProviderAction($request2);
 
-        $body2 = json_decode((string)$response2->getBody(), true);
+        $body2 = json_decode((string) $response2->getBody(), true);
         self::assertIsArray($body2);
         self::assertTrue($body2['success']);
         self::assertArrayHasKey('models', $body2);
@@ -618,7 +618,7 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
             // Should either succeed or return proper error
             self::assertContains($response->getStatusCode(), [200, 404]);
 
-            $body = json_decode((string)$response->getBody(), true);
+            $body = json_decode((string) $response->getBody(), true);
             self::assertIsArray($body);
             self::assertArrayHasKey('success', $body);
         }

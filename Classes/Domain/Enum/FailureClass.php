@@ -72,7 +72,7 @@ enum FailureClass: string
     {
         return match ($this) {
             self::CONNECTION, self::RATE_LIMIT, self::SERVER_ERROR, self::CIRCUIT_OPEN => true,
-            self::AUTH, self::CONFIGURATION, self::CLIENT_ERROR, self::UNKNOWN => false,
+            self::AUTH, self::CONFIGURATION, self::CLIENT_ERROR, self::UNKNOWN         => false,
         };
     }
 
@@ -86,7 +86,7 @@ enum FailureClass: string
     public function tripsCircuit(): bool
     {
         return match ($this) {
-            self::CONNECTION, self::RATE_LIMIT, self::SERVER_ERROR => true,
+            self::CONNECTION, self::RATE_LIMIT, self::SERVER_ERROR                                 => true,
             self::AUTH, self::CONFIGURATION, self::CLIENT_ERROR, self::CIRCUIT_OPEN, self::UNKNOWN => false,
         };
     }
@@ -96,6 +96,6 @@ enum FailureClass: string
      */
     public static function values(): array
     {
-        return array_map(static fn(self $case): string => $case->value, self::cases());
+        return array_map(static fn (self $case): string => $case->value, self::cases());
     }
 }

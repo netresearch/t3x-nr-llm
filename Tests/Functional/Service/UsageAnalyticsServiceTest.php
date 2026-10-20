@@ -34,7 +34,7 @@ final class UsageAnalyticsServiceTest extends AbstractFunctionalTestCase
         parent::setUp();
         $service = $this->get(UsageAnalyticsService::class);
         self::assertInstanceOf(UsageAnalyticsService::class, $service);
-        $this->service = $service;
+        $this->service  = $service;
         $connectionPool = $this->get(ConnectionPool::class);
         self::assertInstanceOf(ConnectionPool::class, $connectionPool);
         $this->connectionPool = $connectionPool;
@@ -47,24 +47,24 @@ final class UsageAnalyticsServiceTest extends AbstractFunctionalTestCase
     {
         $ts = (new DateTimeImmutable($date . ' 00:00:00'))->getTimestamp();
         $this->connectionPool->getConnectionForTable(self::TABLE)->insert(self::TABLE, array_merge([
-            'pid' => 0,
-            'service_type' => 'chat',
-            'service_provider' => 'openai',
-            'configuration_uid' => 0,
-            'model_uid' => 1,
-            'model_id' => 'gpt-4o',
-            'be_user' => 0,
-            'request_count' => 1,
-            'tokens_used' => 100,
-            'prompt_tokens' => 60,
-            'completion_tokens' => 40,
-            'characters_used' => 0,
+            'pid'                => 0,
+            'service_type'       => 'chat',
+            'service_provider'   => 'openai',
+            'configuration_uid'  => 0,
+            'model_uid'          => 1,
+            'model_id'           => 'gpt-4o',
+            'be_user'            => 0,
+            'request_count'      => 1,
+            'tokens_used'        => 100,
+            'prompt_tokens'      => 60,
+            'completion_tokens'  => 40,
+            'characters_used'    => 0,
             'audio_seconds_used' => 0,
-            'images_generated' => 0,
-            'estimated_cost' => 0.01,
-            'request_date' => $ts,
-            'tstamp' => $ts,
-            'crdate' => $ts,
+            'images_generated'   => 0,
+            'estimated_cost'     => 0.01,
+            'request_date'       => $ts,
+            'tstamp'             => $ts,
+            'crdate'             => $ts,
         ], $overrides));
     }
 
@@ -72,15 +72,15 @@ final class UsageAnalyticsServiceTest extends AbstractFunctionalTestCase
     {
         $now = (new DateTimeImmutable('now'))->getTimestamp();
         $this->connectionPool->getConnectionForTable('be_users')->insert('be_users', [
-            'uid' => $uid,
-            'pid' => 0,
+            'uid'      => $uid,
+            'pid'      => 0,
             'username' => $username,
             'password' => '',
-            'admin' => 0,
-            'disable' => 1,
-            'deleted' => 0,
-            'tstamp' => $now,
-            'crdate' => $now,
+            'admin'    => 0,
+            'disable'  => 1,
+            'deleted'  => 0,
+            'tstamp'   => $now,
+            'crdate'   => $now,
         ]);
     }
 
@@ -88,19 +88,19 @@ final class UsageAnalyticsServiceTest extends AbstractFunctionalTestCase
     {
         $now = (new DateTimeImmutable('now'))->getTimestamp();
         $this->connectionPool->getConnectionForTable('tx_nrllm_user_budget')->insert('tx_nrllm_user_budget', [
-            'pid' => 0,
-            'be_user' => $beUser,
-            'max_requests_per_day' => 0,
-            'max_tokens_per_day' => 0,
-            'max_cost_per_day' => 0.0,
+            'pid'                    => 0,
+            'be_user'                => $beUser,
+            'max_requests_per_day'   => 0,
+            'max_tokens_per_day'     => 0,
+            'max_cost_per_day'       => 0.0,
             'max_requests_per_month' => 0,
-            'max_tokens_per_month' => 0,
-            'max_cost_per_month' => $maxCostPerMonth,
-            'is_active' => 1,
-            'tstamp' => $now,
-            'crdate' => $now,
-            'deleted' => 0,
-            'hidden' => 0,
+            'max_tokens_per_month'   => 0,
+            'max_cost_per_month'     => $maxCostPerMonth,
+            'is_active'              => 1,
+            'tstamp'                 => $now,
+            'crdate'                 => $now,
+            'deleted'                => 0,
+            'hidden'                 => 0,
         ]);
     }
 

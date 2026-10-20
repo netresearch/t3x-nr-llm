@@ -16,6 +16,8 @@ use Netresearch\NrLlm\Service\Telemetry\TelemetryRecord;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
 use Throwable;
 
+use function array_slice;
+
 /**
  * In-memory telemetry repository for unit tests.
  *
@@ -89,7 +91,7 @@ final class InMemoryTelemetryRepository implements TelemetryRepositoryInterface
         $this->hopsSince = $since;
         $this->hopsLimit = $limit;
 
-        return \array_slice($this->fallbackHops, 0, max(1, $limit));
+        return array_slice($this->fallbackHops, 0, max(1, $limit));
     }
 
     /**
@@ -108,7 +110,7 @@ final class InMemoryTelemetryRepository implements TelemetryRepositoryInterface
         // for. The only caller here is LlmModuleController, which no unit test
         // drives through this fixture, so the pair would be a declaration
         // nothing reads.
-        return \array_slice($this->routedCalls, 0, max(1, $limit));
+        return array_slice($this->routedCalls, 0, max(1, $limit));
     }
 
     /**

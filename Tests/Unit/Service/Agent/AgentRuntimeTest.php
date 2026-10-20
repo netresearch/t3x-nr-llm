@@ -50,6 +50,8 @@ use Netresearch\NrLlm\Service\Agent\Exception\ApproverNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\Exception\AuditPersistenceFailedException;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunDecidedInChatException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessVerdictUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAccessDeniedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
@@ -63,6 +65,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\StaleInputTurnException;
 use Netresearch\NrLlm\Service\Agent\Exception\WriteWithoutDurableExecutionException;
 use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
+use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
 use Netresearch\NrLlm\Service\Agent\QueuedRunCoordinator;
 use Netresearch\NrLlm\Service\Agent\QueuedRunFailureRecovery;
@@ -84,6 +87,7 @@ use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
+use Netresearch\NrLlm\Tests\Fixtures\Process\ProcessPinProbeStub;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\RecordingAgentRunRepository;
@@ -96,6 +100,8 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+
+use function assert;
 
 #[CoversClass(AgentRuntime::class)]
 #[CoversClass(AgentRunExecutor::class)]
@@ -148,7 +154,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     public function aFailedSuspensionFailsClosedAsSuspendFailed(): void
     {
         $this->repository->throwOnSuspend = true;
-        $runtime = $this->runtime($this->loopThrowing(ToolApprovalRequiredException::fromState($this->suspendedState())));
+        $runtime                          = $this->runtime($this->loopThrowing(ToolApprovalRequiredException::fromState($this->suspendedState())));
 
         $result = $runtime->run($this->request());
 
@@ -166,7 +172,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         // (a concurrent cancel won the row): the suspension must not resurrect
         // the cancelled run into an approval queue (ADR-101).
         $this->repository->refuseSuspend = true;
-        $runtime = $this->runtime($this->loopThrowing(ToolApprovalRequiredException::fromState($this->suspendedState())));
+        $runtime                         = $this->runtime($this->loopThrowing(ToolApprovalRequiredException::fromState($this->suspendedState())));
 
         $result = $runtime->run($this->request());
 
@@ -181,7 +187,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         // resume — announcing awaiting-approval would strand the client behind
         // an approve() that can only ever 400 (ADR-092).
         $this->repository->throwOnStart = true;
-        $runtime = $this->runtime($this->loopThrowing(ToolApprovalRequiredException::fromState($this->suspendedState())));
+        $runtime                        = $this->runtime($this->loopThrowing(ToolApprovalRequiredException::fromState($this->suspendedState())));
 
         $result = $runtime->run($this->request());
 
@@ -199,7 +205,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $this->repository->findResult = $this->suspendedRun(status: 'cancelled');
 
         $reachedSecondRound = false;
-        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop               = self::createStub(ToolLoopServiceInterface::class);
         $loop->method('runLoop')->willReturnCallback(
             function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace) use (&$reachedSecondRound): ToolLoopResult {
                 // First step boundary: the probe fires here and aborts.
@@ -246,7 +252,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     /**
      * The shape a budget denial actually reaches a caller in on the tool path.
      *
-     * {@see \Netresearch\NrLlm\Service\Tool\ToolLoopService} catches the denial
+     * {@see ToolLoopService} catches the denial
      * itself and returns a truncated result carrying the reason — proven in
      * ToolLoopServiceTest. The executor has no arm for that: it is an ordinary
      * loop return, so the run settles COMPLETED with no `error` at all. The
@@ -327,6 +333,11 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $observed = [];
         $runtime  = $this->runtime($loop);
         $result   = $runtime->run($this->request(), function (RunStep $s) use (&$observed): void {
+            self::assertSame(
+                [],
+                $this->repository->events,
+                'The observer runs before the event is stored.',
+            );
             $observed[] = $s->kind;
         });
 
@@ -472,6 +483,23 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         self::assertSame(['approved' => true, 'decidedBy' => 42], $payload);
     }
 
+    /**
+     * The resume coordinator this runtime builds itself gets the runtime's
+     * probe, so the process guards (ADR-214 item 6) hold on that path too: a
+     * run holding a process pin is not decided by someone who did not start it.
+     * Without a pin an administrator decides any run (mayActOnRun).
+     */
+    #[Test]
+    public function approveHandsTheProcessPinProbeToTheCoordinatorItBuilds(): void
+    {
+        $this->repository->findResult = $this->suspendedRun();
+
+        $this->expectException(ProcessRunDecidedInChatException::class);
+        // An administrator who did not start the run (it belongs to uid 9).
+        $this->runtime($this->loopReturning($this->loopResult('x')), processPinProbe: new ProcessPinProbeStub(everyRun: true))
+            ->approve(AiActorContext::backendUser(1, isAdmin: true), 'run-uuid-1', $this->decision(true, 1));
+    }
+
     #[Test]
     public function approveResolvesTheEventPositionAgainAfterWinningTheClaim(): void
     {
@@ -533,7 +561,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     public function approveRefusesADeactivatedConfigurationWithoutClaimingTheRun(bool $approved): void
     {
         $this->repository->findResult = $this->suspendedRun();
-        $configuration = new LlmConfiguration();
+        $configuration                = new LlmConfiguration();
         $configuration->setIsActive(false);
 
         try {
@@ -551,7 +579,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     public function submitInputRefusesADeactivatedConfigurationWithoutClaimingTheRun(): void
     {
         $this->repository->findResult = $this->inputRun();
-        $configuration = new LlmConfiguration();
+        $configuration                = new LlmConfiguration();
         $configuration->setIsActive(false);
 
         try {
@@ -704,7 +732,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         // decision that authorised it. The approval event cannot be stored, the
         // turn declares a write — nothing executes and the run is decidable
         // again once the store recovers.
-        $this->repository->findResult       = $this->suspendedRun(tool: 'send_mail');
+        $this->repository->findResult        = $this->suspendedRun(tool: 'send_mail');
         $this->repository->throwOnRecordKind = 'approval';
 
         $resolver = new ToolEffectResolver(new ToolRegistry([
@@ -738,7 +766,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         // not a silently retried write.
         self::assertSame([], array_values(array_filter(
             $this->repository->events,
-            static fn(array $event): bool => $event['kind'] === 'approval',
+            static fn (array $event): bool => $event['kind'] === 'approval',
         )));
     }
 
@@ -789,7 +817,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
             // land in the stream as a decision that stood.
             self::assertSame([], array_values(array_filter(
                 $this->repository->events,
-                static fn(array $event): bool => $event['kind'] === 'approval',
+                static fn (array $event): bool => $event['kind'] === 'approval',
             )));
         }
     }
@@ -804,7 +832,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         // decider, for the continuation's budget check.
         $this->repository->findResult = $this->suspendedRun(tool: 'send_mail');
 
-        $seenActor  = null;
+        $seenActor   = null;
         $seenDecider = null;
         $loop        = self::createStub(ToolLoopServiceInterface::class);
         $loop->method('resume')->willReturnCallback(
@@ -936,7 +964,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     {
         $policy = self::createStub(ToolCallPolicyInterface::class);
         $policy->method('decide')->willReturnCallback(
-            static fn(string $toolName): ToolPolicyDecision => new ToolPolicyDecision(
+            static fn (string $toolName): ToolPolicyDecision => new ToolPolicyDecision(
                 $toolName,
                 $allowed,
                 ToolDataClass::EDITOR_CONTENT,
@@ -993,7 +1021,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     public function aResumedRunMaySuspendAgain(): void
     {
         $this->repository->findResult = $this->suspendedRun();
-        $again = $this->suspendedState();
+        $again                        = $this->suspendedState();
 
         $runtime = $this->runtime($this->loopThrowing(ToolApprovalRequiredException::fromState($again), onResume: true));
         $result  = $runtime->approve($this->actor(), 'run-uuid-1', $this->decision(true, 1));
@@ -1046,8 +1074,8 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     public function enqueueFailsClosedWhenTheRowCannotBeStored(): void
     {
         $this->repository->throwOnEnqueue = true;
-        $dispatched = [];
-        $runtime    = $this->runtime($this->loopReturning($this->loopResult('x')), bus: $this->recordingBus($dispatched));
+        $dispatched                       = [];
+        $runtime                          = $this->runtime($this->loopReturning($this->loopResult('x')), bus: $this->recordingBus($dispatched));
 
         try {
             $runtime->enqueue($this->request());
@@ -1222,7 +1250,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         // ADR-104: the reaper reclaimed the run (renewLease affects no row). The
         // worker stops at the step boundary WITHOUT recording the step and
         // WITHOUT settling — the row belongs to its new owner.
-        $this->repository->findResult        = $this->queuedRun('run-uuid-q', '{"messages":[]}');
+        $this->repository->findResult       = $this->queuedRun('run-uuid-q', '{"messages":[]}');
         $this->repository->refuseRenewLease = true;
 
         $loop = self::createStub(ToolLoopServiceInterface::class);
@@ -1250,7 +1278,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         // ADR-111: a WRITING tool executed but its audit event could not be
         // stored. The run must fail rather than continue over an unrecorded
         // mutation — and must NOT be requeued (the write already ran once).
-        $this->repository->findResult   = $this->queuedRun('run-uuid-q', '{"messages":[]}');
+        $this->repository->findResult    = $this->queuedRun('run-uuid-q', '{"messages":[]}');
         $this->repository->throwOnRecord = true;
 
         $resolver = new ToolEffectResolver(new ToolRegistry([
@@ -1469,10 +1497,33 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $loop = self::createStub(ToolLoopServiceInterface::class);
         $loop->method('runLoop')->willReturnCallback(static function (): ToolLoopResult {
             // A retryable class (would normally requeue within budget).
-            throw new RuntimeException('transient provider blip', 1785000099);
+            throw new ProviderConnectionException(
+                'transient provider blip',
+                1785000099,
+            );
         });
 
         $result = $this->runtime($loop)->runQueued('run-uuid-q');
+
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::FAILED, $result->outcome, 'dead-lettered, not REQUEUED');
+        self::assertSame([], $this->repository->requeues);
+    }
+
+    /**
+     * A failure marked transient is retried only where any retryable failure
+     * would be (ADR-111, ADR-228): with a non-idempotent write in flight it
+     * is dead-lettered too.
+     */
+    #[Test]
+    public function aTransientFailureMidNonIdempotentWriteIsDeadLetteredNotRequeued(): void
+    {
+        $this->repository->findResult = $this->queuedRun('run-uuid-q', '{"messages":[]}', pendingEffect: ToolEffect::NON_IDEMPOTENT_WRITE->value);
+
+        $result = $this->runtime(
+            $this->loopRecordingThenThrowing(ProcessVerdictUnavailableException::forPin(3)),
+            bus: $this->discardingBus(),
+        )->runQueued('run-uuid-q');
 
         self::assertNotNull($result);
         self::assertSame(AgentRunOutcome::FAILED, $result->outcome, 'dead-lettered, not REQUEUED');
@@ -1485,7 +1536,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         // The fail-soft path is preserved for reads: a store hiccup on a
         // read-only tool's audit step is swallowed and the run completes, so a
         // transient database blip does not fail an observe-only run.
-        $this->repository->findResult   = $this->queuedRun('run-uuid-q', '{"messages":[]}');
+        $this->repository->findResult    = $this->queuedRun('run-uuid-q', '{"messages":[]}');
         $this->repository->throwOnRecord = true;
 
         $resolver = new ToolEffectResolver(new ToolRegistry([new FakeTool('list_pages')]));
@@ -1534,6 +1585,28 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         self::assertSame(AgentRuntime::REQUEUE_BACKOFF_MS, $dispatched[0]['stamps'][0]->getDelay());
     }
 
+    /**
+     * A process approval that could not be read (ADR-228) is no provider
+     * failure, and still no reason to give up: the run goes back to the queue.
+     */
+    #[Test]
+    public function aQueuedRunWhoseProcessApprovalCannotBeReadIsRequeued(): void
+    {
+        $this->repository->findResult = $this->queuedRun('run-uuid-q', '{"messages":[]}');
+
+        $dispatched = [];
+        $result     = $this->runtime(
+            $this->loopRecordingThenThrowing(ProcessVerdictUnavailableException::forPin(3)),
+            bus: $this->stampRecordingBus($dispatched),
+        )->runQueued('run-uuid-q');
+
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::REQUEUED, $result->outcome);
+        self::assertCount(1, $this->repository->requeues);
+        self::assertNull($this->repository->finished);
+        self::assertCount(1, $dispatched);
+    }
+
     #[Test]
     public function aQueuedRunFailingNonRetryablyIsDeadLetteredAsNotRetryable(): void
     {
@@ -1580,7 +1653,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         // ADR-104 (review MAJOR): requeue returns false — a concurrent reaper
         // reclaim or cancel won. The worker must NOT settle the run: it may
         // belong to another worker now.
-        $this->repository->findResult   = $this->queuedRun('run-uuid-q', '{"messages":[]}');
+        $this->repository->findResult    = $this->queuedRun('run-uuid-q', '{"messages":[]}');
         $this->repository->refuseRequeue = true;
 
         $result = $this->runtime(
@@ -1598,7 +1671,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     {
         // ADR-104 D3: a requeued run carries the prior attempt's events, so the
         // claim resolves the stream position to MAX(sequence) + 1 rather than 0.
-        $this->repository->findResult = $this->queuedRun('run-uuid-q', '{"messages":[]}', 1);
+        $this->repository->findResult  = $this->queuedRun('run-uuid-q', '{"messages":[]}', 1);
         $this->repository->maxSequence = 5;
 
         $loop = self::createStub(ToolLoopServiceInterface::class);
@@ -1663,7 +1736,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     public function aFailedInputSuspensionFailsClosedAsSuspendFailed(): void
     {
         $this->repository->refuseSuspendForInput = true;
-        $runtime = $this->runtime($this->loopThrowing(ToolInputRequiredException::fromState($this->inputState())));
+        $runtime                                 = $this->runtime($this->loopThrowing(ToolInputRequiredException::fromState($this->inputState())));
 
         $result = $runtime->run($this->request());
 
@@ -1724,9 +1797,9 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     {
         // A rehydrated input state with an empty schema must NOT validate against
         // [] (accept-all) — it is corruption, fail closed (ADR-105 M2).
-        $state = new SuspendedRunState([['role' => 'user', 'content' => 'x']], [], 1, 0, 0, ['ask_user'], [], 'ask_user', []);
+        $state   = new SuspendedRunState([['role' => 'user', 'content' => 'x']], [], 1, 0, 0, ['ask_user'], [], 'ask_user', []);
         $encoded = json_encode($state->toArray());
-        \assert(is_string($encoded));
+        assert(is_string($encoded));
         $this->repository->findResult = $this->inputRun($encoded);
 
         $runtime = $this->runtime($this->loopReturning($this->loopResult('x')));
@@ -1739,7 +1812,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     public function aSecondConcurrentSubmitInputLosesTheClaim(): void
     {
         $this->repository->findResult = $this->inputRun();
-        $runtime = $this->runtime($this->loopReturning($this->loopResult('answered')));
+        $runtime                      = $this->runtime($this->loopReturning($this->loopResult('answered')));
 
         // First submission wins the atomic claim and resumes.
         $first = $runtime->submitInput($this->actor(), 'run-uuid-i', new InputSubmission(['city' => 'Berlin'], 7, $this->inputDigest()));
@@ -1759,7 +1832,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         // the state that would execute — and the run is released back to its
         // input pause rather than settled.
         $this->repository->findResult = $this->inputRun();
-        $runtime = $this->runtime($this->loopReturning($this->loopResult('answered')));
+        $runtime                      = $this->runtime($this->loopReturning($this->loopResult('answered')));
 
         try {
             $runtime->submitInput($this->actor(), 'run-uuid-i', new InputSubmission(['city' => 'Berlin'], 7));
@@ -1823,7 +1896,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     public function anUnpersistedRunStillExecutesWithAnEmptyRunUuid(): void
     {
         $this->repository->throwOnStart = true;
-        $loopResult = $this->loopResult('ran without persistence');
+        $loopResult                     = $this->loopResult('ran without persistence');
 
         $result = $this->runtime($this->loopReturning($loopResult))->run($this->request());
 
@@ -1844,6 +1917,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         // cases that are not about it leave both null and are unaffected.
         ?ToolCallPolicyInterface $toolPolicy = null,
         ?ActingBackendUserResolverInterface $actingBackendUserResolver = null,
+        ?ProcessPinProbe $processPinProbe = null,
     ): AgentRuntime {
         $configurationRepository = self::createStub(LlmConfigurationRepository::class);
         $configurationRepository->method('findByUid')->willReturn($configuration);
@@ -1861,6 +1935,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
             actingBackendUserResolver: $actingBackendUserResolver ?? self::createStub(ActingBackendUserResolverInterface::class),
             toolEffectResolver: $effectResolver,
             toolPolicy: $toolPolicy,
+            processPinProbe: $processPinProbe,
         );
     }
 
@@ -1935,7 +2010,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     {
         $bus = self::createStub(MessageBusInterface::class);
         $bus->method('dispatch')->willReturnCallback(
-            static fn(object $message, array $stamps = []): Envelope => new Envelope($message, $stamps),
+            static fn (object $message, array $stamps = []): Envelope => new Envelope($message, $stamps),
         );
 
         return $bus;
@@ -2051,10 +2126,11 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         self::assertTrue($result->cancelled);
         self::assertSame(AgentRunStatus::CANCELLED, $result->status);
         self::assertSame([[
-            'runUid' => 1,
-            'from'   => ['waiting_for_approval', 'waiting_for_input'],
-            'to'     => 'cancelled',
-            'reason' => 'cancelled',
+            'runUid'     => 1,
+            'from'       => ['waiting_for_approval', 'waiting_for_input'],
+            'to'         => 'cancelled',
+            'reason'     => 'cancelled',
+            'errorClass' => '',
         ]], $this->repository->settledIfWaiting);
         self::assertNull($this->repository->finished, 'the guarded transition, never the unguarded cancel');
     }
@@ -2259,7 +2335,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     private function inputRun(?string $stateJson = null): AgentRun
     {
         $encoded = $stateJson ?? json_encode($this->inputState()->toArray());
-        \assert(is_string($encoded));
+        assert(is_string($encoded));
 
         return new AgentRun(
             uid: 1,
@@ -2286,7 +2362,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     private function suspendedRun(string $status = 'waiting_for_approval', ?string $stateJson = null, string $tool = 'delete_thing'): AgentRun
     {
         $encoded = $stateJson ?? json_encode($this->suspendedState($tool)->toArray());
-        \assert(is_string($encoded));
+        assert(is_string($encoded));
 
         return new AgentRun(
             uid: 1,
@@ -2329,7 +2405,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         ];
         $this->repository->maxSequence = $maxSequence;
 
-        $seen = [];
+        $seen     = [];
         $observer = self::createStub(ToolInvocationRuleInterface::class);
         $observer->method('identifier')->willReturn('observe.history');
         $observer->method('requiresCompleteHistory')->willReturn(false);
@@ -2340,6 +2416,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
                     ToolInvocationContext $context,
                 ) use (&$seen): ToolInvocationDecision {
                     $seen[] = $context->history;
+
                     return ToolInvocationDecision::allow();
                 },
             );
@@ -2387,7 +2464,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     #[Test]
     public function aQueuedRetryWithoutInvocationRulesStillExecutes(): void
     {
-        $this->repository->findResult = $this->queuedRun('run-uuid-q', '{"messages":[]}', 1);
+        $this->repository->findResult  = $this->queuedRun('run-uuid-q', '{"messages":[]}', 1);
         $this->repository->maxSequence = 5;
 
         $result = $this->runtime($this->invocationLoop([]))->runQueued('run-uuid-q');
@@ -2403,7 +2480,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     private function invocationLoop(array $rules): ToolLoopService
     {
         $registry = new ToolRegistry([new FakeTool('read_record')]);
-        $manager = self::createStub(LlmServiceManagerInterface::class);
+        $manager  = self::createStub(LlmServiceManagerInterface::class);
         $manager
             ->method('chatWithToolsForConfiguration')
             ->willReturn(
@@ -2424,6 +2501,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $offerability
             ->method('skillAllowListForRun')
             ->willReturn(new SkillToolAllowList(null));
+
         return new ToolLoopService(
             $manager,
             $registry,

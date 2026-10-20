@@ -49,7 +49,7 @@ final class ToolResultTest extends TestCase
     }
 
     #[Test]
-    public function errorIsFailClosed_flagsErrorAndCarriesNoArtifacts(): void
+    public function errorIsFailClosedFlagsErrorAndCarriesNoArtifacts(): void
     {
         $result = ToolResult::error('Error: tool "x" failed.');
 
@@ -59,7 +59,7 @@ final class ToolResultTest extends TestCase
     }
 
     #[Test]
-    public function contentIsTheOnlyStringPath_noToStringOrWireAccessorExists(): void
+    public function contentIsTheOnlyStringPathNoToStringOrWireAccessorExists(): void
     {
         $reflection = new ReflectionClass(ToolResult::class);
 
@@ -132,7 +132,7 @@ final class ToolResultTest extends TestCase
         self::assertSame([], $bounded->artifacts);
         self::assertFalse($bounded->isError);
         self::assertInstanceOf(RecordReference::class, $bounded->writeTarget);
-        self::assertSame('sys_file_metadata:137', (string)$bounded->writeTarget);
+        self::assertSame('sys_file_metadata:137', (string) $bounded->writeTarget);
     }
 
     /**
@@ -248,6 +248,29 @@ final class ToolResultTest extends TestCase
     }
 
     /**
+     * The highlight target (ADR-228) is carried forward on success and, like
+     * every side channel, refused on a failed call: a failed call must not
+     * point the editor at a record.
+     */
+    #[Test]
+    public function aHighlightTargetIsCarriedOnSuccessAndRefusedOnFailure(): void
+    {
+        $highlighted = ToolResult::text('Highlighted pages:42.')->withHighlightTarget(new RecordReference('pages', 42));
+
+        self::assertSame('pages:42', (string) $highlighted->highlightTarget);
+        self::assertSame('pages:42', (string) $highlighted->withBoundedChannels('bounded', [])->highlightTarget);
+        self::assertSame(
+            'pages:42',
+            (string) $highlighted->withWriteTarget(new RecordReference('pages', 42), WriteKind::UPDATED)->highlightTarget,
+        );
+        self::assertSame('pages:42', (string) $highlighted->withHookFailedAfterWrite()->highlightTarget);
+
+        self::assertNull(ToolResult::text('read something')->highlightTarget);
+        self::assertNull(ToolResult::error('nope')->withHighlightTarget(new RecordReference('pages', 42))->highlightTarget);
+        self::assertNull(ToolResult::cancelled('stopped')->withHighlightTarget(new RecordReference('pages', 42))->highlightTarget);
+    }
+
+    /**
      * Every property of the value object is either bounded or carried. A new one
      * added without a decision fails here rather than silently vanishing on the
      * way through the loop.
@@ -256,13 +279,13 @@ final class ToolResultTest extends TestCase
     public function boundingIsExhaustiveOverThePropertiesOfTheResult(): void
     {
         $properties = array_map(
-            static fn(ReflectionProperty $p): string => $p->getName(),
+            static fn (ReflectionProperty $p): string => $p->getName(),
             (new ReflectionClass(ToolResult::class))->getProperties(),
         );
         sort($properties);
 
         self::assertSame(
-            ['artifacts', 'content', 'hookFailedAfterWrite', 'isError', 'outcome', 'writeCompleteness', 'writeKind', 'writeTarget'],
+            ['artifacts', 'content', 'highlightTarget', 'hookFailedAfterWrite', 'isError', 'outcome', 'writeCompleteness', 'writeKind', 'writeTarget'],
             $properties,
             'ToolResult gained a property. Decide in withBoundedChannels() whether it is bounded or carried '
             . 'forward — ADR-182 names three values already lost to a rebuild that answered for neither.',

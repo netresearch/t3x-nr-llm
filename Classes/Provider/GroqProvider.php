@@ -58,21 +58,21 @@ final class GroqProvider extends AbstractProvider implements
     private const MODELS = [
         // Llama 3.3
         'llama-3.3-70b-versatile' => 'Llama 3.3 70B Versatile',
-        'llama-3.3-70b-specdec' => 'Llama 3.3 70B SpecDec (Fast)',
+        'llama-3.3-70b-specdec'   => 'Llama 3.3 70B SpecDec (Fast)',
         // Llama 3.1
         'llama-3.1-70b-versatile' => 'Llama 3.1 70B Versatile',
-        'llama-3.1-8b-instant' => 'Llama 3.1 8B Instant (Ultra-Fast)',
+        'llama-3.1-8b-instant'    => 'Llama 3.1 8B Instant (Ultra-Fast)',
         // Llama 3.2
         'llama-3.2-90b-vision-preview' => 'Llama 3.2 90B Vision (Preview)',
         'llama-3.2-11b-vision-preview' => 'Llama 3.2 11B Vision (Preview)',
-        'llama-3.2-3b-preview' => 'Llama 3.2 3B (Preview)',
-        'llama-3.2-1b-preview' => 'Llama 3.2 1B (Preview)',
+        'llama-3.2-3b-preview'         => 'Llama 3.2 3B (Preview)',
+        'llama-3.2-1b-preview'         => 'Llama 3.2 1B (Preview)',
         // Mixtral
         'mixtral-8x7b-32768' => 'Mixtral 8x7B (32K context)',
         // Gemma
         'gemma2-9b-it' => 'Gemma 2 9B Instruct',
         // Whisper (for reference, handled separately)
-        'whisper-large-v3' => 'Whisper Large V3 (Audio)',
+        'whisper-large-v3'       => 'Whisper Large V3 (Audio)',
         'whisper-large-v3-turbo' => 'Whisper Large V3 Turbo (Audio)',
     ];
 
@@ -113,9 +113,9 @@ final class GroqProvider extends AbstractProvider implements
      * lightweight GET to the OpenAI-compatible models endpoint and let any
      * failure surface as the typed exception sendRequest() raises.
      *
-     * @throws ProviderConnectionException on connection failure
-     *
      * @return array{success: bool, message: string, models?: array<string, string>}
+     *
+     * @throws ProviderConnectionException on connection failure
      */
     public function testConnection(): array
     {
@@ -129,18 +129,17 @@ final class GroqProvider extends AbstractProvider implements
     public function chatCompletion(array $messages, array $options = []): CompletionResponse
     {
         $messages = array_map(
-            static fn(ChatMessage|array $m): array
-                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            static fn (ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m,
             $messages,
         );
 
         $model = $this->getString($options, 'model', $this->getDefaultModel());
 
         $payload = [
-            'model' => $model,
-            'messages' => $messages,
+            'model'       => $model,
+            'messages'    => $messages,
             'temperature' => $this->getFloat($options, 'temperature', 0.7),
-            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
+            'max_tokens'  => $this->getInt($options, 'max_tokens', 4096),
         ];
 
         $responseFormat = $this->buildResponseFormat($options);
@@ -178,9 +177,9 @@ final class GroqProvider extends AbstractProvider implements
         $response = $this->sendRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload, timeout: $this->resolveRequestTimeout($options));
 
         $choices = $this->getList($response, 'choices');
-        $choice = $this->asArray($choices[0] ?? []);
+        $choice  = $this->asArray($choices[0] ?? []);
         $message = $this->getArray($choice, 'message');
-        $usage = $this->getArray($response, 'usage');
+        $usage   = $this->getArray($response, 'usage');
 
         return $this->createCompletionResponse(
             content: $this->getString($message, 'content'),
@@ -201,19 +200,18 @@ final class GroqProvider extends AbstractProvider implements
     public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
     {
         $messages = array_map(
-            static fn(ChatMessage|array $m): array
-                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            static fn (ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m,
             $messages,
         );
 
         $model = $this->getString($options, 'model', $this->getDefaultModel());
 
         $payload = [
-            'model' => $model,
-            'messages' => $messages,
-            'tools' => array_map(static fn(ToolSpec $spec): array => $spec->toArray(), $tools),
+            'model'       => $model,
+            'messages'    => $messages,
+            'tools'       => array_map(static fn (ToolSpec $spec): array => $spec->toArray(), $tools),
             'temperature' => $this->getFloat($options, 'temperature', 0.7),
-            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
+            'max_tokens'  => $this->getInt($options, 'max_tokens', 4096),
         ];
 
         if (isset($options['tool_choice'])) {
@@ -228,9 +226,9 @@ final class GroqProvider extends AbstractProvider implements
         $response = $this->sendRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload, timeout: $this->resolveRequestTimeout($options));
 
         $choices = $this->getList($response, 'choices');
-        $choice = $this->asArray($choices[0] ?? []);
+        $choice  = $this->asArray($choices[0] ?? []);
         $message = $this->getArray($choice, 'message');
-        $usage = $this->getArray($response, 'usage');
+        $usage   = $this->getArray($response, 'usage');
 
         $toolCalls    = null;
         $rawToolCalls = $this->getArray($message, 'tool_calls');
@@ -278,17 +276,16 @@ final class GroqProvider extends AbstractProvider implements
         $this->validateConfiguration();
 
         $messages = array_map(
-            static fn(ChatMessage|array $m): array
-                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            static fn (ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m,
             $messages,
         );
 
         $payload = [
-            'model' => $this->getString($options, 'model', $this->getDefaultModel()),
-            'messages' => $messages,
+            'model'       => $this->getString($options, 'model', $this->getDefaultModel()),
+            'messages'    => $messages,
             'temperature' => $this->getFloat($options, 'temperature', 0.7),
-            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
-            'stream' => true,
+            'max_tokens'  => $this->getInt($options, 'max_tokens', 4096),
+            'stream'      => true,
         ];
 
         $url = rtrim($this->baseUrl, '/') . '/' . self::ENDPOINT_CHAT_COMPLETIONS;
@@ -301,7 +298,7 @@ final class GroqProvider extends AbstractProvider implements
         // headers must be applied here.
         $request = $this->applyCustomHeaders($request);
 
-        $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
+        $body    = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         $request = $request->withBody($body);
 
         $response = $this->getHttpClient($this->resolveRequestTimeout($options))->sendRequest($request);
@@ -314,7 +311,7 @@ final class GroqProvider extends AbstractProvider implements
             $buffer .= $chunk;
 
             while (($pos = strpos($buffer, "\n")) !== false) {
-                $line = substr($buffer, 0, $pos);
+                $line   = substr($buffer, 0, $pos);
                 $buffer = substr($buffer, $pos + 1);
 
                 if (!str_starts_with($line, 'data: ')) {
@@ -350,10 +347,10 @@ final class GroqProvider extends AbstractProvider implements
                 return '';
             }
 
-            $json = $this->asArray($decoded);
-            $choices = $this->getList($json, 'choices');
+            $json        = $this->asArray($decoded);
+            $choices     = $this->getList($json, 'choices');
             $firstChoice = $this->asArray($choices[0] ?? []);
-            $delta = $this->getArray($firstChoice, 'delta');
+            $delta       = $this->getArray($firstChoice, 'delta');
 
             return $this->getString($delta, 'content');
         } catch (JsonException) {

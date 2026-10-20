@@ -39,8 +39,8 @@ abstract class AbstractE2ETestCase extends AbstractUnitTestCase
     {
         parent::setUp();
         $this->requestFactory = new HttpFactory();
-        $this->streamFactory = new HttpFactory();
-        $this->logger = new NullLogger();
+        $this->streamFactory  = new HttpFactory();
+        $this->logger         = new NullLogger();
     }
 
     /**
@@ -65,10 +65,11 @@ abstract class AbstractE2ETestCase extends AbstractUnitTestCase
     protected function createCapturingHttpClient(ResponseInterface $response): array
     {
         $requests = [];
-        $client = self::createStub(ClientInterface::class);
+        $client   = self::createStub(ClientInterface::class);
         $client->method('sendRequest')
             ->willReturnCallback(function (RequestInterface $request) use ($response, &$requests): ResponseInterface {
                 $requests[] = $request;
+
                 return $response;
             });
 
@@ -102,24 +103,24 @@ abstract class AbstractE2ETestCase extends AbstractUnitTestCase
         int $completionTokens = 100,
     ): array {
         return [
-            'id' => 'chatcmpl-' . $this->faker->uuid(),
-            'object' => 'chat.completion',
+            'id'      => 'chatcmpl-' . $this->faker->uuid(),
+            'object'  => 'chat.completion',
             'created' => time(),
-            'model' => $model,
+            'model'   => $model,
             'choices' => [
                 [
-                    'index' => 0,
+                    'index'   => 0,
                     'message' => [
-                        'role' => 'assistant',
+                        'role'    => 'assistant',
                         'content' => $content,
                     ],
                     'finish_reason' => $finishReason,
                 ],
             ],
             'usage' => [
-                'prompt_tokens' => $promptTokens,
+                'prompt_tokens'     => $promptTokens,
                 'completion_tokens' => $completionTokens,
-                'total_tokens' => $promptTokens + $completionTokens,
+                'total_tokens'      => $promptTokens + $completionTokens,
             ],
         ];
     }
@@ -137,16 +138,16 @@ abstract class AbstractE2ETestCase extends AbstractUnitTestCase
         int $outputTokens = 100,
     ): array {
         return [
-            'id' => 'msg_' . $this->faker->uuid(),
-            'type' => 'message',
-            'role' => 'assistant',
+            'id'      => 'msg_' . $this->faker->uuid(),
+            'type'    => 'message',
+            'role'    => 'assistant',
             'content' => [
                 ['type' => 'text', 'text' => $content],
             ],
-            'model' => $model,
+            'model'       => $model,
             'stop_reason' => $stopReason,
-            'usage' => [
-                'input_tokens' => $inputTokens,
+            'usage'       => [
+                'input_tokens'  => $inputTokens,
                 'output_tokens' => $outputTokens,
             ],
         ];
@@ -161,12 +162,12 @@ abstract class AbstractE2ETestCase extends AbstractUnitTestCase
     {
         return [
             'object' => 'list',
-            'data' => [
+            'data'   => [
                 [
-                    'object' => 'embedding',
-                    'index' => 0,
+                    'object'    => 'embedding',
+                    'index'     => 0,
                     'embedding' => array_map(
-                        fn(): float => $this->faker->randomFloat(8, -1, 1),
+                        fn (): float => $this->faker->randomFloat(8, -1, 1),
                         range(1, $dimensions),
                     ),
                 ],
@@ -174,7 +175,7 @@ abstract class AbstractE2ETestCase extends AbstractUnitTestCase
             'model' => 'text-embedding-3-small',
             'usage' => [
                 'prompt_tokens' => 10,
-                'total_tokens' => 10,
+                'total_tokens'  => 10,
             ],
         ];
     }
@@ -194,7 +195,7 @@ abstract class AbstractE2ETestCase extends AbstractUnitTestCase
                 'translations' => [
                     [
                         'detected_source_language' => $detectedLanguage,
-                        'text' => $translatedText,
+                        'text'                     => $translatedText,
                     ],
                 ],
             ];

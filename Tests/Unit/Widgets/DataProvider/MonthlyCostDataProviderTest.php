@@ -49,10 +49,10 @@ class MonthlyCostDataProviderTest extends AbstractUnitTestCase
     public static function costCases(): array
     {
         return [
-            'exact dollar' => [1.0, 1],
+            'exact dollar'              => [1.0, 1],
             'sub-dollar floors to zero' => [0.99, 0],
-            'truncates cents' => [42.99, 42],
-            'large value' => [12345.67, 12345],
+            'truncates cents'           => [42.99, 42],
+            'large value'               => [12345.67, 12345],
         ];
     }
 

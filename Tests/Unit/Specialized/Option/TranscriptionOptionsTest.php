@@ -64,10 +64,10 @@ class TranscriptionOptionsTest extends AbstractUnitTestCase
     public static function validFormatsProvider(): array
     {
         return [
-            'json' => ['json'],
-            'text' => ['text'],
-            'srt' => ['srt'],
-            'vtt' => ['vtt'],
+            'json'         => ['json'],
+            'text'         => ['text'],
+            'srt'          => ['srt'],
+            'vtt'          => ['vtt'],
             'verbose_json' => ['verbose_json'],
         ];
     }
@@ -162,10 +162,10 @@ class TranscriptionOptionsTest extends AbstractUnitTestCase
     public function fromArrayCreatesOptionsFromArray(): void
     {
         $options = TranscriptionOptions::fromArray([
-            'model' => 'whisper-1',
-            'language' => 'fr',
-            'format' => 'vtt',
-            'prompt' => 'Meeting notes',
+            'model'       => 'whisper-1',
+            'language'    => 'fr',
+            'format'      => 'vtt',
+            'prompt'      => 'Meeting notes',
             'temperature' => 0.7,
         ]);
 
@@ -237,8 +237,8 @@ class TranscriptionOptionsTest extends AbstractUnitTestCase
     public function fromArrayHandlesInvalidTypes(): void
     {
         $options = TranscriptionOptions::fromArray([
-            'model' => 123,
-            'language' => ['array'],
+            'model'       => 123,
+            'language'    => ['array'],
             'temperature' => 'not_a_number',
         ]);
 

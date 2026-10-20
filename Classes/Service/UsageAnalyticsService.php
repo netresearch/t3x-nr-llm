@@ -59,7 +59,7 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
 
     public function getKpiTotals(DateTimeInterface $from, DateTimeInterface $to): array
     {
-        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb  = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $row = $qb
             ->addSelectLiteral('COALESCE(SUM(estimated_cost), 0) AS cost')
             ->addSelectLiteral('COALESCE(SUM(request_count), 0) AS requests')
@@ -77,11 +77,11 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
         $row = is_array($row) ? $row : [];
 
         return [
-            'cost'      => is_numeric($row['cost'] ?? null) ? (float)$row['cost'] : 0.0,
-            'requests'  => is_numeric($row['requests'] ?? null) ? (int)$row['requests'] : 0,
-            'tokens'    => is_numeric($row['tokens'] ?? null) ? (int)$row['tokens'] : 0,
-            'providers' => is_numeric($row['providers'] ?? null) ? (int)$row['providers'] : 0,
-            'models'    => is_numeric($row['models'] ?? null) ? (int)$row['models'] : 0,
+            'cost'      => is_numeric($row['cost'] ?? null) ? (float) $row['cost'] : 0.0,
+            'requests'  => is_numeric($row['requests'] ?? null) ? (int) $row['requests'] : 0,
+            'tokens'    => is_numeric($row['tokens'] ?? null) ? (int) $row['tokens'] : 0,
+            'providers' => is_numeric($row['providers'] ?? null) ? (int) $row['providers'] : 0,
+            'models'    => is_numeric($row['models'] ?? null) ? (int) $row['models'] : 0,
         ];
     }
 
@@ -143,16 +143,16 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
             $key = $row[$column] ?? null;
             if (!is_string($key) && !is_int($key)) {
                 if (is_numeric($key)) {
-                    $key = (int)$key;
+                    $key = (int) $key;
                 } else {
                     continue;
                 }
             }
 
             $out[$key] = [
-                'cost'     => is_numeric($row['cost'] ?? null) ? (float)$row['cost'] : 0.0,
-                'requests' => is_numeric($row['requests'] ?? null) ? (int)$row['requests'] : 0,
-                'tokens'   => is_numeric($row['tokens'] ?? null) ? (int)$row['tokens'] : 0,
+                'cost'     => is_numeric($row['cost'] ?? null) ? (float) $row['cost'] : 0.0,
+                'requests' => is_numeric($row['requests'] ?? null) ? (int) $row['requests'] : 0,
+                'tokens'   => is_numeric($row['tokens'] ?? null) ? (int) $row['tokens'] : 0,
             ];
         }
 
@@ -161,7 +161,7 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
 
     public function getPerUserUsage(DateTimeInterface $from, DateTimeInterface $to): array
     {
-        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb   = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $rows = $qb
             ->select('be_user')
             ->addSelectLiteral('SUM(estimated_cost) AS cost')
@@ -183,15 +183,15 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
         // of one findOneByBeUser() round-trip per row inside the loop (N+1).
         // Mirrors how resolveUsernames() batches the be_users lookup above.
         $budgets = $this->userBudgetRepository->findByBeUsers(
-            array_map(static fn(array $entry): int => $entry['beUserUid'], $merged),
+            array_map(static fn (array $entry): int => $entry['beUserUid'], $merged),
         );
 
-        $now = new DateTimeImmutable();
+        $now        = new DateTimeImmutable();
         $monthStart = $now->modify('first day of this month')->setTime(0, 0, 0)->getTimestamp();
         // Batch the month-to-date cost for every user in one grouped query
         // instead of one aggregate SUM per budgeted user inside the loop (N+1).
         $monthlyCosts = $this->monthlyCostByUser(
-            array_map(static fn(array $entry): int => $entry['beUserUid'], $merged),
+            array_map(static fn (array $entry): int => $entry['beUserUid'], $merged),
             $monthStart,
             $now->getTimestamp(),
         );
@@ -216,26 +216,26 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
     {
         $byDate = [];
         foreach ($rows as $row) {
-            $ts = is_numeric($row['request_date'] ?? null) ? (int)$row['request_date'] : null;
+            $ts = is_numeric($row['request_date'] ?? null) ? (int) $row['request_date'] : null;
             if ($ts === null) {
                 continue;
             }
 
             // setTimestamp() keeps the object's default (local) timezone; '@'.$ts
             // would force UTC and misbucket local-midnight request_date values.
-            $key = (new DateTimeImmutable())->setTimestamp($ts)->format('Y-m-d');
+            $key          = (new DateTimeImmutable())->setTimestamp($ts)->format('Y-m-d');
             $byDate[$key] = [
-                'cost'     => is_numeric($row['cost'] ?? null) ? (float)$row['cost'] : 0.0,
-                'requests' => is_numeric($row['requests'] ?? null) ? (int)$row['requests'] : 0,
-                'tokens'   => is_numeric($row['tokens'] ?? null) ? (int)$row['tokens'] : 0,
+                'cost'     => is_numeric($row['cost'] ?? null) ? (float) $row['cost'] : 0.0,
+                'requests' => is_numeric($row['requests'] ?? null) ? (int) $row['requests'] : 0,
+                'tokens'   => is_numeric($row['tokens'] ?? null) ? (int) $row['tokens'] : 0,
             ];
         }
 
         $series = [];
         $cursor = $from->setTime(0, 0, 0);
-        $end = $to->setTime(0, 0, 0);
+        $end    = $to->setTime(0, 0, 0);
         while ($cursor <= $end) {
-            $key = $cursor->format('Y-m-d');
+            $key      = $cursor->format('Y-m-d');
             $series[] = [
                 'date'     => $key,
                 'cost'     => $byDate[$key]['cost'] ?? 0.0,
@@ -258,7 +258,7 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
     {
         $out = [];
         foreach ($usageRows as $row) {
-            $uid = is_numeric($row['be_user'] ?? null) ? (int)$row['be_user'] : 0;
+            $uid = is_numeric($row['be_user'] ?? null) ? (int) $row['be_user'] : 0;
             if ($uid === 0) {
                 $label = 'system';
             } elseif (isset($userMap[$uid]) && $userMap[$uid] !== '') {
@@ -270,9 +270,9 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
             $out[] = [
                 'beUserUid' => $uid,
                 'label'     => $label,
-                'cost'      => is_numeric($row['cost'] ?? null) ? (float)$row['cost'] : 0.0,
-                'requests'  => is_numeric($row['requests'] ?? null) ? (int)$row['requests'] : 0,
-                'tokens'    => is_numeric($row['tokens'] ?? null) ? (int)$row['tokens'] : 0,
+                'cost'      => is_numeric($row['cost'] ?? null) ? (float) $row['cost'] : 0.0,
+                'requests'  => is_numeric($row['requests'] ?? null) ? (int) $row['requests'] : 0,
+                'tokens'    => is_numeric($row['tokens'] ?? null) ? (int) $row['tokens'] : 0,
             ];
         }
 
@@ -288,13 +288,13 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
      */
     public static function formatUsageColumns(array $totals): array
     {
-        $cost = [];
+        $cost     = [];
         $requests = [];
-        $tokens = [];
+        $tokens   = [];
         foreach ($totals as $key => $t) {
             $cost[$key]     = '~$' . number_format($t['cost'], 2);
-            $requests[$key] = number_format((float)$t['requests']);
-            $tokens[$key]   = number_format((float)$t['tokens']);
+            $requests[$key] = number_format((float) $t['requests']);
+            $tokens[$key]   = number_format((float) $t['tokens']);
         }
 
         return ['cost' => $cost, 'requests' => $requests, 'tokens' => $tokens];
@@ -348,9 +348,9 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
 
             $out[] = [
                 'label'    => $label,
-                'cost'     => is_numeric($row['cost'] ?? null) ? (float)$row['cost'] : 0.0,
-                'requests' => is_numeric($row['requests'] ?? null) ? (int)$row['requests'] : 0,
-                'tokens'   => is_numeric($row['tokens'] ?? null) ? (int)$row['tokens'] : 0,
+                'cost'     => is_numeric($row['cost'] ?? null) ? (float) $row['cost'] : 0.0,
+                'requests' => is_numeric($row['requests'] ?? null) ? (int) $row['requests'] : 0,
+                'tokens'   => is_numeric($row['tokens'] ?? null) ? (int) $row['tokens'] : 0,
             ];
         }
 
@@ -366,7 +366,7 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
     {
         $uids = [];
         foreach ($usageRows as $row) {
-            $uid = is_numeric($row['be_user'] ?? null) ? (int)$row['be_user'] : 0;
+            $uid = is_numeric($row['be_user'] ?? null) ? (int) $row['be_user'] : 0;
             if ($uid > 0) {
                 $uids[$uid] = $uid;
             }
@@ -388,7 +388,7 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
         $map = [];
         foreach ($rows as $row) {
             if (is_numeric($row['uid'] ?? null) && is_string($row['username'] ?? null)) {
-                $map[(int)$row['uid']] = $row['username'];
+                $map[(int) $row['uid']] = $row['username'];
             }
         }
 
@@ -396,8 +396,8 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
     }
 
     /**
-     * @param UserBudget|null $budget   Pre-fetched budget for the user (batch-loaded by the caller).
-     * @param float           $usedCost Pre-fetched month-to-date cost for the user (batch-loaded by the caller).
+     * @param UserBudget|null $budget   pre-fetched budget for the user (batch-loaded by the caller)
+     * @param float           $usedCost pre-fetched month-to-date cost for the user (batch-loaded by the caller)
      *
      * @return array{usedCost: float, limitCost: float, percent: float}|null
      */
@@ -429,12 +429,12 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
      */
     private function monthlyCostByUser(array $beUserUids, int $monthStart, int $now): array
     {
-        $beUserUids = array_values(array_unique(array_filter($beUserUids, static fn(int $uid): bool => $uid > 0)));
+        $beUserUids = array_values(array_unique(array_filter($beUserUids, static fn (int $uid): bool => $uid > 0)));
         if ($beUserUids === []) {
             return [];
         }
 
-        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb   = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $rows = $qb
             ->select('be_user')
             ->addSelectLiteral('SUM(estimated_cost) AS cost')
@@ -450,8 +450,8 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
 
         $costs = [];
         foreach ($rows as $row) {
-            $uid = is_numeric($row['be_user'] ?? null) ? (int)$row['be_user'] : 0;
-            $costs[$uid] = is_numeric($row['cost'] ?? null) ? (float)$row['cost'] : 0.0;
+            $uid         = is_numeric($row['be_user'] ?? null) ? (int) $row['be_user'] : 0;
+            $costs[$uid] = is_numeric($row['cost'] ?? null) ? (float) $row['cost'] : 0.0;
         }
 
         return $costs;

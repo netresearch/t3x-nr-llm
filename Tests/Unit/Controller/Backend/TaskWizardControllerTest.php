@@ -41,8 +41,8 @@ final class TaskWizardControllerTest extends TestCase
 
         $reflection = new ReflectionClass(TaskWizardController::class);
 
-        $this->toStr = $reflection->getMethod('toStr');
-        $this->toInt = $reflection->getMethod('toInt');
+        $this->toStr   = $reflection->getMethod('toStr');
+        $this->toInt   = $reflection->getMethod('toInt');
         $this->toFloat = $reflection->getMethod('toFloat');
     }
 

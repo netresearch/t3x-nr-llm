@@ -19,10 +19,10 @@ final class RunTerminationReasonsDataProviderTest extends AbstractUnitTestCase
 {
     /** @var array<string, string> */
     private const LABELS = [
-        'completed'         => 'Completed',
-        'budget_exhausted'  => 'Budget exhausted',
-        'policy_denied'     => 'Policy denied',
-        'provider_failed'   => 'Provider failed',
+        'completed'        => 'Completed',
+        'budget_exhausted' => 'Budget exhausted',
+        'policy_denied'    => 'Policy denied',
+        'provider_failed'  => 'Provider failed',
     ];
 
     #[Test]
@@ -46,8 +46,8 @@ final class RunTerminationReasonsDataProviderTest extends AbstractUnitTestCase
     public function skipsZeroCounts(): void
     {
         $shaped = RunTerminationReasonsDataProvider::shapeChartData([
-            'completed'       => 0,
-            'policy_denied'   => 2,
+            'completed'     => 0,
+            'policy_denied' => 2,
         ], self::LABELS, 'Runs');
 
         self::assertSame(['Policy denied'], $shaped['labels']);

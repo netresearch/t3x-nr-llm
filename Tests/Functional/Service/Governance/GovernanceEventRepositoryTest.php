@@ -85,10 +85,10 @@ final class GovernanceEventRepositoryTest extends AbstractFunctionalTestCase
         self::assertSame('openai', $row['provider']);
         self::assertSame('gpt-4o', $row['model']);
         self::assertSame('primary', $row['configuration_identifier']);
-        self::assertSame(7, (int)$row['be_user']);
+        self::assertSame(7, (int) $row['be_user']);
         self::assertSame('Acme\\SecretGuardrail', $row['guardrail']);
         self::assertSame('contained a secret pattern', $row['detail']);
-        self::assertGreaterThan(0, (int)$row['crdate']);
+        self::assertGreaterThan(0, (int) $row['crdate']);
     }
 
     #[Test]
@@ -161,7 +161,7 @@ final class GovernanceEventRepositoryTest extends AbstractFunctionalTestCase
         self::assertCount(3, $events);
         self::assertSame(
             ['tool_denied', 'response_blocked', 'context_blocked'],
-            array_map(static fn(RecordedGovernanceEvent $e): string => $e->decision, $events),
+            array_map(static fn (RecordedGovernanceEvent $e): string => $e->decision, $events),
             'Oldest first.',
         );
         self::assertSame('fetch_logs', $events[0]->toolName);
@@ -235,7 +235,7 @@ final class GovernanceEventRepositoryTest extends AbstractFunctionalTestCase
         $tool->method('getGroup')->willReturn('test');
         $tool->expects(self::never())->method('execute');
         $registry = new ToolRegistry([$tool]);
-        $manager = self::createStub(LlmServiceManagerInterface::class);
+        $manager  = self::createStub(LlmServiceManagerInterface::class);
         $manager
             ->method('chatWithToolsForConfiguration')
             ->willReturn(
@@ -292,7 +292,7 @@ final class GovernanceEventRepositoryTest extends AbstractFunctionalTestCase
         $chart = GovernanceBlocksOverTimeDataProvider::shapeChartData(
             $counts,
             [
-                'tool_denied' => 'Tool denied',
+                'tool_denied'       => 'Tool denied',
                 'invocation_denied' => 'Invocation denied',
             ],
             'Events',

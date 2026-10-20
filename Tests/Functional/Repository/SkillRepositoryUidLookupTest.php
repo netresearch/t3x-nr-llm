@@ -43,7 +43,7 @@ final class SkillRepositoryUidLookupTest extends AbstractFunctionalTestCase
      */
     private function namesOf(array $skills): array
     {
-        return array_values(array_map(static fn(Skill $skill): string => $skill->getName(), $skills));
+        return array_values(array_map(static fn (Skill $skill): string => $skill->getName(), $skills));
     }
 
     // findByUids() — the lookup for new composition

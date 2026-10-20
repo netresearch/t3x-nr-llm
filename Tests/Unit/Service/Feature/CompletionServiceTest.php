@@ -36,7 +36,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
     {
         parent::setUp();
         $this->llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $this->subject = new CompletionService($this->llmManagerStub);
+        $this->subject        = new CompletionService($this->llmManagerStub);
     }
 
     /**
@@ -47,8 +47,9 @@ class CompletionServiceTest extends AbstractUnitTestCase
     private function createSubjectWithMockManager(): array
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+
         return [
-            'subject' => new CompletionService($llmManagerMock),
+            'subject'    => new CompletionService($llmManagerMock),
             'llmManager' => $llmManagerMock,
         ];
     }
@@ -58,7 +59,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
     {
         ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
 
-        $prompt = 'Test prompt';
+        $prompt           = 'Test prompt';
         $expectedResponse = 'Test response';
 
         $mockResponse = $this->createMockResponse($expectedResponse);
@@ -69,6 +70,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->with(
                 self::callback(function (array $messages) use ($prompt): bool {
                     $msg = $messages[0];
+
                     return $msg instanceof ChatMessage
                         && $msg->isUser()
                         && $msg->content === $prompt;
@@ -89,7 +91,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
     {
         ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
 
-        $prompt = 'User prompt';
+        $prompt       = 'User prompt';
         $systemPrompt = 'System instructions';
 
         $mockResponse = $this->createMockResponse('Response');
@@ -105,6 +107,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
 
                     $msg0 = $messages[0];
                     $msg1 = $messages[1];
+
                     return $msg0 instanceof ChatMessage
                         && $msg1 instanceof ChatMessage
                         && $msg0->isSystem()
@@ -185,7 +188,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $options): bool => $options->getTemperature() === 0.2
+                self::callback(fn (ChatOptions $options): bool => $options->getTemperature() === 0.2
                         && $options->getTopP() === 0.9),
             )
             ->willReturn($mockResponse);
@@ -205,7 +208,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $options): bool => $options->getTemperature() === 1.2
+                self::callback(fn (ChatOptions $options): bool => $options->getTemperature() === 1.2
                         && $options->getPresencePenalty() === 0.6),
             )
             ->willReturn($mockResponse);
@@ -291,7 +294,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
         ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
 
         $markdownContent = "# Header\n\n- List item 1\n- List item 2";
-        $mockResponse = $this->createMockResponse($markdownContent);
+        $mockResponse    = $this->createMockResponse($markdownContent);
 
         $llmManagerMock
             ->expects(self::once())
@@ -301,6 +304,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
                 self::callback(function (ChatOptions $options): bool {
                     // Verify markdown format is requested
                     $systemPrompt = $options->getSystemPrompt() ?? '';
+
                     return str_contains($systemPrompt, 'Markdown');
                 }),
             )
@@ -328,7 +332,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->willReturn($mockResponse);
 
         $options = new ChatOptions(stopSequences: ['END', 'STOP']);
-        $result = $subject->complete('Test prompt', $options);
+        $result  = $subject->complete('Test prompt', $options);
 
         self::assertInstanceOf(CompletionResponse::class, $result);
     }
@@ -346,7 +350,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->willReturn($mockResponse);
 
         $options = new ChatOptions(responseFormat: 'json');
-        $result = $subject->complete('Return JSON', $options);
+        $result  = $subject->complete('Return JSON', $options);
 
         self::assertInstanceOf(CompletionResponse::class, $result);
     }
@@ -364,7 +368,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->willReturn($mockResponse);
 
         $options = new ChatOptions(responseFormat: 'text');
-        $result = $subject->complete('Return text', $options);
+        $result  = $subject->complete('Return text', $options);
 
         self::assertInstanceOf(CompletionResponse::class, $result);
     }
@@ -381,7 +385,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $opts): bool => $opts->getTemperature() === 0.5),
+                self::callback(fn (ChatOptions $opts): bool => $opts->getTemperature() === 0.5),
             )
             ->willReturn($mockResponse);
 
@@ -402,7 +406,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $opts): bool => $opts->getTopP() === 0.5),
+                self::callback(fn (ChatOptions $opts): bool => $opts->getTopP() === 0.5),
             )
             ->willReturn($mockResponse);
 
@@ -423,7 +427,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $opts): bool => $opts->getTemperature() === 0.8),
+                self::callback(fn (ChatOptions $opts): bool => $opts->getTemperature() === 0.8),
             )
             ->willReturn($mockResponse);
 
@@ -444,7 +448,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $opts): bool => $opts->getTopP() === 0.8 && $opts->getPresencePenalty() === 0.3),
+                self::callback(fn (ChatOptions $opts): bool => $opts->getTopP() === 0.8 && $opts->getPresencePenalty() === 0.3),
             )
             ->willReturn($mockResponse);
 
@@ -467,6 +471,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
                 self::anything(),
                 self::callback(function (ChatOptions $options): bool {
                     $systemPrompt = $options->getSystemPrompt() ?? '';
+
                     return str_contains($systemPrompt, 'Custom instruction')
                         && str_contains($systemPrompt, 'Markdown');
                 }),
@@ -553,7 +558,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
     {
         ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
 
-        $jsonContent = '{"name": "test", "value": 123, "nested": {"key": "value"}}';
+        $jsonContent  = '{"name": "test", "value": 123, "nested": {"key": "value"}}';
         $mockResponse = $this->createMockResponse($jsonContent);
 
         $llmManagerMock
@@ -645,13 +650,13 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $options): bool => $options->getResponseFormat() === 'text'),
+                self::callback(fn (ChatOptions $options): bool => $options->getResponseFormat() === 'text'),
             )
             ->willReturn($mockResponse);
 
         // 'markdown' format goes through normalizeResponseFormat which returns 'text' string
         $options = new ChatOptions(responseFormat: 'markdown');
-        $result = $subject->complete('Test', $options);
+        $result  = $subject->complete('Test', $options);
 
         self::assertInstanceOf(CompletionResponse::class, $result);
     }
@@ -669,7 +674,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->with(
                 self::anything(),
                 // The stop sequences must reach the provider (not be stripped).
-                self::callback(static fn(ChatOptions $o): bool => $o->getStopSequences() === ['END', 'STOP']),
+                self::callback(static fn (ChatOptions $o): bool => $o->getStopSequences() === ['END', 'STOP']),
             )
             ->willReturn($mockResponse);
 
@@ -714,6 +719,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
                 self::anything(),
                 self::callback(function (ChatOptions $options): bool {
                     $prompt = $options->getSystemPrompt() ?? '';
+
                     return str_contains($prompt, 'Markdown');
                 }),
             )
@@ -733,7 +739,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
         // pipeline picks it up from the option's getter once the
         // manager translates it into ProviderCallContext metadata.
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver       = $this->createMock(BackendUserContextResolverInterface::class);
         $resolver->expects(self::once())
             ->method('resolveBeUserUid')
             ->willReturn(42);
@@ -744,8 +750,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(static fn(ChatOptions $options): bool
-                    => $options->getBeUserUid() === 42),
+                self::callback(static fn (ChatOptions $options): bool => $options->getBeUserUid() === 42),
             )
             ->willReturn($this->createMockResponse('ok'));
 
@@ -759,7 +764,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
         // case only. We assert by giving the resolver an expectation that
         // would fail the test if it were ever called.
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver       = $this->createMock(BackendUserContextResolverInterface::class);
         $resolver->expects(self::never())
             ->method('resolveBeUserUid');
 
@@ -769,8 +774,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(static fn(ChatOptions $options): bool
-                    => $options->getBeUserUid() === 99),
+                self::callback(static fn (ChatOptions $options): bool => $options->getBeUserUid() === 99),
             )
             ->willReturn($this->createMockResponse('ok'));
 
@@ -784,7 +788,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
         // null and we do not fabricate a 0. The BudgetMiddleware's
         // "skip the check" branch then fires for the missing uid.
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver       = $this->createMock(BackendUserContextResolverInterface::class);
         $resolver->expects(self::once())
             ->method('resolveBeUserUid')
             ->willReturn(null);
@@ -795,8 +799,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(static fn(ChatOptions $options): bool
-                    => $options->getBeUserUid() === null),
+                self::callback(static fn (ChatOptions $options): bool => $options->getBeUserUid() === null),
             )
             ->willReturn($this->createMockResponse('ok'));
 
@@ -813,13 +816,13 @@ class CompletionServiceTest extends AbstractUnitTestCase
         // when stop sequences were set), silently losing them for every
         // provider — this asserts they survive.
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $subject = new CompletionService($llmManagerMock);
+        $subject        = new CompletionService($llmManagerMock);
 
         $llmManagerMock->expects(self::once())
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(static fn(ChatOptions $forwarded): bool => $forwarded->getBeUserUid() === 13
+                self::callback(static fn (ChatOptions $forwarded): bool => $forwarded->getBeUserUid() === 13
                         && $forwarded->getPlannedCost() === 0.07
                         && $forwarded->getStopSequences() === ['END']),
             )
@@ -838,14 +841,13 @@ class CompletionServiceTest extends AbstractUnitTestCase
         // Existing callers that don't pass a resolver (legacy DI wiring,
         // older tests) keep working — beUserUid simply stays null.
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $subject = new CompletionService($llmManagerMock);
+        $subject        = new CompletionService($llmManagerMock);
 
         $llmManagerMock->expects(self::once())
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(static fn(ChatOptions $options): bool
-                    => $options->getBeUserUid() === null),
+                self::callback(static fn (ChatOptions $options): bool => $options->getBeUserUid() === null),
             )
             ->willReturn($this->createMockResponse('ok'));
 
@@ -875,7 +877,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
     public function aHandedOverRoutingDecisionReachesTheManagerOnEveryStructuredAttempt(): void
     {
         ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
-        $resolution = ModelResolution::withoutDecision(null);
+        $resolution                                              = ModelResolution::withoutDecision(null);
 
         $responses = [
             $this->createMockResponse('{"grade": 9}'),
@@ -919,7 +921,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->with(
                 'Prompt',
                 self::identicalTo($configuration),
-                self::callback(static fn(ChatOptions $o): bool => $o->getResponseFormat() === 'json'),
+                self::callback(static fn (ChatOptions $o): bool => $o->getResponseFormat() === 'json'),
             )
             ->willReturn($this->createMockResponse('{"key": "value", "number": 42}'));
 
@@ -960,7 +962,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->with(
                 'Prompt',
                 self::identicalTo($configuration),
-                self::callback(static fn(ChatOptions $o): bool => str_contains($o->getSystemPrompt() ?? '', 'Markdown')),
+                self::callback(static fn (ChatOptions $o): bool => str_contains($o->getSystemPrompt() ?? '', 'Markdown')),
             )
             ->willReturn($this->createMockResponse('# Heading'));
 
@@ -980,7 +982,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->with(
                 'Prompt',
                 self::identicalTo($configuration),
-                self::callback(static fn(ChatOptions $o): bool => $o->getTemperature() === 0.2 && $o->getTopP() === 0.9),
+                self::callback(static fn (ChatOptions $o): bool => $o->getTemperature() === 0.2 && $o->getTopP() === 0.9),
             )
             ->willReturn($this->createMockResponse('Factual'));
 
@@ -1000,7 +1002,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->with(
                 'Prompt',
                 self::identicalTo($configuration),
-                self::callback(static fn(ChatOptions $o): bool => $o->getTemperature() === 1.2
+                self::callback(static fn (ChatOptions $o): bool => $o->getTemperature() === 1.2
                         && $o->getTopP() === 1.0
                         && $o->getPresencePenalty() === 0.6),
             )
@@ -1025,7 +1027,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->with(
                 'hello',
                 self::identicalTo($configuration),
-                self::callback(static fn(ChatOptions $o): bool => $o->getBeUserUid() === 42),
+                self::callback(static fn (ChatOptions $o): bool => $o->getBeUserUid() === 42),
             )
             ->willReturn($this->createMockResponse('ok'));
 
@@ -1162,7 +1164,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
     public function completeStructuredRepairsOnceWhenTheFirstResponseIsNotJson(): void
     {
         ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
-        $responses = [
+        $responses                                               = [
             $this->createMockResponse('Sure, here you go:'),
             $this->createMockResponse('{"ok": true}'),
         ];
@@ -1194,7 +1196,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
     public function completeStructuredForConfigurationRepairsOnceAndCountsBothAttempts(): void
     {
         ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
-        $responses = [
+        $responses                                               = [
             $this->createMockResponse('{"grade": 9}', usage: new UsageStatistics(13, 2, 15)),
             $this->createMockResponse('{"score": 4}', model: 'fallback-model', usage: new UsageStatistics(31, 5, 36)),
         ];

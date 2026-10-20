@@ -50,9 +50,9 @@ class MistralProviderTest extends AbstractUnitTestCase
 
         $this->subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'mistral-large-latest',
-            'baseUrl' => '',
-            'timeout' => 30,
+            'defaultModel'     => 'mistral-large-latest',
+            'baseUrl'          => '',
+            'timeout'          => 30,
         ]);
 
         // setHttpClient must be called AFTER configure() since configure() resets the client
@@ -78,9 +78,9 @@ class MistralProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'mistral-large-latest',
-            'baseUrl' => '',
-            'timeout' => 30,
+            'defaultModel'     => 'mistral-large-latest',
+            'baseUrl'          => '',
+            'timeout'          => 30,
         ]);
 
         // setHttpClient must be called AFTER configure() since configure() resets the client
@@ -117,23 +117,23 @@ class MistralProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'id' => 'cmpl-' . $this->faker->uuid(),
-            'object' => 'chat.completion',
-            'model' => 'mistral-large-latest',
+            'id'      => 'cmpl-' . $this->faker->uuid(),
+            'object'  => 'chat.completion',
+            'model'   => 'mistral-large-latest',
             'choices' => [
                 [
-                    'index' => 0,
+                    'index'   => 0,
                     'message' => [
-                        'role' => 'assistant',
+                        'role'    => 'assistant',
                         'content' => 'Mistral response content',
                     ],
                     'finish_reason' => 'stop',
                 ],
             ],
             'usage' => [
-                'prompt_tokens' => 10,
+                'prompt_tokens'     => 10,
                 'completion_tokens' => 20,
-                'total_tokens' => 30,
+                'total_tokens'      => 30,
             ],
         ];
 
@@ -156,7 +156,7 @@ class MistralProviderTest extends AbstractUnitTestCase
         $errorResponse = [
             'error' => [
                 'message' => 'Invalid API Key',
-                'type' => 'authentication_error',
+                'type'    => 'authentication_error',
             ],
         ];
 
@@ -175,7 +175,7 @@ class MistralProviderTest extends AbstractUnitTestCase
         $errorResponse = [
             'error' => [
                 'message' => 'Rate limit exceeded',
-                'type' => 'rate_limit_error',
+                'type'    => 'rate_limit_error',
             ],
         ];
 
@@ -222,12 +222,12 @@ class MistralProviderTest extends AbstractUnitTestCase
 
         $tools = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => [
-                    'name' => 'get_weather',
+                    'name'        => 'get_weather',
                     'description' => 'Get current weather',
-                    'parameters' => [
-                        'type' => 'object',
+                    'parameters'  => [
+                        'type'       => 'object',
                         'properties' => [
                             'location' => ['type' => 'string'],
                         ],
@@ -237,21 +237,21 @@ class MistralProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'id' => 'cmpl-test',
-            'object' => 'chat.completion',
-            'model' => 'mistral-large-latest',
+            'id'      => 'cmpl-test',
+            'object'  => 'chat.completion',
+            'model'   => 'mistral-large-latest',
             'choices' => [
                 [
-                    'index' => 0,
+                    'index'   => 0,
                     'message' => [
-                        'role' => 'assistant',
-                        'content' => '',
+                        'role'       => 'assistant',
+                        'content'    => '',
                         'tool_calls' => [
                             [
-                                'id' => 'call_xyz789',
-                                'type' => 'function',
+                                'id'       => 'call_xyz789',
+                                'type'     => 'function',
                                 'function' => [
-                                    'name' => 'get_weather',
+                                    'name'      => 'get_weather',
                                     'arguments' => '{"location": "Paris"}',
                                 ],
                             ],
@@ -261,9 +261,9 @@ class MistralProviderTest extends AbstractUnitTestCase
                 ],
             ],
             'usage' => [
-                'prompt_tokens' => 15,
+                'prompt_tokens'     => 15,
                 'completion_tokens' => 10,
-                'total_tokens' => 25,
+                'total_tokens'      => 25,
             ],
         ];
 
@@ -289,7 +289,7 @@ class MistralProviderTest extends AbstractUnitTestCase
 
         $tools = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => ['name' => 'get_weather', 'parameters' => ['type' => 'object', 'properties' => []]],
             ]),
         ];
@@ -297,12 +297,12 @@ class MistralProviderTest extends AbstractUnitTestCase
         // A tool call with an empty function name must be skipped, not crash the
         // whole completion (ToolCall::tryFromArray returns null for it).
         $apiResponse = [
-            'id'     => 'cmpl-test',
-            'object' => 'chat.completion',
-            'model'  => 'mistral-large-latest',
+            'id'      => 'cmpl-test',
+            'object'  => 'chat.completion',
+            'model'   => 'mistral-large-latest',
             'choices' => [
                 [
-                    'index' => 0,
+                    'index'   => 0,
                     'message' => [
                         'role'       => 'assistant',
                         'content'    => '',
@@ -335,19 +335,19 @@ class MistralProviderTest extends AbstractUnitTestCase
         ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
 
         $apiResponse = [
-            'id' => 'emb-' . $this->faker->uuid(),
+            'id'     => 'emb-' . $this->faker->uuid(),
             'object' => 'list',
-            'model' => 'mistral-embed',
-            'data' => [
+            'model'  => 'mistral-embed',
+            'data'   => [
                 [
-                    'index' => 0,
-                    'object' => 'embedding',
+                    'index'     => 0,
+                    'object'    => 'embedding',
                     'embedding' => [0.1, 0.2, 0.3, 0.4, 0.5],
                 ],
             ],
             'usage' => [
                 'prompt_tokens' => 5,
-                'total_tokens' => 5,
+                'total_tokens'  => 5,
             ],
         ];
 
@@ -369,24 +369,24 @@ class MistralProviderTest extends AbstractUnitTestCase
         ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
 
         $apiResponse = [
-            'id' => 'emb-' . $this->faker->uuid(),
+            'id'     => 'emb-' . $this->faker->uuid(),
             'object' => 'list',
-            'model' => 'mistral-embed',
-            'data' => [
+            'model'  => 'mistral-embed',
+            'data'   => [
                 [
-                    'index' => 0,
-                    'object' => 'embedding',
+                    'index'     => 0,
+                    'object'    => 'embedding',
                     'embedding' => [0.1, 0.2, 0.3],
                 ],
                 [
-                    'index' => 1,
-                    'object' => 'embedding',
+                    'index'     => 1,
+                    'object'    => 'embedding',
                     'embedding' => [0.4, 0.5, 0.6],
                 ],
             ],
             'usage' => [
                 'prompt_tokens' => 10,
-                'total_tokens' => 10,
+                'total_tokens'  => 10,
             ],
         ];
 
@@ -427,13 +427,13 @@ class MistralProviderTest extends AbstractUnitTestCase
         $messages = [['role' => 'user', 'content' => 'Test']];
 
         $apiResponse = [
-            'id' => 'cmpl-test',
-            'object' => 'chat.completion',
-            'model' => 'mistral-large-latest',
+            'id'      => 'cmpl-test',
+            'object'  => 'chat.completion',
+            'model'   => 'mistral-large-latest',
             'choices' => [
                 [
-                    'index' => 0,
-                    'message' => ['role' => 'assistant', 'content' => 'Response'],
+                    'index'         => 0,
+                    'message'       => ['role' => 'assistant', 'content' => 'Response'],
                     'finish_reason' => 'stop',
                 ],
             ],
@@ -446,11 +446,11 @@ class MistralProviderTest extends AbstractUnitTestCase
             ->willReturn($this->createJsonResponseMock($apiResponse));
 
         $options = [
-            'model' => 'mistral-small-latest',
+            'model'       => 'mistral-small-latest',
             'temperature' => 0.5,
-            'max_tokens' => 2048,
-            'top_p' => 0.9,
-            'seed' => 42,
+            'max_tokens'  => 2048,
+            'top_p'       => 0.9,
+            'seed'        => 42,
             'safe_prompt' => true,
         ];
 
@@ -465,25 +465,25 @@ class MistralProviderTest extends AbstractUnitTestCase
         ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
 
         $messages = [['role' => 'user', 'content' => 'Test']];
-        $tools = [
+        $tools    = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => [
-                    'name' => 'test_function',
+                    'name'        => 'test_function',
                     'description' => 'A test function',
-                    'parameters' => ['type' => 'object', 'properties' => []],
+                    'parameters'  => ['type' => 'object', 'properties' => []],
                 ],
             ]),
         ];
 
         $apiResponse = [
-            'id' => 'cmpl-test',
-            'object' => 'chat.completion',
-            'model' => 'mistral-large-latest',
+            'id'      => 'cmpl-test',
+            'object'  => 'chat.completion',
+            'model'   => 'mistral-large-latest',
             'choices' => [
                 [
-                    'index' => 0,
-                    'message' => ['role' => 'assistant', 'content' => 'Response'],
+                    'index'         => 0,
+                    'message'       => ['role' => 'assistant', 'content' => 'Response'],
                     'finish_reason' => 'stop',
                 ],
             ],
@@ -510,10 +510,10 @@ class MistralProviderTest extends AbstractUnitTestCase
         ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
 
         $apiResponse = [
-            'id' => 'emb-test',
+            'id'     => 'emb-test',
             'object' => 'list',
-            'model' => 'mistral-embed',
-            'data' => [
+            'model'  => 'mistral-embed',
+            'data'   => [
                 ['index' => 0, 'object' => 'embedding', 'embedding' => [0.1, 0.2]],
             ],
             'usage' => ['prompt_tokens' => 5, 'total_tokens' => 5],
@@ -542,9 +542,9 @@ class MistralProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => '',
-            'baseUrl' => '',
-            'timeout' => 30,
+            'defaultModel'     => '',
+            'baseUrl'          => '',
+            'timeout'          => 30,
         ]);
 
         self::assertEquals('mistral-large-latest', $subject->getDefaultModel());
@@ -556,33 +556,33 @@ class MistralProviderTest extends AbstractUnitTestCase
         ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
 
         $messages = [['role' => 'user', 'content' => 'Test']];
-        $tools = [
+        $tools    = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => [
-                    'name' => 'test_function',
+                    'name'        => 'test_function',
                     'description' => 'Test',
-                    'parameters' => ['type' => 'object', 'properties' => []],
+                    'parameters'  => ['type' => 'object', 'properties' => []],
                 ],
             ]),
         ];
 
         $apiResponse = [
-            'id' => 'cmpl-test',
-            'object' => 'chat.completion',
-            'model' => 'mistral-large-latest',
+            'id'      => 'cmpl-test',
+            'object'  => 'chat.completion',
+            'model'   => 'mistral-large-latest',
             'choices' => [
                 [
-                    'index' => 0,
+                    'index'   => 0,
                     'message' => [
-                        'role' => 'assistant',
-                        'content' => '',
+                        'role'       => 'assistant',
+                        'content'    => '',
                         'tool_calls' => [
                             [
-                                'id' => 'call_123',
-                                'type' => 'function',
+                                'id'       => 'call_123',
+                                'type'     => 'function',
                                 'function' => [
-                                    'name' => 'test_function',
+                                    'name'      => 'test_function',
                                     'arguments' => 'invalid-json',
                                 ],
                             ],
@@ -624,9 +624,9 @@ class MistralProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'mistral-large-latest',
-            'baseUrl' => 'https://api.mistral.ai/v1',
-            'timeout' => 30,
+            'defaultModel'     => 'mistral-large-latest',
+            'baseUrl'          => 'https://api.mistral.ai/v1',
+            'timeout'          => 30,
         ]);
 
         $streamContent = "data: {\"choices\":[{\"delta\":{\"content\":\"Hello\"}}]}\n\n"
@@ -648,7 +648,7 @@ class MistralProviderTest extends AbstractUnitTestCase
 
         $subject->setHttpClient($httpClientMock);
 
-        $messages = [['role' => 'user', 'content' => 'Test']];
+        $messages  = [['role' => 'user', 'content' => 'Test']];
         $generator = $subject->streamChatCompletion($messages);
 
         $chunks = iterator_to_array($generator);
@@ -669,9 +669,9 @@ class MistralProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'mistral-large-latest',
-            'baseUrl' => 'https://api.mistral.ai/v1',
-            'timeout' => 30,
+            'defaultModel'     => 'mistral-large-latest',
+            'baseUrl'          => 'https://api.mistral.ai/v1',
+            'timeout'          => 30,
         ]);
 
         $streamContent = "data: not-valid-json\n\n"
@@ -693,7 +693,7 @@ class MistralProviderTest extends AbstractUnitTestCase
 
         $subject->setHttpClient($httpClientMock);
 
-        $messages = [['role' => 'user', 'content' => 'Test']];
+        $messages  = [['role' => 'user', 'content' => 'Test']];
         $generator = $subject->streamChatCompletion($messages);
 
         $chunks = iterator_to_array($generator);
@@ -714,9 +714,9 @@ class MistralProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'mistral-large-latest',
-            'baseUrl' => 'https://api.mistral.ai/v1',
-            'timeout' => 30,
+            'defaultModel'     => 'mistral-large-latest',
+            'baseUrl'          => 'https://api.mistral.ai/v1',
+            'timeout'          => 30,
         ]);
 
         $streamContent = "data: {\"choices\":[{\"delta\":{\"content\":\"\"}}]}\n\n"
@@ -738,7 +738,7 @@ class MistralProviderTest extends AbstractUnitTestCase
 
         $subject->setHttpClient($httpClientMock);
 
-        $messages = [['role' => 'user', 'content' => 'Test']];
+        $messages  = [['role' => 'user', 'content' => 'Test']];
         $generator = $subject->streamChatCompletion($messages);
 
         $chunks = iterator_to_array($generator);
@@ -759,9 +759,9 @@ class MistralProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'mistral-large-latest',
-            'baseUrl' => 'https://api.mistral.ai/v1',
-            'timeout' => 30,
+            'defaultModel'     => 'mistral-large-latest',
+            'baseUrl'          => 'https://api.mistral.ai/v1',
+            'timeout'          => 30,
         ]);
 
         $streamContent = "data: {\"choices\":[{\"delta\":{\"content\":\"Test\"}}]}\n\n"
@@ -782,7 +782,7 @@ class MistralProviderTest extends AbstractUnitTestCase
 
         $subject->setHttpClient($httpClientMock);
 
-        $messages = [['role' => 'user', 'content' => 'Test']];
+        $messages  = [['role' => 'user', 'content' => 'Test']];
         $generator = $subject->streamChatCompletion($messages, ['temperature' => 0.5, 'max_tokens' => 1000]);
 
         $chunks = iterator_to_array($generator);
@@ -795,7 +795,7 @@ class MistralProviderTest extends AbstractUnitTestCase
     {
         $apiResponse = [
             'object' => 'list',
-            'data' => [
+            'data'   => [
                 ['id' => 'mistral-large-latest', 'object' => 'model'],
                 ['id' => 'mistral-small-latest', 'object' => 'model'],
             ],
@@ -886,9 +886,9 @@ class MistralProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'mistral-large-latest',
-            'baseUrl' => $baseUrl,
-            'timeout' => 30,
+            'defaultModel'     => 'mistral-large-latest',
+            'baseUrl'          => $baseUrl,
+            'timeout'          => 30,
         ]);
 
         $subject->setHttpClient($httpClientMock);
@@ -926,7 +926,7 @@ class MistralProviderTest extends AbstractUnitTestCase
         );
 
         $apiResponse = [
-            'model' => 'mistral-large-latest',
+            'model'   => 'mistral-large-latest',
             'choices' => [
                 ['message' => ['role' => 'assistant', 'content' => 'ok'], 'finish_reason' => 'stop'],
             ],
@@ -975,7 +975,7 @@ class MistralProviderTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock([
-                'model' => 'mistral-large-latest',
+                'model'   => 'mistral-large-latest',
                 'choices' => [
                     ['message' => ['role' => 'assistant', 'content' => '{}'], 'finish_reason' => 'stop'],
                 ],
@@ -1005,7 +1005,7 @@ class MistralProviderTest extends AbstractUnitTestCase
         );
 
         $apiResponse = [
-            'model' => 'mistral-small-latest',
+            'model'   => 'mistral-small-latest',
             'choices' => [
                 ['message' => ['role' => 'assistant', 'content' => 'ok'], 'finish_reason' => 'stop'],
             ],
@@ -1043,7 +1043,7 @@ class MistralProviderTest extends AbstractUnitTestCase
         );
 
         $apiResponse = [
-            'model' => 'mistral-large-latest',
+            'model'   => 'mistral-large-latest',
             'choices' => [
                 ['message' => ['role' => 'assistant', 'content' => 'ok'], 'finish_reason' => 'stop'],
             ],
@@ -1081,7 +1081,7 @@ class MistralProviderTest extends AbstractUnitTestCase
         );
 
         $apiResponse = [
-            'model' => 'mistral-large-latest',
+            'model'   => 'mistral-large-latest',
             'choices' => [
                 ['message' => ['role' => 'assistant', 'content' => 'ok'], 'finish_reason' => 'stop'],
             ],
@@ -1120,16 +1120,16 @@ class MistralProviderTest extends AbstractUnitTestCase
         );
 
         $spec = ToolSpec::fromArray([
-            'type' => 'function',
+            'type'     => 'function',
             'function' => [
-                'name' => 'get_weather',
+                'name'        => 'get_weather',
                 'description' => 'Get current weather',
-                'parameters' => ['type' => 'object', 'properties' => []],
+                'parameters'  => ['type' => 'object', 'properties' => []],
             ],
         ]);
 
         $apiResponse = [
-            'model' => 'mistral-large-latest',
+            'model'   => 'mistral-large-latest',
             'choices' => [
                 ['message' => ['role' => 'assistant', 'content' => 'ok'], 'finish_reason' => 'stop'],
             ],
@@ -1153,7 +1153,7 @@ class MistralProviderTest extends AbstractUnitTestCase
         // Normalise the expected through the same JSON round-trip the body went
         // through (decodeCapturedBody uses assoc=true), so an empty `properties`
         // object ({}) compares equal on both sides rather than stdClass vs [].
-        self::assertSame(json_decode((string)json_encode([$spec->toArray()]), true), $body['tools']);
+        self::assertSame(json_decode((string) json_encode([$spec->toArray()]), true), $body['tools']);
         self::assertArrayHasKey('temperature', $body);
         self::assertSame(0.7, $body['temperature']);
         self::assertArrayHasKey('max_tokens', $body);
@@ -1175,7 +1175,7 @@ class MistralProviderTest extends AbstractUnitTestCase
 
         $apiResponse = [
             'model' => 'mistral-embed',
-            'data' => [['index' => 0, 'object' => 'embedding', 'embedding' => [0.1, 0.2]]],
+            'data'  => [['index' => 0, 'object' => 'embedding', 'embedding' => [0.1, 0.2]]],
             'usage' => ['prompt_tokens' => 5, 'total_tokens' => 5],
         ];
 
@@ -1215,7 +1215,7 @@ class MistralProviderTest extends AbstractUnitTestCase
         // observable: without it the values stay ints and assertSame() fails.
         $apiResponse = [
             'model' => 'mistral-embed',
-            'data' => [['index' => 0, 'object' => 'embedding', 'embedding' => [1, 2, 3]]],
+            'data'  => [['index' => 0, 'object' => 'embedding', 'embedding' => [1, 2, 3]]],
             'usage' => ['prompt_tokens' => 7, 'total_tokens' => 7],
         ];
 
@@ -1348,9 +1348,9 @@ class MistralProviderTest extends AbstractUnitTestCase
         // any request is built.
         $subject->configure([
             'apiKeyIdentifier' => '',
-            'defaultModel' => 'mistral-large-latest',
-            'baseUrl' => 'https://api.mistral.ai/v1',
-            'timeout' => 30,
+            'defaultModel'     => 'mistral-large-latest',
+            'baseUrl'          => 'https://api.mistral.ai/v1',
+            'timeout'          => 30,
         ]);
 
         $httpClientMock = $this->createHttpClientWithExpectations();
@@ -1378,9 +1378,9 @@ class MistralProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'mistral-large-latest',
-            'baseUrl' => 'https://api.mistral.ai/v1',
-            'timeout' => 30,
+            'defaultModel'     => 'mistral-large-latest',
+            'baseUrl'          => 'https://api.mistral.ai/v1',
+            'timeout'          => 30,
         ]);
 
         // A 4xx streaming response must surface a typed exception: this pins the
@@ -1418,9 +1418,9 @@ class MistralProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'mistral-large-latest',
-            'baseUrl' => 'https://api.mistral.ai/v1',
-            'timeout' => 30,
+            'defaultModel'     => 'mistral-large-latest',
+            'baseUrl'          => 'https://api.mistral.ai/v1',
+            'timeout'          => 30,
         ]);
 
         // A single SSE line split across two reads: the first chunk carries no

@@ -49,7 +49,7 @@ final class CopyRecordToolTest extends AbstractUnitTestCase
             'BE_USER' => $GLOBALS['BE_USER'] ?? null,
         ];
 
-        $GLOBALS['TCA'] = ['pages' => ['columns' => ['title' => ['config' => ['type' => 'input']]]]];
+        $GLOBALS['TCA']     = ['pages' => ['columns' => ['title' => ['config' => ['type' => 'input']]]]];
         $GLOBALS['LANG']    = self::createStub(LanguageService::class);
         $GLOBALS['BE_USER'] = $this->liveUser();
 
@@ -133,15 +133,15 @@ final class CopyRecordToolTest extends AbstractUnitTestCase
      */
     public static function refusedArguments(): iterable
     {
-        yield 'no table'           => [['uid' => 1, 'target_page' => 2], '"table" must be "pages" or "tt_content"'];
-        yield 'another table'      => [['table' => 'sys_file', 'uid' => 1, 'target_page' => 2], '"table" must be "pages" or "tt_content"'];
-        yield 'no uid'             => [['table' => 'pages', 'target_page' => 2], 'exactly one record'];
-        yield 'no target'          => [['table' => 'tt_content', 'uid' => 1], '"target_page" must be'];
-        yield 'root level'         => [['table' => 'pages', 'uid' => 1, 'target_page' => 0], 'root level'];
-        yield 'column on a page'   => [['table' => 'pages', 'uid' => 1, 'target_page' => 2, 'column' => 1], 'applies to tt_content only'];
-        yield 'negative column'    => [['table' => 'tt_content', 'uid' => 1, 'target_page' => 2, 'column' => -1], 'zero or a positive'];
-        yield 'negative anchor'    => [['table' => 'tt_content', 'uid' => 1, 'target_page' => 2, 'after_uid' => -5], '"after_uid" must be'];
-        yield 'own anchor'         => [['table' => 'tt_content', 'uid' => 1, 'target_page' => 2, 'after_uid' => 1], 'cannot be the record being copied'];
+        yield 'no table' => [['uid' => 1, 'target_page' => 2], '"table" must be "pages" or "tt_content"'];
+        yield 'another table' => [['table' => 'sys_file', 'uid' => 1, 'target_page' => 2], '"table" must be "pages" or "tt_content"'];
+        yield 'no uid' => [['table' => 'pages', 'target_page' => 2], 'exactly one record'];
+        yield 'no target' => [['table' => 'tt_content', 'uid' => 1], '"target_page" must be'];
+        yield 'root level' => [['table' => 'pages', 'uid' => 1, 'target_page' => 0], 'root level'];
+        yield 'column on a page' => [['table' => 'pages', 'uid' => 1, 'target_page' => 2, 'column' => 1], 'applies to tt_content only'];
+        yield 'negative column' => [['table' => 'tt_content', 'uid' => 1, 'target_page' => 2, 'column' => -1], 'zero or a positive'];
+        yield 'negative anchor' => [['table' => 'tt_content', 'uid' => 1, 'target_page' => 2, 'after_uid' => -5], '"after_uid" must be'];
+        yield 'own anchor' => [['table' => 'tt_content', 'uid' => 1, 'target_page' => 2, 'after_uid' => 1], 'cannot be the record being copied'];
         // A copy is hidden by rule; the model cannot ask for a visible one.
         yield 'visibility smuggled in' => [['table' => 'tt_content', 'uid' => 1, 'target_page' => 2, 'hidden' => 0], 'not an argument of this tool'];
     }

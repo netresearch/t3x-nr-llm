@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Skill;
 use Netresearch\NrLlm\Domain\Enum\MessageRole;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
 use Netresearch\NrLlm\Domain\ValueObject\SkillCompositionResult;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Psr\Log\LoggerInterface;
@@ -94,25 +95,33 @@ final readonly class SkillInjectionService
      * @param list<Skill>                            $taskSkills
      *
      * `pins` names the versions the instruction sections were composed from
-     * (ADR-214 item 6), whether placed here or handed back.
+     * (ADR-214 item 6), whether placed here or handed back
      *
-     * @return array{messages: list<ChatMessage|array<string, mixed>>, instructions: string, pins: list<SkillPin>}
+     * `instructionIds` names the skills whose sections the instructions hold,
+     * for a refusal that has to name them (ADR-214 item 7)
+     *
+     * `$processVersions` are the approval snapshots of the process the run
+     * invokes or holds a pin for (ADR-228), composed as instruction sections
+     * from the snapshot ({@see SkillComposer::composeBlock()})
+     * @param list<SkillApproval> $processVersions
+     *
+     * @return array{messages: list<ChatMessage|array<string, mixed>>, instructions: string, pins: list<SkillPin>, instructionIds: list<string>}
      */
-    public function composeIntoMessages(array $messages, array $configSkills, array $taskSkills = []): array
+    public function composeIntoMessages(array $messages, array $configSkills, array $taskSkills = [], array $processVersions = []): array
     {
-        $result   = $this->composeAndLog($configSkills, $taskSkills);
+        $result   = $this->composeAndLog($configSkills, $taskSkills, $processVersions);
         $messages = $this->prependBlockToFirstUserMessage($messages, $result->block);
 
         if ($result->instructions === '') {
-            return ['messages' => $messages, 'instructions' => '', 'pins' => []];
+            return ['messages' => $messages, 'instructions' => '', 'pins' => [], 'instructionIds' => []];
         }
 
         $placed = self::appendToFirstSystemMessage($messages, $result->instructions);
         if ($placed === null) {
-            return ['messages' => $messages, 'instructions' => $result->instructions, 'pins' => $result->instructionPins];
+            return ['messages' => $messages, 'instructions' => $result->instructions, 'pins' => $result->instructionPins, 'instructionIds' => $result->instructionIncluded];
         }
 
-        return ['messages' => $placed, 'instructions' => '', 'pins' => $result->instructionPins];
+        return ['messages' => $placed, 'instructions' => '', 'pins' => $result->instructionPins, 'instructionIds' => $result->instructionIncluded];
     }
 
     /**
@@ -161,7 +170,7 @@ final readonly class SkillInjectionService
             $content = $message[self::KEY_CONTENT] ?? '';
             if (is_array($content)) {
                 // A part list: the text joins as one more text part at the end.
-                $content[]                 = ['type' => 'text', 'text' => $text];
+                $content[]                  = ['type' => 'text', 'text' => $text];
                 $message[self::KEY_CONTENT] = $content;
             } else {
                 $message[self::KEY_CONTENT] = self::join(is_string($content) ? $content : '', $text);
@@ -296,12 +305,13 @@ final readonly class SkillInjectionService
     }
 
     /**
-     * @param list<Skill> $configSkills
-     * @param list<Skill> $taskSkills
+     * @param list<Skill>         $configSkills
+     * @param list<Skill>         $taskSkills
+     * @param list<SkillApproval> $processVersions
      */
-    private function composeAndLog(array $configSkills, array $taskSkills): SkillCompositionResult
+    private function composeAndLog(array $configSkills, array $taskSkills, array $processVersions = []): SkillCompositionResult
     {
-        $result = $this->composer->composeBlock($configSkills, $taskSkills);
+        $result = $this->composer->composeBlock($configSkills, $taskSkills, $processVersions);
         foreach ($result->warnings as $warning) {
             $this->logger->warning($warning);
         }
