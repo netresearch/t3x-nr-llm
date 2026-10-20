@@ -387,8 +387,8 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             $t(ApprovalPreviewLabel::LocationOnPage, $q($plan['pageTitle'])),
         ];
         foreach ($plan['display'] as $column => $value) {
-            $label   = rtrim($this->translator->label($user, $plan['labels'][$column] ?? ''), ':');
-            $note    = $this->translator->label($user, $plan['notes'][$column] ?? '');
+            $label = rtrim($this->translator->label($user, $plan['labels'][$column] ?? ''), ':');
+            $note  = $this->translator->label($user, $plan['notes'][$column] ?? '');
             // A select or radio value reads as its item's label, as on the
             // other cards (rule 18).
             $lines[] = ($label !== '' ? $label : $column) . ': ' . $q($note !== '' ? $note : $value);
@@ -533,7 +533,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         if ($missing !== []) {
             return sprintf(
                 'Refused: %s %s required for record type "%s" of %s and must be given; the tool does not invent values.',
-                implode(', ', array_map(static fn(string $column): string => '"' . $column . '"', $missing)),
+                implode(', ', array_map(static fn (string $column): string => '"' . $column . '"', $missing)),
                 count($missing) === 1 ? 'is' : 'are',
                 $type['name'],
                 $table,
@@ -546,7 +546,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             return sprintf(
                 'Refused: the acting backend user holds no field-level ("exclude field") grant for %s. Nothing was '
                 . 'written — the DataHandler would drop the field in silence and leave a record nobody approved.',
-                implode(', ', array_map(static fn(string $column): string => $table . ':' . $column, $ungranted)),
+                implode(', ', array_map(static fn (string $column): string => $table . ':' . $column, $ungranted)),
             );
         }
 
@@ -610,7 +610,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
 
         $config = $this->columnConfig($table, $typeField, $recordType) ?? [];
         // Any truthy `authMode`, as the DataHandler reads it.
-        if (self::toStr($config['type'] ?? '') !== 'select' || !(bool)($config['authMode'] ?? false)) {
+        if (self::toStr($config['type'] ?? '') !== 'select' || !(bool) ($config['authMode'] ?? false)) {
             return true;
         }
 
@@ -669,7 +669,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             // Any truthy value, as FormEngine reads it (SingleFieldContainer):
             // TypoScript carries strings, so `disabled = true` is "true".
             $disabled = $this->pageRule($rules, $column, 'disabled', $recordType);
-            if ($disabled !== null && (bool)$disabled[0]) {
+            if ($disabled !== null && (bool) $disabled[0]) {
                 return sprintf(
                     'Refused: "%s" is disabled on page [%d] — page TSconfig TCEFORM.%s.%s%s takes it out of the backend form.',
                     $column,
@@ -689,7 +689,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             $pageReadOnly = in_array($kind, self::PAGE_READ_ONLY_TYPES, true)
                 ? $this->pageConfigRule($rules, $column, 'readOnly', $recordType)
                 : null;
-            if ($pageReadOnly !== null && (bool)$pageReadOnly[0]) {
+            if ($pageReadOnly !== null && (bool) $pageReadOnly[0]) {
                 return sprintf(
                     'Refused: "%s" is read-only on page [%d] — page TSconfig TCEFORM.%s.%s%s makes it read-only in the backend form.',
                     $column,
@@ -700,7 +700,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
                 );
             }
 
-            if ($pageReadOnly === null && (bool)($config['readOnly'] ?? false)) {
+            if ($pageReadOnly === null && (bool) ($config['readOnly'] ?? false)) {
                 return sprintf(
                     'Refused: "%s" is read-only in the TCA of record type "%s" of %s, so the backend form could not set it either.',
                     $column,
@@ -1004,7 +1004,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         $candidates     = [];
         $undeclaredItem = false;
         $typeField      = $this->typeFieldOf($table);
-        $given      = $typeField !== null && array_key_exists($typeField, $fields) ? self::toStr($fields[$typeField]) : null;
+        $given          = $typeField !== null && array_key_exists($typeField, $fields) ? self::toStr($fields[$typeField]) : null;
         if ($typeField !== null) {
             if ($given !== null) {
                 $candidates[] = [$given, false];
@@ -1039,9 +1039,9 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             // BackendUtility::getTCAtypeValue() reads it, never as the column
             // default. A value outside the items keeps the default candidate:
             // the value check refuses it with the items it may take.
-            $column = $this->tcaColumnsFor($table)[$typeField] ?? null;
-            $config = is_array($column) ? ($column['config'] ?? null) : null;
-            $config = is_array($config) ? $config : [];
+            $column         = $this->tcaColumnsFor($table)[$typeField] ?? null;
+            $config         = is_array($column) ? ($column['config'] ?? null) : null;
+            $config         = is_array($config) ? $config : [];
             $undeclaredItem = $given !== null
                 && !is_array($types[$given] ?? null)
                 && in_array($given, $this->itemValues($config), true);
@@ -1153,7 +1153,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
 
         return [
             'shown'  => array_values(array_unique($shown)),
-            'labels' => array_filter($labels, static fn(string $label): bool => $label !== ''),
+            'labels' => array_filter($labels, static fn (string $label): bool => $label !== ''),
         ];
     }
 
@@ -1378,16 +1378,16 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
     private function checkFlag(string $column, mixed $value): array|string
     {
         $flag = match (true) {
-            is_bool($value)                                                    => (int)$value,
-            is_int($value)                                                     => $value,
-            is_string($value) && preg_match('/^[01]$/', $value) === 1          => (int)$value,
-            default                                                            => null,
+            is_bool($value)                                           => (int) $value,
+            is_int($value)                                            => $value,
+            is_string($value) && preg_match('/^[01]$/', $value) === 1 => (int) $value,
+            default                                                   => null,
         };
         if ($flag !== 0 && $flag !== 1) {
             return sprintf('Refused: the value for "%s" must be 0 or 1.', $column);
         }
 
-        return [$flag, (string)$flag];
+        return [$flag, (string) $flag];
     }
 
     /**
@@ -1414,7 +1414,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
                 return sprintf('Refused: the value for "%s" must be a number.', $column);
             }
 
-            $number = (float)$value;
+            $number = (float) $value;
             // Compared with a tolerance far below a hundredth, so the binary
             // form of a two-place value (1.1 + 2.2) is not mistaken for more;
             // relative to the value, and small enough that it stays below a
@@ -1428,13 +1428,13 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             }
 
             $stored  = number_format($number, 2, '.', '');
-            $checked = (float)$stored;
+            $checked = (float) $stored;
         } else {
             $checked = match (true) {
-                is_int($value)                                                  => $value,
-                is_float($value) && floor($value) === $value                    => (int)$value,
-                is_string($value) && preg_match('/^-?\d+$/', $value) === 1     => (int)$value,
-                default                                                         => null,
+                is_int($value)                                             => $value,
+                is_float($value) && floor($value) === $value               => (int) $value,
+                is_string($value) && preg_match('/^-?\d+$/', $value) === 1 => (int) $value,
+                default                                                    => null,
             };
             if ($checked === null) {
                 return sprintf('Refused: the value for "%s" must be an integer.', $column);
@@ -1448,8 +1448,8 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         // lower one, so a decimal inside the range can still be clamped to a
         // bound. For an integer the rounding changes nothing.
         $range = is_array($config['range'] ?? null) ? $config['range'] : [];
-        $lower = is_numeric($range['lower'] ?? null) ? (float)$range['lower'] : null;
-        $upper = is_numeric($range['upper'] ?? null) ? (float)$range['upper'] : null;
+        $lower = is_numeric($range['lower'] ?? null) ? (float) $range['lower'] : null;
+        $upper = is_numeric($range['upper'] ?? null) ? (float) $range['upper'] : null;
         if (($lower !== null && floor($checked) < $lower) || ($upper !== null && ceil($checked) > $upper)) {
             return sprintf(
                 'Refused: the value for "%s" is outside the range %s..%s%s.',
@@ -1482,7 +1482,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         if (is_int($value) && $value >= 0) {
             $timestamp = $value;
         } elseif ($text !== null && preg_match('/^\d{1,11}$/', $text) === 1) {
-            $timestamp = (int)$text;
+            $timestamp = (int) $text;
         } elseif ($text !== null && preg_match(self::ISO_DATETIME, $text) === 1) {
             try {
                 $moment = new DateTimeImmutable($text);
@@ -1509,8 +1509,8 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         }
 
         $range = is_array($config['range'] ?? null) ? $config['range'] : [];
-        $lower = is_numeric($range['lower'] ?? null) ? (int)$range['lower'] : null;
-        $upper = is_numeric($range['upper'] ?? null) ? (int)$range['upper'] : null;
+        $lower = is_numeric($range['lower'] ?? null) ? (int) $range['lower'] : null;
+        $upper = is_numeric($range['upper'] ?? null) ? (int) $range['upper'] : null;
         if (($lower !== null && $timestamp < $lower) || ($upper !== null && $timestamp > $upper)) {
             return sprintf('Refused: the value for "%s" is outside the range the TCA allows.', $column);
         }
@@ -1538,7 +1538,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             return sprintf(
                 'Refused: the value for "%s" must be one of: %s.',
                 $column,
-                implode(', ', array_map(static fn(string $item): string => '"' . $item . '"', $allowed)),
+                implode(', ', array_map(static fn (string $item): string => '"' . $item . '"', $allowed)),
             );
         }
 
@@ -1608,7 +1608,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
 
         // The DataHandler stores a shorter value as '' in silence
         // (checkValueForInput(), checkValueForText()); rich text is exempt there.
-        $min = is_numeric($config['min'] ?? null) ? (int)$config['min'] : 0;
+        $min = is_numeric($config['min'] ?? null) ? (int) $config['min'] : 0;
         if ($text !== '' && $min > 0 && mb_strlen($text) < $min && !$this->flag($config['enableRichtext'] ?? false)) {
             return sprintf('Refused: the value for "%s" must be at least %d characters long; TYPO3 would store a shorter one empty.', $column, $min);
         }
@@ -1692,7 +1692,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         foreach (array_unique($columns) as $column) {
             $definition = $definitions[$column] ?? null;
             // Any truthy value, as core reads it (AbstractFieldType::supportsAccessControl()).
-            $excluded = is_array($definition) && (bool)($definition['exclude'] ?? false);
+            $excluded = is_array($definition) && (bool) ($definition['exclude'] ?? false);
             if ($excluded && !$user->check('non_exclude_fields', $table . ':' . $column)) {
                 $ungranted[] = $column;
             }
@@ -1727,14 +1727,10 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
 
             $took = match (true) {
                 $kind === 'check' || $kind === 'datetime'
-                    || ($kind === 'number' && self::toStr($config['format'] ?? 'integer') !== 'decimal')
-                    => self::toInt($storedValue) === self::toInt($requested),
-                $kind === 'number'
-                    => number_format(self::toFloat($storedValue), 2, '.', '') === number_format(self::toFloat($requested), 2, '.', ''),
-                $kind === 'text' && $this->flag($config['enableRichtext'] ?? false)
-                    => trim(self::toStr($requested)) === '' || trim(self::toStr($storedValue)) !== '',
-                default
-                => self::toStr($storedValue) === self::toStr($requested),
+                    || ($kind === 'number' && self::toStr($config['format'] ?? 'integer') !== 'decimal') => self::toInt($storedValue) === self::toInt($requested),
+                $kind === 'number'                                                                       => number_format(self::toFloat($storedValue), 2, '.', '') === number_format(self::toFloat($requested), 2, '.', ''),
+                $kind === 'text' && $this->flag($config['enableRichtext'] ?? false)                      => trim(self::toStr($requested)) === '' || trim(self::toStr($storedValue)) !== '',
+                default                                                                                  => self::toStr($storedValue) === self::toStr($requested),
             };
             if (!$took) {
                 $missed[] = $column;

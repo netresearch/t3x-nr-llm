@@ -171,7 +171,7 @@ final readonly class ExternalUrlGuard
             ->withHost(str_contains($host, ':') ? '[' . $host . ']' : $host)
             ->withFragment('');
 
-        return ExternalFetchTarget::allowed((string)$sent, $host, $port, $addresses);
+        return ExternalFetchTarget::allowed((string) $sent, $host, $port, $addresses);
     }
 
     /**

@@ -88,31 +88,35 @@ class EmbeddingOptions extends AbstractOptions implements BudgetAwareOptionsInte
 
     public function withModel(string $model): static
     {
-        $clone = clone $this;
+        $clone        = clone $this;
         $clone->model = $model;
+
         return $clone;
     }
 
     public function withDimensions(int $dimensions): static
     {
-        $clone = clone $this;
+        $clone             = clone $this;
         $clone->dimensions = $dimensions;
         $clone->validate();
+
         return $clone;
     }
 
     public function withCacheTtl(int $cacheTtl): static
     {
-        $clone = clone $this;
+        $clone           = clone $this;
         $clone->cacheTtl = $cacheTtl;
         $clone->validate();
+
         return $clone;
     }
 
     public function withProvider(string $provider): static
     {
-        $clone = clone $this;
+        $clone           = clone $this;
         $clone->provider = $provider;
+
         return $clone;
     }
 
@@ -151,10 +155,10 @@ class EmbeddingOptions extends AbstractOptions implements BudgetAwareOptionsInte
     public function toArray(): array
     {
         return $this->filterNull([
-            'model' => $this->model,
+            'model'      => $this->model,
             'dimensions' => $this->dimensions,
-            'cache_ttl' => $this->cacheTtl,
-            'provider' => $this->provider,
+            'cache_ttl'  => $this->cacheTtl,
+            'provider'   => $this->provider,
         ]);
     }
 

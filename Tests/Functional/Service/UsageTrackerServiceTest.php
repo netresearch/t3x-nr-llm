@@ -57,8 +57,8 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         );
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $count = $connection->count('*', self::TABLE, [
-            'service_type' => 'translation',
+        $count      = $connection->count('*', self::TABLE, [
+            'service_type'     => 'translation',
             'service_provider' => 'deepl',
         ]);
 
@@ -83,11 +83,11 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         );
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $row = $connection->select(
+        $row        = $connection->select(
             ['request_count', 'characters_used', 'estimated_cost'],
             self::TABLE,
             [
-                'service_type' => 'translation',
+                'service_type'     => 'translation',
                 'service_provider' => 'deepl',
             ],
         )->fetchAssociative();
@@ -99,9 +99,9 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         self::assertIsNumeric($row['request_count']);
         self::assertIsNumeric($row['characters_used']);
         self::assertIsNumeric($row['estimated_cost']);
-        self::assertSame(2, (int)$row['request_count']);
-        self::assertSame(1250, (int)$row['characters_used']);
-        self::assertEqualsWithDelta(0.0625, (float)$row['estimated_cost'], 0.0001);
+        self::assertSame(2, (int) $row['request_count']);
+        self::assertSame(1250, (int) $row['characters_used']);
+        self::assertEqualsWithDelta(0.0625, (float) $row['estimated_cost'], 0.0001);
     }
 
     #[Test]
@@ -118,7 +118,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         );
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $row = $connection->select(
+        $row        = $connection->select(
             ['request_count', 'tokens_used', 'estimated_cost'],
             self::TABLE,
             ['service_type' => 'chat', 'service_provider' => 'openai'],
@@ -128,9 +128,9 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         self::assertIsNumeric($row['request_count']);
         self::assertIsNumeric($row['tokens_used']);
         self::assertIsNumeric($row['estimated_cost']);
-        self::assertSame(0, (int)$row['request_count']);
-        self::assertSame(150, (int)$row['tokens_used']);
-        self::assertEqualsWithDelta(0.01, (float)$row['estimated_cost'], 0.0001);
+        self::assertSame(0, (int) $row['request_count']);
+        self::assertSame(150, (int) $row['tokens_used']);
+        self::assertEqualsWithDelta(0.01, (float) $row['estimated_cost'], 0.0001);
     }
 
     #[Test]
@@ -143,7 +143,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         $this->service->trackUsage('chat', 'openai', ['tokens' => 150], modelId: 'gpt-4o-mini', countsAsRequest: false);
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $row = $connection->select(
+        $row        = $connection->select(
             ['request_count', 'tokens_used'],
             self::TABLE,
             ['service_type' => 'chat', 'service_provider' => 'openai'],
@@ -152,8 +152,8 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         self::assertIsArray($row);
         self::assertIsNumeric($row['request_count']);
         self::assertIsNumeric($row['tokens_used']);
-        self::assertSame(1, (int)$row['request_count']);
-        self::assertSame(160, (int)$row['tokens_used']);
+        self::assertSame(1, (int) $row['request_count']);
+        self::assertSame(160, (int) $row['tokens_used']);
     }
 
     #[Test]
@@ -165,7 +165,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         $this->service->trackUsage('image', 'dall-e', ['images' => 2, 'cost' => 0.08], modelId: 'dall-e-3');
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $count = $connection->count('*', self::TABLE, ['service_type' => 'image', 'service_provider' => 'dall-e']);
+        $count      = $connection->count('*', self::TABLE, ['service_type' => 'image', 'service_provider' => 'dall-e']);
         self::assertSame(2, $count);
 
         $row = $connection->select(
@@ -174,8 +174,8 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
             ['service_type' => 'image', 'model_id' => 'gpt-image-2'],
         )->fetchAssociative();
         self::assertIsArray($row);
-        self::assertSame(1, (int)$row['request_count']);
-        self::assertSame(1, (int)$row['images_generated']);
+        self::assertSame(1, (int) $row['request_count']);
+        self::assertSame(1, (int) $row['images_generated']);
 
         // Same model again aggregates into ITS row only.
         $this->service->trackUsage('image', 'dall-e', ['images' => 1, 'cost' => 0.05], modelId: 'gpt-image-2');
@@ -198,7 +198,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         $row = $connection->select(['estimated_cost'], self::TABLE, ['source_extension' => 'texter'])->fetchAssociative();
         self::assertIsArray($row);
         self::assertIsNumeric($row['estimated_cost']);
-        self::assertEqualsWithDelta(0.02, (float)$row['estimated_cost'], 0.0001);
+        self::assertEqualsWithDelta(0.02, (float) $row['estimated_cost'], 0.0001);
 
         // The same extension again aggregates into ITS row only.
         $this->service->trackUsage('completion', 'openai', ['tokens' => 5, 'cost' => 0.01], modelId: 'gpt-4o', sourceExtension: 'texter');
@@ -207,7 +207,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         $row = $connection->select(['estimated_cost'], self::TABLE, ['source_extension' => 'texter'])->fetchAssociative();
         self::assertIsArray($row);
         self::assertIsNumeric($row['estimated_cost']);
-        self::assertEqualsWithDelta(0.03, (float)$row['estimated_cost'], 0.0001);
+        self::assertEqualsWithDelta(0.03, (float) $row['estimated_cost'], 0.0001);
     }
 
     #[Test]
@@ -224,7 +224,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         $row = $connection->select(['estimated_cost'], self::TABLE, ['source_extension' => ''])->fetchAssociative();
         self::assertIsArray($row);
         self::assertIsNumeric($row['estimated_cost']);
-        self::assertEqualsWithDelta(0.01, (float)$row['estimated_cost'], 0.0001);
+        self::assertEqualsWithDelta(0.01, (float) $row['estimated_cost'], 0.0001);
     }
 
     #[Test]
@@ -235,7 +235,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         $this->service->trackUsage('completion', 'openai', ['tokens' => 1, 'cost' => 0.01], sourceExtension: str_repeat('a', 100));
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $row = $connection->select(['source_extension'], self::TABLE, ['service_type' => 'completion'])->fetchAssociative();
+        $row        = $connection->select(['source_extension'], self::TABLE, ['service_type' => 'completion'])->fetchAssociative();
         self::assertIsArray($row);
         self::assertSame(str_repeat('a', 64), $row['source_extension']);
     }
@@ -249,7 +249,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         $this->service->trackUsage('completion', 'openai', ['tokens' => 20, 'cost' => 0.02], configurationUid: 2, modelId: 'gpt-4o');
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $count = $connection->count('*', self::TABLE, ['service_type' => 'completion', 'model_id' => 'gpt-4o']);
+        $count      = $connection->count('*', self::TABLE, ['service_type' => 'completion', 'model_id' => 'gpt-4o']);
         self::assertSame(2, $count);
 
         // A repeat call on configuration 1 aggregates into ITS row only.
@@ -263,7 +263,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
             ['service_type' => 'completion', 'model_id' => 'gpt-4o', 'configuration_uid' => 1],
         )->fetchAssociative();
         self::assertIsArray($row);
-        self::assertSame(2, (int)$row['request_count']);
+        self::assertSame(2, (int) $row['request_count']);
     }
 
     #[Test]
@@ -273,7 +273,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         $this->service->trackUsage('translation', 'google', ['characters' => 200]);
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $count = $connection->count('*', self::TABLE, ['service_type' => 'translation']);
+        $count      = $connection->count('*', self::TABLE, ['service_type' => 'translation']);
 
         self::assertSame(2, $count);
     }
@@ -287,7 +287,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
 
         $translationCount = $connection->count('*', self::TABLE, ['service_type' => 'translation']);
-        $speechCount = $connection->count('*', self::TABLE, ['service_type' => 'speech']);
+        $speechCount      = $connection->count('*', self::TABLE, ['service_type' => 'speech']);
 
         self::assertSame(1, $translationCount);
         self::assertSame(1, $speechCount);
@@ -303,7 +303,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         );
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $row = $connection->select(
+        $row        = $connection->select(
             ['tokens_used'],
             self::TABLE,
             ['service_type' => 'completion'],
@@ -312,7 +312,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         self::assertIsArray($row);
         self::assertArrayHasKey('tokens_used', $row);
         self::assertIsNumeric($row['tokens_used']);
-        self::assertSame(1500, (int)$row['tokens_used']);
+        self::assertSame(1500, (int) $row['tokens_used']);
     }
 
     #[Test]
@@ -325,7 +325,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         );
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $row = $connection->select(
+        $row        = $connection->select(
             ['audio_seconds_used'],
             self::TABLE,
             ['service_type' => 'speech'],
@@ -334,7 +334,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         self::assertIsArray($row);
         self::assertArrayHasKey('audio_seconds_used', $row);
         self::assertIsNumeric($row['audio_seconds_used']);
-        self::assertSame(120, (int)$row['audio_seconds_used']);
+        self::assertSame(120, (int) $row['audio_seconds_used']);
     }
 
     #[Test]
@@ -347,7 +347,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         );
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $row = $connection->select(
+        $row        = $connection->select(
             ['images_generated'],
             self::TABLE,
             ['service_type' => 'image'],
@@ -356,7 +356,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         self::assertIsArray($row);
         self::assertArrayHasKey('images_generated', $row);
         self::assertIsNumeric($row['images_generated']);
-        self::assertSame(4, (int)$row['images_generated']);
+        self::assertSame(4, (int) $row['images_generated']);
     }
 
     #[Test]
@@ -370,7 +370,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         );
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $row = $connection->select(
+        $row        = $connection->select(
             ['configuration_uid'],
             self::TABLE,
             ['service_type' => 'translation'],
@@ -379,7 +379,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         self::assertIsArray($row);
         self::assertArrayHasKey('configuration_uid', $row);
         self::assertIsNumeric($row['configuration_uid']);
-        self::assertSame(42, (int)$row['configuration_uid']);
+        self::assertSame(42, (int) $row['configuration_uid']);
     }
 
     #[Test]
@@ -393,7 +393,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         );
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $row = $connection->select(
+        $row        = $connection->select(
             ['be_user'],
             self::TABLE,
             ['service_type' => 'chat'],
@@ -402,7 +402,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         self::assertIsArray($row);
         self::assertArrayHasKey('be_user', $row);
         self::assertIsNumeric($row['be_user']);
-        self::assertSame(42, (int)$row['be_user']);
+        self::assertSame(42, (int) $row['be_user']);
     }
 
     #[Test]
@@ -417,7 +417,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         );
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $row = $connection->select(
+        $row        = $connection->select(
             ['be_user'],
             self::TABLE,
             ['service_type' => 'chat'],
@@ -426,7 +426,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         self::assertIsArray($row);
         self::assertArrayHasKey('be_user', $row);
         self::assertIsNumeric($row['be_user']);
-        self::assertSame(0, (int)$row['be_user']);
+        self::assertSame(0, (int) $row['be_user']);
     }
 
     #[Test]
@@ -438,7 +438,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         $this->service->trackUsage('chat', 'openai', ['tokens' => 10], beUserUid: 43);
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $count = $connection->count('*', self::TABLE, ['service_type' => 'chat']);
+        $count      = $connection->count('*', self::TABLE, ['service_type' => 'chat']);
 
         self::assertSame(2, $count);
     }
@@ -449,7 +449,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         $this->service->trackUsage('test', 'provider', []);
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $row = $connection->select(
+        $row        = $connection->select(
             ['request_count', 'tokens_used', 'characters_used'],
             self::TABLE,
             ['service_type' => 'test'],
@@ -462,9 +462,9 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         self::assertIsNumeric($row['request_count']);
         self::assertIsNumeric($row['tokens_used']);
         self::assertIsNumeric($row['characters_used']);
-        self::assertSame(1, (int)$row['request_count']);
-        self::assertSame(0, (int)$row['tokens_used']);
-        self::assertSame(0, (int)$row['characters_used']);
+        self::assertSame(1, (int) $row['request_count']);
+        self::assertSame(0, (int) $row['tokens_used']);
+        self::assertSame(0, (int) $row['characters_used']);
     }
 
     // =========================================================================
@@ -481,9 +481,9 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         $usage = $this->service->getTodayUsage('translation', 'deepl');
 
         self::assertNotNull($usage);
-        self::assertSame(2, (int)$usage['request_count']);
-        self::assertSame(8000, (int)$usage['characters_used']);
-        self::assertEqualsWithDelta(0.40, (float)$usage['estimated_cost'], 0.001);
+        self::assertSame(2, (int) $usage['request_count']);
+        self::assertSame(8000, (int) $usage['characters_used']);
+        self::assertEqualsWithDelta(0.40, (float) $usage['estimated_cost'], 0.001);
     }
 
     #[Test]
@@ -500,7 +500,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         $this->service->trackUsage('translation', 'deepl', ['characters' => 1000, 'cost' => 0.05]);
 
         $from = new DateTimeImmutable('today');
-        $to = new DateTimeImmutable('tomorrow');
+        $to   = new DateTimeImmutable('tomorrow');
 
         $report = $this->service->getUsageReport('translation', $from, $to);
 
@@ -532,7 +532,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         );
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $row = $connection->select(
+        $row        = $connection->select(
             ['model_uid', 'model_id', 'prompt_tokens', 'completion_tokens', 'tokens_used', 'configuration_uid', 'estimated_cost'],
             self::TABLE,
             ['service_type' => 'chat', 'service_provider' => 'openai'],
@@ -541,13 +541,13 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         self::assertIsArray($row);
         self::assertIsString($row['model_id']);
         self::assertIsNumeric($row['estimated_cost']);
-        self::assertSame(42, (int)$row['model_uid']);
+        self::assertSame(42, (int) $row['model_uid']);
         self::assertSame('gpt-4o', $row['model_id']);
-        self::assertSame(1000, (int)$row['prompt_tokens']);
-        self::assertSame(500, (int)$row['completion_tokens']);
-        self::assertSame(1500, (int)$row['tokens_used']);
-        self::assertSame(7, (int)$row['configuration_uid']);
-        self::assertEqualsWithDelta(0.0125, (float)$row['estimated_cost'], 0.0001);
+        self::assertSame(1000, (int) $row['prompt_tokens']);
+        self::assertSame(500, (int) $row['completion_tokens']);
+        self::assertSame(1500, (int) $row['tokens_used']);
+        self::assertSame(7, (int) $row['configuration_uid']);
+        self::assertEqualsWithDelta(0.0125, (float) $row['estimated_cost'], 0.0001);
     }
 
     #[Test]
@@ -557,7 +557,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         $this->service->trackUsage('chat', 'openai', ['tokens' => 200], null, 2, 'gpt-4o-mini');
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $count = $connection->count('*', self::TABLE, ['service_type' => 'chat', 'service_provider' => 'openai']);
+        $count      = $connection->count('*', self::TABLE, ['service_type' => 'chat', 'service_provider' => 'openai']);
 
         self::assertSame(2, $count);
     }
@@ -569,17 +569,17 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         $this->service->trackUsage('chat', 'openai', ['tokens' => 150, 'promptTokens' => 90, 'completionTokens' => 60], null, 1, 'gpt-4o');
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $row = $connection->select(
+        $row        = $connection->select(
             ['request_count', 'tokens_used', 'prompt_tokens', 'completion_tokens'],
             self::TABLE,
             ['service_type' => 'chat', 'model_uid' => 1],
         )->fetchAssociative();
 
         self::assertIsArray($row);
-        self::assertSame(2, (int)$row['request_count']);
-        self::assertSame(250, (int)$row['tokens_used']);
-        self::assertSame(150, (int)$row['prompt_tokens']);
-        self::assertSame(100, (int)$row['completion_tokens']);
+        self::assertSame(2, (int) $row['request_count']);
+        self::assertSame(250, (int) $row['tokens_used']);
+        self::assertSame(150, (int) $row['prompt_tokens']);
+        self::assertSame(100, (int) $row['completion_tokens']);
     }
 
     #[Test]
@@ -593,8 +593,8 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         self::assertNotNull($usage);
         self::assertIsNumeric($usage['request_count']);
         self::assertIsNumeric($usage['tokens_used']);
-        self::assertSame(2, (int)$usage['request_count']);
-        self::assertSame(300, (int)$usage['tokens_used']);
+        self::assertSame(2, (int) $usage['request_count']);
+        self::assertSame(300, (int) $usage['tokens_used']);
     }
 
     #[Test]
@@ -611,10 +611,10 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         $this->service->trackUsage('chat', 'openai', ['tokens' => 100], null, 1, 'gpt-4o', 77);
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $row = $connection->select(['task_uid'], self::TABLE, ['service_type' => 'chat'])->fetchAssociative();
+        $row        = $connection->select(['task_uid'], self::TABLE, ['service_type' => 'chat'])->fetchAssociative();
 
         self::assertIsArray($row);
-        self::assertSame(77, (int)$row['task_uid']);
+        self::assertSame(77, (int) $row['task_uid']);
     }
 
     #[Test]
@@ -624,7 +624,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         $this->service->trackUsage('chat', 'openai', ['tokens' => 200], null, 1, 'gpt-4o', 2);
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $count = $connection->count('*', self::TABLE, ['service_type' => 'chat', 'service_provider' => 'openai']);
+        $count      = $connection->count('*', self::TABLE, ['service_type' => 'chat', 'service_provider' => 'openai']);
 
         self::assertSame(2, $count);
     }

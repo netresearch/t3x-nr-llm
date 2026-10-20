@@ -123,7 +123,7 @@ final class DroppedForcedSourceDetectionTest extends AbstractFunctionalTestCase
         $dropped = $this->droppedFor([23, 22, 999999]);
 
         self::assertCount(2, $dropped, 'the enabled uid 22 must not appear');
-        self::assertSame([23, 999999], array_map(static fn(DroppedSource $d): int => $d->uid, $dropped));
+        self::assertSame([23, 999999], array_map(static fn (DroppedSource $d): int => $d->uid, $dropped));
         self::assertSame(DroppedSourceReason::DEACTIVATED, $dropped[0]->reason);
         self::assertSame(DroppedSourceReason::GONE, $dropped[1]->reason);
     }

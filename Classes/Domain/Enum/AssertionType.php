@@ -24,9 +24,9 @@ namespace Netresearch\NrLlm\Domain\Enum;
  */
 enum AssertionType: string
 {
-    case EXACT = 'exact';
-    case CONTAINS = 'contains';
-    case REGEX = 'regex';
+    case EXACT       = 'exact';
+    case CONTAINS    = 'contains';
+    case REGEX       = 'regex';
     case JSON_SCHEMA = 'json_schema';
 
     /**
@@ -35,7 +35,7 @@ enum AssertionType: string
     public static function values(): array
     {
         return array_map(
-            static fn(self $case): string => $case->value,
+            static fn (self $case): string => $case->value,
             self::cases(),
         );
     }

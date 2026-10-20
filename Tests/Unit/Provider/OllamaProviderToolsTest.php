@@ -292,9 +292,9 @@ class OllamaProviderToolsTest extends AbstractUnitTestCase
         $messages = [['role' => 'user', 'content' => 'why is the sky blue?']];
 
         // Native reasoning: `message.thinking` arrives as a separate field.
-        $response = $this->plainAssistantResponse('blue');
+        $response                        = $this->plainAssistantResponse('blue');
         $response['message']['thinking'] = 'Rayleigh scattering favours short wavelengths.';
-        $result = $this->buildSubject($response)->chatCompletionWithTools($messages, [], ['think' => true]);
+        $result                          = $this->buildSubject($response)->chatCompletionWithTools($messages, [], ['think' => true]);
         self::assertSame('Rayleigh scattering favours short wavelengths.', $result->thinking);
         self::assertSame('blue', $result->content);
 
@@ -303,15 +303,15 @@ class OllamaProviderToolsTest extends AbstractUnitTestCase
         self::assertNull($result->thinking);
 
         // Whitespace-only thinking normalises to null.
-        $response = $this->plainAssistantResponse('blue');
+        $response                        = $this->plainAssistantResponse('blue');
         $response['message']['thinking'] = '   ';
-        $result = $this->buildSubject($response)->chatCompletionWithTools($messages, []);
+        $result                          = $this->buildSubject($response)->chatCompletionWithTools($messages, []);
         self::assertNull($result->thinking);
 
         // The plain chat path surfaces the field as well.
-        $response = $this->plainAssistantResponse('blue');
+        $response                        = $this->plainAssistantResponse('blue');
         $response['message']['thinking'] = 'Scattering, obviously.';
-        $result = $this->buildSubject($response)->chatCompletion($messages, ['think' => true]);
+        $result                          = $this->buildSubject($response)->chatCompletion($messages, ['think' => true]);
         self::assertSame('Scattering, obviously.', $result->thinking);
     }
 
@@ -332,6 +332,7 @@ class OllamaProviderToolsTest extends AbstractUnitTestCase
                 $stream             = self::createStub(StreamInterface::class);
                 $stream->method('__toString')->willReturn($content);
                 $stream->method('getContents')->willReturn($content);
+
                 return $stream;
             },
         );
@@ -382,8 +383,8 @@ class OllamaProviderToolsTest extends AbstractUnitTestCase
     private function plainAssistantResponse(string $content): array
     {
         return [
-            'model'   => 'llama3.2',
-            'message' => ['role' => 'assistant', 'content' => $content],
+            'model'             => 'llama3.2',
+            'message'           => ['role' => 'assistant', 'content' => $content],
             'done'              => true,
             'done_reason'       => 'stop',
             'prompt_eval_count' => 2,

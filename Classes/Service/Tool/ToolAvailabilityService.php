@@ -73,9 +73,9 @@ final readonly class ToolAvailabilityService implements ToolAvailabilityServiceI
             $toolEnabled  = $overridden ? $overrides[$name] : $default;
 
             $states[] = [
-                'name'           => $name,
-                'description'    => $tool->getSpec()->description,
-                'group'          => $group,
+                'name'        => $name,
+                'description' => $tool->getSpec()->description,
+                'group'       => $group,
                 // Fail-closed cascade: a per-tool override can never
                 // re-enable a tool inside a disabled group.
                 'enabled'        => $groupEnabled && $toolEnabled,
@@ -134,7 +134,7 @@ final readonly class ToolAvailabilityService implements ToolAvailabilityServiceI
             }
 
             $groups[$group] = [
-                'name'       => $group,
+                'name' => $group,
                 // Null for a group outside the curated taxonomy (ADR-152); the
                 // module then renders the raw identifier, which is what a
                 // third-party group has instead of a name.

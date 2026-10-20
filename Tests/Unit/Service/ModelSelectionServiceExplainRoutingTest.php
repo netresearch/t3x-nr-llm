@@ -85,7 +85,7 @@ final class ModelSelectionServiceExplainRoutingTest extends TestCase
         self::assertSame(
             [RoutingRejectionReason::ADAPTER_NOT_ALLOWED],
             array_map(
-                static fn(RoutingCandidate $c): ?RoutingRejectionReason => $c->rejectionReason,
+                static fn (RoutingCandidate $c): ?RoutingRejectionReason => $c->rejectionReason,
                 $decision->rejectedCandidates(),
             ),
         );
@@ -125,7 +125,7 @@ final class ModelSelectionServiceExplainRoutingTest extends TestCase
         self::assertSame(
             [RoutingRejectionReason::OPERATION_CAPABILITY_MISSING],
             array_map(
-                static fn(RoutingCandidate $c): ?RoutingRejectionReason => $c->rejectionReason,
+                static fn (RoutingCandidate $c): ?RoutingRejectionReason => $c->rejectionReason,
                 $decision->rejectedCandidates(),
             ),
         );

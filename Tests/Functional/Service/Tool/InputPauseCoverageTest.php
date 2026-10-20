@@ -19,8 +19,8 @@ use PHPUnit\Framework\Attributes\Test;
 /**
  * Which registered tools can suspend a run for operator input (ADR-105).
  *
- * The answer today is still none, and the assertion is unchanged. What changed
- * is why it is here.
+ * The answer is one tool, `ask_choice` (ADR-214 item 9). What changed over time
+ * is why the list is here.
  *
  * It used to stand in for a missing gate: `ResumeCoordinator::submitInput()`
  * authorised the submitter with `agent_approve` and nothing else while
@@ -31,26 +31,31 @@ use PHPUnit\Framework\Attributes\Test;
  * declared input tool, and a submission must name the turn its form was
  * rendered from — so the gap is no longer what makes an entry here dangerous.
  *
- * The list stays empty and stays asserted because shipping the FIRST tool that
- * pauses a run for input is still a product decision, not bookkeeping: it turns
- * an untrusted, user-supplied payload into tool arguments on a path that
- * executes under someone else's identity. Adding a name means someone weighed
- * that for that tool. The two questions the entry used to commit you to are
- * answered by ADR-150; what remains is whether THIS tool should be able to
- * pause a run at all.
+ * The list stays asserted because shipping a tool that pauses a run for input
+ * is a product decision, not bookkeeping: it turns an untrusted, user-supplied
+ * payload into tool arguments on a path that executes under someone else's
+ * identity. Adding a name means someone weighed that for that tool. The two
+ * questions the entry used to commit you to are answered by ADR-150; what
+ * remains is whether THIS tool should be able to pause a run at all.
+ *
+ * `ask_choice` was weighed in ADR-214 item 9, which ships it for the pure
+ * choices of a guided process. Its payload is one of the call's own options:
+ * the `enum` of its per-call schema is enforced at submission and again at
+ * resume, and the tool refuses anything else. It reads and writes nothing; the
+ * answer only becomes the text of its result.
  */
 #[CoversClass(ToolRegistry::class)]
 final class InputPauseCoverageTest extends AbstractFunctionalTestCase
 {
     /**
-     * Tools that suspend a run for operator input. Empty on purpose.
+     * Tools that suspend a run for operator input.
      *
      * Adding a name here is a decision, not bookkeeping — see the class
      * docblock for the two questions it commits you to.
      *
      * @var list<string>
      */
-    private const INPUT_REQUIRING_TOOLS = [];
+    private const INPUT_REQUIRING_TOOLS = ['ask_choice'];
 
     #[Test]
     public function onlyToolsListedHereCanSuspendARunForInput(): void

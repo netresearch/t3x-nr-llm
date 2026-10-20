@@ -19,7 +19,7 @@ use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
  * history, a vanished record — and arranging those against a live database
  * costs more than it proves.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 interface WrittenRecordRepositoryInterface
 {

@@ -90,10 +90,10 @@ final class WorkspaceVersionRowsAreRefusedTest extends AbstractFunctionalTestCas
             [self::VERSION_OF_LIVE_PAGE, self::ROOT, self::SECRET . ' page version', 5, self::LIVE_PAGE, 0],
         ] as [$uid, $pid, $title, $workspace, $original, $state]) {
             $pages->insert('pages', [
-                'uid' => $uid, 'pid' => $pid, 'title' => $title, 'slug' => '/' . $uid, 'hidden' => 1,
-                'doktype' => $uid === self::NEW_PAGE_IN_WORKSPACE ? 254 : 1,
-                't3ver_wsid' => $workspace, 't3ver_oid' => $original, 't3ver_state' => $state,
-                'perms_userid' => 1, 'perms_user' => Permission::ALL,
+                'uid'           => $uid, 'pid' => $pid, 'title' => $title, 'slug' => '/' . $uid, 'hidden' => 1,
+                'doktype'       => $uid === self::NEW_PAGE_IN_WORKSPACE ? 254 : 1,
+                't3ver_wsid'    => $workspace, 't3ver_oid' => $original, 't3ver_state' => $state,
+                'perms_userid'  => 1, 'perms_user' => Permission::ALL,
                 'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
             ]);
         }
@@ -105,15 +105,15 @@ final class WorkspaceVersionRowsAreRefusedTest extends AbstractFunctionalTestCas
             [self::VERSION_OF_LIVE_ELEMENT, self::SECRET . ' element version', 5, self::LIVE_ELEMENT, 0],
         ] as [$uid, $header, $workspace, $original, $state]) {
             $content->insert('tt_content', [
-                'uid' => $uid, 'pid' => self::LIVE_PAGE, 'colPos' => 0, 'CType' => 'textmedia', 'header' => $header,
-                'hidden' => 1, 'sys_language_uid' => 0, 'assets' => 1,
+                'uid'        => $uid, 'pid' => self::LIVE_PAGE, 'colPos' => 0, 'CType' => 'textmedia', 'header' => $header,
+                'hidden'     => 1, 'sys_language_uid' => 0, 'assets' => 1,
                 't3ver_wsid' => $workspace, 't3ver_oid' => $original, 't3ver_state' => $state,
             ]);
         }
 
         $this->connectionPool->getConnectionForTable('sys_file_reference')->insert('sys_file_reference', [
-            'uid' => self::VERSION_OF_LIVE_REFERENCE, 'pid' => self::LIVE_PAGE, 'uid_local' => 1,
-            'tablenames' => 'tt_content', 'uid_foreign' => self::LIVE_ELEMENT, 'fieldname' => 'assets',
+            'uid'              => self::VERSION_OF_LIVE_REFERENCE, 'pid' => self::LIVE_PAGE, 'uid_local' => 1,
+            'tablenames'       => 'tt_content', 'uid_foreign' => self::LIVE_ELEMENT, 'fieldname' => 'assets',
             'sys_language_uid' => 0, 't3ver_wsid' => 5, 't3ver_oid' => 40, 't3ver_state' => 0,
         ]);
 
@@ -123,7 +123,7 @@ final class WorkspaceVersionRowsAreRefusedTest extends AbstractFunctionalTestCas
             'uid' => 1, 'pid' => 0, 'name' => 'Main storage', 'driver' => 'Local', 'is_online' => 1,
         ]);
         $this->connectionPool->getConnectionForTable('sys_file')->insert('sys_file', [
-            'uid' => 1, 'storage' => 1, 'identifier' => '/image.jpg', 'name' => 'image.jpg', 'extension' => 'jpg',
+            'uid'       => 1, 'storage' => 1, 'identifier' => '/image.jpg', 'name' => 'image.jpg', 'extension' => 'jpg',
             'mime_type' => 'image/jpeg', 'size' => 8, 'sha1' => str_repeat('1', 40),
         ]);
 
@@ -141,24 +141,24 @@ final class WorkspaceVersionRowsAreRefusedTest extends AbstractFunctionalTestCas
      */
     public static function callsOnWorkspaceRows(): iterable
     {
-        yield 'update_page_metadata, new page'      => ['update_page_metadata', ['uid' => self::NEW_PAGE_IN_WORKSPACE, 'title' => 'x']];
-        yield 'update_page_metadata, page version'  => ['update_page_metadata', ['uid' => self::VERSION_OF_LIVE_PAGE, 'title' => 'x']];
+        yield 'update_page_metadata, new page' => ['update_page_metadata', ['uid' => self::NEW_PAGE_IN_WORKSPACE, 'title' => 'x']];
+        yield 'update_page_metadata, page version' => ['update_page_metadata', ['uid' => self::VERSION_OF_LIVE_PAGE, 'title' => 'x']];
         yield 'set_page_social_image, page version' => ['set_page_social_image', ['page' => self::VERSION_OF_LIVE_PAGE, 'field' => 'og_image', 'file' => 1]];
-        yield 'attach_file, element version'       => ['attach_file_to_content_element', ['content_element' => self::VERSION_OF_LIVE_ELEMENT, 'file' => 1]];
-        yield 'move_content_element, version'       => ['move_content_element', ['uid' => self::VERSION_OF_LIVE_ELEMENT, 'target_page' => self::LIVE_PAGE]];
-        yield 'move_content_element, to new page'   => ['move_content_element', ['uid' => self::LIVE_ELEMENT, 'target_page' => self::NEW_PAGE_IN_WORKSPACE]];
-        yield 'create_content_element_draft'        => ['create_content_element_draft', ['page' => self::NEW_PAGE_IN_WORKSPACE, 'type' => 'text', 'header' => 'x']];
-        yield 'create_page_draft'                   => ['create_page_draft', ['parent' => self::VERSION_OF_LIVE_PAGE, 'title' => 'x']];
-        yield 'create_translation_draft'            => ['create_translation_draft', ['table' => 'tt_content', 'uid' => self::VERSION_OF_LIVE_ELEMENT, 'language' => 1]];
-        yield 'create_record_draft'                 => ['create_record_draft', ['table' => 'tx_writerfixture_variant', 'pid' => self::NEW_PAGE_IN_WORKSPACE, 'fields' => ['title' => 'x']]];
-        yield 'publish_record, new element'         => ['publish_record', ['table' => 'tt_content', 'uid' => self::NEW_ELEMENT_IN_WORKSPACE]];
-        yield 'publish_record, page version'        => ['publish_record', ['table' => 'pages', 'uid' => self::VERSION_OF_LIVE_PAGE]];
-        yield 'update_content_element, version'     => ['update_content_element', ['uid' => self::VERSION_OF_LIVE_ELEMENT, 'fields' => ['header' => 'x']]];
-        yield 'delete_record, element version'      => ['delete_record', ['table' => 'tt_content', 'uid' => self::VERSION_OF_LIVE_ELEMENT]];
-        yield 'copy_record, element version'        => ['copy_record', ['table' => 'tt_content', 'uid' => self::VERSION_OF_LIVE_ELEMENT, 'target_page' => self::LIVE_PAGE]];
-        yield 'copy_record, to a new page'          => ['copy_record', ['table' => 'tt_content', 'uid' => self::LIVE_ELEMENT, 'target_page' => self::NEW_PAGE_IN_WORKSPACE]];
-        yield 'move_page, page version'             => ['move_page', ['uid' => self::VERSION_OF_LIVE_PAGE, 'parent' => self::LIVE_PAGE]];
-        yield 'replace_file_reference, version'     => ['replace_file_reference', ['reference' => self::VERSION_OF_LIVE_REFERENCE, 'action' => 'remove']];
+        yield 'attach_file, element version' => ['attach_file_to_content_element', ['content_element' => self::VERSION_OF_LIVE_ELEMENT, 'file' => 1]];
+        yield 'move_content_element, version' => ['move_content_element', ['uid' => self::VERSION_OF_LIVE_ELEMENT, 'target_page' => self::LIVE_PAGE]];
+        yield 'move_content_element, to new page' => ['move_content_element', ['uid' => self::LIVE_ELEMENT, 'target_page' => self::NEW_PAGE_IN_WORKSPACE]];
+        yield 'create_content_element_draft' => ['create_content_element_draft', ['page' => self::NEW_PAGE_IN_WORKSPACE, 'type' => 'text', 'header' => 'x']];
+        yield 'create_page_draft' => ['create_page_draft', ['parent' => self::VERSION_OF_LIVE_PAGE, 'title' => 'x']];
+        yield 'create_translation_draft' => ['create_translation_draft', ['table' => 'tt_content', 'uid' => self::VERSION_OF_LIVE_ELEMENT, 'language' => 1]];
+        yield 'create_record_draft' => ['create_record_draft', ['table' => 'tx_writerfixture_variant', 'pid' => self::NEW_PAGE_IN_WORKSPACE, 'fields' => ['title' => 'x']]];
+        yield 'publish_record, new element' => ['publish_record', ['table' => 'tt_content', 'uid' => self::NEW_ELEMENT_IN_WORKSPACE]];
+        yield 'publish_record, page version' => ['publish_record', ['table' => 'pages', 'uid' => self::VERSION_OF_LIVE_PAGE]];
+        yield 'update_content_element, version' => ['update_content_element', ['uid' => self::VERSION_OF_LIVE_ELEMENT, 'fields' => ['header' => 'x']]];
+        yield 'delete_record, element version' => ['delete_record', ['table' => 'tt_content', 'uid' => self::VERSION_OF_LIVE_ELEMENT]];
+        yield 'copy_record, element version' => ['copy_record', ['table' => 'tt_content', 'uid' => self::VERSION_OF_LIVE_ELEMENT, 'target_page' => self::LIVE_PAGE]];
+        yield 'copy_record, to a new page' => ['copy_record', ['table' => 'tt_content', 'uid' => self::LIVE_ELEMENT, 'target_page' => self::NEW_PAGE_IN_WORKSPACE]];
+        yield 'move_page, page version' => ['move_page', ['uid' => self::VERSION_OF_LIVE_PAGE, 'parent' => self::LIVE_PAGE]];
+        yield 'replace_file_reference, version' => ['replace_file_reference', ['reference' => self::VERSION_OF_LIVE_REFERENCE, 'action' => 'remove']];
     }
 
     /**

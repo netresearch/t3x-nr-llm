@@ -166,7 +166,7 @@ final class SkillApprovalRouteTokenTest extends AbstractFunctionalTestCase
         $dispatcher = $this->getService(RouteDispatcher::class);
         self::assertInstanceOf(RouteDispatcher::class, $dispatcher);
 
-        $request = $this->request($path, $token)->withAttribute('route', $this->matched($path));
+        $request                  = $this->request($path, $token)->withAttribute('route', $this->matched($path));
         $GLOBALS['TYPO3_REQUEST'] = $request;
         $dispatcher->dispatch($request);
     }

@@ -94,7 +94,7 @@ final readonly class UseCasePackPlan
     {
         return array_values(array_filter(
             $this->editorActions,
-            static fn(PackEditorActionState $state): bool => !$state->declared,
+            static fn (PackEditorActionState $state): bool => !$state->declared,
         ));
     }
 
@@ -112,7 +112,7 @@ final readonly class UseCasePackPlan
     {
         return array_values(array_filter(
             $this->toolGroups,
-            static fn(PackToolGroupState $state): bool => !$state->registered,
+            static fn (PackToolGroupState $state): bool => !$state->registered,
         ));
     }
 
@@ -128,7 +128,7 @@ final readonly class UseCasePackPlan
     {
         return count(array_filter(
             $this->getItems(),
-            static fn(UseCasePackPlanItem $item): bool => !$item->installed,
+            static fn (UseCasePackPlanItem $item): bool => !$item->installed,
         ));
     }
 
