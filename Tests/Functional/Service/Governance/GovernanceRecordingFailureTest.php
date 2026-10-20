@@ -1,10 +1,11 @@
 <?php
 
 /*
- * Copyright (c) 2026 Netresearch DTT GmbH
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Governance;
 
@@ -54,9 +55,9 @@ final class GovernanceRecordingFailureTest extends AbstractFunctionalTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $pool = $this->getConnectionPool();
+        $pool             = $this->getConnectionPool();
         $this->connection = $pool->getConnectionForTable('tx_nrllm_governance_event');
-        $table = $this->connection
+        $table            = $this->connection
             ->createSchemaManager()
             ->introspectTable('tx_nrllm_governance_event');
         $this->restoreSchema = $this->connection->getDatabasePlatform()->getCreateTableSQL($table);
@@ -64,7 +65,7 @@ final class GovernanceRecordingFailureTest extends AbstractFunctionalTestCase
             'DROP TABLE tx_nrllm_governance_event',
         );
         $this->tableDropped = true;
-        $this->repository = new GovernanceEventRepository($pool);
+        $this->repository   = new GovernanceEventRepository($pool);
     }
 
     protected function tearDown(): void
@@ -114,9 +115,9 @@ final class GovernanceRecordingFailureTest extends AbstractFunctionalTestCase
     public static function guardrailVerdicts(): array
     {
         return [
-            'deny without logger' => [false, GuardrailViolationException::class, false],
-            'deny with throwing logger' => [false, GuardrailViolationException::class, true],
-            'approval without logger' => [true, GuardrailApprovalRequiredException::class, false],
+            'deny without logger'           => [false, GuardrailViolationException::class, false],
+            'deny with throwing logger'     => [false, GuardrailViolationException::class, true],
+            'approval without logger'       => [true, GuardrailApprovalRequiredException::class, false],
             'approval with throwing logger' => [true, GuardrailApprovalRequiredException::class, true],
         ];
     }
@@ -131,7 +132,7 @@ final class GovernanceRecordingFailureTest extends AbstractFunctionalTestCase
         string $expected,
         bool $loggerThrows,
     ): void {
-        $result = $approval ? GuardrailResult::requireApproval('policy') : GuardrailResult::deny('policy');
+        $result    = $approval ? GuardrailResult::requireApproval('policy') : GuardrailResult::deny('policy');
         $guardrail = new class ($result) implements GuardrailInterface {
             use GuardrailIdentityDoubleTrait;
 
@@ -156,7 +157,7 @@ final class GovernanceRecordingFailureTest extends AbstractFunctionalTestCase
                     ProviderOperation::Chat,
                     new LlmConfiguration(),
                 ),
-                static fn(): CompletionResponse => new CompletionResponse(
+                static fn (): CompletionResponse => new CompletionResponse(
                     'unsafe',
                     'fixture',
                     UsageStatistics::fromTokens(1, 1),
@@ -175,9 +176,9 @@ final class GovernanceRecordingFailureTest extends AbstractFunctionalTestCase
     public static function contextModes(): array
     {
         return [
-            'enforce without logger' => [true, false],
+            'enforce without logger'       => [true, false],
             'enforce with throwing logger' => [true, true],
-            'observe without logger' => [false, false],
+            'observe without logger'       => [false, false],
             'observe with throwing logger' => [false, true],
         ];
     }
@@ -247,6 +248,7 @@ final class GovernanceRecordingFailureTest extends AbstractFunctionalTestCase
             ->expects(self::once())
             ->method('warning')
             ->willThrowException(new RuntimeException('logger failure'));
+
         return new GovernanceEventRepository($this->getConnectionPool(), $logger);
     }
 }

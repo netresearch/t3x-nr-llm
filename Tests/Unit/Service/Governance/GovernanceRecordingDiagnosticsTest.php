@@ -1,10 +1,11 @@
 <?php
 
 /*
- * Copyright (c) 2026 Netresearch DTT GmbH
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Governance;
 
@@ -63,7 +64,7 @@ final class GovernanceRecordingDiagnosticsTest extends AbstractUnitTestCase
         $pool = self::createStub(ConnectionPool::class);
         $pool->method('getConnectionForTable')->willReturn($connection);
         $diagnostic = null;
-        $logger = $this->createMock(LoggerInterface::class);
+        $logger     = $this->createMock(LoggerInterface::class);
         $logger
             ->expects(self::once())
             ->method('warning')
@@ -79,7 +80,7 @@ final class GovernanceRecordingDiagnosticsTest extends AbstractUnitTestCase
                 },
             );
         $repository = new GovernanceEventRepository($pool, $logger);
-        $caught = null;
+        $caught     = null;
         try {
             $repository->record(
                 new GovernanceEvent(
