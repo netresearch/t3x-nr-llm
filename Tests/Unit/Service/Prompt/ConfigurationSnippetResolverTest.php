@@ -63,7 +63,7 @@ final class ConfigurationSnippetResolverTest extends TestCase
         $resolver = $this->resolver(['persona' => [$this->snippet('persona-nova', 'Nova', 'You are Nova.')]]);
 
         self::assertSame(
-            self::SYSTEM_PROMPT . "\n\n" . "Nova:\nYou are Nova.",
+            self::SYSTEM_PROMPT . "\n\nNova:\nYou are Nova.",
             $resolver->appendTo(self::SYSTEM_PROMPT, $this->configuration('persona')),
         );
     }
@@ -260,7 +260,7 @@ final class ConfigurationSnippetResolverTest extends TestCase
     {
         $repository = self::createStub(PromptSnippetRepository::class);
         $repository->method('findActiveByTag')->willReturnCallback(
-            static fn(string $tag): array => $byTag[$tag] ?? [],
+            static fn (string $tag): array => $byTag[$tag] ?? [],
         );
 
         return new ConfigurationSnippetResolver($repository, new PromptSnippetComposer());

@@ -27,7 +27,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * that pair. Terms are not merged across records: which term applies must be
  * answerable by opening one record.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class GlossaryResolver implements GlossaryResolverInterface
 {
@@ -46,7 +46,7 @@ final readonly class GlossaryResolver implements GlossaryResolverInterface
         }
 
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $row = $queryBuilder
+        $row          = $queryBuilder
             ->select('uid', 'source_language', 'target_language', 'entries', 'deepl_glossary_id', 'deepl_entries_hash')
             ->from(self::TABLE)
             ->where(
@@ -71,7 +71,7 @@ final readonly class GlossaryResolver implements GlossaryResolverInterface
         $uid = $row['uid'] ?? 0;
 
         return new ResolvedGlossary(
-            uid: is_numeric($uid) ? (int)$uid : 0,
+            uid: is_numeric($uid) ? (int) $uid : 0,
             sourceLanguage: $source,
             targetLanguage: $target,
             terms: $terms,
@@ -112,7 +112,7 @@ final readonly class GlossaryResolver implements GlossaryResolverInterface
             ->executeQuery()
             ->fetchOne();
 
-        return is_numeric($count) && (int)$count > 0;
+        return is_numeric($count) && (int) $count > 0;
     }
 
     /**

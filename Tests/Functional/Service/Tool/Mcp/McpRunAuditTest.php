@@ -132,7 +132,7 @@ final class McpRunAuditTest extends AbstractFunctionalTestCase
         $runtime = $this->runtime($server);
         $result  = $runtime->run($this->request());
 
-        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome, (string)$result->error?->getMessage());
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome, (string) $result->error?->getMessage());
         self::assertSame('tools/call', $server->methods()[2] ?? null, 'the call actually went out');
 
         $tool = $this->firstEventOfKind($result->runUuid, AgentEventKind::TOOL);
@@ -218,7 +218,7 @@ final class McpRunAuditTest extends AbstractFunctionalTestCase
 
         $result = $this->runtime($server)->run($this->request());
 
-        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome, (string)$result->error?->getMessage());
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome, (string) $result->error?->getMessage());
         self::assertSame('tools/call', $server->methods()[2] ?? null, 'the call did go out');
 
         $tool = $this->firstEventOfKind($result->runUuid, AgentEventKind::TOOL);

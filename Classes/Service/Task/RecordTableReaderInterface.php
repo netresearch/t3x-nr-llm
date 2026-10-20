@@ -59,9 +59,9 @@ interface RecordTableReaderInterface
      * of rows. Use `loadRecordsByUids()` to fetch the full row data
      * for the records the user has actually selected.
      *
-     * @throws InvalidArgumentException when the table is on the picker exclusion list
-     *
      * @return list<array{uid: int, label: string}>
+     *
+     * @throws InvalidArgumentException when the table is on the picker exclusion list
      */
     public function fetchSampleRecords(string $table, string $labelField, int $limit): array;
 
@@ -71,9 +71,9 @@ interface RecordTableReaderInterface
      *
      * @param list<int> $uids
      *
-     * @throws InvalidArgumentException when the table is on the picker exclusion list
-     *
      * @return list<array<string, mixed>>
+     *
+     * @throws InvalidArgumentException when the table is on the picker exclusion list
      */
     public function loadRecordsByUids(string $table, array $uids): array;
 
@@ -86,10 +86,10 @@ interface RecordTableReaderInterface
      * surface a localised error string — the table-input branch needs
      * to distinguish "no rows" from "read failed".
      *
+     * @return list<array<string, mixed>>
+     *
      * @throws InvalidArgumentException when the table is on the picker exclusion list
      * @throws Throwable                on database read failure
-     *
-     * @return list<array<string, mixed>>
      */
     public function fetchAll(string $table, int $limit): array;
 }

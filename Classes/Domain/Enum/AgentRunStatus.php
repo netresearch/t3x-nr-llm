@@ -23,20 +23,20 @@ namespace Netresearch\NrLlm\Domain\Enum;
  */
 enum AgentRunStatus: string
 {
-    case QUEUED = 'queued';
-    case RUNNING = 'running';
+    case QUEUED               = 'queued';
+    case RUNNING              = 'running';
     case WAITING_FOR_APPROVAL = 'waiting_for_approval';
-    case WAITING_FOR_INPUT = 'waiting_for_input';
-    case COMPLETED = 'completed';
-    case FAILED = 'failed';
-    case CANCELLED = 'cancelled';
+    case WAITING_FOR_INPUT    = 'waiting_for_input';
+    case COMPLETED            = 'completed';
+    case FAILED               = 'failed';
+    case CANCELLED            = 'cancelled';
 
     /**
      * @return list<string>
      */
     public static function values(): array
     {
-        return array_map(static fn(self $case): string => $case->value, self::cases());
+        return array_map(static fn (self $case): string => $case->value, self::cases());
     }
 
     public static function isValid(string $value): bool
@@ -58,7 +58,7 @@ enum AgentRunStatus: string
     {
         return match ($this) {
             self::COMPLETED, self::FAILED, self::CANCELLED => true,
-            default => false,
+            default                                        => false,
         };
     }
 
@@ -70,8 +70,8 @@ enum AgentRunStatus: string
     public static function terminalValues(): array
     {
         return array_values(array_map(
-            static fn(self $case): string => $case->value,
-            array_filter(self::cases(), static fn(self $case): bool => $case->isTerminal()),
+            static fn (self $case): string => $case->value,
+            array_filter(self::cases(), static fn (self $case): bool => $case->isTerminal()),
         ));
     }
 
@@ -85,8 +85,8 @@ enum AgentRunStatus: string
     public static function nonTerminalValues(): array
     {
         return array_values(array_map(
-            static fn(self $case): string => $case->value,
-            array_filter(self::cases(), static fn(self $case): bool => !$case->isTerminal()),
+            static fn (self $case): string => $case->value,
+            array_filter(self::cases(), static fn (self $case): bool => !$case->isTerminal()),
         ));
     }
 

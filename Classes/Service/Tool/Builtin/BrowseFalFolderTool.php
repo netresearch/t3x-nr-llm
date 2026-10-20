@@ -26,7 +26,7 @@ use TYPO3\CMS\Core\Resource\StorageRepository;
  * Subfolders (with file count) first, then files with human-readable size and
  * MIME type — enough for the model to navigate a storage without ever seeing
  * a server path: all identifiers are storage-relative, resolution goes
- * exclusively through the storage API ({@see \TYPO3\CMS\Core\Resource\ResourceStorage::getFolder()}),
+ * exclusively through the storage API ({@see ResourceStorage::getFolder()}),
  * and any resolution failure collapses into one neutral denial, so folder
  * names outside the gate cannot be probed.
  */

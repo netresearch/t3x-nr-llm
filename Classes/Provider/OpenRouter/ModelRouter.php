@@ -63,9 +63,9 @@ final readonly class ModelRouter
             if ($candidates !== []) {
                 return match ($routingStrategy) {
                     'cost_optimized' => $this->selectCheapestModel($candidates, $defaultModel),
-                    'performance' => $this->selectFastestModel($candidates, $defaultModel),
-                    'balanced' => $this->selectBalancedModel($candidates, $defaultModel),
-                    default => $defaultModel,
+                    'performance'    => $this->selectFastestModel($candidates, $defaultModel),
+                    'balanced'       => $this->selectBalancedModel($candidates, $defaultModel),
+                    default          => $defaultModel,
                 };
             }
         }
@@ -122,7 +122,7 @@ final readonly class ModelRouter
         if ($minContext > 0) {
             $filtered = array_filter(
                 $filtered,
-                static fn(array $model): bool => $model['context_length'] >= $minContext,
+                static fn (array $model): bool => $model['context_length'] >= $minContext,
             );
         }
 
@@ -130,7 +130,7 @@ final readonly class ModelRouter
         if ($this->getBool($options, 'vision_required')) {
             $filtered = array_filter(
                 $filtered,
-                static fn(array $model): bool => $model['capabilities']['vision'] ?? false,
+                static fn (array $model): bool => $model['capabilities']['vision'] ?? false,
             );
         }
 
@@ -138,7 +138,7 @@ final readonly class ModelRouter
         if ($this->getBool($options, 'function_calling')) {
             return array_filter(
                 $filtered,
-                static fn(array $model): bool => $model['capabilities']['function_calling'] ?? false,
+                static fn (array $model): bool => $model['capabilities']['function_calling'] ?? false,
             );
         }
 
@@ -152,14 +152,14 @@ final readonly class ModelRouter
      */
     private function selectCheapestModel(array $candidates, string $defaultModel): string
     {
-        $cheapest = null;
+        $cheapest   = null;
         $lowestCost = PHP_FLOAT_MAX;
 
         foreach ($candidates as $id => $model) {
             $avgCost = (($model['pricing']['prompt'] ?? 0) + ($model['pricing']['completion'] ?? 0)) / 2;
             if ($avgCost < $lowestCost) {
                 $lowestCost = $avgCost;
-                $cheapest = $id;
+                $cheapest   = $id;
             }
         }
 

@@ -39,7 +39,7 @@ final class SearchRecordsToolTest extends AbstractFunctionalTestCase
         parent::setUp();
 
         $this->importFixture('BeUsers.csv');
-        $user = $this->setUpBackendUser(1); // admin
+        $user          = $this->setUpBackendUser(1); // admin
         $this->context = ToolExecutionContext::fromBackendUser($user);
 
         $connectionPool = $this->get(ConnectionPool::class);
@@ -56,11 +56,11 @@ final class SearchRecordsToolTest extends AbstractFunctionalTestCase
 
         $content = $connectionPool->getConnectionForTable('tt_content');
         $content->insert('tt_content', [
-            'uid' => 10, 'pid' => 1, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
+            'uid'    => 10, 'pid' => 1, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
             'header' => 'About Netresearch', 'bodytext' => 'Netresearch builds durable web platforms.',
         ]);
         $content->insert('tt_content', [
-            'uid' => 11, 'pid' => 1, 'colPos' => 0, 'sorting' => 2, 'CType' => 'text',
+            'uid'    => 11, 'pid' => 1, 'colPos' => 0, 'sorting' => 2, 'CType' => 'text',
             'header' => 'Hidden teaser', 'bodytext' => 'Netresearch hidden gem.', 'hidden' => 1,
         ]);
     }
@@ -89,7 +89,7 @@ final class SearchRecordsToolTest extends AbstractFunctionalTestCase
             'uid' => 10057, 'pid' => 1, 'title' => 'Prof. Dr. Erika Mustermann', 'doktype' => 1, 'sorting' => 5,
         ]);
         $pages->insert('pages', [
-            'uid' => 10058, 'pid' => 1, 'title' => 'Prof. Dr. Erika Mustermann', 'doktype' => 1, 'sorting' => 5,
+            'uid'              => 10058, 'pid' => 1, 'title' => 'Prof. Dr. Erika Mustermann', 'doktype' => 1, 'sorting' => 5,
             'sys_language_uid' => 1, 'l10n_parent' => 10057,
         ]);
 
@@ -112,20 +112,20 @@ final class SearchRecordsToolTest extends AbstractFunctionalTestCase
         $pages = $pool->getConnectionForTable('pages');
         self::assertInstanceOf(Connection::class, $pages);
         $pages->insert('pages', [
-            'uid' => 7, 'pid' => 0, 'title' => 'Public', 'doktype' => 1,
+            'uid'     => 7, 'pid' => 0, 'title' => 'Public', 'doktype' => 1,
             'sorting' => 7, 'perms_everybody' => Permission::PAGE_SHOW,
         ]);
         $content = $pool->getConnectionForTable('tt_content');
         $content->insert('tt_content', [
-            'uid' => 40, 'pid' => 7, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
+            'uid'    => 40, 'pid' => 7, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
             'header' => 'Languagemarker default', 'sys_language_uid' => 0,
         ]);
         $content->insert('tt_content', [
-            'uid' => 41, 'pid' => 7, 'colPos' => 0, 'sorting' => 2, 'CType' => 'text',
+            'uid'    => 41, 'pid' => 7, 'colPos' => 0, 'sorting' => 2, 'CType' => 'text',
             'header' => 'Languagemarker translated', 'sys_language_uid' => 1, 'l18n_parent' => 40,
         ]);
 
-        $editor = $this->setUpBackendUser(2);
+        $editor                                 = $this->setUpBackendUser(2);
         $editor->groupData['tables_select']     = 'tt_content';
         $editor->groupData['webmounts']         = '7';
         $editor->groupData['allowed_languages'] = '0';
@@ -151,20 +151,20 @@ final class SearchRecordsToolTest extends AbstractFunctionalTestCase
         $pages = $pool->getConnectionForTable('pages');
         self::assertInstanceOf(Connection::class, $pages);
         $pages->insert('pages', [
-            'uid' => 7, 'pid' => 0, 'title' => 'Public', 'doktype' => 1,
+            'uid'     => 7, 'pid' => 0, 'title' => 'Public', 'doktype' => 1,
             'sorting' => 7, 'perms_everybody' => Permission::PAGE_SHOW,
         ]);
         $content = $pool->getConnectionForTable('tt_content');
         $content->insert('tt_content', [
-            'uid' => 40, 'pid' => 7, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
+            'uid'    => 40, 'pid' => 7, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
             'header' => 'Limitmarker translated', 'sys_language_uid' => 1,
         ]);
         $content->insert('tt_content', [
-            'uid' => 41, 'pid' => 7, 'colPos' => 0, 'sorting' => 2, 'CType' => 'text',
+            'uid'    => 41, 'pid' => 7, 'colPos' => 0, 'sorting' => 2, 'CType' => 'text',
             'header' => 'Limitmarker default', 'sys_language_uid' => 0,
         ]);
 
-        $editor = $this->setUpBackendUser(2);
+        $editor                                 = $this->setUpBackendUser(2);
         $editor->groupData['tables_select']     = 'tt_content';
         $editor->groupData['webmounts']         = '7';
         $editor->groupData['allowed_languages'] = '0';
@@ -206,24 +206,24 @@ final class SearchRecordsToolTest extends AbstractFunctionalTestCase
         $pages = $pool->getConnectionForTable('pages');
         self::assertInstanceOf(Connection::class, $pages);
         $pages->insert('pages', [
-            'uid' => 7, 'pid' => 0, 'title' => 'Show only', 'doktype' => 1,
+            'uid'     => 7, 'pid' => 0, 'title' => 'Show only', 'doktype' => 1,
             'sorting' => 7, 'perms_everybody' => Permission::PAGE_SHOW,
         ]);
         $pages->insert('pages', [
-            'uid' => 8, 'pid' => 0, 'title' => 'Editable', 'doktype' => 1,
+            'uid'     => 8, 'pid' => 0, 'title' => 'Editable', 'doktype' => 1,
             'sorting' => 8, 'perms_everybody' => Permission::PAGE_SHOW | Permission::CONTENT_EDIT,
         ]);
         $content = $pool->getConnectionForTable('tt_content');
         $content->insert('tt_content', [
-            'uid' => 50, 'pid' => 7, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
+            'uid'    => 50, 'pid' => 7, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
             'header' => 'Draftmarker show only', 'hidden' => 1,
         ]);
         $content->insert('tt_content', [
-            'uid' => 51, 'pid' => 8, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
+            'uid'    => 51, 'pid' => 8, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
             'header' => 'Draftmarker editable', 'hidden' => 1,
         ]);
 
-        $editor = $this->setUpBackendUser(2);
+        $editor                             = $this->setUpBackendUser(2);
         $editor->groupData['tables_select'] = 'tt_content';
         $editor->groupData['tables_modify'] = 'tt_content';
         $editor->groupData['webmounts']     = '7,8';
@@ -261,8 +261,8 @@ final class SearchRecordsToolTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(Connection::class, $content);
         // Unpublished workspace draft (t3ver_wsid > 0) must never egress to the LLM.
         $content->insert('tt_content', [
-            'uid' => 14, 'pid' => 1, 'colPos' => 0, 'sorting' => 3, 'CType' => 'text',
-            'header' => 'Draft', 'bodytext' => 'Netresearch workspacedraftmarker.',
+            'uid'        => 14, 'pid' => 1, 'colPos' => 0, 'sorting' => 3, 'CType' => 'text',
+            'header'     => 'Draft', 'bodytext' => 'Netresearch workspacedraftmarker.',
             't3ver_wsid' => 1, 't3ver_oid' => 10, 't3ver_state' => 0,
         ]);
 

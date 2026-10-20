@@ -117,13 +117,13 @@ final class SkillComposerFactoryTest extends TestCase
      */
     public static function unusableBudgetValues(): iterable
     {
-        yield 'key absent'   => [[]];
+        yield 'key absent' => [[]];
         yield 'empty string' => [['maxBytes' => '']];
-        yield 'non-numeric'  => [['maxBytes' => 'plenty']];
-        yield 'zero'         => [['maxBytes' => '0']];
-        yield 'negative'     => [['maxBytes' => '-500']];
-        yield 'null'         => [['maxBytes' => null]];
-        yield 'array'        => [['maxBytes' => ['24000']]];
+        yield 'non-numeric' => [['maxBytes' => 'plenty']];
+        yield 'zero' => [['maxBytes' => '0']];
+        yield 'negative' => [['maxBytes' => '-500']];
+        yield 'null' => [['maxBytes' => null]];
+        yield 'array' => [['maxBytes' => ['24000']]];
     }
 
     #[Test]

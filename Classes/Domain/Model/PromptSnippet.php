@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Domain\Model;
 
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
-
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 
 /**
@@ -45,6 +44,12 @@ class PromptSnippet extends AbstractEntity
 
     /** The prompt fragment text. */
     protected string $snippet = '';
+
+    /**
+     * The digest of the composed block an administrator marked for a caller's
+     * system message (ADR-214 item 8); '' when not marked.
+     */
+    protected string $callerSystemDigest = '';
 
     /**
      * Optional metadata as JSON object string ('' when unused),
@@ -176,6 +181,16 @@ class PromptSnippet extends AbstractEntity
         $this->snippet = $snippet;
     }
 
+    public function getCallerSystemDigest(): string
+    {
+        return $this->callerSystemDigest;
+    }
+
+    public function setCallerSystemDigest(string $callerSystemDigest): void
+    {
+        $this->callerSystemDigest = $callerSystemDigest;
+    }
+
     public function setMetadata(string $metadata): void
     {
         $this->metadata = $metadata;
@@ -206,13 +221,13 @@ class PromptSnippet extends AbstractEntity
     public function getTagList(): array
     {
         $tags = array_map(
-            static fn(string $tag): string => strtolower(trim($tag)),
+            static fn (string $tag): string => strtolower(trim($tag)),
             explode(',', $this->tags),
         );
 
         return array_values(array_filter(
             $tags,
-            static fn(string $tag): bool => $tag !== '',
+            static fn (string $tag): bool => $tag !== '',
         ));
     }
 
@@ -237,7 +252,7 @@ class PromptSnippet extends AbstractEntity
 
         $metadata = [];
         foreach ($decoded as $key => $value) {
-            $metadata[(string)$key] = $value;
+            $metadata[(string) $key] = $value;
         }
 
         return $metadata;

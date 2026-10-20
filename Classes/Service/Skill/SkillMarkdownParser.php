@@ -47,7 +47,7 @@ final readonly class SkillMarkdownParser
         }
 
         $frontmatterRaw = $m[1];
-        $body = ltrim($m[2]);
+        $body           = ltrim($m[2]);
 
         if (strlen($frontmatterRaw) > $this->maxFrontmatterBytes) {
             throw SkillParseException::forReason($path, 'front-matter exceeds size cap');
@@ -70,7 +70,7 @@ final readonly class SkillMarkdownParser
         /** @var array<string,mixed> $normalized */
         $normalized = [];
         foreach ($frontmatter as $k => $v) {
-            $normalized[(string)$k] = $v;
+            $normalized[(string) $k] = $v;
         }
 
         return $this->fromFrontmatter($path, $normalized, $body);
@@ -91,8 +91,8 @@ final readonly class SkillMarkdownParser
      */
     public function fromFrontmatter(string $path, array $frontmatter, string $body): ParsedSkill
     {
-        $name = isset($frontmatter['name']) && is_scalar($frontmatter['name']) ? trim((string)$frontmatter['name']) : '';
-        $description = isset($frontmatter['description']) && is_scalar($frontmatter['description']) ? trim((string)$frontmatter['description']) : '';
+        $name        = isset($frontmatter['name']) && is_scalar($frontmatter['name']) ? trim((string) $frontmatter['name']) : '';
+        $description = isset($frontmatter['description']) && is_scalar($frontmatter['description']) ? trim((string) $frontmatter['description']) : '';
         if ($name === '') {
             throw SkillParseException::forReason($path, 'missing or empty "name"');
         }

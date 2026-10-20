@@ -9,11 +9,16 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Skill;
 
+use Netresearch\NrLlm\Domain\Enum\SkillSourceType;
 use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
 use Netresearch\NrLlm\Domain\Enum\SupportStatus;
 use Netresearch\NrLlm\Domain\Model\Skill;
+use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
+use Netresearch\NrLlm\Domain\ValueObject\SkillCatalogue;
+use Netresearch\NrLlm\Domain\ValueObject\SkillCatalogueEntry;
 use Netresearch\NrLlm\Domain\ValueObject\SkillCompositionResult;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
+use Netresearch\NrLlm\Domain\ValueObject\SkillSourceFacts;
 
 /**
  * Renders attached skills into two channels (ADR-036, ADR-061, ADR-214).
@@ -43,8 +48,10 @@ use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
  * A legacy row never instructs: no approval names it.
  *
  * A process skill (ADR-214 item 6) reaches a run only through an explicit
- * invocation. Every skill this composer receives arrives by attachment or by
- * being forced onto a run, so a process skill is skipped here with a notice.
+ * invocation. A skill this composer receives by attachment or by being forced
+ * onto a run is skipped here with a notice when it is a process; the version
+ * an invocation or a held process pin names arrives separately, as its
+ * approval snapshot, and is composed from that snapshot (ADR-228).
  *
  * Only skills whose denormalised trust level meets a configurable minimum are
  * admitted at all (ADR-061, fail-closed — an unknown level reads as the
@@ -80,6 +87,8 @@ final readonly class SkillComposer
     private const INSTRUCTION_PREAMBLE = 'The sections below are skill instructions an administrator of this installation reviewed and approved. '
         . 'Follow them as instructions of this installation, within the limits of this configuration and its safety rules.';
 
+    private const WARN_TWIN = 'Skill "%s" (%s) skipped: another skill of the same source with this identifier comes first.';
+
     private const WARN_BUDGET = 'Skill "%s" (%s) dropped: skill block exceeds the %d-byte budget.';
 
     /** Body lines referencing scripts/assets unsupported in Plan 1a are stripped from partial skills. */
@@ -98,25 +107,49 @@ final readonly class SkillComposer
         private int $maxBytes = self::DEFAULT_MAX_BYTES,
         private SkillTrustLevel $minTrustLevel = SkillTrustLevel::UNTRUSTED,
         private ?SkillInstructionPolicy $instructionPolicy = null,
+        // Reads a skill's source record (ADR-214 item 3): a backend-authored
+        // skill is admitted by its source's trust level and verified by its
+        // computed digest. Absent it, every skill is treated as synced, which
+        // admits a backend skill only by its denormalised (default untrusted)
+        // level — never more than before.
+        private ?SkillSourceLookupInterface $sources = null,
     ) {}
 
     /**
      * Compose the skill block from a configuration baseline and task-additive skills.
      *
-     * @param list<Skill> $configSkills
-     * @param list<Skill> $taskSkills
+     * `$processVersions` are the approval snapshots of the process the run
+     * invokes or holds a pin for (ADR-228). Each is composed from its snapshot
+     * as an instruction section, never dropped, and pinned to its own digest;
+     * its record, attached or forced, is then skipped without the process
+     * notice, because the process does reach the run.
+     *
+     * @param list<Skill>         $configSkills
+     * @param list<Skill>         $taskSkills
+     * @param list<SkillApproval> $processVersions
      */
-    public function composeBlock(array $configSkills, array $taskSkills): SkillCompositionResult
+    public function composeBlock(array $configSkills, array $taskSkills, array $processVersions = []): SkillCompositionResult
     {
+        $invokedUids = array_flip(array_map(static fn (SkillApproval $version): int => $version->skillUid, $processVersions));
+
         $candidates = $this->selectCandidates($configSkills, $taskSkills);
 
         $warnings = [];
+        // A second record sharing a (source, identifier) key is left out of
+        // the prose; say so instead of dropping it silently.
+        $kept = array_flip(array_map(spl_object_id(...), $candidates));
+        foreach ($this->admittedSkills($configSkills, $taskSkills) as $skill) {
+            if (!isset($kept[spl_object_id($skill)])) {
+                $warnings[] = sprintf(self::WARN_TWIN, $skill->getName(), $skill->getIdentifier());
+            }
+        }
+
         /** @var list<array{key: string, id: string, name: string, section: string}> $rendered */
         $rendered = [];
         /** @var list<array{key: string, id: string, section: string, pin: SkillPin}> $instructions */
         $instructions = [];
         foreach ($candidates as $skill) {
-            $digest = SkillVersionDigest::verified($skill);
+            $digest = SkillVersionDigest::verified($skill, !$this->isBackendAuthored($skill));
             if ($digest === null) {
                 $warnings[] = sprintf(
                     $skill->getVersionDigest() !== '' ? self::WARN_DIGEST : self::WARN_CHECKSUM,
@@ -126,8 +159,14 @@ final readonly class SkillComposer
                 continue;
             }
 
-            if ($skill->isProcess()) {
-                $warnings[] = sprintf(self::WARN_PROCESS, $skill->getName(), $skill->getIdentifier());
+            // A backend skill is also a process skill when the approved
+            // version it is measured against is one: switching the marker
+            // off in the form does not turn a process version into data.
+            if ($skill->isProcess() || $this->isApprovedAsProcess($skill, $digest)) {
+                if (!isset($invokedUids[(int) $skill->getUid()])) {
+                    $warnings[] = sprintf(self::WARN_PROCESS, $skill->getName(), $skill->getIdentifier());
+                }
+
                 continue;
             }
 
@@ -137,7 +176,7 @@ final readonly class SkillComposer
                     'key'     => $this->skillKey($skill),
                     'id'      => $skill->getIdentifier(),
                     'section' => $this->renderSection($skill),
-                    'pin'     => new SkillPin((int)$skill->getUid(), $skill->getSource(), $digest),
+                    'pin'     => new SkillPin((int) $skill->getUid(), $skill->getSource(), $digest),
                 ];
                 continue;
             }
@@ -150,6 +189,15 @@ final readonly class SkillComposer
             ];
         }
 
+        foreach ($processVersions as $version) {
+            $instructions[] = [
+                'key'     => 'process' . "\x00" . $version->skillUid,
+                'id'      => self::processSectionId([...$configSkills, ...$taskSkills], $version),
+                'section' => $this->renderApprovedSection($version),
+                'pin'     => new SkillPin($version->skillUid, $version->sourceUid, $version->versionDigest),
+            ];
+        }
+
         // Enforce the byte budget on the fenced block by dropping from the tail
         // (task-additive before the config baseline). Instruction sections are
         // never dropped from the tail (ADR-214 item 4). The assembled length is
@@ -159,7 +207,7 @@ final readonly class SkillComposer
         $totalBytes = strlen($this->assemble(array_column($rendered, 'section')));
         while ($rendered !== [] && $totalBytes > $this->maxBytes) {
             /** @var array{key: string, id: string, name: string, section: string} $popped */
-            $popped     = array_pop($rendered);
+            $popped = array_pop($rendered);
             $totalBytes -= strlen($popped['section']) + 1;
             $warnings[] = sprintf(self::WARN_BUDGET, $popped['name'], $popped['id'], $this->maxBytes);
         }
@@ -173,7 +221,9 @@ final readonly class SkillComposer
         $includedIds    = [];
         $droppedIds     = [];
         foreach ($candidates as $skill) {
-            if (isset($includedKeySet[$this->skillKey($skill)])) {
+            // An invoked process record reached the run through its snapshot,
+            // composed under its own key above (ADR-228).
+            if (isset($invokedUids[(int) $skill->getUid()]) || isset($includedKeySet[$this->skillKey($skill)])) {
                 $includedIds[] = $skill->getIdentifier();
             } else {
                 $droppedIds[] = $skill->getIdentifier();
@@ -192,12 +242,90 @@ final readonly class SkillComposer
     }
 
     /**
+     * The run's catalogue of loadable skills (ADR-214 item 4): of the given
+     * 'on_demand' attachments, the effective ones whose stored fields pass the
+     * integrity check, which are not process skills and whose current version
+     * is an approved instruction. The name and description come from the
+     * record, whose fields the verified digest covers — the same text the
+     * approver saw.
+     *
+     * @param list<Skill> $onDemandSkills
+     */
+    public function catalogue(array $onDemandSkills): SkillCatalogue
+    {
+        $entries = [];
+        foreach ($this->effectiveSkills($onDemandSkills, []) as $skill) {
+            $digest = $this->instructionDigest($skill);
+            if ($digest === null) {
+                continue;
+            }
+
+            $entries[] = new SkillCatalogueEntry((int) $skill->getUid(), $skill->getName(), $skill->getDescription(), $digest, $skill->getSource());
+        }
+
+        return new SkillCatalogue($entries);
+    }
+
+    /**
+     * The instruction section of one skill and its pin, composed for a load
+     * (ADR-214 item 4), or null when the skill does not compose as an
+     * instruction at the given digest right now: not effective (disabled,
+     * orphaned, below the trust floor), fields edited since the digest, a
+     * process skill, or no unrevoked approval for the digest and source.
+     *
+     * @return array{section: string, pin: SkillPin}|null
+     */
+    public function composeInstruction(Skill $skill, string $versionDigest): ?array
+    {
+        if ($this->effectiveSkills([$skill], []) === [] || $this->instructionDigest($skill) !== $versionDigest) {
+            return null;
+        }
+
+        return [
+            'section' => $this->renderSection($skill),
+            'pin'     => new SkillPin((int) $skill->getUid(), $skill->getSource(), $versionDigest),
+        ];
+    }
+
+    /**
+     * Append one loaded instruction section to the text of a system message:
+     * under the existing approved-skills heading when the text carries it,
+     * otherwise with the heading and preamble composition writes.
+     */
+    public static function appendInstructionSection(string $systemText, string $section): string
+    {
+        if (str_contains($systemText, self::INSTRUCTION_HEADING . "\n" . self::INSTRUCTION_PREAMBLE)) {
+            return rtrim($systemText) . "\n\n" . rtrim($section);
+        }
+
+        return SkillInjectionService::join(
+            $systemText,
+            self::INSTRUCTION_HEADING . "\n" . self::INSTRUCTION_PREAMBLE . "\n\n" . rtrim($section),
+        );
+    }
+
+    /**
+     * The verified digest of a version that composes as an instruction, or
+     * null: a legacy row, an integrity failure, a process skill or no
+     * approval.
+     */
+    private function instructionDigest(Skill $skill): ?string
+    {
+        $digest = SkillVersionDigest::verified($skill, !$this->isBackendAuthored($skill));
+        if ($digest === null || $digest === '' || $skill->isProcess()) {
+            return null;
+        }
+
+        return $this->instructionPolicy?->isInstruction($skill, $digest) === true ? $digest : null;
+    }
+
+    /**
      * Union of config-then-task, deduped by (source, identifier) with config winning,
      * keeping only enabled and non-orphaned skills.
      *
-     * This is the single source of truth for "which skills are in effect" — both the
-     * injection path (via selectCandidates()) and the allowed-tools gating path
-     * (AllowedToolsResolver) consume it, so the selection stays consistent.
+     * This is the injection path's selection (via selectCandidates()). The
+     * allowed-tools path (AllowedToolsResolver) runs over {@see admittedSkills()},
+     * the same list before this dedupe, so a twin cannot drop a restriction.
      *
      * @param list<Skill> $configSkills
      * @param list<Skill> $taskSkills
@@ -208,6 +336,35 @@ final readonly class SkillComposer
     {
         $candidates = [];
         $seen       = [];
+        foreach ($this->admittedSkills($configSkills, $taskSkills) as $skill) {
+            $key = $this->skillKey($skill);
+            if (isset($seen[$key])) {
+                continue;
+            }
+
+            $seen[$key]   = true;
+            $candidates[] = $skill;
+        }
+
+        return $candidates;
+    }
+
+    /**
+     * Every admitted skill of config-then-task, deduped by record only: unlike
+     * {@see effectiveSkills()}, a second record sharing a (source, identifier)
+     * key is kept. The tool allow-list is built over this list, so renaming one
+     * skill's identifier onto another's cannot drop that skill's restriction
+     * (ADR-214 item 3). An object without a uid is kept as it is.
+     *
+     * @param list<Skill> $configSkills
+     * @param list<Skill> $taskSkills
+     *
+     * @return list<Skill>
+     */
+    public function admittedSkills(array $configSkills, array $taskSkills): array
+    {
+        $admitted = [];
+        $seen     = [];
         foreach ([...$configSkills, ...$taskSkills] as $skill) {
             if (!$skill->isEnabled()) {
                 continue;
@@ -219,23 +376,25 @@ final readonly class SkillComposer
 
             // Trust gate (ADR-061), fail-closed: a skill whose denormalised
             // trust level does not meet the configured minimum is excluded from
-            // both the injected prose AND the allowed-tools union (this is the
-            // single source of truth for "which skills are in effect"). An
+            // both the injected prose AND the allowed-tools union. An
             // unknown/legacy trust value reads as the lowest level.
-            if (!$skill->getTrustLevelEnum()->satisfies($this->minTrustLevel)) {
+            if (!$this->admittedLevel($skill)->satisfies($this->minTrustLevel)) {
                 continue;
             }
 
-            $key = $this->skillKey($skill);
-            if (isset($seen[$key])) {
-                continue;
+            $uid = $skill->getUid();
+            if ($uid !== null && $uid > 0) {
+                if (isset($seen[$uid])) {
+                    continue;
+                }
+
+                $seen[$uid] = true;
             }
 
-            $seen[$key]   = true;
-            $candidates[] = $skill;
+            $admitted[] = $skill;
         }
 
-        return $candidates;
+        return $admitted;
     }
 
     /**
@@ -250,6 +409,148 @@ final readonly class SkillComposer
     }
 
     /**
+     * The tool declaration a skill contributes to a run's allow-list.
+     *
+     * Fail-closed in every case where the declaration is not vouched for: the
+     * declared empty list grants nothing and, unlike "no declaration", can
+     * never leave a run unrestricted (ADR-214 item 3). The process marker is
+     * read from the vouched version too, never from a field nobody vouched
+     * for, so switching it on does not lift a restriction.
+     *
+     * - No active source record (missing, hidden, disabled, of an unknown
+     *   type): the empty list.
+     * - A backend-authored skill: the approved version it holds, else its most
+     *   recent unrevoked approved version from the same source; the empty
+     *   list while none is approved — an author cannot widen a run's tools
+     *   with an edit nobody approved. Without a policy to read approvals from
+     *   it grants nothing.
+     * - A synced skill whose stored fields fail the integrity check: the empty
+     *   list, as compose skips it. Otherwise its stored fields are the
+     *   vouched version.
+     * - A vouched process version the run does not invoke (ADR-214 items 5
+     *   and 6): no opinion — neither its tools nor a restriction. An invoked
+     *   one contributes its declaration, and the empty list rather than null
+     *   when it declares none (fail closed).
+     *
+     * A composer built without a source lookup (lean wiring) takes the
+     * record's own fields as the version, as before ADR-214, and applies the
+     * process rule to them.
+     *
+     * @param bool $invoked whether the run invokes this skill (or holds its pin)
+     *
+     * @return list<string>|null null = no opinion; a list = the declaration
+     */
+    public function declaredTools(Skill $skill, bool $invoked = false): ?array
+    {
+        $version = $this->vouchedVersion($skill);
+        if ($version === null) {
+            return [];
+        }
+
+        [$tools, $process] = $version;
+        if (!$process) {
+            return $tools;
+        }
+
+        return $invoked ? ($tools ?? []) : null;
+    }
+
+    /**
+     * The vouched declaration and process marker of a skill, or null when
+     * nothing vouches for it.
+     *
+     * @return array{0: list<string>|null, 1: bool}|null
+     */
+    private function vouchedVersion(Skill $skill): ?array
+    {
+        if (!$this->sources instanceof SkillSourceLookupInterface) {
+            return [$skill->getAllowedToolsList(), $skill->isProcess()];
+        }
+
+        $facts = $this->sources->find($skill->getSource());
+        if (!$facts instanceof SkillSourceFacts || !$facts->type instanceof SkillSourceType) {
+            return null;
+        }
+
+        if (self::isEditedInPlace($skill, $facts)) {
+            $approval = $this->instructionPolicy?->approvalOf($skill, SkillVersionDigest::verified($skill, false));
+
+            return $approval instanceof SkillApproval ? [$approval->allowedTools, $approval->process] : null;
+        }
+
+        $digest = SkillVersionDigest::verified($skill);
+        if ($digest === null) {
+            return null;
+        }
+
+        // A legacy row (no digest yet) is checked on its body only: nothing
+        // vouches for a process marker on it, and the marker never lifts a
+        // restriction, so such a row declares nothing.
+        if ($digest === '' && $skill->isProcess()) {
+            return null;
+        }
+
+        return [$skill->getAllowedToolsList(), $skill->isProcess()];
+    }
+
+    /**
+     * Whether a backend skill's approved version, the one it is measured
+     * against, is a process version.
+     */
+    private function isApprovedAsProcess(Skill $skill, string $digest): bool
+    {
+        return $this->isBackendAuthored($skill)
+            && $this->instructionPolicy?->approvalOf($skill, $digest)?->process === true;
+    }
+
+    /**
+     * The trust level admission compares against the floor.
+     *
+     * A synced skill is admitted by the level the sync denormalised onto it
+     * (ADR-061 item 1). A backend-authored skill has no sync, so that column
+     * keeps its default; it is admitted by its source record's level instead
+     * (ADR-214 item 2). Fail-closed either way: an unknown value reads as the
+     * lowest level.
+     */
+    private function admittedLevel(Skill $skill): SkillTrustLevel
+    {
+        $facts = $this->sources?->find($skill->getSource());
+        if ($facts instanceof SkillSourceFacts && self::isEditedInPlace($skill, $facts)) {
+            return $facts->trustLevel;
+        }
+
+        return $skill->getTrustLevelEnum();
+    }
+
+    /**
+     * Whether a skill is backend-authored: its source is of a type nothing
+     * syncs, AND the record carries none of the values a sync writes.
+     *
+     * The second half is the control, not the source alone. A synced skill
+     * moved onto a backend source keeps its stored digest or checksum — only
+     * the sync and the digest wizard write them, both are excluded fields,
+     * and neither touches a backend source — so it stays checked against
+     * them: an edit after the move still fails the integrity check instead of
+     * becoming a new version (ADR-214 item 3).
+     */
+    public static function isEditedInPlace(Skill $skill, ?SkillSourceFacts $facts): bool
+    {
+        return $facts instanceof SkillSourceFacts
+            && $facts->type?->isSynced() === false
+            && $skill->getVersionDigest() === ''
+            && $skill->getBodyChecksum() === '';
+    }
+
+    /**
+     * Whether the skill belongs to a backend source, whose records are edited
+     * in place and carry no stored digest to compare against.
+     */
+    private function isBackendAuthored(Skill $skill): bool
+    {
+        return self::isEditedInPlace($skill, $this->sources?->find($skill->getSource()));
+    }
+
+    /**
      * Build the composite dedup/reporting key for a skill: source and identifier
      * combined with a NUL separator so cross-source twins (same identifier,
      * different source) stay distinct.
@@ -257,6 +558,62 @@ final readonly class SkillComposer
     private function skillKey(Skill $skill): string
     {
         return $skill->getSource() . "\x00" . $skill->getIdentifier();
+    }
+
+    /**
+     * The approved version of a skill, when its current version instructs:
+     * the record's fields pass the integrity check, the source vouches at or
+     * above the instruction threshold, the record is active and an unrevoked
+     * approval names exactly this digest (ADR-214 item 2). Null otherwise.
+     *
+     * What a skill invocation starts and what the slash-command catalogue
+     * calls invocable (ADR-228): the snapshot it returns is the text, the
+     * tools and the process marker the run gets.
+     */
+    public function approvedVersion(Skill $skill): ?SkillApproval
+    {
+        $digest = SkillVersionDigest::verified($skill, !$this->isBackendAuthored($skill));
+        if ($digest === null || $digest === '' || $this->instructionPolicy?->isInstruction($skill, $digest) !== true) {
+            return null;
+        }
+
+        $approval = $this->instructionPolicy->approvalOf($skill, $digest);
+
+        return $approval instanceof SkillApproval && $approval->versionDigest === $digest ? $approval : null;
+    }
+
+    /**
+     * The id a process section is named by in a composition's
+     * `instructionIncluded` (ADR-228): the identifier of the skill record
+     * it was invoked from, or the approved name when the run carries no
+     * such record.
+     *
+     * @param list<Skill> $skills
+     */
+    public static function processSectionId(array $skills, SkillApproval $version): string
+    {
+        foreach ($skills as $skill) {
+            if ((int) $skill->getUid() === $version->skillUid) {
+                return $skill->getIdentifier();
+            }
+        }
+
+        return $version->name;
+    }
+
+    /**
+     * An instruction section from an approval snapshot, rendered the way a
+     * record's section is (ADR-228): the snapshot's name and body, with asset
+     * references stripped from a partially supported version.
+     */
+    private function renderApprovedSection(SkillApproval $version): string
+    {
+        $body = $version->body;
+        if (SupportStatus::tryFrom($version->supportStatus) === SupportStatus::PARTIAL) {
+            $body = $this->stripAssetReferences($body);
+        }
+
+        return sprintf("### Skill: %s\n%s\n", $version->name, $this->neutralizeFenceMarkers($body));
     }
 
     private function renderSection(Skill $skill): string
@@ -309,7 +666,7 @@ final readonly class SkillComposer
             return $body;
         }
 
-        $kept = array_filter($lines, fn(string $line): bool => !$this->referencesAsset($line));
+        $kept = array_filter($lines, fn (string $line): bool => !$this->referencesAsset($line));
 
         return rtrim(implode("\n", $kept));
     }

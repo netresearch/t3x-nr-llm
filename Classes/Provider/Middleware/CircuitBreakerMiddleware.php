@@ -14,8 +14,6 @@ use Netresearch\NrLlm\Provider\CircuitBreaker\CircuitBreakerStoreInterface;
 use Netresearch\NrLlm\Provider\CircuitBreaker\CircuitState;
 use Netresearch\NrLlm\Provider\CircuitBreaker\CircuitStatus;
 use Netresearch\NrLlm\Provider\Exception\CircuitOpenException;
-use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
-use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
@@ -57,8 +55,8 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  *     success closes the circuit before any post-processing.
  *
  * What trips the circuit: the same failure classes FallbackMiddleware considers
- * retryable — {@see ProviderConnectionException} (network / timeout / 5xx /
- * retries exhausted) and a 429 {@see ProviderResponseException} (rate limit).
+ * retryable (ADR-095): connection/timeouts, server-side 5xx responses and
+ * rate limits (429). FailureClassifier determines the shared failure class.
  * Client errors (4xx other than 429), misconfiguration and unsupported-feature
  * errors mean the provider answered — they are left out of the health signal
  * entirely (neither trip nor reset).
@@ -177,7 +175,7 @@ final readonly class CircuitBreakerMiddleware implements ProviderMiddlewareInter
         // rather than never. The cache backend offers no portable atomic
         // increment; a strict count would need \TYPO3\CMS\Core\Locking\LockFactory
         // around this read-modify-write (hot-path contention) — deferred.
-        $failures = $state->consecutiveFailures + 1;
+        $failures = $state->consecutiveFailures < PHP_INT_MAX ? $state->consecutiveFailures + 1 : PHP_INT_MAX;
 
         // Open when the threshold is reached, or keep it open when a half-open
         // probe (openedAt already set) just failed.
@@ -226,7 +224,7 @@ final readonly class CircuitBreakerMiddleware implements ProviderMiddlewareInter
      */
     private function stateLifetime(int $cooldownSeconds): int
     {
-        return max($cooldownSeconds * 2, 60);
+        return $cooldownSeconds > intdiv(PHP_INT_MAX, 2) ? PHP_INT_MAX : max($cooldownSeconds * 2, 60);
     }
 
     /**

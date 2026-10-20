@@ -218,20 +218,20 @@ final class ModelListCapabilityCellRenderTest extends AbstractFunctionalTestCase
 
         $editUrls = [];
         foreach ($models as $model) {
-            $editUrls[(int)$model->getUid()] = '/typo3/record/edit';
+            $editUrls[(int) $model->getUid()] = '/typo3/record/edit';
         }
 
         $view->assignMultiple([
-            'models' => $models,
-            'providers' => [],
-            'capabilities' => Model::getAllCapabilities(),
-            'editUrls' => $editUrls,
-            'newUrl' => '/typo3/record/edit',
-            'wizardUrl' => '/typo3/module/nrllm/wizard',
+            'models'          => $models,
+            'providers'       => [],
+            'capabilities'    => Model::getAllCapabilities(),
+            'editUrls'        => $editUrls,
+            'newUrl'          => '/typo3/record/edit',
+            'wizardUrl'       => '/typo3/module/nrllm/wizard',
             'hasDefaultModel' => true,
-            'costByModel' => [],
-            'reqByModel' => [],
-            'tokByModel' => [],
+            'costByModel'     => [],
+            'reqByModel'      => [],
+            'tokByModel'      => [],
         ]);
 
         return $view->render();

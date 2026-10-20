@@ -17,7 +17,7 @@ namespace Netresearch\NrLlm\Specialized\Translation;
  * figures came from — `free`, `pro`, or `custom` for a configured base URL
  * that is neither.
  *
- * @internal Not part of the @api surface; may change without notice.
+ * @internal not part of the @api surface; may change without notice
  */
 final readonly class CharacterQuota
 {

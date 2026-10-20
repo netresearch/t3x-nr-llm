@@ -12,7 +12,7 @@ namespace Netresearch\NrLlm\Service\SetupWizard\DTO;
 /**
  * DTO for a discovered model from API.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class DiscoveredModel
 {
@@ -55,15 +55,15 @@ final readonly class DiscoveredModel
     public function toArray(): array
     {
         return [
-            'modelId' => $this->modelId,
-            'name' => $this->name,
-            'description' => $this->description,
-            'capabilities' => $this->capabilities,
-            'contextLength' => $this->contextLength,
+            'modelId'         => $this->modelId,
+            'name'            => $this->name,
+            'description'     => $this->description,
+            'capabilities'    => $this->capabilities,
+            'contextLength'   => $this->contextLength,
             'maxOutputTokens' => $this->maxOutputTokens,
-            'costInput' => $this->costInput,
-            'costOutput' => $this->costOutput,
-            'recommended' => $this->recommended,
+            'costInput'       => $this->costInput,
+            'costOutput'      => $this->costOutput,
+            'recommended'     => $this->recommended,
         ];
     }
 }
