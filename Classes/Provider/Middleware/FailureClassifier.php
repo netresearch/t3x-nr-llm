@@ -36,13 +36,13 @@ final readonly class FailureClassifier
     public static function classify(Throwable $e): FailureClass
     {
         return match (true) {
-            $e instanceof CircuitOpenException => FailureClass::CIRCUIT_OPEN,
+            $e instanceof CircuitOpenException            => FailureClass::CIRCUIT_OPEN,
             $e instanceof FallbackChainExhaustedException => self::fromChain($e),
             $e instanceof ProviderConnectionException,
-            $e instanceof NetworkExceptionInterface => FailureClass::CONNECTION,
+            $e instanceof NetworkExceptionInterface      => FailureClass::CONNECTION,
             $e instanceof ProviderConfigurationException => FailureClass::CONFIGURATION,
-            $e instanceof ProviderResponseException => self::fromStatus($e->getCode()),
-            default => FailureClass::UNKNOWN,
+            $e instanceof ProviderResponseException      => self::fromStatus($e->getCode()),
+            default                                      => FailureClass::UNKNOWN,
         };
     }
 
@@ -78,10 +78,10 @@ final readonly class FailureClassifier
     {
         return match (true) {
             $status === 401, $status === 403 => FailureClass::AUTH,
-            $status === 429 => FailureClass::RATE_LIMIT,
+            $status === 429                  => FailureClass::RATE_LIMIT,
             $status >= 500 && $status <= 599 => FailureClass::SERVER_ERROR,
             $status >= 400 && $status <= 499 => FailureClass::CLIENT_ERROR,
-            default => FailureClass::UNKNOWN,
+            default                          => FailureClass::UNKNOWN,
         };
     }
 }

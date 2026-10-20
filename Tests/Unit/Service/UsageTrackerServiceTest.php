@@ -49,11 +49,11 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
         parent::setUp();
 
         $this->connectionPoolStub = self::createStub(ConnectionPool::class);
-        $this->contextMock = $this->createMock(Context::class);
-        $this->queryBuilderStub = self::createStub(QueryBuilder::class);
-        $this->connectionStub = self::createStub(Connection::class);
-        $this->exprStub = self::createStub(ExpressionBuilder::class);
-        $this->resultStub = self::createStub(Result::class);
+        $this->contextMock        = $this->createMock(Context::class);
+        $this->queryBuilderStub   = self::createStub(QueryBuilder::class);
+        $this->connectionStub     = self::createStub(Connection::class);
+        $this->exprStub           = self::createStub(ExpressionBuilder::class);
+        $this->resultStub         = self::createStub(Result::class);
 
         // Configure query builder chain
         $this->queryBuilderStub->method('select')->willReturnSelf();
@@ -62,7 +62,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
         $this->queryBuilderStub->method('where')->willReturnSelf();
         $this->queryBuilderStub->method('groupBy')->willReturnSelf();
         $this->queryBuilderStub->method('expr')->willReturn($this->exprStub);
-        $this->queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn(string|int|float $v): string => "'$v'");
+        $this->queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn (string|int|float $v): string => "'$v'");
         $this->queryBuilderStub->method('executeQuery')->willReturn($this->resultStub);
 
         // Configure expression builder
@@ -90,7 +90,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             public function get(string $name): mixed
             {
                 return match ($name) {
-                    'id' => $this->userId,
+                    'id'    => $this->userId,
                     default => null,
                 };
             }
@@ -125,7 +125,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
         $queryBuilderStub->method('from')->willReturnSelf();
         $queryBuilderStub->method('where')->willReturnSelf();
         $queryBuilderStub->method('expr')->willReturn($this->exprStub);
-        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn(string|int|float $v): string => "'$v'");
+        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn (string|int|float $v): string => "'$v'");
         $queryBuilderStub->method('executeQuery')->willReturn($resultStub);
 
         $connectionMock = $this->createMock(Connection::class);
@@ -135,7 +135,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->method('insert')
             ->with(
                 'tx_nrllm_service_usage',
-                self::callback(fn(array $data): bool => $data['service_type'] === 'translation'
+                self::callback(fn (array $data): bool => $data['service_type'] === 'translation'
                         && $data['service_provider'] === 'deepl'
                         && $data['request_count'] === 1
                         && $data['characters_used'] === 1000
@@ -164,7 +164,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
         $queryBuilderStub->method('from')->willReturnSelf();
         $queryBuilderStub->method('where')->willReturnSelf();
         $queryBuilderStub->method('expr')->willReturn($this->exprStub);
-        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn(string|int|float $v): string => "'$v'");
+        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn (string|int|float $v): string => "'$v'");
         $queryBuilderStub->method('executeQuery')->willReturn($resultStub);
 
         $connectionMock = $this->createMock(Connection::class);
@@ -174,7 +174,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->method('executeStatement')
             ->with(
                 self::stringContains('UPDATE tx_nrllm_service_usage SET'),
-                self::callback(fn(array $params): bool => $params['tokens'] === 500
+                self::callback(fn (array $params): bool => $params['tokens'] === 500
                         && $params['promptTokens'] === 25
                         && $params['completionTokens'] === 75
                         && $params['characters'] === 300
@@ -191,13 +191,13 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
 
         $subject = new UsageTrackerService($connectionPoolStub, $this->contextMock);
         $subject->trackUsage('chat', 'openai', [
-            'tokens' => 500,
-            'promptTokens' => 25,
+            'tokens'           => 500,
+            'promptTokens'     => 25,
             'completionTokens' => 75,
-            'characters' => 300,
-            'audioSeconds' => 12,
-            'images' => 3,
-            'cost' => 0.05,
+            'characters'       => 300,
+            'audioSeconds'     => 12,
+            'images'           => 3,
+            'cost'             => 0.05,
         ]);
     }
 
@@ -214,7 +214,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
         $queryBuilderStub->method('from')->willReturnSelf();
         $queryBuilderStub->method('where')->willReturnSelf();
         $queryBuilderStub->method('expr')->willReturn($this->exprStub);
-        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn(string|int|float $v): string => "'$v'");
+        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn (string|int|float $v): string => "'$v'");
         $queryBuilderStub->method('executeQuery')->willReturn($resultStub);
 
         $connectionMock = $this->createMock(Connection::class);
@@ -224,7 +224,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->method('insert')
             ->with(
                 'tx_nrllm_service_usage',
-                self::callback(fn(array $data): bool => $data['configuration_uid'] === 42),
+                self::callback(fn (array $data): bool => $data['configuration_uid'] === 42),
             );
 
         $connectionPoolStub = self::createStub(ConnectionPool::class);
@@ -249,17 +249,17 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
         $queryBuilderStub->method('from')->willReturnSelf();
         $queryBuilderStub->method('where')->willReturnSelf();
         $queryBuilderStub->method('expr')->willReturn($this->exprStub);
-        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn(string|int|float $v): string => "'$v'");
+        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn (string|int|float $v): string => "'$v'");
         $queryBuilderStub->method('executeQuery')->willReturn($resultStub);
 
         $metrics = [
-            'tokens' => 100,
-            'promptTokens' => 25,
+            'tokens'           => 100,
+            'promptTokens'     => 25,
             'completionTokens' => 75,
-            'characters' => 500,
-            'audioSeconds' => 30,
-            'images' => 2,
-            'cost' => 0.05,
+            'characters'       => 500,
+            'audioSeconds'     => 30,
+            'images'           => 2,
+            'cost'             => 0.05,
         ];
 
         $connectionMock = $this->createMock(Connection::class);
@@ -269,7 +269,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->method('insert')
             ->with(
                 'tx_nrllm_service_usage',
-                self::callback(fn(array $data): bool => $data['tokens_used'] === $metrics['tokens']
+                self::callback(fn (array $data): bool => $data['tokens_used'] === $metrics['tokens']
                         && $data['prompt_tokens'] === $metrics['promptTokens']
                         && $data['completion_tokens'] === $metrics['completionTokens']
                         && $data['characters_used'] === $metrics['characters']
@@ -304,7 +304,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
         $queryBuilderStub->method('from')->willReturnSelf();
         $queryBuilderStub->method('where')->willReturnSelf();
         $queryBuilderStub->method('expr')->willReturn($this->exprStub);
-        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn(string|int|float $v): string => "'$v'");
+        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn (string|int|float $v): string => "'$v'");
         $queryBuilderStub->method('executeQuery')->willReturn($resultStub);
 
         $connectionMock = $this->createMock(Connection::class);
@@ -314,7 +314,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->method('insert')
             ->with(
                 'tx_nrllm_service_usage',
-                self::callback(fn(array $data): bool => $data['service_type'] === 'image'
+                self::callback(fn (array $data): bool => $data['service_type'] === 'image'
                         && $data['service_provider'] === 'dall-e'
                         && $data['model_id'] === 'gpt-image-2'
                         && $data['model_uid'] === 0
@@ -351,7 +351,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
         $queryBuilderStub->method('from')->willReturnSelf();
         $queryBuilderStub->method('where')->willReturnSelf();
         $queryBuilderStub->method('expr')->willReturn($this->exprStub);
-        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn(string|int|float $v): string => "'$v'");
+        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn (string|int|float $v): string => "'$v'");
         $queryBuilderStub->method('executeQuery')->willReturn($resultStub);
 
         $connectionMock = $this->createMock(Connection::class);
@@ -361,7 +361,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->method('insert')
             ->with(
                 'tx_nrllm_service_usage',
-                self::callback(fn(array $data): bool => $data['be_user'] === 0
+                self::callback(fn (array $data): bool => $data['be_user'] === 0
                         && array_key_exists('pid', $data)
                         && $data['pid'] === 0
                         && $data['configuration_uid'] === 0
@@ -403,7 +403,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
         $queryBuilderStub->method('from')->willReturnSelf();
         $queryBuilderStub->method('where')->willReturnSelf();
         $queryBuilderStub->method('expr')->willReturn($this->exprStub);
-        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn(string|int|float $v): string => "'$v'");
+        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn (string|int|float $v): string => "'$v'");
         $queryBuilderStub->method('executeQuery')->willReturn($resultStub);
 
         $connectionMock = $this->createMock(Connection::class);
@@ -413,7 +413,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->method('executeStatement')
             ->with(
                 self::stringContains('UPDATE tx_nrllm_service_usage SET'),
-                self::callback(fn(array $params): bool => $params['tokens'] === 0
+                self::callback(fn (array $params): bool => $params['tokens'] === 0
                         && $params['promptTokens'] === 0
                         && $params['completionTokens'] === 0
                         && $params['characters'] === 0
@@ -441,7 +441,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
         $this->setupBackendUser(5);
 
         /** @var list<array{0: string, 1: mixed}> $eqCalls */
-        $eqCalls = [];
+        $eqCalls  = [];
         $exprStub = self::createStub(ExpressionBuilder::class);
         $exprStub->method('eq')->willReturnCallback(
             function (string $fieldName, mixed $value) use (&$eqCalls): string {
@@ -459,7 +459,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
         $queryBuilderStub->method('from')->willReturnSelf();
         $queryBuilderStub->method('where')->willReturnSelf();
         $queryBuilderStub->method('expr')->willReturn($exprStub);
-        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn(string|int|float $v): string => "'$v'");
+        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn (string|int|float $v): string => "'$v'");
         $queryBuilderStub->method('executeQuery')->willReturn($resultStub);
 
         $connectionStub = self::createStub(Connection::class);
@@ -490,7 +490,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             public function get(string $name): mixed
             {
                 return match ($name) {
-                    'id' => 5,
+                    'id'    => 5,
                     default => null,
                 };
             }
@@ -505,7 +505,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
         $queryBuilderStub->method('from')->willReturnSelf();
         $queryBuilderStub->method('where')->willReturnSelf();
         $queryBuilderStub->method('expr')->willReturn($this->exprStub);
-        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn(string|int|float $v): string => "'$v'");
+        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn (string|int|float $v): string => "'$v'");
         $queryBuilderStub->method('executeQuery')->willReturn($resultStub);
 
         $connectionMock = $this->createMock(Connection::class);
@@ -515,7 +515,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->method('insert')
             ->with(
                 'tx_nrllm_service_usage',
-                self::callback(fn(array $data): bool => $data['be_user'] === 99),
+                self::callback(fn (array $data): bool => $data['be_user'] === 99),
             );
 
         $connectionPoolStub = self::createStub(ConnectionPool::class);
@@ -538,29 +538,29 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
 
         $expectedData = [
             [
-                'service_provider' => 'deepl',
-                'total_requests' => 100,
-                'total_tokens' => 0,
-                'total_characters' => 50000,
+                'service_provider'    => 'deepl',
+                'total_requests'      => 100,
+                'total_tokens'        => 0,
+                'total_characters'    => 50000,
                 'total_audio_seconds' => 0,
-                'total_images' => 0,
-                'total_cost' => 2.50,
+                'total_images'        => 0,
+                'total_cost'          => 2.50,
             ],
             [
-                'service_provider' => 'google',
-                'total_requests' => 50,
-                'total_tokens' => 0,
-                'total_characters' => 25000,
+                'service_provider'    => 'google',
+                'total_requests'      => 50,
+                'total_tokens'        => 0,
+                'total_characters'    => 25000,
                 'total_audio_seconds' => 0,
-                'total_images' => 0,
-                'total_cost' => 1.00,
+                'total_images'        => 0,
+                'total_cost'          => 1.00,
             ],
         ];
 
         $this->resultStub->method('fetchAllAssociative')->willReturn($expectedData);
 
         $subject = $this->createSubject();
-        $result = $subject->getUsageReport(
+        $result  = $subject->getUsageReport(
             'translation',
             new DateTime('2025-01-01'),
             new DateTime('2025-01-31'),
@@ -581,7 +581,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
         $this->resultStub->method('fetchAllAssociative')->willReturn([]);
 
         $subject = $this->createSubject();
-        $result = $subject->getUsageReport(
+        $result  = $subject->getUsageReport(
             'translation',
             new DateTime('2025-01-01'),
             new DateTime('2025-01-31'),
@@ -601,23 +601,23 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
 
         $expectedData = [
             [
-                'service_type' => 'translation',
+                'service_type'     => 'translation',
                 'service_provider' => 'deepl',
-                'total_requests' => 25,
-                'total_cost' => 1.25,
+                'total_requests'   => 25,
+                'total_cost'       => 1.25,
             ],
             [
-                'service_type' => 'image',
+                'service_type'     => 'image',
                 'service_provider' => 'dall-e',
-                'total_requests' => 10,
-                'total_cost' => 0.50,
+                'total_requests'   => 10,
+                'total_cost'       => 0.50,
             ],
         ];
 
         $this->resultStub->method('fetchAllAssociative')->willReturn($expectedData);
 
         $subject = $this->createSubject();
-        $result = $subject->getUserUsage(
+        $result  = $subject->getUserUsage(
             5,
             new DateTime('2025-01-01'),
             new DateTime('2025-01-31'),
@@ -640,18 +640,18 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->willReturn($this->queryBuilderStub);
 
         $expectedData = [
-            'request_count' => 10,
-            'tokens_used' => 5000,
-            'characters_used' => 0,
+            'request_count'      => 10,
+            'tokens_used'        => 5000,
+            'characters_used'    => 0,
             'audio_seconds_used' => 0,
-            'images_generated' => 0,
-            'estimated_cost' => 0.10,
+            'images_generated'   => 0,
+            'estimated_cost'     => 0.10,
         ];
 
         $this->resultStub->method('fetchAssociative')->willReturn($expectedData);
 
         $subject = $this->createSubject();
-        $result = $subject->getTodayUsage('chat', 'openai');
+        $result  = $subject->getTodayUsage('chat', 'openai');
 
         self::assertNotNull($result);
         self::assertEquals(10, $result['request_count']);
@@ -671,7 +671,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
         $this->resultStub->method('fetchAssociative')->willReturn(false);
 
         $subject = $this->createSubject();
-        $result = $subject->getTodayUsage('chat', 'openai');
+        $result  = $subject->getTodayUsage('chat', 'openai');
 
         self::assertNull($result);
     }
@@ -688,7 +688,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
         $this->resultStub->method('fetchOne')->willReturn('25.50');
 
         $subject = $this->createSubject();
-        $result = $subject->getCurrentMonthCost();
+        $result  = $subject->getCurrentMonthCost();
 
         self::assertEquals(25.50, $result);
     }
@@ -703,7 +703,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
         $this->resultStub->method('fetchOne')->willReturn(null);
 
         $subject = $this->createSubject();
-        $result = $subject->getCurrentMonthCost();
+        $result  = $subject->getCurrentMonthCost();
 
         self::assertEquals(0.0, $result);
     }
@@ -718,7 +718,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
         $this->resultStub->method('fetchOne')->willReturn(false);
 
         $subject = $this->createSubject();
-        $result = $subject->getCurrentMonthCost();
+        $result  = $subject->getCurrentMonthCost();
 
         self::assertEquals(0.0, $result);
     }

@@ -267,7 +267,7 @@ final class ToolLoopServiceSnippetTagsTest extends TestCase
 
         $repository = self::createStub(PromptSnippetRepository::class);
         $repository->method('findActiveByTag')->willReturnCallback(
-            static fn(string $tag): array => $tag === 'persona' ? [$snippet] : [],
+            static fn (string $tag): array => $tag === 'persona' ? [$snippet] : [],
         );
 
         return new ConfigurationSnippetResolver($repository, new PromptSnippetComposer());

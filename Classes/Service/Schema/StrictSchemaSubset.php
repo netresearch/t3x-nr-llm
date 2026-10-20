@@ -35,7 +35,7 @@ namespace Netresearch\NrLlm\Service\Schema;
  *   becomes a JSON-Schema implementation, and ADR-082's no-runtime-dependency
  *   decision stands.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class StrictSchemaSubset
 {
@@ -129,7 +129,7 @@ final readonly class StrictSchemaSubset
 
         $compiled = '~' . str_replace('~', '\\~', $pattern) . '~u';
 
-        set_error_handler(static fn(): bool => true);
+        set_error_handler(static fn (): bool => true);
 
         try {
             return preg_match($compiled, '') !== false ? $compiled : null;
@@ -141,23 +141,23 @@ final readonly class StrictSchemaSubset
     private function keywordValueSupported(string $keyword, mixed $value): bool
     {
         return match ($keyword) {
-            'type' => $this->typeValueSupported($value),
-            'enum' => is_array($value) && $value !== [] && array_is_list($value),
-            'const' => true,
-            'pattern' => is_string($value) && $this->compilePattern($value) !== null,
-            'minLength', 'maxLength', 'minItems', 'maxItems' => is_int($value) && $value >= 0,
+            'type'                                                       => $this->typeValueSupported($value),
+            'enum'                                                       => is_array($value) && $value !== [] && array_is_list($value),
+            'const'                                                      => true,
+            'pattern'                                                    => is_string($value) && $this->compilePattern($value) !== null,
+            'minLength', 'maxLength', 'minItems', 'maxItems'             => is_int($value) && $value >= 0,
             'minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum' => is_int($value) || is_float($value),
             // Positive integers only — float steps would need epsilon
             // arithmetic; zero would divide by zero. Anything else is
             // out-of-subset, not "ignored".
-            'multipleOf' => is_int($value) && $value > 0,
-            'uniqueItems' => is_bool($value),
-            'required' => $this->stringListSupported($value),
-            'items', 'not' => is_array($value) && $this->supported($value),
+            'multipleOf'                             => is_int($value) && $value > 0,
+            'uniqueItems'                            => is_bool($value),
+            'required'                               => $this->stringListSupported($value),
+            'items', 'not'                           => is_array($value) && $this->supported($value),
             'prefixItems', 'oneOf', 'anyOf', 'allOf' => $this->schemaListSupported($value),
-            'properties' => $this->propertyMapSupported($value),
-            'additionalProperties' => is_bool($value) || (is_array($value) && $this->supported($value)),
-            default => false,
+            'properties'                             => $this->propertyMapSupported($value),
+            'additionalProperties'                   => is_bool($value) || (is_array($value) && $this->supported($value)),
+            default                                  => false,
         };
     }
 

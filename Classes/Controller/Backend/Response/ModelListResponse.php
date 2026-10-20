@@ -52,8 +52,8 @@ final readonly class ModelListResponse implements JsonSerializable
     {
         return [
             'success' => $this->success,
-            'models' => array_map(
-                static fn(ModelListItemResponse $item): array => $item->jsonSerialize(),
+            'models'  => array_map(
+                static fn (ModelListItemResponse $item): array => $item->jsonSerialize(),
                 $this->models,
             ),
         ];

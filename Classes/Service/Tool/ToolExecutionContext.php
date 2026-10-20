@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool;
 
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\SubjectRecord;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
@@ -49,12 +50,17 @@ final readonly class ToolExecutionContext
      *                                                         carries an incomplete history. Null proves a fresh history only
      *                                                         without continuation markers; assembled
      *                                                         or seeded continuations remain incomplete.
+     * @param ?SubjectRecord         $subjectRecord            the record the run's process is about (ADR-228), which the
+     *                                                         runtime checked the acting user may read. Null for a run
+     *                                                         without a process subject; the highlight builtin then
+     *                                                         accepts no target.
      */
     public function __construct(
         public AiActorContext $actor,
         public ?BackendUserAuthentication $backendUser = null,
         public ?AgentRunReference $run = null,
         public ?ToolInvocationHistory $initialInvocationHistory = null,
+        public ?SubjectRecord $subjectRecord = null,
     ) {}
 
     /**
@@ -76,11 +82,11 @@ final readonly class ToolExecutionContext
     {
         $record = is_array($user->user) ? $user->user : [];
         $rawUid = $record['uid'] ?? null;
-        $uid    = is_numeric($rawUid) ? (int)$rawUid : 0;
+        $uid    = is_numeric($rawUid) ? (int) $rawUid : 0;
 
         $groupIds = array_values(array_filter(
-            array_map(static fn(mixed $g): int => is_numeric($g) ? (int)$g : 0, $user->userGroupsUID),
-            static fn(int $g): bool => $g > 0,
+            array_map(static fn (mixed $g): int => is_numeric($g) ? (int) $g : 0, $user->userGroupsUID),
+            static fn (int $g): bool => $g > 0,
         ));
 
         return new self(AiActorContext::backendUser($uid, $user->isAdmin(), $groupIds), $user);

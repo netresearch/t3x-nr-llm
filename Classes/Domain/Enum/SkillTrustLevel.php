@@ -25,9 +25,9 @@ namespace Netresearch\NrLlm\Domain\Enum;
  */
 enum SkillTrustLevel: string
 {
-    case UNTRUSTED = 'untrusted';
-    case COMMUNITY = 'community';
-    case VERIFIED = 'verified';
+    case UNTRUSTED   = 'untrusted';
+    case COMMUNITY   = 'community';
+    case VERIFIED    = 'verified';
     case FIRST_PARTY = 'first_party';
 
     /**
@@ -35,7 +35,7 @@ enum SkillTrustLevel: string
      */
     public static function values(): array
     {
-        return array_map(static fn(self $c): string => $c->value, self::cases());
+        return array_map(static fn (self $c): string => $c->value, self::cases());
     }
 
     public static function isValid(string $value): bool

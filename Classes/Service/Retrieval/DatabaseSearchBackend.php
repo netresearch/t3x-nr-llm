@@ -68,7 +68,7 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
     public function search(RetrievalQuery $query, AccessContext $context): EvidenceList
     {
         $languageId = $query->languageId;
-        $words = $this->queryWords($query->query);
+        $words      = $this->queryWords($query->query);
 
         // routeUid (default-language page uid) => partial evidence data;
         // 'words' collects which query words the page covers (over the page
@@ -110,7 +110,7 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
         $rankedUids = array_keys($byPage);
         usort(
             $rankedUids,
-            static fn(int $a, int $b): int => (count($byPage[$b]['words']) <=> count($byPage[$a]['words'])) ?: ($a <=> $b),
+            static fn (int $a, int $b): int => (count($byPage[$b]['words']) <=> count($byPage[$a]['words'])) ?: ($a <=> $b),
         );
 
         $sources = [];
@@ -122,7 +122,7 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
             }
 
             $title = $partial['title'] !== '' ? $partial['title'] : $pageRows[$routeUid];
-            $url = $this->buildPageUrl($routeUid, $languageId, $query->siteIdentifier);
+            $url   = $this->buildPageUrl($routeUid, $languageId, $query->siteIdentifier);
             if ($url === null) {
                 // Outside the requested site (or no site at all).
                 continue;
@@ -151,7 +151,7 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
             return null;
         }
 
-        $routeUid = self::toInt($reference->parts[0]);
+        $routeUid   = self::toInt($reference->parts[0]);
         $languageId = self::toInt($reference->parts[1]);
         if ($routeUid < 1 || $languageId < 0) {
             return null;
@@ -165,7 +165,7 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
         $parts = ['# ' . $pageRows[$routeUid]];
 
         $queryBuilder = $this->liveQueryBuilder('tt_content');
-        $rows = $queryBuilder
+        $rows         = $queryBuilder
             ->select('header', 'bodytext')
             ->from('tt_content')
             ->where(
@@ -180,7 +180,7 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
 
         foreach ($rows as $row) {
             $header = ExcerptBuilder::plain(self::toStr($row['header'] ?? ''));
-            $body = ExcerptBuilder::plain(self::toStr($row['bodytext'] ?? ''));
+            $body   = ExcerptBuilder::plain(self::toStr($row['bodytext'] ?? ''));
             if ($header !== '') {
                 $parts[] = '## ' . $header;
             }
@@ -200,9 +200,9 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
      */
     private function searchPages(array $words, int $languageId): array
     {
-        $fields = $this->pageFields();
+        $fields       = $this->pageFields();
         $queryBuilder = $this->liveQueryBuilder('pages');
-        $select = array_values(array_unique(array_merge(['uid', 'l10n_parent', 'title'], $fields)));
+        $select       = array_values(array_unique(array_merge(['uid', 'l10n_parent', 'title'], $fields)));
 
         $rows = $queryBuilder
             ->select(...$select)
@@ -229,9 +229,9 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
      */
     private function searchContent(array $words, int $languageId): array
     {
-        $fields = $this->contentFields();
+        $fields       = $this->contentFields();
         $queryBuilder = $this->liveQueryBuilder('tt_content');
-        $select = array_values(array_unique(array_merge(['uid', 'pid'], $fields)));
+        $select       = array_values(array_unique(array_merge(['uid', 'pid'], $fields)));
 
         $rows = $queryBuilder
             ->select(...$select)
@@ -262,7 +262,7 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
     private function visiblePages(array $routeUids, int $languageId): array
     {
         $queryBuilder = $this->liveQueryBuilder('pages');
-        $rows = $queryBuilder
+        $rows         = $queryBuilder
             ->select('uid', 'pid', 'title')
             ->from('pages')
             ->where(
@@ -274,7 +274,7 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
             ->executeQuery()
             ->fetchAllAssociative();
 
-        $titles = [];
+        $titles        = [];
         $ancestorCache = [];
         foreach ($rows as $row) {
             // Pages inside a restricted/hidden section or under a recycler
@@ -335,7 +335,7 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
         }
 
         try {
-            return (string)$site->getRouter()->generateUri($routeUid, ['_language' => $languageId]);
+            return (string) $site->getRouter()->generateUri($routeUid, ['_language' => $languageId]);
         } catch (Throwable) {
             // No routable public URL (missing language, broken site config)
             // — skip the row like the index backends do.
@@ -355,14 +355,14 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
     {
         $conditions = [];
         foreach ($words as $word) {
-            $like = '%' . $queryBuilder->escapeLikeWildcards($word) . '%';
+            $like        = '%' . $queryBuilder->escapeLikeWildcards($word) . '%';
             $placeholder = $queryBuilder->createNamedParameter($like);
             foreach ($fields as $field) {
                 $conditions[] = $queryBuilder->expr()->like($field, $placeholder);
             }
         }
 
-        return (string)$queryBuilder->expr()->or(...$conditions);
+        return (string) $queryBuilder->expr()->or(...$conditions);
     }
 
     /**
@@ -377,12 +377,12 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
     private function queryWords(string $query): array
     {
         $split = preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($query)) ?: [];
-        $split = array_values(array_filter($split, static fn(string $word): bool => $word !== ''));
+        $split = array_values(array_filter($split, static fn (string $word): bool => $word !== ''));
 
         foreach ([4, 2] as $minimumLength) {
             $words = array_values(array_unique(array_filter(
                 $split,
-                static fn(string $word): bool => mb_strlen($word) >= $minimumLength,
+                static fn (string $word): bool => mb_strlen($word) >= $minimumLength,
             )));
             if ($words !== []) {
                 return array_slice($words, 0, 8);
@@ -412,7 +412,7 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
 
         return array_values(array_filter(
             $words,
-            static fn(string $word): bool => mb_stripos($haystack, $word) !== false,
+            static fn (string $word): bool => mb_stripos($haystack, $word) !== false,
         ));
     }
 
@@ -421,7 +421,7 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
      */
     private function publicGroupCondition(QueryBuilder $queryBuilder): string
     {
-        return (string)$queryBuilder->expr()->or(
+        return (string) $queryBuilder->expr()->or(
             $queryBuilder->expr()->eq('fe_group', $queryBuilder->createNamedParameter('')),
             $queryBuilder->expr()->eq('fe_group', $queryBuilder->createNamedParameter('0')),
         );
@@ -450,9 +450,9 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
      */
     private function ancestorsArePublic(int $parentUid, array &$cache): bool
     {
-        $chain = [];
+        $chain   = [];
         $current = $parentUid;
-        $public = true;
+        $public  = true;
 
         for ($depth = 0; $current > 0 && $depth < 99; ++$depth) {
             if (isset($cache[$current])) {
@@ -519,7 +519,7 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
         }
 
         $feGroup = self::toStr($row['fe_group'] ?? '');
-        $now = time();
+        $now     = time();
         $endtime = self::toInt($row['endtime'] ?? 0);
 
         return self::toInt($row['hidden'] ?? 0) === 0
@@ -553,7 +553,7 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
         ['excerpt' => $excerpt, 'phrase' => $isPhrase] = $this->excerptFromRow($row, $fields, $query, $words);
         if ($isPhrase || $partial['excerpt'] === '') {
             $partial['excerpt'] = $excerpt;
-            $partial['phrase'] = $isPhrase;
+            $partial['phrase']  = $isPhrase;
         }
     }
 

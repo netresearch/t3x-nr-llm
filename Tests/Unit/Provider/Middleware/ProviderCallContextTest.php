@@ -58,7 +58,7 @@ final class ProviderCallContextTest extends TestCase
     {
         foreach (['for', 'forService'] as $factory) {
             $names = array_map(
-                static fn(ReflectionParameter $p): string => $p->getName(),
+                static fn (ReflectionParameter $p): string => $p->getName(),
                 (new ReflectionMethod(ProviderCallContext::class, $factory))->getParameters(),
             );
 
@@ -163,7 +163,7 @@ final class ProviderCallContextTest extends TestCase
     #[Test]
     public function withConfigurationSwapsTheEntityButKeepsCorrelationAndSignals(): void
     {
-        $primary  = (new LlmConfiguration());
+        $primary = (new LlmConfiguration());
         $primary->setIdentifier('primary');
 
         $fallback = (new LlmConfiguration());

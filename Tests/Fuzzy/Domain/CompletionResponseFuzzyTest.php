@@ -28,7 +28,7 @@ class CompletionResponseFuzzyTest extends AbstractFuzzyTestCase
         $this
             ->forAll(Generator\string()) // @phpstan-ignore function.notFound
             ->then(function (string $content): void {
-                $usage = new UsageStatistics(10, 20, 30);
+                $usage    = new UsageStatistics(10, 20, 30);
                 $response = new CompletionResponse(
                     content: $content,
                     model: 'gpt-4o',
@@ -47,7 +47,7 @@ class CompletionResponseFuzzyTest extends AbstractFuzzyTestCase
         $this
             ->forAll(Generator\string()) // @phpstan-ignore function.notFound
             ->then(function (string $content): void {
-                $usage = new UsageStatistics(10, 20, 30);
+                $usage    = new UsageStatistics(10, 20, 30);
                 $response = new CompletionResponse(
                     content: $content,
                     model: 'test-model',
@@ -66,7 +66,7 @@ class CompletionResponseFuzzyTest extends AbstractFuzzyTestCase
         $this
             ->forAll(Generator\string()) // @phpstan-ignore function.notFound
             ->then(function (string $content): void {
-                $usage = new UsageStatistics(10, 20, 30);
+                $usage    = new UsageStatistics(10, 20, 30);
                 $response = new CompletionResponse(
                     content: $content,
                     model: 'test-model',
@@ -86,16 +86,16 @@ class CompletionResponseFuzzyTest extends AbstractFuzzyTestCase
         $this
             ->forAll(
                 Generator\suchThat( // @phpstan-ignore function.notFound
-                    static fn(string $s) => strlen(trim($s)) > 0 && strlen($s) < 50,
+                    static fn (string $s) => strlen(trim($s)) > 0 && strlen($s) < 50,
                     Generator\string(), // @phpstan-ignore function.notFound
                 ),
                 Generator\suchThat( // @phpstan-ignore function.notFound
-                    static fn(string $s) => strlen(trim($s)) > 0 && strlen($s) < 50,
+                    static fn (string $s) => strlen(trim($s)) > 0 && strlen($s) < 50,
                     Generator\string(), // @phpstan-ignore function.notFound
                 ),
             )
             ->then(function (string $model, string $provider): void {
-                $usage = new UsageStatistics(10, 20, 30);
+                $usage    = new UsageStatistics(10, 20, 30);
                 $response = new CompletionResponse(
                     content: 'test content',
                     model: $model,
@@ -119,7 +119,7 @@ class CompletionResponseFuzzyTest extends AbstractFuzzyTestCase
             )
             ->then(function (int $promptTokens, int $completionTokens): void {
                 $totalTokens = $promptTokens + $completionTokens;
-                $usage = new UsageStatistics($promptTokens, $completionTokens, $totalTokens);
+                $usage       = new UsageStatistics($promptTokens, $completionTokens, $totalTokens);
 
                 $response = new CompletionResponse(
                     content: 'test',
@@ -143,7 +143,7 @@ class CompletionResponseFuzzyTest extends AbstractFuzzyTestCase
                 Generator\elements(['stop', 'length', 'tool_calls', 'content_filter']), // @phpstan-ignore function.notFound
             )
             ->then(function (string $finishReason): void {
-                $usage = new UsageStatistics(10, 20, 30);
+                $usage    = new UsageStatistics(10, 20, 30);
                 $response = new CompletionResponse(
                     content: 'test',
                     model: 'test-model',
@@ -153,7 +153,7 @@ class CompletionResponseFuzzyTest extends AbstractFuzzyTestCase
                 );
 
                 // Only 'stop' returns true for isComplete
-                $isComplete = $finishReason === 'stop';
+                $isComplete   = $finishReason === 'stop';
                 $wasTruncated = $finishReason === 'length';
 
                 $this->assertSame($isComplete, $response->isComplete());

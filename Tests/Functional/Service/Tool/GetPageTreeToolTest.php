@@ -111,7 +111,7 @@ final class GetPageTreeToolTest extends AbstractFunctionalTestCase
         // Unpublished workspace draft page (t3ver_wsid > 0) must not surface in
         // the tree sent to the LLM (it would also appear as a duplicate node).
         $connection->insert('pages', [
-            'uid' => 6, 'pid' => 1, 'title' => 'Draft Branch', 'doktype' => 1, 'sorting' => 4,
+            'uid'        => 6, 'pid' => 1, 'title' => 'Draft Branch', 'doktype' => 1, 'sorting' => 4,
             't3ver_wsid' => 1, 't3ver_oid' => 2, 't3ver_state' => 0,
         ]);
 

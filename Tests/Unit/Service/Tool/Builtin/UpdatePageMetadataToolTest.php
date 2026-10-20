@@ -180,20 +180,20 @@ final class UpdatePageMetadataToolTest extends AbstractUnitTestCase
      */
     public static function refusedArguments(): iterable
     {
-        yield 'no uid'            => [['title' => 'x'], 'exactly one page'];
-        yield 'zero uid'          => [['uid' => 0, 'title' => 'x'], 'exactly one page'];
-        yield 'negative uid'      => [['uid' => -3, 'title' => 'x'], 'exactly one page'];
-        yield 'non-numeric uid'   => [['uid' => 'all', 'title' => 'x'], 'exactly one page'];
-        yield 'no field at all'   => [['uid' => 1], 'name at least one field'];
-        yield 'field not in TCA'  => [['uid' => 1, 'og_title' => 'x'], 'not an editable page metadata field'];
+        yield 'no uid' => [['title' => 'x'], 'exactly one page'];
+        yield 'zero uid' => [['uid' => 0, 'title' => 'x'], 'exactly one page'];
+        yield 'negative uid' => [['uid' => -3, 'title' => 'x'], 'exactly one page'];
+        yield 'non-numeric uid' => [['uid' => 'all', 'title' => 'x'], 'exactly one page'];
+        yield 'no field at all' => [['uid' => 1], 'name at least one field'];
+        yield 'field not in TCA' => [['uid' => 1, 'og_title' => 'x'], 'not an editable page metadata field'];
         yield 'select not in TCA' => [['uid' => 1, 'twitter_card' => 'summary'], 'not an editable page metadata field'];
-        yield 'never-allowed slug'   => [['uid' => 1, 'slug' => '/evil'], 'not an editable page metadata field'];
+        yield 'never-allowed slug' => [['uid' => 1, 'slug' => '/evil'], 'not an editable page metadata field'];
         yield 'never-allowed hidden' => [['uid' => 1, 'hidden' => '1'], 'not an editable page metadata field'];
-        yield 'never-allowed perms'  => [['uid' => 1, 'perms_everybody' => '31'], 'not an editable page metadata field'];
-        yield 'array value'       => [['uid' => 1, 'title' => ['a']], 'must be a string'];
-        yield 'boolean value'     => [['uid' => 1, 'title' => true], 'must be a string'];
-        yield 'empty required field'      => [['uid' => 1, 'title' => ''], 'is required and cannot be emptied'];
-        yield 'blank required field'      => [['uid' => 1, 'title' => '   '], 'is required and cannot be emptied'];
+        yield 'never-allowed perms' => [['uid' => 1, 'perms_everybody' => '31'], 'not an editable page metadata field'];
+        yield 'array value' => [['uid' => 1, 'title' => ['a']], 'must be a string'];
+        yield 'boolean value' => [['uid' => 1, 'title' => true], 'must be a string'];
+        yield 'empty required field' => [['uid' => 1, 'title' => ''], 'is required and cannot be emptied'];
+        yield 'blank required field' => [['uid' => 1, 'title' => '   '], 'is required and cannot be emptied'];
         yield 'empty alongside a good one' => [
             ['uid' => 1, 'description' => 'fine', 'title' => ''],
             'is required and cannot be emptied',
@@ -350,7 +350,7 @@ final class UpdatePageMetadataToolTest extends AbstractUnitTestCase
                 'type'       => 'select',
                 'renderType' => 'selectSingle',
                 'items'      => array_map(
-                    static fn(string $value): array => ['label' => $value, 'value' => $value],
+                    static fn (string $value): array => ['label' => $value, 'value' => $value],
                     $values,
                 ),
             ],

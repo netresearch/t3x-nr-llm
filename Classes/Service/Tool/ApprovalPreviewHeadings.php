@@ -82,7 +82,7 @@ final class ApprovalPreviewHeadings
     private static function texts(LanguageService $languageService): array
     {
         self::$resolved ??= new WeakMap();
-        $language = $languageService->lang;
+        $language   = $languageService->lang;
         $byLanguage = self::$resolved[$languageService] ?? [];
         if (!isset($byLanguage[$language])) {
             $texts = [];
@@ -93,7 +93,7 @@ final class ApprovalPreviewHeadings
                 }
             }
 
-            $byLanguage[$language]              = $texts;
+            $byLanguage[$language]            = $texts;
             self::$resolved[$languageService] = $byLanguage;
         }
 

@@ -34,7 +34,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     description: 'Delete conversation sessions inactive for longer than the configured retention window.',
 )]
 /**
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class PurgeAiSessionsCommand extends Command
 {
@@ -62,7 +62,7 @@ final class PurgeAiSessionsCommand extends Command
         $daysOption = $input->getOption('days');
         $days       = $daysOption === null
             ? $this->privacyPolicy->retentionDaysFor(PrivacyDataCategory::CONVERSATION)
-            : (is_numeric($daysOption) ? (int)$daysOption : 0);
+            : (is_numeric($daysOption) ? (int) $daysOption : 0);
 
         if ($days < 1) {
             $io->error('The --days option must be a positive integer.');

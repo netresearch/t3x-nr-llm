@@ -208,7 +208,7 @@ final class ConversationSkillBudgetTest extends AbstractFunctionalTestCase
         // Generated rather than kept in a fixture file: the body has to be big
         // enough to matter against the 8192 fallback, and its checksum must
         // match or the composer fails closed and drops it.
-        $body = str_repeat('Answer in short, verifiable sentences. ', (int)ceil(self::SKILL_BODY_BYTES / 38));
+        $body = str_repeat('Answer in short, verifiable sentences. ', (int) ceil(self::SKILL_BODY_BYTES / 38));
         $pool->getConnectionForTable('tx_nrllm_skill')->insert('tx_nrllm_skill', [
             'uid'           => 610,
             'pid'           => 0,

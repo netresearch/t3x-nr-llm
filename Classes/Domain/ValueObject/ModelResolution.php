@@ -29,7 +29,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
  * serving model has to take this call's decision itself and hand it over --
  * `LlmServiceManagerInterface::chatForConfiguration()` accepts one so the
  * dispatch does not take a second. Both members were already reachable from
- * the frozen surface ({@see \Netresearch\NrLlm\Domain\Model\Model} and
+ * the frozen surface ({@see Model} and
  * {@see RoutingSummary} are both `@api`), so this publishes the pairing rather
  * than any new data.
  *

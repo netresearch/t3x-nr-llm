@@ -53,8 +53,8 @@ class ToolOptionsTest extends AbstractUnitTestCase
     public static function validToolChoiceProvider(): array
     {
         return [
-            'auto' => ['auto'],
-            'none' => ['none'],
+            'auto'     => ['auto'],
+            'none'     => ['none'],
             'required' => ['required'],
         ];
     }
@@ -77,7 +77,7 @@ class ToolOptionsTest extends AbstractUnitTestCase
         return [
             'manual' => ['manual'],
             'always' => ['always'],
-            'empty' => [''],
+            'empty'  => [''],
         ];
     }
 

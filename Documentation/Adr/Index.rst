@@ -614,4 +614,8 @@ Tools
    Adr217McpDelegationKeepsTheActor
    Adr218CompanionDocumentSourceSync
    Adr219WorkerOperations
+   Adr220EvaluationResultsNameTheirGenerator
    Adr222GeminiReplayKeepsNativeSignatures
+   Adr225AgentOutcomesSurviveOptionalDiagnosticFailures
+   Adr227McpRepliesBelongToTheirRequest
+   Adr228ProcessRunsRecordTheirLineage

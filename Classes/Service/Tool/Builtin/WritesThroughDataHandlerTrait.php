@@ -101,11 +101,11 @@ trait WritesThroughDataHandlerTrait
             $missing[] = 'TCA';
         }
 
-        if (!(($GLOBALS['LANG'] ?? null) instanceof LanguageService)) {
+        if (!($GLOBALS['LANG'] ?? null) instanceof LanguageService) {
             $missing[] = 'language service';
         }
 
-        if (!(($GLOBALS['BE_USER'] ?? null) instanceof BackendUserAuthentication)) {
+        if (!($GLOBALS['BE_USER'] ?? null) instanceof BackendUserAuthentication) {
             $missing[] = 'backend user';
         }
 
@@ -178,7 +178,7 @@ trait WritesThroughDataHandlerTrait
     {
         $tca  = $GLOBALS['TCA'] ?? null;
         $ctrl = is_array($tca) && is_array($tca[$table] ?? null) ? ($tca[$table]['ctrl'] ?? null) : null;
-        if (!is_array($ctrl) || !(bool)($ctrl['versioningWS'] ?? false)) {
+        if (!is_array($ctrl) || !(bool) ($ctrl['versioningWS'] ?? false)) {
             return [];
         }
 
@@ -217,7 +217,7 @@ trait WritesThroughDataHandlerTrait
         $ungranted = [];
         foreach ($columns as $column) {
             $definition = $tcaColumns[$column] ?? null;
-            if (is_array($definition) && (bool)($definition['exclude'] ?? false)
+            if (is_array($definition) && (bool) ($definition['exclude'] ?? false)
                 && !$user->check('non_exclude_fields', $table . ':' . $column)
             ) {
                 $ungranted[] = $column;
@@ -242,7 +242,7 @@ trait WritesThroughDataHandlerTrait
         $definition = $this->tcaColumnsFor($table)[$column] ?? null;
         $config     = is_array($definition) ? ($definition['config'] ?? null) : null;
         $declared   = is_array($config) ? ($config['max'] ?? null) : null;
-        $max        = is_numeric($declared) ? (int)$declared : 0;
+        $max        = is_numeric($declared) ? (int) $declared : 0;
 
         return $max > 0 ? min($max, $ceiling) : $ceiling;
     }
@@ -331,14 +331,14 @@ trait WritesThroughDataHandlerTrait
 
         $prefix = 0;
         while ($prefix < $shorter && $oldCharacters[$prefix] === $newCharacters[$prefix]) {
-            $prefix++;
+            ++$prefix;
         }
 
         $suffix = 0;
         while ($suffix < $shorter - $prefix
             && $oldCharacters[$oldLength - $suffix - 1] === $newCharacters[$newLength - $suffix - 1]
         ) {
-            $suffix++;
+            ++$suffix;
         }
 
         return [
@@ -391,7 +391,7 @@ trait WritesThroughDataHandlerTrait
         $visible = strtr($part, ['\\' => '\\\\', "\r" => '\\r', "\n" => '\\n', "\t" => '\\t']);
         $visible = preg_replace_callback(
             self::INVISIBLE_CHARACTERS,
-            static fn(array $match): string => sprintf('\\u{%04X}', mb_ord($match[0])),
+            static fn (array $match): string => sprintf('\\u{%04X}', mb_ord($match[0])),
             $visible,
         ) ?? $visible;
 

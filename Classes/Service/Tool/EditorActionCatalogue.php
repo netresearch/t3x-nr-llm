@@ -99,13 +99,13 @@ final readonly class EditorActionCatalogue implements EditorActionCatalogueInter
 
         $groups = [];
         foreach ($byGroup as $name => $offers) {
-            usort($offers, static fn(EditorActionOffer $a, EditorActionOffer $b): int => strcmp($a->toolName, $b->toolName));
+            usort($offers, static fn (EditorActionOffer $a, EditorActionOffer $b): int => strcmp($a->toolName, $b->toolName));
 
             $groups[] = new EditorActionOfferGroup(
-                (string)$name,
+                (string) $name,
                 // Null outside the curated taxonomy: a third-party group keeps
                 // its raw identifier rather than disappearing (ADR-152).
-                ToolGroup::labelKeyFor((string)$name),
+                ToolGroup::labelKeyFor((string) $name),
                 $offers,
             );
         }
@@ -181,7 +181,7 @@ final readonly class EditorActionCatalogue implements EditorActionCatalogueInter
 
         return array_filter(
             $declarations,
-            static fn(EditorAction $action): bool => in_array($recordTable, $action->recordTypes, true),
+            static fn (EditorAction $action): bool => in_array($recordTable, $action->recordTypes, true),
         );
     }
 
