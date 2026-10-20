@@ -58,6 +58,8 @@ final class ReadToolsActingUserWebMountTest extends AbstractFunctionalTestCase
 
     private const TRANSLATION_OF_MOUNTED_PAGE = 4;
 
+    private const MOUNTED_SLUG = '/mounted';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -84,11 +86,11 @@ final class ReadToolsActingUserWebMountTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(Connection::class, $pages);
         $everything = ['perms_userid' => self::ADMIN, 'perms_user' => Permission::ALL, 'perms_everybody' => Permission::ALL];
         $pages->insert('pages', ['uid' => 1, 'pid' => 0, 'title' => 'Home', 'doktype' => 1, 'sorting' => 1, 'is_siteroot' => 1, 'slug' => '/'] + $everything);
-        $pages->insert('pages', ['uid' => self::MOUNTED_PAGE, 'pid' => 1, 'title' => 'Mounted', 'doktype' => 1, 'sorting' => 2, 'slug' => '/mounted'] + $everything);
+        $pages->insert('pages', ['uid' => self::MOUNTED_PAGE, 'pid' => 1, 'title' => 'Mounted', 'doktype' => 1, 'sorting' => 2, 'slug' => self::MOUNTED_SLUG] + $everything);
         $pages->insert('pages', ['uid' => self::UNMOUNTED_PAGE, 'pid' => 1, 'title' => 'Unmounted', 'doktype' => 1, 'sorting' => 3, 'slug' => '/unmounted'] + $everything);
         $pages->insert('pages', [
             'uid'  => self::TRANSLATION_OF_MOUNTED_PAGE, 'pid' => 1, 'title' => 'Eingehaengt', 'doktype' => 1, 'sorting' => 2,
-            'slug' => '/mounted', 'sys_language_uid' => 1, 'l10n_parent' => self::MOUNTED_PAGE,
+            'slug' => self::MOUNTED_SLUG, 'sys_language_uid' => 1, 'l10n_parent' => self::MOUNTED_PAGE,
         ] + $everything);
 
         $content = $pool->getConnectionForTable('tt_content');
@@ -216,7 +218,7 @@ final class ReadToolsActingUserWebMountTest extends AbstractFunctionalTestCase
         $context = $this->actingEditorWith($ambient);
         $tool    = $this->tool('resolve_url');
 
-        self::assertStringContainsString('Page: [2] Mounted', $tool->execute(['url' => '/mounted'], $context)->content);
+        self::assertStringContainsString('Page: [2] Mounted', $tool->execute(['url' => self::MOUNTED_SLUG], $context)->content);
         self::assertStringContainsString('Page not found or not permitted.', $tool->execute(['url' => '/unmounted'], $context)->content);
     }
 
