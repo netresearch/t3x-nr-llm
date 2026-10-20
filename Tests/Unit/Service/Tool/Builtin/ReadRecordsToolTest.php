@@ -145,8 +145,8 @@ final class ReadRecordsToolTest extends TestCase
                         'description' => 'Optional: only records on this page uid.',
                     ],
                     'where_equals' => [
-                        'type'        => 'object',
-                        'description' => 'Optional: field => value equality filters (max 5, TCA columns only).',
+                        'type'                 => 'object',
+                        'description'          => 'Optional: field => value equality filters (max 5, TCA columns only).',
                         'additionalProperties' => true,
                     ],
                     'fields' => [

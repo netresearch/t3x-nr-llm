@@ -50,7 +50,7 @@ final class PrivacyRetentionConfigurationTest extends AbstractUnitTestCase
     public function everyRetentionOverrideFieldMapsToAPrivacyDataCategory(): void
     {
         $known = array_map(
-            static fn(PrivacyDataCategory $category): string => $category->configKey(),
+            static fn (PrivacyDataCategory $category): string => $category->configKey(),
             PrivacyDataCategory::cases(),
         );
 

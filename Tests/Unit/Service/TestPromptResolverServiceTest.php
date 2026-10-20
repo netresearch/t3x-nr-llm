@@ -79,8 +79,8 @@ final class TestPromptResolverServiceTest extends AbstractUnitTestCase
         $extensionConfiguration = self::createStub(ExtensionConfiguration::class);
         $extensionConfiguration->method('get')->willReturn(['testing' => ['testPrompt' => $prompt]]);
 
-        $backendUser = new BackendUserAuthentication();
-        $backendUser->user = ['uid' => 1, 'lang' => $language];
+        $backendUser        = new BackendUserAuthentication();
+        $backendUser->user  = ['uid' => 1, 'lang' => $language];
         $GLOBALS['BE_USER'] = $backendUser;
 
         $context = new Context();

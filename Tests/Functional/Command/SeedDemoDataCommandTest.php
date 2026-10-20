@@ -163,13 +163,13 @@ final class SeedDemoDataCommandTest extends AbstractFunctionalTestCase
         $cost = $row['cost_total'] ?? 0;
 
         return [
-            'rows'     => (int)($row['rows_total'] ?? 0),
-            'requests' => (int)($row['requests_total'] ?? 0),
+            'rows'     => (int) ($row['rows_total'] ?? 0),
+            'requests' => (int) ($row['requests_total'] ?? 0),
             // Rounded: SQLite and MariaDB disagree in the last bits of a summed
             // DECIMAL, and this asserts reproducibility, not float equality.
             // is_numeric rather than a cast: a summed DECIMAL is mixed at
             // level 10, and casting mixed is what the analyser refuses.
-            'cost'     => round(is_numeric($cost) ? (float)$cost : 0.0, 4),
+            'cost' => round(is_numeric($cost) ? (float) $cost : 0.0, 4),
         ];
     }
 
@@ -184,7 +184,7 @@ final class SeedDemoDataCommandTest extends AbstractFunctionalTestCase
             $qb->andWhere($qb->expr()->eq($column, $qb->createNamedParameter($value)));
         }
 
-        return (int)$qb->executeQuery()->fetchOne();
+        return (int) $qb->executeQuery()->fetchOne();
     }
 
     private function uidOf(string $table, string $identifier): int
@@ -201,6 +201,6 @@ final class SeedDemoDataCommandTest extends AbstractFunctionalTestCase
             ->executeQuery()
             ->fetchOne();
 
-        return (int)$val;
+        return (int) $val;
     }
 }

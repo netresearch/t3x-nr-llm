@@ -77,20 +77,20 @@ final class PublishRecordToolTest extends AbstractFunctionalTestCase
 
         $pages = $this->connectionPool->getConnectionForTable('pages');
         $pages->insert('pages', [
-            'uid' => self::PAGE_CLOSED, 'pid' => 0, 'title' => 'Closed', 'doktype' => 1, 'slug' => '/',
+            'uid'          => self::PAGE_CLOSED, 'pid' => 0, 'title' => 'Closed', 'doktype' => 1, 'slug' => '/',
             'perms_userid' => 1, 'perms_user' => Permission::ALL,
             // Every bit but the one the tool asks for an element.
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL & ~Permission::CONTENT_EDIT,
         ]);
         $pages->insert('pages', [
-            'uid' => self::PAGE_OPEN, 'pid' => 0, 'title' => 'Open', 'doktype' => 1, 'slug' => '/open',
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => self::PAGE_OPEN, 'pid' => 0, 'title' => 'Open', 'doktype' => 1, 'slug' => '/open',
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
         ]);
         $pages->insert('pages', [
-            'uid' => self::HIDDEN_PAGE, 'pid' => self::PAGE_OPEN, 'title' => 'Draft page', 'doktype' => 1,
-            'slug' => '/open/draft', 'hidden' => 1,
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => self::HIDDEN_PAGE, 'pid' => self::PAGE_OPEN, 'title' => 'Draft page', 'doktype' => 1,
+            'slug'          => '/open/draft', 'hidden' => 1,
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
         ]);
 
@@ -103,8 +103,8 @@ final class PublishRecordToolTest extends AbstractFunctionalTestCase
             [self::TIMED_ELEMENT, self::PAGE_OPEN, 'Timed draft', 1, 0, 0, 1893456000],
         ] as [$uid, $pid, $header, $hidden, $language, $parent, $starttime]) {
             $content->insert('tt_content', [
-                'uid' => $uid, 'pid' => $pid, 'colPos' => 0, 'CType' => 'text', 'header' => $header,
-                'hidden' => $hidden, 'sys_language_uid' => $language, 'l18n_parent' => $parent,
+                'uid'       => $uid, 'pid' => $pid, 'colPos' => 0, 'CType' => 'text', 'header' => $header,
+                'hidden'    => $hidden, 'sys_language_uid' => $language, 'l18n_parent' => $parent,
                 'starttime' => $starttime,
             ]);
         }
@@ -408,7 +408,7 @@ final class PublishRecordToolTest extends AbstractFunctionalTestCase
             ->executeQuery()
             ->fetchOne();
 
-        return (int)$hidden;
+        return (int) $hidden;
     }
 
     /**

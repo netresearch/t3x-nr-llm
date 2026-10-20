@@ -26,8 +26,8 @@ use Netresearch\NrLlm\Domain\Enum\AgentEventKind;
 final readonly class AgentRunEvent
 {
     /**
-     * @param array<string, mixed> $payload The decoded {@see RunStep::toArray()} snapshot,
-     *                                      or the approval-decision shape for an APPROVAL event.
+     * @param array<string, mixed> $payload the decoded {@see RunStep::toArray()} snapshot,
+     *                                      or the approval-decision shape for an APPROVAL event
      */
     public function __construct(
         public int $uid,

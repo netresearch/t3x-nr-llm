@@ -13,7 +13,8 @@ ADR-161: One conformance suite for every MCP connection we support
 :Amended: 2026-08-13 by :ref:`ADR-170 <adr-170>`; 2026-08-20 by
     :ref:`ADR-181 <adr-181>` (the "no SSE" edge is now "no live stream");
     2026-09-05 by :ref:`ADR-190 <adr-190>` (the cancellation gap is closed --
-    the row and decision 3 below are amended, not withdrawn)
+    the row and decision 3 below are amended, not withdrawn); 2026-10-11 by
+    :ref:`ADR-227 <adr-227>` (request correlation and reply envelopes)
 
 Context
 =======
@@ -310,3 +311,15 @@ Deliberately not decided here
   them rather than widening them.
 - **A per-server call log.** Liveness answers "is it up" and the run's event
   stream answers "what did it do". A third table between them has no reader.
+
+
+Request correlation amendment, 2026-10-11
+=========================================
+
+The historical checklist above did not establish matching reply IDs, request
+non-reuse within a session or strict result/error envelopes. A native probe
+found those actual gaps. :ref:`ADR-227 <adr-227>` adds their bounded contract
+and meaningful wire oracles, including complete finite SSE replies. Its
+separate implementation must prove the specified controls before this
+amendment is described as shipped. Existing session, policy, audit, budget and
+cancellation decisions remain in force.

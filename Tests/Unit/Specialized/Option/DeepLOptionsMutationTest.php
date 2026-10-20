@@ -67,13 +67,13 @@ class DeepLOptionsMutationTest extends AbstractUnitTestCase
     public function fromArrayWithSnakeCaseKeys(): void
     {
         $options = DeepLOptions::fromArray([
-            'formality' => 'more',
-            'glossary_id' => 'glos-1',
+            'formality'           => 'more',
+            'glossary_id'         => 'glos-1',
             'preserve_formatting' => true,
-            'split_sentences' => false,
-            'tag_handling' => 'html',
-            'ignore_tags' => ['script'],
-            'non_splitting_tags' => ['br'],
+            'split_sentences'     => false,
+            'tag_handling'        => 'html',
+            'ignore_tags'         => ['script'],
+            'non_splitting_tags'  => ['br'],
         ]);
 
         self::assertEquals('more', $options->formality);
@@ -89,12 +89,12 @@ class DeepLOptionsMutationTest extends AbstractUnitTestCase
     public function fromArrayWithCamelCaseKeys(): void
     {
         $options = DeepLOptions::fromArray([
-            'glossaryId' => 'glos-2',
+            'glossaryId'         => 'glos-2',
             'preserveFormatting' => true,
-            'splitSentences' => true,
-            'tagHandling' => 'xml',
-            'ignoreTags' => ['style'],
-            'nonSplittingTags' => ['hr'],
+            'splitSentences'     => true,
+            'tagHandling'        => 'xml',
+            'ignoreTags'         => ['style'],
+            'nonSplittingTags'   => ['hr'],
         ]);
 
         self::assertEquals('glos-2', $options->glossaryId);
@@ -110,7 +110,7 @@ class DeepLOptionsMutationTest extends AbstractUnitTestCase
     {
         $options = DeepLOptions::fromArray([
             'glossary_id' => 'snake',
-            'glossaryId' => 'camel',
+            'glossaryId'  => 'camel',
         ]);
 
         // Snake case should take precedence

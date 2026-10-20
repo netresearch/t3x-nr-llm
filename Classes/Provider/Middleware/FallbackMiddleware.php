@@ -19,6 +19,8 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Throwable;
 
+use function count;
+
 /**
  * Walks the primary configuration's fallback chain on retryable failure.
  *
@@ -177,7 +179,7 @@ final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
                         'fallback'         => $identifier,
                         'operation'        => $context->operation->value,
                         'correlationId'    => $context->correlationId,
-                        'skipped_attempts' => \count($attempts),
+                        'skipped_attempts' => count($attempts),
                     ],
                 );
 

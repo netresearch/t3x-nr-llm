@@ -83,7 +83,7 @@ final class FetchExternalUrlToolTest extends TestCase
         $siteFinder->method('getAllSites')->willReturn([]);
         $configuration = self::createStub(ExtensionConfiguration::class);
         $configuration->method('get')->willReturn(['tools' => ['fetchExternalUrl' => $settings + ['allowedHosts' => '', 'deniedHosts' => '']]]);
-        $fetchSettings = new ExternalFetchSettings($configuration);
+        $fetchSettings  = new ExternalFetchSettings($configuration);
         $this->resolved = [];
         $resolver       = new class ($dns + ['example.org' => ['93.184.215.14'], 'www.example.org' => ['93.184.215.14', '2606:2800:21f::1']], $this->resolved) implements HostResolverInterface {
             /**
@@ -113,7 +113,7 @@ final class FetchExternalUrlToolTest extends TestCase
                 ($this->onSend)();
             }
 
-            $next         = array_shift($this->script);
+            $next = array_shift($this->script);
             if ($next === null) {
                 return $this->rejected(new ConnectException('no scripted response', $request));
             }
@@ -131,7 +131,7 @@ final class FetchExternalUrlToolTest extends TestCase
                 }
             }
 
-            $body = (string)$next->getBody();
+            $body = (string) $next->getBody();
             $sink = $options['sink'] ?? null;
             if ($sink instanceof BoundedSinkStream && $sink->write($body) < strlen($body)) {
                 // What curl does on a short write.
@@ -314,7 +314,7 @@ final class FetchExternalUrlToolTest extends TestCase
 
         self::assertFalse($result->isError, $result->content);
         self::assertCount(3, $this->sent);
-        self::assertSame('https://example.org/new', (string)$this->sent[1]['request']->getUri());
+        self::assertSame('https://example.org/new', (string) $this->sent[1]['request']->getUri());
         self::assertSame([CURLOPT_RESOLVE => ['www.example.org:443:93.184.215.14,[2606:2800:21f::1]']], $this->optionsOf(2)['curl']);
         self::assertStringContainsString('Redirected from: https://example.org/old → https://example.org/new', $result->content);
         self::assertStringContainsString('URL: https://www.example.org/final', $result->content);
@@ -438,7 +438,7 @@ final class FetchExternalUrlToolTest extends TestCase
         return [
             // In HTML the marker has to be entity-encoded to survive as text;
             // the parser decodes it back into the literal marker.
-            'html' => [self::html('<p>Harmless.</p><p>' . htmlspecialchars($payload) . '</p>')],
+            'html'       => [self::html('<p>Harmless.</p><p>' . htmlspecialchars($payload) . '</p>')],
             'plain text' => [new Response(200, ['Content-Type' => 'text/plain'], "Harmless.\n" . $payload)],
         ];
     }

@@ -110,7 +110,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         );
 
         // The probe and discovery actions moved to their own controllers.
-        $this->testController = $this->createTestControllerWithDependencies($providerAdapterRegistry);
+        $this->testController      = $this->createTestControllerWithDependencies($providerAdapterRegistry);
         $this->discoveryController = $this->createDiscoveryControllerWithDependencies(
             $providerRepository,
             $modelDiscovery,
@@ -184,7 +184,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
     private function setPrivateProperty(object $object, string $property, mixed $value): void
     {
         $reflection = new ReflectionClass($object);
-        $prop = $reflection->getProperty($property);
+        $prop       = $reflection->getProperty($property);
         $prop->setValue($object, $value);
     }
 
@@ -208,7 +208,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertFalse($body['isActive']);
@@ -236,7 +236,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertTrue($body['isActive']);
@@ -259,7 +259,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertIsString($body['error']);
@@ -277,7 +277,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertIsString($body['error']);
@@ -296,7 +296,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
     }
@@ -317,7 +317,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
 
@@ -343,7 +343,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertIsString($body['error']);
@@ -361,7 +361,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertIsString($body['error']);
@@ -380,7 +380,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
     }
@@ -402,7 +402,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert - response is either success or connection failure (expected without real API)
         self::assertContains($response->getStatusCode(), [200, 500]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
         self::assertArrayHasKey('message', $body);
@@ -419,7 +419,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertIsString($body['error']);
@@ -437,7 +437,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertIsString($body['error']);
@@ -456,7 +456,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert - should not return 400 (bad request)
         self::assertNotSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
     }
@@ -477,7 +477,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertArrayHasKey('models', $body);
@@ -514,7 +514,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertIsString($body['error']);
@@ -533,7 +533,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert - returns 200 with empty models array (not 404)
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertIsArray($body['models']);
@@ -555,7 +555,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertIsString($body['error']);
@@ -573,7 +573,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertIsString($body['error']);
@@ -593,7 +593,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert - either 200 with models or 500 with error (no real API)
         self::assertContains($response->getStatusCode(), [200, 500]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
     }
@@ -613,7 +613,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertIsString($body['error']);
@@ -631,7 +631,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertIsString($body['error']);
@@ -649,7 +649,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertIsString($body['error']);
@@ -669,7 +669,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert - either 200 with limits, 404 if model not found, or 500 with error
         self::assertContains($response->getStatusCode(), [200, 404, 500]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
     }
@@ -690,7 +690,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertIsString($body['error']);
@@ -709,7 +709,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert: treated as missing UID
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertIsString($body['error']);
@@ -728,7 +728,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert: treated as missing UID
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertIsString($body['error']);
@@ -747,7 +747,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert: treated as missing UID
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertIsString($body['error']);
@@ -766,7 +766,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertIsString($body['error']);
@@ -785,7 +785,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
     }

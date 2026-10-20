@@ -110,11 +110,11 @@ final class WizardResultTest extends AbstractUnitTestCase
         $array = $result->toArray();
 
         self::assertSame([
-            'adapterType' => 'anthropic',
+            'adapterType'   => 'anthropic',
             'suggestedName' => 'Anthropic Claude',
-            'endpoint' => 'https://api.anthropic.com/v1',
-            'confidence' => 0.9,
-            'metadata' => ['version' => '2024-01-01'],
+            'endpoint'      => 'https://api.anthropic.com/v1',
+            'confidence'    => 0.9,
+            'metadata'      => ['version' => '2024-01-01'],
         ], $array['provider']);
     }
 
@@ -143,15 +143,15 @@ final class WizardResultTest extends AbstractUnitTestCase
         $models = $array['models'];
         self::assertCount(1, $models);
         self::assertSame([
-            'modelId' => 'gpt-5.2',
-            'name' => 'GPT-5.2',
-            'description' => 'Latest GPT model',
-            'capabilities' => ['chat', 'tools'],
-            'contextLength' => 128000,
+            'modelId'         => 'gpt-5.2',
+            'name'            => 'GPT-5.2',
+            'description'     => 'Latest GPT model',
+            'capabilities'    => ['chat', 'tools'],
+            'contextLength'   => 128000,
             'maxOutputTokens' => 16384,
-            'costInput' => 250.0,
-            'costOutput' => 1000.0,
-            'recommended' => true,
+            'costInput'       => 250.0,
+            'costOutput'      => 1000.0,
+            'recommended'     => true,
         ], $models[0]);
     }
 
@@ -179,13 +179,13 @@ final class WizardResultTest extends AbstractUnitTestCase
         $configurations = $array['configurations'];
         self::assertCount(1, $configurations);
         self::assertSame([
-            'identifier' => 'content-writer',
-            'name' => 'Content Writer',
-            'description' => 'Writes marketing content',
-            'systemPrompt' => 'You are a creative writer.',
+            'identifier'         => 'content-writer',
+            'name'               => 'Content Writer',
+            'description'        => 'Writes marketing content',
+            'systemPrompt'       => 'You are a creative writer.',
             'recommendedModelId' => 'gpt-5.2',
-            'temperature' => 0.8,
-            'maxTokens' => 2048,
+            'temperature'        => 0.8,
+            'maxTokens'          => 2048,
             'additionalSettings' => ['tone' => 'professional'],
         ], $configurations[0]);
     }

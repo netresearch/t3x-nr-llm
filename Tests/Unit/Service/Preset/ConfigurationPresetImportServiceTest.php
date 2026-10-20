@@ -50,11 +50,11 @@ final class ConfigurationPresetImportServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->modelSelectionService = $this->createMock(ModelSelectionServiceInterface::class);
+        $this->modelSelectionService   = $this->createMock(ModelSelectionServiceInterface::class);
         $this->configurationRepository = $this->createMock(LlmConfigurationRepository::class);
-        $this->persistenceManager = $this->createMock(PersistenceManagerInterface::class);
-        $this->modelRepository = $this->createMock(ModelRepository::class);
-        $this->providerRepository = $this->createMock(ProviderRepository::class);
+        $this->persistenceManager      = $this->createMock(PersistenceManagerInterface::class);
+        $this->modelRepository         = $this->createMock(ModelRepository::class);
+        $this->providerRepository      = $this->createMock(ProviderRepository::class);
         // A configured provider and no inactive models is the ordinary case;
         // the remedy tests override what they need.
         // The remedy gate reads findActive(); countActive() counts every
@@ -139,7 +139,7 @@ final class ConfigurationPresetImportServiceTest extends TestCase
     {
         $this->modelSelectionService->method('findMatchingModel')->willReturn(null);
         $this->modelSelectionService->method('findCandidates')->willReturnCallback(
-            static fn(array $criteria): array => $criteria['capabilities'] === ['chat'] ? [new Model()] : [],
+            static fn (array $criteria): array => $criteria['capabilities'] === ['chat'] ? [new Model()] : [],
         );
 
         $result = $this->subject->preflight($this->preset());
@@ -157,7 +157,7 @@ final class ConfigurationPresetImportServiceTest extends TestCase
     {
         $this->modelSelectionService->method('findMatchingModel')->willReturn(null);
         $this->modelSelectionService->method('findCandidates')->willReturnCallback(
-            static fn(array $criteria): array => in_array($criteria['capabilities'], [['chat'], ['tools']], true)
+            static fn (array $criteria): array => in_array($criteria['capabilities'], [['chat'], ['tools']], true)
                 ? [new Model()]
                 : [],
         );
@@ -175,7 +175,7 @@ final class ConfigurationPresetImportServiceTest extends TestCase
     {
         $this->modelSelectionService->method('findMatchingModel')->willReturn(null);
         $this->modelSelectionService->method('findCandidates')->willReturnCallback(
-            static fn(array $criteria): array => isset($criteria['minContextLength']) ? [] : [new Model()],
+            static fn (array $criteria): array => isset($criteria['minContextLength']) ? [] : [new Model()],
         );
 
         $result = $this->subject->preflight($this->preset());
@@ -188,7 +188,7 @@ final class ConfigurationPresetImportServiceTest extends TestCase
     public function importCreatesActiveCriteriaModeRecordWithChecksum(): void
     {
         $preset = $this->preset();
-        $model = new Model();
+        $model  = new Model();
         $model->setName('Claude Sonnet');
         $this->modelSelectionService->method('findMatchingModel')->willReturn($model);
         $this->configurationRepository->method('findOneByIdentifier')->willReturn(null);
@@ -621,7 +621,7 @@ final class ConfigurationPresetImportServiceTest extends TestCase
         $this->modelSelectionService->method('findMatchingModel')->willReturn(null);
         // Capabilities alone find a candidate; adding the context length does not.
         $this->modelSelectionService->method('findCandidates')->willReturnCallback(
-            static fn(array $criteria): array => isset($criteria['minContextLength']) ? [] : [new Model()],
+            static fn (array $criteria): array => isset($criteria['minContextLength']) ? [] : [new Model()],
         );
 
         $result = $this->subject->preflight($this->preset());

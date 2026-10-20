@@ -23,7 +23,7 @@ final class UsageAnalyticsServiceShaperTest extends TestCase
     {
         $jun10 = (new DateTimeImmutable('2026-06-10 00:00:00'))->getTimestamp();
         $jun12 = (new DateTimeImmutable('2026-06-12 00:00:00'))->getTimestamp();
-        $rows = [
+        $rows  = [
             ['request_date' => $jun10, 'cost' => 1.5, 'requests' => 10, 'tokens' => 1000],
             ['request_date' => $jun12, 'cost' => 2.0, 'requests' => 20, 'tokens' => 2000],
         ];
@@ -70,8 +70,8 @@ final class UsageAnalyticsServiceShaperTest extends TestCase
         try {
             // Berlin local midnight; '@'.$ts would bucket this as the previous UTC day.
             $from = new DateTimeImmutable('2026-06-10 00:00:00');
-            $to = new DateTimeImmutable('2026-06-10 00:00:00');
-            $ts = (new DateTimeImmutable('2026-06-10 00:00:00'))->getTimestamp();
+            $to   = new DateTimeImmutable('2026-06-10 00:00:00');
+            $ts   = (new DateTimeImmutable('2026-06-10 00:00:00'))->getTimestamp();
             $rows = [
                 ['request_date' => $ts, 'cost' => 5.0, 'requests' => 1, 'tokens' => 10],
             ];

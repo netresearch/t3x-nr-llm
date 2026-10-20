@@ -33,7 +33,7 @@ final class SkillDiscovery
             foreach ($treePaths as $path) {
                 if (preg_match($pattern, $path) === 1 && !isset($seen[$path])) {
                     $seen[$path] = true;
-                    $matched[] = $path;
+                    $matched[]   = $path;
                 }
             }
         }

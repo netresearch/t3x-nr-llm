@@ -45,11 +45,11 @@ final class PurgePrivacyDataCommandTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->eval       = new InMemoryEvaluationResultRepository();
-        $this->audit      = new InMemorySkillAuditRepository();
-        $this->telemetry  = new InMemoryTelemetryRepository();
-        $this->sessions   = new InMemoryAiSessionRepository();
-        $this->agentRuns  = new InMemoryAgentRunRepository();
+        $this->eval         = new InMemoryEvaluationResultRepository();
+        $this->audit        = new InMemorySkillAuditRepository();
+        $this->telemetry    = new InMemoryTelemetryRepository();
+        $this->sessions     = new InMemoryAiSessionRepository();
+        $this->agentRuns    = new InMemoryAgentRunRepository();
         $this->governance   = new InMemoryGovernanceEventRepository();
         $this->callOutcomes = new InMemoryCallOutcomeRepository();
     }
@@ -64,7 +64,7 @@ final class PurgePrivacyDataCommandTest extends TestCase
         $this->agentRuns->purgeReturns           = 11;
         $this->agentRuns->purgeUnfinishedReturns = 1;
 
-        $this->governance->purgeReturns          = 4;
+        $this->governance->purgeReturns = 4;
 
         $tester = new CommandTester($this->command(['retentionDays' => '45']));
 

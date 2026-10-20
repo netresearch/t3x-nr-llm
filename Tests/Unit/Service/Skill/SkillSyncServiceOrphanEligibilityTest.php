@@ -75,14 +75,14 @@ final class SkillSyncServiceOrphanEligibilityTest extends AbstractUnitTestCase
     {
         $method = (new ReflectionClass($this->subject))->getMethod('orphanEligible');
 
-        return (bool)$method->invoke($this->subject, $identifier, $reachedPrefixes, $listedPrefixes);
+        return (bool) $method->invoke($this->subject, $identifier, $reachedPrefixes, $listedPrefixes);
     }
 
     private function isLockActive(SkillSource $source, int $now): bool
     {
         $method = (new ReflectionClass($this->subject))->getMethod('isLockActive');
 
-        return (bool)$method->invoke($this->subject, $source, $now);
+        return (bool) $method->invoke($this->subject, $source, $now);
     }
 
     private function sourceWith(SyncStatus $status, int $lastSynced): SkillSource
@@ -131,7 +131,7 @@ final class SkillSyncServiceOrphanEligibilityTest extends AbstractUnitTestCase
     {
         $method = (new ReflectionClass($this->subject))->getMethod('inScope');
 
-        return (bool)$method->invoke($this->subject, $identifier, $prefixes);
+        return (bool) $method->invoke($this->subject, $identifier, $prefixes);
     }
 
     #[Test]

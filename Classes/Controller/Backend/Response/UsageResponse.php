@@ -43,9 +43,9 @@ final readonly class UsageResponse implements JsonSerializable
     public function jsonSerialize(): array
     {
         return [
-            'promptTokens' => $this->promptTokens,
+            'promptTokens'     => $this->promptTokens,
             'completionTokens' => $this->completionTokens,
-            'totalTokens' => $this->totalTokens,
+            'totalTokens'      => $this->totalTokens,
         ];
     }
 }

@@ -36,9 +36,9 @@ final class ServiceQuotaExceededException extends SpecializedServiceException
             $message,
             $service,
             [
-                'type' => 'rate_limit',
+                'type'        => 'rate_limit',
                 'retry_after' => $retryAfterSeconds,
-                'statusCode' => 429,
+                'statusCode'  => 429,
             ],
         );
     }
@@ -67,10 +67,10 @@ final class ServiceQuotaExceededException extends SpecializedServiceException
             $message,
             $service,
             [
-                'type' => 'quota',
+                'type'       => 'quota',
                 'quota_type' => $quotaType,
-                'limit' => $limit,
-                'used' => $used,
+                'limit'      => $limit,
+                'used'       => $used,
             ],
         );
     }

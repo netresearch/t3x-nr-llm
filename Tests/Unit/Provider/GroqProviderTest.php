@@ -50,9 +50,9 @@ class GroqProviderTest extends AbstractUnitTestCase
 
         $this->subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'llama-3.3-70b-versatile',
-            'baseUrl' => '',
-            'timeout' => 30,
+            'defaultModel'     => 'llama-3.3-70b-versatile',
+            'baseUrl'          => '',
+            'timeout'          => 30,
         ]);
 
         // setHttpClient must be called AFTER configure() since configure() resets the client
@@ -78,9 +78,9 @@ class GroqProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'llama-3.3-70b-versatile',
-            'baseUrl' => '',
-            'timeout' => 30,
+            'defaultModel'     => 'llama-3.3-70b-versatile',
+            'baseUrl'          => '',
+            'timeout'          => 30,
         ]);
 
         // setHttpClient must be called AFTER configure() since configure() resets the client
@@ -117,23 +117,23 @@ class GroqProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'id' => 'chatcmpl-' . $this->faker->uuid(),
-            'object' => 'chat.completion',
-            'model' => 'llama-3.3-70b-versatile',
+            'id'      => 'chatcmpl-' . $this->faker->uuid(),
+            'object'  => 'chat.completion',
+            'model'   => 'llama-3.3-70b-versatile',
             'choices' => [
                 [
-                    'index' => 0,
+                    'index'   => 0,
                     'message' => [
-                        'role' => 'assistant',
+                        'role'    => 'assistant',
                         'content' => 'Groq response content',
                     ],
                     'finish_reason' => 'stop',
                 ],
             ],
             'usage' => [
-                'prompt_tokens' => 10,
+                'prompt_tokens'     => 10,
                 'completion_tokens' => 20,
-                'total_tokens' => 30,
+                'total_tokens'      => 30,
             ],
         ];
 
@@ -156,7 +156,7 @@ class GroqProviderTest extends AbstractUnitTestCase
         $errorResponse = [
             'error' => [
                 'message' => 'Invalid API Key',
-                'type' => 'invalid_api_key',
+                'type'    => 'invalid_api_key',
             ],
         ];
 
@@ -175,7 +175,7 @@ class GroqProviderTest extends AbstractUnitTestCase
         $errorResponse = [
             'error' => [
                 'message' => 'Rate limit exceeded',
-                'type' => 'rate_limit_error',
+                'type'    => 'rate_limit_error',
             ],
         ];
 
@@ -222,12 +222,12 @@ class GroqProviderTest extends AbstractUnitTestCase
 
         $tools = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => [
-                    'name' => 'get_weather',
+                    'name'        => 'get_weather',
                     'description' => 'Get current weather',
-                    'parameters' => [
-                        'type' => 'object',
+                    'parameters'  => [
+                        'type'       => 'object',
                         'properties' => [
                             'location' => ['type' => 'string'],
                         ],
@@ -237,21 +237,21 @@ class GroqProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'id' => 'chatcmpl-test',
-            'object' => 'chat.completion',
-            'model' => 'llama-3.3-70b-versatile',
+            'id'      => 'chatcmpl-test',
+            'object'  => 'chat.completion',
+            'model'   => 'llama-3.3-70b-versatile',
             'choices' => [
                 [
-                    'index' => 0,
+                    'index'   => 0,
                     'message' => [
-                        'role' => 'assistant',
-                        'content' => '',
+                        'role'       => 'assistant',
+                        'content'    => '',
                         'tool_calls' => [
                             [
-                                'id' => 'call_abc123',
-                                'type' => 'function',
+                                'id'       => 'call_abc123',
+                                'type'     => 'function',
                                 'function' => [
-                                    'name' => 'get_weather',
+                                    'name'      => 'get_weather',
                                     'arguments' => '{"location": "London"}',
                                 ],
                             ],
@@ -261,9 +261,9 @@ class GroqProviderTest extends AbstractUnitTestCase
                 ],
             ],
             'usage' => [
-                'prompt_tokens' => 15,
+                'prompt_tokens'     => 15,
                 'completion_tokens' => 10,
-                'total_tokens' => 25,
+                'total_tokens'      => 25,
             ],
         ];
 
@@ -289,7 +289,7 @@ class GroqProviderTest extends AbstractUnitTestCase
 
         $tools = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => ['name' => 'get_weather', 'parameters' => ['type' => 'object', 'properties' => []]],
             ]),
         ];
@@ -297,12 +297,12 @@ class GroqProviderTest extends AbstractUnitTestCase
         // A tool call with an empty function name must be skipped, not crash the
         // whole completion (ToolCall::tryFromArray returns null for it).
         $apiResponse = [
-            'id'     => 'chatcmpl-test',
-            'object' => 'chat.completion',
-            'model'  => 'llama-3.3-70b-versatile',
+            'id'      => 'chatcmpl-test',
+            'object'  => 'chat.completion',
+            'model'   => 'llama-3.3-70b-versatile',
             'choices' => [
                 [
-                    'index' => 0,
+                    'index'   => 0,
                     'message' => [
                         'role'       => 'assistant',
                         'content'    => '',
@@ -374,13 +374,13 @@ class GroqProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'id' => 'chatcmpl-test',
-            'object' => 'chat.completion',
-            'model' => 'llama-3.3-70b-versatile',
+            'id'      => 'chatcmpl-test',
+            'object'  => 'chat.completion',
+            'model'   => 'llama-3.3-70b-versatile',
             'choices' => [
                 [
-                    'index' => 0,
-                    'message' => ['role' => 'assistant', 'content' => 'Response'],
+                    'index'         => 0,
+                    'message'       => ['role' => 'assistant', 'content' => 'Response'],
                     'finish_reason' => 'stop',
                 ],
             ],
@@ -393,14 +393,14 @@ class GroqProviderTest extends AbstractUnitTestCase
             ->willReturn($this->createJsonResponseMock($apiResponse));
 
         $options = [
-            'model' => 'llama-3.1-8b-instant',
-            'temperature' => 0.5,
-            'max_tokens' => 2048,
-            'top_p' => 0.9,
+            'model'             => 'llama-3.1-8b-instant',
+            'temperature'       => 0.5,
+            'max_tokens'        => 2048,
+            'top_p'             => 0.9,
             'frequency_penalty' => 0.5,
-            'presence_penalty' => 0.3,
-            'stop' => ['END', '###'],
-            'seed' => 42,
+            'presence_penalty'  => 0.3,
+            'stop'              => ['END', '###'],
+            'seed'              => 42,
         ];
 
         $result = $subject->chatCompletion($messages, $options);
@@ -414,25 +414,25 @@ class GroqProviderTest extends AbstractUnitTestCase
         ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
 
         $messages = [['role' => 'user', 'content' => 'Test']];
-        $tools = [
+        $tools    = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => [
-                    'name' => 'test_function',
+                    'name'        => 'test_function',
                     'description' => 'A test function',
-                    'parameters' => ['type' => 'object', 'properties' => []],
+                    'parameters'  => ['type' => 'object', 'properties' => []],
                 ],
             ]),
         ];
 
         $apiResponse = [
-            'id' => 'chatcmpl-test',
-            'object' => 'chat.completion',
-            'model' => 'llama-3.3-70b-versatile',
+            'id'      => 'chatcmpl-test',
+            'object'  => 'chat.completion',
+            'model'   => 'llama-3.3-70b-versatile',
             'choices' => [
                 [
-                    'index' => 0,
-                    'message' => ['role' => 'assistant', 'content' => 'Response'],
+                    'index'         => 0,
+                    'message'       => ['role' => 'assistant', 'content' => 'Response'],
                     'finish_reason' => 'stop',
                 ],
             ],
@@ -445,7 +445,7 @@ class GroqProviderTest extends AbstractUnitTestCase
             ->willReturn($this->createJsonResponseMock($apiResponse));
 
         $options = [
-            'tool_choice' => 'auto',
+            'tool_choice'         => 'auto',
             'parallel_tool_calls' => true,
         ];
 
@@ -467,9 +467,9 @@ class GroqProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => '',
-            'baseUrl' => '',
-            'timeout' => 30,
+            'defaultModel'     => '',
+            'baseUrl'          => '',
+            'timeout'          => 30,
         ]);
 
         // Should return the constant default when empty string configured
@@ -482,13 +482,13 @@ class GroqProviderTest extends AbstractUnitTestCase
         ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
 
         $apiResponse = [
-            'id' => 'chatcmpl-test',
-            'object' => 'chat.completion',
-            'model' => 'llama-3.3-70b-versatile',
+            'id'      => 'chatcmpl-test',
+            'object'  => 'chat.completion',
+            'model'   => 'llama-3.3-70b-versatile',
             'choices' => [
                 [
-                    'index' => 0,
-                    'message' => ['role' => 'assistant', 'content' => 'Stopped content'],
+                    'index'         => 0,
+                    'message'       => ['role' => 'assistant', 'content' => 'Stopped content'],
                     'finish_reason' => 'stop',
                 ],
             ],
@@ -514,21 +514,21 @@ class GroqProviderTest extends AbstractUnitTestCase
         ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
 
         $apiResponse = [
-            'id' => 'chatcmpl-test',
-            'object' => 'chat.completion',
-            'model' => 'llama-3.3-70b-versatile',
+            'id'      => 'chatcmpl-test',
+            'object'  => 'chat.completion',
+            'model'   => 'llama-3.3-70b-versatile',
             'choices' => [
                 [
-                    'index' => 0,
+                    'index'   => 0,
                     'message' => [
-                        'role' => 'assistant',
-                        'content' => '',
+                        'role'       => 'assistant',
+                        'content'    => '',
                         'tool_calls' => [
                             [
-                                'id' => 'tool_call_1',
-                                'type' => 'function',
+                                'id'       => 'tool_call_1',
+                                'type'     => 'function',
                                 'function' => [
-                                    'name' => 'get_data',
+                                    'name'      => 'get_data',
                                     'arguments' => 'invalid json',
                                 ],
                             ],
@@ -547,11 +547,11 @@ class GroqProviderTest extends AbstractUnitTestCase
 
         $tools = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => [
-                    'name' => 'get_data',
+                    'name'        => 'get_data',
                     'description' => 'Get data',
-                    'parameters' => ['type' => 'object'],
+                    'parameters'  => ['type' => 'object'],
                 ],
             ]),
         ];
@@ -574,13 +574,13 @@ class GroqProviderTest extends AbstractUnitTestCase
         ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
 
         $apiResponse = [
-            'id' => 'chatcmpl-test',
-            'object' => 'chat.completion',
-            'model' => 'llama-3.3-70b-versatile',
+            'id'      => 'chatcmpl-test',
+            'object'  => 'chat.completion',
+            'model'   => 'llama-3.3-70b-versatile',
             'choices' => [
                 [
-                    'index' => 0,
-                    'message' => ['role' => 'assistant', 'content' => 'Response'],
+                    'index'         => 0,
+                    'message'       => ['role' => 'assistant', 'content' => 'Response'],
                     'finish_reason' => 'stop',
                 ],
             ],
@@ -606,13 +606,13 @@ class GroqProviderTest extends AbstractUnitTestCase
         ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
 
         $apiResponse = [
-            'id' => 'chatcmpl-test',
-            'object' => 'chat.completion',
-            'model' => 'llama-3.3-70b-versatile',
+            'id'      => 'chatcmpl-test',
+            'object'  => 'chat.completion',
+            'model'   => 'llama-3.3-70b-versatile',
             'choices' => [
                 [
-                    'index' => 0,
-                    'message' => ['role' => 'assistant', 'content' => 'Response'],
+                    'index'         => 0,
+                    'message'       => ['role' => 'assistant', 'content' => 'Response'],
                     'finish_reason' => 'stop',
                 ],
             ],
@@ -636,11 +636,11 @@ class GroqProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithEmptyChoices(): void
     {
         $apiResponse = [
-            'id' => 'chatcmpl-test',
-            'object' => 'chat.completion',
-            'model' => 'llama-3.3-70b-versatile',
+            'id'      => 'chatcmpl-test',
+            'object'  => 'chat.completion',
+            'model'   => 'llama-3.3-70b-versatile',
             'choices' => [],
-            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 0],
+            'usage'   => ['prompt_tokens' => 10, 'completion_tokens' => 0],
         ];
 
         $this->httpClientStub
@@ -659,15 +659,15 @@ class GroqProviderTest extends AbstractUnitTestCase
         ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
 
         $apiResponse = [
-            'id' => 'chatcmpl-test',
-            'object' => 'chat.completion',
-            'model' => 'llama-3.3-70b-versatile',
+            'id'      => 'chatcmpl-test',
+            'object'  => 'chat.completion',
+            'model'   => 'llama-3.3-70b-versatile',
             'choices' => [
                 [
-                    'index' => 0,
+                    'index'   => 0,
                     'message' => [
-                        'role' => 'assistant',
-                        'content' => 'No tools needed',
+                        'role'       => 'assistant',
+                        'content'    => 'No tools needed',
                         'tool_calls' => [],
                     ],
                     'finish_reason' => 'stop',
@@ -706,9 +706,9 @@ class GroqProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'llama-3.3-70b-versatile',
-            'baseUrl' => 'https://api.groq.com/openai/v1',
-            'timeout' => 30,
+            'defaultModel'     => 'llama-3.3-70b-versatile',
+            'baseUrl'          => 'https://api.groq.com/openai/v1',
+            'timeout'          => 30,
         ]);
 
         $streamContent = "data: {\"choices\":[{\"delta\":{\"content\":\"Hello\"}}]}\n\n"
@@ -730,7 +730,7 @@ class GroqProviderTest extends AbstractUnitTestCase
 
         $subject->setHttpClient($httpClientMock);
 
-        $messages = [['role' => 'user', 'content' => 'Test']];
+        $messages  = [['role' => 'user', 'content' => 'Test']];
         $generator = $subject->streamChatCompletion($messages);
 
         $chunks = iterator_to_array($generator);
@@ -751,9 +751,9 @@ class GroqProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'llama-3.3-70b-versatile',
-            'baseUrl' => 'https://api.groq.com/openai/v1',
-            'timeout' => 30,
+            'defaultModel'     => 'llama-3.3-70b-versatile',
+            'baseUrl'          => 'https://api.groq.com/openai/v1',
+            'timeout'          => 30,
         ]);
 
         $streamContent = "data: {\"choices\":[{\"delta\":{\"content\":\"\"}}]}\n\n"
@@ -775,7 +775,7 @@ class GroqProviderTest extends AbstractUnitTestCase
 
         $subject->setHttpClient($httpClientMock);
 
-        $messages = [['role' => 'user', 'content' => 'Test']];
+        $messages  = [['role' => 'user', 'content' => 'Test']];
         $generator = $subject->streamChatCompletion($messages);
 
         $chunks = iterator_to_array($generator);
@@ -797,9 +797,9 @@ class GroqProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'llama-3.3-70b-versatile',
-            'baseUrl' => 'https://api.groq.com/openai/v1',
-            'timeout' => 30,
+            'defaultModel'     => 'llama-3.3-70b-versatile',
+            'baseUrl'          => 'https://api.groq.com/openai/v1',
+            'timeout'          => 30,
         ]);
 
         $streamContent = "data: invalid-json\n\n"
@@ -821,7 +821,7 @@ class GroqProviderTest extends AbstractUnitTestCase
 
         $subject->setHttpClient($httpClientMock);
 
-        $messages = [['role' => 'user', 'content' => 'Test']];
+        $messages  = [['role' => 'user', 'content' => 'Test']];
         $generator = $subject->streamChatCompletion($messages);
 
         $chunks = iterator_to_array($generator);
@@ -842,9 +842,9 @@ class GroqProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'llama-3.3-70b-versatile',
-            'baseUrl' => 'https://api.groq.com/openai/v1',
-            'timeout' => 30,
+            'defaultModel'     => 'llama-3.3-70b-versatile',
+            'baseUrl'          => 'https://api.groq.com/openai/v1',
+            'timeout'          => 30,
         ]);
 
         $streamContent = "data: {\"choices\":[{\"delta\":{\"content\":\"Test\"}}]}\n\n"
@@ -865,7 +865,7 @@ class GroqProviderTest extends AbstractUnitTestCase
 
         $subject->setHttpClient($httpClientMock);
 
-        $messages = [['role' => 'user', 'content' => 'Test']];
+        $messages  = [['role' => 'user', 'content' => 'Test']];
         $generator = $subject->streamChatCompletion($messages, ['temperature' => 0.5]);
 
         $chunks = iterator_to_array($generator);
@@ -886,9 +886,9 @@ class GroqProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'llama-3.3-70b-versatile',
-            'baseUrl' => 'https://api.groq.com/openai/v1',
-            'timeout' => 30,
+            'defaultModel'     => 'llama-3.3-70b-versatile',
+            'baseUrl'          => 'https://api.groq.com/openai/v1',
+            'timeout'          => 30,
         ]);
 
         $streamContent = "some-other-line\n"
@@ -910,7 +910,7 @@ class GroqProviderTest extends AbstractUnitTestCase
 
         $subject->setHttpClient($httpClientMock);
 
-        $messages = [['role' => 'user', 'content' => 'Test']];
+        $messages  = [['role' => 'user', 'content' => 'Test']];
         $generator = $subject->streamChatCompletion($messages);
 
         $chunks = iterator_to_array($generator);
@@ -923,7 +923,7 @@ class GroqProviderTest extends AbstractUnitTestCase
     {
         $apiResponse = [
             'object' => 'list',
-            'data' => [
+            'data'   => [
                 ['id' => 'llama-3.3-70b-versatile', 'object' => 'model'],
                 ['id' => 'mixtral-8x7b-32768', 'object' => 'model'],
             ],
@@ -1014,9 +1014,9 @@ class GroqProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'llama-3.3-70b-versatile',
-            'baseUrl' => $baseUrl,
-            'timeout' => 30,
+            'defaultModel'     => 'llama-3.3-70b-versatile',
+            'baseUrl'          => $baseUrl,
+            'timeout'          => 30,
         ]);
 
         $subject->setHttpClient($httpClientMock);
@@ -1048,7 +1048,7 @@ class GroqProviderTest extends AbstractUnitTestCase
     private function chatApiResponseFixture(): array
     {
         return [
-            'model' => 'llama-3.3-70b-versatile',
+            'model'   => 'llama-3.3-70b-versatile',
             'choices' => [
                 ['message' => ['role' => 'assistant', 'content' => 'ok'], 'finish_reason' => 'stop'],
             ],
@@ -1218,11 +1218,11 @@ class GroqProviderTest extends AbstractUnitTestCase
         );
 
         $spec = ToolSpec::fromArray([
-            'type' => 'function',
+            'type'     => 'function',
             'function' => [
-                'name' => 'get_weather',
+                'name'        => 'get_weather',
                 'description' => 'Get current weather',
-                'parameters' => ['type' => 'object', 'properties' => []],
+                'parameters'  => ['type' => 'object', 'properties' => []],
             ],
         ]);
 
@@ -1244,7 +1244,7 @@ class GroqProviderTest extends AbstractUnitTestCase
         // Normalise the expected through the same JSON round-trip the body went
         // through (decodeCapturedBody uses assoc=true), so an empty `properties`
         // object ({}) compares equal on both sides rather than stdClass vs [].
-        self::assertSame(json_decode((string)json_encode([$spec->toArray()]), true), $body['tools']);
+        self::assertSame(json_decode((string) json_encode([$spec->toArray()]), true), $body['tools']);
         self::assertArrayHasKey('temperature', $body);
         self::assertSame(0.7, $body['temperature']);
         self::assertArrayHasKey('max_tokens', $body);
@@ -1349,9 +1349,9 @@ class GroqProviderTest extends AbstractUnitTestCase
         // any request is built.
         $subject->configure([
             'apiKeyIdentifier' => '',
-            'defaultModel' => 'llama-3.3-70b-versatile',
-            'baseUrl' => 'https://api.groq.com/openai/v1',
-            'timeout' => 30,
+            'defaultModel'     => 'llama-3.3-70b-versatile',
+            'baseUrl'          => 'https://api.groq.com/openai/v1',
+            'timeout'          => 30,
         ]);
 
         $httpClientMock = $this->createHttpClientWithExpectations();
@@ -1379,9 +1379,9 @@ class GroqProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'llama-3.3-70b-versatile',
-            'baseUrl' => 'https://api.groq.com/openai/v1',
-            'timeout' => 30,
+            'defaultModel'     => 'llama-3.3-70b-versatile',
+            'baseUrl'          => 'https://api.groq.com/openai/v1',
+            'timeout'          => 30,
         ]);
 
         // A 4xx streaming response must surface a typed exception: this pins the
@@ -1419,9 +1419,9 @@ class GroqProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'llama-3.3-70b-versatile',
-            'baseUrl' => 'https://api.groq.com/openai/v1',
-            'timeout' => 30,
+            'defaultModel'     => 'llama-3.3-70b-versatile',
+            'baseUrl'          => 'https://api.groq.com/openai/v1',
+            'timeout'          => 30,
         ]);
 
         // A single SSE line split across two reads: the first chunk carries no
@@ -1463,9 +1463,9 @@ class GroqProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'llama-3.3-70b-versatile',
-            'baseUrl' => 'https://api.groq.com/openai/v1',
-            'timeout' => 30,
+            'defaultModel'     => 'llama-3.3-70b-versatile',
+            'baseUrl'          => 'https://api.groq.com/openai/v1',
+            'timeout'          => 30,
         ]);
 
         // Pin the SSE read granularity: the stream is consumed in 1024-byte
@@ -1508,9 +1508,9 @@ class GroqProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'llama-3.3-70b-versatile',
-            'baseUrl' => 'https://api.groq.com/openai/v1',
-            'timeout' => 30,
+            'defaultModel'     => 'llama-3.3-70b-versatile',
+            'baseUrl'          => 'https://api.groq.com/openai/v1',
+            'timeout'          => 30,
         ]);
 
         // Content AFTER the [DONE] marker must never be yielded: this pins the
@@ -1545,9 +1545,9 @@ class GroqProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'llama-3.3-70b-versatile',
-            'baseUrl' => 'https://api.groq.com/openai/v1',
-            'timeout' => 30,
+            'defaultModel'     => 'llama-3.3-70b-versatile',
+            'baseUrl'          => 'https://api.groq.com/openai/v1',
+            'timeout'          => 30,
         ]);
 
         // Pin the json_decode() depth limit of 512 from BOTH sides:

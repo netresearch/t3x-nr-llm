@@ -114,7 +114,7 @@ final readonly class SearchFalFilesTool implements ToolInterface
         $rows = $queryBuilder
             ->select('f.uid', 'f.storage', 'f.identifier', 'f.mime_type', 'f.size')
             ->from('sys_file', 'f')
-            ->leftJoin('f', 'sys_file_metadata', 'm', (string)$queryBuilder->expr()->and(
+            ->leftJoin('f', 'sys_file_metadata', 'm', (string) $queryBuilder->expr()->and(
                 $queryBuilder->expr()->eq('m.file', $queryBuilder->quoteIdentifier('f.uid')),
                 $queryBuilder->expr()->eq('m.sys_language_uid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
                 // Live only. sys_file_metadata is workspace-aware, so a file
@@ -149,7 +149,7 @@ final readonly class SearchFalFilesTool implements ToolInterface
         if (!$isAdmin) {
             $rows = array_slice(array_values(array_filter(
                 $rows,
-                fn(array $row): bool => $this->storageGate->isFileAccessible(
+                fn (array $row): bool => $this->storageGate->isFileAccessible(
                     $user,
                     self::toInt($row['storage'] ?? 0),
                     self::toStr($row['identifier'] ?? ''),
