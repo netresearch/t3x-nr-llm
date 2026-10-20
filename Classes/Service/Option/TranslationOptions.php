@@ -141,17 +141,19 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
 
     public function withFormality(string $formality): static
     {
-        $clone = clone $this;
+        $clone            = clone $this;
         $clone->formality = $formality;
         $clone->validate();
+
         return $clone;
     }
 
     public function withDomain(string $domain): static
     {
-        $clone = clone $this;
+        $clone         = clone $this;
         $clone->domain = $domain;
         $clone->validate();
+
         return $clone;
     }
 
@@ -160,52 +162,59 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
      */
     public function withGlossary(array $glossary): static
     {
-        $clone = clone $this;
+        $clone           = clone $this;
         $clone->glossary = $glossary;
+
         return $clone;
     }
 
     public function withContext(string $context): static
     {
-        $clone = clone $this;
+        $clone          = clone $this;
         $clone->context = $context;
+
         return $clone;
     }
 
     public function withPreserveFormatting(bool $preserveFormatting): static
     {
-        $clone = clone $this;
+        $clone                     = clone $this;
         $clone->preserveFormatting = $preserveFormatting;
+
         return $clone;
     }
 
     public function withTemperature(float $temperature): static
     {
-        $clone = clone $this;
+        $clone              = clone $this;
         $clone->temperature = $temperature;
         $clone->validate();
+
         return $clone;
     }
 
     public function withMaxTokens(int $maxTokens): static
     {
-        $clone = clone $this;
+        $clone            = clone $this;
         $clone->maxTokens = $maxTokens;
         $clone->validate();
+
         return $clone;
     }
 
     public function withProvider(string $provider): static
     {
-        $clone = clone $this;
+        $clone           = clone $this;
         $clone->provider = $provider;
+
         return $clone;
     }
 
     public function withModel(string $model): static
     {
-        $clone = clone $this;
+        $clone        = clone $this;
         $clone->model = $model;
+
         return $clone;
     }
 
@@ -216,8 +225,9 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
      */
     public function withConfiguration(string $configuration): static
     {
-        $clone = clone $this;
+        $clone                = clone $this;
         $clone->configuration = $configuration;
+
         return $clone;
     }
 
@@ -229,8 +239,9 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
      */
     public function withTranslator(string $translator): static
     {
-        $clone = clone $this;
+        $clone             = clone $this;
         $clone->translator = $translator;
+
         return $clone;
     }
 
@@ -242,8 +253,9 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
      */
     public function withSite(string $site): static
     {
-        $clone = clone $this;
+        $clone       = clone $this;
         $clone->site = $site;
+
         return $clone;
     }
 
@@ -255,9 +267,10 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
      */
     public function withTagHandling(string $tagHandling): static
     {
-        $clone = clone $this;
+        $clone              = clone $this;
         $clone->tagHandling = $tagHandling;
         $clone->validate();
+
         return $clone;
     }
 
@@ -269,9 +282,10 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
      */
     public function withCacheTtl(int $cacheTtl): static
     {
-        $clone = clone $this;
+        $clone           = clone $this;
         $clone->cacheTtl = $cacheTtl;
         $clone->validate();
+
         return $clone;
     }
 
@@ -363,17 +377,17 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
     public function toArray(): array
     {
         return $this->filterNull([
-            'formality' => $this->formality,
-            'domain' => $this->domain,
-            'glossary' => $this->glossary,
-            'context' => $this->context,
+            'formality'           => $this->formality,
+            'domain'              => $this->domain,
+            'glossary'            => $this->glossary,
+            'context'             => $this->context,
             'preserve_formatting' => $this->preserveFormatting,
-            'temperature' => $this->temperature,
-            'max_tokens' => $this->maxTokens,
-            'provider' => $this->provider,
-            'model' => $this->model,
-            'configuration' => $this->configuration,
-            'translator' => $this->translator,
+            'temperature'         => $this->temperature,
+            'max_tokens'          => $this->maxTokens,
+            'provider'            => $this->provider,
+            'model'               => $this->model,
+            'configuration'       => $this->configuration,
+            'translator'          => $this->translator,
             // Read by DeepLOptions::fromArray() on the DeepL path.
             'tag_handling' => $this->tagHandling,
         ]);

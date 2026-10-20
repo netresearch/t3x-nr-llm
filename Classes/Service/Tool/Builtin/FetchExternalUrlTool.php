@@ -128,7 +128,7 @@ final readonly class FetchExternalUrlTool implements ToolInterface, Configurable
         private ApprovalPreviewTranslator $translator,
         ?Closure $clock = null,
     ) {
-        $this->clock = $clock ?? static fn(): float => microtime(true);
+        $this->clock = $clock ?? static fn (): float => microtime(true);
     }
 
     /**
@@ -159,7 +159,7 @@ final readonly class FetchExternalUrlTool implements ToolInterface, Configurable
         // In the acting user's language (ADR-213); the values are shown as they
         // are, not quoted or flattened: they are what leaves the site.
         $user = $context->actingBackendUser();
-        $t    = fn(ApprovalPreviewLabel $label, string ...$arguments): string => $this->translator->text($user, $label, ...$arguments);
+        $t    = fn (ApprovalPreviewLabel $label, string ...$arguments): string => $this->translator->text($user, $label, ...$arguments);
 
         return [
             $t(ApprovalPreviewLabel::FetchUrlHeading),
@@ -258,7 +258,7 @@ final readonly class FetchExternalUrlTool implements ToolInterface, Configurable
                 }
 
                 try {
-                    $next = (string)UriResolver::resolve(new Uri($target->url), new Uri($location));
+                    $next = (string) UriResolver::resolve(new Uri($target->url), new Uri($location));
                 } catch (Throwable) {
                     return ToolResult::error(sprintf('Fetch of %s failed: the redirect target cannot be parsed.', $this->displayUrl($target->url)));
                 }
@@ -289,7 +289,7 @@ final readonly class FetchExternalUrlTool implements ToolInterface, Configurable
      */
     private function timeLeft(float $deadline): int
     {
-        return (int)floor($deadline - ($this->clock)());
+        return (int) floor($deadline - ($this->clock)());
     }
 
     private function timeUp(string $url, bool $isRedirect): ToolResult
@@ -503,7 +503,7 @@ final readonly class FetchExternalUrlTool implements ToolInterface, Configurable
     {
         return preg_replace_callback(
             self::MARKER_LIKE,
-            static fn(array $m): string => '[' . strtolower($m[1]) . ' untrusted external web content',
+            static fn (array $m): string => '[' . strtolower($m[1]) . ' untrusted external web content',
             $text,
         ) ?? '(the page text could not be made safe to show and was withheld)';
     }

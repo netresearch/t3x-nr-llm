@@ -89,7 +89,7 @@ final class EditorialStarterPackProviderTest extends TestCase
                 'editorial-starter-review',
                 'editorial-starter-headlines',
             ],
-            array_map(static fn(PackTask $task): string => $task->identifier, $this->pack()->tasks),
+            array_map(static fn (PackTask $task): string => $task->identifier, $this->pack()->tasks),
         );
     }
 
@@ -110,7 +110,7 @@ final class EditorialStarterPackProviderTest extends TestCase
     {
         // Two registers with two rule sets: Leichte Sprache always answers in
         // German, the plain-language task in the language of the text.
-        $leicht = $this->task('editorial-starter-leichte-sprache');
+        $leicht  = $this->task('editorial-starter-leichte-sprache');
         $einfach = $this->task('editorial-starter-plain-language');
 
         self::assertNotSame($einfach->promptTemplate, $leicht->promptTemplate);

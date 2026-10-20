@@ -187,18 +187,18 @@ final class SetFileAlternativeTextToolTest extends AbstractUnitTestCase
      */
     public static function refusedArguments(): iterable
     {
-        yield 'no uid'          => [['alternative' => 'x'], 'exactly one file'];
-        yield 'zero uid'        => [['uid' => 0, 'alternative' => 'x'], 'exactly one file'];
-        yield 'negative uid'    => [['uid' => -3, 'alternative' => 'x'], 'exactly one file'];
+        yield 'no uid' => [['alternative' => 'x'], 'exactly one file'];
+        yield 'zero uid' => [['uid' => 0, 'alternative' => 'x'], 'exactly one file'];
+        yield 'negative uid' => [['uid' => -3, 'alternative' => 'x'], 'exactly one file'];
         yield 'non-numeric uid' => [['uid' => 'all', 'alternative' => 'x'], 'exactly one file'];
-        yield 'no text at all'  => [['uid' => 1], '"alternative" is required'];
-        yield 'null text'       => [['uid' => 1, 'alternative' => null], '"alternative" is required'];
-        yield 'array value'     => [['uid' => 1, 'alternative' => ['a']], 'must be a string'];
-        yield 'boolean value'   => [['uid' => 1, 'alternative' => true], 'must be a string'];
+        yield 'no text at all' => [['uid' => 1], '"alternative" is required'];
+        yield 'null text' => [['uid' => 1, 'alternative' => null], '"alternative" is required'];
+        yield 'array value' => [['uid' => 1, 'alternative' => ['a']], 'must be a string'];
+        yield 'boolean value' => [['uid' => 1, 'alternative' => true], 'must be a string'];
         // Another field of the same table is still another tool's business.
-        yield 'foreign field title'       => [['uid' => 1, 'alternative' => 'x', 'title' => 'y'], 'not an argument of this tool'];
+        yield 'foreign field title' => [['uid' => 1, 'alternative' => 'x', 'title' => 'y'], 'not an argument of this tool'];
         yield 'foreign field description' => [['uid' => 1, 'alternative' => 'x', 'description' => 'y'], 'not an argument of this tool'];
-        yield 'a language argument'       => [['uid' => 1, 'alternative' => 'x', 'sys_language_uid' => 1], 'not an argument of this tool'];
+        yield 'a language argument' => [['uid' => 1, 'alternative' => 'x', 'sys_language_uid' => 1], 'not an argument of this tool'];
     }
 
     /**

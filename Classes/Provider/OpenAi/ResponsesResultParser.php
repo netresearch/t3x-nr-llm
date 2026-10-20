@@ -144,10 +144,10 @@ final class ResponsesResultParser
     private function toolCallOf(array $item): ?ToolCall
     {
         return ToolCall::tryFromArray([
-            'id' => $this->getString($item, 'call_id'),
-            'type' => 'function',
+            'id'       => $this->getString($item, 'call_id'),
+            'type'     => 'function',
             'function' => [
-                'name' => $this->getString($item, 'name'),
+                'name'      => $this->getString($item, 'name'),
                 'arguments' => $this->getString($item, 'arguments'),
             ],
         ]);

@@ -97,7 +97,7 @@ final class TypeSafeProvider extends AbstractDecisionProvider
         return [
             'success' => true,
             'message' => sprintf('Connection successful. Found %d models.', count($models)),
-            'models' => $models,
+            'models'  => $models,
         ];
     }
 
@@ -108,9 +108,9 @@ final class TypeSafeProvider extends AbstractDecisionProvider
 
     protected function sendDecision(DecisionSubject $subject, array $questions, string $model, array $options): array
     {
-        $state = $subject->toState();
+        $state   = $subject->toState();
         $payload = [
-            'model'     => $model,
+            'model' => $model,
             // TypeSafe requires a state; a profile that requires no subject
             // field asks its questions about nothing but their instructions.
             'state'     => $state === [] ? '' : $state,
@@ -167,7 +167,7 @@ final class TypeSafeProvider extends AbstractDecisionProvider
 
         if (is_array($detail)) {
             $messages = array_filter(array_map(
-                static fn(mixed $entry): string => is_array($entry) && is_string($entry['msg'] ?? null) ? $entry['msg'] : '',
+                static fn (mixed $entry): string => is_array($entry) && is_string($entry['msg'] ?? null) ? $entry['msg'] : '',
                 $detail,
             ));
             if ($messages !== []) {
@@ -219,7 +219,7 @@ final class TypeSafeProvider extends AbstractDecisionProvider
         if ($question instanceof YesNoQuestion && ($question->yesMeans !== '' || $question->noMeans !== '')) {
             $payload['criteria'] = array_filter(
                 ['true' => $question->yesMeans, 'false' => $question->noMeans],
-                static fn(string $meaning): bool => $meaning !== '',
+                static fn (string $meaning): bool => $meaning !== '',
             );
         }
 

@@ -55,9 +55,9 @@ final class TaskOutputFormatTest extends TestCase
     {
         return [
             'markdown' => ['markdown'],
-            'json' => ['json'],
-            'plain' => ['plain'],
-            'html' => ['html'],
+            'json'     => ['json'],
+            'plain'    => ['plain'],
+            'html'     => ['html'],
         ];
     }
 
@@ -74,11 +74,11 @@ final class TaskOutputFormatTest extends TestCase
     public static function invalidOutputFormatValueProvider(): array
     {
         return [
-            'empty string' => [''],
+            'empty string'       => [''],
             'uppercase MARKDOWN' => ['MARKDOWN'],
-            'unknown value' => ['unknown'],
-            'partial match' => ['mark'],
-            'whitespace' => [' json'],
+            'unknown value'      => ['unknown'],
+            'partial match'      => ['mark'],
+            'whitespace'         => [' json'],
         ];
     }
 
@@ -96,9 +96,9 @@ final class TaskOutputFormatTest extends TestCase
     {
         return [
             'markdown' => ['markdown', TaskOutputFormat::MARKDOWN],
-            'json' => ['json', TaskOutputFormat::JSON],
-            'plain' => ['plain', TaskOutputFormat::PLAIN],
-            'html' => ['html', TaskOutputFormat::HTML],
+            'json'     => ['json', TaskOutputFormat::JSON],
+            'plain'    => ['plain', TaskOutputFormat::PLAIN],
+            'html'     => ['html', TaskOutputFormat::HTML],
         ];
     }
 
@@ -117,8 +117,8 @@ final class TaskOutputFormatTest extends TestCase
     public static function tryFromStringInvalidProvider(): array
     {
         return [
-            'empty string' => [''],
-            'invalid value' => ['invalid'],
+            'empty string'   => [''],
+            'invalid value'  => ['invalid'],
             'uppercase HTML' => ['HTML'],
         ];
     }
@@ -137,9 +137,9 @@ final class TaskOutputFormatTest extends TestCase
     {
         return [
             'MARKDOWN' => [TaskOutputFormat::MARKDOWN, 'text/markdown'],
-            'JSON' => [TaskOutputFormat::JSON, 'application/json'],
-            'PLAIN' => [TaskOutputFormat::PLAIN, 'text/plain'],
-            'HTML' => [TaskOutputFormat::HTML, 'text/html'],
+            'JSON'     => [TaskOutputFormat::JSON, 'application/json'],
+            'PLAIN'    => [TaskOutputFormat::PLAIN, 'text/plain'],
+            'HTML'     => [TaskOutputFormat::HTML, 'text/html'],
         ];
     }
 
@@ -179,9 +179,9 @@ final class TaskOutputFormatTest extends TestCase
     {
         return [
             'MARKDOWN' => [TaskOutputFormat::MARKDOWN, 'md'],
-            'JSON' => [TaskOutputFormat::JSON, 'json'],
-            'PLAIN' => [TaskOutputFormat::PLAIN, 'txt'],
-            'HTML' => [TaskOutputFormat::HTML, 'html'],
+            'JSON'     => [TaskOutputFormat::JSON, 'json'],
+            'PLAIN'    => [TaskOutputFormat::PLAIN, 'txt'],
+            'HTML'     => [TaskOutputFormat::HTML, 'html'],
         ];
     }
 

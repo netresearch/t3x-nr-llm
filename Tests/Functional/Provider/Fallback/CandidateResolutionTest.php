@@ -134,5 +134,4 @@ final class CandidateResolutionTest extends AbstractFunctionalTestCase
             $logger->skipped('streaming fallback configuration missing or inactive'),
         );
     }
-
 }

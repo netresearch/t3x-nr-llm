@@ -22,6 +22,8 @@ use TYPO3\CMS\Core\Cache\CacheManager as Typo3CacheManager;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
+use function array_key_exists;
+
 #[CoversClass(ProviderHealthService::class)]
 #[CoversClass(ProviderHealthScore::class)]
 final class ProviderHealthServiceTest extends AbstractUnitTestCase
@@ -96,7 +98,7 @@ final class ProviderHealthServiceTest extends AbstractUnitTestCase
     #[Test]
     public function missingConfigurationIsTreatedAsNeutral(): void
     {
-        $scores  = ['p-good' => ProviderHealthScore::fromSamples('p-good', 5, 5, 0.0)];
+        $scores = ['p-good' => ProviderHealthScore::fromSamples('p-good', 5, 5, 0.0)];
         // 'gone' resolves to no configuration → neutral.
         $service = $this->service(
             $this->repositoryReturning($scores),
@@ -203,7 +205,7 @@ final class ProviderHealthServiceTest extends AbstractUnitTestCase
         $repository = self::createStub(LlmConfigurationRepository::class);
         $repository->method('findOneByIdentifier')->willReturnCallback(
             function (string $identifier) use ($identifierToProvider): ?LlmConfiguration {
-                if (!\array_key_exists($identifier, $identifierToProvider)) {
+                if (!array_key_exists($identifier, $identifierToProvider)) {
                     return null;
                 }
 

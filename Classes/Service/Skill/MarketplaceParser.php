@@ -43,7 +43,7 @@ final class MarketplaceParser
                 continue;
             }
 
-            $ref = isset($plugin['ref']) && is_string($plugin['ref']) ? $plugin['ref'] : null;
+            $ref       = isset($plugin['ref']) && is_string($plugin['ref']) ? $plugin['ref'] : null;
             $entries[] = new MarketplaceEntry($ownerRepo[0], $ownerRepo[1], $ref);
         }
 
@@ -101,13 +101,13 @@ final class MarketplaceParser
             return null;
         }
 
-        $segments = array_values(array_filter(explode('/', $path), static fn(string $s): bool => $s !== ''));
+        $segments = array_values(array_filter(explode('/', $path), static fn (string $s): bool => $s !== ''));
         if (count($segments) < 2) {
             return null;
         }
 
         $owner = $segments[0];
-        $repo = $segments[1];
+        $repo  = $segments[1];
         if (str_ends_with($repo, '.git')) {
             $repo = substr($repo, 0, -4);
         }

@@ -33,21 +33,21 @@ final class DataClassEnforcementResolverTest extends TestCase
     {
         return [
             // Only a literal `observe` observes.
-            'exact observe'            => [['tools' => ['dataClassEnforcement' => 'observe']], false],
+            'exact observe'                 => [['tools' => ['dataClassEnforcement' => 'observe']], false],
             'uppercase with trailing space' => [['tools' => ['dataClassEnforcement' => 'OBSERVE ']], false],
-            'leading space'            => [['tools' => ['dataClassEnforcement' => ' observe']], false],
+            'leading space'                 => [['tools' => ['dataClassEnforcement' => ' observe']], false],
 
             // Everything else enforces.
-            'explicit enforce'         => [['tools' => ['dataClassEnforcement' => 'enforce']], true],
-            'typo observ'              => [['tools' => ['dataClassEnforcement' => 'observ']], true],
-            'empty string'             => [['tools' => ['dataClassEnforcement' => '']], true],
-            'not a string (bool)'      => [['tools' => ['dataClassEnforcement' => false]], true],
-            'not a string (int)'       => [['tools' => ['dataClassEnforcement' => 0]], true],
-            'not a string (array)'     => [['tools' => ['dataClassEnforcement' => ['observe']]], true],
-            'key missing'              => [['tools' => []], true],
-            'tools not an array'       => [['tools' => 'not-an-array'], true],
-            'tools section missing'    => [['privacy' => ['level' => 'full']], true],
-            'empty configuration'      => [[], true],
+            'explicit enforce'      => [['tools' => ['dataClassEnforcement' => 'enforce']], true],
+            'typo observ'           => [['tools' => ['dataClassEnforcement' => 'observ']], true],
+            'empty string'          => [['tools' => ['dataClassEnforcement' => '']], true],
+            'not a string (bool)'   => [['tools' => ['dataClassEnforcement' => false]], true],
+            'not a string (int)'    => [['tools' => ['dataClassEnforcement' => 0]], true],
+            'not a string (array)'  => [['tools' => ['dataClassEnforcement' => ['observe']]], true],
+            'key missing'           => [['tools' => []], true],
+            'tools not an array'    => [['tools' => 'not-an-array'], true],
+            'tools section missing' => [['privacy' => ['level' => 'full']], true],
+            'empty configuration'   => [[], true],
         ];
     }
 

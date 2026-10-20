@@ -50,10 +50,10 @@ final class OpenRouterAdapterContractTest extends AbstractOpenAiDialectContractT
     {
         return [
             'apiKeyIdentifier' => 'vault-openrouter',
-            'defaultModel' => 'openai/gpt-5.2',
-            'routingStrategy' => 'explicit',
-            'autoFallback' => false,
-            'timeout' => 30,
+            'defaultModel'     => 'openai/gpt-5.2',
+            'routingStrategy'  => 'explicit',
+            'autoFallback'     => false,
+            'timeout'          => 30,
         ];
     }
 

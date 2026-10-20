@@ -21,8 +21,8 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
 final readonly class ToolInvocation
 {
     /**
-     * @param array<string, mixed> $arguments The arguments the model supplied for the call.
-     * @param list<ToolArtifact>   $artifacts Run-only structured artifacts (NEVER provider-facing).
+     * @param array<string, mixed> $arguments the arguments the model supplied for the call
+     * @param list<ToolArtifact>   $artifacts run-only structured artifacts (NEVER provider-facing)
      */
     public function __construct(
         public string $name,

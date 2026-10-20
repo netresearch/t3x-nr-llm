@@ -78,9 +78,9 @@ final class FalStorageGateActingUserTest extends AbstractFunctionalTestCase
         $connection = $connectionPool->getConnectionForTable('sys_file_storage');
         self::assertInstanceOf(Connection::class, $connection);
         $connection->insert('sys_file_storage', [
-            'uid' => 1, 'pid' => 0, 'name' => 'Main storage', 'driver' => 'Local',
+            'uid'           => 1, 'pid' => 0, 'name' => 'Main storage', 'driver' => 'Local',
             'configuration' => self::STORAGE_CONFIGURATION,
-            'is_online' => 1, 'is_browsable' => 1, 'is_public' => 1, 'is_writable' => 1,
+            'is_online'     => 1, 'is_browsable' => 1, 'is_public' => 1, 'is_writable' => 1,
         ]);
 
         // Two mounts on the SAME storage, disjoint. The storage allow-list
@@ -89,20 +89,20 @@ final class FalStorageGateActingUserTest extends AbstractFunctionalTestCase
         $connection->insert('sys_filemounts', ['uid' => 2, 'pid' => 0, 'title' => 'Private', 'identifier' => '1:/private/']);
 
         $connection->insert('be_groups', [
-            'uid' => 9, 'pid' => 0, 'title' => 'Docs readers',
+            'uid'              => 9, 'pid' => 0, 'title' => 'Docs readers',
             'file_mountpoints' => '1', 'file_permissions' => 'readFolder,readFile',
         ]);
         $connection->insert('be_groups', [
-            'uid' => 10, 'pid' => 0, 'title' => 'Private readers',
+            'uid'              => 10, 'pid' => 0, 'title' => 'Private readers',
             'file_mountpoints' => '2', 'file_permissions' => 'readFolder,readFile',
         ]);
 
         // options=3: inherit db AND file mounts from groups.
         $connection->update('be_users', ['usergroup' => '9', 'options' => 3], ['uid' => self::DOCS_EDITOR]);
         $connection->insert('be_users', [
-            'uid' => self::PRIVATE_EDITOR, 'pid' => 0, 'username' => 'private-editor',
+            'uid'      => self::PRIVATE_EDITOR, 'pid' => 0, 'username' => 'private-editor',
             'password' => '$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm',
-            'admin' => 0, 'usergroup' => '10', 'options' => 3, 'disable' => 0, 'deleted' => 0,
+            'admin'    => 0, 'usergroup' => '10', 'options' => 3, 'disable' => 0, 'deleted' => 0,
         ]);
 
         $fileConnection = $connectionPool->getConnectionForTable('sys_file');

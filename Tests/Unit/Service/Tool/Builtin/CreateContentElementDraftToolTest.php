@@ -49,10 +49,10 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         parent::setUp();
 
         $this->globalsBackup = [
-            'TCA'              => $GLOBALS['TCA'] ?? null,
-            'LANG'             => $GLOBALS['LANG'] ?? null,
-            'BE_USER'          => $GLOBALS['BE_USER'] ?? null,
-            'TYPO3_CONF_VARS'  => $GLOBALS['TYPO3_CONF_VARS'] ?? null,
+            'TCA'             => $GLOBALS['TCA'] ?? null,
+            'LANG'            => $GLOBALS['LANG'] ?? null,
+            'BE_USER'         => $GLOBALS['BE_USER'] ?? null,
+            'TYPO3_CONF_VARS' => $GLOBALS['TYPO3_CONF_VARS'] ?? null,
         ];
 
         // Seven declared types, of which three pass the exclusion rule
@@ -85,10 +85,10 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
                     ['label' => 'JSON-like', 'value' => 'json_like'],
                     ['label' => 'Without a form', 'value' => 'formless'],
                 ]]],
-                'header'       => ['config' => ['type' => 'input']],
-                'subheader'    => ['config' => ['type' => 'input', 'max' => 40]],
-                'bodytext'     => ['config' => ['type' => 'text']],
-                'layout'       => ['config' => ['type' => 'select', 'items' => [
+                'header'    => ['config' => ['type' => 'input']],
+                'subheader' => ['config' => ['type' => 'input', 'max' => 40]],
+                'bodytext'  => ['config' => ['type' => 'text']],
+                'layout'    => ['config' => ['type' => 'select', 'items' => [
                     ['label' => 'Default', 'value' => '0'],
                     ['label' => 'Layout 1', 'value' => '1'],
                 ]]],
@@ -96,43 +96,43 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
                 'hidden'       => ['config' => ['type' => 'check']],
                 'pi_flexform'  => ['config' => ['type' => 'flex']],
                 // A TCA type the tool does not list either way: it fails closed.
-                'payload'      => ['config' => ['type' => 'json']],
-                'records'      => ['config' => ['type' => 'select', 'foreign_table' => 'tt_address']],
-                'contact'      => ['config' => ['type' => 'email']],
-                'tint'         => ['config' => ['type' => 'color']],
-                'tint_alpha'   => ['config' => ['type' => 'color', 'opacity' => true]],
-                'align'        => ['config' => ['type' => 'radio', 'items' => [
+                'payload'    => ['config' => ['type' => 'json']],
+                'records'    => ['config' => ['type' => 'select', 'foreign_table' => 'tt_address']],
+                'contact'    => ['config' => ['type' => 'email']],
+                'tint'       => ['config' => ['type' => 'color']],
+                'tint_alpha' => ['config' => ['type' => 'color', 'opacity' => true]],
+                'align'      => ['config' => ['type' => 'radio', 'items' => [
                     ['label' => 'Left', 'value' => 'left'],
                     ['label' => 'Right', 'value' => 'right'],
                 ]]],
-                'date'         => ['config' => ['type' => 'datetime', 'format' => 'date']],
-                'starts'       => ['config' => ['type' => 'datetime', 'format' => 'time']],
-                'price'        => ['config' => ['type' => 'number', 'format' => 'decimal']],
-                'width'        => ['config' => ['type' => 'number', 'range' => ['lower' => 1, 'upper' => 4000]]],
-                'code'         => ['config' => ['type' => 'input', 'min' => 3, 'max' => 40]],
+                'date'   => ['config' => ['type' => 'datetime', 'format' => 'date']],
+                'starts' => ['config' => ['type' => 'datetime', 'format' => 'time']],
+                'price'  => ['config' => ['type' => 'number', 'format' => 'decimal']],
+                'width'  => ['config' => ['type' => 'number', 'range' => ['lower' => 1, 'upper' => 4000]]],
+                'code'   => ['config' => ['type' => 'input', 'min' => 3, 'max' => 40]],
                 // Where the DataHandler rewrites in silence: `min` on a plain
                 // text, bounds given as strings, fractional decimal bounds.
-                'note'         => ['config' => ['type' => 'text', 'min' => 5]],
-                'note_rich'    => ['config' => ['type' => 'text', 'min' => 5, 'enableRichtext' => true]],
-                'label'        => ['config' => ['type' => 'input', 'min' => '3', 'max' => '8']],
-                'ratio'        => ['config' => ['type' => 'number', 'format' => 'decimal', 'range' => ['lower' => 1.5, 'upper' => 10.5]]],
-                'tier'         => ['config' => ['type' => 'select', 'authMode' => 'explicitAllow', 'items' => [
+                'note'      => ['config' => ['type' => 'text', 'min' => 5]],
+                'note_rich' => ['config' => ['type' => 'text', 'min' => 5, 'enableRichtext' => true]],
+                'label'     => ['config' => ['type' => 'input', 'min' => '3', 'max' => '8']],
+                'ratio'     => ['config' => ['type' => 'number', 'format' => 'decimal', 'range' => ['lower' => 1.5, 'upper' => 10.5]]],
+                'tier'      => ['config' => ['type' => 'select', 'authMode' => 'explicitAllow', 'items' => [
                     ['label' => 'Basic', 'value' => 'basic'],
                     ['label' => 'Premium', 'value' => 'premium'],
                 ]]],
                 // Kept in the form, refused as keys: the DataHandler unsets
                 // or rewrites them depending on other records, and a check
                 // with several items is a bitmask.
-                'featured'     => ['config' => [
+                'featured' => ['config' => [
                     'type'       => 'check',
                     'eval'       => 'maximumRecordsChecked',
                     'validation' => ['maximumRecordsChecked' => 1],
                 ]],
-                'owner'        => ['config' => ['type' => 'email', 'eval' => 'unique']],
+                'owner' => ['config' => ['type' => 'email', 'eval' => 'unique']],
                 // FormEngine renders it read-only; the DataHandler stores it anyway.
-                'frozen'       => ['config' => ['type' => 'input', 'readOnly' => true]],
-                'handle'       => ['config' => ['type' => 'input', 'eval' => 'trim,uniqueInPid']],
-                'flags'        => ['config' => ['type' => 'check', 'items' => [
+                'frozen' => ['config' => ['type' => 'input', 'readOnly' => true]],
+                'handle' => ['config' => ['type' => 'input', 'eval' => 'trim,uniqueInPid']],
+                'flags'  => ['config' => ['type' => 'check', 'items' => [
                     ['label' => 'A', 'value' => ''],
                     ['label' => 'B', 'value' => ''],
                 ]]],
@@ -141,12 +141,12 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
                 'headers' => ['showitem' => 'header, --linebreak--, subheader'],
             ],
             'types' => [
-                'header'      => [
+                'header' => [
                     'showitem'         => '--palette--;;headers, --div--;Appearance, layout, sectionIndex, hidden',
                     'columnsOverrides' => ['subheader' => ['config' => ['max' => 10]]],
                 ],
-                'text'        => ['showitem' => '--palette--;;headers, bodytext, --div--;Appearance, layout, sectionIndex, hidden'],
-                'options'     => [
+                'text'    => ['showitem' => '--palette--;;headers, bodytext, --div--;Appearance, layout, sectionIndex, hidden'],
+                'options' => [
                     'showitem' => 'header, contact, tint, tint_alpha, align, date, starts, price, width, code, note, note_rich,'
                         . ' label, ratio, tier, featured, owner, handle, flags, frozen, hidden',
                 ],
@@ -287,13 +287,13 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
     {
         $valid = ['page' => 1, 'type' => 'text', 'header' => 'x'];
 
-        yield 'no page'    => [['type' => 'text', 'header' => 'x'], 'exactly one page'];
-        yield 'zero page'  => [['page' => 0, 'type' => 'text', 'header' => 'x'], 'exactly one page'];
+        yield 'no page' => [['type' => 'text', 'header' => 'x'], 'exactly one page'];
+        yield 'zero page' => [['page' => 0, 'type' => 'text', 'header' => 'x'], 'exactly one page'];
         yield 'negative page' => [['page' => -1, 'type' => 'text', 'header' => 'x'], 'exactly one page'];
-        yield 'no type'    => [['page' => 1, 'header' => 'x'], 'not a content type this tool creates'];
+        yield 'no type' => [['page' => 1, 'header' => 'x'], 'not a content type this tool creates'];
         // Declared in the fixture TCA with a scalar form and still unreachable:
         // the deny-list is asked before the form is read.
-        yield 'html type'  => [['page' => 1, 'type' => 'html', 'header' => 'x'], 'not a content type this tool creates'];
+        yield 'html type' => [['page' => 1, 'type' => 'html', 'header' => 'x'], 'not a content type this tool creates'];
         yield 'plugin type' => [['page' => 1, 'type' => 'list', 'header' => 'x'], 'not a content type this tool creates'];
         // Declared, not denied, and excluded by the FlexForm column in its form.
         yield 'type with a flexform column' => [
@@ -330,11 +330,11 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
             ['page' => 1, 'type' => 'textmedia', 'header' => 'x'],
             'not a content type this tool creates',
         ];
-        yield 'no header'    => [['page' => 1, 'type' => 'text'], '"header" is required'];
+        yield 'no header' => [['page' => 1, 'type' => 'text'], '"header" is required'];
         yield 'empty header' => [['page' => 1, 'type' => 'text', 'header' => ''], 'must not be empty'];
         yield 'blank header' => [['page' => 1, 'type' => 'text', 'header' => '   '], 'must not be empty'];
         yield 'array header' => [['page' => 1, 'type' => 'text', 'header' => ['x']], 'must be a string'];
-        yield 'long header'  => [
+        yield 'long header' => [
             ['page' => 1, 'type' => 'text', 'header' => str_repeat('a', 256)],
             'exceeds 255 characters',
         ];
@@ -343,16 +343,16 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
             'exceeds 20000 characters',
         ];
         yield 'negative language' => [$valid + ['language' => -1], 'zero or a positive'];
-        yield 'negative column'   => [$valid + ['column' => -1], 'zero or a positive'];
-        yield 'unknown argument'  => [$valid + ['hidden' => 0], 'not an argument of this tool'];
+        yield 'negative column' => [$valid + ['column' => -1], 'zero or a positive'];
+        yield 'unknown argument' => [$valid + ['hidden' => 0], 'not an argument of this tool'];
         // The one that would defeat the tool's single guarantee.
-        yield 'pid smuggled in'   => [$valid + ['pid' => 5], 'not an argument of this tool'];
+        yield 'pid smuggled in' => [$valid + ['pid' => 5], 'not an argument of this tool'];
         // The same guarantee, through the new argument: the visibility column
         // is refused by name, before the type's form is consulted.
         yield 'fields not an object' => [$valid + ['fields' => 'layout=1'], '"fields" must be an object'];
-        yield 'hidden via fields'    => [$valid + ['fields' => ['hidden' => 0]], '"hidden" cannot be set through "fields"'];
-        yield 'pid via fields'       => [$valid + ['fields' => ['pid' => 5]], '"pid" cannot be set through "fields"'];
-        yield 'header via fields'    => [$valid + ['fields' => ['header' => 'y']], 'pass it as the "header" argument'];
+        yield 'hidden via fields' => [$valid + ['fields' => ['hidden' => 0]], '"hidden" cannot be set through "fields"'];
+        yield 'pid via fields' => [$valid + ['fields' => ['pid' => 5]], '"pid" cannot be set through "fields"'];
+        yield 'header via fields' => [$valid + ['fields' => ['header' => 'y']], 'pass it as the "header" argument'];
         yield 'column not in the form' => [
             $valid + ['fields' => ['nope' => 1]],
             '"nope" is not a scalar column of content type "text". Columns this tool sets for it: subheader, layout, sectionIndex.',
@@ -448,20 +448,20 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
      */
     public static function acceptedFields(): iterable
     {
-        yield 'input at the min'      => [['code' => 'abc']];
-        yield 'email'                 => [['contact' => 'editor@example.com']];
-        yield 'colour'                => [['tint' => '#1a2b3c']];
-        yield 'colour with opacity'   => [['tint_alpha' => '#1a2b3c80']];
-        yield 'radio'                 => [['align' => 'right']];
-        yield 'date as a day'         => [['date' => '2026-09-21']];
-        yield 'date as a timestamp'   => [['date' => 1789000000]];
-        yield 'time'                  => [['starts' => '14:30']];
-        yield 'decimal'               => [['price' => 12.5]];
-        yield 'decimal as a string'   => [['price' => '12.50']];
+        yield 'input at the min' => [['code' => 'abc']];
+        yield 'email' => [['contact' => 'editor@example.com']];
+        yield 'colour' => [['tint' => '#1a2b3c']];
+        yield 'colour with opacity' => [['tint_alpha' => '#1a2b3c80']];
+        yield 'radio' => [['align' => 'right']];
+        yield 'date as a day' => [['date' => '2026-09-21']];
+        yield 'date as a timestamp' => [['date' => 1789000000]];
+        yield 'time' => [['starts' => '14:30']];
+        yield 'decimal' => [['price' => 12.5]];
+        yield 'decimal as a string' => [['price' => '12.50']];
         yield 'whole number in range' => [['width' => 320]];
         // The RTE skips `min` in the DataHandler, so the tool does too.
         yield 'rich text below the min' => [['note_rich' => 'abc']];
-        yield 'text at the min'        => [['note' => 'abcde']];
+        yield 'text at the min' => [['note' => 'abcde']];
         yield 'input within string bounds' => [['label' => 'abcdefgh']];
         yield 'decimal the cms keeps' => [['ratio' => 5.25]];
         yield 'decimal with two places' => [['price' => 4.25]];
@@ -478,7 +478,7 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
      */
     public static function decimalsInRangeOnceRounded(): iterable
     {
-        yield 'rounded up into the lower bound'   => [1.996, 'must be at least'];
+        yield 'rounded up into the lower bound' => [1.996, 'must be at least'];
         yield 'rounded down into the upper bound' => [10.001, 'must be at most'];
     }
 
@@ -638,10 +638,10 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
     public function aContentTypeOnTheActingUsersAllowListPassesOnToTheNextCheck(): void
     {
         $this->declareCTypeAuthMode();
-        $restricted                                   = $this->liveUser();
-        $restricted->user                             = ['uid' => 5, 'admin' => 0];
-        $restricted->groupData['explicit_allowdeny']  = 'tt_content:CType:text';
-        $restricted->groupData['allowed_languages']   = '0';
+        $restricted                                  = $this->liveUser();
+        $restricted->user                            = ['uid' => 5, 'admin' => 0];
+        $restricted->groupData['explicit_allowdeny'] = 'tt_content:CType:text';
+        $restricted->groupData['allowed_languages']  = '0';
 
         $result = $this->tool->execute(
             ['page' => 1, 'type' => 'text', 'header' => 'x', 'language' => 2],
@@ -661,8 +661,8 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
     #[Test]
     public function aSelectValueOutsideTheActingUsersAllowListIsRefusedBeforeTheWrite(): void
     {
-        $restricted       = $this->liveUser();
-        $restricted->user = ['uid' => 5, 'admin' => 0];
+        $restricted                                  = $this->liveUser();
+        $restricted->user                            = ['uid' => 5, 'admin' => 0];
         $restricted->groupData['explicit_allowdeny'] = 'tt_content:tier:basic';
         $restricted->groupData['allowed_languages']  = '0';
 
@@ -846,7 +846,7 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         $restricted = $this->liveUser();
         // Not an admin, and no `allowed_languages` — so only the default
         // language is reachable.
-        $restricted->user           = ['uid' => 5, 'admin' => 0];
+        $restricted->user                           = ['uid' => 5, 'admin' => 0];
         $restricted->groupData['allowed_languages'] = '0';
 
         $result = $this->tool->execute(

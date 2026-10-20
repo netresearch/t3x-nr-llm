@@ -55,6 +55,86 @@ ADR-214 is the decision. This specification states what each implementing change
 | Approve/revoke without or with a foreign route token are refused by the dispatcher; the route's own token passes | functional | `SkillApprovalRouteTokenTest` |
 | No pin check wired: pinned runs refused on both resume paths, unpinned runs resume | unit | `ToolLoopServiceSkillPinTest` |
 
-## (b), (c), (d)
+## (b) The backend as a skill source — item 3
 
-Specified in the change that implements each, in this file.
+### What it must do
+
+1. **A source of type `backend` holds skills written through FormEngine.** Its skills are edited in place (sys_history, DataHandler field rights); the sync refuses a backend source before taking its lock, so nothing is orphaned.
+2. **Admission by the source's level.** A backend skill is admitted by its source record's trust level, not by the skill's own column, which keeps its default.
+3. **Integrity by the current fields.** A backend skill's digest is computed from its current fields; an edit is a new version, never a tampered record. A record carrying a stored digest or checksum — only the sync and the wizard write them — stays checked against them on any source (`SkillComposer::isEditedInPlace()`), so moving a synced skill onto a backend source does not turn an edit into a version. It instructs only while an unrevoked approval names that computed digest and its source.
+4. **Tools from what vouches for them.** The run allow-list (`AllowedToolsResolver`, both `resolve()` and `resolveForRun()`) reads `SkillComposer::declaredTools()` over every admitted record (`SkillComposer::admittedSkills()`, deduped by uid only, so a (source, identifier) twin cannot drop a restriction). The tools and the process marker come from the vouched version, never from the live fields: a backend skill declares the tools of the approved version it holds, else of its most recent unrevoked approved version from the same source, and `[]` while none is approved; an intact synced skill declares its stored field; a skill whose source is missing, hidden, disabled or of an unknown type, a synced skill that fails its integrity check, and a legacy synced row (no digest yet) carrying the process marker declare `[]`. A process skill the run does not invoke has no opinion (`null`: no tools, no restriction); one it invokes (`resolveForRun(..., $invokedSkills)`) contributes its declaration and never `null`. A composer without a source lookup keeps the stored fields.
+   **Fail closed wins over "no opinion".** An attached skill that cannot vouch any more restricts the run with `[]`, whatever it would otherwise contribute — a process skill and a skill without a declaration included: an invoked skill that is not admitted; an attached skill the sync orphaned; an attached skill the sync disabled (`tx_nrllm_skill.disabled_by = 'sync'`, written by every sync path and the digest wizard that clears `enabled`). Only an administrator's disable (`disabled_by = 'admin'`, written by the module's toggle and by `SkillDisabledByHook` when an interactive administrator clears `enabled` through the DataHandler; an administrator's re-enable clears the mark, `sync` included) drops a skill out, as does detaching it. Nobody else changes `enabled` or `hidden` of an existing skill through the DataHandler — an editor granted the fields and the CLI user `_cli_` have the change removed with an error; `orphaned` and `disabled_by` are never written through it; a new record (a copy included) is stored disabled and marked `sync` unless an administrator enables it. A publish request that contains a page delete placeholder whose subtree holds attached skills is refused as a whole before it starts (EXT:workspaces publishes a page with its dependent records). A new row an administrator stores with the 'admin' mark (a copy of an administrator-disabled skill) keeps it; a copy of an orphan stays an orphan. A skill still attached to a live configuration or task cannot be deleted, neither directly nor by deleting the page it, or a page above it, sits on, nor by publishing such a delete from a workspace (`SkillDeletionGuardHook`, on the DataHandler's delete action); a holder in the deleted subtree goes with it and does not count. An orphan from before the mark existed is marked `sync` when it comes back. Hiding a skill, which only an administrator may do, takes it out like an administrator's disable. The configuration and task forms keep such an attachment when saved and label it; a new attachment offers enabled, non-orphaned skills only (`SkillAttachmentItems`). A twin left out of the prose is reported as a compose warning.
+5. **Field rights.** For a backend skill, identifier, name, description, body, allowed tools and process are editable in FormEngine; for a synced one they are read-only. Trust-deciding fields stay `exclude` (from (a)); `data_class` joins them, because clearing it lifts the egress ceiling and no approval covers it.
+
+### What it must NOT do
+
+- Let an unapproved edit widen a run's tools, or turn a declaration into "no restriction".
+- Sync a backend source.
+
+### Which suite proves what
+
+| Requirement | Suite | Test |
+|---|---|---|
+| Admission, integrity, instruction, declared tools of backend and synced skills, both directions | unit | `SkillComposerBackendSourceTest` |
+| The resolver uses the vouched declaration for configuration and run lists | unit | `AllowedToolsResolverDeclaredToolsTest` |
+| Field rights per type | unit | `SkillFieldExclusionTest` |
+| Backend source TCA, sync refusal, FormEngine defaults | functional | `BackendSkillSourceTest` |
+
+## (c) Load modes, the catalogue and the load tool — items 4, 5 and the load part of 7
+
+### What it must do
+
+1. **Two load modes on the configuration's attachments.** `tx_nrllm_configuration_skill_mm.load_mode` is `always` or `on_demand`; the field `skills` holds the `always` rows and the new field `skills_on_demand` the `on_demand` rows of the same MM table (`MM_match_fields`). A row that existed before the column is `always` by the column default, so existing configurations compose exactly what they composed before. FormEngine does not offer a process skill for a new `always` attachment and keeps, labelled, one attached before; a process skill attached `always` by other means (a DataHandler or import write) is skipped at composition and has no opinion in the allow-list (items 5 and 6 of (a) and (b)).
+2. **Only `always` attachments are composed at run start.** Every composition site reads `getSkills()`, which holds the `always` rows only.
+3. **Attachment grants tools in both modes (item 5).** The run allow-list and the input-context classification read `getAttachedSkills()`, both modes; a load grants nothing.
+4. **The catalogue.** Per loop segment, the `on_demand` attachments that are effective, pass the integrity check, are not process skills and whose current version is an approved instruction, as uid, name and description (`SkillComposer::catalogue()`).
+5. **The load tool `load_skill`** is offered only when the catalogue is not empty, with the catalogue in its description and the uids as its only values. It is exempt from the skill allow-list and the group gate (keyed on the builtin class), not from the global tool state or the trust zone. A process-bound run (`SkillToolAllowList::$processBound`, set by `resolveForRun()` when it is given invoked skills, and kept through storage and intersection) gets no exemption: there the tool is offered only when the vouched declaration lists it. No production caller passes invoked skills yet; the binding takes effect when the process wiring (items 6 and 10) passes the invoked or pinned process skills to `resolveForRun()` at start, on both resume paths and in the queued-run codec. The loop already honours a bound list it is handed.
+6. **The load re-checks at load time:** the uid is in the segment's catalogue, the skill is still attached `on_demand` (DBAL), the stored record is enabled, not hidden, deleted, orphaned or a process skill and still carries the catalogue's digest (DBAL), its stored source is the one the run's copy and the catalogue entry name (DBAL; an approval names a digest and a source), and that version still composes as an instruction, with the trust floor measured against the trust level stored now (DBAL). It is idempotent per skill and digest: a held pin at the same digest returns "already loaded" and appends nothing; another digest is refused. A load held in a declined turn is not run and says so. Before a resumed segment admits a load, the window manager's measurement starts afresh (`SectionAdmissionInterface::beginRun()`), so another run's calibration on the shared instance does not decide it. Admission measures the window of the model the send runs on: a criteria-mode configuration's resolved model (`ModelSelectionServiceInterface::resolveModel()` for the tools operation), never the unknown-model fallback; without a resolved model, or with an unknown context length, nothing is admitted.
+7. **Admission (item 7, load part).** The section is appended only when head + section + newest turn stays at or below the budget minus 10 % of it (`SectionAdmissionInterface::admitsSection()`); otherwise the result is an error naming the skill and nothing is appended.
+8. **The loop writes the section** into the head system message (behind the approved-skills heading, or baked behind the effective system prompt when the head has no system message) before the next call, records the pin, and answers with a confirmation that never carries the body.
+
+### What it must NOT do
+
+- Compose an `on_demand` attachment at run start, or offer the load tool to a configuration without one.
+- Let a load widen the offered tools, or let any other tool take the load tool's exemption.
+- Put a skill body in a tool result.
+
+### Which suite proves what
+
+| Requirement | Suite | Test |
+|---|---|---|
+| Catalogue contents, every load re-check, idempotency, heading placement | unit | `SkillLoadServiceTest` |
+| Offer only with a catalogue, placement, idempotency in the loop, admission refusal, pins on suspension, no widening, exemption and global state | unit | `ToolLoopServiceSkillLoadTest` |
+| Gate-4 exemption only for the builtin, global state still applies | unit | `ToolCallPolicyTest` |
+| Process-bound run: no exemption, the declaration decides; binding across storage and intersection; the loop honours a bound list | unit | `ToolCallPolicyTest`, `SkillToolAllowListTest`, `AllowedToolsResolverDeclaredToolsTest`, `ToolLoopServiceSkillLoadTest` |
+| Admission floor, headroom, newest turn counted, older turns not | unit | `ContextWindowSectionAdmissionTest` |
+| Both modes grant tools; an on-demand declaration restricts | unit | `AllowedToolsResolverTest` |
+| On-demand skills are classified | unit | `InputContextClassifierTest` |
+| Column default, per-field reads and writes through Extbase and DataHandler, load lookup | functional | `SkillLoadModeTest` |
+| Production wiring of the load service | functional | `ToolLoopGateWiringTest` |
+
+## (d) Admission at the start and snippets in a caller's system message — items 7 and 8
+
+### What it must do
+
+1. **Charged text (item 7).** Every text appended to a system message is in the messages the fit measures, or passed to it as the effective system prompt: the agent loop bakes sections and snippets into the transcript; the manager paths append them to a caller's system message before the fit, or hand them to the planner's system prompt, which the fit charges as the missing prompt. Nothing is appended after the fit uncharged.
+2. **Admission at an agent-run start (item 7).** When the loop composed instruction sections at its start, head + newest turn (with the sections in the head) must stay at or below the budget minus 10 % of it before the first provider call; otherwise `SkillSectionNotAdmittedException` names the skills and the run does not start. The budget is the window of the model the send runs on (a criteria-mode configuration's resolved model); without a resolved model, with a context length of 0 or less, or with a caller `max_tokens` that leaves no budget, the run does not start. A resume composes nothing and admits nothing again; a load is admitted per section (change (c)).
+3. **Snippet mark (item 8).** `tx_nrllm_promptsnippet.caller_system_digest` (`exclude`, `passthrough`) holds `2:` + sha256 of the snippet's composed block (`PromptSnippetComposer::composeSections([name => snippet])`) together with its normalised, sorted tags, which route it to configurations. The mark action (admin-only, POST through its own route) recomputes the digest and refuses a posted digest that differs, an empty block, and a block with invisible characters. Unmark clears it.
+4. **Opt-in (item 8).** `tx_nrllm_configuration.snippets_in_caller_system_message` (`exclude`, default off). It and `tx_nrllm_configuration.snippet_tags` carry `HIDE_FOR_NON_ADMINS`.
+5. **Composition (item 8).** When a caller's messages carry a system message and the configuration opts in, the selected snippets whose current block matches their mark are appended to the caller's first system message, before the instruction sections — on the manager paths that compose skills and in the agent loop's assembly. A system message the loop bakes itself is never extended a second time. A run with forced items (`RunAugmentation`: the playground, queued runs) whose caller sent its own system message bakes neither the configuration's prompt nor its tag-selected snippets; only the marked snippets reach that system channel, each once: a forced snippet goes there only when it is marked and the configuration opts in, joins the caller's message itself, and is not appended again when that message already holds it. A snippet block in a suspended transcript is replayed as composed (no pin check, unlike skill sections; ADR-214 item 8).
+
+### What it must NOT do
+
+- Route a snippet into a caller's system message without both the current mark and the opt-in.
+- Let a mark survive an edit of the snippet's name, text or tags.
+- Start an agent run whose sections leave less than 10 % headroom.
+
+### Which suite proves what
+
+| Requirement | Suite | Test |
+|---|---|---|
+| Opt-in, mark, stale mark (name and text), no caller system message, selection, digest | unit | `CallerSystemSnippetTest` |
+| Manager path: block before the sections, nothing without the opt-in | unit | `SkillConfigInjectionTest` |
+| Loop: start admission refuses before any provider call, admits, skips a resume and a start without sections; snippets join the caller message once | unit | `ToolLoopServiceSectionAdmissionTest` |
+| Mark only by POST through its own route, stale digest, invisible characters, unmark, non-admin | functional | `PromptSnippetMarkControllerTest` |
+| Exclude and passthrough fields | unit | `SkillFieldExclusionTest` |

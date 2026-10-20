@@ -47,11 +47,11 @@ final readonly class ModelListItemResponse implements JsonSerializable
     public function jsonSerialize(): array
     {
         return [
-            'uid' => $this->uid,
+            'uid'        => $this->uid,
             'identifier' => $this->identifier,
-            'name' => $this->name,
-            'modelId' => $this->modelId,
-            'isDefault' => $this->isDefault,
+            'name'       => $this->name,
+            'modelId'    => $this->modelId,
+            'isDefault'  => $this->isDefault,
         ];
     }
 }

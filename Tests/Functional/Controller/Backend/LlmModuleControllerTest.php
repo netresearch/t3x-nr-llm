@@ -88,7 +88,7 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
     private function setPrivateProperty(object $object, string $property, mixed $value): void
     {
         $reflection = new ReflectionClass($object);
-        $prop = $reflection->getProperty($property);
+        $prop       = $reflection->getProperty($property);
         $prop->setValue($object, $value);
     }
 
@@ -130,7 +130,7 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertIsString($body['error']);
         self::assertStringContainsString('No provider specified', $body['error']);
@@ -142,7 +142,7 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
         // Create request with empty provider string
         $extbaseRequest = $this->createExtbaseRequest([
             'provider' => '',
-            'prompt' => 'Hello',
+            'prompt'   => 'Hello',
         ]);
 
         // Inject the request into the controller
@@ -153,7 +153,7 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertIsString($body['error']);
         self::assertStringContainsString('No provider specified', $body['error']);
@@ -167,7 +167,7 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
         // but we verify the controller action flow is correct
         $extbaseRequest = $this->createExtbaseRequest([
             'provider' => 'openai-test',
-            'prompt' => 'Hello, please respond with a brief greeting.',
+            'prompt'   => 'Hello, please respond with a brief greeting.',
         ]);
 
         // Inject the request into the controller
@@ -179,7 +179,7 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
         // Assert - either 200 with success or 500/502 with error (no real API:
         // 502 = upstream provider unreachable in the test env, Bad Gateway)
         self::assertContains($response->getStatusCode(), [200, 500, 502]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
 
         if ($response->getStatusCode() === 200) {
@@ -210,7 +210,7 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
         // Assert - either 200 or 500/502, but not 400 (bad request);
         // 502 = upstream provider unreachable in the test env (Bad Gateway)
         self::assertContains($response->getStatusCode(), [200, 500, 502]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         // The action should proceed (not return bad request for missing prompt)
         self::assertNotSame(400, $response->getStatusCode());
@@ -223,7 +223,7 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
         // With a real API, it would return actual usage stats
         $extbaseRequest = $this->createExtbaseRequest([
             'provider' => 'openai-test',
-            'prompt' => 'Say hello',
+            'prompt'   => 'Say hello',
         ]);
 
         $this->setPrivateProperty($this->controller, 'request', $extbaseRequest);
@@ -232,7 +232,7 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
         $response = $this->controller->executeTestAction();
 
         // Assert response structure (if successful)
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
 
         if ($response->getStatusCode() === 200 && ($body['success'] ?? false)) {

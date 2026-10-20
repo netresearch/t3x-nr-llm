@@ -59,8 +59,8 @@ final readonly class TaskInputResolver implements TaskInputResolverInterface
     private function resolveSyslog(Task $task): string
     {
         $config    = $task->getInputSourceArray();
-        $limit     = isset($config['limit']) && is_numeric($config['limit']) ? (int)$config['limit'] : self::SYSLOG_DEFAULT_LIMIT;
-        $errorOnly = isset($config['error_only']) ? (bool)$config['error_only'] : true;
+        $limit     = isset($config['limit']) && is_numeric($config['limit']) ? (int) $config['limit'] : self::SYSLOG_DEFAULT_LIMIT;
+        $errorOnly = isset($config['error_only']) ? (bool) $config['error_only'] : true;
 
         try {
             $rows = $this->systemLogReader->readRecent($limit, $errorOnly);
@@ -99,10 +99,10 @@ final readonly class TaskInputResolver implements TaskInputResolverInterface
      */
     private function formatSyslogRow(array $row): string
     {
-        $tstamp     = isset($row['tstamp']) && is_numeric($row['tstamp']) ? (int)$row['tstamp'] : 0;
-        $typeValue  = isset($row['type']) && is_numeric($row['type']) ? (int)$row['type'] : 0;
-        $errorValue = isset($row['error']) && is_numeric($row['error']) ? (int)$row['error'] : 0;
-        $details    = isset($row['details']) && is_scalar($row['details']) ? (string)$row['details'] : '';
+        $tstamp     = isset($row['tstamp']) && is_numeric($row['tstamp']) ? (int) $row['tstamp'] : 0;
+        $typeValue  = isset($row['type']) && is_numeric($row['type']) ? (int) $row['type'] : 0;
+        $errorValue = isset($row['error']) && is_numeric($row['error']) ? (int) $row['error'] : 0;
+        $details    = isset($row['details']) && is_scalar($row['details']) ? (string) $row['details'] : '';
 
         $time  = date('Y-m-d H:i:s', $tstamp);
         $type  = $this->translateSyslogType($typeValue);
@@ -143,8 +143,8 @@ final readonly class TaskInputResolver implements TaskInputResolverInterface
     private function resolveTable(Task $task): string
     {
         $config = $task->getInputSourceArray();
-        $table  = isset($config['table']) && is_scalar($config['table']) ? (string)$config['table'] : '';
-        $limit  = isset($config['limit']) && is_numeric($config['limit']) ? (int)$config['limit'] : self::TABLE_DEFAULT_LIMIT;
+        $table  = isset($config['table']) && is_scalar($config['table']) ? (string) $config['table'] : '';
+        $limit  = isset($config['limit']) && is_numeric($config['limit']) ? (int) $config['limit'] : self::TABLE_DEFAULT_LIMIT;
 
         if ($table === '') {
             return $this->translate('task.table.notConfigured', 'No table configured.');

@@ -30,7 +30,7 @@ use TYPO3\CMS\Core\SingletonInterface;
  * record content into a derivation whose whole design keeps content out
  * (ADR-064, ADR-185).
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class WrittenRecordRepository implements WrittenRecordRepositoryInterface, SingletonInterface
 {
@@ -315,6 +315,6 @@ final readonly class WrittenRecordRepository implements WrittenRecordRepositoryI
      */
     private function toInt(mixed $value): int
     {
-        return is_numeric($value) ? (int)$value : 0;
+        return is_numeric($value) ? (int) $value : 0;
     }
 }

@@ -399,35 +399,35 @@ class ProviderDetectorTest extends AbstractUnitTestCase
     {
         return [
             // A bare host gains the adapter's canonical version path (the bug in #98).
-            'openai bare host gains /v1'        => ['https://api.openai.com', 'openai', 'https://api.openai.com/v1'],
+            'openai bare host gains /v1'         => ['https://api.openai.com', 'openai', 'https://api.openai.com/v1'],
             'openai scheme-less gains https+/v1' => ['api.openai.com', 'openai', 'https://api.openai.com/v1'],
-            'openai trailing slash gains /v1'   => ['https://api.openai.com/', 'openai', 'https://api.openai.com/v1'],
-            'anthropic bare gains /v1'          => ['https://api.anthropic.com', 'anthropic', 'https://api.anthropic.com/v1'],
-            'gemini bare gains /v1beta'         => ['https://generativelanguage.googleapis.com', 'gemini', 'https://generativelanguage.googleapis.com/v1beta'],
-            'groq bare gains /openai/v1'        => ['https://api.groq.com', 'groq', 'https://api.groq.com/openai/v1'],
-            'mistral bare gains /v1'            => ['https://api.mistral.ai', 'mistral', 'https://api.mistral.ai/v1'],
-            'openrouter bare gains /api/v1'     => ['https://openrouter.ai', 'openrouter', 'https://openrouter.ai/api/v1'],
+            'openai trailing slash gains /v1'    => ['https://api.openai.com/', 'openai', 'https://api.openai.com/v1'],
+            'anthropic bare gains /v1'           => ['https://api.anthropic.com', 'anthropic', 'https://api.anthropic.com/v1'],
+            'gemini bare gains /v1beta'          => ['https://generativelanguage.googleapis.com', 'gemini', 'https://generativelanguage.googleapis.com/v1beta'],
+            'groq bare gains /openai/v1'         => ['https://api.groq.com', 'groq', 'https://api.groq.com/openai/v1'],
+            'mistral bare gains /v1'             => ['https://api.mistral.ai', 'mistral', 'https://api.mistral.ai/v1'],
+            'openrouter bare gains /api/v1'      => ['https://openrouter.ai', 'openrouter', 'https://openrouter.ai/api/v1'],
             // OpenAI-compatible providers that are now real enum cases (#300 gap 2).
-            'together bare gains /v1'           => ['https://api.together.xyz', 'together', 'https://api.together.xyz/v1'],
+            'together bare gains /v1'            => ['https://api.together.xyz', 'together', 'https://api.together.xyz/v1'],
             'fireworks bare gains /inference/v1' => ['https://api.fireworks.ai', 'fireworks', 'https://api.fireworks.ai/inference/v1'],
             // Perplexity's canonical base has no version segment, so it stays a bare host.
-            'perplexity bare stays bare'        => ['https://api.perplexity.ai', 'perplexity', 'https://api.perplexity.ai'],
-            'typesafe bare gains /v1'           => ['https://api.typesafe.ai', 'typesafe', 'https://api.typesafe.ai/v1'],
+            'perplexity bare stays bare' => ['https://api.perplexity.ai', 'perplexity', 'https://api.perplexity.ai'],
+            'typesafe bare gains /v1'    => ['https://api.typesafe.ai', 'typesafe', 'https://api.typesafe.ai/v1'],
             // Ollama's adapter adds "api/" itself, so its base URL must stay a bare host.
-            'ollama bare stays bare'            => ['http://localhost:11434', 'ollama', 'http://localhost:11434'],
-            'ollama scheme-less stays bare'     => ['localhost:11434', 'ollama', 'http://localhost:11434'],
+            'ollama bare stays bare'        => ['http://localhost:11434', 'ollama', 'http://localhost:11434'],
+            'ollama scheme-less stays bare' => ['localhost:11434', 'ollama', 'http://localhost:11434'],
             // A legacy/user-entered trailing "/api" for Ollama is stripped (else /api/api/...).
-            'ollama trailing /api stripped'     => ['http://localhost:11434/api', 'ollama', 'http://localhost:11434'],
-            'ollama trailing /api/ stripped'    => ['http://localhost:11434/api/', 'ollama', 'http://localhost:11434'],
+            'ollama trailing /api stripped'  => ['http://localhost:11434/api', 'ollama', 'http://localhost:11434'],
+            'ollama trailing /api/ stripped' => ['http://localhost:11434/api/', 'ollama', 'http://localhost:11434'],
             // An explicit path is the user's choice: idempotent and non-destructive.
             'openai already versioned is idempotent' => ['https://api.openai.com/v1', 'openai', 'https://api.openai.com/v1'],
             'custom host with explicit path kept'    => ['https://llm.example.com/v1', 'openai', 'https://llm.example.com/v1'],
             // A query string is never mangled by suffix concatenation: left untouched.
-            'endpoint with query string untouched'   => ['https://api.openai.com?x=1', 'openai', 'https://api.openai.com?x=1'],
+            'endpoint with query string untouched' => ['https://api.openai.com?x=1', 'openai', 'https://api.openai.com?x=1'],
             // Adapters without a canonical version path keep the host untouched.
-            'custom adapter keeps bare host'    => ['https://llm.example.com', 'custom', 'https://llm.example.com'],
-            'unknown adapter keeps bare host'   => ['https://llm.example.com', 'not-an-adapter', 'https://llm.example.com'],
-            'empty endpoint stays empty'        => ['', 'openai', ''],
+            'custom adapter keeps bare host'  => ['https://llm.example.com', 'custom', 'https://llm.example.com'],
+            'unknown adapter keeps bare host' => ['https://llm.example.com', 'not-an-adapter', 'https://llm.example.com'],
+            'empty endpoint stays empty'      => ['', 'openai', ''],
         ];
     }
 

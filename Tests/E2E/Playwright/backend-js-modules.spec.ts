@@ -67,6 +67,11 @@ export default class AjaxRequest {
     if (globalThis.__ajaxPending) {
       return new Promise(() => {});
     }
+    // A non-2xx answer: TYPO3 rejects with an AjaxResponse whose resolve() yields the parsed body.
+    const failure = globalThis.__ajaxFailure || {};
+    if (Object.prototype.hasOwnProperty.call(failure, this.url)) {
+      return Promise.reject({ resolve: () => Promise.resolve(failure[this.url]) });
+    }
     const data = (globalThis.__ajax || {})[this.url];
     return data === undefined
       ? Promise.reject(new Error('no stubbed answer for ' + this.url))
@@ -580,5 +585,56 @@ test.describe('Model-ID field (ModelIdField.js)', () => {
     expect(Number.parseFloat(sizes.small)).toBeGreaterThanOrEqual(11);
     expect(sizes.badge).toBe(sizes.small);
     expect(sizes.meta).toBe(sizes.small);
+  });
+});
+
+test.describe('Specialized test page errors (SpecializedTest.js, AjaxError.js)', () => {
+  // A non-2xx answer whose JSON body is `null`: TYPO3's AjaxResponse resolves it
+  // to null, and the shared error reader must still produce a message.
+  const head = (failure: string) => `<script>
+    globalThis.TYPO3 = { settings: { ajaxUrls: {
+      nrllm_test_deepl_quota: '/quota', nrllm_test_translate: '/translate', nrllm_test_translators: '/translators',
+    } } };
+    globalThis.__ajax = { '/translators': { success: true, translators: [] } };
+    globalThis.__ajaxFailure = { '/quota': ${failure}, '/translate': ${failure} };
+  </script>`;
+  const body = `<span id="deeplQuotaText" class="text-variant">Asking DeepL for the character quota…</span>
+    <form id="translationForm">
+      <textarea id="translationText">Guten Tag</textarea>
+      <input id="translationSource" value=""><input id="translationTarget" value="en">
+      <select id="translationTranslator"><option value="">LLM</option></select>
+      <button type="submit">Translate</button>
+    </form>
+    <div id="translationLoading" style="display: none;">Loading</div>
+    <div id="translationResult" style="display: none;"><span id="translationOutput"></span><span id="translationMeta"></span></div>
+    <div id="translationError" style="display: none;"><span id="translationErrorMessage"></span></div>`;
+
+  async function openWith(page: Page, failure: string): Promise<string[]> {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await openPage(page, head(failure), body, ['Backend/SpecializedTest.js']);
+    return errors;
+  }
+
+  test('a quota failure with a null JSON body ends the loading line with a message', async ({ page }) => {
+    const errors = await openWith(page, 'null');
+    const quota = page.locator('#deeplQuotaText');
+    await expect(quota).toHaveText('Unknown error');
+    await expect(quota).toHaveClass('text-danger');
+    expect(errors).toEqual([]);
+  });
+
+  test('a quota failure with an error field shows that error', async ({ page }) => {
+    await openWith(page, JSON.stringify({ error: 'DeepL is not configured.' }));
+    await expect(page.locator('#deeplQuotaText')).toHaveText('DeepL is not configured.');
+  });
+
+  test('a translation failure with a null JSON body shows the error box and stops loading', async ({ page }) => {
+    const errors = await openWith(page, 'null');
+    await page.getByRole('button', { name: 'Translate' }).click();
+    await expect(page.locator('#translationError')).toBeVisible();
+    await expect(page.locator('#translationErrorMessage')).toHaveText('Unknown error');
+    await expect(page.locator('#translationLoading')).toBeHidden();
+    expect(errors).toEqual([]);
   });
 });
