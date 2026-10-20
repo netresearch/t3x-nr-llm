@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Mcp\Exception;
 
-use RuntimeException;
+use Netresearch\NrLlm\Exception\RuntimeException;
 
 /**
  * A call to an MCP server did not produce a usable result (ADR-116).
@@ -107,7 +107,7 @@ final class McpTransportException extends RuntimeException
     ): self {
         return new self(
             sprintf(
-                'The %d-second operation budget for MCP server "%s" ran out before this request was sent, ' . 'so the server was not asked. This is the budget this installation sets, not a server that did not answer.',
+                'The %d-second operation budget for MCP server "%s" ran out before this request was sent, so the server was not asked. This is the budget this installation sets, not a server that did not answer.',
                 $totalSeconds,
                 $identifier,
             ),

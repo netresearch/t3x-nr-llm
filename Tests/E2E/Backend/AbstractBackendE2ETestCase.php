@@ -101,7 +101,7 @@ abstract class AbstractBackendE2ETestCase extends AbstractFunctionalTestCase
     protected function setPrivateProperty(object $object, string $property, mixed $value): void
     {
         $reflection = new ReflectionClass($object);
-        $prop = $reflection->getProperty($property);
+        $prop       = $reflection->getProperty($property);
         $prop->setValue($object, $value);
     }
 
@@ -114,7 +114,7 @@ abstract class AbstractBackendE2ETestCase extends AbstractFunctionalTestCase
     {
         self::assertSame($expectedStatus, $response->getStatusCode());
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         /** @var array<string, mixed> $body */
         self::assertTrue($body['success'] ?? false, 'Response should indicate success');
@@ -134,7 +134,7 @@ abstract class AbstractBackendE2ETestCase extends AbstractFunctionalTestCase
     ): array {
         self::assertSame($expectedStatus, $response->getStatusCode());
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         /** @var array<string, mixed> $body */
         self::assertFalse($body['success'] ?? true, 'Response should indicate failure');

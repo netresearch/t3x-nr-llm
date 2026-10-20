@@ -29,7 +29,7 @@ namespace Netresearch\NrLlm\Service\Governance;
  * merges the shipped template defaults into settings.php, so the distinction is
  * not reconstructable from the stored configuration either.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class EffectivePolicyRow
 {

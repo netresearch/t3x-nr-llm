@@ -99,12 +99,12 @@ final readonly class UseCasePack
         // the two: the second is skipped as "already installed" by the record
         // the first just created.
         $this->assertUniqueIdentifiers(
-            array_map(static fn(PackTask $task): string => $task->identifier, $this->tasks),
+            array_map(static fn (PackTask $task): string => $task->identifier, $this->tasks),
             'task',
             1791460023,
         );
         $this->assertUniqueIdentifiers(
-            array_map(static fn(PackSnippet $snippet): string => $snippet->identifier, $this->snippets),
+            array_map(static fn (PackSnippet $snippet): string => $snippet->identifier, $this->snippets),
             'snippet',
             1791460024,
         );
@@ -216,7 +216,7 @@ final readonly class UseCasePack
      */
     private function assertUniqueIdentifiers(array $identifiers, string $kind, int $code): void
     {
-        $duplicates = array_keys(array_filter(array_count_values($identifiers), static fn(int $count): bool => $count > 1));
+        $duplicates = array_keys(array_filter(array_count_values($identifiers), static fn (int $count): bool => $count > 1));
         if ($duplicates !== []) {
             throw new InvalidArgumentException(
                 sprintf(

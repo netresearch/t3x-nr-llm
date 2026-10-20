@@ -21,7 +21,7 @@ The LLM backend module
 
 All AI **management** happens in
 :guilabel:`AI`; editors run prepared tasks and decide
-approvals in the separate :guilabel:`Web > AI Tasks` module
+approvals in the separate :guilabel:`AI > AI Tasks` module
 (:ref:`administration-permissions`). The **Overview** is a guided starting point:
 
 - a **usage & cost** band across the top — 30-day cost, requests and tokens,
@@ -96,7 +96,7 @@ left-hand navigation:
 - **Analytics** — usage and cost dashboard (admin-only)
 
 Editors do not use this tree: their surface is the separate
-:guilabel:`Web > AI Tasks` module, opened per backend group through the
+:guilabel:`AI > AI Tasks` module, opened per backend group through the
 :ref:`permission grants <administration-permissions>`.
 
 .. toctree::

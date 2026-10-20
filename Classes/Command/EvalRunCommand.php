@@ -9,10 +9,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Command;
 
+use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Decision\DecisionException;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepositoryInterface;
+use Netresearch\NrLlm\Service\Evaluation\EvaluationResultSummary;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationService;
+use Netresearch\NrLlm\Service\Evaluation\GeneratorEvaluationResultRepositoryInterface;
 use Netresearch\NrLlm\Service\Evaluation\GoldenPromptSet;
 use Netresearch\NrLlm\Service\Evaluation\GoldenPromptSetRegistry;
 use Netresearch\NrLlm\Service\Evaluation\Grader\DecisionGrader;
@@ -43,7 +46,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     description: 'Run a golden prompt set against a model and report grading and regression.',
 )]
 /**
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class EvalRunCommand extends Command
 {
@@ -72,7 +75,7 @@ final class EvalRunCommand extends Command
         InputInterface $input,
         OutputInterface $output,
     ): int {
-        $io = new SymfonyStyle($input, $output);
+        $io  = new SymfonyStyle($input, $output);
         $set = $this->findSet($input, $io);
         if (!$set instanceof GoldenPromptSet) {
             return Command::FAILURE;
@@ -94,7 +97,7 @@ final class EvalRunCommand extends Command
                 $evaluation->promptId,
                 $evaluation->result->passed ? 'pass' : 'FAIL',
                 sprintf('%.2f', $evaluation->result->score),
-                (string)$evaluation->latencyMs,
+                (string) $evaluation->latencyMs,
                 $evaluation->result->reason,
             ];
         }
@@ -109,7 +112,7 @@ final class EvalRunCommand extends Command
 
     private function buildBaseOptions(InputInterface $input): ?ChatOptions
     {
-        $model = $input->getOption('model');
+        $model    = $input->getOption('model');
         $provider = $input->getOption('provider');
         if (!is_string($model) && !is_string($provider)) {
             return null;
@@ -130,23 +133,23 @@ final class EvalRunCommand extends Command
     private function floatOption(InputInterface $input, string $name): float
     {
         $value = $input->getOption($name);
-        if (!is_numeric($value) || !is_finite((float)$value) || (float)$value < 0.0 || (float)$value > 1.0) {
+        if (!is_numeric($value) || !is_finite((float) $value) || (float) $value < 0.0 || (float) $value > 1.0) {
             throw new InvalidArgumentException(
                 sprintf('Option "--%s" must be a finite number in 0..1.', $name),
                 1794000041,
             );
         }
 
-        return (float)$value;
+        return (float) $value;
     }
 
     private function findSet(
         InputInterface $input,
         SymfonyStyle $io,
     ): ?GoldenPromptSet {
-        $argument = $input->getArgument('set');
+        $argument   = $input->getArgument('set');
         $identifier = is_string($argument) ? $argument : '';
-        $set = $this->registry->findByIdentifier($identifier);
+        $set        = $this->registry->findByIdentifier($identifier);
         if (!$set instanceof GoldenPromptSet) {
             $io->error(sprintf('Unknown golden prompt set "%s".', $identifier));
             $available = $this->registry->identifiers();
@@ -162,12 +165,13 @@ final class EvalRunCommand extends Command
         InputInterface $input,
         SymfonyStyle $io,
     ): ?string {
-        $option = $input->getOption('grader');
+        $option     = $input->getOption('grader');
         $identifier = is_string($option) ? $option : DeterministicGrader::IDENTIFIER;
-        $available = $this->evaluationService->availableGraders();
+        $available  = $this->evaluationService->availableGraders();
         if (!in_array($identifier, $available, true)) {
             $io->error(sprintf('Unknown grader "%s".', $identifier));
             $io->writeln('Available graders: ' . implode(', ', $available));
+
             return null;
         }
 
@@ -187,6 +191,7 @@ final class EvalRunCommand extends Command
             );
         } catch (InvalidArgumentException $exception) {
             $io->error($exception->getMessage());
+
             return Command::FAILURE;
         }
 
@@ -215,52 +220,77 @@ final class EvalRunCommand extends Command
         return $this->renderComparison($input, $io, $result, $thresholds);
     }
 
+    private function notComparedReason(SetEvaluationResult $result): ?string
+    {
+        $reason = null;
+        if (!$result->sharesOneYardstick() || $result->grader === DecisionGrader::FAILED_SERIES) {
+            $reason = $result->grader === DecisionGrader::FAILED_SERIES ? sprintf(
+                'Not compared: no decision of this run could be made (stored as "%s").',
+                $result->grader,
+            ) : sprintf(
+                'Not compared: the gradings of this run do not share one yardstick (stored as "%s"). A decision failed for some prompts, or the grading model changed during the run.',
+                $result->grader,
+            );
+        } elseif (!$result->verifiedGeneratorProvenance() instanceof GeneratorProvenance) {
+            $reason = 'Not compared: no single verified serving generator for this run. Aggregate grades remain stored.';
+        } elseif (!$this->repository instanceof GeneratorEvaluationResultRepositoryInterface) {
+            $reason = 'Not compared: configured evaluation repository has no verified-generator capability.';
+        }
+
+        return $reason;
+    }
+
+    private function findGeneratorBaseline(
+        SetEvaluationResult $result,
+    ): ?EvaluationResultSummary {
+        $record = $result->verifiedGeneratorProvenance();
+        if (!$record instanceof GeneratorProvenance || !$this->repository instanceof GeneratorEvaluationResultRepositoryInterface) {
+            return null;
+        }
+
+        return $this->repository->findLatestForGenerator(
+            $result->setIdentifier,
+            $record->providerIdentifier,
+            $record->modelId,
+            $record->reportedModelId,
+            $result->grader,
+        );
+    }
+
     private function renderComparison(
         InputInterface $input,
         SymfonyStyle $io,
         SetEvaluationResult $result,
         RegressionThresholds $thresholds,
     ): int {
-        $failOnRegression = $input->getOption('fail-on-regression') === true;
-
-        // A run without one yardstick, or one in which no model answered at
-        // all, cannot be compared — and a gate must not read "could not
-        // judge" as "no regression" (ADR-211).
-        if (!$result->sharesOneYardstick() || $result->grader === DecisionGrader::FAILED_SERIES) {
+        $reason = $this->notComparedReason($result);
+        if ($reason !== null) {
             $this->repository->save($result);
             $io->section('Regression check');
-            $reason = $result->grader === DecisionGrader::FAILED_SERIES ? 'Not compared: no decision of this run could be made (stored as "%s").' : 'Not compared: the gradings of this run do not share one yardstick (stored as "%s"). ' . 'A decision failed for some prompts, or the model changed during the run.';
-            if ($failOnRegression) {
-                $io->error(sprintf($reason, $result->grader));
+            if ($input->getOption('fail-on-regression') === true) {
+                $io->error($reason);
             } else {
-                $io->warning(sprintf($reason, $result->grader));
+                $io->warning($reason);
             }
 
-            return $failOnRegression ? Command::FAILURE : Command::SUCCESS;
+            return $input->getOption('fail-on-regression') === true ? Command::FAILURE : Command::SUCCESS;
         }
 
-        $previous = $this->repository->findLatest(
-            $result->setIdentifier,
-            $result->model,
-            $result->grader,
-        );
+        $previous = $this->findGeneratorBaseline($result);
         $this->repository->save($result);
-
         $report = $this->regressionDetector->compare(
             $result->toSummary(),
             $previous,
             $thresholds,
         );
-
         $io->section('Regression check');
         $io->writeln($report->summary);
-
         if ($report->isRegression) {
             $io->warning(
                 'Quality regression detected against the previous run.',
             );
         }
 
-        return $report->isRegression && $failOnRegression ? Command::FAILURE : Command::SUCCESS;
+        return $report->isRegression && $input->getOption('fail-on-regression') === true ? Command::FAILURE : Command::SUCCESS;
     }
 }

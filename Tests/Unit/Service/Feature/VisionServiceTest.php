@@ -32,7 +32,7 @@ class VisionServiceTest extends AbstractUnitTestCase
     {
         parent::setUp();
         $this->llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $this->subject = new VisionService($this->llmManagerStub);
+        $this->subject        = new VisionService($this->llmManagerStub);
     }
 
     /**
@@ -43,8 +43,9 @@ class VisionServiceTest extends AbstractUnitTestCase
     private function createSubjectWithMockManager(): array
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+
         return [
-            'subject' => new VisionService($llmManagerMock),
+            'subject'    => new VisionService($llmManagerMock),
             'llmManager' => $llmManagerMock,
         ];
     }
@@ -54,7 +55,7 @@ class VisionServiceTest extends AbstractUnitTestCase
     {
         ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
 
-        $imageUrl = 'https://example.com/image.jpg';
+        $imageUrl        = 'https://example.com/image.jpg';
         $expectedAltText = 'A red barn in a green field';
 
         $llmManagerMock
@@ -96,7 +97,7 @@ class VisionServiceTest extends AbstractUnitTestCase
     {
         ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
 
-        $imageUrl = 'https://example.com/image.jpg';
+        $imageUrl      = 'https://example.com/image.jpg';
         $expectedTitle = 'SEO optimized title';
 
         $llmManagerMock
@@ -114,7 +115,7 @@ class VisionServiceTest extends AbstractUnitTestCase
     {
         ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
 
-        $imageUrl = 'https://example.com/image.jpg';
+        $imageUrl            = 'https://example.com/image.jpg';
         $expectedDescription = 'Detailed description of the image';
 
         $llmManagerMock
@@ -132,8 +133,8 @@ class VisionServiceTest extends AbstractUnitTestCase
     {
         ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
 
-        $imageUrl = 'https://example.com/chart.jpg';
-        $customPrompt = 'What trends are shown in this chart?';
+        $imageUrl         = 'https://example.com/chart.jpg';
+        $customPrompt     = 'What trends are shown in this chart?';
         $expectedAnalysis = 'The chart shows upward trends';
 
         $llmManagerMock
@@ -234,7 +235,7 @@ class VisionServiceTest extends AbstractUnitTestCase
     public function analyzeImageFullAutoPopulatesBeUserUidFromResolver(): void
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver       = $this->createMock(BackendUserContextResolverInterface::class);
         $resolver->expects(self::once())
             ->method('resolveBeUserUid')
             ->willReturn(42);
@@ -245,8 +246,7 @@ class VisionServiceTest extends AbstractUnitTestCase
             ->method('vision')
             ->with(
                 self::anything(),
-                self::callback(static fn(VisionOptions $options): bool
-                    => $options->getBeUserUid() === 42),
+                self::callback(static fn (VisionOptions $options): bool => $options->getBeUserUid() === 42),
             )
             ->willReturn($this->createMockVisionResponse('Alt text'));
 
@@ -262,14 +262,13 @@ class VisionServiceTest extends AbstractUnitTestCase
         // parameter list the rebuild copies. nr-llm-compat's ai_filemetadata
         // bridge routes its vision calls through exactly this method.
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $subject = new VisionService($llmManagerMock);
+        $subject        = new VisionService($llmManagerMock);
 
         $llmManagerMock->expects(self::once())
             ->method('vision')
             ->with(
                 self::anything(),
-                self::callback(static fn(VisionOptions $options): bool
-                    => $options->getCallerSourceExtension() === 'ai_filemetadata'
+                self::callback(static fn (VisionOptions $options): bool => $options->getCallerSourceExtension() === 'ai_filemetadata'
                     && $options->getCallerSourceOperation() === 'buildAltText'),
             )
             ->willReturn($this->createMockVisionResponse('Alt text'));
@@ -291,14 +290,13 @@ class VisionServiceTest extends AbstractUnitTestCase
         // copy `beUserUid` and `plannedCost` across, otherwise
         // BudgetMiddleware sees no metadata.
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $subject = new VisionService($llmManagerMock);
+        $subject        = new VisionService($llmManagerMock);
 
         $llmManagerMock->expects(self::once())
             ->method('vision')
             ->with(
                 self::anything(),
-                self::callback(static fn(VisionOptions $options): bool
-                    => $options->getBeUserUid() === 13
+                self::callback(static fn (VisionOptions $options): bool => $options->getBeUserUid() === 13
                     && $options->getPlannedCost() === 0.07),
             )
             ->willReturn($this->createMockVisionResponse('OK'));
@@ -314,14 +312,13 @@ class VisionServiceTest extends AbstractUnitTestCase
     public function analyzeImageFullWorksWithoutResolverDependency(): void
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $subject = new VisionService($llmManagerMock);
+        $subject        = new VisionService($llmManagerMock);
 
         $llmManagerMock->expects(self::once())
             ->method('vision')
             ->with(
                 self::anything(),
-                self::callback(static fn(VisionOptions $options): bool
-                    => $options->getBeUserUid() === null),
+                self::callback(static fn (VisionOptions $options): bool => $options->getBeUserUid() === null),
             )
             ->willReturn($this->createMockVisionResponse('OK'));
 

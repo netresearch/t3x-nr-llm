@@ -14,7 +14,7 @@ use Psr\Http\Message\ServerRequestInterface;
 /**
  * Request DTO for fetching database records AJAX endpoint.
  *
- * @internal Not part of public API, may change without notice.
+ * @internal not part of public API, may change without notice
  */
 final readonly class FetchRecordsRequest
 {
@@ -64,7 +64,8 @@ final readonly class FetchRecordsRequest
     private static function extractString(array $data, string $key, string $default = ''): string
     {
         $value = $data[$key] ?? $default;
-        return is_scalar($value) ? (string)$value : $default;
+
+        return is_scalar($value) ? (string) $value : $default;
     }
 
     /**
@@ -73,6 +74,7 @@ final readonly class FetchRecordsRequest
     private static function extractInt(array $data, string $key, int $default = 0): int
     {
         $value = $data[$key] ?? $default;
-        return is_numeric($value) ? (int)$value : $default;
+
+        return is_numeric($value) ? (int) $value : $default;
     }
 }

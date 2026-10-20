@@ -91,15 +91,15 @@ final class RecordingAiSessionRepository implements AiSessionRepositoryInterface
         ?int $droppedTurns = null,
     ): void {
         $this->messages[] = [
-            'session'    => $sessionUid,
-            'sequence'   => $sequence,
-            'role'       => $role,
-            'content'    => $content,
+            'session'      => $sessionUid,
+            'sequence'     => $sequence,
+            'role'         => $role,
+            'content'      => $content,
             'droppedTurns' => $droppedTurns,
-            'model'      => $model,
-            'prompt'     => $promptTokens,
-            'completion' => $completionTokens,
-            'total'      => $totalTokens,
+            'model'        => $model,
+            'prompt'       => $promptTokens,
+            'completion'   => $completionTokens,
+            'total'        => $totalTokens,
         ];
     }
 
@@ -176,7 +176,7 @@ final class RecordingAiSessionRepository implements AiSessionRepositoryInterface
             }
         }
 
-        usort($out, static fn(AiSessionMessage $a, AiSessionMessage $b): int => $a->sequence <=> $b->sequence);
+        usort($out, static fn (AiSessionMessage $a, AiSessionMessage $b): int => $a->sequence <=> $b->sequence);
 
         return $out;
     }

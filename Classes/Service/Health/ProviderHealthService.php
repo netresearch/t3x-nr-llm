@@ -17,6 +17,9 @@ use TYPO3\CMS\Core\Cache\CacheManager as Typo3CacheManager;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
+use function array_key_exists;
+use function is_array;
+
 /**
  * Provider health advisor (ADR-063).
  *
@@ -86,7 +89,7 @@ final class ProviderHealthService implements ProviderHealthServiceInterface
         $scoreOf = [];
         $orderOf = [];
         foreach ($chain->configurationIdentifiers as $position => $identifier) {
-            $provider            = $this->providerForIdentifier($identifier);
+            $provider             = $this->providerForIdentifier($identifier);
             $scoreOf[$identifier] = ($provider !== null && isset($scores[$provider]))
                 ? $scores[$provider]->score
                 : ProviderHealthScore::NEUTRAL_SCORE;
@@ -96,7 +99,7 @@ final class ProviderHealthService implements ProviderHealthServiceInterface
         $ordered = $chain->configurationIdentifiers;
         usort(
             $ordered,
-            static fn(string $a, string $b): int => [$scoreOf[$b], $orderOf[$a]] <=> [$scoreOf[$a], $orderOf[$b]],
+            static fn (string $a, string $b): int => [$scoreOf[$b], $orderOf[$a]] <=> [$scoreOf[$a], $orderOf[$b]],
         );
 
         return new FallbackChain($ordered);
@@ -127,10 +130,10 @@ final class ProviderHealthService implements ProviderHealthServiceInterface
             return false;
         }
 
-        $health = \is_array($config['health'] ?? null) ? $config['health'] : [];
+        $health = is_array($config['health'] ?? null) ? $config['health'] : [];
 
         // Default OFF: the configured fallback order stays the default.
-        return \array_key_exists('reorderFallback', $health) && (bool)$health['reorderFallback'];
+        return array_key_exists('reorderFallback', $health) && (bool) $health['reorderFallback'];
     }
 
     /**
@@ -144,7 +147,7 @@ final class ProviderHealthService implements ProviderHealthServiceInterface
             return null;
         }
 
-        if (!\is_array($cached)) {
+        if (!is_array($cached)) {
             return null;
         }
 

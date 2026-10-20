@@ -209,7 +209,7 @@ trait ActsOnAnExistingRecordTrait
 
         foreach ($this->tcaColumnsFor($table) ?? [] as $name => $column) {
             $config = is_array($column) ? ($column['config'] ?? null) : null;
-            if (!is_array($config) || ($config['type'] ?? null) !== 'select' || !(bool)($config['authMode'] ?? false)) {
+            if (!is_array($config) || ($config['type'] ?? null) !== 'select' || !(bool) ($config['authMode'] ?? false)) {
                 continue;
             }
 
@@ -220,6 +220,6 @@ trait ActsOnAnExistingRecordTrait
 
         $editlock = $this->ctrlColumn($table, 'editlock');
 
-        return $editlock === null || !(bool)($row[$editlock] ?? false);
+        return $editlock === null || !(bool) ($row[$editlock] ?? false);
     }
 }

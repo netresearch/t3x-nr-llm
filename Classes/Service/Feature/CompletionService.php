@@ -60,7 +60,7 @@ final readonly class CompletionService implements CompletionServiceInterface
     public function complete(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
         $options ??= new ChatOptions();
-        $options = $this->autoPopulateBeUserUid($options);
+        $options      = $this->autoPopulateBeUserUid($options);
         $optionsArray = $options->toArray();
         $this->validateOptions($optionsArray);
 
@@ -93,9 +93,9 @@ final readonly class CompletionService implements CompletionServiceInterface
      *
      * @param string $prompt The user prompt
      *
-     * @throws InvalidArgumentException
-     *
      * @return array<string, mixed> Parsed JSON response
+     *
+     * @throws InvalidArgumentException
      */
     public function completeJson(string $prompt, ?ChatOptions $options = null): array
     {
@@ -119,20 +119,20 @@ final readonly class CompletionService implements CompletionServiceInterface
      *                                     subset (ADR-126): type/enum/const/
      *                                     pattern/bounds/items/oneOf and
      *                                     friends are enforced, unknown
-     *                                     keywords are rejected up front.
+     *                                     keywords are rejected up front
+     *
+     * @return StructuredCompletionResponse the decoded, schema-valid payload with the answering response and the usage of every attempt
      *
      * @throws InvalidArgumentException when the schema lies outside the
      *                                  supported subset (code 1784500003 —
      *                                  thrown BEFORE any provider call), or
      *                                  when the response still fails to match
      *                                  after one repair attempt (1784500001)
-     *
-     * @return StructuredCompletionResponse the decoded, schema-valid payload with the answering response and the usage of every attempt
      */
     public function completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): StructuredCompletionResponse
     {
         return $this->structured(
-            fn(string $prompt, ChatOptions $options): CompletionResponse => $this->complete($prompt, $options),
+            fn (string $prompt, ChatOptions $options): CompletionResponse => $this->complete($prompt, $options),
             $prompt,
             $schema,
             $options,
@@ -204,7 +204,7 @@ final readonly class CompletionService implements CompletionServiceInterface
     public function completeStructuredForConfiguration(string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null, ?ModelResolution $resolution = null): StructuredCompletionResponse
     {
         return $this->structured(
-            fn(string $prompt, ChatOptions $options): CompletionResponse => $this->completeForConfiguration($prompt, $configuration, $options, $resolution),
+            fn (string $prompt, ChatOptions $options): CompletionResponse => $this->completeForConfiguration($prompt, $configuration, $options, $resolution),
             $prompt,
             $schema,
             $options,
@@ -398,9 +398,9 @@ final readonly class CompletionService implements CompletionServiceInterface
     private function normalizeResponseFormat(string $format): array|string
     {
         return match ($format) {
-            'json' => ['type' => 'json_object'],
+            'json'             => ['type' => 'json_object'],
             'markdown', 'text' => 'text',
-            default => 'text',
+            default            => 'text',
         };
     }
 
@@ -427,9 +427,9 @@ final readonly class CompletionService implements CompletionServiceInterface
     /**
      * Decode a JSON completion into an object array.
      *
-     * @throws InvalidArgumentException when the content is not a valid JSON object
-     *
      * @return array<string, mixed>
+     *
+     * @throws InvalidArgumentException when the content is not a valid JSON object
      */
     private function decodeJsonResponse(string $content): array
     {

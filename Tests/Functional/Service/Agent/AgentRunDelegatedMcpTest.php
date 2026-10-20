@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent;
 
@@ -91,10 +92,10 @@ final class AgentRunDelegatedMcpTest extends AbstractFunctionalTestCase
         parent::setUp();
         $this->importFixture('BeUsers.csv');
         $this->setUpBackendUser(2);
-        $this->codec = $this->getService(AgentStateCodec::class);
-        $pool = $this->getService(ConnectionPool::class);
+        $this->codec      = $this->getService(AgentStateCodec::class);
+        $pool             = $this->getService(ConnectionPool::class);
         $this->connection = $pool->getConnectionForTable('tx_nrllm_agentrun');
-        $this->persister = new AgentRunPersister(
+        $this->persister  = new AgentRunPersister(
             new AgentRunRepository($pool, $this->codec),
             FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL),
             new NullLogger(),
@@ -107,8 +108,8 @@ final class AgentRunDelegatedMcpTest extends AbstractFunctionalTestCase
     public function queuedBackendRunUsesItsOwnerUnderAnotherAmbientUser(): void
     {
         $runtime = $this->runtime();
-        $uuid = $runtime->enqueue($this->request(AiActorContext::backendUser(1)));
-        $queued = $this->storedRun($uuid);
+        $uuid    = $runtime->enqueue($this->request(AiActorContext::backendUser(1)));
+        $queued  = $this->storedRun($uuid);
         self::assertStringContainsString($uuid, $queued->queuedRequest ?? '');
         self::assertStringNotContainsString(
             'ephemeral-test',
@@ -125,7 +126,7 @@ final class AgentRunDelegatedMcpTest extends AbstractFunctionalTestCase
     public function approvalRestoresTheOriginalServiceActor(): void
     {
         $runtime = $this->runtime(approval: true);
-        $result = $runtime->run($this->request(AiActorContext::serviceAccount('indexer')));
+        $result  = $runtime->run($this->request(AiActorContext::serviceAccount('indexer')));
         self::assertSame(AgentRunOutcome::AWAITING_APPROVAL, $result->outcome);
         self::assertSame([], $this->actors);
         $state = $this->state($result->runUuid);
@@ -146,11 +147,11 @@ final class AgentRunDelegatedMcpTest extends AbstractFunctionalTestCase
     public function inputResumeAlsoRetainsTheServiceActorForFollowingMcpCalls(): void
     {
         $runtime = $this->runtime(input: true);
-        $result = $runtime->run(
+        $result  = $runtime->run(
             $this->request(AiActorContext::serviceAccount('input-worker')),
         );
         self::assertSame(AgentRunOutcome::AWAITING_INPUT, $result->outcome);
-        $state = $this->state($result->runUuid);
+        $state   = $this->state($result->runUuid);
         $resumed = $runtime->submitInput(
             $this->approver(),
             $result->runUuid,
@@ -169,7 +170,7 @@ final class AgentRunDelegatedMcpTest extends AbstractFunctionalTestCase
     public function copyingCiphertextBetweenNewServiceQueuesCannotChangeTheActor(): void
     {
         $runtime = $this->runtime();
-        $first = $runtime->enqueue(
+        $first   = $runtime->enqueue(
             $this->request(AiActorContext::serviceAccount('first')),
         );
         $second = $runtime->enqueue(
@@ -187,8 +188,8 @@ final class AgentRunDelegatedMcpTest extends AbstractFunctionalTestCase
     public function copyingSuspendedCiphertextBetweenServiceRunsIsRefusedBeforeClaim(): void
     {
         $runtime = $this->runtime(approval: true);
-        $first = $runtime->run($this->request(AiActorContext::serviceAccount('first')));
-        $second = $this
+        $first   = $runtime->run($this->request(AiActorContext::serviceAccount('first')));
+        $second  = $this
             ->runtime(approval: true)
             ->run($this->request(AiActorContext::serviceAccount('second')));
         $state = $this->state($first->runUuid);
@@ -204,10 +205,10 @@ final class AgentRunDelegatedMcpTest extends AbstractFunctionalTestCase
     public function backendOwnerMismatchAndExplicitMalformedActorAreRefused(): void
     {
         foreach ([AiActorContext::backendUser(2)->toArray(), 'invalid', null] as $actor) {
-            $runtime = $this->runtime(approval: true);
-            $result = $runtime->run($this->request(AiActorContext::backendUser(1)));
-            $state = $this->state($result->runUuid);
-            $data = $state->toArray();
+            $runtime                 = $this->runtime(approval: true);
+            $result                  = $runtime->run($this->request(AiActorContext::backendUser(1)));
+            $state                   = $this->state($result->runUuid);
+            $data                    = $state->toArray();
             $data['initiatingActor'] = $actor;
             if ($actor === null) {
                 unset($data['initiatingRunUuid']);
@@ -222,9 +223,9 @@ final class AgentRunDelegatedMcpTest extends AbstractFunctionalTestCase
     public function legacyUnboundBackendStatesRemainResumable(): void
     {
         $runtime = $this->runtime(approval: true);
-        $result = $runtime->run($this->request(AiActorContext::backendUser(1)));
-        $state = $this->state($result->runUuid);
-        $data = $state->toArray();
+        $result  = $runtime->run($this->request(AiActorContext::backendUser(1)));
+        $state   = $this->state($result->runUuid);
+        $data    = $state->toArray();
         unset($data['initiatingActor'], $data['initiatingRunUuid']);
         $this->writeState($result->runUuid, $data);
         $resumed = $runtime->approve(
@@ -240,6 +241,7 @@ final class AgentRunDelegatedMcpTest extends AbstractFunctionalTestCase
     {
         $run = $this->persister->findRun($uuid);
         self::assertInstanceOf(AgentRun::class, $run);
+
         return $run;
     }
 
@@ -251,6 +253,7 @@ final class AgentRunDelegatedMcpTest extends AbstractFunctionalTestCase
             flags: JSON_THROW_ON_ERROR,
         );
         self::assertIsArray($data);
+
         /** @var array<string, mixed> $data */
         return SuspendedRunState::fromArray($data);
     }
@@ -335,11 +338,11 @@ final class AgentRunDelegatedMcpTest extends AbstractFunctionalTestCase
         bool $approval = false,
         bool $input = false,
     ): AgentRuntime {
-        $tool = $this->mcpTool($approval);
+        $tool     = $this->mcpTool($approval);
         $registry = new ToolRegistry($input ? [new FakeInputTool(), $tool] : [$tool]);
-        $policy = $this->policy($input);
-        $manager = self::createStub(LlmServiceManagerInterface::class);
-        $calls = [new ToolCall('mcp1', 'mcp_srv_run', [])];
+        $policy   = $this->policy($input);
+        $manager  = self::createStub(LlmServiceManagerInterface::class);
+        $calls    = [new ToolCall('mcp1', 'mcp_srv_run', [])];
         if ($input) {
             array_unshift($calls, new ToolCall('input1', 'ask_user', []));
         }
@@ -364,7 +367,8 @@ final class AgentRunDelegatedMcpTest extends AbstractFunctionalTestCase
         $bus = self::createStub(MessageBusInterface::class);
         $bus
             ->method('dispatch')
-            ->willReturnCallback(static fn(object $message): Envelope => new Envelope($message));
+            ->willReturnCallback(static fn (object $message): Envelope => new Envelope($message));
+
         return new AgentRuntime(
             new ToolLoopService($manager, $registry, $policy),
             $this->persister,
@@ -391,7 +395,7 @@ final class AgentRunDelegatedMcpTest extends AbstractFunctionalTestCase
         $policy
             ->method('decide')
             ->willReturnCallback(
-                static fn(
+                static fn (
                     string $name,
                 ): ToolPolicyDecision => new ToolPolicyDecision(
                     $name,
@@ -401,6 +405,7 @@ final class AgentRunDelegatedMcpTest extends AbstractFunctionalTestCase
                     ToolDataClass::PUBLIC_CONTENT,
                 ),
             );
+
         return $policy;
     }
 
@@ -432,7 +437,7 @@ final class AgentRunDelegatedMcpTest extends AbstractFunctionalTestCase
                     self::assertNotNull($actor);
                     self::assertFalse($deadline->isExhausted());
                     $this->actors[] = $actor;
-                    $session = self::createMock(McpCredentialSessionInterface::class);
+                    $session        = self::createMock(McpCredentialSessionInterface::class);
                     $session->method('credentialIdentifier')->willReturn(
                         'ephemeral-test',
                     );
@@ -441,6 +446,7 @@ final class AgentRunDelegatedMcpTest extends AbstractFunctionalTestCase
                             ++$this->closed;
                         },
                     );
+
                     return $session;
                 },
             );
@@ -492,6 +498,7 @@ final class AgentRunDelegatedMcpTest extends AbstractFunctionalTestCase
             0,
             0,
         );
+
         return new McpTool(
             $server,
             $record,
@@ -506,8 +513,8 @@ final class AgentRunDelegatedMcpTest extends AbstractFunctionalTestCase
     public function legacyQueueWithoutAnActorStillUsesItsStoredBackendOwner(): void
     {
         $runtime = $this->runtime();
-        $uuid = $runtime->enqueue($this->request(AiActorContext::backendUser(1)));
-        $data = json_decode(
+        $uuid    = $runtime->enqueue($this->request(AiActorContext::backendUser(1)));
+        $data    = json_decode(
             $this->storedRun($uuid)->queuedRequest ?? '',
             true,
             flags: JSON_THROW_ON_ERROR,
@@ -534,15 +541,15 @@ final class AgentRunDelegatedMcpTest extends AbstractFunctionalTestCase
     {
         foreach ([null, 'invalid', AiActorContext::backendUser(2)->toArray()] as $actor) {
             $runtime = $this->runtime();
-            $uuid = $runtime->enqueue($this->request(AiActorContext::backendUser(1)));
-            $data = json_decode(
+            $uuid    = $runtime->enqueue($this->request(AiActorContext::backendUser(1)));
+            $data    = json_decode(
                 $this->storedRun($uuid)->queuedRequest ?? '',
                 true,
                 flags: JSON_THROW_ON_ERROR,
             );
             self::assertIsArray($data);
             $data['actor'] = $actor;
-            $sealed = $this->codec->encode(
+            $sealed        = $this->codec->encode(
                 json_encode($data, JSON_THROW_ON_ERROR),
                 AgentStateCodec::PURPOSE_QUEUED_REQUEST,
             );
@@ -562,6 +569,7 @@ final class AgentRunDelegatedMcpTest extends AbstractFunctionalTestCase
     {
         $actor = $this->actors[0] ?? null;
         self::assertInstanceOf(AiActorContext::class, $actor);
+
         return $actor;
     }
 }

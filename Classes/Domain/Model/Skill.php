@@ -19,6 +19,12 @@ use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
  */
 class Skill extends AbstractEntity
 {
+    /** The sync or the digest wizard disabled the skill (ADR-214 item 3). */
+    public const DISABLED_BY_SYNC = 'sync';
+
+    /** An administrator disabled the skill (ADR-214 item 3). */
+    public const DISABLED_BY_ADMIN = 'admin';
+
     protected int $source = 0;
 
     protected string $identifier = '';
@@ -69,6 +75,9 @@ class Skill extends AbstractEntity
     protected bool $orphaned = false;
 
     protected bool $enabled = false;
+
+    /** Who disabled the skill: {@see self::DISABLED_BY_SYNC}, {@see self::DISABLED_BY_ADMIN} or '' (ADR-214 item 3). */
+    protected string $disabledBy = '';
 
     public function getSource(): int
     {
@@ -191,7 +200,7 @@ class Skill extends AbstractEntity
 
         $out = [];
         foreach ($decoded as $k => $v) {
-            $out[(string)$k] = $v;
+            $out[(string) $k] = $v;
         }
 
         return $out;
@@ -253,6 +262,7 @@ class Skill extends AbstractEntity
         }
 
         $decoded = json_decode($this->allowedTools, true);
+
         return is_array($decoded) ? array_values(array_filter($decoded, is_string(...))) : null;
     }
 
@@ -331,7 +341,7 @@ class Skill extends AbstractEntity
 
             $row = [];
             foreach ($entry as $key => $value) {
-                $row[(string)$key] = $value;
+                $row[(string) $key] = $value;
             }
 
             $out[] = $row;
@@ -366,6 +376,26 @@ class Skill extends AbstractEntity
     public function isEnabled(): bool
     {
         return $this->enabled;
+    }
+
+    public function getDisabledBy(): string
+    {
+        return $this->disabledBy;
+    }
+
+    public function setDisabledBy(string $disabledBy): void
+    {
+        $this->disabledBy = $disabledBy;
+    }
+
+    /**
+     * Whether the sync (or the digest wizard) disabled the skill, rather than
+     * an administrator. Such a skill keeps restricting the runs it is
+     * attached to (ADR-214 item 3).
+     */
+    public function isDisabledBySync(): bool
+    {
+        return !$this->enabled && $this->disabledBy === self::DISABLED_BY_SYNC;
     }
 
     public function getIsEnabled(): bool

@@ -119,7 +119,7 @@ final class CapabilitySeedTest extends AbstractUnitTestCase
         // "mistral-small" matches one of them without the server reporting
         // tools for this quantisation.
         $models = $this->discoverOllama([
-            'gemma3:12b'          => ['completion', 'tools', 'vision'],
+            'gemma3:12b'           => ['completion', 'tools', 'vision'],
             'mistral-small:22b-q4' => ['completion'],
         ]);
 

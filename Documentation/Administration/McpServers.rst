@@ -50,8 +50,8 @@ How it works
 
    Servers are named by their identifier rather than their uid, because a
    uid is not knowable to whoever writes the deploy script. Two *enabled*
-   servers sharing an identifier is refused with both named — identifiers
-   name the imported tools, so they cannot collide.
+   servers sharing an identifier is refused with both named. The identifier
+   forms part of each imported tool's local name.
 3. **Enable individual tools** — imported tools start disabled and are
    switched on one by one, exactly like the builtin tools in the
    :ref:`Tools module <administration-tools>`.
@@ -66,6 +66,33 @@ a single event-stream framed message; both read the same here. What the
 client does **not** do: hold a stream open, resume one, answer a request the
 server initiates, or speak stdio (:ref:`ADR-116 <adr-116>`,
 :ref:`ADR-181 <adr-181>`).
+
+Which reply belongs to a request
+================================
+
+Each request carries an opaque string ID. The server must echo that exact ID
+and the literal JSON-RPC version ``2.0``; numeric approximations, missing IDs
+and a reply to another request are refused. Initialize, catalogue pages and
+later tool calls use distinct IDs. Notifications carry no ID and their reply
+bodies are discarded (:ref:`ADR-227 <adr-227>`).
+
+A reply contains exactly one ``result`` or ``error`` property. MCP results
+must be JSON objects: ``{}`` remains a valid empty result, while ``[]`` is
+refused. A remote error requires an integral JSON number code within the
+installation's PHP integer range and a string message; integral forms such as
+``1.0`` and ``1e0`` retain code 1 without rounding fractional values.
+
+A complete event-stream answer may contain server notifications or requests,
+which are passed over. It must carry exactly one response for the outbound
+request. An unrelated response or a second response is refused, including one
+following a valid remote error. The reply body must finish within 2 MiB;
+a valid-looking prefix of an oversized or incomplete body is refused. A
+complete body exactly at the limit remains valid.
+
+A refused reply records no successful contact and cannot replace the existing
+catalogue. Its diagnostic names the failed rule without copying raw reply
+bodies or IDs. These checks preserve existing nested PHP result shapes and
+add no live-stream routing or recursive JSON-shape guarantee.
 
 Is the server alive?
 ====================
@@ -86,6 +113,10 @@ an import or a connection test — together with how long that round trip took.
 It is deliberately not the same as :guilabel:`Last import`: a server that has
 been answering tool calls all month can still show an import from six weeks
 ago, and previously there was no way to see the difference.
+
+A failed status write loses only that observation. Even if its optional
+diagnostic logger also throws, a completed connection test, catalogue walk or
+tool call keeps its successful result; the original warning is attempted once.
 
 A failed connection test replaces the report on the card with its reason, and
 is stored nowhere. Only a success moves the contact date.
@@ -171,7 +202,7 @@ the credential had gone out.
 
 See :ref:`ADR-116 <adr-116>` for the design rationale,
 :ref:`ADR-154 <adr-154>` for what liveness is measured on and why the
-connection test writes nothing, :ref:`ADR-170 <adr-170>` for the operation
+connection test writes no catalogue, :ref:`ADR-170 <adr-170>` for the operation
 budget, :ref:`ADR-190 <adr-190>` for cancellation, and
 :ref:`ADR-161 <adr-161>` for the conformance suite every supported connection
 is held to.

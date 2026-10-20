@@ -80,13 +80,13 @@ class FalImageServiceTest extends AbstractUnitTestCase
     {
         parent::setUp();
 
-        $this->httpClientStub = self::createStub(ClientInterface::class);
-        $this->requestFactoryStub = self::createStub(RequestFactoryInterface::class);
-        $this->streamFactoryStub = self::createStub(StreamFactoryInterface::class);
+        $this->httpClientStub      = self::createStub(ClientInterface::class);
+        $this->requestFactoryStub  = self::createStub(RequestFactoryInterface::class);
+        $this->streamFactoryStub   = self::createStub(StreamFactoryInterface::class);
         $this->extensionConfigMock = $this->createMock(ExtensionConfiguration::class);
-        $this->usageTrackerStub = self::createStub(UsageTrackerServiceInterface::class);
-        $this->loggerStub = self::createStub(LoggerInterface::class);
-        $this->vaultStub = $this->createVaultServiceMock();
+        $this->usageTrackerStub    = self::createStub(UsageTrackerServiceInterface::class);
+        $this->loggerStub          = self::createStub(LoggerInterface::class);
+        $this->vaultStub           = $this->createVaultServiceMock();
     }
 
     /**
@@ -244,7 +244,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             ->willReturn($streamStub);
 
         $responseBodyStub = self::createStub(StreamInterface::class);
-        $responseBodyStub->method('__toString')->willReturn((string)json_encode($responseData));
+        $responseBodyStub->method('__toString')->willReturn((string) json_encode($responseData));
 
         $responseStub = self::createStub(ResponseInterface::class);
         $responseStub->method('getStatusCode')->willReturn(200);
@@ -275,13 +275,13 @@ class FalImageServiceTest extends AbstractUnitTestCase
 
         // Create response bodies for: queue submit, status poll, result fetch
         $queueSubmitBody = self::createStub(StreamInterface::class);
-        $queueSubmitBody->method('__toString')->willReturn((string)json_encode(['request_id' => 'test-request-123']));
+        $queueSubmitBody->method('__toString')->willReturn((string) json_encode(['request_id' => 'test-request-123']));
 
         $statusBody = self::createStub(StreamInterface::class);
-        $statusBody->method('__toString')->willReturn((string)json_encode(['status' => 'COMPLETED']));
+        $statusBody->method('__toString')->willReturn((string) json_encode(['status' => 'COMPLETED']));
 
         $resultBody = self::createStub(StreamInterface::class);
-        $resultBody->method('__toString')->willReturn((string)json_encode($finalResponseData));
+        $resultBody->method('__toString')->willReturn((string) json_encode($finalResponseData));
 
         // Set up responses in order: submit, status, result
         $queueSubmitResponse = self::createStub(ResponseInterface::class);
@@ -327,7 +327,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
         $responses = [];
 
         $submitBody = self::createStub(StreamInterface::class);
-        $submitBody->method('__toString')->willReturn((string)json_encode(['request_id' => 'test-request-123']));
+        $submitBody->method('__toString')->willReturn((string) json_encode(['request_id' => 'test-request-123']));
         $submitResponse = self::createStub(ResponseInterface::class);
         $submitResponse->method('getStatusCode')->willReturn(200);
         $submitResponse->method('getBody')->willReturn($submitBody);
@@ -335,7 +335,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
 
         foreach ($statuses as $status) {
             $statusBody = self::createStub(StreamInterface::class);
-            $statusBody->method('__toString')->willReturn((string)json_encode(['status' => $status]));
+            $statusBody->method('__toString')->willReturn((string) json_encode(['status' => $status]));
             $statusResponse = self::createStub(ResponseInterface::class);
             $statusResponse->method('getStatusCode')->willReturn(200);
             $statusResponse->method('getBody')->willReturn($statusBody);
@@ -344,7 +344,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
 
         if ($finalResponseData !== null) {
             $resultBody = self::createStub(StreamInterface::class);
-            $resultBody->method('__toString')->willReturn((string)json_encode($finalResponseData));
+            $resultBody->method('__toString')->willReturn((string) json_encode($finalResponseData));
             $resultResponse = self::createStub(ResponseInterface::class);
             $resultResponse->method('getStatusCode')->willReturn(200);
             $resultResponse->method('getBody')->willReturn($resultBody);
@@ -358,7 +358,6 @@ class FalImageServiceTest extends AbstractUnitTestCase
 
     private function setupFailedRequest(int $statusCode, string $errorMessage = 'API Error'): void
     {
-
         $requestStub = self::createStub(RequestInterface::class);
         $requestStub->method('withHeader')->willReturnSelf();
         $requestStub->method('withBody')->willReturnSelf();
@@ -373,7 +372,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             ->willReturn($streamStub);
 
         $responseBodyStub = self::createStub(StreamInterface::class);
-        $responseBodyStub->method('__toString')->willReturn((string)json_encode([
+        $responseBodyStub->method('__toString')->willReturn((string) json_encode([
             'detail' => $errorMessage,
         ]));
 
@@ -395,7 +394,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
     private function installCapturingFactories(): void
     {
         $this->capturedRequests = [];
-        $this->capturedBodies = [];
+        $this->capturedBodies   = [];
 
         $requestStub = self::createStub(RequestInterface::class);
         $requestStub->method('withHeader')->willReturnSelf();
@@ -404,7 +403,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
         $this->requestFactoryStub
             ->method('createRequest')
             ->willReturnCallback(function (string $method, UriInterface|string $uri) use ($requestStub): RequestInterface {
-                $this->capturedRequests[] = ['method' => $method, 'uri' => (string)$uri];
+                $this->capturedRequests[] = ['method' => $method, 'uri' => (string) $uri];
 
                 return $requestStub;
             });
@@ -429,7 +428,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
     private function respondWithJson(array $responseData): void
     {
         $responseBodyStub = self::createStub(StreamInterface::class);
-        $responseBodyStub->method('__toString')->willReturn((string)json_encode($responseData));
+        $responseBodyStub->method('__toString')->willReturn((string) json_encode($responseData));
 
         $responseStub = self::createStub(ResponseInterface::class);
         $responseStub->method('getStatusCode')->willReturn(200);
@@ -449,19 +448,19 @@ class FalImageServiceTest extends AbstractUnitTestCase
     private function respondWithQueue(array $finalResponseData): void
     {
         $submitBody = self::createStub(StreamInterface::class);
-        $submitBody->method('__toString')->willReturn((string)json_encode(['request_id' => 'test-request-123']));
+        $submitBody->method('__toString')->willReturn((string) json_encode(['request_id' => 'test-request-123']));
         $submitResponse = self::createStub(ResponseInterface::class);
         $submitResponse->method('getStatusCode')->willReturn(200);
         $submitResponse->method('getBody')->willReturn($submitBody);
 
         $statusBody = self::createStub(StreamInterface::class);
-        $statusBody->method('__toString')->willReturn((string)json_encode(['status' => 'COMPLETED']));
+        $statusBody->method('__toString')->willReturn((string) json_encode(['status' => 'COMPLETED']));
         $statusResponse = self::createStub(ResponseInterface::class);
         $statusResponse->method('getStatusCode')->willReturn(200);
         $statusResponse->method('getBody')->willReturn($statusBody);
 
         $resultBody = self::createStub(StreamInterface::class);
-        $resultBody->method('__toString')->willReturn((string)json_encode($finalResponseData));
+        $resultBody->method('__toString')->willReturn((string) json_encode($finalResponseData));
         $resultResponse = self::createStub(ResponseInterface::class);
         $resultResponse->method('getStatusCode')->willReturn(200);
         $resultResponse->method('getBody')->willReturn($resultBody);
@@ -493,7 +492,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             ->willReturn($streamStub);
 
         $responseBodyStub = self::createStub(StreamInterface::class);
-        $responseBodyStub->method('__toString')->willReturn((string)json_encode($bodyData));
+        $responseBodyStub->method('__toString')->willReturn((string) json_encode($bodyData));
 
         $responseStub = self::createStub(ResponseInterface::class);
         $responseStub->method('getStatusCode')->willReturn($statusCode);
@@ -581,8 +580,8 @@ class FalImageServiceTest extends AbstractUnitTestCase
         $this->setupSuccessfulRequest([
             'images' => [
                 [
-                    'url' => 'https://fal.media/files/image.png',
-                    'width' => 1024,
+                    'url'    => 'https://fal.media/files/image.png',
+                    'width'  => 1024,
                     'height' => 1024,
                 ],
             ],
@@ -779,11 +778,11 @@ class FalImageServiceTest extends AbstractUnitTestCase
         ]);
 
         $options = [
-            'image_size' => 'landscape_16_9',
-            'guidance_scale' => 7.5,
-            'num_inference_steps' => 25,
-            'seed' => 42,
-            'negative_prompt' => 'blurry, low quality',
+            'image_size'            => 'landscape_16_9',
+            'guidance_scale'        => 7.5,
+            'num_inference_steps'   => 25,
+            'seed'                  => 42,
+            'negative_prompt'       => 'blurry, low quality',
             'enable_safety_checker' => true,
         ];
 
@@ -801,7 +800,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
         ]);
 
         $options = [
-            'width' => 1920,
+            'width'  => 1920,
             'height' => 1080,
         ];
 
@@ -846,7 +845,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function generateMultipleLimitsToFour(): void
     {
-        $subject = $this->createSubject();
+        $subject      = $this->createSubject();
         $responseData = array_fill(0, 4, ['url' => 'https://example.com/image.png', 'width' => 1024, 'height' => 1024]);
         $this->setupSuccessfulRequest(['images' => $responseData]);
 
@@ -882,7 +881,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             ->with(
                 'image',
                 'fal',
-                self::callback(fn(array $metrics): bool => isset($metrics['images'])),
+                self::callback(fn (array $metrics): bool => isset($metrics['images'])),
                 null,
                 0,
                 'flux-schnell',
@@ -1083,9 +1082,9 @@ class FalImageServiceTest extends AbstractUnitTestCase
             'image' => [
                 'fal' => [
                     'apiKeyIdentifier' => 'test-api-key',
-                    'baseUrl' => 'https://custom-api.example.com',
-                    'timeout' => 180,
-                    'pollInterval' => 2000,
+                    'baseUrl'          => 'https://custom-api.example.com',
+                    'timeout'          => 180,
+                    'pollInterval'     => 2000,
                 ],
             ],
         ];
@@ -1130,8 +1129,8 @@ class FalImageServiceTest extends AbstractUnitTestCase
                 'image' => [
                     'fal' => [
                         'apiKeyIdentifier' => 'test-key',
-                        'timeout' => '180', // String instead of int
-                        'pollInterval' => '2000', // String instead of int
+                        'timeout'          => '180', // String instead of int
+                        'pollInterval'     => '2000', // String instead of int
                     ],
                 ],
             ]);
@@ -1159,7 +1158,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             'image' => [
                 'fal' => [
                     'apiKeyIdentifier' => 'test-api-key',
-                    'pollInterval' => 0,
+                    'pollInterval'     => 0,
                 ],
             ],
         ];
@@ -1185,8 +1184,8 @@ class FalImageServiceTest extends AbstractUnitTestCase
             'image' => [
                 'fal' => [
                     'apiKeyIdentifier' => 'test-api-key',
-                    'timeout' => 1,
-                    'pollInterval' => 1000,
+                    'timeout'          => 1,
+                    'pollInterval'     => 1000,
                 ],
             ],
         ];
@@ -1209,8 +1208,8 @@ class FalImageServiceTest extends AbstractUnitTestCase
             'image' => [
                 'fal' => [
                     'apiKeyIdentifier' => 'test-api-key',
-                    'timeout' => 1,
-                    'pollInterval' => 200,
+                    'timeout'          => 1,
+                    'pollInterval'     => 200,
                 ],
             ],
         ];
@@ -1248,7 +1247,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             ->willReturn($streamStub);
 
         $queueSubmitBody = self::createStub(StreamInterface::class);
-        $queueSubmitBody->method('__toString')->willReturn((string)json_encode(['status' => 'queued']));
+        $queueSubmitBody->method('__toString')->willReturn((string) json_encode(['status' => 'queued']));
 
         $queueSubmitResponse = self::createStub(ResponseInterface::class);
         $queueSubmitResponse->method('getStatusCode')->willReturn(200);
@@ -1284,7 +1283,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
 
         // Queue submit returns request_id
         $queueSubmitBody = self::createStub(StreamInterface::class);
-        $queueSubmitBody->method('__toString')->willReturn((string)json_encode(['request_id' => 'test-123']));
+        $queueSubmitBody->method('__toString')->willReturn((string) json_encode(['request_id' => 'test-123']));
 
         $queueSubmitResponse = self::createStub(ResponseInterface::class);
         $queueSubmitResponse->method('getStatusCode')->willReturn(200);
@@ -1292,9 +1291,9 @@ class FalImageServiceTest extends AbstractUnitTestCase
 
         // Status poll returns FAILED
         $statusBody = self::createStub(StreamInterface::class);
-        $statusBody->method('__toString')->willReturn((string)json_encode([
+        $statusBody->method('__toString')->willReturn((string) json_encode([
             'status' => 'FAILED',
-            'error' => 'Generation failed due to content policy',
+            'error'  => 'Generation failed due to content policy',
         ]));
 
         $statusResponse = self::createStub(ResponseInterface::class);
@@ -1380,7 +1379,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             ->willReturn($streamStub);
 
         $responseBodyStub = self::createStub(StreamInterface::class);
-        $responseBodyStub->method('__toString')->willReturn((string)json_encode([
+        $responseBodyStub->method('__toString')->willReturn((string) json_encode([
             'message' => 'Invalid model specified',
         ]));
 
@@ -1404,7 +1403,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
         $subject = $this->createSubject();
         $this->setupSuccessfulRequest([
             'images' => 'not-an-array',
-            'seed' => 12345,
+            'seed'   => 12345,
         ]);
 
         $result = $subject->generate('A beautiful sunset');
@@ -1518,11 +1517,11 @@ class FalImageServiceTest extends AbstractUnitTestCase
     public static function numImagesClampProvider(): array
     {
         return [
-            'one stays one'        => [1, 1],
+            'one stays one'         => [1, 1],
             'zero clamps up to one' => [0, 1],
-            'two stays two'        => [2, 2],
-            'four stays four'      => [4, 4],
-            'ten clamps to four'   => [10, 4],
+            'two stays two'         => [2, 2],
+            'four stays four'       => [4, 4],
+            'ten clamps to four'    => [10, 4],
         ];
     }
 
@@ -2034,10 +2033,10 @@ class FalImageServiceTest extends AbstractUnitTestCase
         $this->respondWithJson(['images' => [['url' => 'https://example.com/image.png']]]);
 
         $subject->generate('A sunset', 'flux-schnell', [
-            'num_images' => 10,
-            'guidance_scale' => '3.5',
-            'num_inference_steps' => '25',
-            'seed' => '42',
+            'num_images'            => 10,
+            'guidance_scale'        => '3.5',
+            'num_inference_steps'   => '25',
+            'seed'                  => '42',
             'enable_safety_checker' => 1,
         ]);
 
@@ -2059,9 +2058,9 @@ class FalImageServiceTest extends AbstractUnitTestCase
         $this->respondWithJson(['images' => [['url' => 'https://example.com/image.png']]]);
 
         $subject->generate('A sunset', 'flux-schnell', [
-            'num_images' => 'many',
+            'num_images'          => 'many',
             'num_inference_steps' => 'fast',
-            'seed' => 'random',
+            'seed'                => 'random',
         ]);
 
         $payload = $this->decodedBody();
@@ -2174,8 +2173,8 @@ class FalImageServiceTest extends AbstractUnitTestCase
             'image' => [
                 'fal' => [
                     'apiKeyIdentifier' => 'test-api-key',
-                    'timeout' => 1,
-                    'pollInterval' => 999,
+                    'timeout'          => 1,
+                    'pollInterval'     => 999,
                 ],
             ],
         ];
@@ -2244,15 +2243,15 @@ class FalImageServiceTest extends AbstractUnitTestCase
         $this->streamFactoryStub->method('createStream')->willReturn($streamStub);
 
         $submitBody = self::createStub(StreamInterface::class);
-        $submitBody->method('__toString')->willReturn((string)json_encode(['request_id' => 'req-77']));
+        $submitBody->method('__toString')->willReturn((string) json_encode(['request_id' => 'req-77']));
         $submitResponse = self::createStub(ResponseInterface::class);
         $submitResponse->method('getStatusCode')->willReturn(200);
         $submitResponse->method('getBody')->willReturn($submitBody);
 
         $statusBody = self::createStub(StreamInterface::class);
-        $statusBody->method('__toString')->willReturn((string)json_encode([
+        $statusBody->method('__toString')->willReturn((string) json_encode([
             'status' => 'FAILED',
-            'error' => 'Content policy violation',
+            'error'  => 'Content policy violation',
         ]));
         $statusResponse = self::createStub(ResponseInterface::class);
         $statusResponse->method('getStatusCode')->willReturn(200);
@@ -2281,8 +2280,8 @@ class FalImageServiceTest extends AbstractUnitTestCase
             'image' => [
                 'fal' => [
                     'apiKeyIdentifier' => 'test-api-key',
-                    'timeout' => 1,
-                    'pollInterval' => 1000,
+                    'timeout'          => 1,
+                    'pollInterval'     => 1000,
                 ],
             ],
         ];

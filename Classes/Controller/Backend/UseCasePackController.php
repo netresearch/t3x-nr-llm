@@ -50,7 +50,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * The module is registered `access => admin`; the records an install creates
  * are ordinary records an administrator could create by hand.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class UseCasePackController extends ActionController
@@ -79,10 +79,10 @@ final class UseCasePackController extends ActionController
 
         $groups = [];
         foreach (UseCase::cases() as $useCase) {
-            $packs = $this->registry->forUseCase($useCase);
+            $packs    = $this->registry->forUseCase($useCase);
             $groups[] = [
                 'useCase' => $useCase,
-                'packs' => $packs,
+                'packs'   => $packs,
                 // An explicit boolean: `<f:if condition="{group.packs}">` over an
                 // empty array works, but the negative branch is the one carrying
                 // the "not built yet" message and deserves to be readable.
@@ -91,7 +91,7 @@ final class UseCasePackController extends ActionController
         }
 
         $moduleTemplate->assignMultiple([
-            'groups' => $groups,
+            'groups'    => $groups,
             'wizardUrl' => $this->wizardUrl(),
         ]);
 
@@ -112,8 +112,8 @@ final class UseCasePackController extends ActionController
         $this->applyModuleChrome($moduleTemplate, $this->request);
 
         $moduleTemplate->assignMultiple([
-            'pack' => $useCasePack,
-            'plan' => $this->installer->plan($useCasePack),
+            'pack'      => $useCasePack,
+            'plan'      => $this->installer->plan($useCasePack),
             'wizardUrl' => $this->wizardUrl(),
             // Carries the pack's recommended profile as the readout's `profile`
             // query parameter, so the comparison the hint asks for is one click
@@ -127,9 +127,9 @@ final class UseCasePackController extends ActionController
             // (ADR-158), not in the admin tree. Linked because the plan names
             // editor actions and an operator wants to see them where an editor
             // does; enabling one stays in the Tools module above.
-            'editorActionsUrl' => $this->routeUrl('nrllm_aitasks', 'Backend\\EditorAction', 'catalogue'),
-            'tasksUrl' => $this->routeUrl('nrllm_tasks', 'Backend\\TaskList', 'list'),
-            'snippetsUrl' => $this->routeUrl('nrllm_snippets', 'Backend\\PromptSnippet', 'list'),
+            'editorActionsUrl'  => $this->routeUrl('nrllm_aitasks', 'Backend\\EditorAction', 'catalogue'),
+            'tasksUrl'          => $this->routeUrl('nrllm_tasks', 'Backend\\TaskList', 'list'),
+            'snippetsUrl'       => $this->routeUrl('nrllm_snippets', 'Backend\\PromptSnippet', 'list'),
             'configurationsUrl' => $this->routeUrl('nrllm_configurations', 'Backend\\Configuration', 'list'),
         ]);
 
@@ -218,9 +218,9 @@ final class UseCasePackController extends ActionController
      */
     private function routeUrl(string $route, string $controller, string $action, array $extra = []): string
     {
-        return (string)$this->backendUriBuilder->buildUriFromRoute($route, [
+        return (string) $this->backendUriBuilder->buildUriFromRoute($route, [
             'controller' => $controller,
-            'action' => $action,
+            'action'     => $action,
         ] + $extra);
     }
 

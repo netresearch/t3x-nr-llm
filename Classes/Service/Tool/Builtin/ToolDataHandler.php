@@ -165,7 +165,7 @@ class ToolDataHandler extends DataHandler
      */
     private function finish(?string $failedStep, string $reset): void
     {
-        $failedAt = $failedStep === null ? -1 : (int)array_search($failedStep, self::AFTER_THE_WRITES, true);
+        $failedAt = $failedStep === null ? -1 : (int) array_search($failedStep, self::AFTER_THE_WRITES, true);
 
         $steps = [];
         if ($failedAt < 2) {
@@ -318,7 +318,7 @@ class ToolDataHandler extends DataHandler
             return null;
         }
 
-        for ($index = $from; $index > 0; $index--) {
+        for ($index = $from; $index > 0; --$index) {
             $key = $this->frameKey($trace[$index]);
             if (!in_array($key, self::DISPATCHERS, true)) {
                 continue;
@@ -328,7 +328,7 @@ class ToolDataHandler extends DataHandler
             // as call_user_func_array(), which is a frame without a class.
             $callee = $index - 1;
             while ($callee >= 0 && !isset($trace[$callee]['class'])) {
-                $callee--;
+                --$callee;
             }
 
             return $callee < 0 ? null : $this->frameKey($trace[$callee]) . '()';

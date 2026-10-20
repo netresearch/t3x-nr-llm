@@ -93,15 +93,15 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         $this->importFixture('BeUsers.csv');
 
         $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
-            'uid' => self::PAGE, 'pid' => 0, 'title' => 'Open', 'doktype' => 1, 'slug' => '/open',
-            'sorting' => 1,
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => self::PAGE, 'pid' => 0, 'title' => 'Open', 'doktype' => 1, 'slug' => '/open',
+            'sorting'       => 1,
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
         ]);
 
         $groups = $this->connectionPool->getConnectionForTable('be_groups');
         $groups->insert('be_groups', [
-            'uid' => 7, 'pid' => 0, 'title' => 'Editors', 'db_mountpoints' => (string)self::PAGE,
+            'uid' => 7, 'pid' => 0, 'title' => 'Editors', 'db_mountpoints' => (string) self::PAGE,
         ]);
         $groups->update('be_users', ['usergroup' => '7', 'options' => 3], ['uid' => 2]);
 
@@ -172,15 +172,15 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
                 'header' => 'Scalar draft',
                 'fields' => [
                     // select, validated against the static items (0, 1, 2)
-                    'bullets_type'  => 2,
+                    'bullets_type' => 2,
                     // check, as a boolean
-                    'sectionIndex'  => true,
+                    'sectionIndex' => true,
                     // input, bounded by the TCA `max`
                     'table_caption' => ' A caption ',
                     // number with a TCA range
-                    'imagewidth'    => 320,
+                    'imagewidth' => 320,
                     // datetime, format `date`
-                    'date'          => '2026-09-21',
+                    'date' => '2026-09-21',
                 ],
             ],
             ToolExecutionContext::fromBackendUser($admin),
@@ -191,13 +191,13 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         self::assertStringContainsString('bullets_type, sectionIndex, table_caption, imagewidth, date', $result->content);
 
         $row = $this->createdElement();
-        self::assertSame(1, (int)($row['hidden'] ?? 0), 'a drafted element must never be visible');
+        self::assertSame(1, (int) ($row['hidden'] ?? 0), 'a drafted element must never be visible');
         self::assertSame(self::SCALAR_TYPE, $row['CType'] ?? null);
-        self::assertSame(2, (int)($row['bullets_type'] ?? -1));
-        self::assertSame(1, (int)($row['sectionIndex'] ?? -1));
+        self::assertSame(2, (int) ($row['bullets_type'] ?? -1));
+        self::assertSame(1, (int) ($row['sectionIndex'] ?? -1));
         self::assertSame('A caption', $row['table_caption'] ?? null);
-        self::assertSame(320, (int)($row['imagewidth'] ?? -1));
-        self::assertGreaterThan(0, (int)($row['date'] ?? 0), 'the date must have landed');
+        self::assertSame(320, (int) ($row['imagewidth'] ?? -1));
+        self::assertGreaterThan(0, (int) ($row['date'] ?? 0), 'the date must have landed');
     }
 
     #[Test]
@@ -214,8 +214,8 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
 
         $row = $this->createdElement();
         self::assertSame('textmedia', $row['CType'] ?? null);
-        self::assertSame(1, (int)($row['hidden'] ?? 0));
-        self::assertSame(0, (int)($row['assets'] ?? -1), 'no media is attached by this tool');
+        self::assertSame(1, (int) ($row['hidden'] ?? 0));
+        self::assertSame(0, (int) ($row['assets'] ?? -1), 'no media is attached by this tool');
     }
 
     #[Test]
@@ -400,7 +400,7 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         );
 
         self::assertFalse($result->isError, $result->content);
-        self::assertSame(1, (int)($this->createdElement()['bullets_type'] ?? -1));
+        self::assertSame(1, (int) ($this->createdElement()['bullets_type'] ?? -1));
     }
 
     /**
@@ -558,7 +558,7 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
             'the card shows the day, not the timestamp',
         );
         self::assertFalse($result->isError, $result->content);
-        self::assertSame($midnight, (int)($this->createdElement()['date'] ?? 0), 'the day must not shift');
+        self::assertSame($midnight, (int) ($this->createdElement()['date'] ?? 0), 'the day must not shift');
     }
 
     /**
@@ -589,7 +589,7 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
             'the card shows the time of day, not the seconds',
         );
         self::assertFalse($result->isError, $result->content);
-        self::assertSame(14 * 3600 + 30 * 60, (int)($this->createdElement()['date'] ?? 0), 'the time must not shift');
+        self::assertSame(14 * 3600 + 30 * 60, (int) ($this->createdElement()['date'] ?? 0), 'the time must not shift');
     }
 
     /**
@@ -607,7 +607,7 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         );
 
         self::assertFalse($result->isError, $result->content);
-        self::assertSame(14 * 3600 + 30 * 60, (int)($this->createdElement()['date'] ?? 0));
+        self::assertSame(14 * 3600 + 30 * 60, (int) ($this->createdElement()['date'] ?? 0));
     }
 
     /**
@@ -700,7 +700,7 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         self::assertFalse($result->isError, $result->content);
         $stored = $this->createdElement()['imagewidth'] ?? null;
         self::assertIsNumeric($stored);
-        self::assertSame(12.0, (float)$stored);
+        self::assertSame(12.0, (float) $stored);
     }
 
     /**
@@ -1189,9 +1189,9 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         $pages = $this->connectionPool->getConnectionForTable('pages');
         $pages->delete('pages', ['uid' => self::TSCONFIG_PAGE]);
         $pages->insert('pages', [
-            'uid' => self::TSCONFIG_PAGE, 'pid' => 0, 'title' => 'Narrowed', 'doktype' => 1, 'slug' => '/narrowed',
-            'sorting' => 2, 'TSconfig' => $tsConfig,
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => self::TSCONFIG_PAGE, 'pid' => 0, 'title' => 'Narrowed', 'doktype' => 1, 'slug' => '/narrowed',
+            'sorting'       => 2, 'TSconfig' => $tsConfig,
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => 0,
         ]);
 
@@ -1271,7 +1271,7 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tt_content');
         $queryBuilder->getRestrictions()->removeAll();
 
-        return (int)$queryBuilder
+        return (int) $queryBuilder
             ->count('uid')
             ->from('tt_content')
             ->executeQuery()
@@ -1286,7 +1286,7 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tt_content');
         $queryBuilder->getRestrictions()->removeAll();
 
-        return (int)$queryBuilder
+        return (int) $queryBuilder
             ->count('uid')
             ->from('tt_content')
             ->where($queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)))
