@@ -218,6 +218,27 @@
             <trans-unit id="playground.truncatedBanner">
                 <source>Response truncated — the model hit the max-tokens limit. Raise Max tokens in Advanced and run again.</source>
             </trans-unit>
+            <trans-unit id="playground.outcome.awaitingApproval">
+                <source>Awaiting approval</source>
+            </trans-unit>
+            <trans-unit id="playground.outcome.awaitingInput">
+                <source>Awaiting input</source>
+            </trans-unit>
+            <trans-unit id="playground.outcome.guardrailBlocked">
+                <source>Blocked by a guardrail</source>
+            </trans-unit>
+            <trans-unit id="playground.outcome.guardrailApproval">
+                <source>Guardrail approval required</source>
+            </trans-unit>
+            <trans-unit id="playground.outcome.cancelled">
+                <source>Cancelled</source>
+            </trans-unit>
+            <trans-unit id="playground.outcome.incomplete">
+                <source>Incomplete</source>
+            </trans-unit>
+            <trans-unit id="playground.outcome.continueRun">
+                <source>Continue in AI &gt; Operation &gt; Agent Runs.</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>
