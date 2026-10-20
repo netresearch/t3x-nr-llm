@@ -409,8 +409,10 @@ when an administrator grants them under :guilabel:`Allowed excludefields`.
 A version that contains characters a browser renders as nothing but a model
 reads — Unicode tag characters, zero-width and direction marks, no-break
 spaces and similar — cannot be approved: the approval would bind to text the
-approver did not see. The review page lists each such character with its field,
-line and code point. Remove them at the source and sync again.
+approver did not see.
+The review page lists the first 20 findings with their field, line and code point,
+or identifies a field whose text is not valid UTF-8, and counts further findings.
+Remove them at the source and sync again.
 
 Approving and revoking is restricted to administrators. Every approval,
 revocation and refused approval is written to the skill audit trail with the
@@ -495,11 +497,16 @@ instructions", role reset, chat-template control tokens) force-disables the
 skill at import — even a single-file source that would otherwise default
 enabled — and must be re-reviewed before enabling. Lower-confidence findings are
 recorded on the skill (``Injection scan findings``) for review without blocking.
+The scanner matches a fixed set of heuristic signatures, including control
+markers and long encoded blobs. It can also flag quoted examples; an absence
+of findings does not establish that a skill is trustworthy.
 
-**Immutable audit trail.** Every ingest, enable, disable and fail-closed
+**Audit trail and retention.** Every ingest, enable, disable and fail-closed
 rejection is written to ``tx_nrllm_skill_audit`` with who / when / source / SHA /
-checksum / trust level / scan result. Normal ingest and approval operations
-never update or delete existing audit rows. The explicit
-``nrllm:privacy:purge`` command removes rows older than
-``privacy.retention.skillAudit``; provenance remains reconstructable within
-that configured retention window. See :ref:`administration-data-retention`.
+checksum / trust level. Scan output and free-form details follow the central
+privacy policy. Ordinary writes append rows and there is no update path.
+The explicit retention exception is :bash:`nrllm:privacy:purge`: it deletes
+rows created strictly before the cutoff for the skill-audit category. Retained
+rows support provenance reconstruction; purged rows are no longer available.
+See :ref:`ADR-064 <adr-064>` and
+:ref:`Data retention <administration-data-retention>`.
