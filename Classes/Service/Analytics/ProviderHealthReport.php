@@ -81,11 +81,11 @@ final readonly class ProviderHealthReport
             $state = $this->circuitStore->load($provider);
 
             $rows[] = [
-                'provider'            => $provider,
-                'sampleCount'         => $score->sampleCount ?? 0,
-                'score'               => $score?->score,
-                'successRate'         => $score?->successRate,
-                'avgLatencyMs'        => $score?->avgLatencyMs,
+                'provider'     => $provider,
+                'sampleCount'  => $score->sampleCount ?? 0,
+                'score'        => $score?->score,
+                'successRate'  => $score?->successRate,
+                'avgLatencyMs' => $score?->avgLatencyMs,
                 // Fluid cannot tell null from 0.0 in a condition (an unquoted
                 // NULL parses as the string "NULL"), so the template gets the
                 // same discriminator it already uses for the score column: a

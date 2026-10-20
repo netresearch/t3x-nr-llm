@@ -70,12 +70,12 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         parent::setUp();
 
-        $this->httpClientStub = self::createStub(ClientInterface::class);
+        $this->httpClientStub     = self::createStub(ClientInterface::class);
         $this->requestFactoryStub = self::createStub(RequestFactoryInterface::class);
-        $this->streamFactoryStub = self::createStub(StreamFactoryInterface::class);
-        $this->vaultStub = $this->createVaultServiceMock();
-        $this->httpClientFactory = $this->createSecureHttpClientFactoryMock();
-        $this->loggerStub = self::createStub(LoggerInterface::class);
+        $this->streamFactoryStub  = self::createStub(StreamFactoryInterface::class);
+        $this->vaultStub          = $this->createVaultServiceMock();
+        $this->httpClientFactory  = $this->createSecureHttpClientFactoryMock();
+        $this->loggerStub         = self::createStub(LoggerInterface::class);
 
         $this->subject = new ModelDiscovery(
             $this->vaultStub,
@@ -315,7 +315,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(static fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(static fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('gpt-5.3', $modelIds);
     }
 
@@ -334,7 +334,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'data' => [
                 ['id' => 'gpt-5.2'],
                 ['id' => 'gpt-4o'],
@@ -367,7 +367,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'data' => [
                 ['id' => 'gpt-6-astra'],
                 ['id' => 'gpt-6-sol'],
@@ -394,8 +394,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             self::assertArrayHasKey($id, $byId, $id . ' must survive the relevance filter');
             self::assertSame(1050000, $byId[$id]->contextLength);
             self::assertSame(128000, $byId[$id]->maxOutputTokens);
-            self::assertSame((float)$costInput, $byId[$id]->costInput);
-            self::assertSame((float)$costOutput, $byId[$id]->costOutput);
+            self::assertSame((float) $costInput, $byId[$id]->costInput);
+            self::assertSame((float) $costOutput, $byId[$id]->costOutput);
             self::assertContains('tools', $byId[$id]->capabilities);
         }
     }
@@ -435,7 +435,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('claude-opus-4-5-20251101', $modelIds);
         self::assertContains('claude-sonnet-4-5-20250929', $modelIds);
         self::assertContains('claude-haiku-4-5-20251001', $modelIds);
@@ -454,20 +454,20 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'models' => [
                 [
-                    'name' => 'models/gemini-3-flash',
-                    'displayName' => 'Gemini 3 Flash',
-                    'description' => 'Fast model',
-                    'inputTokenLimit' => 1000000,
+                    'name'             => 'models/gemini-3-flash',
+                    'displayName'      => 'Gemini 3 Flash',
+                    'description'      => 'Fast model',
+                    'inputTokenLimit'  => 1000000,
                     'outputTokenLimit' => 65536,
                 ],
                 [
-                    'name' => 'models/gemini-2.5-flash',
-                    'displayName' => 'Gemini 2.5 Flash',
-                    'description' => 'Previous gen',
-                    'inputTokenLimit' => 1000000,
+                    'name'             => 'models/gemini-2.5-flash',
+                    'displayName'      => 'Gemini 2.5 Flash',
+                    'description'      => 'Previous gen',
+                    'inputTokenLimit'  => 1000000,
                     'outputTokenLimit' => 8192,
                 ],
             ],
@@ -480,7 +480,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('gemini-3-flash', $modelIds);
     }
 
@@ -557,14 +557,14 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->willReturn($streamStub);
 
         // First call: /api/tags, second call: /api/show
-        $tagsResponse = (string)json_encode([
+        $tagsResponse = (string) json_encode([
             'models' => [
                 ['name' => 'llama3:latest'],
                 ['name' => 'qwen:latest'],
             ],
         ]);
 
-        $showResponse = (string)json_encode([
+        $showResponse = (string) json_encode([
             'model_info' => [
                 'context_length' => 32768,
             ],
@@ -582,7 +582,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, '');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('llama3:latest', $modelIds);
     }
 
@@ -621,15 +621,15 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'data' => [
                 [
-                    'id' => 'anthropic/claude-3-opus',
-                    'name' => 'Claude 3 Opus',
-                    'description' => 'Most capable',
+                    'id'             => 'anthropic/claude-3-opus',
+                    'name'           => 'Claude 3 Opus',
+                    'description'    => 'Most capable',
                     'context_length' => 200000,
-                    'pricing' => [
-                        'prompt' => 0.000015,
+                    'pricing'        => [
+                        'prompt'     => 0.000015,
                         'completion' => 0.000075,
                     ],
                 ],
@@ -659,7 +659,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'data' => [
                 ['id' => 'mistral-large-latest'],
                 ['id' => 'mistral-medium-latest'],
@@ -695,7 +695,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('mistral-large-latest', $modelIds);
     }
 
@@ -712,10 +712,10 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'data' => [
                 [
-                    'id' => 'llama-3.1-70b-versatile',
+                    'id'             => 'llama-3.1-70b-versatile',
                     'context_window' => 32768,
                 ],
             ],
@@ -784,7 +784,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'data' => [
                 ['id' => 'gpt-5.2'],
                 ['id' => 'text-davinci-003'], // Should be filtered out
@@ -800,7 +800,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
 
         $models = $this->subject->discover($provider, 'test-key');
 
-        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('gpt-5.2', $modelIds);
         self::assertContains('gpt-image-1', $modelIds);
         self::assertNotContains('text-davinci-003', $modelIds);
@@ -821,7 +821,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'data' => [
                 ['id' => 'gpt-5.5'],
                 ['id' => 'dall-e-3'],
@@ -912,7 +912,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
 
         $liveResponse = $this->createJsonResponseStubForDiscovery(
             200,
-            (string)json_encode(['data' => [['id' => 'gpt-5.5']]]),
+            (string) json_encode(['data' => [['id' => 'gpt-5.5']]]),
         );
         $this->httpClientStub
             ->method('sendRequest')
@@ -941,7 +941,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'data' => 'invalid', // Not an array
         ]);
 
@@ -975,7 +975,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $tagsResponse = (string)json_encode([
+        $tagsResponse = (string) json_encode([
             'models' => [
                 ['name' => 'llava:latest'],
             ],
@@ -984,7 +984,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // The capability comes from what the server reports, not from the tag
         // containing "llava". Ollama's own token for a text-generating model is
         // `completion`.
-        $showResponse = (string)json_encode([
+        $showResponse = (string) json_encode([
             'model_info'   => [],
             'parameters'   => '',
             'capabilities' => ['completion', 'vision'],
@@ -1021,13 +1021,13 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $tagsResponse = (string)json_encode([
+        $tagsResponse = (string) json_encode([
             'models' => [
                 ['name' => 'qwen2:latest'],
             ],
         ]);
 
-        $showResponse = (string)json_encode([
+        $showResponse = (string) json_encode([
             'model_info'   => [],
             'parameters'   => 'num_ctx 32768',
             'capabilities' => ['completion', 'tools'],
@@ -1177,7 +1177,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(fn (DiscoveredModel $m): string => $m->modelId, $models);
         // Fallback models should include current GPT models
         self::assertContains('gpt-5.3', $modelIds);
     }
@@ -1195,7 +1195,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'data' => [
                 'not-an-array',  // Should be skipped
                 ['id' => 'gpt-5.3'],
@@ -1210,7 +1210,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('gpt-5.3', $modelIds);
     }
 
@@ -1229,17 +1229,17 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'data' => [
                 [
-                    'id' => 'claude-opus-4-5-20251101',
+                    'id'           => 'claude-opus-4-5-20251101',
                     'display_name' => 'Claude Opus 4.5',
-                    'type' => 'model',
+                    'type'         => 'model',
                 ],
                 [
-                    'id' => 'claude-sonnet-4-5-20250929',
+                    'id'           => 'claude-sonnet-4-5-20250929',
                     'display_name' => 'Claude Sonnet 4.5',
-                    'type' => 'model',
+                    'type'         => 'model',
                 ],
             ],
         ]);
@@ -1251,7 +1251,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('claude-opus-4-5-20251101', $modelIds);
         self::assertContains('claude-sonnet-4-5-20250929', $modelIds);
     }
@@ -1276,7 +1276,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'bad-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('claude-opus-4-5-20251101', $modelIds);
     }
 
@@ -1300,7 +1300,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('claude-opus-4-5-20251101', $modelIds);
     }
 
@@ -1324,7 +1324,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('claude-opus-4-5-20251101', $modelIds);
     }
 
@@ -1363,7 +1363,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'data' => [
                 'not-an-array',
                 ['id' => 'claude-opus-4-5-20251101', 'display_name' => 'Claude Opus 4.5'],
@@ -1382,7 +1382,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // if the loop had stopped early, the result would be the fallback
         // catalog (which contains the same id), so pin the fallback flag.
         self::assertFalse($this->subject->wasLastDiscoveryFromFallback());
-        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('claude-opus-4-5-20251101', $modelIds);
     }
 
@@ -1406,7 +1406,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('claude-opus-4-5-20251101', $modelIds);
     }
 
@@ -1424,7 +1424,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'data' => [
                 ['id' => 'claude-opus-4-5-20251101'],  // should match 'claude-opus-4-5' prefix
             ],
@@ -1457,10 +1457,10 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'data' => [
                 [
-                    'id' => 'claude-opus-4-5-20251101',
+                    'id'           => 'claude-opus-4-5-20251101',
                     'display_name' => 'Claude Opus 4.5 (Display Name From API)',
                 ],
             ],
@@ -1489,7 +1489,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'data' => [
                 ['id' => 'claude-future-model-x'],
             ],
@@ -1531,7 +1531,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('gemini-3-flash', $modelIds);
     }
 
@@ -1555,7 +1555,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('gemini-3-flash', $modelIds);
     }
 
@@ -1579,7 +1579,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('gemini-3-flash', $modelIds);
     }
 
@@ -1596,7 +1596,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'models' => [
                 'not-an-array',
                 ['name' => 'models/gemini-3-flash', 'displayName' => 'Gemini 3 Flash'],
@@ -1610,7 +1610,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('gemini-3-flash', $modelIds);
     }
 
@@ -1627,7 +1627,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'models' => [
                 ['name' => 12345],  // Non-string name, should be skipped
                 ['name' => 'models/gemini-3-flash'],
@@ -1641,7 +1641,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('gemini-3-flash', $modelIds);
     }
 
@@ -1658,7 +1658,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'models' => [
                 ['name' => 'models/gemini-3-flash'],
                 ['name' => 'models/text-embedding-004'],  // embedding, excluded
@@ -1692,13 +1692,13 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'models' => [
                 [
-                    'name' => 'models/gemini-future-model',
-                    'displayName' => 'Gemini Future Model',
-                    'description' => 'An upcoming model from Google',
-                    'inputTokenLimit' => 500000,
+                    'name'             => 'models/gemini-future-model',
+                    'displayName'      => 'Gemini Future Model',
+                    'description'      => 'An upcoming model from Google',
+                    'inputTokenLimit'  => 500000,
                     'outputTokenLimit' => 16384,
                 ],
             ],
@@ -1734,13 +1734,13 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->willReturn($this->createRequestMock());
 
         // inputTokenLimit is a string instead of int — should use default 1000000
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'models' => [
                 [
-                    'name' => 'models/gemini-future-model',
-                    'displayName' => 42,       // non-string displayName -> use modelId
-                    'description' => ['array'], // non-string description -> default
-                    'inputTokenLimit' => '500k', // non-int -> default 1000000
+                    'name'             => 'models/gemini-future-model',
+                    'displayName'      => 42,       // non-string displayName -> use modelId
+                    'description'      => ['array'], // non-string description -> default
+                    'inputTokenLimit'  => '500k', // non-int -> default 1000000
                     'outputTokenLimit' => 'big',  // non-int -> default 8192
                 ],
             ],
@@ -1825,7 +1825,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $tagsResponse = (string)json_encode([
+        $tagsResponse = (string) json_encode([
             'models' => [
                 ['name' => ''],      // empty name, skipped
                 ['name' => 123],     // non-string, skipped (name = '')
@@ -1834,7 +1834,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ],
         ]);
 
-        $showResponse = (string)json_encode([
+        $showResponse = (string) json_encode([
             'model_info' => [],
             'parameters' => '',
         ]);
@@ -1870,7 +1870,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $tagsResponse = (string)json_encode([
+        $tagsResponse = (string) json_encode([
             'models' => [['name' => 'llama3:latest']],
         ]);
 
@@ -1908,7 +1908,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $tagsResponse = (string)json_encode([
+        $tagsResponse = (string) json_encode([
             'models' => [['name' => 'llama3:latest']],
         ]);
 
@@ -1943,12 +1943,12 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $tagsResponse = (string)json_encode([
+        $tagsResponse = (string) json_encode([
             'models' => [['name' => 'llama3:latest']],
         ]);
 
         // context length via model_info key containing 'context'
-        $showResponse = (string)json_encode([
+        $showResponse = (string) json_encode([
             'model_info' => [
                 'llama.context_length' => 32768,
             ],
@@ -1986,12 +1986,12 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $tagsResponse = (string)json_encode([
+        $tagsResponse = (string) json_encode([
             'models' => [['name' => 'llama3:latest']],
         ]);
 
         // No model_info context key, but parameters string has num_ctx
-        $showResponse = (string)json_encode([
+        $showResponse = (string) json_encode([
             'model_info' => ['some_other_key' => 42],
             'parameters' => 'stop "<|start_header_id|>"\nnum_ctx 16384\ntemperature 0',
         ]);
@@ -2014,7 +2014,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         // When streamFactory->createStream() throws inside getOllamaModelDetails,
         // the catch(Throwable) returns the fallback defaults.
-        $tagsResponse = (string)json_encode([
+        $tagsResponse = (string) json_encode([
             'models' => [['name' => 'llama3:latest']],
         ]);
 
@@ -2080,7 +2080,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $tagsResponse = (string)json_encode([
+        $tagsResponse = (string) json_encode([
             'models' => [
                 ['name' => 'qwen2:latest'],
                 ['name' => 'codellama:latest'],
@@ -2090,7 +2090,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ],
         ]);
 
-        $showResponse = (string)json_encode([
+        $showResponse = (string) json_encode([
             'model_info' => [],
             'parameters' => 'num_ctx 32768',
         ]);
@@ -2147,14 +2147,14 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $tagsResponse = (string)json_encode([
+        $tagsResponse = (string) json_encode([
             'models' => [
                 ['name' => 'unknown-model:latest'],  // not a known family
             ],
         ]);
 
         // context length = 65536, so max output = 65536/4 = 16384 (capped)
-        $showResponse = (string)json_encode([
+        $showResponse = (string) json_encode([
             'model_info' => [],
             'parameters' => 'num_ctx 65536',
         ]);
@@ -2190,14 +2190,14 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $tagsResponse = (string)json_encode([
+        $tagsResponse = (string) json_encode([
             'models' => [
                 ['name' => 'unknown-model:latest'],
             ],
         ]);
 
         // No context info → contextLength stays 0 → fallback to 4096
-        $showResponse = (string)json_encode([
+        $showResponse = (string) json_encode([
             'model_info' => [],
             'parameters' => '',
         ]);
@@ -2233,14 +2233,14 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $tagsResponse = (string)json_encode([
+        $tagsResponse = (string) json_encode([
             'models' => [
                 ['name' => 'llama3.1:latest'],
                 ['name' => 'llama-3.2:latest'],
             ],
         ]);
 
-        $showResponse = (string)json_encode([
+        $showResponse = (string) json_encode([
             'model_info' => [],
             'parameters' => 'num_ctx 8192',
         ]);
@@ -2299,7 +2299,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'data' => [
                 ['id' => ''],   // empty ID, skipped
                 ['id' => 123],  // non-string, gives empty string, skipped
@@ -2307,11 +2307,11 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
                     'name' => 'No ID Model',
                 ],
                 [
-                    'id' => 'valid-model',
-                    'name' => 'Valid Model',
-                    'description' => 'Works',
+                    'id'             => 'valid-model',
+                    'name'           => 'Valid Model',
+                    'description'    => 'Works',
                     'context_length' => 100000,
-                    'pricing' => ['prompt' => 0.00001, 'completion' => 0.00003],
+                    'pricing'        => ['prompt' => 0.00001, 'completion' => 0.00003],
                 ],
             ],
         ]);
@@ -2339,7 +2339,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'data' => [
                 'not-an-array',  // skipped
                 ['id' => 'valid-model', 'name' => 'Valid'],
@@ -2370,7 +2370,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'data' => [
                 ['id' => ''],  // empty, skipped
                 ['id' => 'mistral-large-latest'],
@@ -2407,7 +2407,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('mistral-large-latest', $modelIds);
     }
 
@@ -2424,7 +2424,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'data' => [
                 'not-an-array',
                 null,
@@ -2457,7 +2457,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'data' => [
                 ['id' => '', 'context_window' => 32768],  // empty ID, skipped
                 ['id' => 'llama-3.3-70b-versatile', 'context_window' => 131072],
@@ -2487,7 +2487,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'data' => [
                 'not-an-array',
                 null,
@@ -2517,7 +2517,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'data' => [
                 ['id' => 'model-with-ctx', 'context_window' => 131072],
                 ['id' => 'model-without-ctx'],  // no context_window → 0
@@ -2579,7 +2579,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'data' => [
                 ['id' => ''],                                      // empty string → skipped
                 ['id' => 123],                                     // non-string → skipped
@@ -2597,7 +2597,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // The invalid ids must be SKIPPED (not break the loop, not blow up
         // with a TypeError that degrades to the fallback catalog).
         self::assertFalse($this->subject->wasLastDiscoveryFromFallback());
-        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('claude-opus-4-5-20251101', $modelIds);
         // None of the invalid entries should appear
         self::assertNotContains('', $modelIds);
@@ -2619,7 +2619,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'models' => [
                 ['name' => 'models/gemini-embedding-exp-03-07'],  // gemini-* + 'embedding' → filtered
                 ['name' => 'models/gemini-1.5-embedding'],         // gemini-* + 'embedding' → filtered
@@ -2633,7 +2633,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
 
         $models = $this->subject->discover($provider, 'test-key');
 
-        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(fn (DiscoveredModel $m): string => $m->modelId, $models);
         // Embedding models (gemini-* prefix with 'embedding') must be excluded
         self::assertNotContains('gemini-embedding-exp-03-07', $modelIds);
         self::assertNotContains('gemini-1.5-embedding', $modelIds);
@@ -2661,7 +2661,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $tagsResponse = (string)json_encode([
+        $tagsResponse = (string) json_encode([
             'models' => [
                 'not-an-array',          // non-array item → skipped (covers line 789)
                 null,                    // null → skipped
@@ -2670,7 +2670,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ],
         ]);
 
-        $showResponse = (string)json_encode([
+        $showResponse = (string) json_encode([
             'model_info' => [],
             'parameters' => 'num_ctx 32768',
         ]);
@@ -2709,14 +2709,14 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $tagsResponse = (string)json_encode([
+        $tagsResponse = (string) json_encode([
             'models' => [
                 ['name' => 'llama3:latest'],
             ],
         ]);
 
         // Show response with neither model_info nor parameters → both fallback to empty
-        $showResponse = (string)json_encode([
+        $showResponse = (string) json_encode([
             'license' => 'MIT',  // irrelevant field; model_info and parameters are absent
         ]);
 
@@ -2776,7 +2776,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->willReturn($this->createRequestMock());
 
         // Response does not contain 'data' key
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'models' => ['gpt-5.2'],  // wrong key name
         ]);
 
@@ -2806,9 +2806,9 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->willReturn($this->createRequestMock());
 
         // Response does not contain 'data' key
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'object' => 'list',
-            'items' => [['id' => 'mistral-large-latest']],  // wrong key
+            'items'  => [['id' => 'mistral-large-latest']],  // wrong key
         ]);
 
         $this->httpClientStub
@@ -2820,7 +2820,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // No 'data' key → modelList is [] → no API models found
         // Mistral falls back to static models on empty discovery
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('mistral-large-latest', $modelIds);
     }
 
@@ -2841,7 +2841,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->willReturn($this->createRequestMock());
 
         // Response does not contain 'data' key
-        $apiResponse = (string)json_encode([
+        $apiResponse = (string) json_encode([
             'models' => [['id' => 'llama-3.3-70b-versatile']],  // wrong key
         ]);
 
@@ -2872,7 +2872,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturnCallback(function (string $method, string $uri) use (&$captured): RequestInterface {
                 $captured['method'] = $method;
-                $captured['uri'] = $uri;
+                $captured['uri']    = $uri;
 
                 $request = self::createStub(RequestInterface::class);
                 $request->method('withHeader')->willReturnCallback(
@@ -2882,7 +2882,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
                         return $request;
                     },
                 );
-                $request->method('withBody')->willReturnCallback(static fn(): RequestInterface => $request);
+                $request->method('withBody')->willReturnCallback(static fn (): RequestInterface => $request);
                 $request->method('getMethod')->willReturn($method);
 
                 return $request;
@@ -3093,13 +3093,13 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseStubForDiscovery(
                 500,
-                (string)json_encode(['data' => [['id' => 'gpt-4.1']]]),
+                (string) json_encode(['data' => [['id' => 'gpt-4.1']]]),
             ));
 
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertTrue($this->subject->wasLastDiscoveryFromFallback());
-        $modelIds = array_map(static fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(static fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('gpt-5.5', $modelIds);
         self::assertNotContains('gpt-4.1', $modelIds);
     }
@@ -3124,7 +3124,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseStubForDiscovery(
                 200,
-                (string)json_encode(['data' => [['id' => 'gpt-4o'], ['id' => 'gpt-5.5']]]),
+                (string) json_encode(['data' => [['id' => 'gpt-4o'], ['id' => 'gpt-5.5']]]),
             ));
 
         $models = $this->subject->discover($provider, 'test-key');
@@ -3153,13 +3153,13 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseStubForDiscovery(
                 200,
-                (string)json_encode(['data' => ['not-an-array', ['id' => 'gpt-4.1']]]),
+                (string) json_encode(['data' => ['not-an-array', ['id' => 'gpt-4.1']]]),
             ));
 
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertFalse($this->subject->wasLastDiscoveryFromFallback());
-        $modelIds = array_map(static fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(static fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('gpt-4.1', $modelIds);
     }
 
@@ -3171,24 +3171,24 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // caught. Values mirror ModelDiscovery::openAIModelSpecs().
         // [name, description, capabilities, contextLength, maxOutputTokens, costInput, costOutput, recommended]
         $expected = [
-            'gpt-5.5' => ['GPT-5.5', 'Latest flagship model with enhanced reasoning', ['chat', 'vision', 'tools', 'streaming'], 400000, 128000, 500, 3000, true],
-            'gpt-5.3' => ['GPT-5.3', 'Flagship model with enhanced reasoning', ['chat', 'vision', 'tools', 'streaming'], 400000, 128000, 175, 1400, true],
+            'gpt-5.5'             => ['GPT-5.5', 'Latest flagship model with enhanced reasoning', ['chat', 'vision', 'tools', 'streaming'], 400000, 128000, 500, 3000, true],
+            'gpt-5.3'             => ['GPT-5.3', 'Flagship model with enhanced reasoning', ['chat', 'vision', 'tools', 'streaming'], 400000, 128000, 175, 1400, true],
             'gpt-5.3-chat-latest' => ['GPT-5.3 Chat', 'Fast responses for interactive use', ['chat', 'vision', 'tools', 'streaming'], 400000, 32000, 100, 400, true],
-            'gpt-5.3-mini' => ['GPT-5.3 Mini', 'Small, fast, cost-effective', ['chat', 'vision', 'tools', 'streaming'], 200000, 32000, 30, 120, true],
-            'gpt-5.2' => ['GPT-5.2 Thinking', 'Flagship model for coding, reasoning, and agentic tasks', ['chat', 'vision', 'tools', 'streaming'], 400000, 128000, 175, 1400, false],
-            'gpt-5.2-pro' => ['GPT-5.2 Pro', 'Extended thinking for complex tasks', ['chat', 'vision', 'tools', 'streaming'], 400000, 128000, 350, 2800, false],
+            'gpt-5.3-mini'        => ['GPT-5.3 Mini', 'Small, fast, cost-effective', ['chat', 'vision', 'tools', 'streaming'], 200000, 32000, 30, 120, true],
+            'gpt-5.2'             => ['GPT-5.2 Thinking', 'Flagship model for coding, reasoning, and agentic tasks', ['chat', 'vision', 'tools', 'streaming'], 400000, 128000, 175, 1400, false],
+            'gpt-5.2-pro'         => ['GPT-5.2 Pro', 'Extended thinking for complex tasks', ['chat', 'vision', 'tools', 'streaming'], 400000, 128000, 350, 2800, false],
             'gpt-5.2-chat-latest' => ['GPT-5.2 Instant', 'Fast responses for interactive use', ['chat', 'vision', 'tools', 'streaming'], 400000, 32000, 100, 400, false],
-            'gpt-5' => ['GPT-5', 'Previous generation flagship model', ['chat', 'vision', 'tools', 'streaming'], 200000, 64000, 150, 600, false],
-            'gpt-5-mini' => ['GPT-5 Mini', 'Smaller, faster, cost-effective', ['chat', 'vision', 'tools', 'streaming'], 128000, 32000, 30, 120, false],
-            'o4-mini' => ['O4 Mini', 'Fast reasoning for math, coding, visual tasks', ['chat', 'vision', 'tools'], 200000, 100000, 110, 440, false],
-            'o3' => ['O3', 'Advanced reasoning model', ['chat', 'vision', 'tools'], 200000, 100000, 200, 800, false],
-            'gpt-4o' => ['GPT-4o', 'Legacy multimodal model', ['chat', 'vision', 'tools', 'streaming'], 128000, 16384, 250, 1000, false],
-            'gpt-4.1' => ['GPT-4.1', 'Coding and instruction-following model', ['chat', 'vision', 'tools', 'streaming'], 1047576, 32768, 200, 800, false],
-            'gpt-4.1-mini' => ['GPT-4.1 Mini', 'Fast coding model', ['chat', 'vision', 'tools', 'streaming'], 1047576, 32768, 40, 160, false],
-            'gpt-image-2' => ['GPT Image 2', 'Image generation model', ['image'], 0, 0, 0, 0, false],
-            'tts-1' => ['TTS-1', 'Text-to-speech model optimized for speed', ['text_to_speech'], 0, 0, 0, 0, false],
-            'tts-1-hd' => ['TTS-1 HD', 'Text-to-speech model optimized for quality', ['text_to_speech'], 0, 0, 0, 0, false],
-            'whisper-1' => ['Whisper', 'Speech-to-text transcription model', ['transcription'], 0, 0, 0, 0, false],
+            'gpt-5'               => ['GPT-5', 'Previous generation flagship model', ['chat', 'vision', 'tools', 'streaming'], 200000, 64000, 150, 600, false],
+            'gpt-5-mini'          => ['GPT-5 Mini', 'Smaller, faster, cost-effective', ['chat', 'vision', 'tools', 'streaming'], 128000, 32000, 30, 120, false],
+            'o4-mini'             => ['O4 Mini', 'Fast reasoning for math, coding, visual tasks', ['chat', 'vision', 'tools'], 200000, 100000, 110, 440, false],
+            'o3'                  => ['O3', 'Advanced reasoning model', ['chat', 'vision', 'tools'], 200000, 100000, 200, 800, false],
+            'gpt-4o'              => ['GPT-4o', 'Legacy multimodal model', ['chat', 'vision', 'tools', 'streaming'], 128000, 16384, 250, 1000, false],
+            'gpt-4.1'             => ['GPT-4.1', 'Coding and instruction-following model', ['chat', 'vision', 'tools', 'streaming'], 1047576, 32768, 200, 800, false],
+            'gpt-4.1-mini'        => ['GPT-4.1 Mini', 'Fast coding model', ['chat', 'vision', 'tools', 'streaming'], 1047576, 32768, 40, 160, false],
+            'gpt-image-2'         => ['GPT Image 2', 'Image generation model', ['image'], 0, 0, 0, 0, false],
+            'tts-1'               => ['TTS-1', 'Text-to-speech model optimized for speed', ['text_to_speech'], 0, 0, 0, 0, false],
+            'tts-1-hd'            => ['TTS-1 HD', 'Text-to-speech model optimized for quality', ['text_to_speech'], 0, 0, 0, 0, false],
+            'whisper-1'           => ['Whisper', 'Speech-to-text transcription model', ['transcription'], 0, 0, 0, 0, false],
         ];
 
         $provider = new DetectedProvider(
@@ -3201,12 +3201,12 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $data = array_map(static fn(string $id): array => ['id' => $id], array_keys($expected));
+        $data = array_map(static fn (string $id): array => ['id' => $id], array_keys($expected));
         $this->httpClientStub
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseStubForDiscovery(
                 200,
-                (string)json_encode(['data' => $data]),
+                (string) json_encode(['data' => $data]),
             ));
 
         $models = $this->subject->discover($provider, 'test-key');
@@ -3224,8 +3224,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             self::assertSame($spec[2], $model->capabilities, $id . ' capabilities');
             self::assertSame($spec[3], $model->contextLength, $id . ' contextLength');
             self::assertSame($spec[4], $model->maxOutputTokens, $id . ' maxOutputTokens');
-            self::assertSame((float)$spec[5], $model->costInput, $id . ' costInput');
-            self::assertSame((float)$spec[6], $model->costOutput, $id . ' costOutput');
+            self::assertSame((float) $spec[5], $model->costInput, $id . ' costInput');
+            self::assertSame((float) $spec[6], $model->costOutput, $id . ' costOutput');
             self::assertSame($spec[7], $model->recommended, $id . ' recommended');
         }
     }
@@ -3249,7 +3249,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseStubForDiscovery(
                 200,
-                (string)json_encode(['data' => [['id' => 'chatgpt-4o-latest']]]),
+                (string) json_encode(['data' => [['id' => 'chatgpt-4o-latest']]]),
             ));
 
         $models = $this->subject->discover($provider, 'test-key');
@@ -3285,7 +3285,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseStubForDiscovery(
                 200,
-                (string)json_encode(['data' => [
+                (string) json_encode(['data' => [
                     ['id' => 'dall-e-3'],
                     ['id' => 'gpt-image-1'],
                     ['id' => 'gpt-4o-mini-tts'],
@@ -3337,10 +3337,10 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('warning')
             ->with(
                 'LLM model discovery returned an unexpected HTTP status',
-                self::callback(static fn(array $ctx): bool => ($ctx['provider'] ?? null) === 'openai' && ($ctx['status'] ?? null) === 503),
+                self::callback(static fn (array $ctx): bool => ($ctx['provider'] ?? null) === 'openai' && ($ctx['status'] ?? null) === 503),
             );
 
-        $subject = $this->makeSubjectWithLogger($logger);
+        $subject  = $this->makeSubjectWithLogger($logger);
         $provider = new DetectedProvider(
             adapterType: 'openai',
             suggestedName: 'OpenAI',
@@ -3365,12 +3365,12 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('warning')
             ->with(
                 'LLM model discovery request failed',
-                self::callback(static fn(array $ctx): bool => ($ctx['provider'] ?? null) === 'openai'
+                self::callback(static fn (array $ctx): bool => ($ctx['provider'] ?? null) === 'openai'
                     && ($ctx['exception'] ?? null) === RuntimeException::class
                     && ($ctx['message'] ?? null) === 'boom'),
             );
 
-        $subject = $this->makeSubjectWithLogger($logger);
+        $subject  = $this->makeSubjectWithLogger($logger);
         $provider = new DetectedProvider(
             adapterType: 'openai',
             suggestedName: 'OpenAI',
@@ -3395,11 +3395,11 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('warning')
             ->with(
                 'LLM setup-wizard connection test failed',
-                self::callback(static fn(array $ctx): bool => ($ctx['provider'] ?? null) === 'openai'
+                self::callback(static fn (array $ctx): bool => ($ctx['provider'] ?? null) === 'openai'
                     && array_key_exists('exception', $ctx)),
             );
 
-        $subject = $this->makeSubjectWithLogger($logger);
+        $subject  = $this->makeSubjectWithLogger($logger);
         $provider = new DetectedProvider(
             adapterType: 'openai',
             suggestedName: 'OpenAI',
@@ -3428,13 +3428,13 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('warning')
             ->with(
                 'LLM model discovery received a malformed JSON response',
-                self::callback(static fn(array $ctx): bool => ($ctx['provider'] ?? null) === 'openai'
+                self::callback(static fn (array $ctx): bool => ($ctx['provider'] ?? null) === 'openai'
                     && ($ctx['sample'] ?? null) === substr($body, 0, 200)
                     && is_string($ctx['message'] ?? null)
                     && ($ctx['message'] ?? '') !== ''),
             );
 
-        $subject = $this->makeSubjectWithLogger($logger);
+        $subject  = $this->makeSubjectWithLogger($logger);
         $provider = new DetectedProvider(
             adapterType: 'openai',
             suggestedName: 'OpenAI',
@@ -3455,7 +3455,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // must decode and yield a LIVE result. A lower limit would reject it
         // as malformed and silently degrade to the fallback catalog, which
         // contains no gpt-4.1 entry.
-        $pad = str_repeat('[', 510) . '1' . str_repeat(']', 510);
+        $pad  = str_repeat('[', 510) . '1' . str_repeat(']', 510);
         $body = '{"data":[{"id":"gpt-4.1"}],"pad":' . $pad . '}';
 
         $provider = new DetectedProvider(
@@ -3474,7 +3474,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertFalse($this->subject->wasLastDiscoveryFromFallback());
-        $modelIds = array_map(static fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(static fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('gpt-4.1', $modelIds);
     }
 
@@ -3485,7 +3485,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // the object wrapper → depth 513) must be rejected as malformed JSON
         // and degrade to the fallback catalog. A higher limit would decode the
         // body and surface the live gpt-4.1 entry instead.
-        $pad = str_repeat('[', 511) . '1' . str_repeat(']', 511);
+        $pad  = str_repeat('[', 511) . '1' . str_repeat(']', 511);
         $body = '{"data":[{"id":"gpt-4.1"}],"pad":' . $pad . '}';
 
         $provider = new DetectedProvider(
@@ -3504,7 +3504,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertTrue($this->subject->wasLastDiscoveryFromFallback());
-        $modelIds = array_map(static fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(static fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertNotContains('gpt-4.1', $modelIds);
         self::assertContains('gpt-5.5', $modelIds);
     }
@@ -3534,7 +3534,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertTrue($this->subject->wasLastDiscoveryFromFallback());
-        $modelIds = array_map(static fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(static fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('gpt-5.5', $modelIds);
     }
 
@@ -3558,13 +3558,13 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseStubForDiscovery(
                 200,
-                (string)json_encode(['data' => [['id' => 123], ['id' => 'gpt-4.1']]]),
+                (string) json_encode(['data' => [['id' => 123], ['id' => 'gpt-4.1']]]),
             ));
 
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertFalse($this->subject->wasLastDiscoveryFromFallback());
-        $modelIds = array_map(static fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(static fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('gpt-4.1', $modelIds);
     }
 
@@ -3588,12 +3588,12 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseStubForDiscovery(
                 200,
-                (string)json_encode(['data' => [['id' => 'gpt-realtime'], ['id' => 'gpt-4.1']]]),
+                (string) json_encode(['data' => [['id' => 'gpt-realtime'], ['id' => 'gpt-4.1']]]),
             ));
 
         $models = $this->subject->discover($provider, 'test-key');
 
-        $modelIds = array_map(static fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(static fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertNotContains('gpt-realtime', $modelIds);
         self::assertContains('gpt-4.1', $modelIds);
     }
@@ -3617,7 +3617,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseStubForDiscovery(
                 200,
-                (string)json_encode(['data' => [['id' => 'tts-1-1106']]]),
+                (string) json_encode(['data' => [['id' => 'tts-1-1106']]]),
             ));
 
         $models = $this->subject->discover($provider, 'test-key');
@@ -3672,13 +3672,13 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseStubForDiscovery(
                 401,
-                (string)json_encode(['data' => [['id' => 'claude-3-haiku-20240307']]]),
+                (string) json_encode(['data' => [['id' => 'claude-3-haiku-20240307']]]),
             ));
 
         $models = $this->subject->discover($provider, 'bad-key');
 
         self::assertTrue($this->subject->wasLastDiscoveryFromFallback());
-        $modelIds = array_map(static fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(static fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertNotContains('claude-3-haiku-20240307', $modelIds);
         self::assertContains('claude-opus-4-5-20251101', $modelIds);
     }
@@ -3705,7 +3705,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertTrue($this->subject->wasLastDiscoveryFromFallback());
-        $modelIds = array_map(static fn(DiscoveredModel $m): string => $m->modelId, $models);
+        $modelIds = array_map(static fn (DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('claude-opus-4-5-20251101', $modelIds);
     }
 
@@ -3728,7 +3728,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseStubForDiscovery(
                 200,
-                (string)json_encode(['data' => [
+                (string) json_encode(['data' => [
                     ['id' => 'claude-sonnet-4-20250514'],
                     ['id' => 'claude-opus-4-5-20251101'],
                 ]]),
@@ -3751,11 +3751,11 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // must come from the spec. Values mirror ModelDiscovery's spec table.
         // [name, description, costInput, costOutput, recommended]
         $expected = [
-            'claude-opus-4-5-20251101' => ['Claude Opus 4.5', 'Most intelligent, best for coding, agents, and computer use', 500, 2500, true],
+            'claude-opus-4-5-20251101'   => ['Claude Opus 4.5', 'Most intelligent, best for coding, agents, and computer use', 500, 2500, true],
             'claude-sonnet-4-5-20250929' => ['Claude Sonnet 4.5', 'Balanced performance and cost', 300, 1500, true],
-            'claude-haiku-4-5-20251001' => ['Claude Haiku 4.5', 'Fast and cost-effective for simple tasks', 100, 500, true],
-            'claude-opus-4-20250514' => ['Claude Opus 4', 'Previous generation Opus', 1500, 7500, false],
-            'claude-sonnet-4-20250514' => ['Claude Sonnet 4', 'Previous generation Sonnet', 300, 1500, false],
+            'claude-haiku-4-5-20251001'  => ['Claude Haiku 4.5', 'Fast and cost-effective for simple tasks', 100, 500, true],
+            'claude-opus-4-20250514'     => ['Claude Opus 4', 'Previous generation Opus', 1500, 7500, false],
+            'claude-sonnet-4-20250514'   => ['Claude Sonnet 4', 'Previous generation Sonnet', 300, 1500, false],
         ];
 
         $provider = new DetectedProvider(
@@ -3768,12 +3768,12 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $data = array_map(static fn(string $id): array => ['id' => $id], array_keys($expected));
+        $data = array_map(static fn (string $id): array => ['id' => $id], array_keys($expected));
         $this->httpClientStub
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseStubForDiscovery(
                 200,
-                (string)json_encode(['data' => $data]),
+                (string) json_encode(['data' => $data]),
             ));
 
         $models = $this->subject->discover($provider, 'test-key');
@@ -3792,8 +3792,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             self::assertSame(['chat', 'vision', 'tools', 'streaming'], $model->capabilities, $id . ' capabilities');
             self::assertSame(200000, $model->contextLength, $id . ' contextLength');
             self::assertSame(32000, $model->maxOutputTokens, $id . ' maxOutputTokens');
-            self::assertSame((float)$spec[2], $model->costInput, $id . ' costInput');
-            self::assertSame((float)$spec[3], $model->costOutput, $id . ' costOutput');
+            self::assertSame((float) $spec[2], $model->costInput, $id . ' costInput');
+            self::assertSame((float) $spec[3], $model->costOutput, $id . ' costOutput');
             self::assertSame($spec[4], $model->recommended, $id . ' recommended');
         }
     }
@@ -3813,10 +3813,10 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('warning')
             ->with(
                 'LLM model discovery returned an unexpected HTTP status',
-                self::callback(static fn(array $ctx): bool => ($ctx['provider'] ?? null) === 'anthropic' && ($ctx['status'] ?? null) === 503),
+                self::callback(static fn (array $ctx): bool => ($ctx['provider'] ?? null) === 'anthropic' && ($ctx['status'] ?? null) === 503),
             );
 
-        $subject = $this->makeSubjectWithLogger($logger);
+        $subject  = $this->makeSubjectWithLogger($logger);
         $provider = new DetectedProvider(
             adapterType: 'anthropic',
             suggestedName: 'Anthropic',
@@ -3841,12 +3841,12 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->method('warning')
             ->with(
                 'LLM model discovery request failed',
-                self::callback(static fn(array $ctx): bool => ($ctx['provider'] ?? null) === 'anthropic'
+                self::callback(static fn (array $ctx): bool => ($ctx['provider'] ?? null) === 'anthropic'
                     && ($ctx['exception'] ?? null) === RuntimeException::class
                     && ($ctx['message'] ?? null) === 'anthropic down'),
             );
 
-        $subject = $this->makeSubjectWithLogger($logger);
+        $subject  = $this->makeSubjectWithLogger($logger);
         $provider = new DetectedProvider(
             adapterType: 'anthropic',
             suggestedName: 'Anthropic',

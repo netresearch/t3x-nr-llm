@@ -63,13 +63,13 @@ final class ModelTestControllerTest extends TestCase
         // The action is guarded by RequiresBackendAdminTrait (ADR-037);
         // provide an admin so the tests reach the action body.
         $this->previousBeUser = $GLOBALS['BE_USER'] ?? null;
-        $backendUser = new BackendUserAuthentication();
-        $backendUser->user = ['uid' => 1, 'admin' => 1];
-        $GLOBALS['BE_USER'] = $backendUser;
+        $backendUser          = new BackendUserAuthentication();
+        $backendUser->user    = ['uid' => 1, 'admin' => 1];
+        $GLOBALS['BE_USER']   = $backendUser;
 
-        $this->modelRepository = $this->createMock(ModelRepository::class);
+        $this->modelRepository         = $this->createMock(ModelRepository::class);
         $this->providerAdapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
-        $this->testPromptResolver = $this->createMock(TestPromptResolverInterface::class);
+        $this->testPromptResolver      = $this->createMock(TestPromptResolverInterface::class);
         $this->testPromptResolver->method('resolve')->willReturn('Hello, test prompt');
 
         $reflection = new ReflectionClass(ModelTestController::class);
@@ -95,7 +95,7 @@ final class ModelTestControllerTest extends TestCase
     private function setPrivateProperty(object $object, string $property, mixed $value): void
     {
         $reflection = new ReflectionClass($object);
-        $prop = $reflection->getProperty($property);
+        $prop       = $reflection->getProperty($property);
         $prop->setValue($object, $value);
     }
 
@@ -112,7 +112,7 @@ final class ModelTestControllerTest extends TestCase
      */
     private function decodeJsonResponse(ResponseInterface $response): array
     {
-        $decoded = json_decode((string)$response->getBody(), true);
+        $decoded = json_decode((string) $response->getBody(), true);
         self::assertIsArray($decoded);
 
         /** @var array<string, mixed> $decoded */
@@ -126,7 +126,7 @@ final class ModelTestControllerTest extends TestCase
             ->expects(self::never())
             ->method('findByUid');
 
-        $request = $this->createRequest([]);
+        $request  = $this->createRequest([]);
         $response = $this->subject->testModelAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -146,7 +146,7 @@ final class ModelTestControllerTest extends TestCase
             ->with(99999)
             ->willReturn(null);
 
-        $request = $this->createRequest(['uid' => 99999]);
+        $request  = $this->createRequest(['uid' => 99999]);
         $response = $this->subject->testModelAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -169,7 +169,7 @@ final class ModelTestControllerTest extends TestCase
             ->with(1)
             ->willReturn($model);
 
-        $request = $this->createRequest(['uid' => 1]);
+        $request  = $this->createRequest(['uid' => 1]);
         $response = $this->subject->testModelAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -187,9 +187,9 @@ final class ModelTestControllerTest extends TestCase
         $model->setName('GPT-4');
         $model->setModelId('gpt-4');
 
-        $provider = new Provider();
+        $provider           = new Provider();
         $providerReflection = new ReflectionClass($provider);
-        $providerUidProp = $providerReflection->getProperty('uid');
+        $providerUidProp    = $providerReflection->getProperty('uid');
         $providerUidProp->setValue($provider, 1);
 
         $provider->setName('OpenAI');
@@ -203,8 +203,8 @@ final class ModelTestControllerTest extends TestCase
             ->with(1)
             ->willReturn($model);
 
-        $adapter = $this->createMock(ProviderInterface::class);
-        $usage = new UsageStatistics(10, 5, 15);
+        $adapter            = $this->createMock(ProviderInterface::class);
+        $usage              = new UsageStatistics(10, 5, 15);
         $completionResponse = new CompletionResponse(
             content: 'OK',
             model: 'gpt-4',
@@ -222,7 +222,7 @@ final class ModelTestControllerTest extends TestCase
             ->with($model)
             ->willReturn($adapter);
 
-        $request = $this->createRequest(['uid' => 1]);
+        $request  = $this->createRequest(['uid' => 1]);
         $response = $this->subject->testModelAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -241,9 +241,9 @@ final class ModelTestControllerTest extends TestCase
         $model->setName('GPT-4');
         $model->setModelId('gpt-4');
 
-        $provider = new Provider();
+        $provider           = new Provider();
         $providerReflection = new ReflectionClass($provider);
-        $providerUidProp = $providerReflection->getProperty('uid');
+        $providerUidProp    = $providerReflection->getProperty('uid');
         $providerUidProp->setValue($provider, 1);
 
         $provider->setName('OpenAI');
@@ -268,7 +268,7 @@ final class ModelTestControllerTest extends TestCase
             ->with($model)
             ->willReturn($adapter);
 
-        $request = $this->createRequest(['uid' => 1]);
+        $request  = $this->createRequest(['uid' => 1]);
         $response = $this->subject->testModelAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -375,12 +375,12 @@ final class ModelTestControllerTest extends TestCase
     public static function chatShapedCapabilityProvider(): array
     {
         return [
-            'chat' => ['chat'],
+            'chat'       => ['chat'],
             'completion' => ['completion'],
-            'vision' => ['vision'],
-            'tools' => ['tools'],
-            'streaming' => ['streaming'],
-            'json_mode' => ['json_mode'],
+            'vision'     => ['vision'],
+            'tools'      => ['tools'],
+            'streaming'  => ['streaming'],
+            'json_mode'  => ['json_mode'],
             // Audio is a chat-completions modality here — there is no audio
             // service and no separate credential.
             'audio' => ['audio'],
@@ -523,13 +523,14 @@ final class ModelTestControllerTest extends TestCase
 
     private function createModel(int $uid, bool $isActive, bool $isDefault = false): Model
     {
-        $model = new Model();
-        $reflection = new ReflectionClass($model);
+        $model       = new Model();
+        $reflection  = new ReflectionClass($model);
         $uidProperty = $reflection->getProperty('uid');
         $uidProperty->setValue($model, $uid);
 
         $model->setIsActive($isActive);
         $model->setIsDefault($isDefault);
+
         return $model;
     }
 }

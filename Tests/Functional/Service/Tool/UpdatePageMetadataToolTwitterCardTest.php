@@ -61,9 +61,9 @@ final class UpdatePageMetadataToolTwitterCardTest extends AbstractFunctionalTest
         $this->importFixture('BeUsers.csv');
 
         $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
-            'uid' => self::PAGE, 'pid' => 0, 'title' => 'Open', 'doktype' => 1, 'slug' => '/open',
-            'sorting' => 1, 'twitter_card' => self::STORED_CARD,
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => self::PAGE, 'pid' => 0, 'title' => 'Open', 'doktype' => 1, 'slug' => '/open',
+            'sorting'       => 1, 'twitter_card' => self::STORED_CARD,
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
         ]);
 
@@ -72,7 +72,7 @@ final class UpdatePageMetadataToolTwitterCardTest extends AbstractFunctionalTest
         // covers the page.
         $groups = $this->connectionPool->getConnectionForTable('be_groups');
         $groups->insert('be_groups', [
-            'uid' => 7, 'pid' => 0, 'title' => 'Editors', 'db_mountpoints' => (string)self::PAGE,
+            'uid' => 7, 'pid' => 0, 'title' => 'Editors', 'db_mountpoints' => (string) self::PAGE,
         ]);
         // options = 3: inherit DB and file mounts from the groups.
         $groups->update('be_users', ['usergroup' => '7', 'options' => 3], ['uid' => 2]);
@@ -191,11 +191,11 @@ final class UpdatePageMetadataToolTwitterCardTest extends AbstractFunctionalTest
             ['label' => 'Summary', 'value' => 'summary'],
             ['label' => 'Player', 'value' => 'player'],
         ];
-        $column['config']          = $config;
-        $columns['twitter_card']   = $column;
-        $pages['columns']          = $columns;
-        $tca['pages']              = $pages;
-        $GLOBALS['TCA']            = $tca;
+        $column['config']        = $config;
+        $columns['twitter_card'] = $column;
+        $pages['columns']        = $columns;
+        $tca['pages']            = $pages;
+        $GLOBALS['TCA']          = $tca;
 
         $added = $this->tool->execute(['uid' => self::PAGE, 'twitter_card' => 'player'], $context);
         self::assertFalse($added->isError, $added->content);
@@ -247,7 +247,7 @@ final class UpdatePageMetadataToolTwitterCardTest extends AbstractFunctionalTest
         $tca = $GLOBALS['TCA'];
         foreach ($items as $position => $item) {
             if (is_array($item) && in_array($item['value'] ?? null, ['summary', 'summary_large_image'], true)) {
-                self::setTcaAt('Card', 'pages', 'columns', 'twitter_card', 'config', 'items', (string)$position, 'label');
+                self::setTcaAt('Card', 'pages', 'columns', 'twitter_card', 'config', 'items', (string) $position, 'label');
             }
         }
 
@@ -355,7 +355,7 @@ final class UpdatePageMetadataToolTwitterCardTest extends AbstractFunctionalTest
             ->executeQuery()
             ->fetchAllAssociative();
 
-        return array_map(static fn(array $row): int => (int)($row['userid'] ?? 0), $rows);
+        return array_map(static fn (array $row): int => (int) ($row['userid'] ?? 0), $rows);
     }
 
     /**

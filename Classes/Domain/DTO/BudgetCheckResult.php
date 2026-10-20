@@ -50,15 +50,15 @@ final readonly class BudgetCheckResult
      * @var array<string, string>
      */
     private const LIMIT_LABELS = [
-        self::LIMIT_DAILY_REQUESTS => 'daily request count',
-        self::LIMIT_DAILY_TOKENS => 'daily token usage',
-        self::LIMIT_DAILY_COST => 'daily cost',
-        self::LIMIT_MONTHLY_REQUESTS => 'monthly request count',
-        self::LIMIT_MONTHLY_TOKENS => 'monthly token usage',
-        self::LIMIT_MONTHLY_COST => 'monthly cost',
+        self::LIMIT_DAILY_REQUESTS               => 'daily request count',
+        self::LIMIT_DAILY_TOKENS                 => 'daily token usage',
+        self::LIMIT_DAILY_COST                   => 'daily cost',
+        self::LIMIT_MONTHLY_REQUESTS             => 'monthly request count',
+        self::LIMIT_MONTHLY_TOKENS               => 'monthly token usage',
+        self::LIMIT_MONTHLY_COST                 => 'monthly cost',
         self::LIMIT_CONFIGURATION_DAILY_REQUESTS => 'configuration daily request count',
-        self::LIMIT_CONFIGURATION_DAILY_TOKENS => 'configuration daily token usage',
-        self::LIMIT_CONFIGURATION_DAILY_COST => 'configuration daily cost',
+        self::LIMIT_CONFIGURATION_DAILY_TOKENS   => 'configuration daily token usage',
+        self::LIMIT_CONFIGURATION_DAILY_COST     => 'configuration daily cost',
     ];
 
     public function __construct(
@@ -96,6 +96,6 @@ final readonly class BudgetCheckResult
 
     private static function formatNumber(float $n): string
     {
-        return fmod($n, 1.0) === 0.0 ? (string)(int)$n : number_format($n, 2);
+        return fmod($n, 1.0) === 0.0 ? (string) (int) $n : number_format($n, 2);
     }
 }

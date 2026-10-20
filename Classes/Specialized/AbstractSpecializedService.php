@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Specialized;
 
 use JsonException;
-use LogicException;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Enum\ModelSelectionMode;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -19,6 +18,7 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ProviderModelName;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
+use Netresearch\NrLlm\Exception\LogicException;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
@@ -152,7 +152,7 @@ abstract class AbstractSpecializedService
     protected function runLifecycle(ProviderCallContext $context, callable $call): mixed
     {
         return $this->pipeline->run($context, function (ProviderCallContext $context) use ($call): mixed {
-            $previous = $this->withinLifecycle;
+            $previous              = $this->withinLifecycle;
             $this->withinLifecycle = true;
             try {
                 return $call();
@@ -466,8 +466,8 @@ abstract class AbstractSpecializedService
     /**
      * Inject a custom HTTP client, bypassing the vault secure client.
      *
-     * @internal Test seam only — production always authenticates through the
-     *           audited vault client (see `getSecureClient()`).
+     * @internal test seam only — production always authenticates through the
+     *           audited vault client (see `getSecureClient()`)
      */
     public function setHttpClient(ClientInterface $client): void
     {
@@ -789,9 +789,9 @@ abstract class AbstractSpecializedService
      *
      * @param array<string, mixed> $payload
      *
-     * @throws ServiceUnavailableException
-     *
      * @return array<string, mixed>
+     *
+     * @throws ServiceUnavailableException
      */
     protected function sendJsonRequest(string $endpoint, array $payload, string $method = 'POST'): array
     {
@@ -809,7 +809,7 @@ abstract class AbstractSpecializedService
             // byte (e.g. a prompt pasted from a Latin-1 source) must degrade to a
             // replacement character, never throw \JsonException and abort the call
             // — matching AbstractProvider's request-encode guard (PR #315/#316).
-            $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
+            $body    = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
             $request = $request->withBody($body);
         }
 
@@ -834,7 +834,7 @@ abstract class AbstractSpecializedService
      */
     protected function buildEndpointUrl(string $endpoint): string
     {
-        $base = rtrim($this->baseUrl, '/');
+        $base     = rtrim($this->baseUrl, '/');
         $endpoint = ltrim($endpoint, '/');
         if ($endpoint === '') {
             return $base;
@@ -854,10 +854,10 @@ abstract class AbstractSpecializedService
      * upstream error message from a service-specific JSON shape;
      * everything else stays in the base.
      *
+     * @return array<string, mixed>
+     *
      * @throws ServiceUnavailableException
      * @throws ServiceConfigurationException
-     *
-     * @return array<string, mixed>
      */
     protected function executeRequest(RequestInterface $request): array
     {
@@ -866,9 +866,9 @@ abstract class AbstractSpecializedService
         $this->assertWithinLifecycle();
 
         try {
-            $response = $this->getSecureClient()->sendRequest($request);
-            $statusCode = $response->getStatusCode();
-            $responseBody = (string)$response->getBody();
+            $response     = $this->getSecureClient()->sendRequest($request);
+            $statusCode   = $response->getStatusCode();
+            $responseBody = (string) $response->getBody();
 
             if ($statusCode >= 200 && $statusCode < 300) {
                 if ($responseBody === '') {
@@ -977,7 +977,7 @@ abstract class AbstractSpecializedService
             // distinguishable from an outage, so the failure classifier and any
             // retry logic can tell them apart. This wires the previously-dead
             // ServiceQuotaExceededException::rateLimitExceeded().
-            429 => ServiceQuotaExceededException::rateLimitExceeded($this->getServiceDomain()),
+            429     => ServiceQuotaExceededException::rateLimitExceeded($this->getServiceDomain()),
             default => new ServiceUnavailableException(
                 sprintf('%s API error: %s', $this->getProviderLabel(), $errorMessage),
                 $this->getServiceDomain(),

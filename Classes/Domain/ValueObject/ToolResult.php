@@ -62,6 +62,7 @@ final readonly class ToolResult
         public ?WriteKind $writeKind = null,
         public ?WriteCompleteness $writeCompleteness = null,
         public bool $hookFailedAfterWrite = false,
+        public ?RecordReference $highlightTarget = null,
     ) {}
 
     /**
@@ -124,7 +125,35 @@ final readonly class ToolResult
             return $this;
         }
 
-        return new self($this->content, false, $this->artifacts, $this->outcome, $target, $kind, $completeness, $this->hookFailedAfterWrite);
+        return new self($this->content, false, $this->artifacts, $this->outcome, $target, $kind, $completeness, $this->hookFailedAfterWrite, $this->highlightTarget);
+    }
+
+    /**
+     * The same result, naming the record the current point of a process is
+     * about (ADR-214 item 9). Only the highlight builtin calls it, after it
+     * checked the target against the run's subject record; the run trace
+     * records it as a highlight step, identity only.
+     *
+     * Refused on an error result, like a write target: a refused highlight
+     * names no record.
+     */
+    public function withHighlightTarget(RecordReference $target): self
+    {
+        if ($this->isError) {
+            return $this;
+        }
+
+        return new self(
+            $this->content,
+            false,
+            $this->artifacts,
+            $this->outcome,
+            $this->writeTarget,
+            $this->writeKind,
+            $this->writeCompleteness,
+            $this->hookFailedAfterWrite,
+            $target,
+        );
     }
 
     /**
@@ -154,6 +183,7 @@ final readonly class ToolResult
             $this->writeKind,
             $this->writeCompleteness,
             true,
+            $this->highlightTarget,
         );
     }
 
@@ -202,6 +232,7 @@ final readonly class ToolResult
             $this->writeKind,
             $this->writeCompleteness,
             $this->hookFailedAfterWrite,
+            $this->highlightTarget,
         );
     }
 }

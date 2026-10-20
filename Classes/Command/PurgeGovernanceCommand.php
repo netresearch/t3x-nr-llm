@@ -33,7 +33,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     description: 'Delete governance-event rows older than the configured retention window.',
 )]
 /**
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class PurgeGovernanceCommand extends Command
 {
@@ -61,7 +61,7 @@ final class PurgeGovernanceCommand extends Command
         $daysOption = $input->getOption('days');
         $days       = $daysOption === null
             ? $this->privacyPolicy->retentionDaysFor(PrivacyDataCategory::GOVERNANCE)
-            : (is_numeric($daysOption) ? (int)$daysOption : 0);
+            : (is_numeric($daysOption) ? (int) $daysOption : 0);
 
         if ($days < 1) {
             $io->error('The --days option must be a positive integer.');

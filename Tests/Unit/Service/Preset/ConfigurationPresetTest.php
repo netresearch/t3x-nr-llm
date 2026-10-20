@@ -46,14 +46,14 @@ final class ConfigurationPresetTest extends TestCase
     public static function invalidIdentifiers(): array
     {
         return [
-            'empty' => [''],
-            'uppercase' => ['NrAiSearch.Chat'],
-            'space' => ['nr ai.chat'],
-            'dash' => ['nr-ai.chat'],
-            'leading dot' => ['.chat'],
+            'empty'        => [''],
+            'uppercase'    => ['NrAiSearch.Chat'],
+            'space'        => ['nr ai.chat'],
+            'dash'         => ['nr-ai.chat'],
+            'leading dot'  => ['.chat'],
             'trailing dot' => ['chat.'],
-            'double dot' => ['nr..chat'],
-            'non-ascii' => ['über.chat'],
+            'double dot'   => ['nr..chat'],
+            'non-ascii'    => ['über.chat'],
         ];
     }
 
@@ -143,10 +143,10 @@ final class ConfigurationPresetTest extends TestCase
         $this->expectExceptionCode($expectedCode);
 
         self::assertInstanceOf(ConfigurationPreset::class, new ConfigurationPreset(...([
-            'identifier' => 'ext.chat',
-            'name' => 'Name',
+            'identifier'  => 'ext.chat',
+            'name'        => 'Name',
             'description' => '',
-            'criteria' => $this->chatCriteria(),
+            'criteria'    => $this->chatCriteria(),
         ] + $seed)));
     }
 
@@ -268,16 +268,16 @@ final class ConfigurationPresetTest extends TestCase
 
         self::assertSame([
             'allowedToolGroups' => ['rag'],
-            'criteria' => $preset->criteria->toArray(),
-            'description' => 'A chat preset.',
-            'identifier' => 'ext.chat',
-            'maxCostPerDay' => 5.0,
+            'criteria'          => $preset->criteria->toArray(),
+            'description'       => 'A chat preset.',
+            'identifier'        => 'ext.chat',
+            'maxCostPerDay'     => 5.0,
             'maxRequestsPerDay' => 100,
-            'maxTokens' => 2000,
-            'maxTokensPerDay' => 50000,
-            'name' => 'Chat',
-            'systemPrompt' => 'You are helpful.',
-            'temperature' => 0.2,
+            'maxTokens'         => 2000,
+            'maxTokensPerDay'   => 50000,
+            'name'              => 'Chat',
+            'systemPrompt'      => 'You are helpful.',
+            'temperature'       => 0.2,
         ], $canonical);
     }
 

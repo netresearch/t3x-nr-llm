@@ -51,7 +51,7 @@ final class ApprovalPreviewTranslatorTest extends TestCase
     #[Test]
     public function aColumnWithoutAStaticItemReadsAsItsNumber(): void
     {
-        $previous = $GLOBALS['TCA'] ?? null;
+        $previous                                                             = $GLOBALS['TCA'] ?? null;
         $GLOBALS['TCA']['tt_content']['columns']['colPos']['config']['items'] = [['label' => 'Normal', 'value' => 0]];
 
         try {
@@ -71,7 +71,7 @@ final class ApprovalPreviewTranslatorTest extends TestCase
     private function translatorEchoingLabels(): ApprovalPreviewTranslator
     {
         $languageService = self::createStub(LanguageService::class);
-        $languageService->method('sL')->willReturnCallback(static fn(string $label): string => $label);
+        $languageService->method('sL')->willReturnCallback(static fn (string $label): string => $label);
         $factory = self::createStub(LanguageServiceFactory::class);
         $factory->method('createFromUserPreferences')->willReturn($languageService);
 

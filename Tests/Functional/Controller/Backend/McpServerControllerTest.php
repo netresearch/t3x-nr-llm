@@ -103,7 +103,7 @@ final class McpServerControllerTest extends AbstractFunctionalTestCase
         );
 
         self::assertSame(404, $response->getStatusCode());
-        self::assertStringContainsString('Unknown MCP server', (string)$response->getBody());
+        self::assertStringContainsString('Unknown MCP server', (string) $response->getBody());
     }
 
     #[Test]
@@ -122,21 +122,20 @@ final class McpServerControllerTest extends AbstractFunctionalTestCase
     public static function unusableServerValues(): array
     {
         return [
-            'not a number'       => ['first'],
+            'not a number' => ['first'],
             // The ones a cast would silently accept: is_numeric() says yes to
             // both, and casting turns them into a uid nobody named — 1 and
             // 1000 respectively. The import reaches an external server, so it
             // must never be one rounding rule away from the wrong row.
-            'decimal'            => ['1.9'],
-            'exponent'           => ['1e3'],
-            'empty'              => [''],
-            'an array'           => [['1']],
+            'decimal'  => ['1.9'],
+            'exponent' => ['1e3'],
+            'empty'    => [''],
+            'an array' => [['1']],
             // Deliberately absent: ' 1'. FILTER_VALIDATE_INT trims surrounding
             // whitespace and answers 1, which is right — a padded integer means
             // that integer, unlike '1.9', which means something else. Asserting
             // it here would also send the test at a real endpoint, because a
             // resolved server goes on to an actual import.
-
         ];
     }
 
@@ -179,7 +178,7 @@ final class McpServerControllerTest extends AbstractFunctionalTestCase
 
         self::assertSame(200, $response->getStatusCode());
 
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertTrue($payload['success']);
 
@@ -202,7 +201,7 @@ final class McpServerControllerTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(ConnectionPool::class, $stamped);
         $lastContact = $stamped->getConnectionForTable('tx_nrllm_mcp_server')
             ->fetchOne('SELECT last_contact FROM tx_nrllm_mcp_server WHERE uid = 1');
-        self::assertGreaterThan(0, (int)$lastContact, 'the probe recorded the contact it reports');
+        self::assertGreaterThan(0, (int) $lastContact, 'the probe recorded the contact it reports');
     }
 
     /**
@@ -223,7 +222,7 @@ final class McpServerControllerTest extends AbstractFunctionalTestCase
 
         self::assertSame(200, $response->getStatusCode());
 
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
         assert(is_string($payload['error']));
@@ -243,10 +242,10 @@ final class McpServerControllerTest extends AbstractFunctionalTestCase
         $connectionPool->getConnectionForTable('tx_nrllm_mcp_server')->update(
             'tx_nrllm_mcp_server',
             [
-                'auth_credential' => 'e6f1a2b3-0000-4000-8000-000000000001',
-                'auth_placement'  => 'header',
+                'auth_credential'  => 'e6f1a2b3-0000-4000-8000-000000000001',
+                'auth_placement'   => 'header',
                 'auth_header_name' => 'X-Api-Key',
-                'tool_count'      => 7,
+                'tool_count'       => 7,
                 // Noon UTC. `contactLabel()` formats in the PHP timezone, so a
                 // timestamp near midnight would date to the previous or the
                 // next day for a developer east or west of the CI runner and
@@ -291,7 +290,7 @@ final class McpServerControllerTest extends AbstractFunctionalTestCase
         $controller = $this->controller();
         $this->setPrivateProperty($controller, 'request', $this->createBackendRequest());
 
-        $body = (string)$controller->listAction()->getBody();
+        $body = (string) $controller->listAction()->getBody();
 
         // Liveness, and the latency that came with it.
         self::assertStringContainsString('2023-11-14', $body, 'the last successful contact is dated');
@@ -329,7 +328,7 @@ final class McpServerControllerTest extends AbstractFunctionalTestCase
             ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)
             ->withAttribute('route', new Route('/module/nrllm/mcp', ['packageName' => 'netresearch/nr-llm']))
             ->withAttribute('extbase', $extbaseParameters);
-        $serverRequest = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
+        $serverRequest            = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
         $GLOBALS['TYPO3_REQUEST'] = $serverRequest;
 
         return new ExtbaseRequest($serverRequest);

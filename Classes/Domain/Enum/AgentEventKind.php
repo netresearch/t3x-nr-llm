@@ -35,9 +35,9 @@ use Netresearch\NrLlm\Domain\ValueObject\RunStep;
  */
 enum AgentEventKind: string
 {
-    case REQUEST = 'request';
-    case LLM = 'llm';
-    case TOOL = 'tool';
+    case REQUEST   = 'request';
+    case LLM       = 'llm';
+    case TOOL      = 'tool';
     case ASSEMBLED = 'assembled';
     // The round's context-window accounting (ADR-151), recorded by the tool
     // loop's fit ahead of the request step it explains. It IS a RunStep kind:
@@ -52,19 +52,29 @@ enum AgentEventKind: string
     // after the tool step it belongs to, and the row the observed outcome
     // joins sys_history against.
     case TOOL_WRITE = 'tool_write';
-    case APPROVAL = 'approval';
+    case APPROVAL   = 'approval';
     // Emitted by the AgentRuntime when an operator submits typed input for a run
     // suspended WAITING_FOR_INPUT (ADR-105), payload ``{submittedBy: int}`` — the
     // who/when, never the submitted values (ADR-064). Like APPROVAL it is NOT a
     // RunStep kind.
     case INPUT = 'input';
+    // What a continuation derives from the run (ADR-228): its process pin, the
+    // record the process is about and the configuration, as uids and a digest.
+    // Emitted by the AgentRuntime at the start of a run that invokes or
+    // continues a process, and again when the process is ended. NOT a RunStep
+    // kind.
+    case LINEAGE = 'lineage';
+    // The record the current point of a process is about (ADR-214 item 9):
+    // table and uid, recorded after the highlight builtin's tool step. A
+    // RunStep kind.
+    case HIGHLIGHT = 'highlight';
 
     /**
      * @return list<string>
      */
     public static function values(): array
     {
-        return array_map(static fn(self $case): string => $case->value, self::cases());
+        return array_map(static fn (self $case): string => $case->value, self::cases());
     }
 
     public static function isValid(string $value): bool
@@ -78,12 +88,13 @@ enum AgentEventKind: string
      * known one. Deliberately restricted to the RunStep kinds: APPROVAL is
      * an AgentRuntime event, not a RunStep, so it must not resolve here even
      * though it is a valid stored event kind (use {@see self::tryFrom()} to
-     * hydrate a stored kind). INPUT (ADR-105) is excluded for the same reason.
+     * hydrate a stored kind). INPUT (ADR-105) and LINEAGE (ADR-228) are
+     * excluded for the same reason.
      */
     public static function fromRunStepKind(string $kind): ?self
     {
         $case = self::tryFrom($kind);
 
-        return in_array($case, [self::APPROVAL, self::INPUT], true) ? null : $case;
+        return in_array($case, [self::APPROVAL, self::INPUT, self::LINEAGE], true) ? null : $case;
     }
 }

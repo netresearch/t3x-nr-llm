@@ -98,7 +98,7 @@ final readonly class GetTcaTool implements ToolInterface
             return "TCA tables (0):\n";
         }
 
-        $names = array_map(static fn(int|string $name): string => (string)$name, array_keys($tca));
+        $names = array_map(static fn (int|string $name): string => (string) $name, array_keys($tca));
         // Routed through the shared table policy, not the raw permission check:
         // BackendUserAuthentication::check() returns true for every table for an
         // admin, so the raw check listed the extension's own credential-bearing
@@ -107,7 +107,7 @@ final readonly class GetTcaTool implements ToolInterface
         // disagree on what may be read (ADR-093).
         $names = array_values(array_filter(
             $names,
-            fn(string $name): bool => $this->tableAccess->canReadTable($user, $name),
+            fn (string $name): bool => $this->tableAccess->canReadTable($user, $name),
         ));
         sort($names);
         $names = array_slice($names, 0, self::MAX_ITEMS);
@@ -145,7 +145,7 @@ final readonly class GetTcaTool implements ToolInterface
                 $type = self::toStr($config['config']['type'] ?? '');
             }
 
-            $lines[] = sprintf('%s: %s', (string)$field, $type !== '' ? $type : '?');
+            $lines[] = sprintf('%s: %s', (string) $field, $type !== '' ? $type : '?');
             ++$count;
         }
 
