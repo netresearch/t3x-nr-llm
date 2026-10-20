@@ -16,6 +16,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
+use function strlen;
+
 /**
  * Caller-source attribution (ADR-177): the two identity columns reach the
  * database, and an unannotated record keeps the '' defaults so its row is
@@ -73,9 +75,9 @@ final class CallerSourceTelemetryTest extends AbstractFunctionalTestCase
         $row = $this->row('corr-long');
 
         self::assertIsString($row['source_extension']);
-        self::assertSame(64, \strlen($row['source_extension']));
+        self::assertSame(64, strlen($row['source_extension']));
         self::assertIsString($row['source_operation']);
-        self::assertSame(64, \strlen($row['source_operation']));
+        self::assertSame(64, strlen($row['source_operation']));
     }
 
     /**

@@ -9,7 +9,9 @@
 ADR-101: AgentRuntime — the agent-run lifecycle as a public service
 ============================================================================
 
-:Status: Accepted
+:Status: Accepted (optional diagnostics clarified by
+    :ref:`ADR-225 <adr-225>`)
+:Amended: 2026-10-10 by :ref:`ADR-225 <adr-225>` (optional diagnostics)
 :Date: 2026-07-21
 :Authors: Netresearch DTT GmbH
 
@@ -132,7 +134,10 @@ Consequences
   :ref:`ADR-206 <adr-206>`, whose ``ToolDataHandler`` every writing tool
   creates through ``makeInstance()`` — Category E, and to **39** by
   :ref:`ADR-211 <adr-211>`, whose ``DecisionServiceInterface`` consumer
-  extensions resolve by interface — Category A). This ADR supersedes ADR-094
+  extensions resolve by interface — Category A, and to **40** by
+  :ref:`ADR-214 <adr-214>`, whose ``SkillDeletionGuardHook`` the DataHandler
+  creates through ``makeInstance()`` with its connection pool — Category E).
+  This ADR supersedes ADR-094
   as the count authority. It is a
   *consumer* interface: call it, do not
   implement or decorate it outside nr_llm — methods and ``AgentRunOutcome``
@@ -148,3 +153,14 @@ Consequences
   workers, consumer extensions, batch runs, review queues, editor actions and
   status polling (``events()`` pages by sequence) — the run lifecycle they get
   is the tested one.
+
+Clarification on 2026-10-10
+===========================
+
+:ref:`ADR-225 <adr-225>` contains errors from optional diagnostic emission in
+the shared executor, queued failure recovery and agent-run persister. Original
+outcomes, errors, ownership guards and storage refusal values remain the
+authority; a failed logger neither changes the run decision nor grants a failed
+mandatory audit, suspension or write fence success. The historical behavior
+above remains recorded; this clarification covers the bounded diagnostic
+repair, not every logging site in the extension.

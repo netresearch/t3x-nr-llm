@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\ApprovalAttribution;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\FieldProposal;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
@@ -21,6 +22,7 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\SchemaPropertyClassifier;
+use Netresearch\NrLlm\Service\Tool\StructuredPreviewInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
@@ -63,7 +65,7 @@ final readonly class WaitingRunViewFactory
      */
     public function buildWaiting(array $runs, ?BackendUserAuthentication $viewer = null): array
     {
-        return array_map(fn(AgentRun $run): WaitingRunView => $this->buildWaitingOne($run, $viewer), $runs);
+        return array_map(fn (AgentRun $run): WaitingRunView => $this->buildWaitingOne($run, $viewer), $runs);
     }
 
     /**
@@ -84,7 +86,7 @@ final readonly class WaitingRunViewFactory
     public function buildTerminal(array $runs, ?AiActorContext $actor = null, array $decidersByRunUid = []): array
     {
         return array_map(
-            fn(AgentRun $run): TerminalRunView => new TerminalRunView(
+            fn (AgentRun $run): TerminalRunView => new TerminalRunView(
                 runUuid: $run->uuid,
                 status: $run->status,
                 createdAt: $run->crdate,
@@ -176,6 +178,7 @@ final readonly class WaitingRunViewFactory
 
             $previewLines  = [];
             $previewFailed = false;
+            $withheld      = false;
             // A preview stored under a different tool name than the call at that
             // position is a state nobody should be able to produce; dropping it
             // is cheaper than rendering a claim about the wrong call.
@@ -196,6 +199,7 @@ final readonly class WaitingRunViewFactory
                     // compared, so it is in the VIEWER's language (ADR-213).
                     $previewLines  = [$this->translator->text($viewer, ApprovalPreviewLabel::CardWithheld)];
                     $previewFailed = true;
+                    $withheld      = true;
                 }
             }
 
@@ -215,6 +219,9 @@ final readonly class WaitingRunViewFactory
                 // arguments are on the card already.
                 pendingTarget: $this->pendingTarget($tool, $call->arguments),
                 declaresWrite: $effects->effectFor($call->name)->isWrite(),
+                // ADR-214, item 9: read for this viewer now, and never where
+                // the lines above are withheld from them.
+                structuredPreview: $withheld ? [] : $this->structuredPreview($tool, $call->arguments, $viewer),
             );
         }
 
@@ -256,6 +263,34 @@ final readonly class WaitingRunViewFactory
     }
 
     /**
+     * The fields the call would change, as structured values (ADR-214, item 9),
+     * read by the tool with the VIEWER's rights when the card is rendered.
+     *
+     * Empty without a viewer — the same fail-closed answer the preview lines
+     * get — for a tool that is gone or offers no structured preview, and for a
+     * tool that throws: the card keeps its lines and loses only the structure.
+     * Anything a tool returns that is not a {@see FieldProposal} is dropped.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return list<FieldProposal>
+     */
+    private function structuredPreview(?ToolInterface $tool, array $arguments, ?BackendUserAuthentication $viewer): array
+    {
+        if (!$viewer instanceof BackendUserAuthentication || !$tool instanceof StructuredPreviewInterface) {
+            return [];
+        }
+
+        try {
+            $entries = $tool->structuredPreview($arguments, $viewer);
+        } catch (Throwable) {
+            return [];
+        }
+
+        return array_values(array_filter($entries, static fn (mixed $entry): bool => $entry instanceof FieldProposal));
+    }
+
+    /**
      * Whether the viewer is the backend user the run acts for.
      *
      * The stored preview was produced with exactly that user's rights, so it
@@ -273,7 +308,7 @@ final readonly class WaitingRunViewFactory
 
         $uid = $viewer->user['uid'] ?? null;
 
-        return is_numeric($uid) && (int)$uid === $run->beUser;
+        return is_numeric($uid) && (int) $uid === $run->beUser;
     }
 
     /**
@@ -370,8 +405,12 @@ final readonly class WaitingRunViewFactory
             }
 
             /** @var array<string, mixed> $propSchema */
-            $name        = (string)$name;
-            $controlType = $this->classifier->classify($propSchema);
+            $name    = (string) $name;
+            $options = $this->enumOptions($propSchema);
+            // An enumerated field is a choice, enforced on submission
+            // (ADR-214 item 9): offered as a select of its members rather than
+            // a text field that has to be typed exactly.
+            $controlType = $options !== [] ? InputFieldView::CONTROL_SELECT : $this->classifier->classify($propSchema);
             $fields[]    = new InputFieldView(
                 name: $name,
                 label: $this->fieldLabel($name, $propSchema),
@@ -388,7 +427,7 @@ final readonly class WaitingRunViewFactory
                     SchemaPropertyClassifier::NUMBER  => 'decimal',
                     default                           => '',
                 },
-                options: $this->enumOptions($propSchema),
+                options: $options,
                 description: is_string($propSchema['description'] ?? null) ? $propSchema['description'] : null,
             );
         }
@@ -422,7 +461,7 @@ final readonly class WaitingRunViewFactory
         }
 
         return array_values(array_map(
-            static fn(mixed $v): string => is_scalar($v) ? (string)$v : '',
+            static fn (mixed $v): string => is_scalar($v) ? (string) $v : '',
             $enum,
         ));
     }

@@ -49,7 +49,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function findMostSimilarReturnsEmptyArrayForEmptyCandidates(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub);
+        $service        = new EmbeddingService($llmManagerStub);
 
         $result = $service->findMostSimilar([0.1, 0.2, 0.3], [], 5);
 
@@ -60,10 +60,10 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function findMostSimilarReturnsLimitedResults(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub);
+        $service        = new EmbeddingService($llmManagerStub);
 
         $queryVector = [1.0, 0.0, 0.0];
-        $candidates = [
+        $candidates  = [
             [1.0, 0.0, 0.0], // Same
             [0.9, 0.1, 0.0], // Similar
             [0.5, 0.5, 0.0], // Less similar
@@ -79,10 +79,10 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function findMostSimilarSortsByDescendingSimilarity(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub);
+        $service        = new EmbeddingService($llmManagerStub);
 
         $queryVector = [1.0, 0.0];
-        $candidates = [
+        $candidates  = [
             [0.0, 1.0],  // Orthogonal (similarity 0)
             [1.0, 0.0],  // Same (similarity 1)
             [0.5, 0.5],  // Partial (similarity ~0.71)
@@ -99,7 +99,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function pairwiseSimilaritiesHasDiagonalOfOnes(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub);
+        $service        = new EmbeddingService($llmManagerStub);
 
         $vectors = [
             [1.0, 0.0, 0.0],
@@ -119,7 +119,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function pairwiseSimilaritiesIsSymmetric(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub);
+        $service        = new EmbeddingService($llmManagerStub);
 
         $vectors = [
             [1.0, 0.5],
@@ -136,10 +136,10 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function normalizeReturnsZeroVectorForZeroInput(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub);
+        $service        = new EmbeddingService($llmManagerStub);
 
         $zeroVector = [0.0, 0.0, 0.0];
-        $result = $service->normalize($zeroVector);
+        $result     = $service->normalize($zeroVector);
 
         self::assertEquals($zeroVector, $result);
     }
@@ -148,13 +148,13 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function normalizeCreatesUnitLengthVector(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub);
+        $service        = new EmbeddingService($llmManagerStub);
 
         $vector = [3.0, 4.0]; // Magnitude = 5.0
         $result = $service->normalize($vector);
 
         // Calculate magnitude of result
-        $magnitude = sqrt(array_sum(array_map(fn(float $x): float => $x * $x, $result)));
+        $magnitude = sqrt(array_sum(array_map(fn (float $x): float => $x * $x, $result)));
 
         self::assertEqualsWithDelta(1.0, $magnitude, 0.0001);
     }
@@ -162,7 +162,6 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     #[Test]
     public function embedFullWithOptionsUsesProvidedOptions(): void
     {
-
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
             ->expects(self::once())
@@ -180,7 +179,6 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     #[Test]
     public function embedFullCreatesDefaultOptionsWhenNull(): void
     {
-
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
             ->expects(self::once())
@@ -199,7 +197,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function embedFullThrowsOnEmptyText(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub);
+        $service        = new EmbeddingService($llmManagerStub);
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Text cannot be empty');
@@ -210,7 +208,6 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     #[Test]
     public function embedBatchCreatesDefaultOptionsWhenNull(): void
     {
-
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
             ->expects(self::once())
@@ -237,7 +234,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function cosineSimilarityHandlesEdgeCases(array $vectorA, array $vectorB, float $expected): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub);
+        $service        = new EmbeddingService($llmManagerStub);
 
         $result = $service->cosineSimilarity($vectorA, $vectorB);
 
@@ -250,10 +247,10 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public static function cosineSimilarityEdgeCasesProvider(): array
     {
         return [
-            'identical vectors' => [[1.0, 0.0], [1.0, 0.0], 1.0],
-            'opposite vectors' => [[1.0, 0.0], [-1.0, 0.0], -1.0],
+            'identical vectors'  => [[1.0, 0.0], [1.0, 0.0], 1.0],
+            'opposite vectors'   => [[1.0, 0.0], [-1.0, 0.0], -1.0],
             'orthogonal vectors' => [[1.0, 0.0], [0.0, 1.0], 0.0],
-            'similar vectors' => [[1.0, 0.5], [0.9, 0.6], 0.9923], // Approximately
+            'similar vectors'    => [[1.0, 0.5], [0.9, 0.6], 0.9923], // Approximately
         ];
     }
 
@@ -261,7 +258,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function pairwiseSimilaritiesCreatesCorrectDimensions(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub);
+        $service        = new EmbeddingService($llmManagerStub);
 
         $vectors = [
             [1.0, 0.0],
@@ -282,10 +279,10 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function findMostSimilarUsesDefaultTopKOfFive(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub);
+        $service        = new EmbeddingService($llmManagerStub);
 
         $queryVector = [1.0, 0.0];
-        $candidates = [
+        $candidates  = [
             [1.0, 0.0],
             [0.9, 0.1],
             [0.8, 0.2],
@@ -305,10 +302,10 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function findMostSimilarReturnsAllWhenCandidatesLessThanTopK(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub);
+        $service        = new EmbeddingService($llmManagerStub);
 
         $queryVector = [1.0, 0.0];
-        $candidates = [
+        $candidates  = [
             [1.0, 0.0],
             [0.9, 0.1],
         ];
@@ -323,10 +320,10 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function findMostSimilarReturnsCorrectIndices(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub);
+        $service        = new EmbeddingService($llmManagerStub);
 
         $queryVector = [1.0, 0.0];
-        $candidates = [
+        $candidates  = [
             [0.0, 1.0],  // index 0, orthogonal
             [1.0, 0.0],  // index 1, identical
             [0.5, 0.5],  // index 2, partial
@@ -342,7 +339,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function normalizePreservesDirection(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub);
+        $service        = new EmbeddingService($llmManagerStub);
 
         $vector = [3.0, 4.0];
         $result = $service->normalize($vector);
@@ -356,13 +353,13 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function normalizeHandlesNegativeValues(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub);
+        $service        = new EmbeddingService($llmManagerStub);
 
         $vector = [-3.0, 4.0];
         $result = $service->normalize($vector);
 
         // Magnitude of result should still be 1.0
-        $magnitude = sqrt(array_sum(array_map(fn(float $x): float => $x * $x, $result)));
+        $magnitude = sqrt(array_sum(array_map(fn (float $x): float => $x * $x, $result)));
         self::assertEqualsWithDelta(1.0, $magnitude, 0.0001);
 
         // Signs should be preserved
@@ -374,7 +371,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function pairwiseSimilaritiesReturnsEmptyForEmptyInput(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub);
+        $service        = new EmbeddingService($llmManagerStub);
 
         $result = $service->pairwiseSimilarities([]);
 
@@ -385,7 +382,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function pairwiseSimilaritiesHandlesSingleVector(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub);
+        $service        = new EmbeddingService($llmManagerStub);
 
         $vectors = [[1.0, 0.0, 0.0]];
 
@@ -400,7 +397,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function embedBatchReturnsEmptyArrayForEmptyInput(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub);
+        $service        = new EmbeddingService($llmManagerStub);
 
         $result = $service->embedBatch([]);
 
@@ -414,7 +411,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function pairwiseSimilaritiesOffDiagonalCalculatesCorrectly(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub);
+        $service        = new EmbeddingService($llmManagerStub);
 
         // Orthogonal unit vectors
         $vectors = [
@@ -433,10 +430,10 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function findMostSimilarWithTopKOfOne(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub);
+        $service        = new EmbeddingService($llmManagerStub);
 
         $queryVector = [1.0, 0.0];
-        $candidates = [
+        $candidates  = [
             [0.0, 1.0],
             [1.0, 0.0],
             [0.5, 0.5],

@@ -105,14 +105,14 @@ final class InterferesWithAnUpdateHook
         }
 
         if (self::$complain && (self::$complainWithField === null || array_key_exists(self::$complainWithField, $fieldArray))) {
-            $dataHandler->log($table, (int)$id, 2, null, 1, 'A test hook complains and carries on');
+            $dataHandler->log($table, (int) $id, 2, null, 1, 'A test hook complains and carries on');
         }
     }
 
     public function processCmdmap_postProcess(string $command, string $table, string|int $id, mixed $value, DataHandler $dataHandler): void
     {
         if (self::$complainOnCommand) {
-            $dataHandler->log($table, (int)$id, 2, null, 1, 'A test hook complains about a command and carries on');
+            $dataHandler->log($table, (int) $id, 2, null, 1, 'A test hook complains about a command and carries on');
         }
     }
 

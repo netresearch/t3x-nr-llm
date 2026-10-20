@@ -106,15 +106,15 @@ final class UpdateFalAssetMetaToolFileMountTest extends AbstractFunctionalTestCa
         self::assertInstanceOf(Connection::class, $storageConnection);
         // Row only — the ResourceStorage OBJECT must not exist before login.
         $storageConnection->insert('sys_file_storage', [
-            'uid' => 1, 'pid' => 0, 'name' => 'Main storage', 'driver' => 'Local',
+            'uid'           => 1, 'pid' => 0, 'name' => 'Main storage', 'driver' => 'Local',
             'configuration' => self::STORAGE_CONFIGURATION,
-            'is_online' => 1, 'is_browsable' => 1, 'is_public' => 1, 'is_writable' => 1,
+            'is_online'     => 1, 'is_browsable' => 1, 'is_public' => 1, 'is_writable' => 1,
         ]);
         $storageConnection->insert('sys_filemounts', [
             'uid' => 1, 'pid' => 0, 'title' => 'Docs mount', 'identifier' => '1:/docs/', 'read_only' => 0,
         ]);
         $storageConnection->insert('be_groups', [
-            'uid' => 9, 'pid' => 0, 'title' => 'Doc readers', 'file_mountpoints' => '1',
+            'uid'              => 9, 'pid' => 0, 'title' => 'Doc readers', 'file_mountpoints' => '1',
             'file_permissions' => 'readFolder,readFile',
         ]);
         // options=3: inherit db AND file mounts from groups.
@@ -381,8 +381,8 @@ final class UpdateFalAssetMetaToolFileMountTest extends AbstractFunctionalTestCa
             // sys_file_metadata takes its record type from the file's type
             // (`ctrl.type = file:type`); 1 is FileType::TEXT and the only type
             // the metadata TCA defines.
-            'type'            => 1,
-            'missing'         => 0,
+            'type'    => 1,
+            'missing' => 0,
         ]);
     }
 
@@ -442,7 +442,7 @@ final class UpdateFalAssetMetaToolFileMountTest extends AbstractFunctionalTestCa
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('sys_file_metadata');
         $queryBuilder->getRestrictions()->removeAll();
 
-        return (int)$queryBuilder
+        return (int) $queryBuilder
             ->count('uid')
             ->from('sys_file_metadata')
             ->where($queryBuilder->expr()->eq('file', $queryBuilder->createNamedParameter($fileUid, Connection::PARAM_INT)))
@@ -470,6 +470,6 @@ final class UpdateFalAssetMetaToolFileMountTest extends AbstractFunctionalTestCa
             ->executeQuery()
             ->fetchAllAssociative();
 
-        return array_map(static fn(array $row): int => (int)($row['userid'] ?? 0), $rows);
+        return array_map(static fn (array $row): int => (int) ($row['userid'] ?? 0), $rows);
     }
 }

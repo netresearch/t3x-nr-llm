@@ -34,7 +34,7 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
  * single `listAction()` that renders the grouped-by-category Task
  * dashboard.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class TaskListController extends ActionController
@@ -60,7 +60,7 @@ final class TaskListController extends ActionController
         $this->applyModuleChrome($moduleTemplate, $this->request);
 
         /** @var QueryResultInterface<int, Task>&Countable $tasks */
-        $tasks = $this->taskRepository->findAll();
+        $tasks      = $this->taskRepository->findAll();
         $categories = Task::getCategories();
 
         $groupedTasks = [];
@@ -84,7 +84,7 @@ final class TaskListController extends ActionController
             }
 
             $editUrls[$uid] = $this->buildEditUrl($uid);
-            $category = $task->getCategory();
+            $category       = $task->getCategory();
             $groupedTasks[$category] ??= [
                 'label' => $category,
                 'tasks' => [],
@@ -93,10 +93,10 @@ final class TaskListController extends ActionController
             $groupedTasks[$category]['tasks'][] = $task;
         }
 
-        $groupedTasks = array_filter($groupedTasks, fn(array $group): bool => $group['tasks'] !== []);
+        $groupedTasks = array_filter($groupedTasks, fn (array $group): bool => $group['tasks'] !== []);
 
         $period = AnalyticsPeriod::fromPreset('30d', new DateTimeImmutable());
-        $usage = UsageAnalyticsService::formatUsageColumns(
+        $usage  = UsageAnalyticsService::formatUsageColumns(
             $this->analytics->getTotalsGroupedBy('task_uid', $period->from, $period->to),
         );
 
@@ -106,13 +106,13 @@ final class TaskListController extends ActionController
             'activeCount'  => $this->taskRepository->countActive(),
             'editUrls'     => $editUrls,
             'newUrl'       => $this->buildNewUrl(),
-            'wizardUrl'    => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
+            'wizardUrl'    => (string) $this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
             'costByTask'   => $usage['cost'],
             'reqByTask'    => $usage['requests'],
             'tokByTask'    => $usage['tokens'],
         ]);
 
-        $buttonBar = $moduleTemplate->getDocHeaderComponent()->getButtonBar();
+        $buttonBar    = $moduleTemplate->getDocHeaderComponent()->getButtonBar();
         $createButton = $buttonBar->makeLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-plus', IconSize::SMALL))
             ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.task.new', 'NrLlm') ?? 'New Task')
@@ -125,7 +125,7 @@ final class TaskListController extends ActionController
         // controller identifier is the Extbase alias, which for a class in
         // the Controller\Backend\ namespace resolves to "Backend\TaskWizard"
         // (see ExtensionUtility::resolveControllerAliasFromControllerClassName).
-        $wizardUrl = (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_tasks', [
+        $wizardUrl = (string) $this->backendUriBuilder->buildUriFromRoute('nrllm_tasks', [
             'controller' => 'Backend\\TaskWizard',
             'action'     => 'wizardForm',
         ]);
@@ -141,7 +141,7 @@ final class TaskListController extends ActionController
 
     private function buildEditUrl(int $uid): string
     {
-        return (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', [
+        return (string) $this->backendUriBuilder->buildUriFromRoute('record_edit', [
             'edit'      => [self::TABLE_NAME => [$uid => 'edit']],
             'returnUrl' => $this->buildReturnUrl(),
         ]);
@@ -149,7 +149,7 @@ final class TaskListController extends ActionController
 
     private function buildNewUrl(): string
     {
-        return (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', [
+        return (string) $this->backendUriBuilder->buildUriFromRoute('record_edit', [
             'edit'      => [self::TABLE_NAME => [0 => 'new']],
             'returnUrl' => $this->buildReturnUrl(),
         ]);
@@ -157,6 +157,6 @@ final class TaskListController extends ActionController
 
     private function buildReturnUrl(): string
     {
-        return (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_tasks');
+        return (string) $this->backendUriBuilder->buildUriFromRoute('nrllm_tasks');
     }
 }

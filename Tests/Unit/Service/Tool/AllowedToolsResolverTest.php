@@ -67,6 +67,32 @@ final class AllowedToolsResolverTest extends TestCase
         self::assertSame(['fetch_logs', 'read_page'], $list->toolNames);
     }
 
+    /**
+     * ADR-214 item 5: attachment grants tools whatever the load mode, so an
+     * on-demand skill's declaration is in the union from run start.
+     */
+    #[Test]
+    public function anOnDemandAttachmentDeclaresLikeAnAlwaysOne(): void
+    {
+        $config = new LlmConfiguration();
+        $config->addSkill($this->skill('always', '["fetch_logs"]'));
+        $config->addSkillOnDemand($this->skill('on-demand', '["read_page"]'));
+
+        self::assertSame(['fetch_logs', 'read_page'], $this->resolver()->resolveForRun($config, [])->toolNames);
+        self::assertSame(['fetch_logs', 'read_page'], $this->resolver()->resolve($config));
+    }
+
+    #[Test]
+    public function anOnDemandAttachmentAloneRestrictsTheRun(): void
+    {
+        $config = new LlmConfiguration();
+        $config->addSkillOnDemand($this->skill('on-demand', '[]'));
+
+        self::assertSame([], $this->resolver()->resolveForRun($config, [])->toolNames);
+
+        self::assertNull($this->resolver()->resolveForRun(new LlmConfiguration(), [])->toolNames, 'without the attachment nothing restricts');
+    }
+
     #[Test]
     public function aDisabledForcedSkillContributesNothingToTheRunsList(): void
     {

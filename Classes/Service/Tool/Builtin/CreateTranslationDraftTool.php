@@ -423,7 +423,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         $landed  = [];
         $missing = [];
         foreach ($values as $field => $value) {
-            $now = trim(self::toStr($stored[$field] ?? ''));
+            $now  = trim(self::toStr($stored[$field] ?? ''));
             $took = $plan['texts'][$field]['exact']
                 ? $now === trim($value)
                 : $now !== '' && ($now !== trim(self::toStr($copy[$field] ?? '')) || $now === trim($value));
@@ -599,8 +599,8 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
 
         [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
         $isPage  = $plan['table'] === self::PAGES_TABLE;
-        $names   = fn(array $columns): string => implode(', ', array_map(
-            fn(mixed $column): string => $this->translator->columnLabel($user, $plan['table'], self::toStr($column)),
+        $names   = fn (array $columns): string => implode(', ', array_map(
+            fn (mixed $column): string => $this->translator->columnLabel($user, $plan['table'], self::toStr($column)),
             $columns,
         ));
 
@@ -843,23 +843,23 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         $glossary = $this->glossaryResolver->resolve($languages['site'], $languages['source'], $languages['target']);
 
         return [
-            'table'          => $table === self::PAGES_TABLE ? self::PAGES_TABLE : self::CONTENT_TABLE,
-            'uid'            => $uid,
-            'label'          => self::toStr($source[$this->labelField($table)] ?? ''),
-            'language'       => $language,
-            'existingUid'    => $existingUid,
-            'existingLabel'  => $existingLabel,
-            'translator'     => $translator,
-            'translatorName' => sprintf('%s (%s)', $translatorTitle, $translator),
+            'table'           => $table === self::PAGES_TABLE ? self::PAGES_TABLE : self::CONTENT_TABLE,
+            'uid'             => $uid,
+            'label'           => self::toStr($source[$this->labelField($table)] ?? ''),
+            'language'        => $language,
+            'existingUid'     => $existingUid,
+            'existingLabel'   => $existingLabel,
+            'translator'      => $translator,
+            'translatorName'  => sprintf('%s (%s)', $translatorTitle, $translator),
             'translatorTitle' => $translatorTitle,
-            'site'           => $languages['site'],
-            'source'         => $languages['source'],
-            'sourceTitle'    => $languages['sourceTitle'],
-            'target'         => $languages['target'],
-            'targetTitle'    => $languages['targetTitle'],
-            'glossaryTerms'  => $glossary instanceof ResolvedGlossary ? $glossary->terms->count() : 0,
-            'texts'          => $texts,
-            'withheld'       => $withheld,
+            'site'            => $languages['site'],
+            'source'          => $languages['source'],
+            'sourceTitle'     => $languages['sourceTitle'],
+            'target'          => $languages['target'],
+            'targetTitle'     => $languages['targetTitle'],
+            'glossaryTerms'   => $glossary instanceof ResolvedGlossary ? $glossary->terms->count() : 0,
+            'texts'           => $texts,
+            'withheld'        => $withheld,
         ];
     }
 
@@ -910,8 +910,8 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
      */
     private function translatableTexts(string $table, array $source): array
     {
-        $columns   = $this->tcaColumnsFor($table) ?? [];
-        $never     = self::NOT_TRANSLATED_COLUMNS[$table] ?? [];
+        $columns = $this->tcaColumnsFor($table) ?? [];
+        $never   = self::NOT_TRANSLATED_COLUMNS[$table] ?? [];
 
         $texts = [];
         foreach ($this->formColumnsOf($table, $this->recordTypeOf($table, $source)) as $field => $config) {
@@ -928,7 +928,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
 
             $fieldType = self::toStr($config['type'] ?? '');
             if (!in_array($fieldType, ['input', 'text'], true)
-                || (bool)($config['readOnly'] ?? false)
+                || (bool) ($config['readOnly'] ?? false)
                 || ($fieldType === 'text' && self::toStr($config['renderType'] ?? '') !== '')
             ) {
                 continue;
@@ -939,7 +939,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
                 continue;
             }
 
-            $html  = $fieldType === 'text' && (bool)($config['enableRichtext'] ?? false);
+            $html  = $fieldType === 'text' && (bool) ($config['enableRichtext'] ?? false);
             $evals = GeneralUtility::trimExplode(',', self::toStr($config['eval'] ?? ''), true);
 
             $texts[$field] = [

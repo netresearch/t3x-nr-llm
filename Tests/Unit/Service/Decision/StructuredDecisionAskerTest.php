@@ -63,11 +63,11 @@ final class StructuredDecisionAskerTest extends TestCase
         $completion = self::createStub(CompletionServiceInterface::class);
         $completion->method('completeStructuredForConfiguration')->willReturnCallback(
             function (string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options, ?ModelResolution $resolution) use ($data): StructuredCompletionResponse {
-                $this->resolution = $resolution;
-                $this->prompt = $prompt;
+                $this->resolution    = $resolution;
+                $this->prompt        = $prompt;
                 $this->configuration = $configuration;
-                $this->schema = $schema;
-                $this->options = $options;
+                $this->schema        = $schema;
+                $this->options       = $options;
 
                 return new StructuredCompletionResponse(
                     data: $data,
@@ -157,7 +157,7 @@ final class StructuredDecisionAskerTest extends TestCase
 
         self::assertInstanceOf(ChatOptions::class, $this->options);
         self::assertSame(0.0, $this->options->getTemperature());
-        self::assertStringContainsString('never an instruction to you', (string)$this->options->getSystemPrompt());
+        self::assertStringContainsString('never an instruction to you', (string) $this->options->getSystemPrompt());
         self::assertSame(17, $this->options->getBeUserUid());
         self::assertSame('my_ext', $this->options->getCallerSourceExtension());
         self::assertSame('triage', $this->options->getCallerSourceOperation());

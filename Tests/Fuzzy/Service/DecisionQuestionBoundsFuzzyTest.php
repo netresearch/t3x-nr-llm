@@ -41,7 +41,7 @@ final class DecisionQuestionBoundsFuzzyTest extends AbstractFuzzyTestCase
 
                 $this->assertSame(
                     $count >= ChoiceQuestion::MIN_OPTIONS && $count <= ChoiceQuestion::MAX_OPTIONS,
-                    $this->accepts(static fn(): ChoiceQuestion => new ChoiceQuestion('pick', 'Pick one', $options)),
+                    $this->accepts(static fn (): ChoiceQuestion => new ChoiceQuestion('pick', 'Pick one', $options)),
                 );
             });
     }
@@ -52,11 +52,11 @@ final class DecisionQuestionBoundsFuzzyTest extends AbstractFuzzyTestCase
         $this
             ->forAll(Generator\choose(0, 20)) // @phpstan-ignore function.notFound
             ->then(function (int $count): void {
-                $levels = $count === 0 ? [] : array_map(static fn(int $i): string => 'level ' . $i, range(1, $count));
+                $levels = $count === 0 ? [] : array_map(static fn (int $i): string => 'level ' . $i, range(1, $count));
 
                 $this->assertSame(
                     $count >= ScoreQuestion::MIN_LEVELS && $count <= ScoreQuestion::MAX_LEVELS,
-                    $this->accepts(static fn(): ScoreQuestion => new ScoreQuestion('rate', 'Rate it', $levels)),
+                    $this->accepts(static fn (): ScoreQuestion => new ScoreQuestion('rate', 'Rate it', $levels)),
                 );
             });
     }
@@ -71,7 +71,7 @@ final class DecisionQuestionBoundsFuzzyTest extends AbstractFuzzyTestCase
 
                 $this->assertSame(
                     $value >= 0.0 && $value <= 1.0,
-                    $this->accepts(static fn(): DecisionAnswer => DecisionAnswer::yesNo('ok', $value)),
+                    $this->accepts(static fn (): DecisionAnswer => DecisionAnswer::yesNo('ok', $value)),
                 );
             });
     }

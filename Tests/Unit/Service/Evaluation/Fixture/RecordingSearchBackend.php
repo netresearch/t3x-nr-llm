@@ -51,7 +51,7 @@ final class RecordingSearchBackend implements SearchBackendInterface
     public function search(RetrievalQuery $query, AccessContext $context): EvidenceList
     {
         $this->receivedQuery = $query;
-        $sources = [];
+        $sources             = [];
         foreach ($this->sourceIds as $sourceId) {
             // Unique URL per source — the cascade deduplicates same-URL hits.
             $sources[] = new EvidenceSource($sourceId, 'Title', 'https://example.org/' . rawurlencode($sourceId), 'Excerpt', 'test', 0);

@@ -88,13 +88,13 @@ final class DeepLGlossarySyncTest extends AbstractUnitTestCase
         self::assertSame('https://api.deepl.com/v2/glossaries', $this->requests[0]['uri']);
         self::assertSame(
             [
-                'name' => 'nr_llm glossary 7',
-                'source_lang' => 'de',
-                'target_lang' => 'en',
-                'entries' => "Warenkorb\tshopping cart",
+                'name'           => 'nr_llm glossary 7',
+                'source_lang'    => 'de',
+                'target_lang'    => 'en',
+                'entries'        => "Warenkorb\tshopping cart",
                 'entries_format' => 'tsv',
             ],
-            json_decode((string)$this->requests[0]['body'], true),
+            json_decode((string) $this->requests[0]['body'], true),
         );
     }
 
@@ -146,7 +146,7 @@ final class DeepLGlossarySyncTest extends AbstractUnitTestCase
     public function aFirstTranslationCreatesTheGlossaryAndStoresItsIdWithTheHash(): void
     {
         $this->responses = [$this->createJsonResponseMock(['glossary_id' => 'gls_test_1'], 201)];
-        $glossary = $this->glossary();
+        $glossary        = $this->glossary();
 
         $id = $this->sync()->glossaryIdFor($glossary);
 
@@ -158,7 +158,7 @@ final class DeepLGlossarySyncTest extends AbstractUnitTestCase
     #[Test]
     public function anUnchangedTermListReusesTheStoredGlossaryWithoutARequest(): void
     {
-        $current = $this->glossary();
+        $current  = $this->glossary();
         $glossary = $this->glossary('gls_test_1', $current->entriesHash());
 
         self::assertSame('gls_test_1', $this->sync()->glossaryIdFor($glossary));
@@ -188,7 +188,7 @@ final class DeepLGlossarySyncTest extends AbstractUnitTestCase
     #[Test]
     public function aSupersededGlossaryAnotherRecordStillUsesIsKept(): void
     {
-        $this->responses = [$this->createJsonResponseMock(['glossary_id' => 'gls_test_2'], 201)];
+        $this->responses           = [$this->createJsonResponseMock(['glossary_id' => 'gls_test_2'], 201)];
         $this->referencedElsewhere = ['gls_test_1' => true];
 
         $this->sync()->glossaryIdFor($this->glossary('gls_test_1', 'hash-of-the-old-terms'));
@@ -260,8 +260,7 @@ final class DeepLGlossarySyncTest extends AbstractUnitTestCase
      */
     public static function translateFailures(): iterable
     {
-        $unavailable = static fn(string $message, int $status): ServiceUnavailableException
-            => new ServiceUnavailableException($message, 'translation', ['provider' => 'deepl', 'statusCode' => $status]);
+        $unavailable = static fn (string $message, int $status): ServiceUnavailableException => new ServiceUnavailableException($message, 'translation', ['provider' => 'deepl', 'statusCode' => $status]);
 
         yield '404 naming the glossary' => [$unavailable('DeepL API error: Glossary not found', 404), true];
         yield '400 naming the glossary' => [$unavailable('DeepL API error: Invalid glossary_id', 400), true];
@@ -281,8 +280,8 @@ final class DeepLGlossarySyncTest extends AbstractUnitTestCase
     #[Test]
     public function aRejectedGlossaryIdIsCreatedAgainAndTheTranslationRetriedOnce(): void
     {
-        $current = $this->glossary();
-        $glossary = $this->glossary('gls_test_gone', $current->entriesHash());
+        $current         = $this->glossary();
+        $glossary        = $this->glossary('gls_test_gone', $current->entriesHash());
         $this->responses = [
             $this->createJsonResponseMock(['message' => 'Glossary not found'], 404),
             $this->createJsonResponseMock(['glossary_id' => 'gls_test_2'], 201),
@@ -307,7 +306,7 @@ final class DeepLGlossarySyncTest extends AbstractUnitTestCase
     #[Test]
     public function aSecondRejectionReachesTheCaller(): void
     {
-        $current = $this->glossary();
+        $current         = $this->glossary();
         $this->responses = [
             $this->createJsonResponseMock(['message' => 'Glossary not found'], 404),
             $this->createJsonResponseMock(['glossary_id' => 'gls_test_2'], 201),
@@ -328,7 +327,7 @@ final class DeepLGlossarySyncTest extends AbstractUnitTestCase
     #[Test]
     public function aFailureThatIsNotAboutTheGlossaryIsNotRetried(): void
     {
-        $current = $this->glossary();
+        $current         = $this->glossary();
         $this->responses = [
             $this->createJsonResponseMock(['message' => 'Value for target_lang not supported'], 400),
         ];
@@ -350,7 +349,7 @@ final class DeepLGlossarySyncTest extends AbstractUnitTestCase
      */
     private function jsonBody(int $request): array
     {
-        $body = json_decode((string)$this->requests[$request]['body'], true);
+        $body = json_decode((string) $this->requests[$request]['body'], true);
         self::assertIsArray($body);
 
         /** @var array<string, mixed> $body */
@@ -413,7 +412,7 @@ final class DeepLGlossarySyncTest extends AbstractUnitTestCase
     private function translationService(ResolvedGlossary $glossary): TranslationService
     {
         $translator = $this->translator();
-        $sync = $this->sync($glossary, $translator);
+        $sync       = $this->sync($glossary, $translator);
 
         $registry = self::createStub(TranslatorRegistryInterface::class);
         $registry->method('get')->willReturn($translator);
@@ -462,19 +461,19 @@ final class DeepLGlossarySyncTest extends AbstractUnitTestCase
     {
         $factory = self::createStub(RequestFactoryInterface::class);
         $factory->method('createRequest')->willReturnCallback(function (string $method, string $uri): RequestInterface {
-            $index = count($this->requests);
+            $index            = count($this->requests);
             $this->requests[] = ['method' => $method, 'uri' => $uri, 'body' => null];
 
             $uriStub = self::createStub(UriInterface::class);
             $uriStub->method('__toString')->willReturn($uri);
-            $uriStub->method('getHost')->willReturn((string)parse_url($uri, PHP_URL_HOST));
-            $uriStub->method('getPath')->willReturn((string)parse_url($uri, PHP_URL_PATH));
+            $uriStub->method('getHost')->willReturn((string) parse_url($uri, PHP_URL_HOST));
+            $uriStub->method('getPath')->willReturn((string) parse_url($uri, PHP_URL_PATH));
 
             $request = self::createStub(RequestInterface::class);
-            $request->method('withHeader')->willReturnCallback(fn(): Stub => $request);
-            $request->method('withoutHeader')->willReturnCallback(fn(): Stub => $request);
+            $request->method('withHeader')->willReturnCallback(fn (): Stub => $request);
+            $request->method('withoutHeader')->willReturnCallback(fn (): Stub => $request);
             $request->method('withBody')->willReturnCallback(function (StreamInterface $body) use ($request, $index): RequestInterface {
-                $this->requests[$index]['body'] = (string)$body;
+                $this->requests[$index]['body'] = (string) $body;
 
                 return $request;
             });
@@ -501,7 +500,7 @@ final class DeepLGlossarySyncTest extends AbstractUnitTestCase
 
             public function log(mixed $level, string|Stringable $message, array $context = []): void
             {
-                ($this->onLog)(is_string($level) ? $level : '', (string)$message);
+                ($this->onLog)(is_string($level) ? $level : '', (string) $message);
             }
         };
     }

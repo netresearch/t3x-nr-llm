@@ -29,7 +29,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  * Turning the axis on never loosens anything (the four pre-existing gates
  * always enforce), so failing closed here cannot over-permit.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class DataClassEnforcementResolver
 {

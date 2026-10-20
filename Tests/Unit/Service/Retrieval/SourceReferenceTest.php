@@ -45,16 +45,16 @@ final class SourceReferenceTest extends TestCase
     public static function rejectedInputProvider(): array
     {
         return [
-            'empty' => [''],
-            'no parts' => ['database'],
+            'empty'                 => [''],
+            'no parts'              => ['database'],
             'leading digit backend' => ['1db:1'],
-            'uppercase backend' => ['Database:1'],
-            'sql-ish payload' => ["database:1' OR '1"],
-            'path traversal' => ['database:../etc/passwd'],
-            'whitespace' => ['database: 1'],
-            'too many parts' => ['a:b:c:d:e:f'],
-            'overlong' => ['database:' . str_repeat('a', 200)],
-            'empty part' => ['database::1'],
+            'uppercase backend'     => ['Database:1'],
+            'sql-ish payload'       => ["database:1' OR '1"],
+            'path traversal'        => ['database:../etc/passwd'],
+            'whitespace'            => ['database: 1'],
+            'too many parts'        => ['a:b:c:d:e:f'],
+            'overlong'              => ['database:' . str_repeat('a', 200)],
+            'empty part'            => ['database::1'],
         ];
     }
 

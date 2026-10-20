@@ -68,21 +68,21 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
 
         $pages = $this->connectionPool->getConnectionForTable('pages');
         $pages->insert('pages', [
-            'uid' => self::PARENT_CLOSED, 'pid' => 0, 'title' => 'Closed', 'doktype' => 1, 'slug' => '/',
-            'sorting' => 1,
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => self::PARENT_CLOSED, 'pid' => 0, 'title' => 'Closed', 'doktype' => 1, 'slug' => '/',
+            'sorting'       => 1,
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => 0,
         ]);
         $pages->insert('pages', [
-            'uid' => self::PARENT_OPEN, 'pid' => 0, 'title' => 'Open', 'doktype' => 1, 'slug' => '/open',
-            'sorting' => 2,
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => self::PARENT_OPEN, 'pid' => 0, 'title' => 'Open', 'doktype' => 1, 'slug' => '/open',
+            'sorting'       => 2,
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
         ]);
         $pages->insert('pages', [
-            'uid' => self::EXISTING_SUBPAGE, 'pid' => self::PARENT_OPEN, 'title' => 'Already there', 'doktype' => 1,
-            'slug' => '/open/already-there', 'sorting' => 1,
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => self::EXISTING_SUBPAGE, 'pid' => self::PARENT_OPEN, 'title' => 'Already there', 'doktype' => 1,
+            'slug'          => '/open/already-there', 'sorting' => 1,
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
         ]);
 
@@ -118,16 +118,16 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('not visible until a human unhides it', $result->content);
 
         $row = $this->createdPage();
-        self::assertSame(1, (int)($row['hidden'] ?? 0), 'a drafted page must never be visible');
-        self::assertSame(self::PARENT_OPEN, (int)($row['pid'] ?? 0));
-        self::assertSame(1, (int)($row['doktype'] ?? 0), 'only a standard page is ever created');
+        self::assertSame(1, (int) ($row['hidden'] ?? 0), 'a drafted page must never be visible');
+        self::assertSame(self::PARENT_OPEN, (int) ($row['pid'] ?? 0));
+        self::assertSame(1, (int) ($row['doktype'] ?? 0), 'only a standard page is ever created');
         self::assertSame(self::DRAFTED_TITLE, $row['title'] ?? null);
         self::assertSame('Drafted', $row['nav_title'] ?? null);
-        self::assertSame(0, (int)($row['sys_language_uid'] ?? -1));
+        self::assertSame(0, (int) ($row['sys_language_uid'] ?? -1));
 
         // The success message hands the model the uid it needs for the next
         // call, and names the tool to make it with.
-        self::assertStringContainsString(sprintf('page %d', (int)$row['uid']), $result->content);
+        self::assertStringContainsString(sprintf('page %d', (int) $row['uid']), $result->content);
         self::assertStringContainsString('create_content_element_draft', $result->content);
     }
 
@@ -163,10 +163,10 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
         self::assertFalse($result->isError, $result->content);
 
         $created = $this->createdPage();
-        self::assertSame(self::PARENT_OPEN, (int)($created['pid'] ?? 0), 'a negative pid must resolve to the parent');
+        self::assertSame(self::PARENT_OPEN, (int) ($created['pid'] ?? 0), 'a negative pid must resolve to the parent');
         self::assertGreaterThan(
-            (int)$this->pageRow(self::EXISTING_SUBPAGE)['sorting'],
-            (int)($created['sorting'] ?? 0),
+            (int) $this->pageRow(self::EXISTING_SUBPAGE)['sorting'],
+            (int) ($created['sorting'] ?? 0),
             'the new page must sort after its anchor',
         );
     }
@@ -185,7 +185,7 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
         $created = $this->createdPage();
         self::assertSame(
             [1],
-            array_values(array_unique($this->sysLogUserIdsFor((int)($created['uid'] ?? 0)))),
+            array_values(array_unique($this->sysLogUserIdsFor((int) ($created['uid'] ?? 0)))),
         );
     }
 
@@ -209,8 +209,8 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function anEditorCreatesUnderAPageTheyMayCreateUnder(): void
     {
-        $editor                                = $this->setUpBackendUser(2);
-        $editor->groupData['tables_modify']    = 'pages';
+        $editor                             = $this->setUpBackendUser(2);
+        $editor->groupData['tables_modify'] = 'pages';
         // `pages.doktype` is checked against the group's page-type grant for
         // a non-admin; without it the DataHandler refuses the record, which
         // is real backend behaviour.
@@ -227,7 +227,7 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertFalse($result->isError, $result->content);
-        self::assertSame(1, (int)($this->createdPage()['hidden'] ?? 0));
+        self::assertSame(1, (int) ($this->createdPage()['hidden'] ?? 0));
     }
 
     /**
@@ -369,7 +369,7 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
     public function thePreviewWarnsWhenTheParentAlreadyHoldsAPageWithThisTitle(): void
     {
         $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
-            'uid' => 10073, 'pid' => self::PARENT_OPEN, 'title' => 'Prof. Dr. Max Mustermann', 'doktype' => 1,
+            'uid'    => 10073, 'pid' => self::PARENT_OPEN, 'title' => 'Prof. Dr. Max Mustermann', 'doktype' => 1,
             'hidden' => 1, 'sorting' => 3,
         ]);
         $arguments = ['parent' => self::PARENT_OPEN, 'title' => 'Prof. Dr. Max Mustermann'];
@@ -419,8 +419,8 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
     public function thePreviewDoesNotNameASiblingTheEditorMayNotSee(): void
     {
         $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
-            'uid' => 33, 'pid' => self::PARENT_OPEN, 'title' => 'Private twin', 'doktype' => 1, 'sorting' => 4,
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => 33, 'pid' => self::PARENT_OPEN, 'title' => 'Private twin', 'doktype' => 1, 'sorting' => 4,
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => 0,
         ]);
         $editor                                = $this->setUpBackendUser(2);
@@ -446,10 +446,10 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function aConcurrentDraftOfTheSamePageBouncesTheSecondApprovalWithTheWarning(): void
     {
-        $admin     = $this->setUpBackendUser(1);
-        $context   = ToolExecutionContext::fromBackendUser($admin);
-        $arguments = ['parent' => self::PARENT_OPEN, 'title' => 'Twice drafted'];
-        $registry  = new ToolRegistry([$this->tool]);
+        $admin      = $this->setUpBackendUser(1);
+        $context    = ToolExecutionContext::fromBackendUser($admin);
+        $arguments  = ['parent' => self::PARENT_OPEN, 'title' => 'Twice drafted'];
+        $registry   = new ToolRegistry([$this->tool]);
         $comparator = new ApprovalPreviewComparator($registry);
 
         $shown = $comparator->bound($this->tool->previewCall($arguments, $context));
@@ -489,7 +489,7 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertFalse($result->isError, $result->content);
-        $newUid = (int)($this->createdPage()['uid'] ?? 0);
+        $newUid = (int) ($this->createdPage()['uid'] ?? 0);
         self::assertStringStartsWith(sprintf('New page uid: %d.', $newUid), $result->content);
         self::assertStringContainsString(
             sprintf('targets page %d, not the parent %d', $newUid, self::PARENT_OPEN),
@@ -575,7 +575,7 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('pages');
         $queryBuilder->getRestrictions()->removeAll();
 
-        return (int)$queryBuilder
+        return (int) $queryBuilder
             ->count('uid')
             ->from('pages')
             ->executeQuery()
@@ -590,7 +590,7 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('pages');
         $queryBuilder->getRestrictions()->removeAll();
 
-        return (int)$queryBuilder
+        return (int) $queryBuilder
             ->count('uid')
             ->from('pages')
             ->where($queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)))
@@ -616,6 +616,6 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
             ->executeQuery()
             ->fetchAllAssociative();
 
-        return array_map(static fn(array $row): int => (int)($row['userid'] ?? 0), $rows);
+        return array_map(static fn (array $row): int => (int) ($row['userid'] ?? 0), $rows);
     }
 }

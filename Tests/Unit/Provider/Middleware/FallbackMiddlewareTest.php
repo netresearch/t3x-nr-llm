@@ -33,6 +33,9 @@ use Psr\Log\NullLogger;
 use RuntimeException;
 use Throwable;
 
+use function in_array;
+use function sprintf;
+
 /**
  * Covers the retryable-exception matrix, chain-walk semantics, and all
  * exhaustion / skip / inactive / self-reference edge cases for the
@@ -53,9 +56,9 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
     #[Test]
     public function returnsResultFromPrimaryOnSuccess(): void
     {
-        $primary    = $this->makeConfig('primary', new FallbackChain(['fallback']));
+        $primary  = $this->makeConfig('primary', new FallbackChain(['fallback']));
         $pipeline = $this->makePipeline();
-        $calls      = [];
+        $calls    = [];
 
         $result = $pipeline->run(
             ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary),
@@ -75,13 +78,13 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
     #[Test]
     public function skipsFallbackWhenChainIsEmpty(): void
     {
-        $primary    = $this->makeConfig('primary', new FallbackChain());
+        $primary  = $this->makeConfig('primary', new FallbackChain());
         $pipeline = $this->makePipeline();
-        $err        = new ProviderConnectionException('down', 0);
+        $err      = new ProviderConnectionException('down', 0);
 
         $caught = $this->captureException(
             ProviderConnectionException::class,
-            fn(): mixed => $pipeline->run(
+            fn (): mixed => $pipeline->run(
                 ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary),
                 static function () use ($err): never {
                     throw $err;
@@ -101,7 +104,7 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
         $this->repositoryStub->method('findOneByIdentifier')->willReturn($alt);
 
         $pipeline = $this->makePipeline();
-        $calls      = [];
+        $calls    = [];
 
         $result = $pipeline->run(
             ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary),
@@ -196,7 +199,7 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
 
         $pipeline->run(
             $context,
-            static fn(): string => 'ok',
+            static fn (): string => 'ok',
         );
 
         self::assertSame(0, $context->telemetrySignals->fallbackAttempts);
@@ -261,8 +264,8 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
         $this->repositoryStub->method('findOneByIdentifier')->willReturn($alt);
 
         $pipeline = $this->makePipeline();
-        $calls      = [];
-        $err        = new ProviderResponseException('unauthorized', 401);
+        $calls    = [];
+        $err      = new ProviderResponseException('unauthorized', 401);
 
         $caught = $this->captureException(
             ProviderResponseException::class,
@@ -287,10 +290,10 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
     #[Test]
     public function doesNotRetryOnUnsupportedFeature(): void
     {
-        $primary    = $this->makeConfig('primary', new FallbackChain(['alt']));
+        $primary  = $this->makeConfig('primary', new FallbackChain(['alt']));
         $pipeline = $this->makePipeline();
-        $calls      = [];
-        $err        = new UnsupportedFeatureException('nope', 1);
+        $calls    = [];
+        $err      = new UnsupportedFeatureException('nope', 1);
 
         $caught = $this->captureException(
             UnsupportedFeatureException::class,
@@ -315,10 +318,10 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
     #[Test]
     public function doesNotRetryOnConfigurationException(): void
     {
-        $primary    = $this->makeConfig('primary', new FallbackChain(['alt']));
+        $primary  = $this->makeConfig('primary', new FallbackChain(['alt']));
         $pipeline = $this->makePipeline();
-        $calls      = [];
-        $err        = new ProviderConfigurationException('missing key', 1);
+        $calls    = [];
+        $err      = new ProviderConfigurationException('missing key', 1);
 
         $caught = $this->captureException(
             ProviderConfigurationException::class,
@@ -356,7 +359,7 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
             ]);
 
         $pipeline = $this->makePipeline();
-        $calls      = [];
+        $calls    = [];
 
         $result = $pipeline->run(
             ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary),
@@ -364,7 +367,7 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
                 $config = $ctx->configuration;
                 assert($config instanceof LlmConfiguration);
                 $calls[] = $config->getIdentifier();
-                if (\in_array($config->getIdentifier(), ['p', 'a', 'b'], true)) {
+                if (in_array($config->getIdentifier(), ['p', 'a', 'b'], true)) {
                     throw new ProviderConnectionException('down', 0);
                 }
 
@@ -379,7 +382,7 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
     #[Test]
     public function aFallbackThatCannotServeTheOperationIsSkipped(): void
     {
-        $primary = $this->makeConfig('p', new FallbackChain(['chat-only', 'b']));
+        $primary  = $this->makeConfig('p', new FallbackChain(['chat-only', 'b']));
         $chatOnly = $this->makeConfig('chat-only');
         $b        = $this->makeConfig('b');
 
@@ -420,7 +423,7 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
 
         $exhausted = $this->captureException(
             FallbackChainExhaustedException::class,
-            fn(): mixed => $this->makePipeline()->run(
+            fn (): mixed => $this->makePipeline()->run(
                 ProviderCallContext::forConfiguration(ProviderOperation::Decision, $primary),
                 static function (ProviderCallContext $ctx) use ($outage): never {
                     $config = $ctx->configuration;
@@ -457,7 +460,7 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
 
         $exhausted = $this->captureException(
             FallbackChainExhaustedException::class,
-            fn(): mixed => $pipeline->run(
+            fn (): mixed => $pipeline->run(
                 ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary),
                 static function (): never {
                     throw new ProviderConnectionException('down', 0);
@@ -483,7 +486,7 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
             ]);
 
         $pipeline = $this->makePipeline();
-        $calls      = [];
+        $calls    = [];
 
         $result = $pipeline->run(
             ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary),
@@ -517,7 +520,7 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
             ]);
 
         $pipeline = $this->makePipeline();
-        $calls      = [];
+        $calls    = [];
 
         $result = $pipeline->run(
             ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary),
@@ -540,10 +543,10 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
     #[Test]
     public function rethrowsPrimaryErrorWhenChainContainsOnlyThePrimary(): void
     {
-        $primary    = $this->makeConfig('p', new FallbackChain(['p']));
+        $primary  = $this->makeConfig('p', new FallbackChain(['p']));
         $pipeline = $this->makePipeline();
-        $calls      = [];
-        $err        = new ProviderConnectionException('down', 0);
+        $calls    = [];
+        $err      = new ProviderConnectionException('down', 0);
 
         $caught = $this->captureException(
             ProviderConnectionException::class,
@@ -578,7 +581,7 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
             ]);
 
         $pipeline = $this->makePipeline();
-        $calls      = [];
+        $calls    = [];
 
         $result = $pipeline->run(
             ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary),
@@ -601,10 +604,10 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
     #[Test]
     public function nonProviderExceptionIsNotRetryable(): void
     {
-        $primary    = $this->makeConfig('p', new FallbackChain(['a']));
+        $primary  = $this->makeConfig('p', new FallbackChain(['a']));
         $pipeline = $this->makePipeline();
-        $calls      = [];
-        $err        = new RuntimeException('unexpected');
+        $calls    = [];
+        $err      = new RuntimeException('unexpected');
 
         $caught = $this->captureException(
             RuntimeException::class,
@@ -682,6 +685,6 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
             return $caught;
         }
 
-        self::fail(\sprintf('Expected %s was not thrown', $expected));
+        self::fail(sprintf('Expected %s was not thrown', $expected));
     }
 }

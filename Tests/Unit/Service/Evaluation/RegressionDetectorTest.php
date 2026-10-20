@@ -29,7 +29,7 @@ final class RegressionDetectorTest extends TestCase
 
     private function summary(float $passRate, float $meanScore): EvaluationResultSummary
     {
-        return new EvaluationResultSummary('nr_llm.smoke', 'gpt-test', 'deterministic', 10, (int)round($passRate * 10), $passRate, $meanScore, 1_700_000_000);
+        return new EvaluationResultSummary('nr_llm.smoke', 'gpt-test', 'deterministic', 10, (int) round($passRate * 10), $passRate, $meanScore, 1_700_000_000);
     }
 
     #[Test]
@@ -86,7 +86,7 @@ final class RegressionDetectorTest extends TestCase
     {
         // A 0.3 pass-rate drop is a regression by default but tolerated at 0.5.
         $lenient = new RegressionThresholds(maxPassRateDrop: 0.5, maxMeanScoreDrop: 0.5);
-        $report = $this->detector->compare($this->summary(0.6, 0.6), $this->summary(0.9, 0.9), $lenient);
+        $report  = $this->detector->compare($this->summary(0.6, 0.6), $this->summary(0.9, 0.9), $lenient);
 
         self::assertFalse($report->isRegression);
     }

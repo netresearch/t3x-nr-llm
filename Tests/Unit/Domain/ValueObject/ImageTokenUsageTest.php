@@ -64,10 +64,10 @@ final class ImageTokenUsageTest extends TestCase
      */
     public static function usageCounts(): iterable
     {
-        yield 'nothing reported'      => [[0, 0, 0], true];
-        yield 'image tokens only'     => [[0, 0, 90], true];
-        yield 'input only'            => [[120, 0, 0], false];
-        yield 'output only'           => [[0, 800, 0], false];
+        yield 'nothing reported' => [[0, 0, 0], true];
+        yield 'image tokens only' => [[0, 0, 90], true];
+        yield 'input only' => [[120, 0, 0], false];
+        yield 'output only' => [[0, 800, 0], false];
         yield 'a full gpt-image call' => [[120, 800, 90], false];
     }
 }

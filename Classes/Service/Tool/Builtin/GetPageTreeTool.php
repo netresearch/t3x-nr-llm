@@ -178,8 +178,8 @@ final readonly class GetPageTreeTool implements ToolInterface
                 return;
             }
 
-            $uid       = self::toInt($row['uid'] ?? 0);
-            $lines[]   = str_repeat('  ', $level) . sprintf(
+            $uid     = self::toInt($row['uid'] ?? 0);
+            $lines[] = str_repeat('  ', $level) . sprintf(
                 '[%d] %s (doktype %d)',
                 $uid,
                 self::toStr($row['title'] ?? ''),

@@ -20,13 +20,13 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
  *
  * @extends Repository<Provider>
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 class ProviderRepository extends Repository
 {
     protected $defaultOrderings = [
         'sorting' => QueryInterface::ORDER_ASCENDING,
-        'name' => QueryInterface::ORDER_ASCENDING,
+        'name'    => QueryInterface::ORDER_ASCENDING,
     ];
 
     /**
@@ -72,6 +72,7 @@ class ProviderRepository extends Repository
         $query->matching(
             $query->equals('isActive', true),
         );
+
         return $query->execute();
     }
 
@@ -88,9 +89,10 @@ class ProviderRepository extends Repository
         );
         $query->setOrderings([
             'priority' => QueryInterface::ORDER_DESCENDING,
-            'sorting' => QueryInterface::ORDER_ASCENDING,
-            'name' => QueryInterface::ORDER_ASCENDING,
+            'sorting'  => QueryInterface::ORDER_ASCENDING,
+            'name'     => QueryInterface::ORDER_ASCENDING,
         ]);
+
         return $query->execute();
     }
 
@@ -105,7 +107,7 @@ class ProviderRepository extends Repository
         );
         $query->setOrderings([
             'priority' => QueryInterface::ORDER_DESCENDING,
-            'sorting' => QueryInterface::ORDER_ASCENDING,
+            'sorting'  => QueryInterface::ORDER_ASCENDING,
         ]);
         $query->setLimit(1);
 
@@ -128,6 +130,7 @@ class ProviderRepository extends Repository
                 $query->equals('adapterType', $adapterType),
             ),
         );
+
         return $query->execute();
     }
 
@@ -147,6 +150,7 @@ class ProviderRepository extends Repository
                 ),
             ),
         );
+
         return $query->execute();
     }
 
@@ -155,7 +159,7 @@ class ProviderRepository extends Repository
      */
     public function isIdentifierUnique(string $identifier, ?int $excludeUid = null): bool
     {
-        $query = $this->createQuery();
+        $query         = $this->createQuery();
         $querySettings = $query->getQuerySettings();
         $querySettings->setRespectStoragePage(false);
         // Enable soft-delete check to only find non-deleted records
@@ -182,7 +186,7 @@ class ProviderRepository extends Repository
      */
     public function countActive(): int
     {
-        $query = $this->createQuery();
+        $query         = $this->createQuery();
         $querySettings = $query->getQuerySettings();
         $querySettings->setRespectStoragePage(false);
         $querySettings->setIgnoreEnableFields(false);
@@ -198,7 +202,7 @@ class ProviderRepository extends Repository
      */
     public function countByAdapterType(): array
     {
-        $counts = [];
+        $counts    = [];
         $providers = $this->findAll();
 
         foreach ($providers as $provider) {
@@ -209,7 +213,7 @@ class ProviderRepository extends Repository
             $type = $provider->getAdapterType();
             $counts[$type] ??= 0;
 
-            $counts[$type]++;
+            ++$counts[$type];
         }
 
         return $counts;
