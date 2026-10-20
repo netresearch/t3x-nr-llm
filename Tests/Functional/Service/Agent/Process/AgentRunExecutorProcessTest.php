@@ -33,7 +33,9 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException;
 use Netresearch\NrLlm\Service\Agent\AgentRunExecutor;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
+use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessInvocationRefusedException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessVerdictUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Process\ApprovedProcessPinProbe;
 use Netresearch\NrLlm\Service\Agent\Process\ProcessRunPreparer;
 use Netresearch\NrLlm\Service\Agent\Process\SubjectRecordAccess;
@@ -59,6 +61,7 @@ use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
+use Throwable;
 
 /**
  * What the executor hands the loop for a run that invokes or continues a
@@ -86,7 +89,7 @@ final class AgentRunExecutorProcessTest extends AbstractFunctionalTestCase
     /** @var (Closure(RunTrace): void)|null */
     private ?Closure $loopBody = null;
 
-    private ?SkillInstructionWithdrawnException $loopThrows = null;
+    private ?Throwable $loopThrows = null;
 
     protected function setUp(): void
     {
@@ -588,6 +591,51 @@ final class AgentRunExecutorProcessTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A process approval that could not be read is no refusal (ADR-228): a
+     * queued run hands it to the queue's recovery, which retries it, and
+     * records no lineage without the process. A refusal never reaches the
+     * recovery.
+     */
+    #[Test]
+    public function aQueuedRunWhoseApprovalCannotBeReadIsRecovered(): void
+    {
+        $skill = $this->approvedSkill(5, self::SOURCE, process: true);
+        $own   = new SkillPin(5, self::SOURCE, $skill->getVersionDigest());
+
+        foreach ([
+            'approval unreadable' => [ProcessVerdictUnavailableException::forPin(5), true],
+            'approval withdrawn'  => [new SkillInstructionWithdrawnException($own, 'tour', 'its approval was revoked'), false],
+        ] as $case => [$thrown, $recovered]) {
+            $this->loopThrows = $thrown;
+            $seen             = null;
+
+            $result = $this->executor(withPreparer: true)->executeRequest(
+                $this->request($this->configuration($skill), new SkillInvocation(5)),
+                $this->begin(),
+                null,
+                null,
+                static function (Throwable $error, array $steps) use (&$seen): ?AgentRunResult {
+                    $seen = $error;
+
+                    return null;
+                },
+            );
+
+            $run = $this->persister->findRun($result->runUuid);
+            self::assertInstanceOf(AgentRun::class, $run);
+            if ($recovered) {
+                self::assertSame($thrown, $seen, $case . ': the queue decides the retry');
+                self::assertEquals($own, $this->persister->lineageOf($run)?->processPin, $case . ': the process stays recorded');
+            } else {
+                self::assertNull($seen, $case . ': a refusal is no failure to retry');
+                self::assertSame(ProcessInvocationRefusal::PIN_WITHDRAWN, $result->error instanceof ProcessInvocationRefusedException ? $result->error->reason : null, $case);
+            }
+        }
+
+        $this->loopThrows = null;
+    }
+
+    /**
      * The step-boundary probe covers a turn that started its process too:
      * ended mid-segment, it stops at the next step; still held, it completes.
      */
@@ -667,7 +715,7 @@ final class AgentRunExecutorProcessTest extends AbstractFunctionalTestCase
     {
         $loop = self::createStub(ToolLoopServiceInterface::class);
         $loop->method('runLoop')->willReturnCallback(function (mixed ...$arguments): ToolLoopResult {
-            if ($this->loopThrows instanceof SkillInstructionWithdrawnException) {
+            if ($this->loopThrows instanceof Throwable) {
                 throw $this->loopThrows;
             }
 

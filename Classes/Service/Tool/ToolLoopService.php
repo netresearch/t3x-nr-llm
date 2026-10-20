@@ -48,6 +48,7 @@ use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Provider\OpenAi\OpenAiCallMetadata;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessVerdictUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Context\SectionAdmissionInterface;
@@ -290,7 +291,16 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // keeps the tools its instruction relies on until the pin fails, and
         // the pin check stops the run when it does.
         foreach ($state->skillPins as $pin) {
-            $version = $this->processPinProbe?->processSnapshot($pin);
+            try {
+                $version = $this->processPinProbe?->processSnapshot($pin);
+            } catch (ProcessVerdictUnavailableException) {
+                // The run was claimed already and a stop here would be for
+                // good: the turn goes on without the process's tools, which
+                // only narrows what it may call, and the next turn's start
+                // check reads the approval again.
+                continue;
+            }
+
             if ($version instanceof SkillApproval) {
                 $live = $live->withDeclaration($version->allowedTools ?? []);
             }

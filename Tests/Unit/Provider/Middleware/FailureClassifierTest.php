@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderRateLimitException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\Middleware\FailureClassifier;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessVerdictUnavailableException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -59,6 +60,19 @@ final class FailureClassifierTest extends TestCase
         };
 
         self::assertSame(FailureClass::CONNECTION, FailureClassifier::classify($networkError));
+    }
+
+    /**
+     * A process approval that could not be read (ADR-228) is a fault of the
+     * connection to the store: a queued run is retried, not dead-lettered.
+     */
+    #[Test]
+    public function aProcessApprovalThatCannotBeReadIsRetryable(): void
+    {
+        $class = FailureClassifier::classify(ProcessVerdictUnavailableException::forPin(3));
+
+        self::assertSame(FailureClass::CONNECTION, $class);
+        self::assertTrue($class->isRetryable());
     }
 
     #[Test]

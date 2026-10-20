@@ -18,16 +18,20 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
 use Netresearch\NrLlm\Domain\ValueObject\DroppedSource;
+use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException;
 use Netresearch\NrLlm\Exception\SkillSectionNotAdmittedException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessVerdictUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Process\ApprovedProcessPinProbe;
+use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 use Netresearch\NrLlm\Service\Context\ContextWindowManager;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Context\SectionAdmissionInterface;
@@ -89,6 +93,9 @@ final class ToolLoopServiceProcessPinTest extends TestCase
     private const BODY = 'Walk the editor through every heading.';
 
     private InMemorySkillApprovalRepository $approvals;
+
+    /** Whether the probe fails to read any approval snapshot. */
+    private bool $snapshotFails = false;
 
     private Skill $skill;
 
@@ -191,6 +198,40 @@ final class ToolLoopServiceProcessPinTest extends TestCase
         $this->service()->resume($state, true, $this->configuration($edited, $guide), ToolExecutionContext::none());
 
         self::assertSame(['attach_file', 'list_pages', 'read_page'], $this->sorted($this->offeredAt(0)));
+    }
+
+    /**
+     * An approval that cannot be read is no withdrawn approval (ADR-228): a
+     * process start throws the retryable refusal, not the stop of a withdrawn
+     * instruction, and a resumed turn goes on without the process's tools,
+     * since a stop after the claim would be for good.
+     */
+    #[Test]
+    public function anApprovalThatCannotBeReadIsRetriedNotWithdrawn(): void
+    {
+        $this->queue[] = $this->response('', [new ToolCall('call_1', 'attach_file', ['uid' => 7])]);
+        $service       = $this->service(declaring: '["read_page","attach_file"]');
+        $guide         = $this->guide();
+        try {
+            $service->runLoop([ChatMessage::user('start')], $this->configuration($this->skill, $guide), ToolExecutionContext::none(), null, augmentation: RunAugmentation::forProcess($this->pin));
+            self::fail('Expected the run to suspend on its write.');
+        } catch (ToolApprovalRequiredException $e) {
+            $state = $e->state;
+        }
+
+        $this->snapshotFails = true;
+        $this->offered       = [];
+        $this->queue[]       = $this->response('done');
+        $this->service()->resume($state, false, $this->configuration($this->skill, $guide), ToolExecutionContext::none());
+        self::assertNotContains('attach_file', $this->offeredAt(0), 'the resumed turn goes on without the process tools');
+
+        $this->offered = [];
+        $this->expectException(ProcessVerdictUnavailableException::class);
+        try {
+            $this->service()->runLoop([ChatMessage::user('start')], $this->configuration($this->skill), ToolExecutionContext::none(), null, augmentation: RunAugmentation::forProcess($this->pin, [], true));
+        } finally {
+            self::assertSame([], $this->offered, 'nothing is asked of the model');
+        }
     }
 
     /**
@@ -425,8 +466,41 @@ final class ToolLoopServiceProcessPinTest extends TestCase
             contextWindow: $window,
             previewTranslator: $this->englishTranslator(),
             skillPinCheck: new SkillPinCheck($this->approvals, $sources, $records, new SkillComposerFactory($extensionConfiguration)),
-            processPinProbe: new ApprovedProcessPinProbe($this->approvals),
+            processPinProbe: $this->snapshotFails ? $this->failingSnapshots() : new ApprovedProcessPinProbe($this->approvals),
         );
+    }
+
+    /**
+     * A probe that answers like the approved one, except that no approval
+     * snapshot can be read.
+     */
+    private function failingSnapshots(): ProcessPinProbe
+    {
+        $inner = new ApprovedProcessPinProbe($this->approvals);
+
+        return new class ($inner) implements ProcessPinProbe {
+            public function __construct(private readonly ApprovedProcessPinProbe $inner) {}
+
+            public function holdsProcessPin(AgentRun $run): bool
+            {
+                return $this->inner->holdsProcessPin($run);
+            }
+
+            public function processPinOf(AgentRun $run): ?bool
+            {
+                return $this->inner->processPinOf($run);
+            }
+
+            public function anyProcessPin(array $pins): bool
+            {
+                return $this->inner->anyProcessPin($pins);
+            }
+
+            public function processSnapshot(SkillPin $pin): ?SkillApproval
+            {
+                throw ProcessVerdictUnavailableException::forPin($pin->skillUid);
+            }
+        };
     }
 
     /**
