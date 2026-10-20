@@ -181,6 +181,12 @@ outcome and the exception that ended it. Ownership guards continue to protect a
 row reclaimed by another worker. Successful stored suspensions retain their
 resumable state.
 
+Queued failure recovery also preserves its original failure, retry
+classification and ownership-refusal outcome when diagnostics fail. A failed
+logger cannot replace a ``not_retryable`` reason with ``retries_exhausted`` or
+interrupt dead-letter handling after a real dispatch failure. Existing write
+fences and guarded requeue/settlement continue to apply.
+
 .. _administration-agent-runs-async:
 
 Running queued runs asynchronously

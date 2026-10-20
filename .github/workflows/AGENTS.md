@@ -35,7 +35,7 @@ GitHub Actions workflows and CI/CD automation. **This repository defines no work
 <!-- AGENTS-GENERATED:START golden-samples -->
 ## Workflow files
 - One file per concern; the Key Files table above lists all of them.
-- `ci.yml` is the intentional-drift file: the per-extension test matrix (PHP 8.2–8.5 × TYPO3 `^13.4`/`^14.3` on PRs, reduced to PHP 8.2/8.4 in the merge queue), `rector-php-version: '8.2'`, the MariaDB functional leg, and fuzz/mutation toggles all live in its `with:` block — read its comments before touching it.
+- `ci.yml` is the intentional-drift file: the per-extension test matrix (PHP 8.2–8.5 × TYPO3 `^13.4`/`^14.3` on the weekly schedule, on manual runs and on PRs, reduced to PHP 8.2/8.4 in the merge queue; temporarily, while the PR backlog of 2026-10 drains, PRs run the reduced matrix too, so 8.3 and 8.5 run only on the schedule and manual runs — a push to `main` after a queue merge is skipped by the shared preflight), `rector-php-version: '8.2'`, the MariaDB functional leg, and fuzz/mutation toggles all live in its `with:` block — read its comments before touching it.
 <!-- AGENTS-GENERATED:END golden-samples -->
 
 <!-- AGENTS-GENERATED:START structure -->
