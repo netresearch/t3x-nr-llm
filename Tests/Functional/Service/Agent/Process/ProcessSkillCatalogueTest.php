@@ -64,6 +64,27 @@ final class ProcessSkillCatalogueTest extends AbstractFunctionalTestCase
         self::assertSame([5], $this->uids($this->catalogue()->forActor($configuration, AiActorContext::backendUser(2))));
     }
 
+    /**
+     * A process skill is attached 'on_demand', the only mode the form offers
+     * it, and an invocation reaches either load mode (ADR-214 items 4 and 6):
+     * an 'on_demand' attachment is listed, and a skill attached in both modes
+     * once.
+     */
+    #[Test]
+    public function itListsAProcessAttachedOnDemand(): void
+    {
+        $configuration = $this->configuration();
+        $configuration->addSkillOnDemand($this->approvedSkill(5, self::SOURCE, process: true));
+
+        self::assertSame([5], $this->uids($this->catalogue()->forActor($configuration, AiActorContext::backendUser(2))));
+
+        $both = $this->approvedSkill(6, self::SOURCE, process: true);
+        $configuration->addSkill($both);
+        $configuration->addSkillOnDemand($both);
+
+        self::assertSame([6, 5], $this->uids($this->catalogue()->forActor($configuration, AiActorContext::backendUser(2))));
+    }
+
     #[Test]
     public function aSourceBelowTheInstructionThresholdListsNothing(): void
     {

@@ -231,7 +231,9 @@ A configuration has two skill fields:
   the approval at that moment, and refuses a section that would leave less
   than 10 % of the model's context budget. A skill attached here that is not
   approved is neither listed nor composed. Tasks, translation and the other
-  one-shot paths never load on demand.
+  one-shot paths never load on demand. A process skill is attached here and
+  is started by invocation only, for example from the chat's slash-command
+  menu; the model never loads it.
 - :guilabel:`Skills loaded always`. Composed into every run, as described
   below. Every attachment that existed before the load modes is one of these.
   Process skills cannot be attached here.
