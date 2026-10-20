@@ -22,6 +22,8 @@ use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException;
+use Netresearch\NrLlm\Service\Agent\Process\ApprovedProcessPinProbe;
+use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -45,6 +47,7 @@ use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\FixedSkillRecordLookup;
 use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\FixedSkillSourceLookup;
 use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\InMemorySkillApprovalRepository;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeInputTool;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\ShiftingPreviewTool;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -317,6 +320,48 @@ final class ToolLoopServiceSkillPinTest extends TestCase
         self::assertSame('done', $result->finalContent);
     }
 
+    /**
+     * The loop asks the probe about the pins it composed (ADR-214 item 9),
+     * with the real probe reading the approval snapshot: a pinned version
+     * approved as a process makes the turn suspend on its one write while the
+     * read beside it runs; the same pin approved as no process leaves the
+     * whole turn pending, as before.
+     */
+    #[Test]
+    public function theLoopDecidesTheProcessRulesFromThePinsItHolds(): void
+    {
+        $registry = new ToolRegistry([$this->tool, new FakeTool('read_page', 'PAGE')]);
+        $turn     = [new ToolCall('call_1', 'read_page', []), new ToolCall('call_2', 'attach_file', ['uid' => 7])];
+
+        foreach ([false, true] as $process) {
+            $approvals = new InMemorySkillApprovalRepository();
+            $approvals->add(
+                self::SKILL,
+                self::SOURCE,
+                $this->skill->getVersionDigest(),
+                ['process' => $process] + SkillVersionDigest::fieldsOf($this->skill),
+                'verified',
+                1,
+            );
+            $probe = new ApprovedProcessPinProbe($approvals);
+
+            $this->queue[] = $this->response('', $turn);
+            try {
+                $this->service($registry, probe: $probe)->runLoop([ChatMessage::user('attach it')], $this->configuration(), ToolExecutionContext::none(), null);
+                self::fail('Expected the run to suspend for approval.');
+            } catch (ToolApprovalRequiredException $e) {
+                $state = $e->state;
+            }
+
+            self::assertNotSame([], $state->skillPins, 'the run holds the pin it composed');
+            self::assertSame(
+                $process ? ['call_2'] : ['call_1', 'call_2'],
+                array_map(static fn(ToolCall $c): string => $c->id, $state->toolCalls()),
+                $process ? 'a process run suspends on its write alone' : 'any other run keeps the whole turn pending',
+            );
+        }
+    }
+
     private function suspend(?ToolRegistry $registry = null): SuspendedRunState
     {
         $this->queue[] = $this->response('', [new ToolCall('call_1', 'attach_file', ['uid' => 7])]);
@@ -330,7 +375,7 @@ final class ToolLoopServiceSkillPinTest extends TestCase
         self::fail('Expected the run to suspend for approval.');
     }
 
-    private function service(?ToolRegistry $registry = null, bool $withPinCheck = true): ToolLoopService
+    private function service(?ToolRegistry $registry = null, bool $withPinCheck = true, ?ProcessPinProbe $probe = null): ToolLoopService
     {
         $registry ??= new ToolRegistry([$this->tool]);
         $manager = self::createStub(LlmServiceManagerInterface::class);
@@ -374,6 +419,7 @@ final class ToolLoopServiceSkillPinTest extends TestCase
                 $this->records,
                 new SkillComposerFactory($extensionConfiguration),
             ) : null,
+            processPinProbe: $probe,
         );
     }
 
