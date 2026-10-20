@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Mcp;
 
@@ -184,7 +185,7 @@ final readonly class McpSchemaNormalizer
     private function unsupportedKeywordReason(string $keyword): string
     {
         return sprintf(
-            'it uses "%s", which this import does not carry: dropping the keyword would widen what the tool ' . 'accepts, letting a model produce arguments the server then rejects',
+            'it uses "%s", which this import does not carry: dropping the keyword would widen what the tool accepts, letting a model produce arguments the server then rejects',
             $keyword,
         );
     }

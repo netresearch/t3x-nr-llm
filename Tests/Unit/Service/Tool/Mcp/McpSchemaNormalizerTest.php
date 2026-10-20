@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Mcp;
 
@@ -53,9 +54,9 @@ final class McpSchemaNormalizerTest extends TestCase
     public function aMinimalObjectSchemaPassesThroughUnchanged(): void
     {
         $schema = [
-            'type' => 'object',
+            'type'       => 'object',
             'properties' => ['query' => ['type' => 'string', 'description' => 'Search term'], 'limit' => ['type' => 'integer']],
-            'required' => ['query'],
+            'required'   => ['query'],
         ];
 
         self::assertSame($schema, $this->normalizer->normalise($schema));
@@ -66,12 +67,12 @@ final class McpSchemaNormalizerTest extends TestCase
     {
         $result = $this->normalizer->normalise(
             [
-                '$schema' => 'https://json-schema.org/draft/2020-12/schema',
-                '$id' => 'https://example.invalid/tool.json',
-                'title' => 'Search',
-                'examples' => [['query' => 'a']],
-                'x-vendor' => ['internal' => true],
-                'type' => 'object',
+                '$schema'    => 'https://json-schema.org/draft/2020-12/schema',
+                '$id'        => 'https://example.invalid/tool.json',
+                'title'      => 'Search',
+                'examples'   => [['query' => 'a']],
+                'x-vendor'   => ['internal' => true],
+                'type'       => 'object',
                 'properties' => ['query' => ['type' => 'string']],
             ],
         );
@@ -96,8 +97,8 @@ final class McpSchemaNormalizerTest extends TestCase
     {
         yield 'reference into a dropped definition block' => [
             [
-                'type' => 'object',
-                '$defs' => ['Id' => ['type' => 'string']],
+                'type'       => 'object',
+                '$defs'      => ['Id' => ['type' => 'string']],
                 'properties' => ['id' => ['$ref' => '#/$defs/Id']],
             ],
         ];
@@ -112,8 +113,8 @@ final class McpSchemaNormalizerTest extends TestCase
 
         yield 'root dependentRequired' => [
             [
-                'type' => 'object',
-                'properties' => ['a' => ['type' => 'string'], 'b' => ['type' => 'string']],
+                'type'              => 'object',
+                'properties'        => ['a' => ['type' => 'string'], 'b' => ['type' => 'string']],
                 'dependentRequired' => ['a' => ['b']],
             ],
         ];
@@ -139,7 +140,7 @@ final class McpSchemaNormalizerTest extends TestCase
         self::assertNull(
             $this->normalizer->normalise(
                 [
-                    'type' => 'object',
+                    'type'       => 'object',
                     'properties' => [
                         'query' => ['type' => 'string', 'description' => str_repeat('a', McpSchemaNormalizer::MAX_ENCODED_BYTES)],
                     ],
@@ -153,9 +154,9 @@ final class McpSchemaNormalizerTest extends TestCase
     {
         $result = $this->normalizer->normalise(
             [
-                'type' => 'object',
+                'type'       => 'object',
                 'properties' => ['query' => ['type' => 'string']],
-                'examples' => [str_repeat('a', McpSchemaNormalizer::MAX_ENCODED_BYTES)],
+                'examples'   => [str_repeat('a', McpSchemaNormalizer::MAX_ENCODED_BYTES)],
             ],
         );
 
@@ -233,10 +234,10 @@ final class McpSchemaNormalizerTest extends TestCase
         // the one an operator sees skipped, and "no usable parameter schema"
         // gave them nothing to act on.
         $schema = [
-            'type' => 'object',
+            'type'       => 'object',
             'properties' => [
                 'repoName' => [
-                    'anyOf' => [['type' => 'string'], ['items' => ['type' => 'string'], 'type' => 'array']],
+                    'anyOf'       => [['type' => 'string'], ['items' => ['type' => 'string'], 'type' => 'array']],
                     'description' => 'GitHub repository or list of repositories (max 10) in owner/repo format.',
                 ],
                 'question' => ['description' => 'The question to ask about the repository.', 'type' => 'string'],
@@ -267,8 +268,8 @@ final class McpSchemaNormalizerTest extends TestCase
         $subject = new McpSchemaNormalizer();
 
         $schema = [
-            'type' => 'object',
-            'anyOf' => [['required' => ['a']], ['required' => ['b']]],
+            'type'       => 'object',
+            'anyOf'      => [['required' => ['a']], ['required' => ['b']]],
             'properties' => ['a' => ['type' => 'string'], 'b' => ['type' => 'string']],
         ];
 
@@ -286,9 +287,9 @@ final class McpSchemaNormalizerTest extends TestCase
         $subject = new McpSchemaNormalizer();
 
         $schema = [
-            'type' => 'object',
+            'type'       => 'object',
             'properties' => ['repoName' => ['$ref' => '#/$defs/repo']],
-            '$defs' => ['repo' => ['type' => 'string']],
+            '$defs'      => ['repo' => ['type' => 'string']],
         ];
 
         self::assertNull($subject->normalise($schema));
@@ -304,9 +305,9 @@ final class McpSchemaNormalizerTest extends TestCase
 
         // The sibling tool from the same server, which does import.
         $schema = [
-            'type' => 'object',
+            'type'       => 'object',
             'properties' => ['repoName' => ['description' => 'GitHub repository in owner/repo format.', 'type' => 'string']],
-            'required' => ['repoName'],
+            'required'   => ['repoName'],
         ];
 
         self::assertNotNull($subject->normalise($schema));
@@ -323,10 +324,10 @@ final class McpSchemaNormalizerTest extends TestCase
         $subject = new McpSchemaNormalizer();
 
         $schema = [
-            'type' => 'object',
+            'type'       => 'object',
             'properties' => ['q' => ['type' => 'string']],
-            'required' => ['q'],
-            'examples' => [['anyOf' => [['type' => 'string']]]],
+            'required'   => ['q'],
+            'examples'   => [['anyOf' => [['type' => 'string']]]],
         ];
 
         self::assertNotNull($subject->normalise($schema));
@@ -393,9 +394,9 @@ final class McpSchemaNormalizerTest extends TestCase
             yield 'root ' . $label => [
                 'dependencies',
                 [
-                    '$schema' => 'https://json-schema.org/draft-07/schema',
-                    'type' => 'object',
-                    'properties' => ['a' => ['type' => 'string'], 'b' => ['type' => 'string']],
+                    '$schema'      => 'https://json-schema.org/draft-07/schema',
+                    'type'         => 'object',
+                    'properties'   => ['a' => ['type' => 'string'], 'b' => ['type' => 'string']],
                     'dependencies' => $constraint,
                 ],
             ];
@@ -409,10 +410,10 @@ final class McpSchemaNormalizerTest extends TestCase
         yield 'nested recursive reference to root' => [
             '$recursiveRef',
             [
-                '$schema' => 'https://json-schema.org/draft/2019-09/schema',
+                '$schema'          => 'https://json-schema.org/draft/2019-09/schema',
                 '$recursiveAnchor' => true,
-                'type' => 'object',
-                'properties' => ['child' => ['$recursiveRef' => '#']],
+                'type'             => 'object',
+                'properties'       => ['child' => ['$recursiveRef' => '#']],
             ],
         ];
     }
