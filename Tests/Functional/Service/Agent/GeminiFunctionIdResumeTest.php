@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent;
 
@@ -97,7 +98,7 @@ final class GeminiFunctionIdResumeTest extends AbstractFunctionalTestCase
         $this->importFixture('BeUsers.csv');
         $this->setUpBackendUser(1);
         $this->configuration = $this->localConfiguration();
-        $this->registry = new ToolRegistry([$this->approvalProbe()]);
+        $this->registry      = new ToolRegistry([$this->approvalProbe()]);
     }
 
     /**
@@ -111,8 +112,8 @@ final class GeminiFunctionIdResumeTest extends AbstractFunctionalTestCase
     ): void {
         $nativeParts = [
             [
-                'text' => 'Opaque identity reasoning.',
-                'thought' => true,
+                'text'             => 'Opaque identity reasoning.',
+                'thought'          => true,
                 'thoughtSignature' => 'aWRlbnRpdHkvKys9PQ==',
             ],
         ];
@@ -123,7 +124,7 @@ final class GeminiFunctionIdResumeTest extends AbstractFunctionalTestCase
             }
 
             $nativeParts[] = [
-                'functionCall' => $function,
+                'functionCall'     => $function,
                 'thoughtSignature' => 'signed-identity-' . $index,
             ];
         }
@@ -131,10 +132,10 @@ final class GeminiFunctionIdResumeTest extends AbstractFunctionalTestCase
         $nativeParts[] = ['text' => 'Run all requested calls.'];
 
         $initialRequests = [];
-        $initialAdapter = $this->adapterWithResponse($nativeParts, $initialRequests);
-        $initialRuntime = $this->runtime($initialAdapter);
-        $actor = AiActorContext::backendUser(1, isAdmin: true);
-        $started = $initialRuntime->run(
+        $initialAdapter  = $this->adapterWithResponse($nativeParts, $initialRequests);
+        $initialRuntime  = $this->runtime($initialAdapter);
+        $actor           = AiActorContext::backendUser(1, isAdmin: true);
+        $started         = $initialRuntime->run(
             new AgentRunRequest(
                 $this->configuration,
                 [ChatMessage::user(self::PROMPT)],
@@ -144,7 +145,7 @@ final class GeminiFunctionIdResumeTest extends AbstractFunctionalTestCase
         self::assertSame(
             AgentRunOutcome::AWAITING_APPROVAL,
             $started->outcome,
-            (string)$started->error?->getMessage(),
+            (string) $started->error?->getMessage(),
         );
         self::assertCount(1, $initialRequests);
         self::assertSame(
@@ -154,7 +155,7 @@ final class GeminiFunctionIdResumeTest extends AbstractFunctionalTestCase
         );
         self::assertNotSame('', $started->runUuid);
         $initialPayload = json_decode(
-            (string)$initialRequests[0]->getBody(),
+            (string) $initialRequests[0]->getBody(),
             true,
             512,
             JSON_THROW_ON_ERROR,
@@ -166,7 +167,7 @@ final class GeminiFunctionIdResumeTest extends AbstractFunctionalTestCase
         );
 
         $connection = $this->connectionPool->getConnectionForTable('tx_nrllm_agentrun');
-        $raw = $connection->fetchAssociative(
+        $raw        = $connection->fetchAssociative(
             'SELECT status, suspended_state FROM tx_nrllm_agentrun WHERE uuid = ?',
             [$started->runUuid],
         );
@@ -200,14 +201,14 @@ final class GeminiFunctionIdResumeTest extends AbstractFunctionalTestCase
         self::assertSame('assistant', $state->messages[1]['role']);
         self::assertCount(count($nativeIds), $state->pendingCalls);
         $publicIds = [];
-        $bindings = [];
+        $bindings  = [];
         foreach ($state->pendingCalls as $index => $call) {
             $id = $call['id'] ?? null;
             self::assertIsString($id);
             self::assertStringStartsWith('call_', $id);
             self::assertNotContains($id, $publicIds);
             $publicIds[] = $id;
-            $function = $call['function'] ?? null;
+            $function    = $call['function'] ?? null;
             self::assertIsArray($function);
             self::assertSame('identity_probe', $function['name'] ?? null);
             self::assertSame([], $function['arguments'] ?? null);
@@ -233,9 +234,9 @@ final class GeminiFunctionIdResumeTest extends AbstractFunctionalTestCase
         );
         self::assertSame(
             array_map(
-                static fn(string $id): array => [
-                    'id' => $id,
-                    'type' => 'function',
+                static fn (string $id): array => [
+                    'id'       => $id,
+                    'type'     => 'function',
                     'function' => ['name' => 'identity_probe', 'arguments' => '{}'],
                 ],
                 $publicIds,
@@ -258,8 +259,8 @@ final class GeminiFunctionIdResumeTest extends AbstractFunctionalTestCase
             self::assertIsArray($decoded['messages']);
             self::assertIsArray($decoded['messages'][1]);
             $decoded['messages'][1]['tool_calls'] = array_reverse($state->pendingCalls);
-            $reorderedJson = json_encode($decoded, JSON_THROW_ON_ERROR);
-            $sealed = $this
+            $reorderedJson                        = json_encode($decoded, JSON_THROW_ON_ERROR);
+            $sealed                               = $this
                 ->getService(AgentStateCodec::class)
                 ->encode($reorderedJson, AgentStateCodec::PURPOSE_SUSPENDED_STATE);
             self::assertNotSame($reorderedJson, $sealed);
@@ -269,7 +270,7 @@ final class GeminiFunctionIdResumeTest extends AbstractFunctionalTestCase
                     'tx_nrllm_agentrun',
                     ['suspended_state' => $sealed],
                     [
-                        'uuid' => $stored->uuid,
+                        'uuid'   => $stored->uuid,
                         'status' => AgentRunStatus::WAITING_FOR_APPROVAL->value,
                     ],
                 ),
@@ -304,7 +305,7 @@ final class GeminiFunctionIdResumeTest extends AbstractFunctionalTestCase
         );
         unset($initialRuntime, $initialAdapter, $started, $decoded);
         $resumedRequests = [];
-        $resumedAdapter = $this->adapterWithResponse(
+        $resumedAdapter  = $this->adapterWithResponse(
             [['text' => 'Identity replay completed.']],
             $resumedRequests,
         );
@@ -314,7 +315,7 @@ final class GeminiFunctionIdResumeTest extends AbstractFunctionalTestCase
         self::assertSame(
             AgentRunOutcome::COMPLETED,
             $resumed->outcome,
-            (string)$resumed->error?->getMessage(),
+            (string) $resumed->error?->getMessage(),
         );
         self::assertSame(
             array_fill(
@@ -331,10 +332,10 @@ final class GeminiFunctionIdResumeTest extends AbstractFunctionalTestCase
             $resumedRequests[0]->getUri()->getPath(),
         );
         $expectedTurns = [];
-        $expectedIds = $reorder ? array_reverse($nativeIds) : $nativeIds;
+        $expectedIds   = $reorder ? array_reverse($nativeIds) : $nativeIds;
         foreach ($expectedIds as $index => $nativeId) {
             $response = [
-                'name' => 'identity_probe',
+                'name'     => 'identity_probe',
                 'response' => ['execution' => $index + 1],
             ];
             if ($nativeId !== null) {
@@ -345,7 +346,7 @@ final class GeminiFunctionIdResumeTest extends AbstractFunctionalTestCase
         }
 
         $payload = json_decode(
-            (string)$resumedRequests[0]->getBody(),
+            (string) $resumedRequests[0]->getBody(),
             true,
             512,
             JSON_THROW_ON_ERROR,
@@ -360,7 +361,7 @@ final class GeminiFunctionIdResumeTest extends AbstractFunctionalTestCase
             $payload['contents'] ?? null,
             'Each literal native ID must stay attached to its own actual tool result.',
         );
-        $wire = (string)$resumedRequests[0]->getBody();
+        $wire = (string) $resumedRequests[0]->getBody();
         self::assertStringNotContainsString('tool_call_bindings', $wire);
         foreach ($publicIds as $publicId) {
             self::assertStringNotContainsString($publicId, $wire);
@@ -425,7 +426,7 @@ final class GeminiFunctionIdResumeTest extends AbstractFunctionalTestCase
         );
         self::assertSame('', $completedRow['suspended_state']);
         self::assertSame('', $completedRow['claimed_by']);
-        self::assertSame(0, (int)$completedRow['lease_expires']);
+        self::assertSame(0, (int) $completedRow['lease_expires']);
     }
 
     /**
@@ -450,10 +451,10 @@ final class GeminiFunctionIdResumeTest extends AbstractFunctionalTestCase
         $wireParts = $parts;
         foreach ($wireParts as $index => $part) {
             if (isset($part['functionCall']) && is_array($part['functionCall'])) {
-                $function = $part['functionCall'];
-                $function['args'] = (object)[];
+                $function             = $part['functionCall'];
+                $function['args']     = (object) [];
                 $part['functionCall'] = $function;
-                $wireParts[$index] = $part;
+                $wireParts[$index]    = $part;
             }
         }
 
@@ -464,7 +465,7 @@ final class GeminiFunctionIdResumeTest extends AbstractFunctionalTestCase
                 [
                     'candidates' => [
                         [
-                            'content' => ['role' => 'model', 'parts' => $wireParts],
+                            'content'      => ['role' => 'model', 'parts' => $wireParts],
                             'finishReason' => 'STOP',
                         ],
                     ],
@@ -482,6 +483,7 @@ final class GeminiFunctionIdResumeTest extends AbstractFunctionalTestCase
                     RequestInterface $request,
                 ) use (&$requests, $response): ResponseInterface {
                     $requests[] = $request;
+
                     return $response;
                 },
             );
@@ -498,12 +500,13 @@ final class GeminiFunctionIdResumeTest extends AbstractFunctionalTestCase
         $adapter->configure(
             [
                 'apiKeyIdentifier' => 'fixture-gemini-key',
-                'baseUrl' => 'https://gemini-replay.test/v1beta',
-                'defaultModel' => 'gemini-replay-fixture',
-                'maxRetries' => 0,
+                'baseUrl'          => 'https://gemini-replay.test/v1beta',
+                'defaultModel'     => 'gemini-replay-fixture',
+                'maxRetries'       => 0,
             ],
         );
         $adapter->setHttpClient($client);
+
         return $adapter;
     }
 
@@ -539,6 +542,7 @@ final class GeminiFunctionIdResumeTest extends AbstractFunctionalTestCase
         );
         $configurations = self::createStub(LlmConfigurationRepository::class);
         $configurations->method('findByUid')->willReturn($this->configuration);
+
         return new AgentRuntime(
             toolLoop: $loop,
             persister: new AgentRunPersister(
@@ -576,6 +580,7 @@ final class GeminiFunctionIdResumeTest extends AbstractFunctionalTestCase
         $configuration = new LlmConfiguration();
         $configuration->setIdentifier('gemini-replay-resume');
         $configuration->setLlmModel($model);
+
         return $configuration;
     }
 
@@ -583,11 +588,13 @@ final class GeminiFunctionIdResumeTest extends AbstractFunctionalTestCase
     {
         $record = function (array $arguments): string {
             $this->executions[] = ['name' => 'identity_probe', 'arguments' => $arguments];
+
             return json_encode(
                 ['execution' => count($this->executions)],
                 JSON_THROW_ON_ERROR,
             );
         };
+
         return new class ($record) implements ToolInterface, RequiresApprovalInterface {
             /**
              * @param Closure(array<string,mixed>):string $record
@@ -599,7 +606,7 @@ final class GeminiFunctionIdResumeTest extends AbstractFunctionalTestCase
                 return ToolSpec::function(
                     'identity_probe',
                     'Local approved identity probe.',
-                    ['type' => 'object', 'properties' => (object)[]],
+                    ['type' => 'object', 'properties' => (object) []],
                 );
             }
 

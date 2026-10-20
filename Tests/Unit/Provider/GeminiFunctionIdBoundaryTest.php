@@ -1,9 +1,11 @@
 <?php
 
-/* Copyright (c) 2026 Netresearch DTT GmbH
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Provider;
 
@@ -41,9 +43,9 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
         array $calls,
         bool $legacy,
     ): void {
-        $parts = $this->parts($calls);
+        $parts    = $this->parts($calls);
         $requests = [];
-        $subject = $this->provider(
+        $subject  = $this->provider(
             [$this->response($parts), $this->finished($transport)],
             $requests,
         );
@@ -57,7 +59,7 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
         $items = $this->items($first);
         self::assertSame($parts, $items[0]['parts']);
         $expectedBindings = [];
-        $publicIds = [];
+        $publicIds        = [];
         foreach ($first->toolCalls as $index => $call) {
             self::assertSame($calls[$index]['name'], $call->name);
             self::assertSame(['zone' => 'UTC'], $call->arguments);
@@ -70,7 +72,7 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
             if (isset($calls[$index]['id'])) {
                 $expectedBindings[] = [
                     'tool_call_id' => $call->id,
-                    'native_id' => $calls[$index]['id'],
+                    'native_id'    => $calls[$index]['id'],
                 ];
             }
         }
@@ -114,7 +116,7 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
         );
         foreach (array_reverse($calls, true) as $index => $expected) {
             $position = count($calls) - $index + 1;
-            $actual = $wire['contents'][$position]['parts'][0]['functionResponse'] ?? null;
+            $actual   = $wire['contents'][$position]['parts'][0]['functionResponse'] ?? null;
             self::assertIsArray($actual);
             self::assertSame($expected['name'], $actual['name'] ?? null);
             self::assertSame(
@@ -130,11 +132,11 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
 
         self::assertStringNotContainsString(
             'tool_call_bindings',
-            (string)$requests[1]->getBody(),
+            (string) $requests[1]->getBody(),
         );
         self::assertStringNotContainsString(
             'nrllm_gemini_generate_content',
-            (string)$requests[1]->getBody(),
+            (string) $requests[1]->getBody(),
         );
     }
 
@@ -144,7 +146,7 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
     public static function capturedCalls(): iterable
     {
         $fixtures = [
-            'single' => [['name' => 'id_alpha', 'id' => 'native-a']],
+            'single'            => [['name' => 'id_alpha', 'id' => 'native-a']],
             'distinct parallel' => [
                 ['name' => 'id_beta', 'id' => 'native-b'],
                 ['name' => 'id_alpha', 'id' => 'native-a'],
@@ -153,9 +155,9 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
                 ['name' => 'id_alpha', 'id' => 'native-a'],
                 ['name' => 'id_alpha', 'id' => 'native-b'],
             ],
-            'idless' => [['name' => 'id_alpha']],
+            'idless'         => [['name' => 'id_alpha']],
             'numeric string' => [['name' => 'id_alpha', 'id' => '123']],
-            'mixed' => [['name' => 'id_alpha'], ['name' => 'id_beta', 'id' => 'native-b']],
+            'mixed'          => [['name' => 'id_alpha'], ['name' => 'id_beta', 'id' => 'native-b']],
         ];
         foreach (['tools', 'chat', 'stream'] as $transport) {
             foreach ($fixtures as $name => $calls) {
@@ -185,8 +187,8 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
         }
 
         $requests = [];
-        $subject = $this->provider([$this->response($parts)], $requests);
-        $caught = null;
+        $subject  = $this->provider([$this->response($parts)], $requests);
+        $caught   = null;
         try {
             $subject->chatCompletionWithTools(
                 [ChatMessage::user('Literal question.')],
@@ -217,7 +219,7 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
     public function namelessFunctionStillSkipsItsOtherwiseInvalidId(): void
     {
         $requests = [];
-        $subject = $this->provider(
+        $subject  = $this->provider(
             [
                 $this->response(
                     [
@@ -247,21 +249,21 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
             ['name' => 'id_alpha', 'id' => 'native-b'],
         ] : [['name' => 'id_alpha', 'id' => 'native-a']];
         $requests = [];
-        $subject = $this->provider([$this->response($this->parts($calls))], $requests);
-        $first = $subject->chatCompletionWithTools(
+        $subject  = $this->provider([$this->response($this->parts($calls))], $requests);
+        $first    = $subject->chatCompletionWithTools(
             [ChatMessage::user('Literal question.')],
             $this->tools(),
         );
         self::assertNotNull($first->toolCalls);
-        $items = $this->items($first);
+        $items    = $this->items($first);
         $bindings = [
             [
                 'tool_call_id' => $first->toolCalls[0]->id,
-                'native_id' => 'native-a',
+                'native_id'    => 'native-a',
             ],
         ];
         $items[0]['tool_call_bindings'] = $bindings;
-        $generic = $first->toolCalls;
+        $generic                        = $first->toolCalls;
         switch ($change) {
             case 'null field':
                 $items[0]['tool_call_bindings'] = null;
@@ -385,8 +387,8 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
         }
 
         $requests = [];
-        $subject = $this->provider($valid ? [$this->finished('chat')] : [], $requests);
-        $caught = null;
+        $subject  = $this->provider($valid ? [$this->finished('chat')] : [], $requests);
+        $caught   = null;
         $response = null;
         try {
             $response = $subject->chatCompletion(
@@ -435,7 +437,7 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
         bool $before,
     ): void {
         $requests = [];
-        $subject = $this->provider(
+        $subject  = $this->provider(
             [
                 $this->response(
                     $this->parts([['name' => 'id_alpha', 'id' => 'native-a']]),
@@ -523,18 +525,18 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
                 'id_alpha',
                 'Alpha.',
                 [
-                    'type' => 'object',
+                    'type'       => 'object',
                     'properties' => ['zone' => ['type' => 'string']],
-                    'required' => ['zone'],
+                    'required'   => ['zone'],
                 ],
             ),
             ToolSpec::function(
                 'id_beta',
                 'Beta.',
                 [
-                    'type' => 'object',
+                    'type'       => 'object',
                     'properties' => ['zone' => ['type' => 'string']],
-                    'required' => ['zone'],
+                    'required'   => ['zone'],
                 ],
             ),
         ];
@@ -552,7 +554,7 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
             }
 
             $parts[] = [
-                'functionCall' => $function,
+                'functionCall'     => $function,
                 'thoughtSignature' => 'opaque+/signature==',
             ];
         }
@@ -571,7 +573,7 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
             [
                 'candidates' => [
                     [
-                        'content' => ['role' => 'model', 'parts' => $parts],
+                        'content'      => ['role' => 'model', 'parts' => $parts],
                         'finishReason' => 'STOP',
                     ],
                 ],
@@ -583,6 +585,7 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
     private function finished(string $transport): string
     {
         $body = $this->response([['text' => 'Done.']]);
+
         return $transport === 'stream' ? 'data: ' . $body . "\n\n" : $body;
     }
 
@@ -610,12 +613,13 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
     private function wire(RequestInterface $request): array
     {
         $wire = json_decode(
-            (string)$request->getBody(),
+            (string) $request->getBody(),
             true,
             512,
             JSON_THROW_ON_ERROR,
         );
         self::assertIsArray($wire);
+
         return $wire;
     }
 
@@ -626,7 +630,7 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
         array &$requests,
     ): GeminiProvider {
         $client = self::createMock(ClientInterface::class);
-        $index = 0;
+        $index  = 0;
         $client
             ->expects(self::exactly(count($responses)))
             ->method('sendRequest')
@@ -635,6 +639,7 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
                     RequestInterface $request,
                 ) use (&$requests, &$index, $responses): ResponseInterface {
                     $requests[] = $request;
+
                     return new Response(
                         200,
                         ['Content-Type' => 'application/json'],
@@ -653,20 +658,21 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
         $subject->configure(
             [
                 'apiKeyIdentifier' => 'fixture-key',
-                'defaultModel' => 'gemini-native-id-fixture',
-                'maxRetries' => 0,
+                'defaultModel'     => 'gemini-native-id-fixture',
+                'maxRetries'       => 0,
             ],
         );
         $subject->setHttpClient($client);
+
         return $subject;
     }
 
     #[Test]
     public function nativeIdCanRepeatAcrossSeparateCapturedTurns(): void
     {
-        $parts = $this->parts([['name' => 'id_alpha', 'id' => 'native-repeat']]);
+        $parts    = $this->parts([['name' => 'id_alpha', 'id' => 'native-repeat']]);
         $requests = [];
-        $subject = $this->provider(
+        $subject  = $this->provider(
             [
                 $this->response($parts),
                 $this->response($parts),
@@ -675,7 +681,7 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
             $requests,
         );
         $messages = [ChatMessage::user('Literal question.')];
-        $ids = [];
+        $ids      = [];
         foreach ([1, 2] as $turn) {
             $response = $subject->chatCompletionWithTools($messages, $this->tools());
             self::assertNotNull($response->toolCalls);
@@ -703,17 +709,17 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
         $wire = $this->wire($requests[2]);
         self::assertSame(
             [
-                'name' => 'id_alpha',
+                'name'     => 'id_alpha',
                 'response' => ['turn' => 1],
-                'id' => 'native-repeat',
+                'id'       => 'native-repeat',
             ],
             $wire['contents'][2]['parts'][0]['functionResponse'] ?? null,
         );
         self::assertSame(
             [
-                'name' => 'id_alpha',
+                'name'     => 'id_alpha',
                 'response' => ['turn' => 2],
-                'id' => 'native-repeat',
+                'id'       => 'native-repeat',
             ],
             $wire['contents'][4]['parts'][0]['functionResponse'] ?? null,
         );
@@ -722,9 +728,9 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
     #[Test]
     public function signedPlainCaptureKeepsNativePartsWithoutFabricatingBindings(): void
     {
-        $parts = $this->parts([['name' => 'id_alpha', 'id' => 'native-plain']]);
+        $parts    = $this->parts([['name' => 'id_alpha', 'id' => 'native-plain']]);
         $requests = [];
-        $subject = $this->provider(
+        $subject  = $this->provider(
             [$this->response($parts), $this->finished('chat')],
             $requests,
         );
@@ -758,17 +764,17 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
     public function foreignCarrierCannotBindGeminiResultsAndGenericDuplicatesKeepExistingBehavior(): void
     {
         $requests = [];
-        $subject = $this->provider([$this->finished('chat')], $requests);
-        $foreign = [
+        $subject  = $this->provider([$this->finished('chat')], $requests);
+        $foreign  = [
             [
-                'type' => 'function_call',
-                'call_id' => 'shared-public',
-                'name' => 'id_alpha',
-                'arguments' => '{"zone":"UTC"}',
+                'type'               => 'function_call',
+                'call_id'            => 'shared-public',
+                'name'               => 'id_alpha',
+                'arguments'          => '{"zone":"UTC"}',
                 'tool_call_bindings' => [
                     [
                         'tool_call_id' => 'shared-public',
-                        'native_id' => 'foreign-native',
+                        'native_id'    => 'foreign-native',
                     ],
                 ],
             ],
@@ -803,11 +809,11 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
         );
         self::assertStringNotContainsString(
             'foreign-native',
-            (string)$requests[0]->getBody(),
+            (string) $requests[0]->getBody(),
         );
         self::assertStringNotContainsString(
             'tool_call_bindings',
-            (string)$requests[0]->getBody(),
+            (string) $requests[0]->getBody(),
         );
     }
 
@@ -815,7 +821,7 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
     public function capturedBindingsStayPrivateOnResponsesFallback(): void
     {
         $requests = [];
-        $subject = $this->provider(
+        $subject  = $this->provider(
             [
                 $this->response(
                     $this->parts([['name' => 'id_alpha', 'id' => 'native-a']]),
@@ -828,7 +834,7 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
             $this->tools(),
         );
         self::assertNotNull($first->toolCalls);
-        $id = $first->toolCalls[0]->id;
+        $id      = $first->toolCalls[0]->id;
         $payload = (new ResponsesPayloadBuilder())->build(
             'fallback-model',
             [
@@ -847,15 +853,15 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
             [
                 ['role' => 'assistant', 'content' => 'Before.'],
                 [
-                    'type' => 'function_call',
-                    'call_id' => $id,
-                    'name' => 'id_alpha',
+                    'type'      => 'function_call',
+                    'call_id'   => $id,
+                    'name'      => 'id_alpha',
                     'arguments' => '{"zone":"UTC"}',
                 ],
                 [
-                    'type' => 'function_call_output',
+                    'type'    => 'function_call_output',
                     'call_id' => $id,
-                    'output' => '{"result":"literal"}',
+                    'output'  => '{"result":"literal"}',
                 ],
             ],
             $payload['input'],
@@ -883,7 +889,7 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
         bool $reverse,
     ): void {
         $arguments = [
-            'zone' => 'UTC',
+            'zone'   => 'UTC',
             'weight' => $native,
             'nested' => ['weight' => $native, 'values' => [$native, 'literal']],
         ];
@@ -891,13 +897,13 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
             [
                 'functionCall' => [
                     'name' => 'id_alpha',
-                    'id' => 'native-number',
+                    'id'   => 'native-number',
                     'args' => $arguments,
                 ],
                 'thoughtSignature' => 'numeric-signature==',
             ],
         ];
-        $body = $this->response($parts, true);
+        $body    = $this->response($parts, true);
         $decoded = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($decoded);
         self::assertSame(
@@ -905,8 +911,8 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
             $decoded['candidates'][0]['content']['parts'][0]['functionCall']['args']['weight'] ?? null,
         );
         $requests = [];
-        $subject = $this->provider([$body, $this->finished('tools')], $requests);
-        $first = $subject->chatCompletionWithTools(
+        $subject  = $this->provider([$body, $this->finished('tools')], $requests);
+        $first    = $subject->chatCompletionWithTools(
             [ChatMessage::user('Numeric capture.')],
             $this->numericTools('number'),
             ['_capture_raw' => true],
@@ -931,7 +937,7 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
         if ($reverse) {
             // A valid stored JSON argument may retain the decimal representation.
             $genericArguments = [
-                'zone' => 'UTC',
+                'zone'   => 'UTC',
                 'weight' => 1.0,
                 'nested' => ['weight' => 1.0, 'values' => [1.0, 'literal']],
             ];
@@ -985,9 +991,9 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
         self::assertSame(
             [
                 'name' => 'id_alpha',
-                'id' => 'native-number',
+                'id'   => 'native-number',
                 'args' => [
-                    'zone' => 'UTC',
+                    'zone'   => 'UTC',
                     'weight' => $wireValue,
                     'nested' => [
                         'weight' => $wireValue,
@@ -1003,9 +1009,9 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
         );
         self::assertSame(
             [
-                'name' => 'id_alpha',
+                'name'     => 'id_alpha',
                 'response' => ['result' => 'numeric-result'],
-                'id' => 'native-number',
+                'id'       => 'native-number',
             ],
             $wire['contents'][2]['parts'][0]['functionResponse'] ?? null,
         );
@@ -1036,7 +1042,7 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
         bool $nestedOnly,
     ): void {
         $arguments = [
-            'zone' => 'UTC',
+            'zone'   => 'UTC',
             'weight' => $native,
             'nested' => ['weight' => $native, 'values' => [$native, 'literal']],
         ];
@@ -1044,15 +1050,15 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
             [
                 'functionCall' => [
                     'name' => 'id_alpha',
-                    'id' => 'strict-number',
+                    'id'   => 'strict-number',
                     'args' => $arguments,
                 ],
             ],
         ];
         $requests = [];
-        $subject = $this->provider([$this->response($parts, true)], $requests);
-        $type = is_bool($native) ? 'boolean' : (is_string($native) ? 'string' : 'number');
-        $first = $subject->chatCompletionWithTools(
+        $subject  = $this->provider([$this->response($parts, true)], $requests);
+        $type     = is_bool($native) ? 'boolean' : (is_string($native) ? 'string' : 'number');
+        $first    = $subject->chatCompletionWithTools(
             [ChatMessage::user('Strict capture.')],
             $this->numericTools($type),
         );
@@ -1067,7 +1073,7 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
         }
 
         $transcript = ChatMessage::assistantToolCalls([$call], $first->content, $items)->toTranscriptArray();
-        $changed = $arguments;
+        $changed    = $arguments;
         if ($nestedOnly) {
             $changed['nested']['values'][0] = $generic;
         } else {
@@ -1075,7 +1081,7 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
         }
 
         $transcript['tool_calls'][0]['function']['arguments'] = json_encode($changed, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION);
-        $caught = null;
+        $caught                                               = null;
         try {
             $subject->chatCompletion(
                 [
@@ -1132,16 +1138,16 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
                 'id_alpha',
                 'Numeric association.',
                 [
-                    'type' => 'object',
+                    'type'       => 'object',
                     'properties' => [
-                        'zone' => ['type' => 'string'],
+                        'zone'   => ['type' => 'string'],
                         'weight' => ['type' => $valueType],
                         'nested' => [
-                            'type' => 'object',
+                            'type'       => 'object',
                             'properties' => [
                                 'weight' => ['type' => $valueType],
                                 'values' => [
-                                    'type' => 'array',
+                                    'type'  => 'array',
                                     'items' => [
                                         'anyOf' => [
                                             ['type' => $valueType],
@@ -1164,14 +1170,14 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
         bool $reverse,
     ): void {
         $values = $reverse ? [1, 1.0] : [1.0, 1];
-        $parts = [];
+        $parts  = [];
         foreach ($values as $index => $value) {
             $parts[] = [
                 'functionCall' => [
                     'name' => 'id_alpha',
-                    'id' => 'native-' . $index,
+                    'id'   => 'native-' . $index,
                     'args' => [
-                        'zone' => 'UTC',
+                        'zone'   => 'UTC',
                         'weight' => $value,
                         'nested' => ['weight' => $value, 'values' => [$value, 'literal']],
                     ],
@@ -1180,8 +1186,8 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
         }
 
         $requests = [];
-        $subject = $this->provider([$this->response($parts, true)], $requests);
-        $first = $subject->chatCompletionWithTools(
+        $subject  = $this->provider([$this->response($parts, true)], $requests);
+        $first    = $subject->chatCompletionWithTools(
             [ChatMessage::user('Legacy ambiguity.')],
             $this->numericTools('number'),
         );

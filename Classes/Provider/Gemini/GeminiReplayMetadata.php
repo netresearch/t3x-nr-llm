@@ -1,9 +1,11 @@
 <?php
 
-/* Copyright (c) 2026 Netresearch DTT GmbH
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider\Gemini;
 
@@ -91,7 +93,7 @@ final class GeminiReplayMetadata
     ): array {
         /** @var list<array<string, mixed>> $nativeParts */
         $nativeParts = array_values(array_filter($parts, is_array(...)));
-        $capsule = ['type' => self::TYPE, 'parts' => $nativeParts];
+        $capsule     = ['type' => self::TYPE, 'parts' => $nativeParts];
         if ($bindings !== []) {
             $capsule['tool_call_bindings'] = $bindings;
         }
@@ -151,7 +153,7 @@ final class GeminiReplayMetadata
         }
 
         $nativeCalls = [];
-        $populated = [];
+        $populated   = [];
         foreach ($parts as $part) {
             $function = $part['functionCall'] ?? null;
             if (!is_array($function)) {
@@ -163,7 +165,7 @@ final class GeminiReplayMetadata
                 continue;
             }
 
-            $id = self::nativeId($function);
+            $id   = self::nativeId($function);
             $call = [
                 'name' => $name,
                 'args' => is_array($function['args'] ?? null) ? $function['args'] : [],
@@ -188,14 +190,14 @@ final class GeminiReplayMetadata
 
         $generic = [];
         foreach ($genericCalls as $call) {
-            $function = is_array($call['function'] ?? null) ? $call['function'] : [];
+            $function  = is_array($call['function'] ?? null) ? $call['function'] : [];
             $arguments = $function['arguments'] ?? [];
             if (is_string($arguments)) {
                 $arguments = json_decode($arguments, true);
             }
 
             $generic[] = [
-                'id' => self::stringValue($call['id'] ?? null),
+                'id'   => self::stringValue($call['id'] ?? null),
                 'name' => self::stringValue($function['name'] ?? null),
                 'args' => is_array($arguments) ? $arguments : [],
             ];
@@ -208,11 +210,11 @@ final class GeminiReplayMetadata
             }
 
             foreach ($bindings as $binding) {
-                $native = $populated[$binding['native_id']] ?? null;
+                $native  = $populated[$binding['native_id']] ?? null;
                 $matches = array_values(
                     array_filter(
                         $generic,
-                        static fn(
+                        static fn (
                             array $call,
                         ): bool => $call['id'] === $binding['tool_call_id'],
                     ),
@@ -232,14 +234,14 @@ final class GeminiReplayMetadata
             $genericMatches = array_values(
                 array_filter(
                     $generic,
-                    static fn(
+                    static fn (
                         array $call,
                     ): bool => self::sameCall($native, $call),
                 ),
             );
             $nativeMatches = array_filter(
                 $nativeCalls,
-                static fn(array $call): bool => self::sameCall($native, $call),
+                static fn (array $call): bool => self::sameCall($native, $call),
             );
             if (count($genericMatches) !== 1 || count($nativeMatches) !== 1 || $genericMatches[0]['id'] === '') {
                 throw self::invalid();
@@ -274,8 +276,8 @@ final class GeminiReplayMetadata
             throw self::invalid();
         }
 
-        $public = [];
-        $native = [];
+        $public    = [];
+        $native    = [];
         $validated = [];
         foreach ($entries as $entry) {
             if (!is_array($entry) || count($entry) !== 2 || !is_string($entry['tool_call_id'] ?? null) || $entry['tool_call_id'] === '' || !is_string($entry['native_id'] ?? null) || $entry['native_id'] === '') {
@@ -287,10 +289,10 @@ final class GeminiReplayMetadata
             }
 
             $public[$entry['tool_call_id']] = true;
-            $native[$entry['native_id']] = true;
-            $validated[] = [
+            $native[$entry['native_id']]    = true;
+            $validated[]                    = [
                 'tool_call_id' => $entry['tool_call_id'],
-                'native_id' => $entry['native_id'],
+                'native_id'    => $entry['native_id'],
             ];
         }
 
@@ -336,7 +338,7 @@ final class GeminiReplayMetadata
 
     private static function stringValue(mixed $value): string
     {
-        return is_string($value) || is_int($value) || is_float($value) ? (string)$value : '';
+        return is_string($value) || is_int($value) || is_float($value) ? (string) $value : '';
     }
 
     private static function invalid(): ProviderConfigurationException
@@ -349,6 +351,6 @@ final class GeminiReplayMetadata
      */
     private static function sameNumericValue(int $integer, float $float): bool
     {
-        return is_finite($float) && (float)$integer === $float && (int)$float === $integer;
+        return is_finite($float) && (float) $integer === $float && (int) $float === $integer;
     }
 }
