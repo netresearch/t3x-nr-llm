@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
-use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\Database\Query\Restriction\HiddenRestriction;
@@ -26,7 +25,8 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
  * table and the edit permission on the page — content edit for a record,
  * page edit for a page. Seeing the page is not enough.
  *
- * Needs {@see \Netresearch\NrLlm\Utility\SafeCastTrait} in the using class.
+ * Needs {@see \Netresearch\NrLlm\Utility\SafeCastTrait} and
+ * {@see ChecksPageAccessAsActingUserTrait} in the using class.
  */
 trait ReadsHiddenRecordsTrait
 {
@@ -92,7 +92,7 @@ trait ReadsHiddenRecordsTrait
         }
 
         $key = $pageUid . ':' . $permission;
-        $cache[$key] ??= is_array(BackendUtility::readPageAccess($pageUid, self::toStr($user->getPagePermsClause($permission))));
+        $cache[$key] ??= $this->actingUserMayAccessPage($user, $pageUid, self::toStr($user->getPagePermsClause($permission)));
 
         return $cache[$key];
     }

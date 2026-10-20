@@ -14,7 +14,6 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
-use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -44,6 +43,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 final readonly class GetPageContentTool implements ToolInterface
 {
     use SafeCastTrait;
+    use ChecksPageAccessAsActingUserTrait;
 
     private const NOT_PERMITTED = 'Page not found or not permitted.';
 
@@ -126,7 +126,7 @@ final readonly class GetPageContentTool implements ToolInterface
         // a denied page are indistinguishable in the reply (fail-closed).
         if (!$isAdmin) {
             $permsClause = self::toStr($user->getPagePermsClause(Permission::PAGE_SHOW));
-            if (!is_array(BackendUtility::readPageAccess($uid, $permsClause))) {
+            if (!$this->actingUserMayAccessPage($user, $uid, $permsClause)) {
                 return ToolResult::text(self::NOT_PERMITTED);
             }
         }
@@ -155,7 +155,7 @@ final readonly class GetPageContentTool implements ToolInterface
         $contentPage = $pageParent > 0 ? $pageParent : $uid;
         if ($contentPage !== $uid && !$isAdmin) {
             $permsClause = self::toStr($user->getPagePermsClause(Permission::PAGE_SHOW));
-            if (!is_array(BackendUtility::readPageAccess($contentPage, $permsClause))) {
+            if (!$this->actingUserMayAccessPage($user, $contentPage, $permsClause)) {
                 return ToolResult::text(self::NOT_PERMITTED);
             }
         }

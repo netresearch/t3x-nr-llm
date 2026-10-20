@@ -207,7 +207,7 @@ final class GetRecordHistoryToolTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(ConnectionPool::class, $connectionPool);
         $groups = $connectionPool->getConnectionForTable('be_groups');
         self::assertInstanceOf(Connection::class, $groups);
-        // db_mountpoints + options=3: readPageAccess also requires the page
+        // db_mountpoints + options=3: the page check also requires the page
         // inside a webmount, and group mounts are only inherited with the
         // options bits set.
         $groups->insert('be_groups', [

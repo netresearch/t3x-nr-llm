@@ -45,6 +45,7 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 final readonly class ResolveUrlTool implements ToolInterface
 {
     use SafeCastTrait;
+    use ChecksPageAccessAsActingUserTrait;
 
     private const NOT_PERMITTED = 'Page not found or not permitted.';
 
@@ -223,7 +224,7 @@ final readonly class ResolveUrlTool implements ToolInterface
         if (!$isAdmin) {
             $user        = $context->actingBackendUser();
             $permsClause = $user instanceof BackendUserAuthentication ? self::toStr($user->getPagePermsClause(Permission::PAGE_SHOW)) : '1=0';
-            if (!$user instanceof BackendUserAuthentication || !is_array(BackendUtility::readPageAccess($pageUid, $permsClause))) {
+            if (!$user instanceof BackendUserAuthentication || !$this->actingUserMayAccessPage($user, $pageUid, $permsClause)) {
                 return self::NOT_PERMITTED;
             }
         }

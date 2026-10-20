@@ -41,6 +41,7 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 final readonly class GetRecordHistoryTool implements ToolInterface
 {
     use SafeCastTrait;
+    use ChecksPageAccessAsActingUserTrait;
 
     private const NOT_PERMITTED = 'Table not found or not permitted.';
 
@@ -199,7 +200,7 @@ final readonly class GetRecordHistoryTool implements ToolInterface
 
         $permsClause = self::toStr($user->getPagePermsClause(Permission::PAGE_SHOW));
 
-        return is_array(BackendUtility::readPageAccess($pageUid, $permsClause));
+        return $this->actingUserMayAccessPage($user, $pageUid, $permsClause);
     }
 
     /**
