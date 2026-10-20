@@ -34,7 +34,7 @@ final class AgentRunPersisterTest extends TestCase
     #[Test]
     public function beginOpensRunAndReturnsHandleCarryingAGeneratedUuid(): void
     {
-        $repository = new RecordingAgentRunRepository();
+        $repository          = new RecordingAgentRunRepository();
         $repository->nextUid = 42;
 
         $persister = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
@@ -153,8 +153,8 @@ final class AgentRunPersisterTest extends TestCase
         $repository               = new RecordingAgentRunRepository();
         $repository->throwOnClaim = true;
 
-        $persister                = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
-        $run                      = new AgentRun(1, 'uuid', 'waiting_for_approval', 0, '', 0, 0, false, 0, 0, 0, 0.0, '', '', 0, 0, 0, '{}');
+        $persister = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
+        $run       = new AgentRun(1, 'uuid', 'waiting_for_approval', 0, '', 0, 0, false, 0, 0, 0, 0.0, '', '', 0, 0, 0, '{}');
 
         // Fail-closed: a store error refuses the resume rather than risk a
         // double-execute of the gated tool.
@@ -167,7 +167,7 @@ final class AgentRunPersisterTest extends TestCase
         $repository               = new RecordingAgentRunRepository();
         $repository->throwOnStart = true;
 
-        $persister                = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
+        $persister = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
 
         self::assertNull($persister->begin(null, 0));
     }
@@ -178,8 +178,8 @@ final class AgentRunPersisterTest extends TestCase
         $repository                = new RecordingAgentRunRepository();
         $repository->throwOnRecord = true;
 
-        $persister                 = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
-        $handle                    = new AgentRunHandle(1, 'uuid');
+        $persister = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
+        $handle    = new AgentRunHandle(1, 'uuid');
 
         $persister->recordStep($handle, new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 1.0, content: 'x'));
 
@@ -280,7 +280,7 @@ final class AgentRunPersisterTest extends TestCase
         $repository               = new RecordingAgentRunRepository();
         $repository->refuseFinish = true;
 
-        $logger                   = $this->createMock(LoggerInterface::class);
+        $logger = $this->createMock(LoggerInterface::class);
         $logger->expects(self::once())->method('notice')->with(self::stringContains('was not settled by this call'), self::anything());
 
         $persister = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), $logger);
@@ -296,7 +296,7 @@ final class AgentRunPersisterTest extends TestCase
         $repository                 = new RecordingAgentRunRepository();
         $repository->throwOnSuspend = true;
 
-        $persister                  = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
+        $persister = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
 
         // An approval-gated tool is side-effecting: telling the caller "awaiting
         // approval" without stored state would promise a resume that cannot happen.
@@ -318,8 +318,8 @@ final class AgentRunPersisterTest extends TestCase
         $repository                = new RecordingAgentRunRepository();
         $repository->throwOnFinish = true;
 
-        $persister                 = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
-        $handle                    = new AgentRunHandle(1, 'uuid');
+        $persister = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
+        $handle    = new AgentRunHandle(1, 'uuid');
 
         $persister->settleCompleted($handle, new ToolLoopResult('', [], 1, false, UsageStatistics::fromTokens(0, 0)));
         $persister->settleFailed($handle, new RuntimeException('boom'));

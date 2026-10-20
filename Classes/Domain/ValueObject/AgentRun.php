@@ -60,6 +60,13 @@ final readonly class AgentRun
         // tool runs and cleared when it completes; '' = none. A run reaped while
         // this is a non-idempotent write is dead-lettered, not retried.
         public string $pendingEffect = '',
+        // Whether the run holds a guided process (ADR-228), filled only on the
+        // status projection: true or false once its lineage was read, null
+        // when it was not read or could not be. Read-only information for a
+        // client that restores its view; the runtime decides nothing from it.
+        public ?bool $holdsProcess = null,
+        // The identifier of the process skill the run holds, '' without one.
+        public string $processSkill = '',
     ) {}
 
     /**
@@ -94,6 +101,44 @@ final readonly class AgentRun
             leaseExpires: $this->leaseExpires,
             requeueCount: $this->requeueCount,
             pendingEffect: $this->pendingEffect,
+            holdsProcess: $this->holdsProcess,
+            processSkill: $this->processSkill,
+        );
+    }
+
+    /**
+     * The same run with what its status says about a guided process
+     * (ADR-228): whether it holds one and the process skill's identifier;
+     * null when the lineage could not be read.
+     */
+    public function withProcessState(?bool $holdsProcess, string $processSkill): self
+    {
+        return new self(
+            uid: $this->uid,
+            uuid: $this->uuid,
+            status: $this->status,
+            configurationUid: $this->configurationUid,
+            configurationIdentifier: $this->configurationIdentifier,
+            beUser: $this->beUser,
+            iterations: $this->iterations,
+            truncated: $this->truncated,
+            totalPromptTokens: $this->totalPromptTokens,
+            totalCompletionTokens: $this->totalCompletionTokens,
+            totalTokens: $this->totalTokens,
+            estimatedCost: $this->estimatedCost,
+            errorClass: $this->errorClass,
+            terminationReason: $this->terminationReason,
+            startedAt: $this->startedAt,
+            finishedAt: $this->finishedAt,
+            crdate: $this->crdate,
+            suspendedState: $this->suspendedState,
+            queuedRequest: $this->queuedRequest,
+            claimedBy: $this->claimedBy,
+            leaseExpires: $this->leaseExpires,
+            requeueCount: $this->requeueCount,
+            pendingEffect: $this->pendingEffect,
+            holdsProcess: $holdsProcess,
+            processSkill: $holdsProcess === true ? $processSkill : '',
         );
     }
 

@@ -42,8 +42,8 @@ final class SetPageSocialImageToolWithoutSeoTest extends AbstractFunctionalTestC
         self::assertInstanceOf(ConnectionPool::class, $connectionPool);
 
         $connectionPool->getConnectionForTable('pages')->insert('pages', [
-            'uid' => 1, 'pid' => 0, 'title' => 'Open page', 'doktype' => 1, 'slug' => '/open',
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => 1, 'pid' => 0, 'title' => 'Open page', 'doktype' => 1, 'slug' => '/open',
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
         ]);
 

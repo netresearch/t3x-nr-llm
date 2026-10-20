@@ -79,8 +79,8 @@ final class ToolDataHandlerTest extends AbstractFunctionalTestCase
         $this->importFixture('BeUsers.csv');
 
         $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
-            'uid' => self::PAGE, 'pid' => 0, 'title' => 'Open', 'doktype' => 1, 'slug' => '/',
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => self::PAGE, 'pid' => 0, 'title' => 'Open', 'doktype' => 1, 'slug' => '/',
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
         ]);
         foreach ([self::ELEMENT => 'Before', self::OTHER_ELEMENT => 'Other'] as $uid => $header) {
@@ -296,7 +296,7 @@ final class ToolDataHandlerTest extends AbstractFunctionalTestCase
     public function aHookThatFailsInTheRunCoreCopiesThroughIsRethrown(): void
     {
         FailsLikeAFlashMessageHook::$failAt = FailsLikeAFlashMessageHook::AFTER_ALL_OPERATIONS;
-        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $dataHandler                        = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([], ['tt_content' => [self::ELEMENT => ['copy' => self::PAGE]]], $this->user);
 
         try {
@@ -337,7 +337,7 @@ final class ToolDataHandlerTest extends AbstractFunctionalTestCase
     public function aDatabaseFailureIsDescribedWithoutItsMessage(): void
     {
         FailsLikeAFlashMessageHook::$failAt = FailsLikeAFlashMessageHook::AFTER_ALL_OPERATIONS;
-        FailsLikeAFlashMessageHook::$throw  = static fn(): RuntimeException => new RuntimeException(
+        FailsLikeAFlashMessageHook::$throw  = static fn (): RuntimeException => new RuntimeException(
             'Could not save',
             1790000003,
             new PDOException('SQLSTATE[28000] Access denied for user db-user-secret'),
@@ -354,7 +354,7 @@ final class ToolDataHandlerTest extends AbstractFunctionalTestCase
     public function aCredentialInTheMessageDoesNotReachTheDescription(): void
     {
         FailsLikeAFlashMessageHook::$failAt = FailsLikeAFlashMessageHook::AFTER_ALL_OPERATIONS;
-        FailsLikeAFlashMessageHook::$throw  = static fn(): RuntimeException => new RuntimeException(
+        FailsLikeAFlashMessageHook::$throw  = static fn (): RuntimeException => new RuntimeException(
             'POST https://deepl:userinfo-secret-0815@translate.example.com/v2?auth_key=query-secret-4711 failed with Authorization: Bearer sk-proj-abcdefghijklmnopqrstuvwxyz0123456789',
             1790000004,
         );
@@ -372,7 +372,7 @@ final class ToolDataHandlerTest extends AbstractFunctionalTestCase
     public function aLongMessageIsCut(): void
     {
         FailsLikeAFlashMessageHook::$failAt = FailsLikeAFlashMessageHook::AFTER_ALL_OPERATIONS;
-        FailsLikeAFlashMessageHook::$throw  = static fn(): RuntimeException => new RuntimeException(str_repeat('word ', 400), 1790000005);
+        FailsLikeAFlashMessageHook::$throw  = static fn (): RuntimeException => new RuntimeException(str_repeat('word ', 400), 1790000005);
 
         $this->updateHeader('After');
 
@@ -483,7 +483,7 @@ final class ToolDataHandlerTest extends AbstractFunctionalTestCase
             ->where($queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)))
             ->executeQuery()->fetchOne();
 
-        return is_numeric($deleted) ? (int)$deleted : -1;
+        return is_numeric($deleted) ? (int) $deleted : -1;
     }
 
     private function referenceIndexRowsFrom(int $uid, string $field): int

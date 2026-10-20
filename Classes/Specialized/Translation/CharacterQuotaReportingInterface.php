@@ -22,7 +22,7 @@ use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
  * the quota depends on this interface so it can be tested without a real
  * DeepL account.
  *
- * @internal Not part of the @api surface; may change without notice.
+ * @internal not part of the @api surface; may change without notice
  */
 interface CharacterQuotaReportingInterface
 {

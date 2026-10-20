@@ -30,7 +30,7 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 final readonly class ToolLoopResult
 {
     /**
-     * @param list<ToolInvocation> $trace Ordered record of every executed tool call.
+     * @param list<ToolInvocation> $trace ordered record of every executed tool call
      */
     public function __construct(
         public string $finalContent,

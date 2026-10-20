@@ -44,7 +44,7 @@ final class IdempotencyMiddlewarePipelineTest extends AbstractFunctionalTestCase
     #[Test]
     public function replaysAStoredTypedResponseFromTheRealCache(): void
     {
-        $context  = new ProviderCallContext(
+        $context = new ProviderCallContext(
             ProviderOperation::Chat,
             'corr',
             metadata: [IdempotencyMiddleware::METADATA_IDEMPOTENCY_KEY => 'checkout-99'],
@@ -59,7 +59,7 @@ final class IdempotencyMiddlewarePipelineTest extends AbstractFunctionalTestCase
         // First call computes and stores.
         $first = $this->middleware->handle(
             $context->withConfiguration(new LlmConfiguration()),
-            static fn(): CompletionResponse => $response,
+            static fn (): CompletionResponse => $response,
         );
         self::assertInstanceOf(CompletionResponse::class, $first);
 
@@ -67,7 +67,7 @@ final class IdempotencyMiddlewarePipelineTest extends AbstractFunctionalTestCase
         // terminal proves the replay is served entirely from the store.
         $replay = $this->middleware->handle(
             $context->withConfiguration(new LlmConfiguration()),
-            static fn(): CompletionResponse => throw new RuntimeException('provider must not be called', 1),
+            static fn (): CompletionResponse => throw new RuntimeException('provider must not be called', 1),
         );
 
         self::assertInstanceOf(CompletionResponse::class, $replay);

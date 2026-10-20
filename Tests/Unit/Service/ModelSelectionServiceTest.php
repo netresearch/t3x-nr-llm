@@ -46,7 +46,7 @@ final class ModelSelectionServiceTest extends TestCase
         parent::setUp();
 
         $this->modelRepository = self::createStub(ModelRepository::class);
-        $this->subject = new ModelSelectionService($this->modelRepository);
+        $this->subject         = new ModelSelectionService($this->modelRepository);
     }
 
     private function createModel(
@@ -60,16 +60,16 @@ final class ModelSelectionServiceTest extends TestCase
         bool $isDefault = false,
         int $sorting = 0,
     ): Model {
-        $provider = new Provider();
+        $provider           = new Provider();
         $providerReflection = new ReflectionClass($provider);
-        $providerUid = $providerReflection->getProperty('uid');
+        $providerUid        = $providerReflection->getProperty('uid');
         $providerUid->setValue($provider, $uid);
 
         $provider->setAdapterType($adapterType);
         $provider->setPriority($providerPriority);
 
-        $model = new Model();
-        $reflection = new ReflectionClass($model);
+        $model       = new Model();
+        $reflection  = new ReflectionClass($model);
         $uidProperty = $reflection->getProperty('uid');
         $uidProperty->setValue($model, $uid);
 
@@ -90,6 +90,7 @@ final class ModelSelectionServiceTest extends TestCase
     {
         $config = new LlmConfiguration();
         $config->setModelSelectionMode($mode);
+
         return $config;
     }
 
@@ -181,6 +182,7 @@ final class ModelSelectionServiceTest extends TestCase
             {
                 $current = current($this->items);
                 assert($current !== false);
+
                 return $current;
             }
 
@@ -191,7 +193,7 @@ final class ModelSelectionServiceTest extends TestCase
 
             public function key(): int
             {
-                return (int)key($this->items);
+                return (int) key($this->items);
             }
 
             public function valid(): bool
@@ -211,7 +213,7 @@ final class ModelSelectionServiceTest extends TestCase
     #[Test]
     public function resolveModelReturnsFixedModelWhenModeIsFixed(): void
     {
-        $model = $this->createModel(1);
+        $model  = $this->createModel(1);
         $config = $this->createConfiguration(LlmConfiguration::SELECTION_MODE_FIXED);
         $config->setLlmModel($model);
 
@@ -297,7 +299,7 @@ final class ModelSelectionServiceTest extends TestCase
             ->willReturn($this->createQueryResult([$model1, $model2]));
 
         $result = $this->subject->findMatchingModel([
-            'capabilities' => ['chat'],
+            'capabilities'     => ['chat'],
             'preferLowestCost' => true,
         ]);
 
@@ -469,8 +471,8 @@ final class ModelSelectionServiceTest extends TestCase
     #[Test]
     public function modelMatchesCriteriaRequiresProviderForAdapterTypeCheck(): void
     {
-        $model = new Model();
-        $reflection = new ReflectionClass($model);
+        $model       = new Model();
+        $reflection  = new ReflectionClass($model);
         $uidProperty = $reflection->getProperty('uid');
         $uidProperty->setValue($model, 1);
 
@@ -550,7 +552,7 @@ final class ModelSelectionServiceTest extends TestCase
             ->willReturn($this->createQueryResult([$model1, $model2]));
 
         $result = $this->subject->findMatchingModel([
-            'capabilities' => ['chat'],
+            'capabilities'     => ['chat'],
             'preferLowestCost' => true,
         ]);
 
@@ -743,10 +745,10 @@ final class ModelSelectionServiceTest extends TestCase
      */
     public static function enforcementSettingProvider(): iterable
     {
-        yield 'enforce'        => ['enforce'];
-        yield 'observe'        => ['observe'];
-        yield 'missing key'    => [null];
-        yield 'typo enforces'  => ['observ'];
+        yield 'enforce' => ['enforce'];
+        yield 'observe' => ['observe'];
+        yield 'missing key' => [null];
+        yield 'typo enforces' => ['observ'];
     }
 
     #[Test]

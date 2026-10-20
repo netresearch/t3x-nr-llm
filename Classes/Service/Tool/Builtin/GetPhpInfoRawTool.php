@@ -60,10 +60,10 @@ final readonly class GetPhpInfoRawTool implements ToolInterface, ToolDataClassIn
         // tokens and can blow the context window, so reduce it to text: drop the
         // <head>/<style>, strip tags, decode entities and collapse blank runs.
         if (stripos($info, '<html') !== false || stripos($info, '<table') !== false) {
-            $info = (string)preg_replace('#<(head|style|script)\b[^>]*>.*?</\1>#is', '', $info);
+            $info = (string) preg_replace('#<(head|style|script)\b[^>]*>.*?</\1>#is', '', $info);
             $info = strip_tags($info);
             $info = html_entity_decode($info, ENT_QUOTES | ENT_HTML5);
-            $info = (string)preg_replace("/\n{3,}/", "\n\n", $info);
+            $info = (string) preg_replace("/\n{3,}/", "\n\n", $info);
             $info = trim($info);
         }
 

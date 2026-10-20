@@ -52,7 +52,7 @@ final readonly class PreviewingApprovalTool implements ToolInterface, RequiresAp
 
         $uid = $arguments['uid'] ?? 0;
 
-        return $this->lines ?? ['would touch page ' . (is_numeric($uid) ? (int)$uid : 0)];
+        return $this->lines ?? ['would touch page ' . (is_numeric($uid) ? (int) $uid : 0)];
     }
 
     public function getSpec(): ToolSpec

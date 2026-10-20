@@ -61,11 +61,11 @@ class SpeechSynthesisOptionsTest extends AbstractUnitTestCase
     public static function validVoicesProvider(): array
     {
         return [
-            'alloy' => ['alloy'],
-            'echo' => ['echo'],
-            'fable' => ['fable'],
-            'onyx' => ['onyx'],
-            'nova' => ['nova'],
+            'alloy'   => ['alloy'],
+            'echo'    => ['echo'],
+            'fable'   => ['fable'],
+            'onyx'    => ['onyx'],
+            'nova'    => ['nova'],
             'shimmer' => ['shimmer'],
         ];
     }
@@ -93,7 +93,7 @@ class SpeechSynthesisOptionsTest extends AbstractUnitTestCase
     public static function validModelsProvider(): array
     {
         return [
-            'tts-1' => ['tts-1'],
+            'tts-1'    => ['tts-1'],
             'tts-1-hd' => ['tts-1-hd'],
         ];
     }
@@ -121,12 +121,12 @@ class SpeechSynthesisOptionsTest extends AbstractUnitTestCase
     public static function validFormatsProvider(): array
     {
         return [
-            'mp3' => ['mp3'],
+            'mp3'  => ['mp3'],
             'opus' => ['opus'],
-            'aac' => ['aac'],
+            'aac'  => ['aac'],
             'flac' => ['flac'],
-            'wav' => ['wav'],
-            'pcm' => ['pcm'],
+            'wav'  => ['wav'],
+            'pcm'  => ['pcm'],
         ];
     }
 
@@ -220,10 +220,10 @@ class SpeechSynthesisOptionsTest extends AbstractUnitTestCase
     public function fromArrayCreatesOptionsFromArray(): void
     {
         $options = SpeechSynthesisOptions::fromArray([
-            'model' => 'tts-1-hd',
-            'voice' => 'shimmer',
+            'model'  => 'tts-1-hd',
+            'voice'  => 'shimmer',
             'format' => 'opus',
-            'speed' => 2.0,
+            'speed'  => 2.0,
         ]);
 
         self::assertEquals('tts-1-hd', $options->model);

@@ -46,7 +46,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     description: 'Delete content-bearing rows (eval results, skill audit, telemetry, conversations, agent runs, governance events) past their retention window.',
 )]
 /**
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class PurgePrivacyDataCommand extends Command
 {
@@ -86,7 +86,7 @@ final class PurgePrivacyDataCommand extends Command
         }
 
         $now    = time();
-        $window = fn(PrivacyDataCategory $category): array => $this->window($category, $override, $now);
+        $window = fn (PrivacyDataCategory $category): array => $this->window($category, $override, $now);
 
         $purged = [];
 
@@ -101,7 +101,7 @@ final class PurgePrivacyDataCommand extends Command
         // Same window on purpose: a call outcome is only readable joined to the
         // telemetry row carrying its model and cost (ADR-176), so it must not
         // outlive it or go before it.
-        $purged[]        = sprintf('Call outcomes (%d d): %d', $days, $this->callOutcomes->purgeOlderThan($cutoff));
+        $purged[] = sprintf('Call outcomes (%d d): %d', $days, $this->callOutcomes->purgeOlderThan($cutoff));
 
         [$days, $cutoff] = $window(PrivacyDataCategory::CONVERSATION);
         $purged[]        = sprintf('Conversation sessions (%d d): %d', $days, $this->sessions->purgeInactiveSince($cutoff));
@@ -146,6 +146,6 @@ final class PurgePrivacyDataCommand extends Command
             return null;
         }
 
-        return is_numeric($daysOption) ? (int)$daysOption : 0;
+        return is_numeric($daysOption) ? (int) $daysOption : 0;
     }
 }

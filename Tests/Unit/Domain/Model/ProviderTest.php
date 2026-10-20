@@ -288,11 +288,11 @@ final class ProviderTest extends AbstractUnitTestCase
     public static function plaintextApiKeyProvider(): array
     {
         return [
-            'OpenAI project key' => ['sk-proj-abc123xyz'],
-            'Anthropic key' => ['sk-ant-api03-abc123'],
-            'xAI key' => ['xai-abc123xyz'],
+            'OpenAI project key'             => ['sk-proj-abc123xyz'],
+            'Anthropic key'                  => ['sk-ant-api03-abc123'],
+            'xAI key'                        => ['xai-abc123xyz'],
             'Google key (name-style shaped)' => ['AIzaSyDabc123xyz'],
-            'Groq key' => ['gsk_abc123xyz'],
+            'Groq key'                       => ['gsk_abc123xyz'],
         ];
     }
 
@@ -332,7 +332,7 @@ final class ProviderTest extends AbstractUnitTestCase
     public function getDecryptedApiKeyRetrievesSecretForUuidV7Identifier(): void
     {
         $vaultId = '01938f2a-1b2c-7abc-89de-1234567890ab';
-        $vault = $this->createVaultServiceMock([$vaultId => 'sk-decrypted-secret']);
+        $vault   = $this->createVaultServiceMock([$vaultId => 'sk-decrypted-secret']);
         GeneralUtility::addInstance(VaultServiceInterface::class, $vault);
 
         $this->subject->setApiKey($vaultId);
@@ -623,13 +623,13 @@ final class ProviderTest extends AbstractUnitTestCase
     public static function adapterDefaultEndpointProvider(): array
     {
         return [
-            'openai' => ['openai', 'https://api.openai.com/v1'],
-            'anthropic' => ['anthropic', 'https://api.anthropic.com/v1'],
-            'gemini' => ['gemini', 'https://generativelanguage.googleapis.com/v1beta'],
+            'openai'     => ['openai', 'https://api.openai.com/v1'],
+            'anthropic'  => ['anthropic', 'https://api.anthropic.com/v1'],
+            'gemini'     => ['gemini', 'https://generativelanguage.googleapis.com/v1beta'],
             'openrouter' => ['openrouter', 'https://openrouter.ai/api/v1'],
-            'mistral' => ['mistral', 'https://api.mistral.ai/v1'],
-            'groq' => ['groq', 'https://api.groq.com/openai/v1'],
-            'ollama' => ['ollama', 'http://localhost:11434'],
+            'mistral'    => ['mistral', 'https://api.mistral.ai/v1'],
+            'groq'       => ['groq', 'https://api.groq.com/openai/v1'],
+            'ollama'     => ['ollama', 'http://localhost:11434'],
         ];
     }
 
