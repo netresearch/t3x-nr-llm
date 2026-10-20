@@ -177,11 +177,11 @@ final class RunTimelineFactoryTest extends TestCase
                     round: 1,
                     durationMs: 0.0,
                     payload: [
-                        'kind' => 'tool_write',
-                        'toolName' => 'update_content_element',
-                        'writeTargetTable' => 'tt_content',
-                        'writeTargetUid' => 12,
-                        'writeCompleteness' => 'partial',
+                        'kind'                 => 'tool_write',
+                        'toolName'             => 'update_content_element',
+                        'writeTargetTable'     => 'tt_content',
+                        'writeTargetUid'       => 12,
+                        'writeCompleteness'    => 'partial',
                         'hookFailedAfterWrite' => true,
                     ],
                     crdate: 1700000011,
@@ -518,9 +518,9 @@ final class RunTimelineFactoryTest extends TestCase
         array $expectedFacts,
         string $expectedOutcome,
     ): void {
-        $telemetry = new InMemoryTelemetryRepository();
+        $telemetry                                     = new InMemoryTelemetryRepository();
         $telemetry->callsByCorrelation[self::RUN_UUID] = [$call];
-        $factory = new RunTimelineFactory(
+        $factory                                       = new RunTimelineFactory(
             $telemetry,
             new InMemoryGovernanceEventRepository(),
         );
@@ -532,7 +532,7 @@ final class RunTimelineFactoryTest extends TestCase
         self::assertSame(1700000020, $entry->occurredAt);
         self::assertSame(-1, $entry->sequence);
         self::assertSame(0, $entry->round);
-        self::assertSame((float)$call->latencyMs, $entry->durationMs);
+        self::assertSame((float) $call->latencyMs, $entry->durationMs);
         self::assertSame($expectedOutcome, $entry->outcome);
         self::assertSame('', $entry->approvalAttribution);
         $actualFacts = [];
@@ -574,8 +574,8 @@ final class RunTimelineFactoryTest extends TestCase
                 1700000020,
             ),
             [
-                'provider' => 'primary',
-                'model' => 'model-a',
+                'provider'  => 'primary',
+                'model'     => 'model-a',
                 'latencyMs' => '1200',
             ],
             'ok',
@@ -596,10 +596,10 @@ final class RunTimelineFactoryTest extends TestCase
                 1700000020,
             ),
             [
-                'provider' => 'primary',
-                'model' => 'model-a',
+                'provider'  => 'primary',
+                'model'     => 'model-a',
                 'latencyMs' => '7',
-                'cacheHit' => '1',
+                'cacheHit'  => '1',
             ],
             'ok',
         ];
@@ -619,13 +619,13 @@ final class RunTimelineFactoryTest extends TestCase
                 1700000020,
             ),
             [
-                'provider' => 'primary',
-                'model' => 'model-a',
-                'servedProvider' => 'primary',
-                'servedModel' => 'model-b',
-                'latencyMs' => '1200',
+                'provider'         => 'primary',
+                'model'            => 'model-a',
+                'servedProvider'   => 'primary',
+                'servedModel'      => 'model-b',
+                'latencyMs'        => '1200',
                 'fallbackAttempts' => '3',
-                'ttftMs' => '17',
+                'ttftMs'           => '17',
             ],
             'ok',
         ];
@@ -645,13 +645,13 @@ final class RunTimelineFactoryTest extends TestCase
                 1700000020,
             ),
             [
-                'provider' => 'primary',
-                'model' => 'model-a',
-                'servedProvider' => 'secondary',
-                'servedModel' => 'model-a',
-                'latencyMs' => '12',
+                'provider'         => 'primary',
+                'model'            => 'model-a',
+                'servedProvider'   => 'secondary',
+                'servedModel'      => 'model-a',
+                'latencyMs'        => '12',
                 'fallbackAttempts' => '1',
-                'ttftMs' => '0',
+                'ttftMs'           => '0',
             ],
             'ok',
         ];
@@ -671,9 +671,9 @@ final class RunTimelineFactoryTest extends TestCase
                 1700000020,
             ),
             [
-                'provider' => 'primary',
-                'model' => 'model-a',
-                'latencyMs' => '3',
+                'provider'   => 'primary',
+                'model'      => 'model-a',
+                'latencyMs'  => '3',
                 'errorClass' => RuntimeException::class,
             ],
             'failed',
