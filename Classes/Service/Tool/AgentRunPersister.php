@@ -487,9 +487,10 @@ final readonly class AgentRunPersister
         array $from,
         AgentRunStatus $to,
         AgentRunTerminationReason $reason,
+        string $errorClass = '',
     ): bool {
         try {
-            return $this->repository->settleIfWaiting($run->uid, $from, $to, $reason);
+            return $this->repository->settleIfWaiting($run->uid, $from, $to, $reason, $errorClass);
         } catch (InvalidArgumentException $exception) {
             // A caller's mistake, not a store failure: never a quiet "lost".
             throw $exception;

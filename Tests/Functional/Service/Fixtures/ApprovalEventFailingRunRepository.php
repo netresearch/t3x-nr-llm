@@ -69,9 +69,9 @@ final readonly class ApprovalEventFailingRunRepository implements AgentRunReposi
         return $this->inner->finishRun($runUid, $status, $iterations, $truncated, $promptTokens, $completionTokens, $totalTokens, $estimatedCost, $errorClass, $terminationReason, $ownedBy);
     }
 
-    public function settleIfWaiting(int $runUid, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason): bool
+    public function settleIfWaiting(int $runUid, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason, string $errorClass = ''): bool
     {
-        return $this->inner->settleIfWaiting($runUid, $from, $to, $reason);
+        return $this->inner->settleIfWaiting($runUid, $from, $to, $reason, $errorClass);
     }
 
     public function suspendRun(int $runUid, string $stateJson): bool

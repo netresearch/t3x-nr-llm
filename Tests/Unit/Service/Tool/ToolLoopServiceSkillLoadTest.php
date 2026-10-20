@@ -22,11 +22,13 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
+use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationTarget;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 use Netresearch\NrLlm\Service\Context\ContextWindowManager;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Context\SectionAdmissionInterface;
@@ -51,6 +53,7 @@ use Netresearch\NrLlm\Service\Tool\ToolInvocationContext;
 use Netresearch\NrLlm\Service\Tool\ToolInvocationPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Tests\Fixtures\Process\ProcessPinProbeStub;
 use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\FixedSkillLoadLookup;
 use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\FixedSkillSourceLookup;
 use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\InMemorySkillApprovalRepository;
@@ -150,6 +153,36 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
         $last = count($this->sends) - 1;
         self::assertStringContainsString(self::BODY, $this->systemText($last));
         self::assertStringContainsString('is loaded', $this->toolResult($last, 'c1'));
+    }
+
+    /**
+     * In a guided process (ADR-214 item 9) a load beside the pending write is
+     * one of the reads that run before the suspension, and it runs through
+     * the loop's own load seam, not as a plain tool: the section joins the
+     * stored system message, the result says it is loaded, and the loaded pin
+     * is stored with the suspended state.
+     */
+    #[Test]
+    public function aLoadBesideAProcessProposalRunsThroughTheLoadSeam(): void
+    {
+        $turns                     = [[$this->loadCall('c1'), new ToolCall('c2', 'write', [])]];
+        [$service, $configuration] = $this->service($turns, processPinProbe: new ProcessPinProbeStub(everyRun: true));
+
+        try {
+            $service->runLoop([ChatMessage::user('write the release note')], $configuration, ToolExecutionContext::none(), null, null, 5);
+            self::fail('The write did not suspend the run.');
+        } catch (ToolApprovalRequiredException $e) {
+            $state = $e->state;
+        }
+
+        self::assertSame(['c2'], array_column($state->pendingCalls, 'id'));
+        self::assertSame([self::SKILL_UID], array_map(static fn (SkillPin $pin): int => $pin->skillUid, $state->skillPins));
+        $stored = array_map(ChatMessage::fromArray(...), $state->messages);
+        self::assertTrue($stored[0]->isSystem());
+        self::assertStringContainsString(self::BODY, $stored[0]->content);
+        $loaded = array_values(array_filter($stored, static fn (ChatMessage $m): bool => $m->toolCallId === 'c1'));
+        self::assertCount(1, $loaded);
+        self::assertStringContainsString('is loaded', $loaded[0]->content);
     }
 
     /**
@@ -661,6 +694,7 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
         ?ModelSelectionServiceInterface $modelSelection = null,
         bool $criteria = false,
         string $body = self::BODY,
+        ?ProcessPinProbe $processPinProbe = null,
     ): array {
         $this->sends = [];
         $manager     = self::createStub(LlmServiceManagerInterface::class);
@@ -730,6 +764,7 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
             invocationPolicy: $invocationPolicy,
             skillLoad: new SkillLoadService($composer, $lookup),
             modelSelection: $modelSelection,
+            processPinProbe: $processPinProbe,
         );
 
         return [$service, $configuration, $window];

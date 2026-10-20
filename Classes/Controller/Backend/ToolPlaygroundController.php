@@ -12,12 +12,14 @@ namespace Netresearch\NrLlm\Controller\Backend;
 use Closure;
 use Netresearch\NrLlm\Controller\Backend\Response\PlaygroundRunResponse;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
+use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
@@ -32,6 +34,9 @@ use Netresearch\NrLlm\Service\Agent\Exception\ApprovalNotAuditableException;
 use Netresearch\NrLlm\Service\Agent\Exception\ApproverNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunDecidedInChatException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunNeedsSecondApproverException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessVerdictUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
@@ -44,9 +49,11 @@ use Netresearch\NrLlm\Service\Agent\Exception\StaleInputTurnException;
 use Netresearch\NrLlm\Service\Agent\Exception\SubmitterNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
+use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 use Netresearch\NrLlm\Service\Context\InputContextClassification;
 use Netresearch\NrLlm\Service\Context\InputContextClassifier;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface;
 use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
@@ -119,6 +126,12 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         // inspector reads it rather than re-deriving "what does this
         // configuration inject", so the readout and the gate cannot disagree.
         private readonly InputContextClassifier $inputContextClassifier,
+        // ADR-214: a guided process is decided in the chat only, so both
+        // actions that decide a run refuse one here.
+        private readonly ProcessPinProbe $processPins,
+        // The probe needs the stored row: the runtime's status() strips the
+        // suspended state, and with it the pins the probe reads.
+        private readonly AgentRunPersister $persister,
     ) {}
 
     public function listAction(): ResponseInterface
@@ -308,6 +321,10 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         // a client that does not send it cannot approve.
         $digest = trim($this->stringFromBody($body, 'turnDigest'));
 
+        if (($refusal = $this->refusalBeforeTheRuntime($runUuid, 'awaiting_approval')) instanceof ResponseInterface) {
+            return $refusal;
+        }
+
         try {
             $result = $this->agentRuntime->approve(
                 $this->currentActor(),
@@ -367,6 +384,13 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.corruptState', 'The suspended run state could not be read.')], 500);
         } catch (RunAlreadyResumingException) {
             return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.alreadyResuming', 'This run is already being processed.')], 409);
+        } catch (ProcessRunDecidedInChatException) {
+            // The runtime's own check, on its own read of the row (ADR-214).
+            return $this->decidedInTheChat();
+        } catch (ProcessRunNeedsSecondApproverException) {
+            return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.processStopped', 'This run was stopped: it is a guided process, and its configuration requires a second approver, under which nobody could apply its proposals.')], 409);
+        } catch (ProcessVerdictUnavailableException) {
+            return $this->verdictUnavailable($runUuid, 'awaiting_approval');
         }
 
         return $this->respondToResult($result, false);
@@ -395,6 +419,10 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         // null, which the runtime refuses like a mismatch — a client that does
         // not send it cannot submit.
         $digest = trim($this->stringFromBody($body, 'turnDigest'));
+
+        if (($refusal = $this->refusalBeforeTheRuntime($runUuid, 'awaiting_input')) instanceof ResponseInterface) {
+            return $refusal;
+        }
 
         try {
             $result = $this->agentRuntime->submitInput(
@@ -442,9 +470,76 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.corruptState', 'The suspended run state could not be read.')], 500);
         } catch (RunAlreadyResumingException) {
             return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.alreadyResuming', 'This run is already being processed.')], 409);
+        } catch (ProcessRunDecidedInChatException) {
+            // The runtime's own check, on its own read of the row (ADR-214).
+            return $this->decidedInTheChat();
+        } catch (ProcessRunNeedsSecondApproverException) {
+            return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.processStopped', 'This run was stopped: it is a guided process, and its configuration requires a second approver, under which nobody could apply its proposals.')], 409);
+        } catch (ProcessVerdictUnavailableException) {
+            return $this->verdictUnavailable($runUuid, 'awaiting_input');
         }
 
         return $this->respondToResult($result, false);
+    }
+
+    /**
+     * The answer given before the runtime is asked, or null to ask it. Both
+     * actions accept any run uuid for an administrator, so this is the place
+     * a run started in the chat could otherwise be decided outside it
+     * (ADR-214). The probe reads the stored row: status() strips the
+     * suspended state the pins live in. A row that cannot be loaded is
+     * answered here rather than handed on, because the runtime reads it again
+     * and a second read that succeeds would get past the process check. Only
+     * an administrator reaches this (denyNonAdmin()); the runtime authorises
+     * the decision itself. The retryable answer re-signals a pause only for a
+     * run that is in it; any other run is left to the runtime, which refuses
+     * it as not waiting before it asks about pins.
+     */
+    private function refusalBeforeTheRuntime(string $runUuid, string $waitingStatus): ?ResponseInterface
+    {
+        if ($runUuid === '') {
+            return null;
+        }
+
+        $run = $this->persister->findRun($runUuid);
+        if (!$run instanceof AgentRun) {
+            return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.unreadable', "This run's state could not be read; no action is available.")], 400);
+        }
+
+        $waitingIn = $waitingStatus === 'awaiting_input' ? AgentRunStatus::WAITING_FOR_INPUT : AgentRunStatus::WAITING_FOR_APPROVAL;
+
+        return match ($this->processPins->processPinOf($run)) {
+            true  => $this->decidedInTheChat(),
+            null  => $run->statusEnum() === $waitingIn ? $this->verdictUnavailable($runUuid, $waitingStatus) : null,
+            false => null,
+        };
+    }
+
+    /**
+     * 503 with the pause re-signalled, like the other retryable refusal:
+     * whether the run is a guided process could not be checked, nothing was
+     * decided, the run still waits, and the same request can be sent again.
+     */
+    private function verdictUnavailable(string $runUuid, string $waitingStatus): ResponseInterface
+    {
+        return $this->respondJson([
+            'success' => false,
+            'status'  => $waitingStatus,
+            'runUuid' => $runUuid,
+            'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.processVerdictUnavailable', 'Whether this run is a guided process could not be checked, so nothing was decided. Please try again.'),
+        ], 503);
+    }
+
+    /**
+     * 409 and no status to re-signal: nothing here can decide the run, and the
+     * run stays waiting for its chat card.
+     */
+    private function decidedInTheChat(): ResponseInterface
+    {
+        return $this->respondJson([
+            'success' => false,
+            'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.decidedInChat', 'This run is a guided process. It is decided in the chat by the person who started it, not in the playground.'),
+        ], 409);
     }
 
     /**

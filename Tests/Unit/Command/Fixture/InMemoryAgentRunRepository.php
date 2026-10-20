@@ -62,7 +62,7 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
         return true;
     }
 
-    public function settleIfWaiting(int $runUid, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason): bool
+    public function settleIfWaiting(int $runUid, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason, string $errorClass = ''): bool
     {
         return false;
     }

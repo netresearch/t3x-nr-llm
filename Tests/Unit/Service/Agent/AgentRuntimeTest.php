@@ -50,6 +50,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\ApproverNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\Exception\AuditPersistenceFailedException;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunDecidedInChatException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAccessDeniedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
@@ -63,6 +64,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\StaleInputTurnException;
 use Netresearch\NrLlm\Service\Agent\Exception\WriteWithoutDurableExecutionException;
 use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
+use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
 use Netresearch\NrLlm\Service\Agent\QueuedRunCoordinator;
 use Netresearch\NrLlm\Service\Agent\QueuedRunFailureRecovery;
@@ -84,6 +86,7 @@ use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
+use Netresearch\NrLlm\Tests\Fixtures\Process\ProcessPinProbeStub;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\RecordingAgentRunRepository;
@@ -477,6 +480,23 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         self::assertSame(5, $approval['sequence']);
         $payload = json_decode($approval['payloadJson'], true);
         self::assertSame(['approved' => true, 'decidedBy' => 42], $payload);
+    }
+
+    /**
+     * The resume coordinator this runtime builds itself gets the runtime's
+     * probe, so the process guards (ADR-214 item 6) hold on that path too: a
+     * run holding a process pin is not decided by someone who did not start it.
+     * Without a pin an administrator decides any run (mayActOnRun).
+     */
+    #[Test]
+    public function approveHandsTheProcessPinProbeToTheCoordinatorItBuilds(): void
+    {
+        $this->repository->findResult = $this->suspendedRun();
+
+        $this->expectException(ProcessRunDecidedInChatException::class);
+        // An administrator who did not start the run (it belongs to uid 9).
+        $this->runtime($this->loopReturning($this->loopResult('x')), processPinProbe: new ProcessPinProbeStub(everyRun: true))
+            ->approve(AiActorContext::backendUser(1, isAdmin: true), 'run-uuid-1', $this->decision(true, 1));
     }
 
     #[Test]
@@ -1854,6 +1874,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         // cases that are not about it leave both null and are unaffected.
         ?ToolCallPolicyInterface $toolPolicy = null,
         ?ActingBackendUserResolverInterface $actingBackendUserResolver = null,
+        ?ProcessPinProbe $processPinProbe = null,
     ): AgentRuntime {
         $configurationRepository = self::createStub(LlmConfigurationRepository::class);
         $configurationRepository->method('findByUid')->willReturn($configuration);
@@ -1871,6 +1892,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
             actingBackendUserResolver: $actingBackendUserResolver ?? self::createStub(ActingBackendUserResolverInterface::class),
             toolEffectResolver: $effectResolver,
             toolPolicy: $toolPolicy,
+            processPinProbe: $processPinProbe,
         );
     }
 
@@ -2061,10 +2083,11 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         self::assertTrue($result->cancelled);
         self::assertSame(AgentRunStatus::CANCELLED, $result->status);
         self::assertSame([[
-            'runUid' => 1,
-            'from'   => ['waiting_for_approval', 'waiting_for_input'],
-            'to'     => 'cancelled',
-            'reason' => 'cancelled',
+            'runUid'     => 1,
+            'from'       => ['waiting_for_approval', 'waiting_for_input'],
+            'to'         => 'cancelled',
+            'reason'     => 'cancelled',
+            'errorClass' => '',
         ]], $this->repository->settledIfWaiting);
         self::assertNull($this->repository->finished, 'the guarded transition, never the unguarded cancel');
     }
