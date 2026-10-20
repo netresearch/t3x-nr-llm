@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\StructuredCompletionResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
 use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -35,6 +36,7 @@ final class StaticCompletionService implements CompletionServiceInterface
         private readonly string $content,
         private readonly string $model = 'test-model',
         private readonly bool $throw = false,
+        public ?GeneratorProvenance $generatorProvenance = null,
     ) {}
 
     public function complete(string $prompt, ?ChatOptions $options = null): CompletionResponse
@@ -48,6 +50,10 @@ final class StaticCompletionService implements CompletionServiceInterface
             $this->content,
             $this->model,
             new UsageStatistics(0, 0, 0),
+            provider: 'fixture-adapter',
+            metadata: $this->generatorProvenance instanceof GeneratorProvenance ? [
+                GeneratorProvenance::METADATA_KEY => $this->generatorProvenance->toArray(),
+            ] : null,
         );
     }
 

@@ -12,6 +12,10 @@ namespace Netresearch\NrLlm\Provider\Middleware;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 
+use function is_array;
+use function is_int;
+use function is_string;
+
 /**
  * Array-payload cache middleware.
  *
@@ -88,9 +92,9 @@ final readonly class CacheMiddleware implements ProviderMiddlewareInterface
         return 100;
     }
 
-    public const METADATA_CACHE_KEY  = 'cacheKey';
+    public const METADATA_CACHE_KEY = 'cacheKey';
 
-    public const METADATA_CACHE_TTL  = 'cacheTtl';
+    public const METADATA_CACHE_TTL = 'cacheTtl';
 
     public const METADATA_CACHE_TAGS = 'cacheTags';
 
@@ -124,7 +128,7 @@ final readonly class CacheMiddleware implements ProviderMiddlewareInterface
 
         $result = $next($context);
 
-        if (\is_array($result)) {
+        if (is_array($result)) {
             /** @var array<string, mixed> $result */
             $this->cache->set(
                 $key,
@@ -140,7 +144,7 @@ final readonly class CacheMiddleware implements ProviderMiddlewareInterface
     private function readKey(ProviderCallContext $context): ?string
     {
         $value = $context->metadata[self::METADATA_CACHE_KEY] ?? null;
-        if (!\is_string($value) || $value === '') {
+        if (!is_string($value) || $value === '') {
             return null;
         }
 
@@ -150,7 +154,7 @@ final readonly class CacheMiddleware implements ProviderMiddlewareInterface
     private function readTtl(ProviderCallContext $context): int
     {
         $value = $context->metadata[self::METADATA_CACHE_TTL] ?? null;
-        if (\is_int($value) && $value > 0) {
+        if (is_int($value) && $value > 0) {
             return $value;
         }
 
@@ -163,13 +167,13 @@ final readonly class CacheMiddleware implements ProviderMiddlewareInterface
     private function readTags(ProviderCallContext $context): array
     {
         $value = $context->metadata[self::METADATA_CACHE_TAGS] ?? null;
-        if (!\is_array($value)) {
+        if (!is_array($value)) {
             return [];
         }
 
         $tags = [];
         foreach ($value as $tag) {
-            if (\is_string($tag) && $tag !== '') {
+            if (is_string($tag) && $tag !== '') {
                 $tags[] = $tag;
             }
         }

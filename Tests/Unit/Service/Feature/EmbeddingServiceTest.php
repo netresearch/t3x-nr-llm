@@ -32,13 +32,13 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
     {
         parent::setUp();
         $this->llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $this->subject = new EmbeddingService($this->llmManagerStub);
+        $this->subject        = new EmbeddingService($this->llmManagerStub);
     }
 
     #[Test]
     public function embedReturnsVectorArray(): void
     {
-        $text = 'Test text';
+        $text           = 'Test text';
         $expectedVector = [0.1, 0.2, 0.3];
 
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
@@ -48,7 +48,7 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
             ->willReturn($this->createMockEmbeddingResponse([$expectedVector]));
 
         $subject = new EmbeddingService($llmManagerMock);
-        $result = $subject->embed($text);
+        $result  = $subject->embed($text);
 
         self::assertEquals($expectedVector, $result);
     }
@@ -72,7 +72,7 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
     #[Test]
     public function embedBatchProcessesMultipleTexts(): void
     {
-        $texts = ['Text 1', 'Text 2', 'Text 3'];
+        $texts   = ['Text 1', 'Text 2', 'Text 3'];
         $vectors = [[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]];
 
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
@@ -114,7 +114,7 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
     public function findMostSimilarReturnsTopK(): void
     {
         $queryVector = [1.0, 0.0];
-        $candidates = [
+        $candidates  = [
             [0.9, 0.1],  // Similar
             [0.0, 1.0],  // Orthogonal
             [1.0, 0.0],  // Identical
@@ -132,7 +132,7 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
     #[Test]
     public function normalizeCreatesUnitVector(): void
     {
-        $vector = [3.0, 4.0]; // Magnitude = 5.0
+        $vector     = [3.0, 4.0]; // Magnitude = 5.0
         $normalized = $this->subject->normalize($vector);
 
         self::assertEqualsWithDelta(0.6, $normalized[0], 0.001);
@@ -190,7 +190,7 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
     #[Test]
     public function embedForConfigurationDelegatesToManagerAndReturnsVector(): void
     {
-        $config = self::createStub(LlmConfiguration::class);
+        $config         = self::createStub(LlmConfiguration::class);
         $expectedVector = [0.1, 0.2, 0.3];
 
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
@@ -205,7 +205,7 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
             ->willReturn($this->createMockEmbeddingResponse([$expectedVector]));
 
         $subject = new EmbeddingService($llmManagerMock);
-        $result = $subject->embedForConfiguration('Some text', $config);
+        $result  = $subject->embedForConfiguration('Some text', $config);
 
         self::assertSame($expectedVector, $result);
     }
@@ -232,7 +232,7 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
         $config = self::createStub(LlmConfiguration::class);
 
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver       = $this->createMock(BackendUserContextResolverInterface::class);
         $resolver->expects(self::once())
             ->method('resolveBeUserUid')
             ->willReturn(42);
@@ -242,8 +242,7 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
             ->with(
                 'hello',
                 self::identicalTo($config),
-                self::callback(static fn(EmbeddingOptions $options): bool
-                    => $options->getBeUserUid() === 42),
+                self::callback(static fn (EmbeddingOptions $options): bool => $options->getBeUserUid() === 42),
             )
             ->willReturn($this->createMockEmbeddingResponse([[0.1]]));
 
@@ -254,8 +253,8 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
     #[Test]
     public function embedBatchForConfigurationDelegatesToManagerAndReturnsVectors(): void
     {
-        $config = self::createStub(LlmConfiguration::class);
-        $texts = ['Text 1', 'Text 2'];
+        $config  = self::createStub(LlmConfiguration::class);
+        $texts   = ['Text 1', 'Text 2'];
         $vectors = [[0.1, 0.2], [0.3, 0.4]];
 
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
@@ -295,7 +294,7 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
         // CompletionService — the resolver fills `beUserUid` only
         // when the caller did not set one.
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver       = $this->createMock(BackendUserContextResolverInterface::class);
         $resolver->expects(self::once())
             ->method('resolveBeUserUid')
             ->willReturn(42);
@@ -306,8 +305,7 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
             ->method('embed')
             ->with(
                 'hello',
-                self::callback(static fn(EmbeddingOptions $options): bool
-                    => $options->getBeUserUid() === 42),
+                self::callback(static fn (EmbeddingOptions $options): bool => $options->getBeUserUid() === 42),
             )
             ->willReturn($this->createMockEmbeddingResponse([[0.1, 0.2]]));
 
@@ -318,7 +316,7 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
     public function embedFullRespectsExplicitBeUserUidOverResolver(): void
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver       = $this->createMock(BackendUserContextResolverInterface::class);
         $resolver->expects(self::never())
             ->method('resolveBeUserUid');
 
@@ -328,8 +326,7 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
             ->method('embed')
             ->with(
                 'hello',
-                self::callback(static fn(EmbeddingOptions $options): bool
-                    => $options->getBeUserUid() === 99),
+                self::callback(static fn (EmbeddingOptions $options): bool => $options->getBeUserUid() === 99),
             )
             ->willReturn($this->createMockEmbeddingResponse([[0.1]]));
 
@@ -343,7 +340,7 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
         // (`?? new EmbeddingOptions()`); explicit coverage so the
         // resolver hook is not silently bypassed for batch callers.
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver       = $this->createMock(BackendUserContextResolverInterface::class);
         $resolver->expects(self::once())
             ->method('resolveBeUserUid')
             ->willReturn(7);
@@ -354,8 +351,7 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
             ->method('embed')
             ->with(
                 ['a', 'b'],
-                self::callback(static fn(EmbeddingOptions $options): bool
-                    => $options->getBeUserUid() === 7),
+                self::callback(static fn (EmbeddingOptions $options): bool => $options->getBeUserUid() === 7),
             )
             ->willReturn($this->createMockEmbeddingResponse([[0.1], [0.2]]));
 

@@ -20,7 +20,7 @@ final class FailureClassTest extends TestCase
     #[Test]
     public function retryableCoversProviderSideFaultsAndAnOpenCircuit(): void
     {
-        $retryable = array_values(array_filter(FailureClass::cases(), static fn(FailureClass $c): bool => $c->isRetryable()));
+        $retryable = array_values(array_filter(FailureClass::cases(), static fn (FailureClass $c): bool => $c->isRetryable()));
 
         self::assertEqualsCanonicalizing(
             [FailureClass::CONNECTION, FailureClass::RATE_LIMIT, FailureClass::SERVER_ERROR, FailureClass::CIRCUIT_OPEN],
@@ -40,7 +40,7 @@ final class FailureClassTest extends TestCase
     #[Test]
     public function trippingCoversProviderSideFaultsButNotAnAlreadyOpenCircuit(): void
     {
-        $tripping = array_values(array_filter(FailureClass::cases(), static fn(FailureClass $c): bool => $c->tripsCircuit()));
+        $tripping = array_values(array_filter(FailureClass::cases(), static fn (FailureClass $c): bool => $c->tripsCircuit()));
 
         self::assertEqualsCanonicalizing(
             [FailureClass::CONNECTION, FailureClass::RATE_LIMIT, FailureClass::SERVER_ERROR],

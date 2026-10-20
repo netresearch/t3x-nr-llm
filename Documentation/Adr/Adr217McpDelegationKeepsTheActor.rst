@@ -161,3 +161,20 @@ Specification: ``specs/015-delegated-mcp-auth/spec.md``. Tests exercise the wire
 against fixture IdP and MCP clients, including actor isolation, renewal and
 queue/resume. They do not exchange real personal credentials or imply that an
 operator's identity-provider configuration has been certified.
+
+Implementation clarification (2026-10-11)
+=========================================
+
+During tool execution, an operation may already have raised a cancellation,
+budget, protocol or caller-argument serialization failure when the credential
+session is closed. The operation owner, ``McpClient::callTool()``, keeps that
+original throwable and still attempts its existing session close once. A
+subordinate close failure cannot replace or attach itself to the original
+failure. This applies to both exceptions and PHP errors.
+
+Without an escaping operation failure, closing the session retains its
+existing failure behavior. A returned remote ``isError`` result is a successful
+JSON-RPC response, so its cleanup failure is still reported. Explicit session
+close, renewal, discovery and the existing normal Vault deletion policy remain
+unchanged. Failed cleanup can leave a credential until expiry; this adds no
+retry, physical-erasure, atomicity or concurrency guarantee.

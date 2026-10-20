@@ -57,7 +57,7 @@ final class AdrLifecycleTest extends AbstractUnitTestCase
     {
         $labels = [];
         foreach ($this->adrFiles() as $file) {
-            preg_match_all('/^\.\. _(adr-\d{3}):$/m', (string)file_get_contents($file), $matches);
+            preg_match_all('/^\.\. _(adr-\d{3}):$/m', (string) file_get_contents($file), $matches);
             foreach ($matches[1] as $label) {
                 $labels[] = $label;
             }
@@ -86,14 +86,14 @@ final class AdrLifecycleTest extends AbstractUnitTestCase
         );
 
         return array_map(
-            static fn(string $value): string => trim((string)preg_replace('/\s+/', ' ', $value)),
+            static fn (string $value): string => trim((string) preg_replace('/\s+/', ' ', $value)),
             $matches[1],
         );
     }
 
     private function statusOf(string $file): string
     {
-        $values = $this->fieldValues((string)file_get_contents($file), 'Status');
+        $values = $this->fieldValues((string) file_get_contents($file), 'Status');
         self::assertCount(1, $values, basename($file) . ' must declare exactly one :Status: field.');
 
         return $values[0];
@@ -137,7 +137,7 @@ final class AdrLifecycleTest extends AbstractUnitTestCase
                 continue;
             }
 
-            $contents = (string)file_get_contents($file);
+            $contents = (string) file_get_contents($file);
             self::assertMatchesRegularExpression(
                 '/^:(?:Amended|Superseded):[ \t]*\S/m',
                 $contents,
@@ -153,7 +153,7 @@ final class AdrLifecycleTest extends AbstractUnitTestCase
         $known = $this->knownAdrLabels();
 
         foreach ($this->adrFiles() as $file) {
-            $contents = (string)file_get_contents($file);
+            $contents = (string) file_get_contents($file);
 
             // The status line names records too — `Accepted (… amended by
             // :ref:`ADR-135 <adr-135>`)` — and a typo there renders as an
@@ -181,7 +181,7 @@ final class AdrLifecycleTest extends AbstractUnitTestCase
         // `adrFiles()` globs Adr*.rst, so the page that documents the reference
         // discipline is the one page the reference check would otherwise skip.
         $known = $this->knownAdrLabels();
-        $index = (string)file_get_contents($this->adrDir() . '/Index.rst');
+        $index = (string) file_get_contents($this->adrDir() . '/Index.rst');
 
         foreach ($this->referencedLabels($index) as $label) {
             self::assertContains(
@@ -200,7 +200,7 @@ final class AdrLifecycleTest extends AbstractUnitTestCase
         $links = [];
         foreach ($this->adrFiles() as $file) {
             $targets = [];
-            foreach ($this->fieldValues((string)file_get_contents($file), $names) as $value) {
+            foreach ($this->fieldValues((string) file_get_contents($file), $names) as $value) {
                 foreach ($this->referencedLabels($value) as $label) {
                     $targets[] = $label;
                 }
@@ -261,7 +261,7 @@ final class AdrLifecycleTest extends AbstractUnitTestCase
     private function fileDefining(string $label): string
     {
         foreach ($this->adrFiles() as $file) {
-            if (preg_match('/^\.\. _' . preg_quote($label, '/') . ':$/m', (string)file_get_contents($file)) === 1) {
+            if (preg_match('/^\.\. _' . preg_quote($label, '/') . ':$/m', (string) file_get_contents($file)) === 1) {
                 return basename($file);
             }
         }
@@ -279,7 +279,7 @@ final class AdrLifecycleTest extends AbstractUnitTestCase
 
             self::assertMatchesRegularExpression(
                 '/^:Superseded:[ \t]*\S/m',
-                (string)file_get_contents($file),
+                (string) file_get_contents($file),
                 basename($file) . ' is Superseded but does not say by what.',
             );
         }

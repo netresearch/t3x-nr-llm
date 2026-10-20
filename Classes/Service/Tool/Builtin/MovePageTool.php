@@ -241,8 +241,8 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
                 default                 => ApprovalPreviewLabel::MovePageChangesSite,
             });
             $none      = $t(ApprovalPreviewLabel::ValueNone);
-            $details[] = $t(ApprovalPreviewLabel::TechnicalSiteRootBefore, $plan['siteRootBefore'] > 0 ? (string)$plan['siteRootBefore'] : $none);
-            $details[] = $t(ApprovalPreviewLabel::TechnicalSiteRootAfter, $plan['siteRootAfter'] > 0 ? (string)$plan['siteRootAfter'] : $none);
+            $details[] = $t(ApprovalPreviewLabel::TechnicalSiteRootBefore, $plan['siteRootBefore'] > 0 ? (string) $plan['siteRootBefore'] : $none);
+            $details[] = $t(ApprovalPreviewLabel::TechnicalSiteRootAfter, $plan['siteRootAfter'] > 0 ? (string) $plan['siteRootAfter'] : $none);
         }
 
         $lines[] = $this->translator->technical($user, $details);
@@ -382,7 +382,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
             );
         }
 
-        if ((bool)($page['is_siteroot'] ?? false)) {
+        if ((bool) ($page['is_siteroot'] ?? false)) {
             return sprintf(
                 "Refused: page [%d] is a site root. Moving it changes where a site lives, which is an administrator's "
                 . 'decision and not something this tool does.',
@@ -496,7 +496,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
                 ->executeQuery()
                 ->fetchFirstColumn();
             foreach ($children as $child) {
-                $count++;
+                ++$count;
                 $pending[] = self::toInt($child);
             }
         }
@@ -511,13 +511,13 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
     private function siteRootOf(int $uid): int
     {
         $current = $uid;
-        for ($depth = 0; $current > 0 && $depth < self::MAX_ROOTLINE_DEPTH; $depth++) {
+        for ($depth = 0; $current > 0 && $depth < self::MAX_ROOTLINE_DEPTH; ++$depth) {
             $row = $this->fetchRowByUid(self::TABLE, $current, 'uid', 'pid', 'is_siteroot');
             if ($row === null) {
                 return 0;
             }
 
-            if ((bool)($row['is_siteroot'] ?? false)) {
+            if ((bool) ($row['is_siteroot'] ?? false)) {
                 return $current;
             }
 
@@ -534,7 +534,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
     private function liesInBranchOf(int $candidate, int $uid): bool
     {
         $current = $candidate;
-        for ($depth = 0; $current > 0 && $depth < self::MAX_ROOTLINE_DEPTH; $depth++) {
+        for ($depth = 0; $current > 0 && $depth < self::MAX_ROOTLINE_DEPTH; ++$depth) {
             if ($current === $uid) {
                 return true;
             }

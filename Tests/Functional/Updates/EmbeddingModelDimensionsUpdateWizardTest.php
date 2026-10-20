@@ -87,13 +87,13 @@ final class EmbeddingModelDimensionsUpdateWizardTest extends AbstractFunctionalT
     ): void {
         $connection = $this->getConnectionPool()->getConnectionForTable(self::TABLE);
         $connection->insert(self::TABLE, [
-            'pid' => 0,
+            'pid'        => 0,
             'identifier' => $identifier,
-            'name' => $identifier,
-            'model_id' => $modelId,
+            'name'       => $identifier,
+            'model_id'   => $modelId,
             'dimensions' => $dimensions,
-            'hidden' => $hidden,
-            'deleted' => $deleted,
+            'hidden'     => $hidden,
+            'deleted'    => $deleted,
         ], ['dimensions' => Connection::PARAM_INT]);
     }
 
@@ -113,6 +113,6 @@ final class EmbeddingModelDimensionsUpdateWizardTest extends AbstractFunctionalT
             ->executeQuery()
             ->fetchOne();
 
-        return (int)$value;
+        return (int) $value;
     }
 }

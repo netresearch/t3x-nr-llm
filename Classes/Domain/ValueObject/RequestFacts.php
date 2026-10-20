@@ -62,7 +62,7 @@ final readonly class RequestFacts
      * @param int    $tokenEstimate a provider- and model-independent token estimate for this
      *                              payload, from the same estimator the context fit uses but with
      *                              no calibration and no budget — so it can be compared against the
-     *                              post-fit figure without being derived from a model.
+     *                              post-fit figure without being derived from a model
      * @param string $shape         the {@see \Netresearch\NrLlm\Domain\Enum\RequestShape} value
      */
     public function __construct(

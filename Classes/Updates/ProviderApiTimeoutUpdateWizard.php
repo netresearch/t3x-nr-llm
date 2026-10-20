@@ -27,7 +27,7 @@ use TYPO3\CMS\Install\Updates\UpgradeWizardInterface;
  * default, so it is migrated too — operators who want a 30 second timeout
  * must re-set it after the upgrade.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[UpgradeWizard('nrLlm_providerApiTimeout120')]
 final readonly class ProviderApiTimeoutUpdateWizard implements UpgradeWizardInterface
@@ -92,7 +92,7 @@ final readonly class ProviderApiTimeoutUpdateWizard implements UpgradeWizardInte
             ->executeQuery()
             ->fetchOne();
 
-        return is_numeric($count) && (int)$count > 0;
+        return is_numeric($count) && (int) $count > 0;
     }
 
     /**

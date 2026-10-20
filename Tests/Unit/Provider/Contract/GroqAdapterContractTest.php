@@ -36,8 +36,8 @@ final class GroqAdapterContractTest extends AbstractOpenAiDialectContractTestCas
     {
         return [
             'apiKeyIdentifier' => 'vault-groq',
-            'defaultModel' => 'llama-3.3-70b-versatile',
-            'timeout' => 30,
+            'defaultModel'     => 'llama-3.3-70b-versatile',
+            'timeout'          => 30,
         ];
     }
 

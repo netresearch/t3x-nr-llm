@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Service\Tool;
 
 use Netresearch\NrVault\Crypto\EnvelopeCodecInterface;
 
+use function strlen;
+
 /**
  * Tells an agent-state column value apart from cleartext, and brings a
  * legacy-marked value into the current form (ADR-114).
@@ -47,7 +49,7 @@ final readonly class AgentStateEnvelopeMarker
 
         if (str_starts_with($stored, self::LEGACY_MARKER)) {
             return EnvelopeCodecInterface::MARKER
-                . substr($stored, \strlen(self::LEGACY_MARKER));
+                . substr($stored, strlen(self::LEGACY_MARKER));
         }
 
         return null;

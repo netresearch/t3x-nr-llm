@@ -1096,6 +1096,78 @@
             <trans-unit id="skill.action.review">
                 <source>Review and approve versions</source>
             </trans-unit>
+            <trans-unit id="snippet.mark.action">
+                <source>Mark for a caller's system message</source>
+            </trans-unit>
+            <trans-unit id="snippet.mark.title">
+                <source>Mark snippet for a caller's system message</source>
+            </trans-unit>
+            <trans-unit id="snippet.mark.back">
+                <source>Back to snippets</source>
+            </trans-unit>
+            <trans-unit id="snippet.mark.intro">
+                <source>When a caller such as the chat sends its own system message, a configuration's system prompt and snippets are not sent. A marked snippet is appended to that system message for configurations that opt in and select it by tag. The mark names exactly the block and the tags shown on this page; any later change to the name, the text or the tags takes the snippet out until it is marked again.</source>
+            </trans-unit>
+            <trans-unit id="snippet.mark.state.marked.title">
+                <source>Marked</source>
+            </trans-unit>
+            <trans-unit id="snippet.mark.state.marked">
+                <source>The block below is marked. Configurations that opt in append it to a caller's system message.</source>
+            </trans-unit>
+            <trans-unit id="snippet.mark.state.stale.title">
+                <source>Changed since it was marked</source>
+            </trans-unit>
+            <trans-unit id="snippet.mark.state.stale">
+                <source>The name, the text or the tags changed after the snippet was marked. It does not reach a caller's system message until the block and tags below are marked.</source>
+            </trans-unit>
+            <trans-unit id="snippet.mark.state.unmarked.title">
+                <source>Not marked</source>
+            </trans-unit>
+            <trans-unit id="snippet.mark.state.unmarked">
+                <source>The snippet reaches a configuration's own system prompt only.</source>
+            </trans-unit>
+            <trans-unit id="snippet.mark.state.invisible.title">
+                <source>Contains characters this page cannot show</source>
+            </trans-unit>
+            <trans-unit id="snippet.mark.state.invisible">
+                <source>The model reads these characters, but a browser renders them as nothing, so the block below is not all the model would be told. It cannot be marked. Remove the characters from the snippet.</source>
+            </trans-unit>
+            <trans-unit id="snippet.mark.block">
+                <source>Block appended to a caller's system message</source>
+            </trans-unit>
+            <trans-unit id="snippet.mark.digest">
+                <source>Digest of block and tags</source>
+            </trans-unit>
+            <trans-unit id="snippet.mark.tags">
+                <source>Tags the mark is bound to</source>
+            </trans-unit>
+            <trans-unit id="snippet.mark.tags.none">
+                <source>None. No configuration selects this snippet.</source>
+            </trans-unit>
+            <trans-unit id="snippet.mark.mark">
+                <source>Mark this block</source>
+            </trans-unit>
+            <trans-unit id="snippet.mark.unmark">
+                <source>Remove the mark</source>
+            </trans-unit>
+            <trans-unit id="snippet.mark.flash.marked">
+                <source>The snippet is marked.</source>
+            </trans-unit>
+            <trans-unit id="snippet.mark.flash.stale">
+                <source>Not marked: the snippet changed after this page was shown. Review the block again.</source>
+            </trans-unit>
+            <trans-unit id="snippet.mark.flash.empty">
+                <source>Not marked: the snippet has no text.</source>
+            </trans-unit>
+            <trans-unit id="snippet.mark.flash.invisible">
+                <source>Not marked: the snippet contains characters this page cannot show.</source>
+            </trans-unit>
+            <trans-unit id="snippet.mark.flash.unmarked">
+                <source>The mark was removed.</source>
+            </trans-unit>
+            <trans-unit id="snippet.mark.flash.unknownSnippet">
+                <source>The snippet was not found.</source>
+            </trans-unit>
             <trans-unit id="skill.approval.title">
                 <source>Review skill version</source>
             </trans-unit>
@@ -1248,6 +1320,12 @@
             </trans-unit>
             <trans-unit id="skill.approval.flash.nothingRevoked">
                 <source>This version had no active approval to revoke.</source>
+            </trans-unit>
+            <trans-unit id="skill.action.newBackendSkill">
+                <source>New skill</source>
+            </trans-unit>
+            <trans-unit id="skill.action.edit">
+                <source>Edit skill</source>
             </trans-unit>
             <trans-unit id="skill.action.sync">
                 <source>Sync</source>
@@ -2897,6 +2975,15 @@
             <trans-unit id="error.tool.unknownGroup">
                 <source>Unknown tool group</source>
             </trans-unit>
+            <trans-unit id="error.tool.decidedInChat">
+                <source>This run is a guided process. It is decided in the chat by the person who started it, not in the playground.</source>
+            </trans-unit>
+            <trans-unit id="error.tool.processStopped">
+                <source>This run was stopped: it is a guided process, and its configuration requires a second approver, under which nobody could apply its proposals.</source>
+            </trans-unit>
+            <trans-unit id="error.tool.processVerdictUnavailable">
+                <source>Whether this run is a guided process could not be checked, so nothing was decided. Please try again.</source>
+            </trans-unit>
             <trans-unit id="error.tool.selfApproval">
                 <source>You started this run and its configuration requires a second approver. Someone else has to release it.</source>
             </trans-unit>
@@ -3210,6 +3297,9 @@
             <trans-unit id="runs.field.unsupported">
                 <source>This field type is not supported in this form.</source>
             </trans-unit>
+            <trans-unit id="runs.field.choose">
+                <source>Choose one</source>
+            </trans-unit>
             <trans-unit id="runs.error.summaryHeading">
                 <source>Your input could not be submitted</source>
             </trans-unit>
@@ -3224,6 +3314,18 @@
             </trans-unit>
             <trans-unit id="runs.error.approverNotPermitted">
                 <source>This action runs a tool you are not permitted to use yourself, so you may not approve it. The run is still waiting for someone who is.</source>
+            </trans-unit>
+            <trans-unit id="runs.error.decidedInChat">
+                <source>This run is a guided process. Its proposals and questions are decided in the chat, by the person who started it, and not here.</source>
+            </trans-unit>
+            <trans-unit id="runs.error.processStopped">
+                <source>This run was stopped: it is a guided process, and its configuration requires a second approver, under which nobody could apply its proposals.</source>
+            </trans-unit>
+            <trans-unit id="runs.error.processVerdictUnavailable">
+                <source>Whether this run is a guided process could not be checked, so nothing was decided. Please try again.</source>
+            </trans-unit>
+            <trans-unit id="runs.decidedInChat">
+                <source>A guided process: decided in the chat by the person who started it. It is listed here read-only.</source>
             </trans-unit>
             <trans-unit id="runs.error.selfApproval">
                 <source>You started this run, and its configuration requires a second approver. Someone else has to release it. You can still deny it.</source>

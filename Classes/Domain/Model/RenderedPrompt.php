@@ -85,7 +85,7 @@ final readonly class RenderedPrompt
      */
     public function estimateTokens(): int
     {
-        return (int)ceil($this->estimateLength() / 4);
+        return (int) ceil($this->estimateLength() / 4);
     }
 
     /**
@@ -99,13 +99,13 @@ final readonly class RenderedPrompt
 
         if ($this->systemPrompt !== '' && $this->systemPrompt !== '0') {
             $messages[] = [
-                'role' => 'system',
+                'role'    => 'system',
                 'content' => $this->systemPrompt,
             ];
         }
 
         $messages[] = [
-            'role' => 'user',
+            'role'    => 'user',
             'content' => $this->userPrompt,
         ];
 

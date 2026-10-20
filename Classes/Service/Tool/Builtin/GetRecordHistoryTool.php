@@ -41,6 +41,7 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 final readonly class GetRecordHistoryTool implements ToolInterface
 {
     use SafeCastTrait;
+    use ChecksPageAccessAsActingUserTrait;
 
     private const NOT_PERMITTED = 'Table not found or not permitted.';
 
@@ -199,7 +200,7 @@ final readonly class GetRecordHistoryTool implements ToolInterface
 
         $permsClause = self::toStr($user->getPagePermsClause(Permission::PAGE_SHOW));
 
-        return is_array(BackendUtility::readPageAccess($pageUid, $permsClause));
+        return $this->actingUserMayAccessPage($user, $pageUid, $permsClause);
     }
 
     /**
@@ -295,7 +296,7 @@ final readonly class GetRecordHistoryTool implements ToolInterface
         $fields = array_unique(array_merge(array_keys($old), array_keys($new)));
         $parts  = [];
         foreach ($fields as $field) {
-            $fieldName = (string)$field;
+            $fieldName = (string) $field;
             if ($fieldFilter !== '' && $fieldName !== $fieldFilter) {
                 continue;
             }
@@ -331,7 +332,7 @@ final readonly class GetRecordHistoryTool implements ToolInterface
             return '[complex value]';
         }
 
-        $text = trim((string)preg_replace('/\s+/', ' ', (string)$value));
+        $text = trim((string) preg_replace('/\s+/', ' ', (string) $value));
 
         return mb_strimwidth($text, 0, self::VALUE_WIDTH, '…');
     }

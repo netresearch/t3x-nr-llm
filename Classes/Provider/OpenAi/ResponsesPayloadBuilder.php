@@ -15,8 +15,9 @@ use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
-
 use stdClass;
+
+use function count;
 
 /**
  * Builds a `POST /v1/responses` payload out of nr_llm's own shapes (ADR-203).
@@ -66,8 +67,8 @@ final class ResponsesPayloadBuilder
         [$instructions, $input] = $this->splitInstructions($messages);
 
         $payload = [
-            'model' => $model,
-            'input' => $input,
+            'model'             => $model,
+            'input'             => $input,
             'max_output_tokens' => $maxOutputTokens,
             // Stateless by decision, not by omission: the installation has not
             // agreed to OpenAI retaining its conversations, and stateless mode
@@ -82,11 +83,11 @@ final class ResponsesPayloadBuilder
 
         if ($tools !== []) {
             $payload['tools'] = array_map(
-                static fn(ToolSpec $spec): array => [
-                    'type' => $spec->type,
-                    'name' => $spec->name,
+                static fn (ToolSpec $spec): array => [
+                    'type'        => $spec->type,
+                    'name'        => $spec->name,
                     'description' => $spec->description,
-                    'parameters' => $spec->parameters,
+                    'parameters'  => $spec->parameters,
                     // Explicitly non-strict. With `strict` omitted, Responses
                     // tries to rewrite a schema into strict mode — every
                     // property required — and only falls back when it cannot,
@@ -284,9 +285,9 @@ final class ResponsesPayloadBuilder
     {
         if ($message->getRole() === MessageRole::TOOL) {
             return [[
-                'type' => 'function_call_output',
+                'type'    => 'function_call_output',
                 'call_id' => $message->toolCallId ?? '',
-                'output' => $message->content,
+                'output'  => $message->content,
             ]];
         }
 
@@ -299,16 +300,16 @@ final class ResponsesPayloadBuilder
         // is what the reasoning guide requires, and it is also more faithful
         // than anything this extension could rebuild, so nothing is added
         // beside them.
-        if ($message->providerItems !== null && \count($message->providerItems) > 0) {
+        if ($message->providerItems !== null && count($message->providerItems) > 0) {
             return $message->providerItems;
         }
 
         if ($message->toolCalls !== null) {
             return array_map(
-                static fn(ToolCall $call): array => [
-                    'type' => 'function_call',
-                    'call_id' => $call->id,
-                    'name' => $call->name,
+                static fn (ToolCall $call): array => [
+                    'type'      => 'function_call',
+                    'call_id'   => $call->id,
+                    'name'      => $call->name,
                     'arguments' => json_encode(
                         $call->arguments !== [] ? $call->arguments : new stdClass(),
                         JSON_THROW_ON_ERROR,

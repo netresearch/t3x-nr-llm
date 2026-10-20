@@ -40,6 +40,14 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Context\Exception\AspectNotFoundException;
 
+use function array_key_exists;
+use function ceil;
+use function is_array;
+use function is_float;
+use function is_int;
+use function is_string;
+use function strlen;
+
 /**
  * Streaming request lifecycle (ADR-062).
  *
@@ -158,9 +166,9 @@ final readonly class StreamingDispatcher
      *                                                                              adapter, shape messages, merge options). Called once per fallback
      *                                                                              candidate. Mirrors the pipeline terminal shape.
      *
-     * @throws BudgetExceededException when the pre-flight budget check denies the call
-     *
      * @return Generator<int, string, mixed, void>
+     *
+     * @throws BudgetExceededException when the pre-flight budget check denies the call
      */
     public function stream(
         ProviderCallContext $context,
@@ -193,20 +201,20 @@ final readonly class StreamingDispatcher
         // distinction is moot for them (ADR-106).
         $streamRedactors = array_values(array_filter(
             $this->policyResolver->filter($this->guardrails, $configuration),
-            static fn(GuardrailInterface $g): bool => $g instanceof StreamRedactableInterface,
+            static fn (GuardrailInterface $g): bool => $g instanceof StreamRedactableInterface,
         ));
-        $redacts         = $streamRedactors !== [];
+        $redacts = $streamRedactors !== [];
         // Live redaction (ADR-088): a bounded, self-certifying sliding window that
         // masks secrets — including one split across chunk boundaries or positioned
         // arbitrarily far into a long stream — with bounded memory and no O(n^2)
         // rescan, and never passes a raw secret byte through. null when no
         // redaction-capable guardrail is registered (verbatim pass-through).
-        $window          = $redacts
-            ? new StreamRedactionWindow(fn(string $s): string => $this->redactStream($streamRedactors, $s))
+        $window = $redacts
+            ? new StreamRedactionWindow(fn (string $s): string => $this->redactStream($streamRedactors, $s))
             : null;
-        $served          = $configuration;
-        $success         = false;
-        $errorClass      = '';
+        $served     = $configuration;
+        $success    = false;
+        $errorClass = '';
         // Retries are summed per RESUMPTION SEGMENT, not as one difference
         // around the whole drain (ADR-174). This is a generator: between two
         // yields the CONSUMER runs, and a provider call it makes there
@@ -217,8 +225,8 @@ final readonly class StreamingDispatcher
         // the consumer cannot be counted here. What is counted stays complete:
         // the opener's retries, a fallback candidate's before one primed, and
         // every retry the inner stream consumes while it is being pulled.
-        $retriesDrained  = 0;
-        $retryMark       = $this->retryCounter->total();
+        $retriesDrained = 0;
+        $retryMark      = $this->retryCounter->total();
 
         try {
             [$inner, $served] = $this->openWithFallback($context, $configuration, $open);
@@ -229,8 +237,8 @@ final readonly class StreamingDispatcher
                 $chunk = $inner->current();
                 // Usage/telemetry count the RAW provider output. A bounded leading
                 // window is buffered raw for the end-of-stream audit (ADR-086).
-                $completionBytes += \strlen($chunk);
-                if (\strlen($completion) < self::MAX_GUARDRAIL_BUFFER_BYTES) {
+                $completionBytes += strlen($chunk);
+                if (strlen($completion) < self::MAX_GUARDRAIL_BUFFER_BYTES) {
                     $completion .= $chunk;
                 }
 
@@ -707,7 +715,7 @@ final readonly class StreamingDispatcher
     {
         $value = $context->metadata[$key] ?? '';
 
-        return \is_string($value) ? $value : '';
+        return is_string($value) ? $value : '';
     }
 
     private function resolveProvider(ProviderCallContext $context, LlmConfiguration $served): string
@@ -718,7 +726,7 @@ final readonly class StreamingDispatcher
         }
 
         $fromMetadata = $context->metadata[self::METADATA_PROVIDER] ?? null;
-        if (\is_string($fromMetadata) && $fromMetadata !== '') {
+        if (is_string($fromMetadata) && $fromMetadata !== '') {
             return $fromMetadata;
         }
 
@@ -733,12 +741,12 @@ final readonly class StreamingDispatcher
     private function resolveBeUser(ProviderCallContext $context): int
     {
         $fromMetadata = $context->metadata[BudgetMiddleware::METADATA_BE_USER_UID] ?? null;
-        if (\is_int($fromMetadata)) {
+        if (is_int($fromMetadata)) {
             return $fromMetadata;
         }
 
         try {
-            return (int)$this->context->getAspect('backend.user')->get('id');
+            return (int) $this->context->getAspect('backend.user')->get('id');
         } catch (AspectNotFoundException) {
             return 0;
         }
@@ -773,35 +781,35 @@ final readonly class StreamingDispatcher
             return 0;
         }
 
-        return (int)\ceil($chars / self::CHARS_PER_TOKEN);
+        return (int) ceil($chars / self::CHARS_PER_TOKEN);
     }
 
     private function elapsedMs(int|float $startNs, int|float|null $endNs = null): int
     {
         $endNs ??= hrtime(true);
 
-        return (int)(($endNs - $startNs) / 1_000_000);
+        return (int) (($endNs - $startNs) / 1_000_000);
     }
 
     private function readInt(ProviderCallContext $context, string $key): int
     {
         $value = $context->metadata[$key] ?? null;
 
-        return \is_int($value) ? $value : 0;
+        return is_int($value) ? $value : 0;
     }
 
     private function readNullableInt(ProviderCallContext $context, string $key): ?int
     {
         $value = $context->metadata[$key] ?? null;
 
-        return \is_int($value) ? $value : null;
+        return is_int($value) ? $value : null;
     }
 
     private function readFloat(ProviderCallContext $context, string $key): float
     {
         $value = $context->metadata[$key] ?? null;
 
-        return (\is_float($value) || \is_int($value)) ? (float)$value : 0.0;
+        return (is_float($value) || is_int($value)) ? (float) $value : 0.0;
     }
 
     /**
@@ -818,11 +826,11 @@ final readonly class StreamingDispatcher
             return true;
         }
 
-        $telemetry = \is_array($config['telemetry'] ?? null) ? $config['telemetry'] : [];
-        if (!\array_key_exists('enabled', $telemetry)) {
+        $telemetry = is_array($config['telemetry'] ?? null) ? $config['telemetry'] : [];
+        if (!array_key_exists('enabled', $telemetry)) {
             return true;
         }
 
-        return (bool)$telemetry['enabled'];
+        return (bool) $telemetry['enabled'];
     }
 }
