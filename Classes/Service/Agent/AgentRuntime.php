@@ -17,6 +17,8 @@ use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\RunLineage;
+use Netresearch\NrLlm\Service\Agent\Exception\RunLineageUnreadableException;
 use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
@@ -284,6 +286,52 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         return new GuardedCancelResult(false, $this->persister->findRun($runUuid)?->statusEnum());
     }
 
+    public function endProcess(AiActorContext $actor, string $runUuid): GuardedCancelResult
+    {
+        $run = $this->persister->findRun($runUuid);
+        if (!$run instanceof AgentRun || !$this->mayWithdraw($actor, $run)) {
+            return new GuardedCancelResult(false, null);
+        }
+
+        try {
+            $lineage = $this->persister->lineageOf($run);
+        } catch (RunLineageUnreadableException) {
+            return new GuardedCancelResult(false, $run->statusEnum());
+        }
+
+        if (!$lineage instanceof RunLineage || !$lineage->holdsProcess()) {
+            return new GuardedCancelResult(false, $run->statusEnum());
+        }
+
+        $status = $run->statusEnum();
+        if (in_array($status, [AgentRunStatus::WAITING_FOR_APPROVAL, AgentRunStatus::WAITING_FOR_INPUT], true)) {
+            $cancelled = $this->persister->settleIfWaiting(
+                $run,
+                [AgentRunStatus::WAITING_FOR_APPROVAL, AgentRunStatus::WAITING_FOR_INPUT],
+                AgentRunStatus::CANCELLED,
+                AgentRunTerminationReason::CANCELLED,
+            );
+            if (!$cancelled) {
+                return new GuardedCancelResult(false, $this->persister->findRun($runUuid)?->statusEnum());
+            }
+
+            $status = AgentRunStatus::CANCELLED;
+        } elseif ($status?->isTerminal() !== true) {
+            return new GuardedCancelResult(false, $status);
+        }
+
+        // Recorded after the cancel, on the ended run: a release that could
+        // not be stored leaves the process with the conversation, and the
+        // caller learns it was not ended and can ask again.
+        $ended = $this->persister->findRun($runUuid);
+        $handle = $ended instanceof AgentRun ? $this->persister->resumeHandle($ended) : null;
+        if (!$handle instanceof AgentRunHandle || !$this->persister->recordLineage($handle, $lineage->withReleasedProcess())) {
+            return new GuardedCancelResult(false, $status);
+        }
+
+        return new GuardedCancelResult(true, $status);
+    }
+
     /**
      * The initiator or an administrator (ADR-214): withdrawing a person's
      * waiting proposal is that person's act, so neither the approve grant nor
@@ -319,7 +367,20 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
 
         // The raw suspended transcript bypasses the privacy filter (it must —
         // resume needs it verbatim); the status surface must not expose it.
-        return $run->withoutSuspendedState();
+        $status = $run->withoutSuspendedState();
+
+        // Whether the run holds a guided process, so a chat can restore the
+        // tour after a reload (ADR-228). Fail-soft: an unreadable lineage
+        // leaves the field null ("not known"), and the status still answers.
+        try {
+            $lineage = $this->persister->lineageOf($run);
+        } catch (RunLineageUnreadableException) {
+            return $status->withProcessState(null, '');
+        }
+
+        $holds = $lineage instanceof RunLineage && $lineage->holdsProcess();
+
+        return $status->withProcessState($holds, $holds ? $lineage->processSkill : '');
     }
 
     /**

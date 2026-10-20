@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\ValueObject\DroppedSource;
 use Netresearch\NrLlm\Domain\ValueObject\InjectedContext;
+use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 
 /**
  * Per-run prompt augmentation for an inspectable {@see ToolLoopService} run,
@@ -54,7 +55,81 @@ final readonly class RunAugmentation
          * announced rather than silent.
          */
         public array $droppedSources = [],
+        /**
+         * The process the run invokes or continues (ADR-228): the pin whose
+         * approval snapshot the loop composes as an instruction section and
+         * whose declaration it adds to the run's skill allow-list.
+         *
+         * Set by the runtime from the run's invocation or its predecessor,
+         * after its start checks; {@see \Netresearch\NrLlm\Service\Agent\AgentRunExecutor}
+         * replaces whatever a caller put here, so no caller of the runtime
+         * hands in a pin. Appended last with a default, like the member
+         * above.
+         *
+         * @internal Set by the runtime only. Not part of the @api contract
+         *           even though the class is: a caller that passes a pin
+         *           to the loop directly skips the start checks, and a run
+         *           started through {@see \Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface}
+         *           never carries one it did not derive (ADR-228).
+         */
+        public ?SkillPin $processPin = null,
+        /**
+         * Whether the loop bakes the effective system prompt into the
+         * transcript as its first message (ADR-060 assembly), which the
+         * playground needs for its forced snippets and its inspector. False
+         * for an augmentation the runtime builds only to carry a process into
+         * a run whose caller sent none: that run assembles exactly as it would
+         * without an augmentation, its caller's own system message included.
+         *
+         * @internal Set by the runtime only (ADR-228).
+         */
+        public bool $bakesSystemPrompt = true,
+        /**
+         * Whether the process starts with this run, so its section passes the
+         * window admission of ADR-214 item 7. False for a process the run
+         * continues from its predecessor: a section the conversation already
+         * holds is not admitted again, or a long tour would fail once its
+         * history grew past the headroom.
+         *
+         * @internal Set by the runtime only (ADR-228).
+         */
+        public bool $admitsProcess = false,
     ) {}
+
+    /**
+     * An augmentation that only carries the run's process (ADR-228), for a
+     * caller that sent none: nothing forced, no dry run, no baked prompt.
+     *
+     * @param list<DroppedSource> $droppedSources the process pins the continuation dropped
+     *
+     * @internal Called by the runtime only (ADR-228).
+     */
+    public static function forProcess(?SkillPin $pin, array $droppedSources = [], bool $admitsProcess = false): self
+    {
+        return new self(droppedSources: $droppedSources, processPin: $pin, bakesSystemPrompt: false, admitsProcess: $admitsProcess);
+    }
+
+    /**
+     * The same augmentation with the run's process pin set, or cleared with
+     * null, and the pins a continuation dropped added to its dropped sources
+     * (ADR-228).
+     *
+     * @param list<DroppedSource> $droppedSources
+     *
+     * @internal Called by the runtime only (ADR-228).
+     */
+    public function withProcess(?SkillPin $pin, array $droppedSources = [], bool $admitsProcess = false): self
+    {
+        return new self(
+            $this->forcedSkills,
+            $this->forcedSnippets,
+            $this->dryRun,
+            [...$this->droppedSources, ...$droppedSources],
+            $pin,
+            $this->bakesSystemPrompt,
+            $admitsProcess,
+        );
+    }
 
     /**
      * The forced set in the shape the ADR-144 ceiling reads (ADR-164).

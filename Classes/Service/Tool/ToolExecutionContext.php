@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool;
 
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\SubjectRecord;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
@@ -49,12 +50,17 @@ final readonly class ToolExecutionContext
      *                                                         carries an incomplete history. Null proves a fresh history only
      *                                                         without continuation markers; assembled
      *                                                         or seeded continuations remain incomplete.
+     * @param ?SubjectRecord         $subjectRecord            the record the run's process is about (ADR-228), which the
+     *                                                         runtime checked the acting user may read. Null for a run
+     *                                                         without a process subject; the highlight builtin then
+     *                                                         accepts no target.
      */
     public function __construct(
         public AiActorContext $actor,
         public ?BackendUserAuthentication $backendUser = null,
         public ?AgentRunReference $run = null,
         public ?ToolInvocationHistory $initialInvocationHistory = null,
+        public ?SubjectRecord $subjectRecord = null,
     ) {}
 
     /**

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Agent\Process;
 
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 
 /**
@@ -60,4 +61,14 @@ interface ProcessPinProbe
      * @param list<SkillPin> $pins
      */
     public function anyProcessPin(array $pins): bool;
+
+    /**
+     * The approval snapshot a process pin names, while it holds as a process:
+     * unrevoked, of this skill, source and digest, and marking the version a
+     * process. Null for any other pin and when the lookup fails.
+     *
+     * What a process is composed from and what its tools come from, at start,
+     * at every resume and at every continuation (ADR-228).
+     */
+    public function processSnapshot(SkillPin $pin): ?SkillApproval;
 }

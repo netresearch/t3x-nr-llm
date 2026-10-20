@@ -46,7 +46,7 @@ reference implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
 redacted or gated behind a separate ``_raw`` variant. Thirty-nine ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
-``get_php_info_raw`` and ``list_be_users_raw``), ``ask_choice``, ``fetch_external_url``
+``get_php_info_raw`` and ``list_be_users_raw``), ``ask_choice``, ``highlight_record``, ``fetch_external_url``
 (see :ref:`administration-tools-external-pages`) and all seventeen writing tools
 (``update_page_metadata``, ``set_page_social_image``,
 ``set_file_alternative_text``, ``update_fal_asset_meta``,
@@ -73,6 +73,8 @@ the controls in :ref:`administration-tools-external-pages`. ``load_skill`` is
 offered to non-admins as well; it brings in only skill text an administrator
 approved for the run's configuration (see below).
 ``ask_choice`` is offered to non-admins as well; it reads nothing.
+``highlight_record`` is offered to non-admins as well; it accepts only the
+record the run is about and the content elements on that page.
 
 The two tools below are the fullest illustrations of the contract:
 
@@ -320,6 +322,17 @@ The remaining tools follow the same pattern:
    a write. Not admin-only. Ships disabled: enable it only where the client
    handles a run that waits for input — a chat that cannot answer such a
    pause ends the conversation's run as failed.
+
+``highlight_record``
+   Names the record the current point of a guided process is about, so the
+   chat can show the editor where it is (:ref:`ADR-228 <adr-228>`). It
+   accepts only the run's subject record — which the runtime checked the
+   acting user may read before the run started — and, when that record is a
+   page, a non-deleted ``tt_content`` element on it in the subject's language
+   or in all languages, if the acting user may read ``tt_content``. The run
+   records it as a ``highlight`` step holding the table and uid. Writes
+   nothing. Not admin-only. Ships disabled: only a client that renders a
+   highlight can use it.
 
 .. _administration-tools-writing:
 
@@ -1080,7 +1093,8 @@ identifier alone. The built-in taxonomy:
 Group              Tools
 =================  ============================================================
 ``content``        ``search_records``, ``get_page_content``, ``read_records``,
-                   ``get_record_history``, ``ask_choice``
+                   ``get_record_history``, ``ask_choice``,
+                   ``highlight_record``
 ``structure``      ``get_pagetree``, ``get_tca``, ``read_fal_asset_meta``,
                    ``get_full_tca``, ``get_table_schema``, ``get_flexform_schema``,
                    ``resolve_url``, ``validate_tca``

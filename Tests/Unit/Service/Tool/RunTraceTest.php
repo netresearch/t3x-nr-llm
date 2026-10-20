@@ -236,6 +236,30 @@ final class RunTraceTest extends TestCase
         self::assertNull($write->toolArguments);
     }
 
+    /**
+     * A highlight (ADR-214 item 9, ADR-228) is a step of its own after the
+     * tool step, carrying the table and uid and nothing else; the chat reads
+     * the step, never the builtin's text.
+     */
+    #[Test]
+    public function aHighlightRecordsItsTargetAsAStepOfItsOwn(): void
+    {
+        $trace = new RunTrace();
+
+        $trace->recordToolResult(2, 3.0, 'highlight_record', ['table' => 'tt_content', 'uid' => 7], ToolResult::text('Highlighted tt_content:7.')->withHighlightTarget(new RecordReference('tt_content', 7)));
+
+        $kinds = array_map(static fn(RunStep $step): string => $step->kind, $trace->getSteps());
+        self::assertSame([RunStep::KIND_TOOL, RunStep::KIND_HIGHLIGHT], $kinds);
+
+        $highlight = $trace->getSteps()[1];
+        self::assertSame('tt_content:7', (string)$highlight->highlightTarget);
+        self::assertSame(2, $highlight->round);
+        self::assertNull($highlight->toolResult);
+        self::assertNull($highlight->writeTarget);
+        self::assertSame('tt_content', $highlight->toArray()['highlightTable'] ?? null);
+        self::assertSame(7, $highlight->toArray()['highlightUid'] ?? null);
+    }
+
     #[Test]
     public function aResultWithoutAWriteTargetRecordsOnlyTheToolStep(): void
     {

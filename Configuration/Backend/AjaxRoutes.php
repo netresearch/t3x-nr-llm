@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Controller\Backend\ModelController;
 use Netresearch\NrLlm\Controller\Backend\ModelDiscoveryController;
 use Netresearch\NrLlm\Controller\Backend\ModelTestController;
 use Netresearch\NrLlm\Controller\Backend\PresetController;
+use Netresearch\NrLlm\Controller\Backend\ProcessSkillCatalogueController;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
 use Netresearch\NrLlm\Controller\Backend\SetupWizardController;
 use Netresearch\NrLlm\Controller\Backend\SkillSourceController;
@@ -212,6 +213,13 @@ return [
     'nrllm_tool_submit_input' => [
         'path'   => '/nrllm/tool/submit-input',
         'target' => ToolPlaygroundController::class . '::submitInputAction',
+    ],
+    // The process skills the user may start on a configuration, for the
+    // slash-command menu (ADR-214 item 10, ADR-228). Any backend user: the
+    // catalogue applies the configuration's own access check.
+    'nrllm_process_skills' => [
+        'path' => '/nrllm/process-skills',
+        'target' => ProcessSkillCatalogueController::class . '::listAction',
     ],
     // Tool management route (global enable/disable)
     'nrllm_tool_toggle' => [

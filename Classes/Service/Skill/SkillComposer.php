@@ -48,8 +48,10 @@ use Netresearch\NrLlm\Domain\ValueObject\SkillSourceFacts;
  * A legacy row never instructs: no approval names it.
  *
  * A process skill (ADR-214 item 6) reaches a run only through an explicit
- * invocation. Every skill this composer receives arrives by attachment or by
- * being forced onto a run, so a process skill is skipped here with a notice.
+ * invocation. A skill this composer receives by attachment or by being forced
+ * onto a run is skipped here with a notice when it is a process; the version
+ * an invocation or a held process pin names arrives separately, as its
+ * approval snapshot, and is composed from that snapshot (ADR-228).
  *
  * Only skills whose denormalised trust level meets a configurable minimum are
  * admitted at all (ADR-061, fail-closed — an unknown level reads as the
@@ -116,11 +118,20 @@ final readonly class SkillComposer
     /**
      * Compose the skill block from a configuration baseline and task-additive skills.
      *
-     * @param list<Skill> $configSkills
-     * @param list<Skill> $taskSkills
+     * `$processVersions` are the approval snapshots of the process the run
+     * invokes or holds a pin for (ADR-228). Each is composed from its snapshot
+     * as an instruction section, never dropped, and pinned to its own digest;
+     * its record, attached or forced, is then skipped without the process
+     * notice, because the process does reach the run.
+     *
+     * @param list<Skill>         $configSkills
+     * @param list<Skill>         $taskSkills
+     * @param list<SkillApproval> $processVersions
      */
-    public function composeBlock(array $configSkills, array $taskSkills): SkillCompositionResult
+    public function composeBlock(array $configSkills, array $taskSkills, array $processVersions = []): SkillCompositionResult
     {
+        $invokedUids = array_flip(array_map(static fn(SkillApproval $version): int => $version->skillUid, $processVersions));
+
         $candidates = $this->selectCandidates($configSkills, $taskSkills);
 
         $warnings = [];
@@ -152,7 +163,10 @@ final readonly class SkillComposer
             // version it is measured against is one: switching the marker
             // off in the form does not turn a process version into data.
             if ($skill->isProcess() || $this->isApprovedAsProcess($skill, $digest)) {
-                $warnings[] = sprintf(self::WARN_PROCESS, $skill->getName(), $skill->getIdentifier());
+                if (!isset($invokedUids[(int)$skill->getUid()])) {
+                    $warnings[] = sprintf(self::WARN_PROCESS, $skill->getName(), $skill->getIdentifier());
+                }
+
                 continue;
             }
 
@@ -172,6 +186,15 @@ final readonly class SkillComposer
                 'id'      => $skill->getIdentifier(),
                 'name'    => $skill->getName(),
                 'section' => $this->neutralizeInstructionFrame($this->renderSection($skill)),
+            ];
+        }
+
+        foreach ($processVersions as $version) {
+            $instructions[] = [
+                'key'     => 'process' . "\x00" . $version->skillUid,
+                'id'      => self::processSectionId([...$configSkills, ...$taskSkills], $version),
+                'section' => $this->renderApprovedSection($version),
+                'pin'     => new SkillPin($version->skillUid, $version->sourceUid, $version->versionDigest),
             ];
         }
 
@@ -533,6 +556,62 @@ final readonly class SkillComposer
     private function skillKey(Skill $skill): string
     {
         return $skill->getSource() . "\x00" . $skill->getIdentifier();
+    }
+
+    /**
+     * The approved version of a skill, when its current version instructs:
+     * the record's fields pass the integrity check, the source vouches at or
+     * above the instruction threshold, the record is active and an unrevoked
+     * approval names exactly this digest (ADR-214 item 2). Null otherwise.
+     *
+     * What a skill invocation starts and what the slash-command catalogue
+     * calls invocable (ADR-228): the snapshot it returns is the text, the
+     * tools and the process marker the run gets.
+     */
+    public function approvedVersion(Skill $skill): ?SkillApproval
+    {
+        $digest = SkillVersionDigest::verified($skill, !$this->isBackendAuthored($skill));
+        if ($digest === null || $digest === '' || $this->instructionPolicy?->isInstruction($skill, $digest) !== true) {
+            return null;
+        }
+
+        $approval = $this->instructionPolicy->approvalOf($skill, $digest);
+
+        return $approval instanceof SkillApproval && $approval->versionDigest === $digest ? $approval : null;
+    }
+
+    /**
+     * The id a process section is named by in a composition's
+     * `instructionIncluded` (ADR-228): the identifier of the skill record
+     * it was invoked from, or the approved name when the run carries no
+     * such record.
+     *
+     * @param list<Skill> $skills
+     */
+    public static function processSectionId(array $skills, SkillApproval $version): string
+    {
+        foreach ($skills as $skill) {
+            if ((int)$skill->getUid() === $version->skillUid) {
+                return $skill->getIdentifier();
+            }
+        }
+
+        return $version->name;
+    }
+
+    /**
+     * An instruction section from an approval snapshot, rendered the way a
+     * record's section is (ADR-228): the snapshot's name and body, with asset
+     * references stripped from a partially supported version.
+     */
+    private function renderApprovedSection(SkillApproval $version): string
+    {
+        $body = $version->body;
+        if (SupportStatus::tryFrom($version->supportStatus) === SupportStatus::PARTIAL) {
+            $body = $this->stripAssetReferences($body);
+        }
+
+        return sprintf("### Skill: %s\n%s\n", $version->name, $this->neutralizeFenceMarkers($body));
     }
 
     private function renderSection(Skill $skill): string

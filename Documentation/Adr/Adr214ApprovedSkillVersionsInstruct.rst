@@ -9,8 +9,9 @@
 ADR-214: Approved skill versions instruct, load on demand and run processes
 ===========================================================================
 
-:Status: Accepted
+:Status: Accepted (item 10 amended: the API shape and the lineage store)
 :Date: 2026-10-08
+:Amended: 2026-10-18 by :ref:`ADR-228 <adr-228>`
 :Amends: :ref:`ADR-036 <adr-036>` (item 3 and the tail drop of item 5, for
     skills approved as instructions; item 6: the integrity check compares a
     version digest over body and frontmatter fields, kept in a new column);

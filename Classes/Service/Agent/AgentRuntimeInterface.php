@@ -147,6 +147,28 @@ interface AgentRuntimeInterface
     public function cancelIfWaiting(AiActorContext $actor, string $runUuid): GuardedCancelResult;
 
     /**
+     * End the process a run holds (ADR-228): the editor stops a tour, or an
+     * administrator ends one that is stuck.
+     *
+     * A run that waits for a human is cancelled in the guarded transition of
+     * {@see self::cancelIfWaiting()}; a run that already ended stays as it is.
+     * Either way its process is released: a continuation of the run derives
+     * no process pin, composes no process section, and the one-approval rule
+     * no longer applies. What the process wrote stays written — every write
+     * was approved on its own card.
+     *
+     * Only the run's initiator or an administrator may call it, as for
+     * {@see self::cancelIfWaiting()}; not a service account and not the
+     * holder of the approve grant. An operator who wants a process stopped
+     * everywhere revokes its approval. The result says whether the process was ended and the run's status
+     * after the attempt. It is "not ended" for anyone else, for an unknown
+     * run, for a run that holds no process, and for a QUEUED or RUNNING run —
+     * a decision is being carried out, and the caller puts its own state
+     * back, as after a lost guarded cancel.
+     */
+    public function endProcess(AiActorContext $actor, string $runUuid): GuardedCancelResult;
+
+    /**
      * The persisted event stream of a run, ordered by sequence ascending —
      * only events with sequence > $afterSequence, so a poller can page.
      * Empty for an unknown run (indistinguishable from a run with no events;
@@ -161,6 +183,11 @@ interface AgentRuntimeInterface
      * transcript is stripped: it is stored verbatim for resume and bypasses
      * the privacy filter every event goes through (ADR-064), so it is not
      * part of the status surface.
+     *
+     * It says whether the run holds a guided process and names the process
+     * skill (`holdsProcess`, `processSkill`, ADR-228), so a chat can restore
+     * the tour after a reload; `holdsProcess` is null when that could not be
+     * read.
      */
     public function status(AiActorContext $actor, string $runUuid): ?AgentRun;
 }

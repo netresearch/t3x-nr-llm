@@ -13,11 +13,14 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Service\Agent\AgentRunExecutor;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequestCodec;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\Process\ApprovedProcessPinProbe;
 use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
+use Netresearch\NrLlm\Service\Agent\Process\ProcessRunPreparer;
+use Netresearch\NrLlm\Service\Agent\QueuedRunCoordinator;
 use Netresearch\NrLlm\Service\Agent\ResumeCoordinator;
 use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Skill\SkillApprovalRepositoryInterface;
@@ -27,6 +30,7 @@ use Netresearch\NrLlm\Service\Skill\SkillLoadService;
 use Netresearch\NrLlm\Service\Skill\SkillPinCheck;
 use Netresearch\NrLlm\Service\Skill\SkillRecordLookupInterface;
 use Netresearch\NrLlm\Service\Skill\SkillSourceLookupInterface;
+use Netresearch\NrLlm\Service\Tool\Builtin\HighlightRecordTool;
 use Netresearch\NrLlm\Service\Tool\Mcp\Auth\ConfiguredMcpSubjectResolver;
 use Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpAuthenticationSessionFactory;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpClient;
@@ -217,6 +221,49 @@ final class ToolLoopGateWiringTest extends FunctionalTestCase
         $policy = $factory->instructionPolicy();
         self::assertInstanceOf(SkillInstructionPolicy::class, $policy);
         self::assertInstanceOf(SkillRecordLookupInterface::class, (new ReflectionProperty(SkillInstructionPolicy::class, 'records'))->getValue($policy), 'the policy applies the record rule');
+    }
+
+    /**
+     * The executor takes the process preparer as an optional argument
+     * (ADR-228), and without one it refuses every invocation and
+     * continuation. A container that left it null would compile and refuse
+     * every process run; pinned here on each path that builds a run: the
+     * runtime, the queue worker and the resume coordinator.
+     */
+    #[Test]
+    public function productionWiresTheProcessPreparerIntoEveryExecutor(): void
+    {
+        $runtime = $this->get(AgentRuntime::class);
+        self::assertInstanceOf(AgentRuntime::class, $runtime);
+        $executors = [
+            AgentRuntime::class         => (new ReflectionProperty(AgentRuntime::class, 'runExecutor'))->getValue($runtime),
+            QueuedRunCoordinator::class => (new ReflectionProperty(QueuedRunCoordinator::class, 'executor'))->getValue(
+                (new ReflectionProperty(AgentRuntime::class, 'queueCoordinator'))->getValue($runtime),
+            ),
+            ResumeCoordinator::class => (new ReflectionProperty(ResumeCoordinator::class, 'executor'))->getValue(
+                (new ReflectionProperty(AgentRuntime::class, 'resumeCoordinator'))->getValue($runtime),
+            ),
+        ];
+
+        foreach ($executors as $path => $executor) {
+            self::assertInstanceOf(AgentRunExecutor::class, $executor, $path);
+            self::assertInstanceOf(ProcessRunPreparer::class, (new ReflectionProperty(AgentRunExecutor::class, 'processPreparer'))->getValue($executor), $path);
+        }
+    }
+
+    /**
+     * The highlight builtin (ADR-228) reaches the registry through the tool
+     * tag like every builtin, and ships disabled.
+     */
+    #[Test]
+    public function productionRegistersTheHighlightBuiltin(): void
+    {
+        $registry = $this->get(ToolRegistry::class);
+        self::assertInstanceOf(ToolRegistry::class, $registry);
+
+        $tool = $registry->get(HighlightRecordTool::NAME);
+        self::assertInstanceOf(HighlightRecordTool::class, $tool);
+        self::assertFalse($tool->isEnabledByDefault());
     }
 
     #[Test]

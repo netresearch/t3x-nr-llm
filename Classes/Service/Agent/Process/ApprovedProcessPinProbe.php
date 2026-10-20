@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Agent\Process;
 
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Service\Skill\SkillApprovalRepositoryInterface;
@@ -66,6 +67,19 @@ final readonly class ApprovedProcessPinProbe implements ProcessPinProbe
     public function anyProcessPin(array $pins): bool
     {
         return $this->processPinAmong($pins) ?? true;
+    }
+
+    public function processSnapshot(SkillPin $pin): ?SkillApproval
+    {
+        try {
+            $approval = $this->approvals->findUnrevoked($pin->skillUid, $pin->sourceUid, $pin->versionDigest);
+        } catch (Throwable $exception) {
+            $this->logger?->warning('The approval of a process pin could not be read.', ['exception' => $exception]);
+
+            return null;
+        }
+
+        return $approval instanceof SkillApproval && $approval->process ? $approval : null;
     }
 
     /**

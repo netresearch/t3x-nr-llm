@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
+use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
 use Netresearch\NrLlm\Domain\ValueObject\SkillCatalogue;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
@@ -284,6 +285,16 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     private function resumedSkillAllowList(SuspendedRunState $state, LlmConfiguration $configuration, ?RunAugmentation $augmentation): array
     {
         $live = $this->toolPolicy->skillAllowListForRun($configuration, $augmentation->forcedSkills ?? []);
+        // A held process pin contributes from its pinned snapshot (ADR-214
+        // item 5, ADR-228), whatever its record declares by now: the tour
+        // keeps the tools its instruction relies on until the pin fails, and
+        // the pin check stops the run when it does.
+        foreach ($state->skillPins as $pin) {
+            $version = $this->processPinProbe?->processSnapshot($pin);
+            if ($version instanceof SkillApproval) {
+                $live = $live->withDeclaration($version->allowedTools ?? []);
+            }
+        }
 
         return $state->skillAllowList instanceof SkillToolAllowList
             ? [$state->skillAllowList->intersect($live), $state->skillAllowList]
@@ -328,6 +339,16 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // bound, as a stored list does on resume.
         $live = $this->toolPolicy->skillAllowListForRun($configuration, $augmentation->forcedSkills ?? []);
 
+        // The process the runtime started or continued (ADR-228): composed from
+        // its approval snapshot, and its declaration joins the run's union —
+        // in the stored list too, which a queued run resolved before the
+        // invocation was checked. A pin whose snapshot is gone stops the run.
+        $processVersion = $this->processVersionOf($augmentation?->processPin);
+        if ($processVersion instanceof SkillApproval) {
+            $live           = $live->withDeclaration($processVersion->allowedTools ?? []);
+            $skillAllowList = $skillAllowList?->withDeclaration($processVersion->allowedTools ?? []);
+        }
+
         return $this->loop(
             $messages,
             $configuration,
@@ -343,7 +364,53 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $seedCompletionTokens,
             $skillAllowList instanceof SkillToolAllowList ? $skillAllowList->intersect($live) : $live,
             $skillAllowList ?? $live,
+            processVersion: $processVersion,
         );
+    }
+
+    /**
+     * The start sections this run admits against the window (ADR-214 item 7):
+     * all it composed, less a process it continues from its predecessor
+     * (ADR-228).
+     *
+     * @param list<string> $instructionIds
+     *
+     * @return list<string>
+     */
+    private function sectionsToAdmit(array $instructionIds, LlmConfiguration $configuration, ?RunAugmentation $augmentation, ?SkillApproval $processVersion): array
+    {
+        if (!$processVersion instanceof SkillApproval || $augmentation?->admitsProcess === true) {
+            return $instructionIds;
+        }
+
+        $continued = SkillComposer::processSectionId(
+            [...SkillInjectionService::toList($configuration->getSkills()), ...($augmentation->forcedSkills ?? [])],
+            $processVersion,
+        );
+
+        return array_values(array_filter($instructionIds, static fn(string $id): bool => $id !== $continued));
+    }
+
+    /**
+     * The approval snapshot of the run's process pin, or null for a run
+     * without one. Fails closed: a pin the probe cannot answer for — revoked,
+     * no longer a process, unreadable — stops the run before anything is
+     * composed from it.
+     *
+     * @throws SkillInstructionWithdrawnException
+     */
+    private function processVersionOf(?SkillPin $pin): ?SkillApproval
+    {
+        if (!$pin instanceof SkillPin) {
+            return null;
+        }
+
+        $version = $this->processPinProbe?->processSnapshot($pin);
+        if (!$version instanceof SkillApproval) {
+            throw new SkillInstructionWithdrawnException($pin, 'unknown', 'its approval was revoked or no longer marks a process');
+        }
+
+        return $version;
     }
 
     /**
@@ -377,6 +444,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // instructions (ADR-214 item 6); a fresh run composes its own below.
         array $carriedPins = [],
         ?ToolInvocationHistory $carriedInvocationHistory = null,
+        // The approval snapshot of the process a fresh run invokes or
+        // continues (ADR-228), composed at assembly. A resume carries its
+        // sections in the transcript and passes none.
+        ?SkillApproval $processVersion = null,
     ): ToolLoopResult {
         // Every transcript enters here — a fresh run, a queued one read back
         // from the database, and both resume paths — so this is the one place
@@ -424,7 +495,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $runTrace?->recordDroppedSources($augmentation->droppedSources);
             }
 
-            [$messages, $dryRun, $skillPins, $instructionIds] = $this->assemble($messages, $configuration, $options, $augmentation);
+            [$messages, $dryRun, $skillPins, $instructionIds] = $this->assemble($messages, $configuration, $options, $augmentation, $processVersion);
         }
 
         if ($dryRun) {
@@ -457,14 +528,20 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // as at a load; only a loop without any window manager starts
         // unmeasured. The measurement starts afresh: the shared manager may
         // carry the calibration another run raised.
-        if ($instructionIds !== []) {
+        //
+        // A process the run continues from its predecessor (ADR-228) is a
+        // section the conversation already holds: it is not admitted again,
+        // so a long tour does not fail once its history outgrew the headroom.
+        // A process this run starts is admitted like any start section.
+        $admitIds = $this->sectionsToAdmit($instructionIds, $configuration, $augmentation, $processVersion);
+        if ($admitIds !== []) {
             $this->beginSegment();
         }
 
         // Measured against the model the send runs on; without one there is
         // no window to admit against, and the run does not start.
-        $windowModel = $instructionIds !== [] ? $this->windowModel($configuration) : null;
-        if ($instructionIds !== [] && $this->contextWindow instanceof ContextWindowManagerInterface && (
+        $windowModel = $admitIds !== [] ? $this->windowModel($configuration) : null;
+        if ($admitIds !== [] && $this->contextWindow instanceof ContextWindowManagerInterface && (
             !$this->contextWindow instanceof SectionAdmissionInterface
             || !$windowModel instanceof Model
             || !$this->contextWindow->admitsSection(
@@ -477,7 +554,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $windowModel,
             )
         )) {
-            throw new SkillSectionNotAdmittedException($instructionIds, 2497035577);
+            throw new SkillSectionNotAdmittedException($admitIds, 2497035577);
         }
 
         // No tools offered (an empty allow-list, or nothing registered): a tools
@@ -1912,6 +1989,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         LlmConfiguration $configuration,
         ?ToolOptions $options,
         ?RunAugmentation $augmentation,
+        ?SkillApproval $processVersion = null,
     ): array {
         // Marked snippets join a caller's own system message when the
         // configuration opts in (ADR-214 item 8) — before anything this
@@ -1935,14 +2013,22 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         $pins           = [];
         $instructionIds = [];
         if ($this->skillInjection instanceof SkillInjectionService) {
-            $injected       = $this->skillInjection->composeIntoMessages($messages, $configSkills, $forcedSkills);
-            $messages       = $injected['messages'];
-            $instructions   = $injected['instructions'];
-            $pins           = $injected['pins'];
+            $injected     = $this->skillInjection->composeIntoMessages(
+                $messages,
+                $configSkills,
+                $forcedSkills,
+                $processVersion instanceof SkillApproval ? [$processVersion] : [],
+            );
+            $messages     = $injected['messages'];
+            $instructions = $injected['instructions'];
+            $pins         = $injected['pins'];
             $instructionIds = $injected['instructionIds'];
         }
 
-        if (!$augmentation instanceof RunAugmentation) {
+        // An augmentation the runtime built only to carry a process assembles
+        // like no augmentation at all (ADR-228): the caller's own system
+        // message stays the one the run sends.
+        if (!$augmentation instanceof RunAugmentation || !$augmentation->bakesSystemPrompt) {
             if ($instructions !== '') {
                 // A bare system message would make the manager's shaping stage
                 // suppress the configuration's own prompt and snippets, so the

@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\DroppedSource;
+use Netresearch\NrLlm\Domain\ValueObject\SkillInvocation;
 use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Exception\RuntimeException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
@@ -117,7 +118,11 @@ final readonly class AgentRunRequestCodec
                 ))),
                 'dryRun' => $augmentation->dryRun,
             ] : null,
-            'skillAllowList' => $skillAllowList?->toStored(),
+            'skillAllowList'   => $skillAllowList?->toStored(),
+            // What the worker checks again at pickup and derives the process
+            // from (ADR-228): the invocation and the predecessor, never a pin.
+            'invocation'       => $request->invocation?->toArray(),
+            'predecessorRunUuid' => $request->predecessorRunUuid,
         ];
     }
 
@@ -228,6 +233,21 @@ final readonly class AgentRunRequestCodec
         // worker had), so an in-flight upgrade never loses or invents privilege.
         $actor = $this->queuedActor($data, $run);
 
+        // Fail closed (ADR-228): a stored invocation that cannot be read would
+        // otherwise run as an ordinary turn without the process it asked for.
+        $invocation = null;
+        if (($data['invocation'] ?? null) !== null) {
+            $invocation = SkillInvocation::fromArray($data['invocation']);
+            if (!$invocation instanceof SkillInvocation) {
+                throw new RuntimeException(sprintf('The stored skill invocation of queued run %s could not be read', $run->uuid), 1793500003);
+            }
+        }
+
+        $predecessor = $data['predecessorRunUuid'] ?? '';
+        if (!is_string($predecessor)) {
+            throw new RuntimeException(sprintf('The stored predecessor of queued run %s could not be read', $run->uuid), 1793500004);
+        }
+
         return new AgentRunRequest(
             configuration: $configuration,
             messages: $messages,
@@ -240,6 +260,8 @@ final readonly class AgentRunRequestCodec
             // A row queued before the list was stored has none; the loop then
             // resolves it when it starts, as before.
             skillAllowList: SkillToolAllowList::fromStored($data['skillAllowList'] ?? null),
+            invocation: $invocation,
+            predecessorRunUuid: $predecessor,
         );
     }
 

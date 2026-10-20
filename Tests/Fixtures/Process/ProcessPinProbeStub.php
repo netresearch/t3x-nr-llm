@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Fixtures\Process;
 
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
+use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 
 /**
@@ -21,14 +23,18 @@ use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 final readonly class ProcessPinProbeStub implements ProcessPinProbe
 {
     /**
-     * @param list<string> $pinnedRunUuids
-     * @param list<int>    $processSkillUids
+     * @param list<string>        $pinnedRunUuids
+     * @param list<int>           $processSkillUids
+     * @param list<SkillApproval> $snapshots
      */
     public function __construct(
         private array $pinnedRunUuids = [],
         private bool $everyRun = false,
         private array $processSkillUids = [],
         private bool $unknown = false,
+        // The approval snapshots processSnapshot() answers with, matched by
+        // skill, source and digest.
+        private array $snapshots = [],
     ) {}
 
     public function holdsProcessPin(AgentRun $run): bool
@@ -39,6 +45,17 @@ final readonly class ProcessPinProbeStub implements ProcessPinProbe
     public function processPinOf(AgentRun $run): ?bool
     {
         return $this->unknown && $this->holdsProcessPin($run) ? null : $this->holdsProcessPin($run);
+    }
+
+    public function processSnapshot(SkillPin $pin): ?SkillApproval
+    {
+        foreach ($this->snapshots as $snapshot) {
+            if ($snapshot->skillUid === $pin->skillUid && $snapshot->sourceUid === $pin->sourceUid && $snapshot->versionDigest === $pin->versionDigest) {
+                return $snapshot;
+            }
+        }
+
+        return null;
     }
 
     public function anyProcessPin(array $pins): bool

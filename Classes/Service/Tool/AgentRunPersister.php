@@ -15,10 +15,12 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
+use Netresearch\NrLlm\Domain\ValueObject\RunLineage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunLineageUnreadableException;
 use Netresearch\NrLlm\Service\Agent\OptionalAgentDiagnostics;
 use Netresearch\NrLlm\Service\Privacy\RunStepPrivacyFilter;
 use Psr\Log\LoggerInterface;
@@ -794,6 +796,76 @@ final readonly class AgentRunPersister
 
             return false;
         }
+    }
+
+    /**
+     * Persist what a continuation of the run derives from it (ADR-228) as the
+     * next event in its stream: kind {@see AgentEventKind::LINEAGE}, payload
+     * {@see RunLineage::toArray()} — uids and a digest, never text, so it is
+     * stored as it is at every privacy level.
+     *
+     * Returns whether it was stored. A run that invokes or continues a process
+     * fails closed on false: without the record the next turn would lose the
+     * process instead of continuing it.
+     */
+    public function recordLineage(AgentRunHandle $handle, RunLineage $lineage): bool
+    {
+        try {
+            $this->repository->recordEvent(
+                $handle->runUid,
+                $handle->sequence,
+                AgentEventKind::LINEAGE->value,
+                0,
+                0.0,
+                json_encode($lineage->toArray(), JSON_THROW_ON_ERROR),
+            );
+            ++$handle->sequence;
+
+            return true;
+        } catch (Throwable $exception) {
+            $this->logger?->warning('AgentRun lineage could not be persisted', ['exception' => $exception]);
+
+            return false;
+        }
+    }
+
+    /**
+     * The latest lineage a run recorded (ADR-228), or null when it recorded
+     * none — a run that neither invoked nor continued a process.
+     *
+     * Not fail-soft, unlike {@see self::findEvents()}: a store error or a
+     * payload that is not a lineage must not read as "no process", which would
+     * let the next turn of a tour go on without it. Both throw.
+     *
+     * @throws RunLineageUnreadableException
+     */
+    public function lineageOf(AgentRun $run): ?RunLineage
+    {
+        try {
+            $events = $this->repository->findEvents($run->uid);
+        } catch (Throwable $exception) {
+            $this->logger?->warning('AgentRun lineage could not be loaded', ['exception' => $exception]);
+
+            throw RunLineageUnreadableException::forRun($run->uuid);
+        }
+
+        $latest = null;
+        foreach ($events as $event) {
+            if ($event->kind === AgentEventKind::LINEAGE->value) {
+                $latest = $event;
+            }
+        }
+
+        if (!$latest instanceof AgentRunEvent) {
+            return null;
+        }
+
+        $lineage = RunLineage::fromArray($latest->payload);
+        if (!$lineage instanceof RunLineage) {
+            throw RunLineageUnreadableException::forRun($run->uuid);
+        }
+
+        return $lineage;
     }
 
     /**

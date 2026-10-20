@@ -10,7 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Domain\Enum;
 
 /**
- * Why a forced source the run asked for did not arrive (ADR-179).
+ * Why a forced source the run asked for did not arrive (ADR-179), or why a
+ * continuation dropped the process pin it derived (ADR-228).
  *
  * The two cases are kept apart deliberately. Both resolve to nothing, so a
  * single "dropped" would be easier to produce — and it would flatten two
@@ -39,4 +40,18 @@ enum DroppedSourceReason: string
      * remains to say which of the two it was.
      */
     case GONE = 'gone';
+
+    /**
+     * A process pin the continuation derived and dropped because its skill is
+     * no longer attached to the configuration (ADR-214 item 6, ADR-228).
+     * Detaching a skill ends its pin at the next turn without stopping the run.
+     */
+    case DETACHED = 'detached';
+
+    /**
+     * A process pin the continuation derived and dropped because the turn runs
+     * on another configuration than its predecessor did (ADR-214 item 6,
+     * ADR-228): the new configuration starts with its own attachments.
+     */
+    case CONFIGURATION_CHANGED = 'configuration_changed';
 }
