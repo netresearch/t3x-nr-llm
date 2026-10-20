@@ -134,7 +134,7 @@ final readonly class ListDeprecationsTool implements ToolInterface
             return null;
         }
 
-        usort($files, static fn(string $a, string $b): int => (int)filemtime($b) <=> (int)filemtime($a));
+        usort($files, static fn (string $a, string $b): int => (int) filemtime($b) <=> (int) filemtime($a));
 
         return $files[0];
     }
@@ -145,7 +145,7 @@ final readonly class ListDeprecationsTool implements ToolInterface
             return '';
         }
 
-        $size = (int)filesize($file);
+        $size = (int) filesize($file);
         if ($size < 1) {
             return '';
         }
@@ -188,7 +188,7 @@ final readonly class ListDeprecationsTool implements ToolInterface
         }
 
         $line = str_replace(Environment::getProjectPath() . '/', '', $line);
-        $line = trim((string)preg_replace('/\s+/', ' ', $line));
+        $line = trim((string) preg_replace('/\s+/', ' ', $line));
 
         return mb_strimwidth($line, 0, self::MESSAGE_WIDTH, '…');
     }

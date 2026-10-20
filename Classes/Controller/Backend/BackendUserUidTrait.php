@@ -23,7 +23,7 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * {@see TaskExecutionController}) so the exact null-safe extraction lives in
  * one place.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 trait BackendUserUidTrait
 {
@@ -38,7 +38,7 @@ trait BackendUserUidTrait
         // session is fully loaded (CLI/testing), so guard with is_array().
         $uid = is_array($backendUser->user) ? ($backendUser->user['uid'] ?? 0) : 0;
 
-        return is_numeric($uid) ? (int)$uid : 0;
+        return is_numeric($uid) ? (int) $uid : 0;
     }
 
     /**
@@ -58,8 +58,8 @@ trait BackendUserUidTrait
         }
 
         $groupIds = array_values(array_filter(
-            array_map(static fn(mixed $g): int => is_numeric($g) ? (int)$g : 0, $backendUser->userGroupsUID),
-            static fn(int $g): bool => $g > 0,
+            array_map(static fn (mixed $g): int => is_numeric($g) ? (int) $g : 0, $backendUser->userGroupsUID),
+            static fn (int $g): bool => $g > 0,
         ));
 
         // The grants are frozen here for the same reason as the admin flag:
@@ -68,7 +68,7 @@ trait BackendUserUidTrait
         // permissions, so a revoked grant stops working with the next request.
         $grants = array_values(array_filter(
             BackendUserGrant::cases(),
-            static fn(BackendUserGrant $grant): bool => (bool)$backendUser->check('custom_options', $grant->permissionValue()),
+            static fn (BackendUserGrant $grant): bool => (bool) $backendUser->check('custom_options', $grant->permissionValue()),
         ));
 
         return AiActorContext::backendUser($uid, $backendUser->isAdmin(), $groupIds, $grants);

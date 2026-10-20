@@ -38,12 +38,12 @@ final readonly class TestPromptResolverService implements TestPromptResolverInte
      */
     private const LANGUAGE_MAP = [
         'default' => 'English', 'en' => 'English', 'de' => 'German', 'fr' => 'French',
-        'es' => 'Spanish', 'it' => 'Italian', 'nl' => 'Dutch', 'pt' => 'Portuguese',
-        'da' => 'Danish', 'sv' => 'Swedish', 'no' => 'Norwegian', 'fi' => 'Finnish',
-        'pl' => 'Polish', 'cs' => 'Czech', 'sk' => 'Slovak', 'hu' => 'Hungarian',
-        'ro' => 'Romanian', 'bg' => 'Bulgarian', 'hr' => 'Croatian', 'sl' => 'Slovenian',
-        'el' => 'Greek', 'tr' => 'Turkish', 'ru' => 'Russian', 'uk' => 'Ukrainian',
-        'zh' => 'Chinese', 'ja' => 'Japanese', 'ko' => 'Korean', 'ar' => 'Arabic',
+        'es'      => 'Spanish', 'it' => 'Italian', 'nl' => 'Dutch', 'pt' => 'Portuguese',
+        'da'      => 'Danish', 'sv' => 'Swedish', 'no' => 'Norwegian', 'fi' => 'Finnish',
+        'pl'      => 'Polish', 'cs' => 'Czech', 'sk' => 'Slovak', 'hu' => 'Hungarian',
+        'ro'      => 'Romanian', 'bg' => 'Bulgarian', 'hr' => 'Croatian', 'sl' => 'Slovenian',
+        'el'      => 'Greek', 'tr' => 'Turkish', 'ru' => 'Russian', 'uk' => 'Ukrainian',
+        'zh'      => 'Chinese', 'ja' => 'Japanese', 'ko' => 'Korean', 'ar' => 'Arabic',
     ];
 
     public function __construct(
@@ -53,7 +53,7 @@ final readonly class TestPromptResolverService implements TestPromptResolverInte
 
     public function resolve(): string
     {
-        $prompt = $this->loadConfiguredPrompt();
+        $prompt       = $this->loadConfiguredPrompt();
         $languageName = self::LANGUAGE_MAP[$this->resolveBackendUserLanguage()] ?? 'English';
 
         return str_replace('{lang}', $languageName, $prompt);
@@ -63,9 +63,9 @@ final readonly class TestPromptResolverService implements TestPromptResolverInte
     {
         try {
             /** @var array<string, mixed> $config */
-            $config = $this->extensionConfiguration->get('nr_llm');
+            $config  = $this->extensionConfiguration->get('nr_llm');
             $testing = is_array($config['testing'] ?? null) ? $config['testing'] : [];
-            $prompt = is_string($testing['testPrompt'] ?? null) ? $testing['testPrompt'] : self::DEFAULT_PROMPT;
+            $prompt  = is_string($testing['testPrompt'] ?? null) ? $testing['testPrompt'] : self::DEFAULT_PROMPT;
         } catch (Throwable) {
             return self::DEFAULT_PROMPT;
         }
@@ -90,7 +90,7 @@ final readonly class TestPromptResolverService implements TestPromptResolverInte
     private function resolveBackendUserLanguage(): string
     {
         try {
-            $isLoggedIn = (bool)$this->context->getAspect('backend.user')->get('isLoggedIn');
+            $isLoggedIn = (bool) $this->context->getAspect('backend.user')->get('isLoggedIn');
         } catch (AspectNotFoundException) {
             $isLoggedIn = false;
         }
@@ -103,7 +103,8 @@ final readonly class TestPromptResolverService implements TestPromptResolverInte
         // BackendUserAuthentication::$user is untyped and may be null until a
         // session is loaded; guard before the array access.
         $record = $backendUser->user;
-        $lang = is_array($record) ? ($record['lang'] ?? null) : null;
+        $lang   = is_array($record) ? ($record['lang'] ?? null) : null;
+
         return is_string($lang) && $lang !== '' ? $lang : 'default';
     }
 }

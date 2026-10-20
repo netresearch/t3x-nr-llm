@@ -71,6 +71,7 @@ final readonly class SkillComposerFactory
             maxBytes: $this->resolveMaxBytes(),
             minTrustLevel: $this->minTrustLevel(),
             instructionPolicy: $this->instructionPolicy(),
+            sources: $this->sources,
         );
     }
 
@@ -107,9 +108,9 @@ final readonly class SkillComposerFactory
     {
         try {
             $skills = $this->skillsConfig();
-            $raw   = $skills['instructionTrustLevel'] ?? null;
-            $value = is_string($raw) ? trim($raw) : '';
-            $level = match (true) {
+            $raw    = $skills['instructionTrustLevel'] ?? null;
+            $value  = is_string($raw) ? trim($raw) : '';
+            $level  = match (true) {
                 $raw === null, $value === '' && is_string($raw) => self::DEFAULT_INSTRUCTION_TRUST_LEVEL,
                 // Present but not a string (an integer in settings.php, say):
                 // unrecognised, so it fails closed like a typo.
@@ -142,7 +143,7 @@ final readonly class SkillComposerFactory
             return SkillComposer::DEFAULT_MAX_BYTES;
         }
 
-        $bytes = is_numeric($value) ? (int)$value : 0;
+        $bytes = is_numeric($value) ? (int) $value : 0;
 
         return $bytes >= 1 ? $bytes : SkillComposer::DEFAULT_MAX_BYTES;
     }

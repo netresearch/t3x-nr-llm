@@ -13,19 +13,12 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 
 /**
- * The opt-in quality dimension for model routing (ADR-060).
- *
- * This is a documented HOOK, not a change to ModelSelectionService: it takes
- * that service's existing candidate list for a criteria set and re-ranks it
- * by measured quality score. Nothing calls it unless a consumer explicitly
- * routes through it, so the established cost/latency selection modes are
- * untouched. Wiring quality into ModelSelectionService as a first-class sort
- * key is a deliberate follow-up (see ADR-060).
- *
- * Ranking: candidates with a quality score sort highest-first; candidates
- * without a score keep their original (base-selection) order behind the
- * scored ones. With no scores at all and no minimum, this degrades exactly
- * to the base selection's first candidate.
+ * Consumer-facing quality ordering and minimum-quality filter (ADR-060, ADR-220).
+ * Core ModelSelectionService already uses measured quality under the opt-in
+ * policy modes from ADR-142. This explicit selector additionally filters by a
+ * minimum score and orders by quality alone, preserving base order for ties.
+ * Verified core scores use the configured provider instance and model alias;
+ * custom providers without that capability keep their model-ID contract.
  */
 final readonly class QualityAwareModelSelector
 {
@@ -50,7 +43,10 @@ final readonly class QualityAwareModelSelector
 
         $ranked = [];
         foreach (array_values($candidates) as $order => $model) {
-            $score = $this->qualityScoreProvider->getQualityScore($model->getModelId());
+            $score = $this->qualityScoreProvider instanceof ProviderModelQualityScoreProviderInterface ? $this->qualityScoreProvider->getQualityScoreForProviderModel(
+                $model->getProvider()?->getIdentifier() ?? '',
+                $model->getModelId(),
+            ) : $this->qualityScoreProvider->getQualityScore($model->getModelId());
             if ($minQuality > 0.0 && ($score === null || $score < $minQuality)) {
                 continue;
             }

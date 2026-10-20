@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Domain\ValueObject;
 use Netresearch\NrLlm\Domain\Enum\ArtifactType;
 use Netresearch\NrLlm\Domain\Enum\ToolOutcome;
 use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
+use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
@@ -26,7 +27,7 @@ final class RunStepTest extends TestCase
     #[Test]
     public function toArrayAlwaysCarriesKindRoundAndRoundedDuration(): void
     {
-        $step = new RunStep(kind: RunStep::KIND_LLM, round: 2, durationMs: 12.3456);
+        $step  = new RunStep(kind: RunStep::KIND_LLM, round: 2, durationMs: 12.3456);
         $array = $step->toArray();
 
         self::assertSame('llm', $array['kind']);
@@ -37,7 +38,7 @@ final class RunStepTest extends TestCase
     #[Test]
     public function toArrayDropsNullFieldsSoEachKindOnlyEmitsItsOwnKeys(): void
     {
-        $step = new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 5.0, toolName: 'fetch', toolResult: 'ok', toolIsError: false);
+        $step  = new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 5.0, toolName: 'fetch', toolResult: 'ok', toolIsError: false);
         $array = $step->toArray();
 
         self::assertSame('fetch', $array['toolName']);
@@ -123,8 +124,8 @@ final class RunStepTest extends TestCase
     public static function inconsistentPairs(): iterable
     {
         yield 'no error, yet cancelled' => [false, ToolOutcome::CANCELLED];
-        yield 'no error, yet failed'    => [false, ToolOutcome::FAILED];
-        yield 'an error, yet ok'        => [true, ToolOutcome::OK];
+        yield 'no error, yet failed' => [false, ToolOutcome::FAILED];
+        yield 'an error, yet ok' => [true, ToolOutcome::OK];
         yield 'an outcome without the flag every tool step carries' => [null, ToolOutcome::CANCELLED];
     }
 
@@ -170,8 +171,8 @@ final class RunStepTest extends TestCase
      */
     public static function consistentPairs(): iterable
     {
-        yield 'ok'        => [false, ToolOutcome::OK];
-        yield 'failed'    => [true, ToolOutcome::FAILED];
+        yield 'ok' => [false, ToolOutcome::OK];
+        yield 'failed' => [true, ToolOutcome::FAILED];
         yield 'cancelled' => [true, ToolOutcome::CANCELLED];
     }
 
@@ -204,8 +205,8 @@ final class RunStepTest extends TestCase
         self::assertFalse($write->toArray()['hookFailedAfterWrite']);
 
         $refusals = [
-            'writeCompleteness'    => static fn(): RunStep => new RunStep(RunStep::KIND_TOOL, 1, 0.0, writeCompleteness: WriteCompleteness::COMPLETE),
-            'hookFailedAfterWrite' => static fn(): RunStep => new RunStep(RunStep::KIND_TOOL, 1, 0.0, hookFailedAfterWrite: false),
+            'writeCompleteness'    => static fn (): RunStep => new RunStep(RunStep::KIND_TOOL, 1, 0.0, writeCompleteness: WriteCompleteness::COMPLETE),
+            'hookFailedAfterWrite' => static fn (): RunStep => new RunStep(RunStep::KIND_TOOL, 1, 0.0, hookFailedAfterWrite: false),
         ];
         foreach ($refusals as $field => $construct) {
             try {
@@ -215,5 +216,26 @@ final class RunStepTest extends TestCase
                 self::assertSame(1791600001, $e->getCode());
             }
         }
+    }
+
+    /**
+     * Only a highlight step names a highlight target (ADR-228), so no other
+     * kind can be read as pointing the editor at a record.
+     */
+    #[Test]
+    public function onlyAHighlightStepNamesAHighlightTarget(): void
+    {
+        $step = new RunStep(kind: RunStep::KIND_HIGHLIGHT, round: 1, durationMs: 0.0, highlightTarget: new RecordReference('pages', 3));
+        self::assertSame('pages:3', (string) $step->highlightTarget);
+        self::assertContains(RunStep::KIND_HIGHLIGHT, RunStep::kinds());
+        self::assertArrayNotHasKey('highlightTable', (new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 0.0))->toArray());
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(1793500005);
+        $step = new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 0.0, highlightTarget: new RecordReference('pages', 3));
+
+        // S1848: the instantiation must be used; a constructor that accepted
+        // this is worth naming in the failure.
+        self::fail('A tool step named a highlight target: ' . $step->highlightTarget);
     }
 }

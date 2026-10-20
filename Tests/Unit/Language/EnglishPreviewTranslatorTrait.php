@@ -28,13 +28,13 @@ trait EnglishPreviewTranslatorTrait
     private function englishTranslator(): ApprovalPreviewTranslator
     {
         $english = self::createStub(LanguageService::class);
-        $english->method('sL')->willReturnCallback(static fn(string $key): string => LabelCatalogue::source($key) ?? '');
+        $english->method('sL')->willReturnCallback(static fn (string $key): string => LabelCatalogue::source($key) ?? '');
         $german = self::createStub(LanguageService::class);
-        $german->method('sL')->willReturnCallback(static fn(string $key): string => LabelCatalogue::target($key) ?? '');
+        $german->method('sL')->willReturnCallback(static fn (string $key): string => LabelCatalogue::target($key) ?? '');
 
         $factory = self::createStub(LanguageServiceFactory::class);
         $factory->method('createFromUserPreferences')->willReturnCallback(
-            static fn(?AbstractUserAuthentication $user): LanguageService => is_array($user?->user) && ($user->user['lang'] ?? null) === 'de' ? $german : $english,
+            static fn (?AbstractUserAuthentication $user): LanguageService => is_array($user?->user) && ($user->user['lang'] ?? null) === 'de' ? $german : $english,
         );
 
         return new ApprovalPreviewTranslator($factory);

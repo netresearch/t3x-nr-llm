@@ -291,7 +291,7 @@ final class ResumeCoordinatorSubmitterGateTest extends AbstractFunctionalTestCas
         $skill = new Skill();
         $skill->setSource(1);
         $skill->setIdentifier('attached');
-        $skill->setAllowedTools((string)json_encode($tools));
+        $skill->setAllowedTools((string) json_encode($tools));
         $skill->setEnabled(true);
 
         return $skill;

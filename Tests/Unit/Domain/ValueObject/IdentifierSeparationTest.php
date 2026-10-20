@@ -51,10 +51,10 @@ final class IdentifierSeparationTest extends TestCase
     public static function identifierTypes(): iterable
     {
         yield 'configuration' => [ConfigurationIdentifier::class];
-        yield 'adapter key'   => [ProviderAdapterKey::class];
-        yield 'provider'      => [ProviderIdentifier::class];
-        yield 'model'         => [ModelIdentifier::class];
-        yield 'model name'    => [ProviderModelName::class];
+        yield 'adapter key' => [ProviderAdapterKey::class];
+        yield 'provider' => [ProviderIdentifier::class];
+        yield 'model' => [ModelIdentifier::class];
+        yield 'model name' => [ProviderModelName::class];
     }
 
     /**
@@ -62,7 +62,7 @@ final class IdentifierSeparationTest extends TestCase
      */
     public static function identifierPairs(): iterable
     {
-        $types = array_map(static fn(array $row): string => $row[0], iterator_to_array(self::identifierTypes()));
+        $types = array_map(static fn (array $row): string => $row[0], iterator_to_array(self::identifierTypes()));
         foreach ($types as $left) {
             foreach ($types as $right) {
                 if ($left !== $right) {

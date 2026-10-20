@@ -213,9 +213,9 @@ final class UpdateFalAssetMetaToolTest extends AbstractUnitTestCase
      */
     public static function refusedArguments(): iterable
     {
-        yield 'no uid'          => [['title' => 'x'], 'exactly one file'];
-        yield 'zero uid'        => [['uid' => 0, 'title' => 'x'], 'exactly one file'];
-        yield 'negative uid'    => [['uid' => -3, 'title' => 'x'], 'exactly one file'];
+        yield 'no uid' => [['title' => 'x'], 'exactly one file'];
+        yield 'zero uid' => [['uid' => 0, 'title' => 'x'], 'exactly one file'];
+        yield 'negative uid' => [['uid' => -3, 'title' => 'x'], 'exactly one file'];
         yield 'non-numeric uid' => [['uid' => 'all', 'title' => 'x'], 'exactly one file'];
 
         // Neither field: the call would change nothing and still cost a human an
@@ -224,17 +224,17 @@ final class UpdateFalAssetMetaToolTest extends AbstractUnitTestCase
 
         // null is not the same as omitted and not the same as empty. Guessing
         // which one was meant is how a metadata writer erases work.
-        yield 'null title'       => [['uid' => 1, 'title' => null], 'passed as null'];
+        yield 'null title' => [['uid' => 1, 'title' => null], 'passed as null'];
         yield 'null description' => [['uid' => 1, 'description' => null], 'passed as null'];
 
-        yield 'array title'       => [['uid' => 1, 'title' => ['a']], 'must be a string'];
-        yield 'boolean title'     => [['uid' => 1, 'title' => true], 'must be a string'];
+        yield 'array title' => [['uid' => 1, 'title' => ['a']], 'must be a string'];
+        yield 'boolean title' => [['uid' => 1, 'title' => true], 'must be a string'];
         yield 'array description' => [['uid' => 1, 'description' => ['a']], 'must be a string'];
 
         // The alternative text has its own tool, and this one says so by
         // refusing rather than by quietly writing the fields it does know.
-        yield 'the alternative text'      => [['uid' => 1, 'title' => 'x', 'alternative' => 'y'], 'not an argument of this tool'];
-        yield 'a language argument'       => [['uid' => 1, 'title' => 'x', 'sys_language_uid' => 1], 'not an argument of this tool'];
+        yield 'the alternative text' => [['uid' => 1, 'title' => 'x', 'alternative' => 'y'], 'not an argument of this tool'];
+        yield 'a language argument' => [['uid' => 1, 'title' => 'x', 'sys_language_uid' => 1], 'not an argument of this tool'];
         yield 'an unrelated table column' => [['uid' => 1, 'title' => 'x', 'file' => 9], 'not an argument of this tool'];
     }
 
@@ -292,11 +292,11 @@ final class UpdateFalAssetMetaToolTest extends AbstractUnitTestCase
      */
     public static function refusedCopyrightArguments(): iterable
     {
-        yield 'null copyright'     => [['uid' => 1, 'copyright' => null], 'passed as null'];
-        yield 'array copyright'    => [['uid' => 1, 'copyright' => ['a']], 'must be a string'];
+        yield 'null copyright' => [['uid' => 1, 'copyright' => null], 'passed as null'];
+        yield 'array copyright' => [['uid' => 1, 'copyright' => ['a']], 'must be a string'];
         yield 'overlong copyright' => [['uid' => 1, 'copyright' => str_repeat('a', 2001)], 'exceeds 2000 characters'];
         // The refusal vocabulary follows the fields this installation has.
-        yield 'no field at all'    => [['uid' => 1], 'at least one of "title", "description" or "copyright"'];
+        yield 'no field at all' => [['uid' => 1], 'at least one of "title", "description" or "copyright"'];
         yield 'an unknown argument' => [
             ['uid' => 1, 'copyright' => 'x', 'alternative' => 'y'],
             'It sets "title", "description" and "copyright" on one file; allowed: uid, title, description, copyright.',

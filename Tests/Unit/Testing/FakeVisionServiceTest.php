@@ -31,7 +31,7 @@ final class FakeVisionServiceTest extends TestCase
     #[Test]
     public function returnsTheCannedStringForASingleImage(): void
     {
-        $subject = new FakeVisionService();
+        $subject                = new FakeVisionService();
         $subject->altTextResult = 'a red bus';
 
         self::assertSame('a red bus', $subject->generateAltText('https://example.test/a.png'));
@@ -40,7 +40,7 @@ final class FakeVisionServiceTest extends TestCase
     #[Test]
     public function echoesArityReturningOneResultPerImageForABatch(): void
     {
-        $subject = new FakeVisionService();
+        $subject              = new FakeVisionService();
         $subject->titleResult = 'canned title';
 
         $result = $subject->generateTitle(['https://example.test/a.png', 'https://example.test/b.png']);
@@ -51,7 +51,7 @@ final class FakeVisionServiceTest extends TestCase
     #[Test]
     public function analyzeImageEchoesArityAndRecordsTheCustomPrompt(): void
     {
-        $subject = new FakeVisionService();
+        $subject                     = new FakeVisionService();
         $subject->analyzeImageResult = 'analysis';
 
         self::assertSame('analysis', $subject->analyzeImage('https://example.test/a.png', 'What is this?'));
@@ -61,7 +61,7 @@ final class FakeVisionServiceTest extends TestCase
     #[Test]
     public function analyzeImageFullReturnsADefaultResponseWhenNoneIsCanned(): void
     {
-        $subject = new FakeVisionService();
+        $subject                    = new FakeVisionService();
         $subject->descriptionResult = 'a cat on a mat';
 
         $response = $subject->analyzeImageFull('https://example.test/a.png', 'describe');
@@ -73,8 +73,8 @@ final class FakeVisionServiceTest extends TestCase
     #[Test]
     public function analyzeImageFullReturnsTheCannedResponse(): void
     {
-        $canned  = new VisionResponse('canned', 'm', new UsageStatistics(0, 0, 0));
-        $subject = new FakeVisionService();
+        $canned                          = new VisionResponse('canned', 'm', new UsageStatistics(0, 0, 0));
+        $subject                         = new FakeVisionService();
         $subject->analyzeImageFullResult = $canned;
 
         self::assertSame($canned, $subject->analyzeImageFull('https://example.test/a.png', 'describe'));
@@ -96,7 +96,7 @@ final class FakeVisionServiceTest extends TestCase
     #[Test]
     public function throwsConfiguredThrowableInsteadOfReturning(): void
     {
-        $subject = new FakeVisionService();
+        $subject            = new FakeVisionService();
         $subject->throwable = new RuntimeException('boom');
 
         $this->expectException(RuntimeException::class);
@@ -108,18 +108,29 @@ final class FakeVisionServiceTest extends TestCase
     #[Test]
     public function throwableIsOneShotAndTheNextCallReturnsAgain(): void
     {
-        $subject = new FakeVisionService();
+        $subject                = new FakeVisionService();
         $subject->altTextResult = 'after';
-        $subject->throwable = new RuntimeException('boom');
 
+        $expected           = new RuntimeException('boom');
+        $subject->throwable = $expected;
+
+        $caught = null;
         try {
             $subject->generateAltText('https://example.test/a.png');
-            self::fail('Expected RuntimeException was not thrown.');
-        } catch (RuntimeException) {
-            // one-shot: cleared before throwing
+        } catch (RuntimeException $failure) {
+            $caught = $failure;
         }
 
+        self::assertSame(
+            $expected,
+            $caught,
+            'The first call must throw the exact configured failure.',
+        );
+
         self::assertNull($subject->throwable);
-        self::assertSame('after', $subject->generateAltText('https://example.test/a.png'));
+        self::assertSame(
+            'after',
+            $subject->generateAltText('https://example.test/a.png'),
+        );
     }
 }

@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Utility;
 
 use Netresearch\NrVault\Secret\SecretPatternLibrary;
 
+use function is_string;
+
 /**
  * Trait for redacting credential-bearing URLs from error messages before they are
  * logged or surfaced.
@@ -56,7 +58,7 @@ trait ErrorMessageSanitizerTrait
 
             // Keep the last good text: a pattern that gives up on a pathological
             // message must not blank the message entirely.
-            if (\is_string($result)) {
+            if (is_string($result)) {
                 $sanitised = $result;
             }
         }

@@ -70,10 +70,10 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
      * @param string                                    $audioPath Path to audio file
      * @param TranscriptionOptions|array<string, mixed> $options   Transcription options
      *
+     * @return TranscriptionResult Transcription result
+     *
      * @throws ServiceUnavailableException
      * @throws UnsupportedFormatException
-     *
-     * @return TranscriptionResult Transcription result
      */
     public function transcribe(
         string $audioPath,
@@ -90,7 +90,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
 
         $response = $this->runLifecycle(
             $this->transcriptionContext($options),
-            fn(): array|string => $this->sendTranscriptionRequest($audioPath, $options),
+            fn (): array|string => $this->sendTranscriptionRequest($audioPath, $options),
         );
 
         return $this->parseTranscriptionResponse($response, $options);
@@ -132,7 +132,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
 
         $response = $this->runLifecycle(
             $this->transcriptionContext($options),
-            fn(): array|string => $this->sendTranscriptionRequestFromContent($audioContent, $filename, $options),
+            fn (): array|string => $this->sendTranscriptionRequestFromContent($audioContent, $filename, $options),
         );
 
         return $this->parseTranscriptionResponse($response, $options);
@@ -164,7 +164,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
 
         $response = $this->runLifecycle(
             $this->transcriptionContext($options),
-            fn(): array|string => $this->sendTranslationRequest($audioPath, $options),
+            fn (): array|string => $this->sendTranslationRequest($audioPath, $options),
         );
 
         return $this->parseTranscriptionResponse($response, $options);
@@ -365,7 +365,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
         }
 
         if ($options->temperature !== null) {
-            $parts[] = ['name' => 'temperature', 'value' => (string)$options->temperature];
+            $parts[] = ['name' => 'temperature', 'value' => (string) $options->temperature];
         }
 
         return $parts;
@@ -382,10 +382,10 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
      *
      * @param list<array<string, mixed>> $parts
      *
+     * @return array<string, mixed>|string
+     *
      * @throws ServiceUnavailableException
      * @throws ServiceConfigurationException
-     *
-     * @return array<string, mixed>|string
      */
     private function dispatchMultipart(string $endpoint, array $parts, TranscriptionOptions $options): array|string
     {
@@ -411,9 +411,9 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
         $this->assertWithinLifecycle();
 
         try {
-            $response = $this->getSecureClient()->sendRequest($request);
-            $statusCode = $response->getStatusCode();
-            $responseBody = (string)$response->getBody();
+            $response     = $this->getSecureClient()->sendRequest($request);
+            $statusCode   = $response->getStatusCode();
+            $responseBody = (string) $response->getBody();
 
             if ($statusCode >= 200 && $statusCode < 300) {
                 $format = $options->format ?? 'json';
@@ -499,12 +499,12 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
             );
         }
 
-        $text = is_string($response['text'] ?? null) ? $response['text'] : '';
+        $text     = is_string($response['text'] ?? null) ? $response['text'] : '';
         $language = is_string($response['language'] ?? null)
             ? $response['language']
             : ($options->language ?? 'en');
         $duration = isset($response['duration']) && is_numeric($response['duration'])
-            ? (float)$response['duration']
+            ? (float) $response['duration']
             : null;
 
         /** @var array<int, Segment>|null $segments */
@@ -512,7 +512,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
         if ($format === 'verbose_json' && isset($response['segments']) && is_array($response['segments'])) {
             /** @var array<int, array<string, mixed>> $responseSegments */
             $responseSegments = $response['segments'];
-            $segments = array_map(
+            $segments         = array_map(
                 Segment::fromWhisperResponse(...),
                 $responseSegments,
             );
@@ -525,7 +525,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
             segments: $segments,
             metadata: [
                 'format' => $format,
-                'task' => is_string($response['task'] ?? null) ? $response['task'] : 'transcribe',
+                'task'   => is_string($response['task'] ?? null) ? $response['task'] : 'transcribe',
             ],
         );
     }

@@ -41,7 +41,7 @@ final readonly class RetrievalQuery
         ?string $siteIdentifier = null,
         int $languageId = 0,
     ): self {
-        $query = trim($query);
+        $query  = trim($query);
         $length = mb_strlen($query);
         if ($length < self::MIN_QUERY_LENGTH || $length > self::MAX_QUERY_LENGTH) {
             throw new InvalidArgumentException(

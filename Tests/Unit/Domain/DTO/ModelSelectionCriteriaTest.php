@@ -74,10 +74,10 @@ class ModelSelectionCriteriaTest extends AbstractUnitTestCase
     public function fromArrayCreatesInstanceWithAllFields(): void
     {
         $data = [
-            'capabilities' => ['chat', 'embeddings'],
-            'adapterTypes' => ['openai'],
+            'capabilities'     => ['chat', 'embeddings'],
+            'adapterTypes'     => ['openai'],
             'minContextLength' => 4096,
-            'maxCostInput' => 200,
+            'maxCostInput'     => 200,
             'preferLowestCost' => true,
         ];
 
@@ -125,10 +125,10 @@ class ModelSelectionCriteriaTest extends AbstractUnitTestCase
     public function fromJsonCreatesInstanceFromValidJson(): void
     {
         $json = json_encode([
-            'capabilities' => ['chat', 'tools'],
-            'adapterTypes' => ['gemini'],
+            'capabilities'     => ['chat', 'tools'],
+            'adapterTypes'     => ['gemini'],
             'minContextLength' => 16384,
-            'maxCostInput' => 300,
+            'maxCostInput'     => 300,
             'preferLowestCost' => false,
         ], JSON_THROW_ON_ERROR);
 
@@ -198,10 +198,10 @@ class ModelSelectionCriteriaTest extends AbstractUnitTestCase
         );
 
         $expected = [
-            'capabilities' => ['chat'],
-            'adapterTypes' => ['openai'],
+            'capabilities'     => ['chat'],
+            'adapterTypes'     => ['openai'],
             'minContextLength' => 2048,
-            'maxCostInput' => 150.0,
+            'maxCostInput'     => 150.0,
             'preferLowestCost' => true,
         ];
 
@@ -256,10 +256,10 @@ class ModelSelectionCriteriaTest extends AbstractUnitTestCase
     public function fromArrayAndToArrayRoundTrip(): void
     {
         $data = [
-            'capabilities' => ['chat', 'vision', 'tools'],
-            'adapterTypes' => ['openai', 'anthropic'],
+            'capabilities'     => ['chat', 'vision', 'tools'],
+            'adapterTypes'     => ['openai', 'anthropic'],
             'minContextLength' => 32768,
-            'maxCostInput' => 1000.0,
+            'maxCostInput'     => 1000.0,
             'preferLowestCost' => true,
         ];
 
@@ -279,7 +279,7 @@ class ModelSelectionCriteriaTest extends AbstractUnitTestCase
             preferLowestCost: false,
         );
 
-        $json = $original->toJson();
+        $json     = $original->toJson();
         $restored = ModelSelectionCriteria::fromJson($json);
 
         self::assertSame($original->toArray(), $restored->toArray());
@@ -325,11 +325,11 @@ class ModelSelectionCriteriaTest extends AbstractUnitTestCase
     public static function hasCriteriaProvider(): array
     {
         return [
-            'capabilities only' => [['chat'], [], 0, 0],
-            'adapterTypes only' => [[], ['openai'], 0, 0],
+            'capabilities only'     => [['chat'], [], 0, 0],
+            'adapterTypes only'     => [[], ['openai'], 0, 0],
             'minContextLength only' => [[], [], 4096, 0],
-            'maxCostInput only' => [[], [], 0, 100],
-            'all fields set' => [['vision'], ['anthropic'], 8192, 500],
+            'maxCostInput only'     => [[], [], 0, 100],
+            'all fields set'        => [['vision'], ['anthropic'], 8192, 500],
         ];
     }
 

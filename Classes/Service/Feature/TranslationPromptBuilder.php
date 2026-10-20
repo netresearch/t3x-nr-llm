@@ -32,10 +32,10 @@ final readonly class TranslationPromptBuilder
         string $targetLanguage,
         array $options,
     ): array {
-        $formality = is_string($options['formality'] ?? null) ? $options['formality'] : 'default';
-        $domain = is_string($options['domain'] ?? null) ? $options['domain'] : 'general';
-        $glossary = is_array($options['glossary'] ?? null) ? $options['glossary'] : [];
-        $context = is_string($options['context'] ?? null) ? $options['context'] : '';
+        $formality          = is_string($options['formality'] ?? null) ? $options['formality'] : 'default';
+        $domain             = is_string($options['domain'] ?? null) ? $options['domain'] : 'general';
+        $glossary           = is_array($options['glossary'] ?? null) ? $options['glossary'] : [];
+        $context            = is_string($options['context'] ?? null) ? $options['context'] : '';
         $preserveFormatting = $options['preserve_formatting'] ?? true;
 
         // Build system prompt
@@ -78,7 +78,7 @@ final readonly class TranslationPromptBuilder
 
         return [
             'system' => $systemPrompt,
-            'user' => $userPrompt,
+            'user'   => $userPrompt,
         ];
     }
 

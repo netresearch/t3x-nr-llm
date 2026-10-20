@@ -26,7 +26,7 @@ use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
  * - Azure OpenAI (*.openai.azure.com)
  * - Custom/Unknown endpoints
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class ProviderDetector
 {
@@ -40,15 +40,15 @@ final class ProviderDetector
     private const DETECTION_PATTERNS = [
         // OpenAI
         'api.openai.com' => ['openai', 'OpenAI', 1.0],
-        'openai.com' => ['openai', 'OpenAI', 0.9],
+        'openai.com'     => ['openai', 'OpenAI', 0.9],
 
         // Anthropic
         'api.anthropic.com' => ['anthropic', 'Anthropic', 1.0],
-        'anthropic.com' => ['anthropic', 'Anthropic', 0.9],
+        'anthropic.com'     => ['anthropic', 'Anthropic', 0.9],
 
         // Google Gemini
         'generativelanguage.googleapis.com' => ['gemini', 'Google Gemini', 1.0],
-        'aiplatform.googleapis.com' => ['gemini', 'Google Vertex AI', 0.95],
+        'aiplatform.googleapis.com'         => ['gemini', 'Google Vertex AI', 0.95],
 
         // OpenRouter
         'openrouter.ai' => ['openrouter', 'OpenRouter', 1.0],
@@ -58,11 +58,11 @@ final class ProviderDetector
 
         // Mistral
         'api.mistral.ai' => ['mistral', self::PROVIDER_NAME_MISTRAL, 1.0],
-        'mistral.ai' => ['mistral', self::PROVIDER_NAME_MISTRAL, 0.9],
+        'mistral.ai'     => ['mistral', self::PROVIDER_NAME_MISTRAL, 0.9],
 
         // Groq
         'api.groq.com' => ['groq', 'Groq', 1.0],
-        'groq.com' => ['groq', 'Groq', 0.9],
+        'groq.com'     => ['groq', 'Groq', 0.9],
 
         // Together AI
         'api.together.xyz' => ['together', 'Together AI', 1.0],
@@ -79,10 +79,10 @@ final class ProviderDetector
      */
     public function detect(string $endpoint): DetectedProvider
     {
-        $endpoint = $this->normalizeEndpoint($endpoint);
+        $endpoint  = $this->normalizeEndpoint($endpoint);
         $parsedUrl = parse_url($endpoint);
-        $host = $parsedUrl['host'] ?? '';
-        $port = $parsedUrl['port'] ?? null;
+        $host      = $parsedUrl['host'] ?? '';
+        $port      = $parsedUrl['port'] ?? null;
 
         // Check for Ollama (local)
         if ($this->isOllamaEndpoint($host, $port)) {
@@ -98,6 +98,7 @@ final class ProviderDetector
         // Check for Azure OpenAI
         if ($this->isAzureOpenAI($host)) {
             $resourceName = $this->extractAzureResourceName($host);
+
             return new DetectedProvider(
                 adapterType: 'azure_openai',
                 suggestedName: 'Azure OpenAI' . ($resourceName !== '' ? " ({$resourceName})" : ''),
@@ -140,7 +141,7 @@ final class ProviderDetector
         // path itself); strip a user-entered or legacy trailing "/api" so it is not later
         // doubled into "/api/api/...".
         if ($adapterType === 'ollama') {
-            $normalized = (string)preg_replace('#/api/*$#', '', $normalized);
+            $normalized = (string) preg_replace('#/api/*$#', '', $normalized);
         }
 
         // Only a truly bare host (no path, query or fragment) gains the adapter's version
@@ -157,7 +158,7 @@ final class ProviderDetector
         }
 
         $default = AdapterType::tryFrom($adapterType)?->defaultEndpoint() ?? '';
-        $suffix = $default !== '' ? parse_url($default, PHP_URL_PATH) : null;
+        $suffix  = $default !== '' ? parse_url($default, PHP_URL_PATH) : null;
         if (!is_string($suffix) || trim($suffix, '/') === '') {
             // Adapter has no canonical version path (e.g. Ollama, Custom): keep the host.
             return $normalized;
@@ -177,7 +178,7 @@ final class ProviderDetector
             if (str_contains($host, $pattern)) {
                 // Use the canonical default endpoint from AdapterType when available,
                 // so users entering just "api.anthropic.com" get the correct "/v1" path
-                $adapterTypeEnum = AdapterType::tryFrom($adapterType);
+                $adapterTypeEnum   = AdapterType::tryFrom($adapterType);
                 $effectiveEndpoint = $adapterTypeEnum?->defaultEndpoint() ?? $endpoint;
 
                 return new DetectedProvider(
@@ -218,19 +219,19 @@ final class ProviderDetector
     public function getSupportedAdapterTypes(): array
     {
         return [
-            'openai' => 'OpenAI',
-            'anthropic' => 'Anthropic',
-            'gemini' => 'Google Gemini',
-            'openrouter' => 'OpenRouter',
-            'mistral' => self::PROVIDER_NAME_MISTRAL,
-            'groq' => 'Groq',
-            'ollama' => 'Ollama (Local)',
-            'azure_openai' => 'Azure OpenAI',
-            'together' => 'Together AI',
-            'fireworks' => 'Fireworks AI',
-            'perplexity' => 'Perplexity',
-            'custom' => 'Custom/Other',
-            'typesafe' => 'TypeSafe (decisions)',
+            'openai'           => 'OpenAI',
+            'anthropic'        => 'Anthropic',
+            'gemini'           => 'Google Gemini',
+            'openrouter'       => 'OpenRouter',
+            'mistral'          => self::PROVIDER_NAME_MISTRAL,
+            'groq'             => 'Groq',
+            'ollama'           => 'Ollama (Local)',
+            'azure_openai'     => 'Azure OpenAI',
+            'together'         => 'Together AI',
+            'fireworks'        => 'Fireworks AI',
+            'perplexity'       => 'Perplexity',
+            'custom'           => 'Custom/Other',
+            'typesafe'         => 'TypeSafe (decisions)',
             'decision_sidecar' => 'Local decision sidecar',
         ];
     }

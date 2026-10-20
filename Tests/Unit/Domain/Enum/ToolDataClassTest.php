@@ -24,7 +24,7 @@ final class ToolDataClassTest extends TestCase
     #[Test]
     public function theLadderIsTotalAndStrictlyIncreasing(): void
     {
-        $ranks = array_map(static fn(ToolDataClass $c): int => $c->rank(), ToolDataClass::cases());
+        $ranks = array_map(static fn (ToolDataClass $c): int => $c->rank(), ToolDataClass::cases());
 
         self::assertSame($ranks, array_values(array_unique($ranks)), 'No two classes may share a rank.');
         $sorted = $ranks;

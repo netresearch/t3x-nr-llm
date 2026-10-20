@@ -61,13 +61,13 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
 
         $this->subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'anthropic/claude-3.5-sonnet',
-            'siteUrl' => 'https://example.com',
-            'appName' => 'Test App',
-            'routingStrategy' => 'balanced',
-            'autoFallback' => true,
-            'fallbackModels' => '',
-            'timeout' => 60,
+            'defaultModel'     => 'anthropic/claude-3.5-sonnet',
+            'siteUrl'          => 'https://example.com',
+            'appName'          => 'Test App',
+            'routingStrategy'  => 'balanced',
+            'autoFallback'     => true,
+            'fallbackModels'   => '',
+            'timeout'          => 60,
         ]);
 
         // Set HTTP client AFTER configure() to ensure timeout matches
@@ -90,8 +90,8 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         /** @var array<string, mixed> $defaultConfig */
         $defaultConfig = [
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'anthropic/claude-3.5-sonnet',
-            'timeout' => 60,
+            'defaultModel'     => 'anthropic/claude-3.5-sonnet',
+            'timeout'          => 60,
         ];
 
         // Configure FIRST, then set HTTP client (configure() resets the client)
@@ -116,7 +116,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock->method('sendRequest')
             ->willReturnCallback(function (RequestInterface $request) use ($modelsResponse, $chatResponse): ResponseInterface {
-                $uri = (string)$request->getUri();
+                $uri = (string) $request->getUri();
                 if (str_contains($uri, '/models')) {
                     return $this->createJsonResponseMock($modelsResponse);
                 }
@@ -134,8 +134,8 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
 
         $defaultConfig = [
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'anthropic/claude-3.5-sonnet',
-            'timeout' => 60,
+            'defaultModel'     => 'anthropic/claude-3.5-sonnet',
+            'timeout'          => 60,
         ];
 
         // Configure FIRST, then set HTTP client (configure() resets the client)
@@ -168,6 +168,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
             [['role' => 'user', 'content' => 'test']],
             $chatOptions,
         );
+
         return $result->model;
     }
 
@@ -197,22 +198,22 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'id' => 'gen-' . $this->faker->uuid(),
-            'model' => 'anthropic/claude-3.5-sonnet',
+            'id'      => 'gen-' . $this->faker->uuid(),
+            'model'   => 'anthropic/claude-3.5-sonnet',
             'choices' => [
                 [
-                    'index' => 0,
+                    'index'   => 0,
                     'message' => [
-                        'role' => 'assistant',
+                        'role'    => 'assistant',
                         'content' => 'OpenRouter response',
                     ],
                     'finish_reason' => 'stop',
                 ],
             ],
             'usage' => [
-                'prompt_tokens' => 10,
+                'prompt_tokens'     => 10,
                 'completion_tokens' => 20,
-                'total_tokens' => 30,
+                'total_tokens'      => 30,
             ],
         ];
 
@@ -248,7 +249,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     public function chatCompletionSendsCustomHeaders(): void
     {
         $capturedRequest = null;
-        $httpFactory = new HttpFactory();
+        $httpFactory     = new HttpFactory();
 
         $httpClient = self::createStub(ClientInterface::class);
         $httpClient
@@ -257,12 +258,12 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
                 $capturedRequest = $request;
 
                 return $this->createJsonResponseMock([
-                    'id' => 'gen-test',
-                    'model' => 'anthropic/claude-3.5-sonnet',
+                    'id'      => 'gen-test',
+                    'model'   => 'anthropic/claude-3.5-sonnet',
                     'choices' => [
                         [
-                            'index' => 0,
-                            'message' => ['role' => 'assistant', 'content' => 'ok'],
+                            'index'         => 0,
+                            'message'       => ['role' => 'assistant', 'content' => 'ok'],
                             'finish_reason' => 'stop',
                         ],
                     ],
@@ -279,10 +280,10 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         );
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'anthropic/claude-3.5-sonnet',
-            'siteUrl' => 'https://example.com',
-            'appName' => 'Test App',
-            'customHeaders' => ['X-Custom-Header' => 'custom-value'],
+            'defaultModel'     => 'anthropic/claude-3.5-sonnet',
+            'siteUrl'          => 'https://example.com',
+            'appName'          => 'Test App',
+            'customHeaders'    => ['X-Custom-Header' => 'custom-value'],
         ]);
         $subject->setHttpClient($httpClient);
 
@@ -306,7 +307,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         // OpenRouter models have provider prefixes in keys (e.g., "anthropic/claude-3.5-sonnet")
         $modelKeys = array_keys($models);
         self::assertTrue(
-            count(array_filter($modelKeys, fn(string $m): bool => str_contains($m, '/'))) > 0,
+            count(array_filter($modelKeys, fn (string $m): bool => str_contains($m, '/'))) > 0,
             'OpenRouter models should have provider prefixes in keys',
         );
     }
@@ -326,9 +327,9 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
 
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'anthropic/claude-3.5-sonnet',
-            'routingStrategy' => $strategy,
-            'timeout' => 60,
+            'defaultModel'     => 'anthropic/claude-3.5-sonnet',
+            'routingStrategy'  => $strategy,
+            'timeout'          => 60,
         ]);
 
         // Just verify the provider can be instantiated with each strategy
@@ -342,9 +343,9 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     {
         return [
             'cost optimized' => ['cost_optimized', 'cheapest'],
-            'performance' => ['performance', 'fastest'],
-            'balanced' => ['balanced', 'balanced'],
-            'explicit' => ['explicit', 'explicit'],
+            'performance'    => ['performance', 'fastest'],
+            'balanced'       => ['balanced', 'balanced'],
+            'explicit'       => ['explicit', 'explicit'],
         ];
     }
 
@@ -354,14 +355,14 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         // Simulate model overload, then success with fallback
         $errorResponse = [
             'error' => [
-                'code' => 503,
+                'code'    => 503,
                 'message' => 'Model overloaded',
             ],
         ];
 
         $successResponse = [
-            'id' => 'gen-test',
-            'model' => 'openai/gpt-4o',
+            'id'      => 'gen-test',
+            'model'   => 'openai/gpt-4o',
             'choices' => [
                 ['message' => ['content' => 'Fallback response'], 'finish_reason' => 'stop'],
             ],
@@ -404,10 +405,10 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $messages = [['role' => 'user', 'content' => 'test']];
 
         $apiResponse = [
-            'id' => 'gen-test',
-            'model' => 'test-model',
+            'id'      => 'gen-test',
+            'model'   => 'test-model',
             'choices' => [['message' => ['content' => 'test'], 'finish_reason' => 'stop']],
-            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            'usage'   => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
         ];
 
         $this->httpClientMock
@@ -426,14 +427,14 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $messages = [['role' => 'user', 'content' => 'test']];
 
         $apiResponse = [
-            'id' => 'gen-test',
-            'model' => 'test-model',
+            'id'      => 'gen-test',
+            'model'   => 'test-model',
             'choices' => [['message' => ['content' => 'test'], 'finish_reason' => 'stop']],
-            'usage' => [
-                'prompt_tokens' => 100,
+            'usage'   => [
+                'prompt_tokens'     => 100,
                 'completion_tokens' => 50,
-                'total_tokens' => 150,
-                'total_cost' => 0.0015,
+                'total_tokens'      => 150,
+                'total_cost'        => 0.0015,
             ],
         ];
 
@@ -477,11 +478,11 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $modelsResponse = [
             'data' => [
                 [
-                    'id' => 'anthropic/claude-3.5-sonnet',
-                    'name' => 'Claude 3.5 Sonnet',
-                    'context_length' => 200000,
-                    'architecture' => ['modality' => 'text+image->text', 'input_modalities' => ['text', 'image']],
-                    'pricing' => ['prompt' => 0.003, 'completion' => 0.015],
+                    'id'                   => 'anthropic/claude-3.5-sonnet',
+                    'name'                 => 'Claude 3.5 Sonnet',
+                    'context_length'       => 200000,
+                    'architecture'         => ['modality' => 'text+image->text', 'input_modalities' => ['text', 'image']],
+                    'pricing'              => ['prompt' => 0.003, 'completion' => 0.015],
                     'supported_parameters' => ['tools'],
                 ],
             ],
@@ -504,11 +505,11 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $modelsResponse = [
             'data' => [
                 [
-                    'id' => 'test/model',
-                    'name' => 'Test Model',
-                    'context_length' => 8000,
-                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
-                    'pricing' => ['prompt' => 0.001, 'completion' => 0.002],
+                    'id'                   => 'test/model',
+                    'name'                 => 'Test Model',
+                    'context_length'       => 8000,
+                    'architecture'         => ['modality' => 'text->text', 'input_modalities' => ['text']],
+                    'pricing'              => ['prompt' => 0.001, 'completion' => 0.002],
                     'supported_parameters' => [],
                 ],
             ],
@@ -529,10 +530,10 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     {
         $creditsResponse = [
             'data' => [
-                'limit' => 100.0,
-                'usage' => 25.0,
+                'limit'        => 100.0,
+                'usage'        => 25.0,
                 'is_free_tier' => false,
-                'rate_limit' => ['requests' => 1000, 'interval' => '1m'],
+                'rate_limit'   => ['requests' => 1000, 'interval' => '1m'],
             ],
         ];
 
@@ -551,14 +552,14 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithToolsReturnsToolCalls(): void
     {
         $messages = [['role' => 'user', 'content' => 'What is the weather?']];
-        $tools = [
+        $tools    = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => [
-                    'name' => 'get_weather',
+                    'name'        => 'get_weather',
                     'description' => 'Get weather for a location',
-                    'parameters' => [
-                        'type' => 'object',
+                    'parameters'  => [
+                        'type'       => 'object',
                         'properties' => [
                             'location' => ['type' => 'string'],
                         ],
@@ -568,19 +569,19 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'id' => 'gen-test',
-            'model' => 'anthropic/claude-3.5-sonnet',
+            'id'      => 'gen-test',
+            'model'   => 'anthropic/claude-3.5-sonnet',
             'choices' => [
                 [
                     'message' => [
-                        'role' => 'assistant',
-                        'content' => '',
+                        'role'       => 'assistant',
+                        'content'    => '',
                         'tool_calls' => [
                             [
-                                'id' => 'call_123',
-                                'type' => 'function',
+                                'id'       => 'call_123',
+                                'type'     => 'function',
                                 'function' => [
-                                    'name' => 'get_weather',
+                                    'name'      => 'get_weather',
                                     'arguments' => '{"location":"San Francisco"}',
                                 ],
                             ],
@@ -589,7 +590,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
                     'finish_reason' => 'tool_calls',
                 ],
             ],
-            'usage' => ['prompt_tokens' => 50, 'completion_tokens' => 20, 'total_tokens' => 70],
+            'usage'    => ['prompt_tokens' => 50, 'completion_tokens' => 20, 'total_tokens' => 70],
             'provider' => 'anthropic',
         ];
 
@@ -612,7 +613,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     {
         $tools = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => ['name' => 'get_weather', 'parameters' => ['type' => 'object', 'properties' => []]],
             ]),
         ];
@@ -620,8 +621,8 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         // A tool call with an empty function name must be skipped, not crash the
         // whole completion (ToolCall::tryFromArray returns null for it).
         $apiResponse = [
-            'id'    => 'gen-test',
-            'model' => 'anthropic/claude-3.5-sonnet',
+            'id'      => 'gen-test',
+            'model'   => 'anthropic/claude-3.5-sonnet',
             'choices' => [
                 [
                     'message' => [
@@ -635,7 +636,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
                     'finish_reason' => 'tool_calls',
                 ],
             ],
-            'usage' => ['prompt_tokens' => 50, 'completion_tokens' => 20, 'total_tokens' => 70],
+            'usage'    => ['prompt_tokens' => 50, 'completion_tokens' => 20, 'total_tokens' => 70],
             'provider' => 'anthropic',
         ];
 
@@ -654,14 +655,14 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithToolsHandlesToolChoice(): void
     {
         $messages = [['role' => 'user', 'content' => 'test']];
-        $tools = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test']])];
-        $options = ['tool_choice' => 'auto'];
+        $tools    = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test']])];
+        $options  = ['tool_choice' => 'auto'];
 
         $apiResponse = [
-            'id' => 'gen-test',
-            'model' => 'test-model',
+            'id'      => 'gen-test',
+            'model'   => 'test-model',
             'choices' => [['message' => ['content' => 'test', 'tool_calls' => []], 'finish_reason' => 'stop']],
-            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+            'usage'   => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
         ];
 
         $this->httpClientMock
@@ -678,7 +679,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     {
         $apiResponse = [
             'model' => 'openai/text-embedding-3-small',
-            'data' => [
+            'data'  => [
                 ['index' => 0, 'embedding' => [0.1, 0.2, 0.3, 0.4, 0.5]],
             ],
             'usage' => ['prompt_tokens' => 5, 'total_tokens' => 5],
@@ -700,7 +701,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     {
         $apiResponse = [
             'model' => 'openai/text-embedding-3-small',
-            'data' => [
+            'data'  => [
                 ['index' => 0, 'embedding' => [0.1, 0.2, 0.3]],
                 ['index' => 1, 'embedding' => [0.4, 0.5, 0.6]],
             ],
@@ -721,7 +722,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     {
         $apiResponse = [
             'model' => 'openai/text-embedding-3-small',
-            'data' => [['index' => 0, 'embedding' => [0.1, 0.2]]],
+            'data'  => [['index' => 0, 'embedding' => [0.1, 0.2]]],
             'usage' => ['prompt_tokens' => 5, 'total_tokens' => 5],
         ];
 
@@ -743,15 +744,15 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'id' => 'gen-test',
-            'model' => 'anthropic/claude-3.5-sonnet',
+            'id'      => 'gen-test',
+            'model'   => 'anthropic/claude-3.5-sonnet',
             'choices' => [
                 [
-                    'message' => ['role' => 'assistant', 'content' => 'This is an image of a cat'],
+                    'message'       => ['role' => 'assistant', 'content' => 'This is an image of a cat'],
                     'finish_reason' => 'stop',
                 ],
             ],
-            'usage' => ['prompt_tokens' => 100, 'completion_tokens' => 20, 'total_tokens' => 120],
+            'usage'    => ['prompt_tokens' => 100, 'completion_tokens' => 20, 'total_tokens' => 120],
             'provider' => 'anthropic',
         ];
 
@@ -772,10 +773,10 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $options = ['system_prompt' => 'You are a helpful assistant'];
 
         $apiResponse = [
-            'id' => 'gen-test',
-            'model' => 'test-model',
+            'id'      => 'gen-test',
+            'model'   => 'test-model',
             'choices' => [['message' => ['content' => 'test'], 'finish_reason' => 'stop']],
-            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+            'usage'   => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
         ];
 
         $this->httpClientMock
@@ -809,19 +810,19 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithOptionalParameters(): void
     {
         $messages = [['role' => 'user', 'content' => 'test']];
-        $options = [
-            'top_p' => 0.9,
+        $options  = [
+            'top_p'             => 0.9,
             'frequency_penalty' => 0.5,
-            'presence_penalty' => 0.3,
-            'stop' => ['\n'],
-            'transforms' => ['middle-out'],
+            'presence_penalty'  => 0.3,
+            'stop'              => ['\n'],
+            'transforms'        => ['middle-out'],
         ];
 
         $apiResponse = [
-            'id' => 'gen-test',
-            'model' => 'test-model',
+            'id'      => 'gen-test',
+            'model'   => 'test-model',
             'choices' => [['message' => ['content' => 'test'], 'finish_reason' => 'stop']],
-            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+            'usage'   => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
         ];
 
         $this->httpClientMock
@@ -838,16 +839,16 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     {
         $provider = $this->createProviderWithConfig([
             'fallbackModels' => 'openai/gpt-4o, anthropic/claude-3-opus',
-            'autoFallback' => true,
+            'autoFallback'   => true,
         ]);
 
         $messages = [['role' => 'user', 'content' => 'test']];
 
         $apiResponse = [
-            'id' => 'gen-test',
-            'model' => 'openai/gpt-4o',
+            'id'      => 'gen-test',
+            'model'   => 'openai/gpt-4o',
             'choices' => [['message' => ['content' => 'fallback response'], 'finish_reason' => 'stop']],
-            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+            'usage'   => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
         ];
 
         $this->httpClientMock
@@ -923,13 +924,13 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     public static function errorStatusCodeProvider(): array
     {
         return [
-            '400 bad request' => [400, 'Bad request'],
-            '401 unauthorized' => [401, 'Invalid OpenRouter API key'],
-            '402 payment required' => [402, 'Insufficient OpenRouter credits'],
-            '403 forbidden' => [403, 'Bad request'],
-            '429 rate limit' => [429, 'Rate limit exceeded'],
+            '400 bad request'         => [400, 'Bad request'],
+            '401 unauthorized'        => [401, 'Invalid OpenRouter API key'],
+            '402 payment required'    => [402, 'Insufficient OpenRouter credits'],
+            '403 forbidden'           => [403, 'Bad request'],
+            '429 rate limit'          => [429, 'Rate limit exceeded'],
             '503 service unavailable' => [503, 'Model or provider unavailable'],
-            '500 generic error' => [500, 'OpenRouter API error'],
+            '500 generic error'       => [500, 'OpenRouter API error'],
         ];
     }
 
@@ -937,13 +938,13 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithExplicitModel(): void
     {
         $messages = [['role' => 'user', 'content' => 'test']];
-        $options = ['model' => 'openai/gpt-4o'];
+        $options  = ['model' => 'openai/gpt-4o'];
 
         $apiResponse = [
-            'id' => 'gen-test',
-            'model' => 'openai/gpt-4o',
+            'id'      => 'gen-test',
+            'model'   => 'openai/gpt-4o',
             'choices' => [['message' => ['content' => 'response'], 'finish_reason' => 'stop']],
-            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+            'usage'   => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
         ];
 
         $this->httpClientMock
@@ -960,16 +961,16 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     {
         $provider = $this->createProviderWithConfig([
             'routingStrategy' => 'explicit',
-            'defaultModel' => 'test/model',
+            'defaultModel'    => 'test/model',
         ]);
 
         $messages = [['role' => 'user', 'content' => 'test']];
 
         $apiResponse = [
-            'id' => 'gen-test',
-            'model' => 'test/model',
+            'id'      => 'gen-test',
+            'model'   => 'test/model',
             'choices' => [['message' => ['content' => 'response'], 'finish_reason' => 'stop']],
-            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+            'usage'   => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
         ];
 
         $this->httpClientMock
@@ -987,29 +988,29 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $modelsResponse = [
             'data' => [
                 [
-                    'id' => 'expensive/model',
-                    'name' => 'Expensive',
-                    'context_length' => 8000,
-                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
-                    'pricing' => ['prompt' => 0.01, 'completion' => 0.03],
+                    'id'                   => 'expensive/model',
+                    'name'                 => 'Expensive',
+                    'context_length'       => 8000,
+                    'architecture'         => ['modality' => 'text->text', 'input_modalities' => ['text']],
+                    'pricing'              => ['prompt' => 0.01, 'completion' => 0.03],
                     'supported_parameters' => [],
                 ],
                 [
-                    'id' => 'cheap/model',
-                    'name' => 'Cheap',
-                    'context_length' => 8000,
-                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
-                    'pricing' => ['prompt' => 0.0001, 'completion' => 0.0002],
+                    'id'                   => 'cheap/model',
+                    'name'                 => 'Cheap',
+                    'context_length'       => 8000,
+                    'architecture'         => ['modality' => 'text->text', 'input_modalities' => ['text']],
+                    'pricing'              => ['prompt' => 0.0001, 'completion' => 0.0002],
                     'supported_parameters' => [],
                 ],
             ],
         ];
 
         $chatResponse = [
-            'id' => 'gen-test',
-            'model' => 'cheap/model',
+            'id'      => 'gen-test',
+            'model'   => 'cheap/model',
             'choices' => [['message' => ['content' => 'response'], 'finish_reason' => 'stop']],
-            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+            'usage'   => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
         ];
 
         $provider = $this->createProviderWithRoutingMock(
@@ -1029,29 +1030,29 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $modelsResponse = [
             'data' => [
                 [
-                    'id' => 'slow/opus',
-                    'name' => 'Slow Opus',
-                    'context_length' => 200000,
-                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
-                    'pricing' => ['prompt' => 0.01, 'completion' => 0.03],
+                    'id'                   => 'slow/opus',
+                    'name'                 => 'Slow Opus',
+                    'context_length'       => 200000,
+                    'architecture'         => ['modality' => 'text->text', 'input_modalities' => ['text']],
+                    'pricing'              => ['prompt' => 0.01, 'completion' => 0.03],
                     'supported_parameters' => ['tools'],
                 ],
                 [
-                    'id' => 'fast/flash',
-                    'name' => 'Fast Flash',
-                    'context_length' => 100000,
-                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
-                    'pricing' => ['prompt' => 0.001, 'completion' => 0.002],
+                    'id'                   => 'fast/flash',
+                    'name'                 => 'Fast Flash',
+                    'context_length'       => 100000,
+                    'architecture'         => ['modality' => 'text->text', 'input_modalities' => ['text']],
+                    'pricing'              => ['prompt' => 0.001, 'completion' => 0.002],
                     'supported_parameters' => ['tools'],
                 ],
             ],
         ];
 
         $chatResponse = [
-            'id' => 'gen-test',
-            'model' => 'fast/flash',
+            'id'      => 'gen-test',
+            'model'   => 'fast/flash',
             'choices' => [['message' => ['content' => 'response'], 'finish_reason' => 'stop']],
-            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+            'usage'   => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
         ];
 
         $provider = $this->createProviderWithRoutingMock(
@@ -1071,29 +1072,29 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $modelsResponse = [
             'data' => [
                 [
-                    'id' => 'small/context',
-                    'name' => 'Small Context',
-                    'context_length' => 4000,
-                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
-                    'pricing' => ['prompt' => 0.0001, 'completion' => 0.0001],
+                    'id'                   => 'small/context',
+                    'name'                 => 'Small Context',
+                    'context_length'       => 4000,
+                    'architecture'         => ['modality' => 'text->text', 'input_modalities' => ['text']],
+                    'pricing'              => ['prompt' => 0.0001, 'completion' => 0.0001],
                     'supported_parameters' => [],
                 ],
                 [
-                    'id' => 'large/context',
-                    'name' => 'Large Context',
-                    'context_length' => 128000,
-                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
-                    'pricing' => ['prompt' => 0.001, 'completion' => 0.002],
+                    'id'                   => 'large/context',
+                    'name'                 => 'Large Context',
+                    'context_length'       => 128000,
+                    'architecture'         => ['modality' => 'text->text', 'input_modalities' => ['text']],
+                    'pricing'              => ['prompt' => 0.001, 'completion' => 0.002],
                     'supported_parameters' => [],
                 ],
             ],
         ];
 
         $chatResponse = [
-            'id' => 'gen-test',
-            'model' => 'large/context',
+            'id'      => 'gen-test',
+            'model'   => 'large/context',
             'choices' => [['message' => ['content' => 'response'], 'finish_reason' => 'stop']],
-            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+            'usage'   => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
         ];
 
         $model = $this->executeChatWithRoutingMock(
@@ -1112,29 +1113,29 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $modelsResponse = [
             'data' => [
                 [
-                    'id' => 'text/only',
-                    'name' => 'Text Only',
-                    'context_length' => 8000,
-                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
-                    'pricing' => ['prompt' => 0.0001, 'completion' => 0.0001],
+                    'id'                   => 'text/only',
+                    'name'                 => 'Text Only',
+                    'context_length'       => 8000,
+                    'architecture'         => ['modality' => 'text->text', 'input_modalities' => ['text']],
+                    'pricing'              => ['prompt' => 0.0001, 'completion' => 0.0001],
                     'supported_parameters' => [],
                 ],
                 [
-                    'id' => 'vision/model',
-                    'name' => 'Vision Model',
-                    'context_length' => 8000,
-                    'architecture' => ['modality' => 'text+image->text', 'input_modalities' => ['text', 'image']],
-                    'pricing' => ['prompt' => 0.001, 'completion' => 0.002],
+                    'id'                   => 'vision/model',
+                    'name'                 => 'Vision Model',
+                    'context_length'       => 8000,
+                    'architecture'         => ['modality' => 'text+image->text', 'input_modalities' => ['text', 'image']],
+                    'pricing'              => ['prompt' => 0.001, 'completion' => 0.002],
                     'supported_parameters' => [],
                 ],
             ],
         ];
 
         $chatResponse = [
-            'id' => 'gen-test',
-            'model' => 'vision/model',
+            'id'      => 'gen-test',
+            'model'   => 'vision/model',
             'choices' => [['message' => ['content' => 'response'], 'finish_reason' => 'stop']],
-            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+            'usage'   => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
         ];
 
         $model = $this->executeChatWithRoutingMock(
@@ -1153,29 +1154,29 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $modelsResponse = [
             'data' => [
                 [
-                    'id' => 'no/tools',
-                    'name' => 'No Tools',
-                    'context_length' => 8000,
-                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
-                    'pricing' => ['prompt' => 0.0001, 'completion' => 0.0001],
+                    'id'                   => 'no/tools',
+                    'name'                 => 'No Tools',
+                    'context_length'       => 8000,
+                    'architecture'         => ['modality' => 'text->text', 'input_modalities' => ['text']],
+                    'pricing'              => ['prompt' => 0.0001, 'completion' => 0.0001],
                     'supported_parameters' => [],
                 ],
                 [
-                    'id' => 'with/tools',
-                    'name' => 'With Tools',
-                    'context_length' => 8000,
-                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
-                    'pricing' => ['prompt' => 0.001, 'completion' => 0.002],
+                    'id'                   => 'with/tools',
+                    'name'                 => 'With Tools',
+                    'context_length'       => 8000,
+                    'architecture'         => ['modality' => 'text->text', 'input_modalities' => ['text']],
+                    'pricing'              => ['prompt' => 0.001, 'completion' => 0.002],
                     'supported_parameters' => ['tools'],
                 ],
             ],
         ];
 
         $chatResponse = [
-            'id' => 'gen-test',
-            'model' => 'with/tools',
+            'id'      => 'gen-test',
+            'model'   => 'with/tools',
             'choices' => [['message' => ['content' => 'response'], 'finish_reason' => 'stop']],
-            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+            'usage'   => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
         ];
 
         $model = $this->executeChatWithRoutingMock(
@@ -1194,29 +1195,29 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $modelsResponse = [
             'data' => [
                 [
-                    'id' => 'fast/haiku',
-                    'name' => 'Fast Haiku',
-                    'context_length' => 8000,
-                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
-                    'pricing' => ['prompt' => 0.0001, 'completion' => 0.0001],
+                    'id'                   => 'fast/haiku',
+                    'name'                 => 'Fast Haiku',
+                    'context_length'       => 8000,
+                    'architecture'         => ['modality' => 'text->text', 'input_modalities' => ['text']],
+                    'pricing'              => ['prompt' => 0.0001, 'completion' => 0.0001],
                     'supported_parameters' => [],
                 ],
                 [
-                    'id' => 'balanced/sonnet',
-                    'name' => 'Balanced Sonnet',
-                    'context_length' => 200000,
-                    'architecture' => ['modality' => 'text+image->text', 'input_modalities' => ['text', 'image']],
-                    'pricing' => ['prompt' => 0.003, 'completion' => 0.015],
+                    'id'                   => 'balanced/sonnet',
+                    'name'                 => 'Balanced Sonnet',
+                    'context_length'       => 200000,
+                    'architecture'         => ['modality' => 'text+image->text', 'input_modalities' => ['text', 'image']],
+                    'pricing'              => ['prompt' => 0.003, 'completion' => 0.015],
                     'supported_parameters' => ['tools'],
                 ],
             ],
         ];
 
         $chatResponse = [
-            'id' => 'gen-test',
-            'model' => 'balanced/sonnet',
+            'id'      => 'gen-test',
+            'model'   => 'balanced/sonnet',
             'choices' => [['message' => ['content' => 'response'], 'finish_reason' => 'stop']],
-            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+            'usage'   => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
         ];
 
         $model = $this->executeChatWithRoutingMock(
@@ -1240,7 +1241,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
             . "data: {\"choices\":[{\"delta\":{\"content\":\" World\"}}]}\n\n"
             . "data: [DONE]\n\n";
 
-        $stream = self::createStub(StreamInterface::class);
+        $stream       = self::createStub(StreamInterface::class);
         $eofCallCount = 0;
         $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
             return ++$eofCallCount > 1;
@@ -1267,13 +1268,13 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     public function streamChatCompletionWithFallbackModels(): void
     {
         $provider = $this->createProviderWithConfig([
-            'autoFallback' => true,
+            'autoFallback'   => true,
             'fallbackModels' => 'openai/gpt-4o,anthropic/claude-3-opus',
         ]);
 
         $streamData = "data: {\"choices\":[{\"delta\":{\"content\":\"test\"}}]}\n\ndata: [DONE]\n\n";
 
-        $stream = self::createStub(StreamInterface::class);
+        $stream       = self::createStub(StreamInterface::class);
         $eofCallCount = 0;
         $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
             return ++$eofCallCount > 1;
@@ -1302,7 +1303,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
             . "data: {\"choices\":[{\"delta\":{\"content\":\"valid\"}}]}\n\n"
             . "data: [DONE]\n\n";
 
-        $stream = self::createStub(StreamInterface::class);
+        $stream       = self::createStub(StreamInterface::class);
         $eofCallCount = 0;
         $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
             return ++$eofCallCount > 1;
@@ -1328,13 +1329,13 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $provider = $this->createProviderWithConfig(['autoFallback' => false]);
 
         $messages = [['role' => 'user', 'content' => 'test']];
-        $tools = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test']])];
+        $tools    = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test']])];
 
         $apiResponse = [
-            'id' => 'gen-test',
-            'model' => 'test-model',
+            'id'      => 'gen-test',
+            'model'   => 'test-model',
             'choices' => [['message' => ['content' => 'response', 'tool_calls' => []], 'finish_reason' => 'stop']],
-            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+            'usage'   => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
         ];
 
         $this->httpClientMock
@@ -1362,14 +1363,14 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $messages = [['role' => 'user', 'content' => 'test']];
 
         $apiResponse = [
-            'id' => 'gen-test',
-            'model' => 'anthropic/claude-3.5-sonnet',
-            'provider' => 'anthropic',
-            'total_cost' => 0.00123,
-            'native_tokens_prompt' => 100,
+            'id'                       => 'gen-test',
+            'model'                    => 'anthropic/claude-3.5-sonnet',
+            'provider'                 => 'anthropic',
+            'total_cost'               => 0.00123,
+            'native_tokens_prompt'     => 100,
             'native_tokens_completion' => 50,
-            'choices' => [['message' => ['content' => 'response'], 'finish_reason' => 'stop']],
-            'usage' => ['prompt_tokens' => 100, 'completion_tokens' => 50, 'total_tokens' => 150],
+            'choices'                  => [['message' => ['content' => 'response'], 'finish_reason' => 'stop']],
+            'usage'                    => ['prompt_tokens' => 100, 'completion_tokens' => 50, 'total_tokens' => 150],
         ];
 
         $this->httpClientMock
@@ -1394,21 +1395,21 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $modelsResponse = [
             'data' => [
                 [
-                    'id' => 'anthropic/claude-sonnet-4-5',
-                    'name' => 'Claude Sonnet',
-                    'context_length' => 200000,
-                    'architecture' => ['modality' => 'text+image->text', 'input_modalities' => ['text', 'image']],
-                    'pricing' => ['prompt' => 0.003, 'completion' => 0.015],
+                    'id'                   => 'anthropic/claude-sonnet-4-5',
+                    'name'                 => 'Claude Sonnet',
+                    'context_length'       => 200000,
+                    'architecture'         => ['modality' => 'text+image->text', 'input_modalities' => ['text', 'image']],
+                    'pricing'              => ['prompt' => 0.003, 'completion' => 0.015],
                     'supported_parameters' => ['tools'],
                 ],
             ],
         ];
 
         $visionResponse = [
-            'id' => 'gen-test',
-            'model' => 'anthropic/claude-sonnet-4-5',
+            'id'      => 'gen-test',
+            'model'   => 'anthropic/claude-sonnet-4-5',
             'choices' => [['message' => ['content' => 'Image analysis'], 'finish_reason' => 'stop']],
-            'usage' => ['prompt_tokens' => 200, 'completion_tokens' => 50, 'total_tokens' => 250],
+            'usage'   => ['prompt_tokens' => 200, 'completion_tokens' => 50, 'total_tokens' => 250],
         ];
 
         $this->httpClientMock
@@ -1419,7 +1420,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
             );
 
         $content = [VisionContent::fromArray(['type' => 'text', 'text' => 'Describe this'])];
-        $result = $this->subject->analyzeImage($content);
+        $result  = $this->subject->analyzeImage($content);
 
         self::assertInstanceOf(VisionResponse::class, $result);
     }
@@ -1437,10 +1438,10 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
             ->willReturnOnConsecutiveCalls(
                 $this->createJsonResponseMock(['data' => []]),
                 $this->createJsonResponseMock([
-                    'id' => 'gen-test',
-                    'model' => 'anthropic/claude-3.5-sonnet',
+                    'id'      => 'gen-test',
+                    'model'   => 'anthropic/claude-3.5-sonnet',
                     'choices' => [['message' => ['content' => 'test'], 'finish_reason' => 'stop']],
-                    'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+                    'usage'   => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
                 ]),
             );
 
@@ -1460,11 +1461,11 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $modelsResponse = [
             'data' => [
                 [
-                    'id' => 'small/model',
-                    'name' => 'Small Model',
-                    'context_length' => 4000,
-                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
-                    'pricing' => ['prompt' => 0.0001, 'completion' => 0.0001],
+                    'id'                   => 'small/model',
+                    'name'                 => 'Small Model',
+                    'context_length'       => 4000,
+                    'architecture'         => ['modality' => 'text->text', 'input_modalities' => ['text']],
+                    'pricing'              => ['prompt' => 0.0001, 'completion' => 0.0001],
                     'supported_parameters' => [],
                 ],
             ],
@@ -1475,10 +1476,10 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
             ->willReturnOnConsecutiveCalls(
                 $this->createJsonResponseMock($modelsResponse),
                 $this->createJsonResponseMock([
-                    'id' => 'gen-test',
-                    'model' => 'anthropic/claude-3.5-sonnet',
+                    'id'      => 'gen-test',
+                    'model'   => 'anthropic/claude-3.5-sonnet',
                     'choices' => [['message' => ['content' => 'test'], 'finish_reason' => 'stop']],
-                    'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+                    'usage'   => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
                 ]),
             );
 
@@ -1559,18 +1560,20 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
                 $request = self::createStub(RequestInterface::class);
                 $request->method('getMethod')->willReturn($method);
                 $request->method('getUri')->willReturn($uriStub);
-                $request->method('withoutHeader')->willReturnCallback(static fn(): RequestInterface => $request);
+                $request->method('withoutHeader')->willReturnCallback(static fn (): RequestInterface => $request);
                 $request->method('withHeader')->willReturnCallback(
                     function (string $name, $value) use (&$captured, $index, $request): RequestInterface {
                         $captured[$index]['headers'][$name] = is_array($value)
                             ? implode(',', $value)
                             : (is_string($value) ? $value : '');
+
                         return $request;
                     },
                 );
                 $request->method('withBody')->willReturnCallback(
                     function (StreamInterface $body) use (&$captured, $index, $request): RequestInterface {
                         $captured[$index]['body'] = $body->getContents();
+
                         return $request;
                     },
                 );
@@ -1601,8 +1604,8 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
 
         $defaultConfig = [
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'anthropic/claude-3.5-sonnet',
-            'timeout' => 60,
+            'defaultModel'     => 'anthropic/claude-3.5-sonnet',
+            'timeout'          => 60,
         ];
 
         $provider->configure(array_merge($defaultConfig, $config));
@@ -1645,7 +1648,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     ): OpenRouterProvider {
         $httpClient = self::createStub(ClientInterface::class);
         $httpClient->method('sendRequest')->willReturnCallback(
-            fn(RequestInterface $request): ResponseInterface => str_contains((string)$request->getUri(), '/models')
+            fn (RequestInterface $request): ResponseInterface => str_contains((string) $request->getUri(), '/models')
                     ? $this->createJsonResponseMock($modelsResponse)
                     : $chatResponse,
         );
@@ -1692,11 +1695,11 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     private function modelEntry(string $id, float $prompt, float $completion, array $overrides = []): array
     {
         return $overrides + [
-            'id' => $id,
-            'name' => $id,
-            'context_length' => 8000,
-            'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
-            'pricing' => ['prompt' => $prompt, 'completion' => $completion],
+            'id'                   => $id,
+            'name'                 => $id,
+            'context_length'       => 8000,
+            'architecture'         => ['modality' => 'text->text', 'input_modalities' => ['text']],
+            'pricing'              => ['prompt' => $prompt, 'completion' => $completion],
             'supported_parameters' => [],
         ];
     }
@@ -1760,10 +1763,10 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     private function chatResponse(array $response = []): ResponseInterface
     {
         return $this->createJsonResponseMock($response + [
-            'id' => 'gen-test',
-            'model' => 'test-model',
+            'id'      => 'gen-test',
+            'model'   => 'test-model',
             'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
-            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            'usage'   => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
         ]);
     }
 
@@ -1774,6 +1777,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     {
         /** @var array<string, mixed> $decoded */
         $decoded = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
+
         return $decoded;
     }
 
@@ -1782,21 +1786,21 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     {
         self::assertSame(
             [
-                'anthropic/claude-opus-4-5' => 'Claude Opus 4.5 (Anthropic)',
-                'anthropic/claude-sonnet-4-5' => 'Claude Sonnet 4.5 (Anthropic)',
-                'anthropic/claude-opus-4-1' => 'Claude Opus 4.1 (Anthropic)',
-                'openai/gpt-5.2' => 'GPT-5.2 (OpenAI)',
-                'openai/gpt-5.2-pro' => 'GPT-5.2 Pro (OpenAI)',
-                'openai/o3' => 'O3 Reasoning (OpenAI)',
-                'openai/o4-mini' => 'O4 Mini (OpenAI)',
-                'google/gemini-3-flash' => 'Gemini 3 Flash (Google)',
-                'google/gemini-3-pro' => 'Gemini 3 Pro (Google)',
-                'google/gemini-2.5-flash' => 'Gemini 2.5 Flash (Google)',
-                'meta-llama/llama-3.3-70b-instruct' => 'Llama 3.3 70B (Meta)',
+                'anthropic/claude-opus-4-5'          => 'Claude Opus 4.5 (Anthropic)',
+                'anthropic/claude-sonnet-4-5'        => 'Claude Sonnet 4.5 (Anthropic)',
+                'anthropic/claude-opus-4-1'          => 'Claude Opus 4.1 (Anthropic)',
+                'openai/gpt-5.2'                     => 'GPT-5.2 (OpenAI)',
+                'openai/gpt-5.2-pro'                 => 'GPT-5.2 Pro (OpenAI)',
+                'openai/o3'                          => 'O3 Reasoning (OpenAI)',
+                'openai/o4-mini'                     => 'O4 Mini (OpenAI)',
+                'google/gemini-3-flash'              => 'Gemini 3 Flash (Google)',
+                'google/gemini-3-pro'                => 'Gemini 3 Pro (Google)',
+                'google/gemini-2.5-flash'            => 'Gemini 2.5 Flash (Google)',
+                'meta-llama/llama-3.3-70b-instruct'  => 'Llama 3.3 70B (Meta)',
                 'meta-llama/llama-3.1-405b-instruct' => 'Llama 3.1 405B (Meta)',
-                'mistralai/mistral-large' => 'Mistral Large (Mistral AI)',
-                'mistralai/pixtral-large' => 'Pixtral Large (Mistral AI)',
-                'cohere/command-r-plus' => 'Command R+ (Cohere)',
+                'mistralai/mistral-large'            => 'Mistral Large (Mistral AI)',
+                'mistralai/pixtral-large'            => 'Pixtral Large (Mistral AI)',
+                'cohere/command-r-plus'              => 'Command R+ (Cohere)',
             ],
             $this->subject->getAvailableModels(),
         );
@@ -1870,14 +1874,14 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $provider->chatCompletion(
             [['role' => 'user', 'content' => 'Hi']],
             [
-                'model' => 'openai/gpt-4o',
-                'temperature' => 0.2,
-                'max_tokens' => 123,
-                'top_p' => 0.9,
+                'model'             => 'openai/gpt-4o',
+                'temperature'       => 0.2,
+                'max_tokens'        => 123,
+                'top_p'             => 0.9,
                 'frequency_penalty' => 0.5,
-                'presence_penalty' => 0.3,
-                'stop' => ['STOP'],
-                'transforms' => ['middle-out'],
+                'presence_penalty'  => 0.3,
+                'stop'              => ['STOP'],
+                'transforms'        => ['middle-out'],
             ],
         );
 
@@ -1930,7 +1934,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $captured = [];
         $provider = $this->createCapturingProvider(
             [
-                'autoFallback' => true,
+                'autoFallback'   => true,
                 'fallbackModels' => 'openai/gpt-4o, anthropic/claude-3-opus',
             ],
             $this->chatResponse(),
@@ -1979,10 +1983,10 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $provider = $this->createCapturingProvider(
             [],
             $this->createJsonResponseMock([
-                'id' => 'gen-test',
-                'model' => 'resolved/model',
+                'id'      => 'gen-test',
+                'model'   => 'resolved/model',
                 'choices' => [[
-                    'message' => ['content' => 'the answer'],
+                    'message'       => ['content' => 'the answer'],
                     'finish_reason' => 'length',
                 ]],
                 'usage' => ['prompt_tokens' => 11, 'completion_tokens' => 22, 'total_tokens' => 33],
@@ -2009,9 +2013,9 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $provider = $this->createCapturingProvider(
             [],
             $this->createJsonResponseMock([
-                'id' => 'gen-test',
+                'id'      => 'gen-test',
                 'choices' => [['message' => ['content' => 'x']]],
-                'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+                'usage'   => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
             ]),
             $captured,
         );
@@ -2029,7 +2033,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithToolsBuildsExactRequest(): void
     {
         $spec = ToolSpec::fromArray([
-            'type' => 'function',
+            'type'     => 'function',
             'function' => ['name' => 'get_weather', 'description' => 'w'],
         ]);
 
@@ -2069,12 +2073,12 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $provider = $this->createCapturingProvider(
             [],
             $this->createJsonResponseMock([
-                'id' => 'gen-test',
-                'model' => 'test-model',
-                'provider' => 'openai',
+                'id'         => 'gen-test',
+                'model'      => 'test-model',
+                'provider'   => 'openai',
                 'total_cost' => 0.0042,
-                'choices' => [['message' => ['content' => 'x', 'tool_calls' => []], 'finish_reason' => 'stop']],
-                'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+                'choices'    => [['message' => ['content' => 'x', 'tool_calls' => []], 'finish_reason' => 'stop']],
+                'usage'      => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
             ]),
             $captured,
         );
@@ -2100,10 +2104,10 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $provider = $this->createCapturingProvider(
             [],
             $this->createJsonResponseMock([
-                'id' => 'gen-test',
-                'model' => 'test-model',
+                'id'      => 'gen-test',
+                'model'   => 'test-model',
                 'choices' => [['message' => ['content' => 'x', 'tool_calls' => []], 'finish_reason' => 'stop']],
-                'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+                'usage'   => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
             ]),
             $captured,
         );
@@ -2127,7 +2131,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
             [],
             $this->createJsonResponseMock([
                 'model' => 'openai/text-embedding-3-small',
-                'data' => [['index' => 0, 'embedding' => [0.1, 0.2]]],
+                'data'  => [['index' => 0, 'embedding' => [0.1, 0.2]]],
                 'usage' => ['prompt_tokens' => 5, 'total_tokens' => 5],
             ]),
             $captured,
@@ -2151,18 +2155,18 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $modelsResponse = [
             'data' => [
                 [
-                    'id' => 'anthropic/claude-x',
-                    'name' => 'Claude X',
-                    'context_length' => 200000,
-                    'architecture' => ['modality' => 'text+image->text', 'input_modalities' => ['text', 'image']],
-                    'pricing' => ['prompt' => 0.003, 'completion' => 0.015],
+                    'id'                   => 'anthropic/claude-x',
+                    'name'                 => 'Claude X',
+                    'context_length'       => 200000,
+                    'architecture'         => ['modality' => 'text+image->text', 'input_modalities' => ['text', 'image']],
+                    'pricing'              => ['prompt' => 0.003, 'completion' => 0.015],
                     'supported_parameters' => ['tools'],
                 ],
                 [
                     // No name, no pricing keys, text modality, no function calling.
-                    'id' => 'openai/gpt',
+                    'id'             => 'openai/gpt',
                     'context_length' => 8000,
-                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
+                    'architecture'   => ['modality' => 'text->text', 'input_modalities' => ['text']],
                 ],
             ],
         ];
@@ -2177,22 +2181,22 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
 
         self::assertSame(
             [
-                'name' => 'Claude X',
+                'name'           => 'Claude X',
                 'context_length' => 200000,
-                'pricing' => ['prompt' => 0.003, 'completion' => 0.015],
-                'capabilities' => ['vision' => true, 'function_calling' => true],
-                'provider' => 'anthropic',
+                'pricing'        => ['prompt' => 0.003, 'completion' => 0.015],
+                'capabilities'   => ['vision' => true, 'function_calling' => true],
+                'provider'       => 'anthropic',
             ],
             $result['anthropic/claude-x'],
         );
 
         self::assertSame(
             [
-                'name' => 'openai/gpt',
+                'name'           => 'openai/gpt',
                 'context_length' => 8000,
-                'pricing' => ['prompt' => 0.0, 'completion' => 0.0],
-                'capabilities' => ['vision' => false, 'function_calling' => false],
-                'provider' => 'openai',
+                'pricing'        => ['prompt' => 0.0, 'completion' => 0.0],
+                'capabilities'   => ['vision' => false, 'function_calling' => false],
+                'provider'       => 'openai',
             ],
             $result['openai/gpt'],
         );
@@ -2203,21 +2207,21 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     {
         $firstResponse = [
             'data' => [[
-                'id' => 'first/model',
-                'name' => 'First',
-                'context_length' => 8000,
-                'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
-                'pricing' => ['prompt' => 0.001, 'completion' => 0.002],
+                'id'                   => 'first/model',
+                'name'                 => 'First',
+                'context_length'       => 8000,
+                'architecture'         => ['modality' => 'text->text', 'input_modalities' => ['text']],
+                'pricing'              => ['prompt' => 0.001, 'completion' => 0.002],
                 'supported_parameters' => [],
             ]],
         ];
         $secondResponse = [
             'data' => [[
-                'id' => 'second/model',
-                'name' => 'Second',
-                'context_length' => 8000,
-                'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
-                'pricing' => ['prompt' => 0.001, 'completion' => 0.002],
+                'id'                   => 'second/model',
+                'name'                 => 'Second',
+                'context_length'       => 8000,
+                'architecture'         => ['modality' => 'text->text', 'input_modalities' => ['text']],
+                'pricing'              => ['prompt' => 0.001, 'completion' => 0.002],
                 'supported_parameters' => [],
             ]],
         ];
@@ -2245,7 +2249,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $creditsResponse = [
             'data' => [
                 'is_free_tier' => true,
-                'rate_limit' => ['requests' => 200, 'interval' => '10s'],
+                'rate_limit'   => ['requests' => 200, 'interval' => '10s'],
             ],
         ];
 
@@ -2271,8 +2275,8 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $captured = [];
         $provider = $this->createCapturingProvider(
             [
-                'siteUrl' => 'https://example.com',
-                'appName' => 'Test App',
+                'siteUrl'        => 'https://example.com',
+                'appName'        => 'Test App',
                 'fallbackModels' => 'openai/gpt-4o, anthropic/claude-3-opus',
             ],
             $this->createSseResponse(["data: [DONE]\n"]),
@@ -2296,13 +2300,13 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
 
         self::assertSame(
             [
-                'model' => 'primary/model',
-                'messages' => [['role' => 'user', 'content' => 'Hi']],
+                'model'       => 'primary/model',
+                'messages'    => [['role' => 'user', 'content' => 'Hi']],
                 'temperature' => 0.7,
-                'max_tokens' => 4096,
-                'stream' => true,
-                'route' => 'fallback',
-                'models' => ['primary/model', 'openai/gpt-4o', 'anthropic/claude-3-opus'],
+                'max_tokens'  => 4096,
+                'stream'      => true,
+                'route'       => 'fallback',
+                'models'      => ['primary/model', 'openai/gpt-4o', 'anthropic/claude-3-opus'],
             ],
             $this->decodeCapturedBody($captured[0]['body']),
         );
@@ -2490,7 +2494,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     {
         $apiResponse = [
             'model' => 'openai/text-embedding-3-small',
-            'data' => [['index' => 0, 'embedding' => [1, '0.5', 0.25]]],
+            'data'  => [['index' => 0, 'embedding' => [1, '0.5', 0.25]]],
             'usage' => ['prompt_tokens' => 7, 'total_tokens' => 7],
         ];
 
@@ -2527,10 +2531,10 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
 
         self::assertSame(
             [
-                'model' => 'vision/model',
+                'model'    => 'vision/model',
                 'messages' => [
                     [
-                        'role' => 'user',
+                        'role'    => 'user',
                         'content' => [
                             ['type' => 'text', 'text' => 'Describe'],
                             ['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/i.png']],
@@ -2538,7 +2542,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
                     ],
                 ],
                 'max_tokens' => 4096,
-                'route' => 'fallback',
+                'route'      => 'fallback',
             ],
             $this->decodeCapturedBody($captured[1]['body']),
         );
@@ -2571,12 +2575,12 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     public function analyzeImageMetadataIncludesActualProviderAndCost(): void
     {
         $apiResponse = [
-            'id' => 'gen-test',
-            'model' => 'vision/model',
-            'provider' => 'anthropic',
+            'id'         => 'gen-test',
+            'model'      => 'vision/model',
+            'provider'   => 'anthropic',
             'total_cost' => 0.5,
-            'choices' => [['message' => ['content' => 'a cat'], 'finish_reason' => 'stop']],
-            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+            'choices'    => [['message' => ['content' => 'a cat'], 'finish_reason' => 'stop']],
+            'usage'      => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
         ];
 
         $this->httpClientMock
@@ -2733,7 +2737,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
             [
                 $this->modelEntry('plain/cheap', 0.0001, 0.0001),
                 $this->modelEntry('able/model', 0.01, 0.01, [
-                    'architecture' => ['modality' => 'text+image->text', 'input_modalities' => ['text', 'image']],
+                    'architecture'         => ['modality' => 'text+image->text', 'input_modalities' => ['text', 'image']],
                     'supported_parameters' => ['tools'],
                 ]),
             ],

@@ -26,7 +26,7 @@ use TYPO3\CMS\Core\SingletonInterface;
  * refusal that is explicitly not a signal either. A stale-refused approval
  * produces no outcome here, because it produced no write.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class ObservedOutcomeDeriver implements SingletonInterface
 {

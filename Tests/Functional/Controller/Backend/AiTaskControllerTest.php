@@ -85,7 +85,7 @@ final class AiTaskControllerTest extends AbstractFunctionalTestCase
         $response = $controller->listAction();
 
         self::assertSame(200, $response->getStatusCode());
-        $body = (string)$response->getBody();
+        $body = (string) $response->getBody();
         // The active MANUAL task is offered ...
         self::assertStringContainsString('Test Manual Task', $body);
         // ... the active TABLE task is filtered out (ADR-130: no record-picker
@@ -128,7 +128,7 @@ final class AiTaskControllerTest extends AbstractFunctionalTestCase
 
         self::assertSame(403, $response->getStatusCode());
         self::assertStringContainsString('text/html', $response->getHeaderLine('Content-Type'));
-        self::assertStringNotContainsString('Test Manual Task', (string)$response->getBody());
+        self::assertStringNotContainsString('Test Manual Task', (string) $response->getBody());
     }
 
     // --- helpers -----------------------------------------------------------

@@ -45,7 +45,7 @@ final class DataClassEnforcementDefaultUpdateWizardTest extends AbstractFunction
         $extensionConfiguration->method('get')->willReturn(['tools' => []]);
         $extensionConfiguration->expects(self::once())->method('set')->with(
             'nr_llm',
-            self::callback(static fn(mixed $c): bool => is_array($c)
+            self::callback(static fn (mixed $c): bool => is_array($c)
                 && is_array($c['tools'] ?? null)
                 && ($c['tools']['dataClassEnforcement'] ?? null) === 'observe'),
         );
@@ -164,8 +164,8 @@ final class DataClassEnforcementDefaultUpdateWizardTest extends AbstractFunction
             $extensions = [];
         }
 
-        $extensions['nr_llm']   = $nrLlm;
-        $confVars['EXTENSIONS'] = $extensions;
+        $extensions['nr_llm']       = $nrLlm;
+        $confVars['EXTENSIONS']     = $extensions;
         $GLOBALS['TYPO3_CONF_VARS'] = $confVars;
     }
 }

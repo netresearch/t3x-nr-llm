@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Controller\Backend\ModelController;
 use Netresearch\NrLlm\Controller\Backend\ModelDiscoveryController;
 use Netresearch\NrLlm\Controller\Backend\ModelTestController;
 use Netresearch\NrLlm\Controller\Backend\PresetController;
+use Netresearch\NrLlm\Controller\Backend\ProcessSkillCatalogueController;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
 use Netresearch\NrLlm\Controller\Backend\SetupWizardController;
 use Netresearch\NrLlm\Controller\Backend\SkillSourceController;
@@ -35,96 +36,96 @@ $toggleActiveAction = '::toggleActiveAction';
 return [
     // Main module
     'nrllm_test' => [
-        'path' => '/nrllm/test',
+        'path'   => '/nrllm/test',
         'target' => LlmModuleController::class . '::executeTestAction',
     ],
 
     // Specialized-service verification (translation, image generation).
     // Each action guards itself with RequiresBackendAdminTrait (ADR-037).
     'nrllm_test_translate' => [
-        'path' => '/nrllm/test/translate',
+        'path'   => '/nrllm/test/translate',
         'target' => SpecializedTestController::class . '::translateAction',
     ],
     'nrllm_test_translators' => [
-        'path' => '/nrllm/test/translators',
+        'path'   => '/nrllm/test/translators',
         'target' => SpecializedTestController::class . '::translatorsAction',
     ],
     'nrllm_test_image' => [
-        'path' => '/nrllm/test/image',
+        'path'   => '/nrllm/test/image',
         'target' => SpecializedTestController::class . '::generateImageAction',
     ],
     // DeepL character quota (ADR-207); the usage endpoint costs no characters.
     'nrllm_test_deepl_quota' => [
-        'path' => '/nrllm/test/deepl-quota',
+        'path'   => '/nrllm/test/deepl-quota',
         'target' => SpecializedTestController::class . '::deeplQuotaAction',
     ],
 
     // Overview: token-free provider reachability probe (loaded async so
     // a slow provider never blocks the page render).
     'nrllm_overview_reachability' => [
-        'path' => '/nrllm/overview/reachability',
+        'path'   => '/nrllm/overview/reachability',
         'target' => LlmModuleController::class . '::reachabilityAction',
     ],
 
     // Provider routes
     'nrllm_provider_toggle_active' => [
-        'path' => '/nrllm/provider/toggle-active',
+        'path'   => '/nrllm/provider/toggle-active',
         'target' => ProviderController::class . $toggleActiveAction,
     ],
     'nrllm_provider_test_connection' => [
-        'path' => '/nrllm/provider/test-connection',
+        'path'   => '/nrllm/provider/test-connection',
         'target' => ProviderController::class . '::testConnectionAction',
     ],
 
     // Model routes
     'nrllm_model_toggle_active' => [
-        'path' => '/nrllm/model/toggle-active',
+        'path'   => '/nrllm/model/toggle-active',
         'target' => ModelController::class . $toggleActiveAction,
     ],
     'nrllm_model_set_default' => [
-        'path' => '/nrllm/model/set-default',
+        'path'   => '/nrllm/model/set-default',
         'target' => ModelController::class . '::setDefaultAction',
     ],
     'nrllm_model_get_by_provider' => [
-        'path' => '/nrllm/model/get-by-provider',
+        'path'   => '/nrllm/model/get-by-provider',
         'target' => ModelController::class . '::getByProviderAction',
     ],
     'nrllm_model_test' => [
-        'path' => '/nrllm/model/test',
+        'path'   => '/nrllm/model/test',
         'target' => ModelTestController::class . '::testModelAction',
     ],
     'nrllm_model_fetch_available' => [
-        'path' => '/nrllm/model/fetch-available',
+        'path'   => '/nrllm/model/fetch-available',
         'target' => ModelDiscoveryController::class . '::fetchAvailableModelsAction',
     ],
     'nrllm_model_detect_limits' => [
-        'path' => '/nrllm/model/detect-limits',
+        'path'   => '/nrllm/model/detect-limits',
         'target' => ModelDiscoveryController::class . '::detectLimitsAction',
     ],
     'nrllm_model_verify_capabilities' => [
-        'path' => '/nrllm/model/verify-capabilities',
+        'path'   => '/nrllm/model/verify-capabilities',
         'target' => ModelController::class . '::verifyCapabilitiesAction',
     ],
 
     // Configuration routes
     'nrllm_config_toggle_active' => [
-        'path' => '/nrllm/config/toggle-active',
+        'path'   => '/nrllm/config/toggle-active',
         'target' => ConfigurationController::class . $toggleActiveAction,
     ],
     'nrllm_config_set_default' => [
-        'path' => '/nrllm/config/set-default',
+        'path'   => '/nrllm/config/set-default',
         'target' => ConfigurationController::class . '::setDefaultAction',
     ],
     'nrllm_config_get_models' => [
-        'path' => '/nrllm/config/get-models',
+        'path'   => '/nrllm/config/get-models',
         'target' => ConfigurationController::class . '::getModelsAction',
     ],
     'nrllm_config_test' => [
-        'path' => '/nrllm/config/test',
+        'path'   => '/nrllm/config/test',
         'target' => ConfigurationController::class . '::testConfigurationAction',
     ],
     'nrllm_config_model_constraints' => [
-        'path' => '/nrllm/config/model-constraints',
+        'path'   => '/nrllm/config/model-constraints',
         'target' => ConfigurationController::class . '::getModelConstraintsAction',
     ],
 
@@ -134,23 +135,23 @@ return [
     // the JS frontend (resolved via PageRenderer::addInlineSettingArray)
     // is unaffected.
     'nrllm_task_list_tables' => [
-        'path' => '/nrllm/task/list-tables',
+        'path'   => '/nrllm/task/list-tables',
         'target' => TaskRecordsController::class . '::listTablesAction',
     ],
     'nrllm_task_fetch_records' => [
-        'path' => '/nrllm/task/fetch-records',
+        'path'   => '/nrllm/task/fetch-records',
         'target' => TaskRecordsController::class . '::fetchRecordsAction',
     ],
     'nrllm_task_load_record_data' => [
-        'path' => '/nrllm/task/load-record-data',
+        'path'   => '/nrllm/task/load-record-data',
         'target' => TaskRecordsController::class . '::loadRecordDataAction',
     ],
     'nrllm_task_refresh_input' => [
-        'path' => '/nrllm/task/refresh-input',
+        'path'   => '/nrllm/task/refresh-input',
         'target' => TaskExecutionController::class . '::refreshInputAction',
     ],
     'nrllm_task_execute' => [
-        'path' => '/nrllm/task/execute',
+        'path'   => '/nrllm/task/execute',
         'target' => TaskExecutionController::class . '::executeAction',
     ],
     // How one call turned out, rated by the person who read the result
@@ -158,7 +159,7 @@ return [
     // rating is about a result the rater was allowed to produce, so there is
     // no case where someone may run a task but not say how it went.
     'nrllm_task_outcome' => [
-        'path' => '/nrllm/task/outcome',
+        'path'   => '/nrllm/task/outcome',
         'target' => TaskExecutionController::class . '::recordOutcomeAction',
     ],
 
@@ -168,93 +169,100 @@ return [
     // diff (GET) and update (POST) endpoints drive drift resolution: review
     // the field changes against the imported record, then re-confirm.
     'nrllm_preset_list' => [
-        'path' => '/nrllm/preset/list',
+        'path'   => '/nrllm/preset/list',
         'target' => PresetController::class . '::listPresetsAction',
     ],
     'nrllm_preset_import' => [
-        'path' => '/nrllm/preset/import',
+        'path'   => '/nrllm/preset/import',
         'target' => PresetController::class . '::importAction',
     ],
     'nrllm_preset_diff' => [
-        'path' => '/nrllm/preset/diff',
+        'path'   => '/nrllm/preset/diff',
         'target' => PresetController::class . '::diffAction',
     ],
     'nrllm_preset_update' => [
-        'path' => '/nrllm/preset/update',
+        'path'   => '/nrllm/preset/update',
         'target' => PresetController::class . '::updateAction',
     ],
 
     // Skill routes
     'nrllm_skill_sync' => [
-        'path' => '/nrllm/skill/sync',
+        'path'   => '/nrllm/skill/sync',
         'target' => SkillSourceController::class . '::syncAction',
     ],
     'nrllm_skill_toggle' => [
-        'path' => '/nrllm/skill/toggle',
+        'path'   => '/nrllm/skill/toggle',
         'target' => SkillSourceController::class . '::toggleSkillAction',
     ],
     'nrllm_skill_token' => [
-        'path' => '/nrllm/skill/token',
+        'path'   => '/nrllm/skill/token',
         'target' => SkillSourceController::class . '::setTokenAction',
     ],
 
     // Tool playground route (interactive agent loop)
     'nrllm_tool_run' => [
-        'path' => '/nrllm/tool/run',
+        'path'   => '/nrllm/tool/run',
         'target' => ToolPlaygroundController::class . '::runAction',
     ],
     // Resume a run suspended for human approval (ADR-084)
     'nrllm_tool_resume' => [
-        'path' => '/nrllm/tool/resume',
+        'path'   => '/nrllm/tool/resume',
         'target' => ToolPlaygroundController::class . '::resumeAction',
     ],
     // Submit typed input for a run suspended WAITING_FOR_INPUT (ADR-105)
     'nrllm_tool_submit_input' => [
-        'path' => '/nrllm/tool/submit-input',
+        'path'   => '/nrllm/tool/submit-input',
         'target' => ToolPlaygroundController::class . '::submitInputAction',
+    ],
+    // The process skills the user may start on a configuration, for the
+    // slash-command menu (ADR-214 item 10, ADR-228). Any backend user: the
+    // catalogue applies the configuration's own access check.
+    'nrllm_process_skills' => [
+        'path'   => '/nrllm/process-skills',
+        'target' => ProcessSkillCatalogueController::class . '::listAction',
     ],
     // Tool management route (global enable/disable)
     'nrllm_tool_toggle' => [
-        'path' => '/nrllm/tool/toggle',
+        'path'   => '/nrllm/tool/toggle',
         'target' => ToolController::class . '::toggleToolAction',
     ],
     // Tool group management route (enable/disable a whole group)
     'nrllm_toolgroup_toggle' => [
-        'path' => '/nrllm/toolgroup/toggle',
+        'path'   => '/nrllm/toolgroup/toggle',
         'target' => ToolController::class . '::toggleToolGroupAction',
     ],
 
     // MCP catalogue import (admin-gated in the controller as well)
     'nrllm_mcp_import' => [
-        'path' => '/nrllm/mcp/import',
+        'path'   => '/nrllm/mcp/import',
         'target' => McpServerController::class . '::importAction',
     ],
 
     // MCP connection test: handshake only, writes no catalogue row (ADR-154)
     'nrllm_mcp_test' => [
-        'path' => '/nrllm/mcp/test',
+        'path'   => '/nrllm/mcp/test',
         'target' => McpServerController::class . '::testConnectionAction',
     ],
 
     // Setup Wizard routes
     'nrllm_wizard_detect' => [
-        'path' => '/nrllm/wizard/detect',
+        'path'   => '/nrllm/wizard/detect',
         'target' => SetupWizardController::class . '::detectAction',
     ],
     'nrllm_wizard_test' => [
-        'path' => '/nrllm/wizard/test',
+        'path'   => '/nrllm/wizard/test',
         'target' => SetupWizardController::class . '::testAction',
     ],
     'nrllm_wizard_discover' => [
-        'path' => '/nrllm/wizard/discover',
+        'path'   => '/nrllm/wizard/discover',
         'target' => SetupWizardController::class . '::discoverAction',
     ],
     'nrllm_wizard_generate' => [
-        'path' => '/nrllm/wizard/generate',
+        'path'   => '/nrllm/wizard/generate',
         'target' => SetupWizardController::class . '::generateAction',
     ],
     'nrllm_wizard_save' => [
-        'path' => '/nrllm/wizard/save',
+        'path'   => '/nrllm/wizard/save',
         'target' => SetupWizardController::class . '::saveAction',
     ],
 ];

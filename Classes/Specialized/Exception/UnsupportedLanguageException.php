@@ -32,7 +32,7 @@ final class UnsupportedLanguageException extends SpecializedServiceException
         ?array $supportedLanguages = null,
     ): self {
         $context = [
-            'language' => $language,
+            'language'  => $language,
             'direction' => $direction,
         ];
 

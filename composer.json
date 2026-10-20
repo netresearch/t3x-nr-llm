@@ -43,7 +43,7 @@
     },
     "require-dev": {
         "fakerphp/faker": "^1.24",
-        "netresearch/typo3-ci-workflows": "^1.5",
+        "netresearch/typo3-ci-workflows": "^2.0.3",
         "nikic/php-parser": "^5.4",
         "tpwd/ke_search": "^7.0",
         "typo3/cms-dashboard": "^13.4 || ^14.3",
@@ -103,7 +103,7 @@
                 "providesPackages": {}
             },
             "extension-key": "nr_llm",
-            "version": "0.40.0",
+            "version": "0.41.0",
             "web-dir": ".Build/Web"
         }
     },
@@ -124,8 +124,10 @@
         "ci:test:colors": "Build/Scripts/check-backend-colors.sh",
         "ci:test:changelog": [
             "php Build/Scripts/check-changelog-unreleased.php",
-            "php Build/Scripts/check-changelog-released-sections.php"
+            "php Build/Scripts/check-changelog-released-sections.php",
+            "php Build/Scripts/changelog-fragments.php check"
         ],
+        "changelog:collect": "php Build/Scripts/changelog-fragments.php collect",
         "ci:test:php:cgl": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then php-cs-fixer fix --dry-run --diff \"$@\"; else ./Build/Scripts/runTests.sh -s cgl -n \"$@\"; fi' --",
         "ci:test:php:functional": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpunit -c Build/FunctionalTests.xml \"$@\"; else ./Build/Scripts/runTests.sh -s functional \"$@\"; fi' --",
         "ci:test:php:fuzzy": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpunit -c Build/phpunit.xml --testsuite fuzzy \"$@\"; else ./Build/Scripts/runTests.sh -s fuzzy \"$@\"; fi' --",
