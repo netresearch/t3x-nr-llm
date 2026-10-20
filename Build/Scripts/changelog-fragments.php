@@ -55,7 +55,7 @@ if (!in_array($mode, ['check', 'collect'], true)) {
     exit(2);
 }
 
-$dir = $root . '/changelog.d';
+$dir           = $root . '/changelog.d';
 $changelogPath = $root . '/CHANGELOG.md';
 if (!is_readable($changelogPath)) {
     fwrite(STDERR, sprintf("changelog-fragments: cannot read %s\n", $changelogPath));
@@ -90,7 +90,7 @@ function readFragments(string $dir, array &$problems): array
             continue;
         }
 
-        $text = trim(str_replace("\r\n", "\n", (string)file_get_contents($path)));
+        $text = trim(str_replace("\r\n", "\n", (string) file_get_contents($path)));
         if (!str_starts_with($text, '- ')) {
             $problems[] = sprintf('  %s  must start with a top-level bullet ("- ")', $name);
 
@@ -157,7 +157,7 @@ function run(array $command, string &$stdout = ''): bool
         return false;
     }
 
-    $stdout = (string)stream_get_contents($pipes[1]);
+    $stdout = (string) stream_get_contents($pipes[1]);
     stream_get_contents($pipes[2]);
     fclose($pipes[1]);
     fclose($pipes[2]);
@@ -182,7 +182,7 @@ function collect(string $changelog, array $fragments): ?string
     }
 
     $rest = substr($changelog, $start);
-    $end = preg_match('/^(## \[(?!Unreleased\])|\[[^\]]+\]: \S)/m', $rest, $m, PREG_OFFSET_CAPTURE) === 1
+    $end  = preg_match('/^(## \[(?!Unreleased\])|\[[^\]]+\]: \S)/m', $rest, $m, PREG_OFFSET_CAPTURE) === 1
         ? $m[0][1]
         : strlen($rest);
     $section = substr($rest, 0, $end);
@@ -190,9 +190,9 @@ function collect(string $changelog, array $fragments): ?string
     // Block 0 is the heading line plus anything above the first `### `.
     $blocks = preg_split('/^(?=### )/m', $section) ?: [$section];
     // Trimmed, so a CRLF checkout or a trailing space still matches its heading.
-    $heads = array_map(static fn(string $b): string => rtrim(strtok($b, "\n") ?: ''), $blocks);
+    $heads = array_map(static fn (string $b): string => rtrim(strtok($b, "\n") ?: ''), $blocks);
 
-    $released = topmostReleased($changelog);
+    $released  = topmostReleased($changelog);
     $upgrading = '### Upgrading';
     foreach ($heads as $head) {
         if (str_starts_with($head, '### Upgrading')) {
@@ -204,15 +204,15 @@ function collect(string $changelog, array $fragments): ?string
         $upgrading = '### Upgrading from ' . $v[1];
     }
 
-    $headingOf = static fn(string $type): string => SECTIONS[$type] ?? $upgrading;
-    $rank = static function (string $head) use ($headingOf): ?int {
+    $headingOf = static fn (string $type): string => SECTIONS[$type] ?? $upgrading;
+    $rank      = static function (string $head) use ($headingOf): ?int {
         $i = 0;
         foreach (array_keys(SECTIONS) as $type) {
             if ($head === $headingOf($type) || ($type === 'upgrading' && str_starts_with($head, '### Upgrading'))) {
                 return $i;
             }
 
-            $i++;
+            ++$i;
         }
 
         return null;
@@ -220,9 +220,9 @@ function collect(string $changelog, array $fragments): ?string
 
     foreach ($fragments as $fragment) {
         $heading = $headingOf($fragment['type']);
-        $index = array_search($heading, $heads, true);
+        $index   = array_search($heading, $heads, true);
         if ($index === false) {
-            $want = (int)$rank($heading);
+            $want  = (int) $rank($heading);
             $index = count($blocks);
             foreach ($heads as $i => $head) {
                 $have = $rank($head);
@@ -244,9 +244,9 @@ function collect(string $changelog, array $fragments): ?string
     return substr($changelog, 0, $start) . implode('', $blocks) . substr($rest, $end);
 }
 
-$problems = [];
+$problems  = [];
 $fragments = readFragments($dir, $problems);
-$changelog = (string)file_get_contents($changelogPath);
+$changelog = (string) file_get_contents($changelogPath);
 
 if ($mode === 'check') {
     $released = topmostReleased($changelog);
@@ -296,7 +296,7 @@ if ($collected === null) {
 // falls back to the system temp directory, and the rename into the directory
 // then fails, which the cleanup below handles.
 $temporary = tempnam(dirname($changelogPath), 'CHANGELOG.md.collect.');
-$written = $temporary !== false
+$written   = $temporary !== false
     && file_put_contents($temporary, $collected) === strlen($collected)
     && chmod($temporary, fileperms($changelogPath) & 0o777)
     && rename($temporary, $changelogPath);

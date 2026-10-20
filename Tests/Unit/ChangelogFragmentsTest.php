@@ -381,7 +381,7 @@ final class ChangelogFragmentsTest extends AbstractUnitTestCase
 
     private function changelog(): string
     {
-        return (string)file_get_contents($this->repo . '/CHANGELOG.md');
+        return (string) file_get_contents($this->repo . '/CHANGELOG.md');
     }
 
     /**
@@ -398,8 +398,8 @@ final class ChangelogFragmentsTest extends AbstractUnitTestCase
             throw new RuntimeException('cannot start the script', 1790260001);
         }
 
-        $stdout = (string)stream_get_contents($pipes[1]);
-        $stderr = (string)stream_get_contents($pipes[2]);
+        $stdout = (string) stream_get_contents($pipes[1]);
+        $stderr = (string) stream_get_contents($pipes[2]);
         fclose($pipes[1]);
         fclose($pipes[2]);
 
@@ -416,7 +416,7 @@ final class ChangelogFragmentsTest extends AbstractUnitTestCase
         }
 
         stream_get_contents($pipes[1]);
-        $stderr = (string)stream_get_contents($pipes[2]);
+        $stderr = (string) stream_get_contents($pipes[2]);
         fclose($pipes[1]);
         fclose($pipes[2]);
         if (proc_close($proc) !== 0) {
