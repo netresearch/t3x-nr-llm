@@ -412,7 +412,7 @@ final class AgentRunController extends ActionController
             'rawInput'       => $rawInput,
             'errorSummary'   => $errorSummary,
             'restrictedView' => $restrictTo !== null,
-            'coercedInput' => $coercedInput,
+            'coercedInput'   => $coercedInput,
         ]);
 
         return $this->moduleTemplate->renderResponse('Backend/AgentRun/List');

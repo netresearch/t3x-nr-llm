@@ -1055,17 +1055,17 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         $this->suspendInput(
             'ask',
             [
-                'type' => 'object',
+                'type'       => 'object',
                 'properties' => [
-                    'reason' => ['type' => 'string'],
+                    'reason'  => ['type' => 'string'],
                     'confirm' => ['type' => 'boolean'],
                 ],
                 'required' => ['reason', 'confirm'],
             ],
         );
-        $uuid = $this->lastUuid();
+        $uuid      = $this->lastUuid();
         $submitted = null;
-        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime   = $this->createMock(AgentRuntimeInterface::class);
         $runtime
             ->expects(self::once())
             ->method('submitInput')
@@ -1094,7 +1094,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         $document = new DOMDocument();
         self::assertTrue(
             $document->loadHTML(
-                (string)$response->getBody(),
+                (string) $response->getBody(),
                 LIBXML_NOERROR | LIBXML_NOWARNING,
             ),
         );
@@ -1119,9 +1119,9 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
     public function invalidInputIsRetainedOnlyOnItsOwnRunCard(): void
     {
         $schema = [
-            'type' => 'object',
+            'type'       => 'object',
             'properties' => [
-                'reason' => ['type' => 'string'],
+                'reason'  => ['type' => 'string'],
                 'confirm' => ['type' => 'boolean'],
             ],
             'required' => ['reason', 'confirm'],
@@ -1147,13 +1147,13 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         $document = new DOMDocument();
         self::assertTrue(
             $document->loadHTML(
-                (string)$response->getBody(),
+                (string) $response->getBody(),
                 LIBXML_NOERROR | LIBXML_NOWARNING,
             ),
         );
-        $own = $document->getElementById('f-' . $failedUuid . '-reason');
-        $other = $document->getElementById('f-' . $otherUuid . '-reason');
-        $ownCheckbox = $document->getElementById('f-' . $failedUuid . '-confirm');
+        $own           = $document->getElementById('f-' . $failedUuid . '-reason');
+        $other         = $document->getElementById('f-' . $otherUuid . '-reason');
+        $ownCheckbox   = $document->getElementById('f-' . $failedUuid . '-confirm');
         $otherCheckbox = $document->getElementById('f-' . $otherUuid . '-confirm');
         self::assertInstanceOf(DOMElement::class, $own);
         self::assertInstanceOf(DOMElement::class, $other);
@@ -1202,15 +1202,15 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         $this->suspendInput(
             'ask',
             [
-                'type' => 'object',
+                'type'       => 'object',
                 'properties' => [
-                    'reason' => ['type' => 'string'],
+                    'reason'  => ['type' => 'string'],
                     'confirm' => ['type' => 'boolean'],
                 ],
                 'required' => ['reason', 'confirm'],
             ],
         );
-        $uuid = $this->lastUuid();
+        $uuid    = $this->lastUuid();
         $runtime = $this->createMock(AgentRuntimeInterface::class);
         $runtime->expects(self::never())->method('submitInput');
         $controller = $this->makeController(new ToolRegistry([new FakeTool('ask')]), $runtime);
@@ -1222,11 +1222,11 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         $document = new DOMDocument();
         self::assertTrue(
             $document->loadHTML(
-                (string)$response->getBody(),
+                (string) $response->getBody(),
                 LIBXML_NOERROR | LIBXML_NOWARNING,
             ),
         );
-        $text = $document->getElementById('f-' . $uuid . '-reason');
+        $text     = $document->getElementById('f-' . $uuid . '-reason');
         $checkbox = $document->getElementById('f-' . $uuid . '-confirm');
         self::assertInstanceOf(DOMElement::class, $text);
         self::assertInstanceOf(DOMElement::class, $checkbox);
