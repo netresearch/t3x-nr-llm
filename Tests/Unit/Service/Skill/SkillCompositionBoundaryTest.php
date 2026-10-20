@@ -1,10 +1,11 @@
 <?php
 
 /*
- * Copyright (c) 2026 Netresearch DTT GmbH
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Skill;
 
@@ -34,9 +35,9 @@ final class SkillCompositionBoundaryTest extends TestCase
     public static function invalidKinds(): array
     {
         return [
-            'checksum' => ['checksum'],
+            'checksum'       => ['checksum'],
             'version digest' => ['digest'],
-            'process' => ['process'],
+            'process'        => ['process'],
         ];
     }
 
@@ -55,7 +56,7 @@ final class SkillCompositionBoundaryTest extends TestCase
             $bad->setProcess(true);
         }
 
-        $tail = $this->skill('tail', 'Tail', 'valid tail content');
+        $tail   = $this->skill('tail', 'Tail', 'valid tail content');
         $result = (new SkillComposer())->composeBlock([$bad, $tail], []);
         self::assertSame(['tail'], $result->included);
         self::assertSame(['invalid'], $result->dropped);
@@ -70,10 +71,10 @@ final class SkillCompositionBoundaryTest extends TestCase
     public static function skippedKinds(): array
     {
         return [
-            'disabled' => ['disabled'],
-            'orphaned' => ['orphaned'],
+            'disabled'          => ['disabled'],
+            'orphaned'          => ['orphaned'],
             'below trust floor' => ['trust'],
-            'duplicate' => ['duplicate'],
+            'duplicate'         => ['duplicate'],
         ];
     }
 
@@ -89,7 +90,7 @@ final class SkillCompositionBoundaryTest extends TestCase
         $tail->setTrustLevel(SkillTrustLevel::VERIFIED->value);
 
         $configuration = [$first];
-        $expected = [$tail];
+        $expected      = [$tail];
         if ($kind === 'disabled') {
             $first->setEnabled(false);
         } elseif ($kind === 'orphaned') {
@@ -98,7 +99,7 @@ final class SkillCompositionBoundaryTest extends TestCase
             $first->setTrustLevel(SkillTrustLevel::UNTRUSTED->value);
         } else {
             $configuration[] = $first;
-            $expected = [$first, $tail];
+            $expected        = [$first, $tail];
         }
 
         $composer = new SkillComposer(minTrustLevel: SkillTrustLevel::VERIFIED);
@@ -114,8 +115,8 @@ final class SkillCompositionBoundaryTest extends TestCase
     #[Test]
     public function sourceAndIdentifierRemainDistinctEvenWhenConcatenationsMatch(): void
     {
-        $first = $this->skill('23', 'First', 'first source content', source: 1);
-        $second = $this->skill('3', 'Second', 'second source content', source: 12);
+        $first    = $this->skill('23', 'First', 'first source content', source: 1);
+        $second   = $this->skill('3', 'Second', 'second source content', source: 12);
         $composer = new SkillComposer();
         self::assertSame(
             [$first, $second],
@@ -157,12 +158,12 @@ final class SkillCompositionBoundaryTest extends TestCase
     public function repeatedTaskDropsPreserveTheBaselineWithinTheExactBudget(bool $belowTwoBlocks): void
     {
         $baseline = $this->skill('baseline', 'Baseline', 'configuration content');
-        $tasks = [
+        $tasks    = [
             $this->skill('task-one', 'Task one', 'first task content'),
             $this->skill('task-two', 'Task two', 'second task content'),
         ];
         $baselineBlock = (new SkillComposer())->composeBlock([$baseline], [])->block;
-        $budget = $belowTwoBlocks ? strlen(
+        $budget        = $belowTwoBlocks ? strlen(
             (new SkillComposer())->composeBlock([$baseline], [$tasks[0]])->block,
         ) - 1 : strlen($baselineBlock);
         $result = (new SkillComposer(maxBytes: $budget))->composeBlock(
@@ -191,12 +192,12 @@ final class SkillCompositionBoundaryTest extends TestCase
             'second approved instruction',
             uid: 42,
         );
-        $data = $this->skill('reference', 'Reference', 'unapproved reference data');
+        $data      = $this->skill('reference', 'Reference', 'unapproved reference data');
         $approvals = new InMemorySkillApprovalRepository();
         foreach ([$first, $second] as $skill) {
             $skill->setVersionDigest(SkillVersionDigest::of($skill));
             $approvals->add(
-                (int)$skill->getUid(),
+                (int) $skill->getUid(),
                 $skill->getSource(),
                 $skill->getVersionDigest(),
                 SkillVersionDigest::fieldsOf($skill),
@@ -227,12 +228,12 @@ final class SkillCompositionBoundaryTest extends TestCase
         self::assertSame(
             [
                 [
-                    'skill' => 41,
+                    'skill'  => 41,
                     'source' => 7,
                     'digest' => $first->getVersionDigest(),
                 ],
                 [
-                    'skill' => 42,
+                    'skill'  => 42,
                     'source' => 7,
                     'digest' => $second->getVersionDigest(),
                 ],
@@ -283,6 +284,7 @@ final class SkillCompositionBoundaryTest extends TestCase
         $skill->setBodyChecksum(hash('sha256', $body));
         $skill->setSupportStatus('full');
         $skill->setEnabled(true);
+
         return $skill;
     }
 
