@@ -46,7 +46,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * itself is a thin coordinator — DTO parse, delegate to the reader,
  * wrap in a typed Response.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class TaskRecordsController extends ActionController
@@ -75,9 +75,11 @@ final class TaskRecordsController extends ActionController
         } catch (DbalException $e) {
             // REC #8b: SQL error text leaks schema details — log + generic message.
             $this->logger->error('Task records: listAllowedTables failed', ['exception' => $e]);
+
             return new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.records.listTablesDbError', 'Database error while listing tables.')))->jsonSerialize(), 500);
         } catch (Throwable $e) {
             $this->logger->error('Task records: listAllowedTables failed unexpectedly', ['exception' => $e]);
+
             return new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.records.listTablesFailed', 'Failed to list tables. See system log for details.')))->jsonSerialize(), 500);
         }
     }
@@ -165,14 +167,15 @@ final class TaskRecordsController extends ActionController
             $error = $dto->table === '' || $dto->uids === ''
                 ? 'Table and UIDs required'
                 : 'No valid UIDs provided';
+
             return new JsonResponse((new ErrorResponse($error))->jsonSerialize(), 400);
         }
 
         try {
-            $rows = $this->recordTableReader->loadRecordsByUids($dto->table, $dto->uidList);
+            $rows    = $this->recordTableReader->loadRecordsByUids($dto->table, $dto->uidList);
             $encoded = json_encode($rows, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
             if ($encoded === false) {
-                $payload = (new ErrorResponse(($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.records.encodeFailed', 'Failed to encode record payload:')) . ' ' . json_last_error_msg()))->jsonSerialize();
+                $payload = (new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.records.encodeFailed', 'Failed to encode record payload:') . ' ' . json_last_error_msg()))->jsonSerialize();
                 $status  = 500;
             } else {
                 $payload = (new RecordDataResponse(

@@ -9,6 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\Model;
 
+use function is_float;
+use function is_int;
+
 /**
  * Token usage statistics from LLM requests.
  *
@@ -99,10 +102,10 @@ final readonly class UsageStatistics
         $estimatedCost = $data['estimatedCost'] ?? null;
 
         return new self(
-            promptTokens: \is_int($data['promptTokens'] ?? null) ? $data['promptTokens'] : 0,
-            completionTokens: \is_int($data['completionTokens'] ?? null) ? $data['completionTokens'] : 0,
-            totalTokens: \is_int($data['totalTokens'] ?? null) ? $data['totalTokens'] : 0,
-            estimatedCost: \is_float($estimatedCost) || \is_int($estimatedCost) ? (float)$estimatedCost : null,
+            promptTokens: is_int($data['promptTokens'] ?? null) ? $data['promptTokens'] : 0,
+            completionTokens: is_int($data['completionTokens'] ?? null) ? $data['completionTokens'] : 0,
+            totalTokens: is_int($data['totalTokens'] ?? null) ? $data['totalTokens'] : 0,
+            estimatedCost: is_float($estimatedCost) || is_int($estimatedCost) ? (float) $estimatedCost : null,
         );
     }
 }

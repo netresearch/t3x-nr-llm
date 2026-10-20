@@ -66,7 +66,7 @@ class GeminiProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gemini-2.5-pro',
+            'defaultModel'     => 'gemini-2.5-pro',
         ]);
 
         self::assertEquals('gemini-2.5-pro', $provider->getDefaultModel());
@@ -78,7 +78,7 @@ class GeminiProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => '',
+            'defaultModel'     => '',
         ]);
 
         // Should return default when empty string is configured
@@ -213,7 +213,7 @@ class GeminiProviderMutationTest extends AbstractUnitTestCase
         $provider->configure(['apiKeyIdentifier' => $this->randomApiKey()]);
 
         $reflection = new ReflectionClass($provider);
-        $baseUrl = $reflection->getProperty('baseUrl');
+        $baseUrl    = $reflection->getProperty('baseUrl');
         /** @var string $baseUrlValue */
         $baseUrlValue = $baseUrl->getValue($provider);
 
@@ -253,11 +253,11 @@ class GeminiProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'baseUrl' => 'https://custom-api.example.com/v1',
+            'baseUrl'          => 'https://custom-api.example.com/v1',
         ]);
 
         $reflection = new ReflectionClass($provider);
-        $baseUrl = $reflection->getProperty('baseUrl');
+        $baseUrl    = $reflection->getProperty('baseUrl');
 
         self::assertEquals('https://custom-api.example.com/v1', $baseUrl->getValue($provider));
     }

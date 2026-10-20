@@ -62,8 +62,8 @@ final readonly class TestConfigurationResponse implements JsonSerializable
         return [
             'success' => $this->success,
             'content' => $this->content,
-            'model' => $this->model,
-            'usage' => $this->usage->jsonSerialize(),
+            'model'   => $this->model,
+            'usage'   => $this->usage->jsonSerialize(),
         ];
     }
 }

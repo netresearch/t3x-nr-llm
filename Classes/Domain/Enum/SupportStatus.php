@@ -14,7 +14,7 @@ namespace Netresearch\NrLlm\Domain\Enum;
  */
 enum SupportStatus: string
 {
-    case FULL = 'full';
+    case FULL    = 'full';
     case PARTIAL = 'partial';
 
     /**
@@ -22,7 +22,7 @@ enum SupportStatus: string
      */
     public static function values(): array
     {
-        return array_map(static fn(self $c): string => $c->value, self::cases());
+        return array_map(static fn (self $c): string => $c->value, self::cases());
     }
 
     public static function isValid(string $value): bool

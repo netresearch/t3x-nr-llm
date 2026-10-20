@@ -82,9 +82,9 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         return $this->createControllerWithReflection(LlmModuleController::class, [
             // executeTest resolves a default prompt; error paths log. It does
             // not touch repositories, so only these three are wired.
-            'llmServiceManager' => $llmServiceManager,
+            'llmServiceManager'  => $llmServiceManager,
             'testPromptResolver' => $testPromptResolver,
-            'logger' => new NullLogger(),
+            'logger'             => new NullLogger(),
         ]);
     }
 
@@ -111,7 +111,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway6_1_dashboardShowsProviderOverview(): void
+    public function pathway61DashboardShowsProviderOverview(): void
     {
         // User navigates to Dashboard and sees provider status
         $activeProviders = $this->providerRepository->findActive()->toArray();
@@ -127,13 +127,13 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_1_dashboardShowsStatistics(): void
+    public function pathway61DashboardShowsStatistics(): void
     {
         // Dashboard displays counts for key entities
         $providerCount = $this->providerRepository->countActive();
-        $modelCount = $this->modelRepository->countActive();
-        $configCount = $this->configurationRepository->countActive();
-        $taskCount = $this->taskRepository->countActive();
+        $modelCount    = $this->modelRepository->countActive();
+        $configCount   = $this->configurationRepository->countActive();
+        $taskCount     = $this->taskRepository->countActive();
 
         // User sees these statistics on dashboard
         self::assertGreaterThanOrEqual(0, $providerCount);
@@ -143,7 +143,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_1_dashboardShowsFeatureMatrix(): void
+    public function pathway61DashboardShowsFeatureMatrix(): void
     {
         // Dashboard shows capabilities per provider
         $providers = $this->providerRepository->findActive()->toArray();
@@ -160,7 +160,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_1_dashboardShowsDefaultConfiguration(): void
+    public function pathway61DashboardShowsDefaultConfiguration(): void
     {
         // Dashboard highlights the default configuration
         $defaultConfig = $this->configurationRepository->findDefault();
@@ -173,7 +173,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_1_dashboardShowsQuickActions(): void
+    public function pathway61DashboardShowsQuickActions(): void
     {
         // Dashboard provides quick access to common actions
         // Verify the data needed for quick actions is available
@@ -194,7 +194,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway6_2_quickTestCompletion(): void
+    public function pathway62QuickTestCompletion(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -202,7 +202,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         // User enters prompt and selects provider
         $request = $this->createDashboardExtbaseRequest([
             'provider' => $provider->getIdentifier(),
-            'prompt' => 'Hello, please respond with a greeting.',
+            'prompt'   => 'Hello, please respond with a greeting.',
         ]);
 
         $this->setPrivateProperty($this->controller, 'request', $request);
@@ -213,7 +213,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         // Verify response structure
         self::assertContains($response->getStatusCode(), [200, 500, 502]);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
 
@@ -231,7 +231,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_2_quickTestWithDefaultPrompt(): void
+    public function pathway62QuickTestWithDefaultPrompt(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -249,26 +249,26 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         // Should not return 400 (bad request) for missing prompt
         self::assertNotSame(400, $response->getStatusCode());
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
     }
 
     #[Test]
-    public function pathway6_2_quickTestReturnsUsageStatistics(): void
+    public function pathway62QuickTestReturnsUsageStatistics(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
 
         $request = $this->createDashboardExtbaseRequest([
             'provider' => $provider->getIdentifier(),
-            'prompt' => 'Test prompt for usage tracking',
+            'prompt'   => 'Test prompt for usage tracking',
         ]);
 
         $this->setPrivateProperty($this->controller, 'request', $request);
 
         $response = $this->controller->executeTestAction();
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
 
         if ($body['success'] ?? false) {
@@ -284,7 +284,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_2_quickTest_errorForMissingProvider(): void
+    public function pathway62QuickTestErrorForMissingProvider(): void
     {
         // User doesn't select a provider
         $request = $this->createDashboardExtbaseRequest([
@@ -297,17 +297,17 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
 
         self::assertSame(400, $response->getStatusCode());
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertSame('No provider specified', $body['error']);
     }
 
     #[Test]
-    public function pathway6_2_quickTest_errorForEmptyProvider(): void
+    public function pathway62QuickTestErrorForEmptyProvider(): void
     {
         $request = $this->createDashboardExtbaseRequest([
             'provider' => '',
-            'prompt' => 'Hello',
+            'prompt'   => 'Hello',
         ]);
 
         $this->setPrivateProperty($this->controller, 'request', $request);
@@ -316,7 +316,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
 
         self::assertSame(400, $response->getStatusCode());
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertSame('No provider specified', $body['error']);
     }
@@ -383,7 +383,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         foreach ($providers as $provider) {
             $request = $this->createDashboardExtbaseRequest([
                 'provider' => $provider->getIdentifier(),
-                'prompt' => 'Test',
+                'prompt'   => 'Test',
             ]);
 
             $this->setPrivateProperty($this->controller, 'request', $request);
@@ -393,7 +393,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
             // Each provider should return a valid response structure
             self::assertContains($response->getStatusCode(), [200, 500, 502]);
 
-            $body = json_decode((string)$response->getBody(), true);
+            $body = json_decode((string) $response->getBody(), true);
             self::assertIsArray($body);
             self::assertArrayHasKey('success', $body);
         }
@@ -404,11 +404,11 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway6_3_quickTest_invalidProviderIdentifier(): void
+    public function pathway63QuickTestInvalidProviderIdentifier(): void
     {
         $request = $this->createDashboardExtbaseRequest([
             'provider' => 'non-existent-provider-xyz',
-            'prompt' => 'Hello',
+            'prompt'   => 'Hello',
         ]);
 
         $this->setPrivateProperty($this->controller, 'request', $request);
@@ -418,14 +418,14 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         // Should return error for invalid provider
         self::assertContains($response->getStatusCode(), [400, 404, 500, 502]);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
         self::assertFalse($body['success']);
     }
 
     #[Test]
-    public function pathway6_3_quickTest_specialCharactersInPrompt(): void
+    public function pathway63QuickTestSpecialCharactersInPrompt(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -433,7 +433,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         // Test with special characters, unicode, and edge cases
         $request = $this->createDashboardExtbaseRequest([
             'provider' => $provider->getIdentifier(),
-            'prompt' => "Test with special chars: <script>alert('xss')</script> 日本語 🎉 \"quotes\" & ampersand",
+            'prompt'   => "Test with special chars: <script>alert('xss')</script> 日本語 🎉 \"quotes\" & ampersand",
         ]);
 
         $this->setPrivateProperty($this->controller, 'request', $request);
@@ -443,13 +443,13 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         // Should handle special characters gracefully
         self::assertContains($response->getStatusCode(), [200, 500, 502]);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
     }
 
     #[Test]
-    public function pathway6_3_quickTest_veryLongPrompt(): void
+    public function pathway63QuickTestVeryLongPrompt(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -459,7 +459,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
 
         $request = $this->createDashboardExtbaseRequest([
             'provider' => $provider->getIdentifier(),
-            'prompt' => $longPrompt,
+            'prompt'   => $longPrompt,
         ]);
 
         $this->setPrivateProperty($this->controller, 'request', $request);
@@ -469,20 +469,20 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         // Should handle long prompts (may succeed or fail with token limit error)
         self::assertContains($response->getStatusCode(), [200, 400, 500, 502]);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
     }
 
     #[Test]
-    public function pathway6_3_quickTest_whitespaceOnlyPrompt(): void
+    public function pathway63QuickTestWhitespaceOnlyPrompt(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
 
         $request = $this->createDashboardExtbaseRequest([
             'provider' => $provider->getIdentifier(),
-            'prompt' => '    ',
+            'prompt'   => '    ',
         ]);
 
         $this->setPrivateProperty($this->controller, 'request', $request);
@@ -492,12 +492,12 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         // Should handle whitespace-only prompt (might use default or return error)
         self::assertContains($response->getStatusCode(), [200, 400, 500, 502]);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
     }
 
     #[Test]
-    public function pathway6_3_quickTest_multilinePrompt(): void
+    public function pathway63QuickTestMultilinePrompt(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -506,7 +506,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
 
         $request = $this->createDashboardExtbaseRequest([
             'provider' => $provider->getIdentifier(),
-            'prompt' => $multilinePrompt,
+            'prompt'   => $multilinePrompt,
         ]);
 
         $this->setPrivateProperty($this->controller, 'request', $request);
@@ -516,7 +516,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         // Should handle multiline prompts
         self::assertContains($response->getStatusCode(), [200, 500, 502]);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
     }
@@ -526,7 +526,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway6_4_dashboardWithNoActiveProviders(): void
+    public function pathway64DashboardWithNoActiveProviders(): void
     {
         // Get initial state
         $providers = $this->providerRepository->findActive()->toArray();
@@ -567,7 +567,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_4_dashboardWithNoActiveModels(): void
+    public function pathway64DashboardWithNoActiveModels(): void
     {
         // Get initial state
         $models = $this->modelRepository->findActive()->toArray();
@@ -608,7 +608,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_4_dashboardWithNoConfigurations(): void
+    public function pathway64DashboardWithNoConfigurations(): void
     {
         // Get initial state
         $configs = $this->configurationRepository->findActive()->toArray();
@@ -653,7 +653,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway6_5_providerHealthCheck(): void
+    public function pathway65ProviderHealthCheck(): void
     {
         // Dashboard should indicate provider health/connectivity status
         $providers = $this->providerRepository->findActive()->toArray();
@@ -669,7 +669,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_5_providerWithMissingApiKey(): void
+    public function pathway65ProviderWithMissingApiKey(): void
     {
         // Dashboard should handle providers with missing/empty API keys
         $provider = $this->providerRepository->findActive()->getFirst();
@@ -686,7 +686,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         // Test with provider that has no API key
         $request = $this->createDashboardExtbaseRequest([
             'provider' => $provider->getIdentifier(),
-            'prompt' => 'Hello',
+            'prompt'   => 'Hello',
         ]);
 
         $this->setPrivateProperty($this->controller, 'request', $request);
@@ -694,7 +694,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         $response = $this->controller->executeTestAction();
 
         // Should fail gracefully with missing API key
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
 
         // Restore API key
@@ -714,7 +714,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway6_6_modelOverviewShowsCapabilities(): void
+    public function pathway66ModelOverviewShowsCapabilities(): void
     {
         $models = $this->modelRepository->findActive()->toArray();
 
@@ -734,7 +734,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_6_modelOverviewShowsDefaultModel(): void
+    public function pathway66ModelOverviewShowsDefaultModel(): void
     {
         $defaultModel = $this->modelRepository->findDefault();
 
@@ -745,7 +745,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_6_modelCountPerProvider(): void
+    public function pathway66ModelCountPerProvider(): void
     {
         $providers = $this->providerRepository->findActive()->toArray();
 
@@ -769,7 +769,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway6_7_taskOverviewShowsActiveTasksByCategory(): void
+    public function pathway67TaskOverviewShowsActiveTasksByCategory(): void
     {
         $tasks = $this->taskRepository->findActive()->toArray();
 
@@ -790,7 +790,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_7_taskOverviewShowsTaskStatus(): void
+    public function pathway67TaskOverviewShowsTaskStatus(): void
     {
         $tasks = $this->taskRepository->findActive()->toArray();
 
@@ -810,7 +810,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     public function dashboardDataConsistencyAcrossRepositories(): void
     {
         // Verify relationships are consistent across repositories
-        $models = $this->modelRepository->findActive()->toArray();
+        $models  = $this->modelRepository->findActive()->toArray();
         $configs = $this->configurationRepository->findActive()->toArray();
 
         // Every model should have a valid provider
@@ -844,8 +844,8 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     {
         // Store original counts
         $originalProviderCount = $this->providerRepository->findActive()->count();
-        $originalModelCount = $this->modelRepository->findActive()->count();
-        $originalConfigCount = $this->configurationRepository->findActive()->count();
+        $originalModelCount    = $this->modelRepository->findActive()->count();
+        $originalConfigCount   = $this->configurationRepository->findActive()->count();
 
         // Dashboard should handle empty state gracefully
         // (We're just verifying the counts are valid, not actually emptying the DB)
@@ -868,17 +868,17 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         foreach ($providers as $provider) {
             $request = $this->createDashboardExtbaseRequest([
                 'provider' => $provider->getIdentifier(),
-                'prompt' => 'Quick test',
+                'prompt'   => 'Quick test',
             ]);
 
             $this->setPrivateProperty($this->controller, 'request', $request);
 
             $response = $this->controller->executeTestAction();
-            $body = json_decode((string)$response->getBody(), true);
+            $body     = json_decode((string) $response->getBody(), true);
             self::assertIsArray($body);
             /** @var array<string, mixed> $body */
             $results[$provider->getIdentifier()] = [
-                'status' => $response->getStatusCode(),
+                'status'  => $response->getStatusCode(),
                 'success' => $body['success'] ?? false,
             ];
         }
@@ -896,10 +896,10 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($provider);
 
         // Make multiple calls to the same provider
-        for ($i = 0; $i < 3; $i++) {
+        for ($i = 0; $i < 3; ++$i) {
             $request = $this->createDashboardExtbaseRequest([
                 'provider' => $provider->getIdentifier(),
-                'prompt' => "Test iteration $i",
+                'prompt'   => "Test iteration $i",
             ]);
 
             $this->setPrivateProperty($this->controller, 'request', $request);
@@ -908,7 +908,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
 
             self::assertContains($response->getStatusCode(), [200, 500, 502]);
 
-            $body = json_decode((string)$response->getBody(), true);
+            $body = json_decode((string) $response->getBody(), true);
             self::assertIsArray($body);
             self::assertArrayHasKey('success', $body);
         }
@@ -919,12 +919,12 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway6_8_dashboardSummaryStatistics(): void
+    public function pathway68DashboardSummaryStatistics(): void
     {
         $providers = $this->providerRepository->findActive()->toArray();
-        $models = $this->modelRepository->findActive()->toArray();
-        $configs = $this->configurationRepository->findActive()->toArray();
-        $tasks = $this->taskRepository->findActive()->toArray();
+        $models    = $this->modelRepository->findActive()->toArray();
+        $configs   = $this->configurationRepository->findActive()->toArray();
+        $tasks     = $this->taskRepository->findActive()->toArray();
 
         // Dashboard should show summary counts
         self::assertGreaterThanOrEqual(0, count($providers));
@@ -934,9 +934,9 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_8_dashboardProviderStats(): void
+    public function pathway68DashboardProviderStats(): void
     {
-        $activeCount = $this->providerRepository->countActive();
+        $activeCount  = $this->providerRepository->countActive();
         $allProviders = $this->providerRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $allProviders);
         $totalCount = $allProviders->count();
@@ -946,10 +946,10 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_8_dashboardModelStats(): void
+    public function pathway68DashboardModelStats(): void
     {
         $activeCount = $this->modelRepository->countActive();
-        $allModels = $this->modelRepository->findAll();
+        $allModels   = $this->modelRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $allModels);
         $totalCount = $allModels->count();
 
@@ -962,7 +962,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway6_9_dashboardFeatureMatrix(): void
+    public function pathway69DashboardFeatureMatrix(): void
     {
         $providers = $this->providerRepository->findActive()->toArray();
 
@@ -983,7 +983,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_9_modelsHaveCapabilities(): void
+    public function pathway69ModelsHaveCapabilities(): void
     {
         $models = $this->modelRepository->findActive()->toArray();
 
@@ -1004,7 +1004,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway6_10_repositoriesAccessible(): void
+    public function pathway610RepositoriesAccessible(): void
     {
         // All repositories needed for dashboard should be accessible
         self::assertInstanceOf(ProviderRepository::class, $this->providerRepository);
@@ -1014,12 +1014,12 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_10_dashboardListsAllActiveEntities(): void
+    public function pathway610DashboardListsAllActiveEntities(): void
     {
         $providers = $this->providerRepository->findActive();
-        $models = $this->modelRepository->findActive();
-        $configs = $this->configurationRepository->findActive();
-        $tasks = $this->taskRepository->findActive();
+        $models    = $this->modelRepository->findActive();
+        $configs   = $this->configurationRepository->findActive();
+        $tasks     = $this->taskRepository->findActive();
 
         // All entities should be countable
         self::assertGreaterThanOrEqual(0, $providers->count());
@@ -1033,59 +1033,59 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway6_11_quickTestWithCodePrompt(): void
+    public function pathway611QuickTestWithCodePrompt(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
 
         $request = $this->createDashboardExtbaseRequest([
             'provider' => $provider->getIdentifier(),
-            'prompt' => 'Write a simple hello world function in Python',
+            'prompt'   => 'Write a simple hello world function in Python',
         ]);
 
         $this->setPrivateProperty($this->controller, 'request', $request);
         $response = $this->controller->executeTestAction();
 
         self::assertContains($response->getStatusCode(), [200, 500, 502]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
     }
 
     #[Test]
-    public function pathway6_11_quickTestWithTranslationPrompt(): void
+    public function pathway611QuickTestWithTranslationPrompt(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
 
         $request = $this->createDashboardExtbaseRequest([
             'provider' => $provider->getIdentifier(),
-            'prompt' => 'Translate "Hello World" to German',
+            'prompt'   => 'Translate "Hello World" to German',
         ]);
 
         $this->setPrivateProperty($this->controller, 'request', $request);
         $response = $this->controller->executeTestAction();
 
         self::assertContains($response->getStatusCode(), [200, 500, 502]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
     }
 
     #[Test]
-    public function pathway6_11_quickTestWithAnalysisPrompt(): void
+    public function pathway611QuickTestWithAnalysisPrompt(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
 
         $request = $this->createDashboardExtbaseRequest([
             'provider' => $provider->getIdentifier(),
-            'prompt' => 'Analyze the following text: "This is a sample text for analysis."',
+            'prompt'   => 'Analyze the following text: "This is a sample text for analysis."',
         ]);
 
         $this->setPrivateProperty($this->controller, 'request', $request);
         $response = $this->controller->executeTestAction();
 
         self::assertContains($response->getStatusCode(), [200, 500, 502]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
     }
 
@@ -1094,7 +1094,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway6_12_defaultModelIndicator(): void
+    public function pathway612DefaultModelIndicator(): void
     {
         $allModels = $this->modelRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $allModels);
@@ -1104,7 +1104,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         foreach ($models as $model) {
             self::assertInstanceOf(Model::class, $model);
             if ($model->isDefault()) {
-                $defaultCount++;
+                ++$defaultCount;
                 self::assertTrue($model->isActive(), 'Default model should be active');
             }
         }
@@ -1114,7 +1114,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_12_defaultConfigurationIndicator(): void
+    public function pathway612DefaultConfigurationIndicator(): void
     {
         $allConfigs = $this->configurationRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $allConfigs);
@@ -1124,7 +1124,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         foreach ($configs as $config) {
             self::assertInstanceOf(LlmConfiguration::class, $config);
             if ($config->isDefault()) {
-                $defaultCount++;
+                ++$defaultCount;
                 self::assertTrue($config->isActive(), 'Default configuration should be active');
             }
         }
@@ -1134,7 +1134,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_12_highestPriorityProviderIndicator(): void
+    public function pathway612HighestPriorityProviderIndicator(): void
     {
         $highestProvider = $this->providerRepository->findHighestPriority();
 
@@ -1154,7 +1154,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway6_13_providersByAdapterType(): void
+    public function pathway613ProvidersByAdapterType(): void
     {
         $providers = $this->providerRepository->findActive()->toArray();
 
@@ -1163,7 +1163,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
             $type = $provider->getAdapterType();
             $byType[$type] ??= 0;
 
-            $byType[$type]++;
+            ++$byType[$type];
         }
 
         // Verify counts are positive for each type
@@ -1174,7 +1174,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_13_tasksByCategory(): void
+    public function pathway613TasksByCategory(): void
     {
         $tasks = $this->taskRepository->findActive()->toArray();
 
@@ -1183,7 +1183,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
             $category = $task->getCategory();
             $byCategory[$category] ??= 0;
 
-            $byCategory[$category]++;
+            ++$byCategory[$category];
         }
 
         foreach ($byCategory as $category => $count) {
@@ -1193,7 +1193,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_13_tasksByInputType(): void
+    public function pathway613TasksByInputType(): void
     {
         $tasks = $this->taskRepository->findActive()->toArray();
 
@@ -1202,7 +1202,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
             $inputType = $task->getInputType();
             $byInputType[$inputType] ??= 0;
 
-            $byInputType[$inputType]++;
+            ++$byInputType[$inputType];
         }
 
         foreach ($byInputType as $inputType => $count) {
@@ -1216,7 +1216,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway6_14_quickTestAvailability(): void
+    public function pathway614QuickTestAvailability(): void
     {
         $providers = $this->providerRepository->findActive();
 
@@ -1229,7 +1229,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_14_quickTaskExecutionAvailability(): void
+    public function pathway614QuickTaskExecutionAvailability(): void
     {
         $tasks = $this->taskRepository->findActive();
 
@@ -1242,7 +1242,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_14_configurationAvailability(): void
+    public function pathway614ConfigurationAvailability(): void
     {
         $configs = $this->configurationRepository->findActive();
 
@@ -1259,7 +1259,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway6_15_dashboardDataConsistency(): void
+    public function pathway615DashboardDataConsistency(): void
     {
         // Provider count should be available
         $providerCount = $this->providerRepository->countActive();
@@ -1279,7 +1279,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_15_dashboardModelToProviderRelationship(): void
+    public function pathway615DashboardModelToProviderRelationship(): void
     {
         $models = $this->modelRepository->findActive()->toArray();
 
@@ -1297,7 +1297,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_15_dashboardConfigurationToModelRelationship(): void
+    public function pathway615DashboardConfigurationToModelRelationship(): void
     {
         $configs = $this->configurationRepository->findActive()->toArray();
 
@@ -1316,7 +1316,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway6_16_dashboardHandlesEmptyProviders(): void
+    public function pathway616DashboardHandlesEmptyProviders(): void
     {
         // Even if no providers, dashboard methods should not crash
         $count = $this->providerRepository->countActive();
@@ -1324,21 +1324,21 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_16_dashboardHandlesEmptyModels(): void
+    public function pathway616DashboardHandlesEmptyModels(): void
     {
         $count = $this->modelRepository->countActive();
         self::assertGreaterThanOrEqual(0, $count);
     }
 
     #[Test]
-    public function pathway6_16_dashboardHandlesEmptyConfigurations(): void
+    public function pathway616DashboardHandlesEmptyConfigurations(): void
     {
         $count = $this->configurationRepository->countActive();
         self::assertGreaterThanOrEqual(0, $count);
     }
 
     #[Test]
-    public function pathway6_16_dashboardHandlesEmptyTasks(): void
+    public function pathway616DashboardHandlesEmptyTasks(): void
     {
         $count = $this->taskRepository->countActive();
         self::assertGreaterThanOrEqual(0, $count);
@@ -1349,9 +1349,9 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway6_17_activeVsTotalProviderCount(): void
+    public function pathway617ActiveVsTotalProviderCount(): void
     {
-        $activeCount = $this->providerRepository->countActive();
+        $activeCount  = $this->providerRepository->countActive();
         $allProviders = $this->providerRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $allProviders);
         $totalCount = $allProviders->count();
@@ -1360,10 +1360,10 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_17_activeVsTotalModelCount(): void
+    public function pathway617ActiveVsTotalModelCount(): void
     {
         $activeCount = $this->modelRepository->countActive();
-        $allModels = $this->modelRepository->findAll();
+        $allModels   = $this->modelRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $allModels);
         $totalCount = $allModels->count();
 
@@ -1371,10 +1371,10 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_17_activeVsTotalConfigurationCount(): void
+    public function pathway617ActiveVsTotalConfigurationCount(): void
     {
         $activeCount = $this->configurationRepository->countActive();
-        $allConfigs = $this->configurationRepository->findAll();
+        $allConfigs  = $this->configurationRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $allConfigs);
         $totalCount = $allConfigs->count();
 
@@ -1382,10 +1382,10 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_17_activeVsTotalTaskCount(): void
+    public function pathway617ActiveVsTotalTaskCount(): void
     {
         $activeCount = $this->taskRepository->countActive();
-        $allTasks = $this->taskRepository->findAll();
+        $allTasks    = $this->taskRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $allTasks);
         $totalCount = $allTasks->count();
 
@@ -1397,7 +1397,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway6_18_dashboardSupportsActiveProviderQuery(): void
+    public function pathway618DashboardSupportsActiveProviderQuery(): void
     {
         // Dashboard uses active provider queries for quick test
         $providers = $this->providerRepository->findActive();
@@ -1411,7 +1411,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_18_dashboardSupportsActiveModelQuery(): void
+    public function pathway618DashboardSupportsActiveModelQuery(): void
     {
         // Dashboard uses active model queries
         $models = $this->modelRepository->findActive();
@@ -1429,7 +1429,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_18_dashboardSupportsActiveConfigurationQuery(): void
+    public function pathway618DashboardSupportsActiveConfigurationQuery(): void
     {
         $configs = $this->configurationRepository->findActive();
         self::assertGreaterThanOrEqual(0, $configs->count());
@@ -1440,7 +1440,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway6_18_dashboardSupportsActiveTaskQuery(): void
+    public function pathway618DashboardSupportsActiveTaskQuery(): void
     {
         $tasks = $this->taskRepository->findActive();
         self::assertGreaterThanOrEqual(0, $tasks->count());

@@ -165,14 +165,14 @@ final class UseCasePackPlanTest extends TestCase
         self::assertSame(
             ['set_file_alternativ_text'],
             array_map(
-                static fn(PackEditorActionState $state): string => $state->toolName,
+                static fn (PackEditorActionState $state): string => $state->toolName,
                 $plan->getUndeclaredEditorActions(),
             ),
         );
         self::assertSame(
             ['contnet'],
             array_map(
-                static fn(PackToolGroupState $state): string => $state->group,
+                static fn (PackToolGroupState $state): string => $state->group,
                 $plan->getUnregisteredToolGroups(),
             ),
         );

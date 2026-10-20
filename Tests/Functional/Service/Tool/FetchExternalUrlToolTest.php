@@ -82,16 +82,16 @@ final class FetchExternalUrlToolTest extends AbstractFunctionalTestCase
     public function internalTargetsAreRefusedThroughTheWiredGuard(): void
     {
         $refused = [
-            'http://127.0.0.1/'                         => 'private, loopback',
-            'http://169.254.169.254/latest/meta-data/'  => 'private, loopback',
-            'http://[::1]/'                             => 'private, loopback',
-            'http://[fd00:ec2::254]/'                   => 'private, loopback',
-            'http://[::ffff:10.0.0.1]/'                 => 'private, loopback',
-            'http://2130706433/'                        => 'numeric host',
-            'http://0177.0.0.1/'                        => 'numeric host',
-            'file:///etc/passwd'                        => 'only http and https',
-            'https://user:pw@93.184.215.14/'            => 'credentials',
-            'https://93.184.215.14:8443/'               => 'port 8443',
+            'http://127.0.0.1/'                        => 'private, loopback',
+            'http://169.254.169.254/latest/meta-data/' => 'private, loopback',
+            'http://[::1]/'                            => 'private, loopback',
+            'http://[fd00:ec2::254]/'                  => 'private, loopback',
+            'http://[::ffff:10.0.0.1]/'                => 'private, loopback',
+            'http://2130706433/'                       => 'numeric host',
+            'http://0177.0.0.1/'                       => 'numeric host',
+            'file:///etc/passwd'                       => 'only http and https',
+            'https://user:pw@93.184.215.14/'           => 'credentials',
+            'https://93.184.215.14:8443/'              => 'port 8443',
         ];
 
         foreach ($refused as $url => $reason) {

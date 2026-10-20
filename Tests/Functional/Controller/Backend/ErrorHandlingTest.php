@@ -91,8 +91,8 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         $this->configurationRepository = $configurationRepository;
 
         // Create controllers
-        $this->configController = $this->createConfigurationController();
-        $this->taskController = $this->createTaskController();
+        $this->configController    = $this->createConfigurationController();
+        $this->taskController      = $this->createTaskController();
         $this->llmModuleController = $this->createLlmModuleController();
     }
 
@@ -131,7 +131,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         $analytics = $this->get(UsageAnalyticsServiceInterface::class);
         self::assertInstanceOf(UsageAnalyticsServiceInterface::class, $analytics);
 
-        $presetRegistry = $this->getService(ConfigurationPresetRegistry::class);
+        $presetRegistry      = $this->getService(ConfigurationPresetRegistry::class);
         $presetImportService = $this->getService(ConfigurationPresetImportService::class);
 
         return new ConfigurationController(
@@ -201,7 +201,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
     private function setPrivateProperty(object $object, string $property, mixed $value): void
     {
         $reflection = new ReflectionClass($object);
-        $prop = $reflection->getProperty($property);
+        $prop       = $reflection->getProperty($property);
         $prop->setValue($object, $value);
     }
 
@@ -242,7 +242,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         // 502 = the upstream provider is unreachable in the test env (handled
         // gracefully as Bad Gateway), not a crash.
         self::assertContains($response->getStatusCode(), [200, 400, 500, 502]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
 
@@ -260,7 +260,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         // Test with provider that will fail due to no real API
         $extbaseRequest = $this->createExtbaseRequest([
             'provider' => 'openai-test',
-            'prompt' => 'Test prompt for error handling',
+            'prompt'   => 'Test prompt for error handling',
         ]);
 
         $this->setPrivateProperty($this->llmModuleController, 'request', $extbaseRequest);
@@ -271,7 +271,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         // Assert - should return structured error response.
         // 502 = upstream provider unreachable in the test env (Bad Gateway).
         self::assertContains($response->getStatusCode(), [200, 500, 502]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
 
         if (!$body['success']) {
@@ -291,7 +291,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         // Execute task - if rate limit is hit, should return proper error
         $request = new ServerRequest('POST', '/ajax/nrllm/task/execute');
         $request = $request->withParsedBody([
-            'uid' => 1,
+            'uid'   => 1,
             'input' => 'Test input',
         ]);
 
@@ -301,7 +301,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         // Assert - should return 200 with success:false or success:true
         // Never should crash or return malformed response
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
 
@@ -333,7 +333,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         self::assertContains($response->getStatusCode(), [200, 400, 500, 502]);
 
         // Body should be valid JSON
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
 
         // Should always have a success key
@@ -346,7 +346,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         // Create request with provider that doesn't have real API connection
         $extbaseRequest = $this->createExtbaseRequest([
             'provider' => 'anthropic-test',
-            'prompt' => 'Test prompt',
+            'prompt'   => 'Test prompt',
         ]);
 
         $this->setPrivateProperty($this->llmModuleController, 'request', $extbaseRequest);
@@ -357,7 +357,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         // Assert - should not throw unhandled exception.
         // 502 = upstream provider unreachable in the test env (Bad Gateway).
         self::assertContains($response->getStatusCode(), [200, 500, 502]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
 
         // Even on failure, should have structured response
@@ -382,7 +382,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
 
         // Assert - should return 404 with clear error
         self::assertSame(404, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertArrayHasKey('error', $body);
@@ -401,7 +401,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
 
         // Assert - should return 404
         self::assertSame(404, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame('Configuration not found', $body['error']);
@@ -413,7 +413,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         // Execute non-existent task
         $request = new ServerRequest('POST', '/ajax/nrllm/task/execute');
         $request = $request->withParsedBody([
-            'uid' => 99999,
+            'uid'   => 99999,
             'input' => 'Test',
         ]);
 
@@ -422,7 +422,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
 
         // Assert - should return 404 with clear error
         self::assertSame(404, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame('Task not found', $body['error']);
@@ -448,13 +448,13 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
             $request = $request->withParsedBody($errorRequest['body']);
 
             $response = match ($errorRequest['action']) {
-                'toggle' => $this->configController->toggleActiveAction($request),
+                'toggle'     => $this->configController->toggleActiveAction($request),
                 'setdefault' => $this->configController->setDefaultAction($request),
-                'test' => $this->configController->testConfigurationAction($request),
-                'getmodels' => $this->configController->getModelsAction($request),
+                'test'       => $this->configController->testConfigurationAction($request),
+                'getmodels'  => $this->configController->getModelsAction($request),
             };
 
-            $body = json_decode((string)$response->getBody(), true);
+            $body = json_decode((string) $response->getBody(), true);
             self::assertIsArray($body, "Response for {$errorRequest['action']} should be array");
             self::assertFalse($body['success'], "Response for {$errorRequest['action']} should have success:false");
             self::assertArrayHasKey('error', $body, "Response for {$errorRequest['action']} should have error key");
@@ -472,7 +472,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         self::assertSame(400, $response->getStatusCode());
 
         // Non-existent resource -> 404
-        $request = $request->withParsedBody(['uid' => 99999]);
+        $request  = $request->withParsedBody(['uid' => 99999]);
         $response = $this->configController->toggleActiveAction($request);
         self::assertSame(404, $response->getStatusCode());
     }
@@ -491,9 +491,9 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
             $request = new ServerRequest('POST', self::AJAX_TEST);
             $request = $request->withParsedBody($testCase['body']);
 
-            $method = $testCase['method'];
+            $method   = $testCase['method'];
             $response = $this->configController->$method($request);
-            $body = json_decode((string)$response->getBody(), true);
+            $body     = json_decode((string) $response->getBody(), true);
             self::assertIsArray($body);
 
             if (isset($body['error'])) {
@@ -518,7 +518,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['uid' => -1]);
 
         $response = $this->configController->testConfigurationAction($request);
-        $body = json_decode((string)$response->getBody(), true);
+        $body     = json_decode((string) $response->getBody(), true);
 
         self::assertIsArray($body);
 

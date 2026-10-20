@@ -66,7 +66,7 @@ final class ResponseDtoTest extends TestCase
     public function testErrorResponseContainsAllRequiredKeys(): void
     {
         $response = new ErrorResponse('Test error message');
-        $data = $response->jsonSerialize();
+        $data     = $response->jsonSerialize();
 
         self::assertArrayHasKey('error', $data);
         self::assertArrayHasKey('success', $data);
@@ -77,7 +77,7 @@ final class ResponseDtoTest extends TestCase
     public function testSuccessResponseContainsSuccessKey(): void
     {
         $response = new SuccessResponse();
-        $data = $response->jsonSerialize();
+        $data     = $response->jsonSerialize();
 
         self::assertArrayHasKey('success', $data);
         self::assertTrue($data['success']);
@@ -87,7 +87,7 @@ final class ResponseDtoTest extends TestCase
     public function testToggleActiveResponseContainsAllRequiredKeys(bool $isActive): void
     {
         $response = new ToggleActiveResponse(success: true, isActive: $isActive);
-        $data = $response->jsonSerialize();
+        $data     = $response->jsonSerialize();
 
         self::assertArrayHasKey('success', $data);
         self::assertArrayHasKey('isActive', $data);
@@ -129,7 +129,7 @@ final class ResponseDtoTest extends TestCase
             totalTokens: 300,
         );
         $response = UsageResponse::fromUsageStatistics($stats);
-        $data = $response->jsonSerialize();
+        $data     = $response->jsonSerialize();
 
         self::assertSame(200, $data['promptTokens']);
         self::assertSame(100, $data['completionTokens']);
@@ -138,7 +138,7 @@ final class ResponseDtoTest extends TestCase
 
     public function testTestConfigurationResponseContainsAllRequiredKeys(): void
     {
-        $usage = new UsageResponse(10, 20, 30);
+        $usage    = new UsageResponse(10, 20, 30);
         $response = new TestConfigurationResponse(
             success: true,
             content: 'Hello world',
@@ -192,7 +192,7 @@ final class ResponseDtoTest extends TestCase
         $model->method('isDefault')->willReturn(false);
 
         $response = ModelListItemResponse::fromModel($model);
-        $data = $response->jsonSerialize();
+        $data     = $response->jsonSerialize();
 
         self::assertSame(42, $data['uid']);
         self::assertSame('my-model', $data['identifier']);
@@ -203,9 +203,9 @@ final class ResponseDtoTest extends TestCase
 
     public function testModelListResponseContainsAllRequiredKeys(): void
     {
-        $item = new ModelListItemResponse(1, 'test', 'Test', 'gpt-4', false);
+        $item     = new ModelListItemResponse(1, 'test', 'Test', 'gpt-4', false);
         $response = new ModelListResponse(success: true, models: [$item]);
-        $data = $response->jsonSerialize();
+        $data     = $response->jsonSerialize();
 
         self::assertArrayHasKey('success', $data);
         self::assertArrayHasKey('models', $data);
@@ -230,7 +230,7 @@ final class ResponseDtoTest extends TestCase
         $model2->method('isDefault')->willReturn(false);
 
         $response = ModelListResponse::fromModels([$model1, $model2]);
-        $data = $response->jsonSerialize();
+        $data     = $response->jsonSerialize();
 
         self::assertTrue($data['success']);
         self::assertCount(2, $data['models']);
@@ -275,10 +275,10 @@ final class ResponseDtoTest extends TestCase
         $result = [
             'success' => true,
             'message' => 'OK',
-            'models' => ['model-a' => 'Model A', 'model-b' => 'Model B'],
+            'models'  => ['model-a' => 'Model A', 'model-b' => 'Model B'],
         ];
         $response = TestConnectionResponse::fromResult($result);
-        $data = $response->jsonSerialize();
+        $data     = $response->jsonSerialize();
 
         self::assertTrue($data['success']);
         self::assertSame('OK', $data['message']);
@@ -293,7 +293,7 @@ final class ResponseDtoTest extends TestCase
             'message' => 'Connection failed',
         ];
         $response = TestConnectionResponse::fromResult($result);
-        $data = $response->jsonSerialize();
+        $data     = $response->jsonSerialize();
 
         self::assertFalse($data['success']);
         self::assertSame('Connection failed', $data['message']);
@@ -340,7 +340,7 @@ final class ResponseDtoTest extends TestCase
     public function testRecordDataResponseShape(): void
     {
         $payload = '[{"uid":1}]';
-        $data = (new RecordDataResponse(
+        $data    = (new RecordDataResponse(
             data: $payload,
             recordCount: 1,
         ))->jsonSerialize();

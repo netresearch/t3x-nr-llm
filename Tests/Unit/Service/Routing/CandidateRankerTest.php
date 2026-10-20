@@ -51,7 +51,7 @@ final class CandidateRankerTest extends TestCase
             [],
         );
 
-        self::assertSame([0.5, 0.5], array_map(static fn(RoutingCandidate $c): ?float => $c->score, $ranked));
+        self::assertSame([0.5, 0.5], array_map(static fn (RoutingCandidate $c): ?float => $c->score, $ranked));
     }
 
     #[Test]
@@ -121,7 +121,7 @@ final class CandidateRankerTest extends TestCase
     {
         $health = self::createStub(ProviderHealthServiceInterface::class);
         $health->method('scoreFor')->willReturnCallback(
-            static fn(string $provider): ProviderHealthScore => $provider === 'flaky'
+            static fn (string $provider): ProviderHealthScore => $provider === 'flaky'
                 ? ProviderHealthScore::fromSamples('flaky', 10, 3, 100.0)
                 : ProviderHealthScore::fromSamples('solid', 10, 10, 100.0),
         );
@@ -209,7 +209,7 @@ final class CandidateRankerTest extends TestCase
     {
         $stub = self::createStub(ModelQualityScoreProviderInterface::class);
         $stub->method('getQualityScore')->willReturnCallback(
-            static fn(string $modelId): ?float => $scores[$modelId] ?? null,
+            static fn (string $modelId): ?float => $scores[$modelId] ?? null,
         );
 
         return $stub;
@@ -222,7 +222,7 @@ final class CandidateRankerTest extends TestCase
      */
     private function ids(array $ranked): array
     {
-        return array_map(static fn(RoutingCandidate $c): string => str_replace('model-', '', $c->modelId()), $ranked);
+        return array_map(static fn (RoutingCandidate $c): string => str_replace('model-', '', $c->modelId()), $ranked);
     }
 
     private function model(

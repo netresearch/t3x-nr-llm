@@ -12,9 +12,15 @@ namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 use GuzzleHttp\Psr7\ServerRequest;
 use Netresearch\NrLlm\Controller\Backend\TaskExecutionController;
 use Netresearch\NrLlm\Controller\Backend\TaskRecordsController;
+use Netresearch\NrLlm\Domain\Model\Task;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
+use Netresearch\NrLlm\Service\Task\DeprecationLogReaderInterface;
 use Netresearch\NrLlm\Service\Task\RecordTableReaderInterface;
+use Netresearch\NrLlm\Service\Task\SystemLogReaderInterface;
+use Netresearch\NrLlm\Service\Task\TaskExecutionResult;
 use Netresearch\NrLlm\Service\Task\TaskExecutionServiceInterface;
+use Netresearch\NrLlm\Service\Task\TaskInputResolver;
 use Netresearch\NrLlm\Service\Task\TaskInputResolverInterface;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -69,27 +75,39 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         $this->importFixture('LlmConfigurations.csv');
         $this->importFixture('Tasks.csv');
 
-        // The Task AJAX endpoints now require an authenticated admin
-        // (RequiresBackendAdminTrait — ADR-037); set one up so these tests
-        // exercise the success paths.
+        // The record-picker endpoints require an admin (ADR-037);
+        // execution and input refresh require the TASKS_USE grant (ADR-130).
+        // An admin passes both boundaries for these success-path tests.
         $this->importFixture('BeUsers.csv');
-        $this->setUpBackendUser(1); // uid 1 is an admin (admin=1)
-
+        $this->setUpBackendUser(1);
+        // uid 1 is an admin (admin=1)
         $taskRepository = $this->get(TaskRepository::class);
         self::assertInstanceOf(TaskRepository::class, $taskRepository);
         $this->taskRepository = $taskRepository;
 
         $taskExecutionService = $this->get(TaskExecutionServiceInterface::class);
-        self::assertInstanceOf(TaskExecutionServiceInterface::class, $taskExecutionService);
+        self::assertInstanceOf(
+            TaskExecutionServiceInterface::class,
+            $taskExecutionService,
+        );
 
         $recordTableReader = $this->get(RecordTableReaderInterface::class);
-        self::assertInstanceOf(RecordTableReaderInterface::class, $recordTableReader);
+        self::assertInstanceOf(
+            RecordTableReaderInterface::class,
+            $recordTableReader,
+        );
 
         $taskInputResolver = $this->get(TaskInputResolverInterface::class);
-        self::assertInstanceOf(TaskInputResolverInterface::class, $taskInputResolver);
+        self::assertInstanceOf(
+            TaskInputResolverInterface::class,
+            $taskInputResolver,
+        );
 
         $persistenceManager = $this->get(PersistenceManagerInterface::class);
-        self::assertInstanceOf(PersistenceManagerInterface::class, $persistenceManager);
+        self::assertInstanceOf(
+            PersistenceManagerInterface::class,
+            $persistenceManager,
+        );
 
         $this->executionController = $this->createExecutionController(
             $taskRepository,
@@ -132,7 +150,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     private function setPrivateProperty(object $object, string $property, mixed $value): void
     {
         $reflection = new ReflectionClass($object);
-        $prop = $reflection->getProperty($property);
+        $prop       = $reflection->getProperty($property);
         $prop->setValue($object, $value);
     }
 
@@ -151,7 +169,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame(self::TASK_NOT_FOUND, $body['error']);
@@ -169,7 +187,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame('Task is not active', $body['error']);
@@ -187,7 +205,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame(self::TASK_NOT_FOUND, $body['error']);
@@ -205,7 +223,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert - should still process as 404 (non-existent task)
         self::assertSame(404, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
     }
@@ -213,30 +231,8 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     #[Test]
     public function executeActionAttemptsLlmCallForActiveTask(): void
     {
-        // Task with uid=1 is active in fixture
-        // Note: Actual LLM call will fail in test environment (no real API)
-        // but we verify the controller action flow is correct
-        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_EXECUTE);
-        $request = $request->withParsedBody(['uid' => 1, 'input' => 'Test input for analysis']);
-
-        // Act
-        $response = $this->executionController->executeAction($request);
-
-        // Assert - response is 200 but success may be false due to LLM unavailability
-        // The controller returns 200 with success:false for LLM errors (see line 200 in controller)
-        self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
-        self::assertIsArray($body);
-        // Either success with LLM response, or failure with error message
-        self::assertArrayHasKey('success', $body);
-        if (!$body['success']) {
-            self::assertArrayHasKey('error', $body);
-        }
+        $this->assertTaskExecutionResponse(1, 'Test input for analysis');
     }
-
-    // ========================================
-    // Pathway 5.3: List Tables
-    // ========================================
 
     #[Test]
     public function listTablesActionReturnsTablesList(): void
@@ -246,7 +242,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertArrayHasKey('tables', $body);
@@ -254,12 +250,11 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         self::assertIsArray($tables);
 
         // Verify table structure
-        if ($tables !== []) {
-            $firstTable = $tables[0];
-            self::assertIsArray($firstTable);
-            self::assertArrayHasKey('name', $firstTable);
-            self::assertArrayHasKey('label', $firstTable);
-        }
+        self::assertNotSame([], $tables);
+        $firstTable = $tables[0];
+        self::assertIsArray($firstTable);
+        self::assertArrayHasKey('name', $firstTable);
+        self::assertArrayHasKey('label', $firstTable);
     }
 
     #[Test]
@@ -270,7 +265,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
 
@@ -278,6 +273,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         $tables = $body['tables'];
         self::assertIsArray($tables);
         $tableNames = array_column($tables, 'name');
+        self::assertNotSame([], $tableNames);
         foreach ($tableNames as $tableName) {
             self::assertIsString($tableName);
             self::assertStringStartsNotWith('cache_', $tableName);
@@ -293,7 +289,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
 
@@ -319,16 +315,14 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertArrayHasKey('records', $body);
         self::assertIsArray($body['records']);
         self::assertArrayHasKey('total', $body);
 
-        // We have 3 non-deleted tasks in the fixture
-        // (uid 4 is deleted and should be included since fetchRecords doesn't filter)
-        self::assertGreaterThan(0, $body['total']);
+        self::assertSame(3, $body['total']);
     }
 
     #[Test]
@@ -342,21 +336,20 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
 
         // Verify record structure
         $records = $body['records'];
         self::assertIsArray($records);
-        if ($records !== []) {
-            $firstRecord = $records[0];
-            self::assertIsArray($firstRecord);
-            self::assertArrayHasKey('uid', $firstRecord);
-            self::assertArrayHasKey('label', $firstRecord);
-            self::assertIsInt($firstRecord['uid']);
-            self::assertIsString($firstRecord['label']);
-        }
+        self::assertNotSame([], $records);
+        $firstRecord = $records[0];
+        self::assertIsArray($firstRecord);
+        self::assertArrayHasKey('uid', $firstRecord);
+        self::assertArrayHasKey('label', $firstRecord);
+        self::assertIsInt($firstRecord['uid']);
+        self::assertIsString($firstRecord['label']);
     }
 
     #[Test]
@@ -370,7 +363,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame('No table specified', $body['error']);
@@ -387,7 +380,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame('No table specified', $body['error']);
@@ -407,7 +400,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         // while MySQL/MariaDB raises a schema error mapped to 500. Both are
         // sane, non-crashing outcomes for an unknown table.
         self::assertContains($response->getStatusCode(), [200, 500]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         if ($response->getStatusCode() === 500) {
             self::assertFalse($body['success']);
@@ -431,32 +424,42 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         $records = $body['records'];
         self::assertIsArray($records);
-        self::assertLessThanOrEqual(2, count($records));
+        self::assertCount(2, $records);
     }
 
     #[Test]
     public function fetchRecordsActionUsesCustomLabelField(): void
     {
         $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_FETCH_RECORDS);
-        $request = $request->withParsedBody([
-            'table' => 'tx_nrllm_task',
-            'labelField' => 'identifier',
-        ]);
+        $request = $request->withParsedBody(
+            ['table' => 'tx_nrllm_task', 'labelField' => 'identifier'],
+        );
 
         // Act
         $response = $this->recordsController->fetchRecordsAction($request);
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertSame('identifier', $body['labelField']);
+        self::assertIsArray($body['records']);
+        $labels = array_column($body['records'], 'label', 'uid');
+        ksort($labels);
+        self::assertSame(
+            [
+                1 => 'test-manual-task',
+                2 => 'test-syslog-task',
+                3 => 'test-inactive-task',
+            ],
+            $labels,
+        );
     }
 
     // ========================================
@@ -477,17 +480,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     #[Test]
     public function taskRepositoryReturnsNullForDeletedTask(): void
     {
-        // Task with uid=4 is deleted in fixture
-        // Note: Repository with ignoreEnableFields(true) may still find it
-        // This depends on the repository configuration
-        $task = $this->taskRepository->findByUid(4);
-        // Deleted records should not be found with standard query settings
-        // But our repository uses setIgnoreEnableFields(true), so behavior may vary
-        // This test documents the actual behavior
-        if ($task !== null) {
-            // If found, it's because repository ignores enable fields
-            self::assertSame('test-deleted-task', $task->getIdentifier());
-        }
+        self::assertNull($this->taskRepository->findByUid(4));
     }
 
     #[Test]
@@ -515,7 +508,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame('Table and UIDs required', $body['error']);
@@ -532,7 +525,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame('Table and UIDs required', $body['error']);
@@ -542,28 +535,28 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     public function loadRecordDataReturnsRecordsForValidRequest(): void
     {
         $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_LOAD_RECORD_DATA);
-        $request = $request->withParsedBody([
-            'table' => 'tx_nrllm_task',
-            'uids' => '1,2',
-        ]);
+        $request = $request->withParsedBody(['table' => 'tx_nrllm_task', 'uids' => '1,2']);
 
         // Act
         $response = $this->recordsController->loadRecordDataAction($request);
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertArrayHasKey('data', $body);
         self::assertArrayHasKey('recordCount', $body);
-        self::assertGreaterThan(0, $body['recordCount']);
+        self::assertSame(2, $body['recordCount']);
 
         // Verify data is valid JSON
         $data = $body['data'];
         self::assertIsString($data);
         $parsedData = json_decode($data, true);
         self::assertIsArray($parsedData);
+        $uids = array_column($parsedData, 'uid');
+        sort($uids);
+        self::assertSame([1, 2], $uids);
     }
 
     #[Test]
@@ -572,7 +565,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_LOAD_RECORD_DATA);
         $request = $request->withParsedBody([
             'table' => 'tx_nrllm_task',
-            'uids' => '9999,9998',
+            'uids'  => '9999,9998',
         ]);
 
         // Act
@@ -580,7 +573,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertSame(0, $body['recordCount']);
@@ -601,7 +594,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame(self::TASK_NOT_FOUND, $body['error']);
@@ -618,12 +611,15 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertArrayHasKey('inputData', $body);
         self::assertArrayHasKey('inputType', $body);
         self::assertArrayHasKey('isEmpty', $body);
+        self::assertSame('manual', $body['inputType']);
+        self::assertSame('', $body['inputData']);
+        self::assertTrue($body['isEmpty']);
     }
 
     #[Test]
@@ -637,7 +633,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame(self::TASK_NOT_FOUND, $body['error']);
@@ -662,7 +658,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertSame('syslog', $body['inputType']);
@@ -686,67 +682,103 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
 
         // When there are error entries, they should be included
         // (error_only=true filters to only error entries)
-        if (!$body['isEmpty']) {
-            $inputData = $body['inputData'];
-            self::assertIsString($inputData);
-            self::assertStringContainsString('[ERROR]', $inputData);
-        }
+        self::assertFalse($body['isEmpty']);
+        $inputData = $body['inputData'];
+        self::assertIsString($inputData);
+        self::assertStringContainsString('[ERROR]', $inputData);
+        self::assertStringContainsString(
+            'Extension error: Could not load configuration',
+            $inputData,
+        );
+        self::assertStringContainsString('Too many login attempts', $inputData);
+        self::assertStringContainsString(
+            'Login failed for user: admin',
+            $inputData,
+        );
+        self::assertStringNotContainsString(
+            'Created content element',
+            $inputData,
+        );
+        self::assertStringNotContainsString('Updated page', $inputData);
+        self::assertStringNotContainsString('Deleted page', $inputData);
+        $extension = strpos($inputData, 'Extension error:');
+        $attempts  = strpos($inputData, 'Too many login attempts');
+        $login     = strpos($inputData, 'Login failed for user:');
+        self::assertIsInt($extension);
+        self::assertIsInt($attempts);
+        self::assertIsInt($login);
+        self::assertLessThan($attempts, $extension);
+        self::assertLessThan($login, $attempts);
     }
 
     #[Test]
     public function executeActionWithSyslogTaskProcessesLogData(): void
     {
-        // Import sys_log fixtures
-        $this->importFixture('SysLog.csv');
-
-        // Execute the syslog task (uid=2)
-        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_EXECUTE);
-        $request = $request->withParsedBody([
-            'uid' => 2,
-            'input' => '[2024-12-23 10:00:00] [ERROR] Login failed for user: admin',
-        ]);
-
-        // Act
-        $response = $this->executionController->executeAction($request);
-
-        // Assert - response should be 200 (LLM may fail, but action flow is correct)
-        self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
-        self::assertIsArray($body);
-        self::assertArrayHasKey('success', $body);
+        $this->assertTaskExecutionResponse(
+            2,
+            '[2024-12-23 10:00:00] [ERROR] Login failed for user: admin',
+        );
     }
-
-    // ========================================
-    // Pathway 5.4: Deprecation Log Input Type
-    // ========================================
 
     #[Test]
     public function refreshInputHandlesDeprecationLogType(): void
     {
-        // We need a task with input_type='deprecation_log'
-        // Since we don't have this in fixtures, test with the syslog task
-        // and verify the structure is correct
-        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_REFRESH_INPUT);
-        $request = $request->withParsedBody(['uid' => 1]); // manual task
+        $pool = $this->get(ConnectionPool::class);
+        self::assertInstanceOf(ConnectionPool::class, $pool);
+        self::assertSame(
+            1,
+            $pool
+                ->getConnectionForTable('tx_nrllm_task')
+                ->update(
+                    'tx_nrllm_task',
+                    ['input_type' => 'deprecation_log'],
+                    ['uid' => 1],
+                ),
+        );
+        $deprecations = $this->createMock(DeprecationLogReaderInterface::class);
+        $deprecations
+            ->expects(self::once())
+            ->method('readTail')
+            ->willReturn('Actual deprecation input');
+        $systemLog = $this->createMock(SystemLogReaderInterface::class);
+        $systemLog->expects(self::never())->method('readRecent');
+        $tables = $this->createMock(RecordTableReaderInterface::class);
+        $tables->expects(self::never())->method('fetchAll');
+        $resolver = new TaskInputResolver(
+            $systemLog,
+            $deprecations,
+            $tables,
+            new NullLogger(),
+        );
+        $controller = $this->createExecutionController(
+            $this->taskRepository,
+            self::createStub(TaskExecutionServiceInterface::class),
+            $resolver,
+        );
+        $request = (new ServerRequest('POST', self::AJAX_NRLLM_TASK_REFRESH_INPUT))->withParsedBody(
+            ['uid' => 1],
+        );
 
-        // Act
-        $response = $this->executionController->refreshInputAction($request);
+        $response = $controller->refreshInputAction($request);
 
-        // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
-        self::assertIsArray($body);
-        self::assertTrue($body['success']);
-        self::assertSame('manual', $body['inputType']);
-        // Manual input type returns empty string
-        self::assertSame('', $body['inputData']);
-        self::assertTrue($body['isEmpty']);
+        $json = (string) $response->getBody();
+        self::assertJson($json);
+        self::assertSame(
+            [
+                'success'   => true,
+                'inputData' => 'Actual deprecation input',
+                'inputType' => 'deprecation_log',
+                'isEmpty'   => false,
+            ],
+            json_decode($json, true),
+        );
     }
 
     // ========================================
@@ -769,7 +801,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
             $response = $this->recordsController->fetchRecordsAction($request);
 
             self::assertSame(200, $response->getStatusCode());
-            $body = json_decode((string)$response->getBody(), true);
+            $body = json_decode((string) $response->getBody(), true);
             self::assertIsArray($body);
             self::assertTrue($body['success']);
             self::assertSame([], $body['records']);
@@ -791,7 +823,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         // labelField should be detected from TCA or common fields
@@ -805,7 +837,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_LOAD_RECORD_DATA);
         $request = $request->withParsedBody([
             'table' => 'tx_nrllm_task',
-            'uids' => '1',
+            'uids'  => '1',
         ]);
 
         // Act
@@ -813,7 +845,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertSame(1, $body['recordCount']);
@@ -837,21 +869,26 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     public function loadRecordDataHandlesMultipleUids(): void
     {
         $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_LOAD_RECORD_DATA);
-        $request = $request->withParsedBody([
-            'table' => 'tx_nrllm_task',
-            'uids' => '1,2,3',
-        ]);
+        $request = $request->withParsedBody(
+            ['table' => 'tx_nrllm_task', 'uids' => '1,2,3'],
+        );
 
         // Act
         $response = $this->recordsController->loadRecordDataAction($request);
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
-        // Should find at least 2 records (uid 3 may be inactive but still in DB)
-        self::assertGreaterThanOrEqual(2, $body['recordCount']);
+        self::assertSame(3, $body['recordCount']);
+        self::assertIsString($body['data']);
+        self::assertJson($body['data']);
+        $records = json_decode($body['data'], true);
+        self::assertIsArray($records);
+        $uids = array_column($records, 'uid');
+        sort($uids);
+        self::assertSame([1, 2, 3], $uids);
     }
 
     #[Test]
@@ -860,7 +897,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_LOAD_RECORD_DATA);
         $request = $request->withParsedBody([
             'table' => 'tx_nrllm_task',
-            'uids' => 'abc,def',
+            'uids'  => 'abc,def',
         ]);
 
         // Act
@@ -868,9 +905,66 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert - should return 400 for invalid UIDs
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame('No valid UIDs provided', $body['error']);
+    }
+
+    private function assertTaskExecutionResponse(
+        int $taskUid,
+        string $input,
+    ): void {
+        $service = $this->createMock(TaskExecutionServiceInterface::class);
+        $service
+            ->expects(self::once())
+            ->method('execute')
+            ->with(
+                self::callback(
+                    static fn (Task $task): bool => $task->getUid() === $taskUid,
+                ),
+                $input,
+                1,
+            )
+            ->willReturn(
+                new TaskExecutionResult(
+                    content: '<script>untrusted output</script>',
+                    model: 'controller-oracle-model',
+                    outputFormat: 'markdown',
+                    usage: new UsageStatistics(11, 7, 18),
+                    appliedSkills: ['editor-skill'],
+                    correlationId: 'task-controller-oracle-call',
+                ),
+            );
+        $controller = $this->createExecutionController(
+            $this->taskRepository,
+            $service,
+            self::createStub(TaskInputResolverInterface::class),
+        );
+        $request = (new ServerRequest('POST', self::AJAX_NRLLM_TASK_EXECUTE))->withParsedBody(
+            ['uid' => $taskUid, 'input' => $input],
+        );
+
+        $response = $controller->executeAction($request);
+
+        self::assertSame(200, $response->getStatusCode());
+        $json = (string) $response->getBody();
+        self::assertJson($json);
+        self::assertSame(
+            [
+                'success'      => true,
+                'content'      => '<script>untrusted output</script>',
+                'model'        => 'controller-oracle-model',
+                'outputFormat' => 'markdown',
+                'usage'        => [
+                    'promptTokens'     => 11,
+                    'completionTokens' => 7,
+                    'totalTokens'      => 18,
+                ],
+                'appliedSkills' => ['editor-skill'],
+                'correlationId' => 'task-controller-oracle-call',
+            ],
+            json_decode($json, true),
+        );
     }
 }

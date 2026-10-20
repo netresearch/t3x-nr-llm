@@ -237,7 +237,7 @@ final class ApiSurfaceRendererTest extends TestCase
     {
         return array_values(array_filter(
             $lines,
-            static fn(string $line): bool => !str_starts_with($line, 'constructor('),
+            static fn (string $line): bool => !str_starts_with($line, 'constructor('),
         ));
     }
 
@@ -250,7 +250,7 @@ final class ApiSurfaceRendererTest extends TestCase
     {
         return array_values(array_filter(
             $lines,
-            static fn(string $line): bool => str_starts_with($line, 'constructor('),
+            static fn (string $line): bool => str_starts_with($line, 'constructor('),
         ));
     }
 }

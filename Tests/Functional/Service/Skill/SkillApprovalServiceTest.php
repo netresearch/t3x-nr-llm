@@ -236,7 +236,7 @@ final class SkillApprovalServiceTest extends AbstractFunctionalTestCase
      */
     private function auditEvents(): array
     {
-        return array_map(static fn(array $row): string => self::str($row['event'] ?? ''), $this->auditRepository()->findBySourceUid(self::SOURCE));
+        return array_map(static fn (array $row): string => self::str($row['event'] ?? ''), $this->auditRepository()->findBySourceUid(self::SOURCE));
     }
 
     /**
@@ -244,7 +244,7 @@ final class SkillApprovalServiceTest extends AbstractFunctionalTestCase
      */
     private function auditDigests(): array
     {
-        return array_map(static fn(array $row): string => self::str($row['version_digest'] ?? ''), $this->auditRepository()->findBySourceUid(self::SOURCE));
+        return array_map(static fn (array $row): string => self::str($row['version_digest'] ?? ''), $this->auditRepository()->findBySourceUid(self::SOURCE));
     }
 
     private function skill(): Skill
@@ -275,6 +275,6 @@ final class SkillApprovalServiceTest extends AbstractFunctionalTestCase
 
     private static function str(mixed $value): string
     {
-        return is_scalar($value) ? (string)$value : '';
+        return is_scalar($value) ? (string) $value : '';
     }
 }

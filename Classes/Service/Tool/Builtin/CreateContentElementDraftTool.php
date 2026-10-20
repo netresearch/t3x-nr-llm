@@ -173,8 +173,8 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
                             . 'the same page. Omit to place it first in the column.',
                     ],
                     'fields' => [
-                        'type'                 => 'object',
-                        'description'          => 'Further columns of the chosen type, as {column: value}. A key must be a '
+                        'type'        => 'object',
+                        'description' => 'Further columns of the chosen type, as {column: value}. A key must be a '
                             . "scalar column of that type's form in the TCA (input, text, select with static items, "
                             . 'check, number, datetime, radio, color, email); relations, FlexForms and the identity, '
                             . 'position, visibility, publication, audience and translation columns are refused. A '
@@ -289,7 +289,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
                     : (in_array($this->hiddenField(), $notTaken, true)
                         ? 'COULD NOT BE DELETED and may be visible — remove it by hand'
                         : 'COULD NOT BE DELETED — remove it by hand'),
-                implode(', ', array_map(static fn(string $column): string => self::TABLE . ':' . $column, $notTaken)),
+                implode(', ', array_map(static fn (string $column): string => self::TABLE . ':' . $column, $notTaken)),
             ));
         }
 
@@ -342,7 +342,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         }
 
         [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
-        $label   = fn(string $column): string => $this->translator->columnLabel($user, self::TABLE, $column, $plan['type']);
+        $label   = fn (string $column): string => $this->translator->columnLabel($user, self::TABLE, $column, $plan['type']);
 
         // ADR-213, in the order of the editorial guidelines: what, where, the
         // whole of what comes into being — there is no "before" — and the
@@ -524,7 +524,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             return sprintf(
                 'Refused: the acting backend user holds no field-level ("exclude field") grant for %s. Nothing was '
                 . 'written.',
-                implode(', ', array_map(static fn(string $column): string => self::TABLE . ':' . $column, $ungranted)),
+                implode(', ', array_map(static fn (string $column): string => self::TABLE . ':' . $column, $ungranted)),
             );
         }
 
@@ -562,7 +562,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         // read-only, as a `fields` key is in keyRefusal().
         $typeColumns = $this->columnsOfType($type);
         foreach ($bodytext === null ? ['header'] : ['header', 'bodytext'] as $own) {
-            if ((bool)($typeColumns[$own]['readOnly'] ?? false)) {
+            if ((bool) ($typeColumns[$own]['readOnly'] ?? false)) {
                 return sprintf(
                     'Refused: "%s" is read-only in the form of content type "%s" (TCA readOnly).%s Nothing was written.',
                     $own,
@@ -611,7 +611,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             return sprintf(
                 'Refused: the acting backend user holds no field-level ("exclude field") grant for %s. Nothing was '
                 . 'written.',
-                implode(', ', array_map(static fn(string $column): string => self::TABLE . ':' . $column, $ungranted)),
+                implode(', ', array_map(static fn (string $column): string => self::TABLE . ':' . $column, $ungranted)),
             );
         }
 
@@ -754,7 +754,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         // selects to FormEngine — `colPos` filtered in TcaSelectItems, the
         // language in TcaLanguage — and both apply the item rules to them.
         foreach (['colPos' => ['column', $position], 'sys_language_uid' => ['language', $language]] as $name => [$label, $value]) {
-            $rule = $this->tceFormRuleRemoving($rules, $name, $type, (string)$value);
+            $rule = $this->tceFormRuleRemoving($rules, $name, $type, (string) $value);
             if ($rule !== null) {
                 return sprintf(
                     'Refused: %s %d is not offered on page [%d] by its page TSconfig (%s). Nothing was written.',
@@ -771,12 +771,12 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
                 continue;
             }
 
-            $rule = $this->tceFormRuleRemoving($rules, $column, $type, (string)$value);
+            $rule = $this->tceFormRuleRemoving($rules, $column, $type, (string) $value);
             if ($rule !== null) {
                 return sprintf(
                     'Refused: the value "%s" for "%s" is not offered on page [%d] by its page TSconfig (%s). Nothing '
                     . 'was written.',
-                    (string)$value,
+                    (string) $value,
                     $column,
                     $pageUid,
                     $rule,
@@ -903,7 +903,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         $mod       = is_array($tsConfig['mod.'] ?? null) ? $tsConfig['mod.'] : [];
         $webLayout = is_array($mod['web_layout.'] ?? null) ? $mod['web_layout.'] : [];
 
-        return (bool)($webLayout['allowInconsistentLanguageHandling'] ?? false);
+        return (bool) ($webLayout['allowInconsistentLanguageHandling'] ?? false);
     }
 
     /**
@@ -1045,17 +1045,17 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             // it, not for `CType` alone, and drops a value the user is not
             // allowed in silence.
             if (self::toStr($columns[$column]['type'] ?? '') === 'select'
-                && (bool)($columns[$column]['authMode'] ?? false)
-                && !$user->checkAuthMode(self::TABLE, $column, (string)$checked[0])
+                && (bool) ($columns[$column]['authMode'] ?? false)
+                && !$user->checkAuthMode(self::TABLE, $column, (string) $checked[0])
             ) {
                 return sprintf(
                     'Refused: the acting backend user is not allowed the value "%s" for "%s" (no explicit allow for '
                     . '%s:%s:%s). Nothing was written.',
-                    (string)$checked[0],
+                    (string) $checked[0],
                     $column,
                     self::TABLE,
                     $column,
-                    (string)$checked[0],
+                    (string) $checked[0],
                 );
             }
 
@@ -1089,7 +1089,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
 
         $notTaken = [];
         foreach ($asked as $column => $value) {
-            if (self::toStr($stored[$column] ?? '') !== (string)$value) {
+            if (self::toStr($stored[$column] ?? '') !== (string) $value) {
                 $notTaken[] = $column;
             }
         }

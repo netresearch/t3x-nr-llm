@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
@@ -62,6 +63,7 @@ final class ToolInvocationPolicyTest extends TestCase
                 ): ToolInvocationDecision {
                     self::assertSame(7, $ctx->arguments['uid']);
                     self::assertSame('7', $ctx->target?->identifier);
+
                     return ToolInvocationDecision::deny('outside_site');
                 },
             );
@@ -141,7 +143,7 @@ final class ToolInvocationPolicyTest extends TestCase
         $rule
             ->method('decide')
             ->willReturnCallback(
-                static fn(
+                static fn (
                     ToolInvocationContext $context,
                 ): ToolInvocationDecision => $context->target instanceof ToolInvocationTarget ? ToolInvocationDecision::allow() : ToolInvocationDecision::deny('target_unknown'),
             );
