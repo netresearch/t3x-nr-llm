@@ -401,7 +401,7 @@ final readonly class WaitingRunViewFactory
             }
 
             /** @var array<string, mixed> $propSchema */
-            $name    = (string)$name;
+            $name    = (string) $name;
             $options = $this->enumOptions($propSchema);
             // An enumerated field is a choice, enforced on submission
             // (ADR-214 item 9): offered as a select of its members rather than

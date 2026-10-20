@@ -134,7 +134,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         $controller = $this->makeController(new ToolRegistry([]), self::createStub(AgentRuntimeInterface::class));
         $this->setRequest($controller, 'list');
 
-        $body = (string)$controller->listAction()->getBody();
+        $body = (string) $controller->listAction()->getBody();
 
         self::assertMatchesRegularExpression('/<select[^>]*name="input\[answer\]"/', $body);
         self::assertMatchesRegularExpression('/<label class="form-label" for="f-[^"]+-answer">Which page\?/', $body);
@@ -448,7 +448,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         $controller = $this->makeController(new ToolRegistry([new FakeTool('delete_thing')]), $runtime, new ProcessPinProbeStub([$process]));
 
         $this->setRequest($controller, 'list');
-        $body = (string)$controller->listAction()->getBody();
+        $body = (string) $controller->listAction()->getBody();
         self::assertStringContainsString('decided in the chat by the person who started it', $body);
         self::assertSame(1, substr_count($body, 'decided in the chat by the person who started it'));
         self::assertSame(1, substr_count($body, 'name="turnDigest"'), 'only the ordinary run carries the form');

@@ -621,14 +621,14 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 // turn falls through to the scans below unchanged.
                 $proposal = $this->holdsProcessPin($skillPins) ? $this->proposalOf($resp->toolCalls ?? [], $allowedNames) : null;
                 if ($proposal instanceof ToolCall) {
-                    $besides = array_values(array_filter($resp->toolCalls ?? [], static fn(ToolCall $c): bool => $c !== $proposal));
+                    $besides = array_values(array_filter($resp->toolCalls ?? [], static fn (ToolCall $c): bool => $c !== $proposal));
                     // The pending call goes LAST in the stored turn. The calls of
                     // one turn have no order on the provider side, but Ollama
                     // pairs a tool result with its call by position, not by id,
                     // and the pending call's result is appended only on resume,
                     // after the results of the calls settled here.
                     array_pop($messages);
-                    $messages[] = ChatMessage::assistantToolCalls([...$besides, $proposal], $resp->content, $this->providerItemsOf($resp));
+                    $messages[]  = ChatMessage::assistantToolCalls([...$besides, $proposal], $resp->content, $this->providerItemsOf($resp));
                     $environment = new ToolInvocationEnvironment($configuration, $skillAllowList, $context, $runTrace);
                     foreach ($besides as $call) {
                         if ($call->name === LoadSkillTool::NAME && in_array($call->name, $allowedNames, true)) {
@@ -637,7 +637,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                             // (ADR-214 item 4): its section joins this
                             // transcript's system message and its pin is
                             // stored with the suspension.
-                            $tt0 = hrtime(true);
+                            $tt0                         = hrtime(true);
                             [$messages, $skillPins, $tr] = $this->dispatchLoad($call, $allowedNames, $environment, $invocationHistory, $catalogue, $skillPins, $messages, $configuration, $options, $specs);
                             $runTrace?->recordToolResult($iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr);
                             $messages[] = ChatMessage::toolResult($call->id, $tr->content);
@@ -1270,8 +1270,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         ToolInvocationHistory $invocationHistory,
     ): SuspendedRunState {
         return new SuspendedRunState(
-            array_map(static fn(ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toTranscriptArray() : $m, $messages),
-            array_map(static fn(ToolCall $c): array => $c->toArray(), $pendingCalls),
+            array_map(static fn (ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toTranscriptArray() : $m, $messages),
+            array_map(static fn (ToolCall $c): array => $c->toArray(), $pendingCalls),
             $iterations,
             $promptTokens,
             $completionTokens,
@@ -1328,7 +1328,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     {
         $bound = array_values(array_filter(
             $calls,
-            fn(ToolCall $c): bool => in_array($c->name, $allowedNames, true)
+            fn (ToolCall $c): bool => in_array($c->name, $allowedNames, true)
                 && ToolApprovalRule::requiresApproval($this->registry->get($c->name)),
         ));
 
@@ -1364,11 +1364,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
 
         $refusal = match (true) {
             !in_array($call->name, $allowedNames, true) => null,
-            ToolApprovalRule::requiresApproval($tool) => sprintf(
+            ToolApprovalRule::requiresApproval($tool)   => sprintf(
                 'Error: tool "%s" was not executed: one approval per turn in a process. Propose it again after the decision on the pending call.',
                 $call->name,
             ),
-            $tool instanceof RequiresInputInterface => sprintf('Error: tool "%s" requires user input that was not provided.', $call->name),
+            $tool instanceof RequiresInputInterface                                                     => sprintf('Error: tool "%s" requires user input that was not provided.', $call->name),
             $tool instanceof RemoteToolInterface || $this->effects()->effectFor($call->name)->isWrite() => sprintf(
                 'Error: tool "%s" was not executed while a proposal waits for approval.',
                 $call->name,
@@ -1664,7 +1664,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // caller supplied. It replaces the advice: the person said what they
         // want next, so the model is not to ask.
         [$reasonToken, $advice] = match ($reason) {
-            null => [null, $advice],
+            null                          => [null, $advice],
             ApprovalDenialReason::VARIANT => [
                 self::DENIAL_REASON_VARIANT,
                 'Whoever declined asked for another variant: propose a different version of this change as a new call.',

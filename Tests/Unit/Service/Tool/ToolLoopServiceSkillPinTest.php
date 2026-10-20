@@ -356,7 +356,7 @@ final class ToolLoopServiceSkillPinTest extends TestCase
             self::assertNotSame([], $state->skillPins, 'the run holds the pin it composed');
             self::assertSame(
                 $process ? ['call_2'] : ['call_1', 'call_2'],
-                array_map(static fn(ToolCall $c): string => $c->id, $state->toolCalls()),
+                array_map(static fn (ToolCall $c): string => $c->id, $state->toolCalls()),
                 $process ? 'a process run suspends on its write alone' : 'any other run keeps the whole turn pending',
             );
         }

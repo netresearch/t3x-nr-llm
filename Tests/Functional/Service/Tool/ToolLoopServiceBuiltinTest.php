@@ -513,7 +513,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
 
     private function writeStep(RunTrace $trace): RunStep
     {
-        $writes = array_values(array_filter($trace->getSteps(), static fn(RunStep $step): bool => $step->kind === RunStep::KIND_WRITE));
+        $writes = array_values(array_filter($trace->getSteps(), static fn (RunStep $step): bool => $step->kind === RunStep::KIND_WRITE));
         self::assertCount(1, $writes);
 
         return $writes[0];

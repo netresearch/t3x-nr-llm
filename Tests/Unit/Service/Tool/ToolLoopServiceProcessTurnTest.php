@@ -94,7 +94,7 @@ final class ToolLoopServiceProcessTurnTest extends TestCase
 
         $state = $this->suspendOn($turn, $this->pinned());
 
-        self::assertSame(['c3'], array_map(static fn(ToolCall $c): string => $c->id, $state->toolCalls()));
+        self::assertSame(['c3'], array_map(static fn (ToolCall $c): string => $c->id, $state->toolCalls()));
         self::assertSame([], $state->callPreviews, 'the card previews the pending call only, not the approval-bound read beside it');
 
         // The stored turn puts the pending call last, and the results of the
@@ -104,11 +104,11 @@ final class ToolLoopServiceProcessTurnTest extends TestCase
         $assistant = $state->messages[1];
         self::assertSame(['c1', 'c2', 'c4', 'c5', 'c6', 'c7', 'c3'], $this->callIds($assistant));
         $results = array_slice($state->messages, 2);
-        self::assertSame(['c1', 'c2', 'c4', 'c5', 'c6', 'c7'], array_map(fn(array $m): string => $this->string($m['tool_call_id'] ?? null), $results));
+        self::assertSame(['c1', 'c2', 'c4', 'c5', 'c6', 'c7'], array_map(fn (array $m): string => $this->string($m['tool_call_id'] ?? null), $results));
 
         $byId = array_combine(
-            array_map(fn(array $m): string => $this->string($m['tool_call_id'] ?? null), $results),
-            array_map(fn(array $m): string => $this->string($m['content'] ?? null), $results),
+            array_map(fn (array $m): string => $this->string($m['tool_call_id'] ?? null), $results),
+            array_map(fn (array $m): string => $this->string($m['content'] ?? null), $results),
         );
         self::assertStringContainsString('one approval per turn in a process', $byId['c1'], 'a second approval-bound call, though a read');
         self::assertSame('PAGE', $byId['c2'], 'a read that needs no approval runs before the suspend');
@@ -167,7 +167,7 @@ final class ToolLoopServiceProcessTurnTest extends TestCase
             self::assertNotNull($state->invocationHistory, $case);
             self::assertSame(
                 [['read_page', $allowed ? 'ok' : 'denied'], ['confirm_read', 'denied']],
-                array_map(static fn(array $e): array => [$e['tool'], $e['outcome']], $state->invocationHistory->entries),
+                array_map(static fn (array $e): array => [$e['tool'], $e['outcome']], $state->invocationHistory->entries),
                 $case,
             );
             self::assertSame($context->actor, $state->initiatingActor, $case);
@@ -188,7 +188,7 @@ final class ToolLoopServiceProcessTurnTest extends TestCase
             new ToolCall('c3', 'confirm_other', []),
         ], $this->pinned());
 
-        self::assertSame(['c2'], array_map(static fn(ToolCall $c): string => $c->id, $state->toolCalls()));
+        self::assertSame(['c2'], array_map(static fn (ToolCall $c): string => $c->id, $state->toolCalls()));
         self::assertCount(4, $state->messages, 'user, assistant, and the results of c1 and c3');
         self::assertCount(1, $state->callPreviews, 'the card previews the pending call only');
         self::assertSame(['index' => 0, 'tool' => 'confirm_read'], array_intersect_key($state->callPreviews[0], ['index' => 0, 'tool' => '']));
@@ -210,7 +210,7 @@ final class ToolLoopServiceProcessTurnTest extends TestCase
         $this->processRun = false;
         $state            = $this->suspendOn($turn, $this->pinned());
 
-        self::assertSame(['c1', 'c2', 'c3'], array_map(static fn(ToolCall $c): string => $c->id, $state->toolCalls()));
+        self::assertSame(['c1', 'c2', 'c3'], array_map(static fn (ToolCall $c): string => $c->id, $state->toolCalls()));
         self::assertCount(2, $state->messages, 'nothing ran before the suspend');
         self::assertSame(['c1', 'c2', 'c3'], $this->callIds($state->messages[1]));
     }
@@ -245,7 +245,7 @@ final class ToolLoopServiceProcessTurnTest extends TestCase
             ->resume($state, true, $this->configuration(), $this->pinned());
 
         $sent    = $captured[0];
-        $results = array_values(array_filter($sent, fn(mixed $m): bool => $this->role($m) === 'tool'));
+        $results = array_values(array_filter($sent, fn (mixed $m): bool => $this->role($m) === 'tool'));
         self::assertSame(['c2', 'c1'], $this->callIds($sent[1]));
         self::assertSame(['PAGE', 'WROTE'], array_map($this->content(...), $results));
     }
@@ -508,7 +508,7 @@ final class ToolLoopServiceProcessTurnTest extends TestCase
         $calls = $turn instanceof ChatMessage ? $turn->toTranscriptArray()['tool_calls'] ?? [] : (is_array($turn) ? $turn['tool_calls'] ?? [] : []);
         self::assertIsArray($calls);
 
-        return array_values(array_map(fn(mixed $c): string => $this->string(is_array($c) ? $c['id'] ?? null : null), $calls));
+        return array_values(array_map(fn (mixed $c): string => $this->string(is_array($c) ? $c['id'] ?? null : null), $calls));
     }
 
     private function role(mixed $message): string

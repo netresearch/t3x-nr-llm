@@ -145,10 +145,10 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         }
 
         $this->settledIfWaiting[] = [
-            'runUid' => $runUid,
-            'from'   => array_map(static fn (AgentRunStatus $status): string => $status->value, $from),
-            'to'     => $to->value,
-            'reason' => $reason->value,
+            'runUid'     => $runUid,
+            'from'       => array_map(static fn (AgentRunStatus $status): string => $status->value, $from),
+            'to'         => $to->value,
+            'reason'     => $reason->value,
             'errorClass' => $errorClass,
         ];
 

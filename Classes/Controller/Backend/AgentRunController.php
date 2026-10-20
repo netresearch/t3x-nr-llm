@@ -393,7 +393,7 @@ final class AgentRunController extends ActionController
         $viewer = $GLOBALS['BE_USER'] ?? null;
 
         $this->moduleTemplate->assignMultiple([
-            'waiting'        => $this->viewFactory->buildWaiting($waitingRuns ?? [], $viewer instanceof BackendUserAuthentication ? $viewer : null),
+            'waiting' => $this->viewFactory->buildWaiting($waitingRuns ?? [], $viewer instanceof BackendUserAuthentication ? $viewer : null),
             // ADR-214: a guided process is listed read-only, with a note that
             // it is decided in the chat; the actions refuse it as well.
             'decidedInChat'  => $this->decidedInChat($waitingRuns ?? []),

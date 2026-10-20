@@ -2083,10 +2083,10 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         self::assertTrue($result->cancelled);
         self::assertSame(AgentRunStatus::CANCELLED, $result->status);
         self::assertSame([[
-            'runUid' => 1,
-            'from'   => ['waiting_for_approval', 'waiting_for_input'],
-            'to'     => 'cancelled',
-            'reason' => 'cancelled',
+            'runUid'     => 1,
+            'from'       => ['waiting_for_approval', 'waiting_for_input'],
+            'to'         => 'cancelled',
+            'reason'     => 'cancelled',
             'errorClass' => '',
         ]], $this->repository->settledIfWaiting);
         self::assertNull($this->repository->finished, 'the guarded transition, never the unguarded cancel');

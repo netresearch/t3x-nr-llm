@@ -114,7 +114,7 @@ final class ApprovedProcessPinProbeTest extends TestCase
     {
         $failing = self::createStub(SkillApprovalRepositoryInterface::class);
         $failing->method('findBySkill')->willReturnCallback(
-            fn(int $skill): array => $skill === self::SKILL ? throw new RuntimeException('down', 1791602002) : $this->approvals->findBySkill($skill),
+            fn (int $skill): array => $skill === self::SKILL ? throw new RuntimeException('down', 1791602002) : $this->approvals->findBySkill($skill),
         );
         $probe = new ApprovedProcessPinProbe($failing);
         $run   = $this->storedRun(json_encode($this->state([$this->pin()])->toArray()));

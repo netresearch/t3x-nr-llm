@@ -40,9 +40,9 @@ interface ArgumentInputSchemaInterface
      *
      * @param array<string, mixed> $arguments the model's arguments of the call
      *
-     * @throws InvalidArgumentException when the arguments cannot be asked with
-     *
      * @return array<string, mixed>
+     *
+     * @throws InvalidArgumentException when the arguments cannot be asked with
      */
     public function inputSchemaFor(array $arguments): array;
 }

@@ -165,7 +165,7 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
     #[Test]
     public function aLoadBesideAProcessProposalRunsThroughTheLoadSeam(): void
     {
-        $turns = [[$this->loadCall('c1'), new ToolCall('c2', 'write', [])]];
+        $turns                     = [[$this->loadCall('c1'), new ToolCall('c2', 'write', [])]];
         [$service, $configuration] = $this->service($turns, processPinProbe: new ProcessPinProbeStub(everyRun: true));
 
         try {
@@ -176,11 +176,11 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
         }
 
         self::assertSame(['c2'], array_column($state->pendingCalls, 'id'));
-        self::assertSame([self::SKILL_UID], array_map(static fn(SkillPin $pin): int => $pin->skillUid, $state->skillPins));
+        self::assertSame([self::SKILL_UID], array_map(static fn (SkillPin $pin): int => $pin->skillUid, $state->skillPins));
         $stored = array_map(ChatMessage::fromArray(...), $state->messages);
         self::assertTrue($stored[0]->isSystem());
         self::assertStringContainsString(self::BODY, $stored[0]->content);
-        $loaded = array_values(array_filter($stored, static fn(ChatMessage $m): bool => $m->toolCallId === 'c1'));
+        $loaded = array_values(array_filter($stored, static fn (ChatMessage $m): bool => $m->toolCallId === 'c1'));
         self::assertCount(1, $loaded);
         self::assertStringContainsString('is loaded', $loaded[0]->content);
     }

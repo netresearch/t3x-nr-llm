@@ -1043,13 +1043,13 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         [$controller, $persister, $uuid, $digest] = $this->suspendedApprovalController(processPins: new ProcessPinProbeStub(everyRun: true));
 
         foreach ([
-            'resume'      => static fn(): ResponseInterface => $controller->resumeAction((new GuzzleServerRequest('POST', '/ajax/nrllm/tool/resume'))->withParsedBody(['runUuid' => $uuid, 'approve' => '1', 'turnDigest' => $digest])),
-            'submitInput' => static fn(): ResponseInterface => $controller->submitInputAction((new GuzzleServerRequest('POST', '/ajax/nrllm/tool/input'))->withParsedBody(['runUuid' => $uuid, 'input' => ['a' => 'b'], 'turnDigest' => $digest])),
+            'resume'      => static fn (): ResponseInterface => $controller->resumeAction((new GuzzleServerRequest('POST', '/ajax/nrllm/tool/resume'))->withParsedBody(['runUuid' => $uuid, 'approve' => '1', 'turnDigest' => $digest])),
+            'submitInput' => static fn (): ResponseInterface => $controller->submitInputAction((new GuzzleServerRequest('POST', '/ajax/nrllm/tool/input'))->withParsedBody(['runUuid' => $uuid, 'input' => ['a' => 'b'], 'turnDigest' => $digest])),
         ] as $action => $call) {
             $response = $call();
 
             self::assertSame(409, $response->getStatusCode(), $action);
-            $payload = json_decode((string)$response->getBody(), true);
+            $payload = json_decode((string) $response->getBody(), true);
             self::assertIsArray($payload);
             self::assertFalse($payload['success']);
             self::assertArrayNotHasKey('status', $payload, $action . ' re-signals no pause the playground could decide');
@@ -1079,7 +1079,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         );
 
         self::assertSame(409, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertSame('awaiting_approval', $payload['status'] ?? null);
         self::assertIsString($payload['error']);
@@ -1120,7 +1120,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             );
 
             self::assertSame(409, $response->getStatusCode());
-            $payload = json_decode((string)$response->getBody(), true);
+            $payload = json_decode((string) $response->getBody(), true);
             self::assertIsArray($payload);
             self::assertIsString($payload['error']);
             if ($process) {
@@ -1148,13 +1148,13 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         [$controller] = $this->suspendedApprovalController(processPins: new ProcessPinProbeStub(everyRun: true));
 
         foreach ([
-            'resume'      => static fn(): ResponseInterface => $controller->resumeAction((new GuzzleServerRequest('POST', '/ajax/nrllm/tool/resume'))->withParsedBody(['runUuid' => 'no-such-run', 'approve' => '1', 'turnDigest' => 'd'])),
-            'submitInput' => static fn(): ResponseInterface => $controller->submitInputAction((new GuzzleServerRequest('POST', '/ajax/nrllm/tool/input'))->withParsedBody(['runUuid' => 'no-such-run', 'input' => ['a' => 'b'], 'turnDigest' => 'd'])),
+            'resume'      => static fn (): ResponseInterface => $controller->resumeAction((new GuzzleServerRequest('POST', '/ajax/nrllm/tool/resume'))->withParsedBody(['runUuid' => 'no-such-run', 'approve' => '1', 'turnDigest' => 'd'])),
+            'submitInput' => static fn (): ResponseInterface => $controller->submitInputAction((new GuzzleServerRequest('POST', '/ajax/nrllm/tool/input'))->withParsedBody(['runUuid' => 'no-such-run', 'input' => ['a' => 'b'], 'turnDigest' => 'd'])),
         ] as $action => $call) {
             $response = $call();
 
             self::assertSame(400, $response->getStatusCode(), $action);
-            $payload = json_decode((string)$response->getBody(), true);
+            $payload = json_decode((string) $response->getBody(), true);
             self::assertIsArray($payload);
             self::assertFalse($payload['success']);
             self::assertSame("This run's state could not be read; no action is available.", $payload['error'], $action);
@@ -1186,7 +1186,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             );
 
             self::assertSame(409, $response->getStatusCode(), $case);
-            $payload = json_decode((string)$response->getBody(), true);
+            $payload = json_decode((string) $response->getBody(), true);
             self::assertIsArray($payload);
             self::assertFalse($payload['success']);
             self::assertIsString($payload['error']);
@@ -1203,7 +1203,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
                 (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/input'))->withParsedBody(['runUuid' => $uuid, 'input' => ['a' => 'b'], 'turnDigest' => 'd']),
             );
             self::assertSame(409, $response->getStatusCode(), $case . ' ' . $response->getBody());
-            self::assertStringContainsString($message, (string)$response->getBody(), $case);
+            self::assertStringContainsString($message, (string) $response->getBody(), $case);
         }
     }
 
@@ -1222,8 +1222,8 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         foreach ([
             // Not on four-eyes: the runtime would go on, and reach a provider
             // that must never be called, so the answer is the playground's.
-            'the playground cannot check' => [static fn(): ProcessPinProbe => new ProcessPinProbeStub(everyRun: true, unknown: true), false],
-            'the runtime cannot check'    => [fn(): ProcessPinProbe => $this->probeThatSaysNoOnce(null), true],
+            'the playground cannot check' => [static fn (): ProcessPinProbe => new ProcessPinProbeStub(everyRun: true, unknown: true), false],
+            'the runtime cannot check'    => [fn (): ProcessPinProbe => $this->probeThatSaysNoOnce(null), true],
         ] as $case => [$probe, $fourEyes]) {
             foreach (['resume', 'submitInput'] as $action) {
                 [$controller, $persister, $uuid, $digest] = $this->suspendedApprovalController(processPins: $probe(), fourEyes: $fourEyes, forInput: $action === 'submitInput');
@@ -1231,7 +1231,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
                 $response                                 = $action === 'resume' ? $controller->resumeAction($request) : $controller->submitInputAction($request);
 
                 self::assertSame(503, $response->getStatusCode(), $case . ', ' . $action . ': ' . $response->getBody());
-                $payload = json_decode((string)$response->getBody(), true);
+                $payload = json_decode((string) $response->getBody(), true);
                 self::assertIsArray($payload);
                 self::assertIsString($payload['error']);
                 self::assertStringStartsWith('Whether this run is a guided process could not be checked', $payload['error'], $case);
@@ -1260,8 +1260,8 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/input'))->withParsedBody(['runUuid' => $uuid, 'input' => ['a' => 'b'], 'turnDigest' => 'd']),
         );
 
-        self::assertSame(400, $response->getStatusCode(), (string)$response->getBody());
-        $payload = json_decode((string)$response->getBody(), true);
+        self::assertSame(400, $response->getStatusCode(), (string) $response->getBody());
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertArrayNotHasKey('status', $payload);
         $this->assertRunIsDecidableAgain($persister, $uuid);

@@ -107,9 +107,9 @@ final class ResumeCoordinatorProcessRunTest extends AbstractFunctionalTestCase
     public function nobodyButTheInitiatorDecidesAProcessRun(): void
     {
         foreach ([
-            'an administrator'          => AiActorContext::backendUser(1, isAdmin: true),
+            'an administrator'              => AiActorContext::backendUser(1, isAdmin: true),
             'a holder of the approve grant' => AiActorContext::backendUser(3, grants: [BackendUserGrant::AGENT_APPROVE]),
-            'a service account'         => AiActorContext::serviceAccount('nightly-approver', [ServiceAccountScope::AGENT_APPROVE]),
+            'a service account'             => AiActorContext::serviceAccount('nightly-approver', [ServiceAccountScope::AGENT_APPROVE]),
         ] as $who => $actor) {
             $uuid = $this->suspendOn('touch_thing');
 
@@ -339,7 +339,7 @@ final class ResumeCoordinatorProcessRunTest extends AbstractFunctionalTestCase
     public function aStopThatFindsTheRunGoneSaysItNoLongerWaits(): void
     {
         $uuid  = $this->suspendOn('touch_thing');
-        $probe = new class (fn(): bool => $this->persister->cancel($uuid)) implements ProcessPinProbe {
+        $probe = new class (fn (): bool => $this->persister->cancel($uuid)) implements ProcessPinProbe {
             /**
              * @param Closure(): bool $meanwhile
              */
@@ -545,7 +545,7 @@ final class ResumeCoordinatorProcessRunTest extends AbstractFunctionalTestCase
 
     private function toolLoop(): ToolLoopServiceInterface
     {
-        $done = fn(): ToolLoopResult => new ToolLoopResult('continued', [], 1, false, UsageStatistics::fromTokens(1, 1));
+        $done = fn (): ToolLoopResult => new ToolLoopResult('continued', [], 1, false, UsageStatistics::fromTokens(1, 1));
 
         $loop = self::createStub(ToolLoopServiceInterface::class);
         $loop->method('resume')->willReturnCallback(function (mixed ...$arguments) use ($done): ToolLoopResult {

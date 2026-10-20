@@ -100,9 +100,9 @@ final readonly class AskChoiceTool implements ToolInterface, RequiresInputInterf
             'type'       => 'object',
             'properties' => [
                 self::ANSWER => [
-                    'type'        => 'string',
-                    'title'       => $question,
-                    'enum'        => $options,
+                    'type'  => 'string',
+                    'title' => $question,
+                    'enum'  => $options,
                 ],
             ],
             'required' => [self::ANSWER],
@@ -153,9 +153,9 @@ final readonly class AskChoiceTool implements ToolInterface, RequiresInputInterf
      *
      * @param array<string, mixed> $arguments
      *
-     * @throws InvalidArgumentException
-     *
      * @return array{0: string, 1: non-empty-list<string>}
+     *
+     * @throws InvalidArgumentException
      */
     private function askable(array $arguments): array
     {
