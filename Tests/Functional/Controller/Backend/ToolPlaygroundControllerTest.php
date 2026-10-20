@@ -1891,7 +1891,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
     ): void {
         $this->importFixture('LlmConfigurations.csv');
         $this->importFixture('BeUsers.csv');
-        $backendUser = $this->setUpBackendUser(1);
+        $backendUser               = $this->setUpBackendUser(1);
         $backendUser->user['lang'] = $locale;
         // uid 1 is an admin (admin=1)
         $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->create($locale);
@@ -1939,7 +1939,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $response = $controller->listAction();
 
         self::assertSame(200, $response->getStatusCode());
-        $body = (string)$response->getBody();
+        $body = (string) $response->getBody();
 
         // Config picker over the persisted configurations.
         self::assertStringContainsString('id="nrllm-tool-config"', $body);
@@ -1984,25 +1984,25 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         yield 'en' => [
             'en',
             [
-                'data-msg-awaitingapproval' => 'Awaiting approval',
-                'data-msg-awaitinginput' => 'Awaiting input',
-                'data-msg-guardrailblocked' => 'Blocked by a guardrail',
+                'data-msg-awaitingapproval'  => 'Awaiting approval',
+                'data-msg-awaitinginput'     => 'Awaiting input',
+                'data-msg-guardrailblocked'  => 'Blocked by a guardrail',
                 'data-msg-guardrailapproval' => 'Guardrail approval required',
-                'data-msg-cancelled' => 'Cancelled',
-                'data-msg-incomplete' => 'Incomplete',
-                'data-msg-continuerun' => 'Continue in AI > Operation > Agent Runs.',
+                'data-msg-cancelled'         => 'Cancelled',
+                'data-msg-incomplete'        => 'Incomplete',
+                'data-msg-continuerun'       => 'Continue in AI > Operation > Agent Runs.',
             ],
         ];
         yield 'de' => [
             'de',
             [
-                'data-msg-awaitingapproval' => 'Warten auf Freigabe',
-                'data-msg-awaitinginput' => 'Warten auf Eingabe',
-                'data-msg-guardrailblocked' => 'Durch Schutzregel blockiert',
+                'data-msg-awaitingapproval'  => 'Warten auf Freigabe',
+                'data-msg-awaitinginput'     => 'Warten auf Eingabe',
+                'data-msg-guardrailblocked'  => 'Durch Schutzregel blockiert',
                 'data-msg-guardrailapproval' => 'Freigabe für Schutzregel erforderlich',
-                'data-msg-cancelled' => 'Abgebrochen',
-                'data-msg-incomplete' => 'Unvollständig',
-                'data-msg-continuerun' => 'Im Modul „Agent-Läufe“ fortsetzen.',
+                'data-msg-cancelled'         => 'Abgebrochen',
+                'data-msg-incomplete'        => 'Unvollständig',
+                'data-msg-continuerun'       => 'Im Modul „Agent-Läufe“ fortsetzen.',
             ],
         ];
     }
