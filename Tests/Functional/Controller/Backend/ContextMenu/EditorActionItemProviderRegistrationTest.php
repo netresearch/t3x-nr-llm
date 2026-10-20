@@ -44,7 +44,7 @@ final class EditorActionItemProviderRegistrationTest extends AbstractFunctionalT
         $registry = $this->get(ItemProvidersRegistry::class);
         self::assertInstanceOf(ItemProvidersRegistry::class, $registry);
 
-        $classes = array_map(static fn(object $p): string => $p::class, $registry->getItemProviders());
+        $classes = array_map(static fn (object $p): string => $p::class, $registry->getItemProviders());
 
         self::assertContains(EditorActionItemProvider::class, $classes);
     }

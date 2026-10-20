@@ -58,7 +58,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
     public function listActionRendersToolManagementList(): void
     {
         $this->importFixture('BeUsers.csv');
-        $backendUser = $this->setUpBackendUser(1); // uid 1 is an admin (admin=1)
+        $backendUser     = $this->setUpBackendUser(1); // uid 1 is an admin (admin=1)
         $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
 
         $toolRegistry = new ToolRegistry([new FakeTool('fetch_logs')]);
@@ -68,7 +68,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         $response = $controller->listAction();
 
         self::assertSame(200, $response->getStatusCode());
-        $body = (string)$response->getBody();
+        $body = (string) $response->getBody();
 
         // The management list shows the tool name, its description and the toggle button.
         self::assertStringContainsString('fetch_logs', $body);
@@ -91,7 +91,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         $response = $controller->toggleToolAction($request);
 
         self::assertSame(403, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
     }
@@ -109,7 +109,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         $response = $controller->toggleToolAction($request);
 
         self::assertSame(404, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
     }
@@ -128,7 +128,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         $response = $controller->toggleToolAction($request);
 
         self::assertSame(200, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertTrue($payload['success']);
         self::assertFalse($payload['enabled']);
@@ -151,7 +151,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         $controller = $this->makeController($toolRegistry);
         $this->setPrivateProperty($controller, 'request', $this->createBackendRequest());
 
-        $body = (string)$controller->listAction()->getBody();
+        $body = (string) $controller->listAction()->getBody();
 
         self::assertStringContainsString('js-toolgroup-toggle', $body);
         self::assertStringContainsString('data-group="alpha"', $body);
@@ -175,7 +175,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         $controller = $this->makeController(new ToolRegistry([new FakeEditorActionTool('write_tool')]));
         $this->setPrivateProperty($controller, 'request', $this->createBackendRequest());
 
-        $body = (string)$controller->listAction()->getBody();
+        $body = (string) $controller->listAction()->getBody();
 
         // The group header carries the curated group's translated name.
         self::assertStringContainsString('Editing', $body);
@@ -216,7 +216,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         $response = $controller->listAction();
 
         self::assertSame(200, $response->getStatusCode());
-        $body = (string)$response->getBody();
+        $body = (string) $response->getBody();
 
         // The broken row: wire name and model-facing description, as for any
         // tool that declares nothing.
@@ -319,7 +319,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
             ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)
             ->withAttribute('route', new Route('/module/nrllm/tools', ['packageName' => 'netresearch/nr-llm']))
             ->withAttribute('extbase', $extbaseParameters);
-        $serverRequest = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
+        $serverRequest            = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
         $GLOBALS['TYPO3_REQUEST'] = $serverRequest;
 
         return new ExtbaseRequest($serverRequest);

@@ -83,8 +83,8 @@ final class ServedConfigurationTelemetryTest extends AbstractFunctionalTestCase
         self::assertCount(1, $rows, 'One pipeline run writes exactly one telemetry row.');
 
         $row = $rows[0];
-        self::assertSame(1, (int)$row['success']);
-        self::assertSame(1, (int)$row['fallback_attempts']);
+        self::assertSame(1, (int) $row['success']);
+        self::assertSame(1, (int) $row['fallback_attempts']);
 
         // What was asked for.
         self::assertSame('served-primary', $row['configuration_identifier']);
@@ -102,11 +102,11 @@ final class ServedConfigurationTelemetryTest extends AbstractFunctionalTestCase
     {
         $this->pipeline()->run(
             ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration('served-lonely')),
-            static fn(): string => 'answer',
+            static fn (): string => 'answer',
         );
 
         $row = $this->rows()[0];
-        self::assertSame(0, (int)$row['fallback_attempts']);
+        self::assertSame(0, (int) $row['fallback_attempts']);
         self::assertSame('served-lonely', $row['configuration_identifier']);
         self::assertSame('served-lonely', $row['served_configuration_identifier']);
         self::assertSame($row['provider'], $row['served_provider']);
@@ -134,8 +134,8 @@ final class ServedConfigurationTelemetryTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(Throwable::class, $caught, 'The exhausted chain must surface an exception.');
 
         $row = $this->rows()[0];
-        self::assertSame(0, (int)$row['success']);
-        self::assertSame(1, (int)$row['fallback_attempts'], 'The sibling was dispatched...');
+        self::assertSame(0, (int) $row['success']);
+        self::assertSame(1, (int) $row['fallback_attempts'], 'The sibling was dispatched...');
         self::assertSame(
             'served-primary',
             $row['served_configuration_identifier'],
@@ -173,7 +173,7 @@ final class ServedConfigurationTelemetryTest extends AbstractFunctionalTestCase
         self::assertSame(['served-alt'], $chunks);
 
         $row = $this->rows()[0];
-        self::assertSame(1, (int)$row['fallback_attempts']);
+        self::assertSame(1, (int) $row['fallback_attempts']);
         self::assertSame('served-primary', $row['configuration_identifier']);
         self::assertSame('openai', $row['provider']);
         self::assertSame('gpt-5', $row['model']);
@@ -189,7 +189,7 @@ final class ServedConfigurationTelemetryTest extends AbstractFunctionalTestCase
         $this->runWithFailingPrimary();
         $this->pipeline()->run(
             ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration('served-lonely')),
-            static fn(): string => 'answer',
+            static fn (): string => 'answer',
         );
 
         $rescues = (new FallbackRescueReport(new TelemetryRepository($this->connectionPool)))

@@ -12,6 +12,7 @@ ADR-183: The AI section exists, and editor surfaces live in it
 :Status: Accepted
 :Date: 2026-08-22
 :Amends: :ref:`ADR-119 <adr-119>` (backend module placement)
+   and :ref:`ADR-131 <adr-131>` (point 1: editor module placement)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-183-context:

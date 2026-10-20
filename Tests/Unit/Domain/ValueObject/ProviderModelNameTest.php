@@ -25,7 +25,7 @@ final class ProviderModelNameTest extends TestCase
         $name = new ProviderModelName('gpt-image-2');
 
         self::assertSame('gpt-image-2', $name->value);
-        self::assertSame('gpt-image-2', (string)$name);
+        self::assertSame('gpt-image-2', (string) $name);
     }
 
     #[Test]
@@ -44,8 +44,8 @@ final class ProviderModelNameTest extends TestCase
      */
     public static function blankValues(): iterable
     {
-        yield 'empty'      => [''];
-        yield 'space'      => [' '];
+        yield 'empty' => [''];
+        yield 'space' => [' '];
         yield 'whitespace' => ["\t\n "];
     }
 
@@ -56,7 +56,7 @@ final class ProviderModelNameTest extends TestCase
         $name = new ProviderModelName($value);
 
         self::assertSame('gpt-image-2', $name->value);
-        self::assertSame('gpt-image-2', (string)$name);
+        self::assertSame('gpt-image-2', (string) $name);
     }
 
     /**
@@ -65,9 +65,9 @@ final class ProviderModelNameTest extends TestCase
     public static function paddedValues(): iterable
     {
         yield 'trailing space' => ['gpt-image-2 '];
-        yield 'leading space'  => [' gpt-image-2'];
-        yield 'both'           => ["  gpt-image-2\t"];
-        yield 'newline'        => ["gpt-image-2\n"];
+        yield 'leading space' => [' gpt-image-2'];
+        yield 'both' => ["  gpt-image-2\t"];
+        yield 'newline' => ["gpt-image-2\n"];
     }
 
     #[Test]

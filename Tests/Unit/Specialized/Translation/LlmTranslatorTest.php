@@ -341,7 +341,7 @@ class LlmTranslatorTest extends AbstractUnitTestCase
                     // Characters only: tokens and cost are recorded by the
                     // middleware pipeline on the underlying chat row —
                     // repeating them here would double-count them.
-                    fn(array $metrics): bool => isset($metrics['characters'])
+                    fn (array $metrics): bool => isset($metrics['characters'])
                         && !isset($metrics['tokens'])
                         && !isset($metrics['cost']),
                 ),
@@ -978,15 +978,15 @@ class LlmTranslatorTest extends AbstractUnitTestCase
             'de',
             'en',
             [
-                'formality' => 'informal',
-                'domain' => 'technical',
-                'glossary' => ['API' => 'Schnittstelle'],
-                'context' => 'Technical documentation',
+                'formality'           => 'informal',
+                'domain'              => 'technical',
+                'glossary'            => ['API' => 'Schnittstelle'],
+                'context'             => 'Technical documentation',
                 'preserve_formatting' => true,
-                'temperature' => 0.5,
-                'max_tokens' => 1000,
-                'provider' => 'openai',
-                'model' => 'gpt-5.2',
+                'temperature'         => 0.5,
+                'max_tokens'          => 1000,
+                'provider'            => 'openai',
+                'model'               => 'gpt-5.2',
             ],
         );
 
@@ -1005,8 +1005,8 @@ class LlmTranslatorTest extends AbstractUnitTestCase
             'en',
             [
                 'temperature' => 'invalid',
-                'max_tokens' => 'invalid',
-                'provider' => 'openai',
+                'max_tokens'  => 'invalid',
+                'provider'    => 'openai',
             ],
         );
 
@@ -1061,7 +1061,7 @@ class LlmTranslatorTest extends AbstractUnitTestCase
             );
         }
 
-        $index = 0;
+        $index      = 0;
         $llmManager = self::createStub(LlmServiceManagerInterface::class);
         $llmManager
             ->method('chat')
@@ -1070,7 +1070,7 @@ class LlmTranslatorTest extends AbstractUnitTestCase
                     self::assertInstanceOf(ChatOptions::class, $options);
                     $captured->messages[] = $messages;
                     $captured->options[]  = $options;
-                    $response = $responses[$index] ?? $responses[count($responses) - 1];
+                    $response             = $responses[$index] ?? $responses[count($responses) - 1];
                     ++$index;
 
                     return $response;

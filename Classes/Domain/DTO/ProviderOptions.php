@@ -220,7 +220,7 @@ final readonly class ProviderOptions implements JsonSerializable
     public function get(string $key, mixed $default = null): mixed
     {
         return match ($key) {
-            'proxy' => $this->proxy ?? $default,
+            'proxy'         => $this->proxy ?? $default,
             'customHeaders' => $this->customHeaders === [] ? $default : $this->customHeaders,
             // `array_key_exists` instead of `??` so a stored `null`
             // value is preserved instead of being replaced with the
@@ -240,9 +240,9 @@ final readonly class ProviderOptions implements JsonSerializable
     public function has(string $key): bool
     {
         return match ($key) {
-            'proxy' => $this->proxy !== null,
+            'proxy'         => $this->proxy !== null,
             'customHeaders' => $this->customHeaders !== [],
-            default => array_key_exists($key, $this->extra),
+            default         => array_key_exists($key, $this->extra),
         };
     }
 
@@ -302,8 +302,9 @@ final readonly class ProviderOptions implements JsonSerializable
             return $this;
         }
 
-        $extra = $this->extra;
+        $extra       = $this->extra;
         $extra[$key] = $value;
+
         return new self(
             proxy: $this->proxy,
             customHeaders: $this->customHeaders,

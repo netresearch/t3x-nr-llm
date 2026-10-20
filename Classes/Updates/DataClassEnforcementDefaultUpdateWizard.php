@@ -32,7 +32,7 @@ use TYPO3\CMS\Install\Updates\UpgradeWizardInterface;
  * stored config carries a value) is left untouched: an explicit ``enforce`` is
  * respected, an explicit ``observe`` already matches.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[UpgradeWizard('nrLlm_dataClassEnforcementObserveForExisting')]
 final readonly class DataClassEnforcementDefaultUpdateWizard implements UpgradeWizardInterface
@@ -77,7 +77,7 @@ final readonly class DataClassEnforcementDefaultUpdateWizard implements UpgradeW
         $config = $this->extensionConfiguration->get(self::EXT_KEY);
         $config = is_array($config) ? $config : [];
 
-        $tools  = is_array($config['tools'] ?? null) ? $config['tools'] : [];
+        $tools = is_array($config['tools'] ?? null) ? $config['tools'] : [];
 
         $tools['dataClassEnforcement'] = self::OBSERVE;
         $config['tools']               = $tools;
@@ -108,7 +108,7 @@ final readonly class DataClassEnforcementDefaultUpdateWizard implements UpgradeW
             ->executeQuery()
             ->fetchOne();
 
-        return is_numeric($count) && (int)$count > 0;
+        return is_numeric($count) && (int) $count > 0;
     }
 
     /**

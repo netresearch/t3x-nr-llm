@@ -31,7 +31,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 #[CoversClass(SkillInstructionWithdrawnException::class)]
 final class SkillPinCheckTest extends TestCase
 {
-    private const SKILL  = 7;
+    private const SKILL = 7;
 
     private const SOURCE = 3;
 
@@ -87,8 +87,8 @@ final class SkillPinCheckTest extends TestCase
     #[Test]
     public function anApprovalFromAnotherSourceDoesNotHoldThePin(): void
     {
-        $pin   = $this->approvedPin();
-        $moved = new SkillPin(self::SKILL, self::SOURCE + 1, $pin->versionDigest);
+        $pin                                     = $this->approvedPin();
+        $moved                                   = new SkillPin(self::SKILL, self::SOURCE + 1, $pin->versionDigest);
         $this->sources->levels[self::SOURCE + 1] = SkillTrustLevel::FIRST_PARTY;
 
         self::assertSame('its approval was revoked', $this->check()->failure($moved));
@@ -136,8 +136,8 @@ final class SkillPinCheckTest extends TestCase
     #[Test]
     public function aSourceThatIsGoneBreaksThePin(): void
     {
-        $pin                    = $this->approvedPin();
-        $this->sources->levels  = [];
+        $pin                   = $this->approvedPin();
+        $this->sources->levels = [];
 
         self::assertSame('its source is no longer trusted for instructions', $this->check()->failure($pin));
     }

@@ -21,7 +21,7 @@ class DiscoveredModelTest extends AbstractUnitTestCase
     public function constructorSetsAllProperties(): void
     {
         $capabilities = ['chat', 'vision', 'tools'];
-        $model = new DiscoveredModel(
+        $model        = new DiscoveredModel(
             modelId: 'gpt-4o',
             name: 'GPT-4 Omni',
             description: 'Multimodal model with vision and tools',
@@ -65,7 +65,7 @@ class DiscoveredModelTest extends AbstractUnitTestCase
     public function toArrayReturnsAllProperties(): void
     {
         $capabilities = ['chat', 'completion', 'embeddings'];
-        $model = new DiscoveredModel(
+        $model        = new DiscoveredModel(
             modelId: 'claude-4-opus',
             name: 'Claude 4 Opus',
             description: 'Most capable Claude model',
@@ -80,15 +80,15 @@ class DiscoveredModelTest extends AbstractUnitTestCase
         $array = $model->toArray();
 
         self::assertEquals([
-            'modelId' => 'claude-4-opus',
-            'name' => 'Claude 4 Opus',
-            'description' => 'Most capable Claude model',
-            'capabilities' => $capabilities,
-            'contextLength' => 200000,
+            'modelId'         => 'claude-4-opus',
+            'name'            => 'Claude 4 Opus',
+            'description'     => 'Most capable Claude model',
+            'capabilities'    => $capabilities,
+            'contextLength'   => 200000,
             'maxOutputTokens' => 8192,
-            'costInput' => 1500,
-            'costOutput' => 7500,
-            'recommended' => true,
+            'costInput'       => 1500,
+            'costOutput'      => 7500,
+            'recommended'     => true,
         ], $array);
     }
 

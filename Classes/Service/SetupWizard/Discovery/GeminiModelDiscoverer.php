@@ -17,7 +17,7 @@ use Throwable;
  * stripped, relevance filter, spec enrichment with API token limits, API
  * order preserved (deliberately unsorted); falls back to a static catalog.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class GeminiModelDiscoverer extends AbstractModelDiscoverer
 {
@@ -27,7 +27,7 @@ final class GeminiModelDiscoverer extends AbstractModelDiscoverer
     public function discover(string $endpoint, string $apiKey): DiscoveryResult
     {
         try {
-            $url = $endpoint . '/models';
+            $url     = $endpoint . '/models';
             $request = $this->requestFactory->createRequest('GET', $url)
                 ->withHeader('x-goog-api-key', $apiKey);
             $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
@@ -38,7 +38,7 @@ final class GeminiModelDiscoverer extends AbstractModelDiscoverer
                 return DiscoveryResult::fallback($this->getGeminiFallbackModels());
             }
 
-            $data = $this->decodeModelListBody('gemini', $response->getBody()->getContents());
+            $data      = $this->decodeModelListBody('gemini', $response->getBody()->getContents());
             $modelList = is_array($data) && isset($data['models']) && is_array($data['models'])
                 ? $data['models']
                 : [];
@@ -136,38 +136,38 @@ final class GeminiModelDiscoverer extends AbstractModelDiscoverer
         // December 2025 Gemini specifications
         $specs = [
             'gemini-3-flash' => [
-                'name' => 'Gemini 3 Flash',
-                'description' => 'Frontier intelligence built for speed',
+                'name'         => 'Gemini 3 Flash',
+                'description'  => 'Frontier intelligence built for speed',
                 'capabilities' => ['chat', 'vision', 'tools', 'streaming'],
-                'costInput' => 50, // $0.50 per 1M
-                'costOutput' => 300, // $3 per 1M
-                'recommended' => true,
+                'costInput'    => 50, // $0.50 per 1M
+                'costOutput'   => 300, // $3 per 1M
+                'recommended'  => true,
             ],
             'gemini-3-pro' => [
-                'name' => 'Gemini 3 Pro',
+                'name'        => 'Gemini 3 Pro',
                 'description' => 'Advanced reasoning for agentic workflows',
                 // No `reasoning`: it is not in ModelCapability, so CapabilitySet
                 // drops it and the TCA checkbox list cannot even show it.
                 'capabilities' => ['chat', 'vision', 'tools', 'streaming'],
-                'costInput' => 125,
-                'costOutput' => 500,
-                'recommended' => true,
+                'costInput'    => 125,
+                'costOutput'   => 500,
+                'recommended'  => true,
             ],
             'gemini-2.5-flash' => [
-                'name' => 'Gemini 2.5 Flash',
-                'description' => 'Previous generation fast model',
+                'name'         => 'Gemini 2.5 Flash',
+                'description'  => 'Previous generation fast model',
                 'capabilities' => ['chat', 'vision', 'tools', 'streaming'],
-                'costInput' => 35,
-                'costOutput' => 150,
-                'recommended' => false,
+                'costInput'    => 35,
+                'costOutput'   => 150,
+                'recommended'  => false,
             ],
             'gemini-2.0-flash' => [
-                'name' => 'Gemini 2.0 Flash',
-                'description' => 'Cost-effective general purpose',
+                'name'         => 'Gemini 2.0 Flash',
+                'description'  => 'Cost-effective general purpose',
                 'capabilities' => ['chat', 'vision', 'tools', 'streaming'],
-                'costInput' => 10,
-                'costOutput' => 40,
-                'recommended' => false,
+                'costInput'    => 10,
+                'costOutput'   => 40,
+                'recommended'  => false,
             ],
         ];
 

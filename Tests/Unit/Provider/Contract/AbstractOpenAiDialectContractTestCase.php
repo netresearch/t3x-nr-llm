@@ -20,21 +20,21 @@ abstract class AbstractOpenAiDialectContractTestCase extends AbstractAdapterCont
     protected function chatResponseBody(int $promptTokens, int $completionTokens, string $content = 'ok'): array
     {
         return [
-            'id' => 'chatcmpl-contract',
-            'object' => 'chat.completion',
+            'id'      => 'chatcmpl-contract',
+            'object'  => 'chat.completion',
             'created' => 1_760_000_000,
-            'model' => $this->wireModelId(),
+            'model'   => $this->wireModelId(),
             'choices' => [
                 [
-                    'index' => 0,
-                    'message' => ['role' => 'assistant', 'content' => $content],
+                    'index'         => 0,
+                    'message'       => ['role' => 'assistant', 'content' => $content],
                     'finish_reason' => 'stop',
                 ],
             ],
             'usage' => [
-                'prompt_tokens' => $promptTokens,
+                'prompt_tokens'     => $promptTokens,
                 'completion_tokens' => $completionTokens,
-                'total_tokens' => $promptTokens + $completionTokens,
+                'total_tokens'      => $promptTokens + $completionTokens,
             ],
         ];
     }
@@ -50,22 +50,22 @@ abstract class AbstractOpenAiDialectContractTestCase extends AbstractAdapterCont
     protected function toolCallResponseBody(): array
     {
         return [
-            'id' => 'chatcmpl-contract-tools',
-            'object' => 'chat.completion',
+            'id'      => 'chatcmpl-contract-tools',
+            'object'  => 'chat.completion',
             'created' => 1_760_000_000,
-            'model' => $this->wireModelId(),
+            'model'   => $this->wireModelId(),
             'choices' => [
                 [
-                    'index' => 0,
+                    'index'   => 0,
                     'message' => [
-                        'role' => 'assistant',
-                        'content' => null,
+                        'role'       => 'assistant',
+                        'content'    => null,
                         'tool_calls' => [
                             [
-                                'id' => 'call_contract_1',
-                                'type' => 'function',
+                                'id'       => 'call_contract_1',
+                                'type'     => 'function',
                                 'function' => [
-                                    'name' => 'get_weather',
+                                    'name'      => 'get_weather',
                                     'arguments' => '{"city":"Leipzig"}',
                                 ],
                             ],

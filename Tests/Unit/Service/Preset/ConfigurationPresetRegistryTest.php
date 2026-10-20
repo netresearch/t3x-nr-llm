@@ -38,8 +38,8 @@ final class ConfigurationPresetRegistryTest extends TestCase
     #[Test]
     public function collectsPresetsAcrossProvidersAndLooksUpByIdentifier(): void
     {
-        $alpha = $this->preset('ext_a.alpha');
-        $beta = $this->preset('ext_b.beta');
+        $alpha    = $this->preset('ext_a.alpha');
+        $beta     = $this->preset('ext_b.beta');
         $registry = new ConfigurationPresetRegistry(
             [new FixturePresetProvider([$alpha]), new FixturePresetProvider([$beta])],
             self::createStub(LlmConfigurationRepository::class),
@@ -68,11 +68,11 @@ final class ConfigurationPresetRegistryTest extends TestCase
     #[Test]
     public function pendingReturnsOnlyPresetsWithoutConfigurationRecord(): void
     {
-        $imported = $this->preset('ext.imported');
-        $pending = $this->preset('ext.pending');
+        $imported   = $this->preset('ext.imported');
+        $pending    = $this->preset('ext.pending');
         $repository = $this->createMock(LlmConfigurationRepository::class);
         $repository->method('findOneByIdentifier')->willReturnCallback(
-            static fn(string $identifier): ?LlmConfiguration => $identifier === 'ext.imported' ? new LlmConfiguration() : null,
+            static fn (string $identifier): ?LlmConfiguration => $identifier === 'ext.imported' ? new LlmConfiguration() : null,
         );
 
         $registry = new ConfigurationPresetRegistry(
@@ -86,7 +86,7 @@ final class ConfigurationPresetRegistryTest extends TestCase
     #[Test]
     public function driftedReturnsImportedPresetWhoseDeclarationChanged(): void
     {
-        $preset = $this->preset('ext.imported');
+        $preset        = $this->preset('ext.imported');
         $configuration = new LlmConfiguration();
         $configuration->setPresetChecksum('0000000000000000000000000000000000000000000000000000000000000000');
 
@@ -107,7 +107,7 @@ final class ConfigurationPresetRegistryTest extends TestCase
     #[Test]
     public function driftedOmitsImportedPresetWithUnchangedChecksum(): void
     {
-        $preset = $this->preset('ext.imported');
+        $preset        = $this->preset('ext.imported');
         $configuration = new LlmConfiguration();
         $configuration->setPresetChecksum($preset->checksum());
 
@@ -127,12 +127,12 @@ final class ConfigurationPresetRegistryTest extends TestCase
     {
         // A pending preset has no record; a hand-created record sharing a
         // declared identifier carries no stored checksum. Neither is drift.
-        $pending = $this->preset('ext.pending');
+        $pending     = $this->preset('ext.pending');
         $handCreated = $this->preset('ext.hand_created');
-        $record = new LlmConfiguration();
-        $repository = $this->createMock(LlmConfigurationRepository::class);
+        $record      = new LlmConfiguration();
+        $repository  = $this->createMock(LlmConfigurationRepository::class);
         $repository->method('findOneByIdentifier')->willReturnCallback(
-            static fn(string $identifier): ?LlmConfiguration => $identifier === 'ext.hand_created' ? $record : null,
+            static fn (string $identifier): ?LlmConfiguration => $identifier === 'ext.hand_created' ? $record : null,
         );
 
         $registry = new ConfigurationPresetRegistry(

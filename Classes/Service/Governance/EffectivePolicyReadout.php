@@ -37,7 +37,7 @@ use Throwable;
  *
  * There is no apply path — see ADR-140 for why.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class EffectivePolicyReadout
 {
@@ -63,14 +63,14 @@ final readonly class EffectivePolicyReadout
         $retention = $this->row(
             'privacy.retentionDays',
             $this->privacyPolicy::class,
-            fn(): string => (string)$this->privacyPolicy->retentionDays(),
+            fn (): string => (string) $this->privacyPolicy->retentionDays(),
         );
 
         return [
             $this->row(
                 'privacy.level',
                 $this->privacyPolicy::class,
-                fn(): string => $this->privacyPolicy->level()->value,
+                fn (): string => $this->privacyPolicy->level()->value,
             ),
             $retention,
             ...$this->retentionOverrideRows($retention),
@@ -78,7 +78,7 @@ final readonly class EffectivePolicyReadout
             $this->row(
                 'skills.minTrustLevel',
                 $this->skillComposerFactory::class,
-                fn(): string => $this->skillComposerFactory->minTrustLevel()->value,
+                fn (): string => $this->skillComposerFactory->minTrustLevel()->value,
             ),
         ];
     }
@@ -95,7 +95,7 @@ final readonly class EffectivePolicyReadout
         $row = $this->row(
             'tools.dataClassEnforcement',
             $this->enforcementResolver::class,
-            fn(): string => $this->enforcementResolver->mode(),
+            fn (): string => $this->enforcementResolver->mode(),
         );
 
         if ($row->value !== DataClassEnforcementResolver::MODE_OBSERVE) {
@@ -131,7 +131,7 @@ final readonly class EffectivePolicyReadout
             $row = $this->row(
                 'privacy.retention.' . $category->configKey(),
                 $this->privacyPolicy::class,
-                fn(): string => (string)$this->privacyPolicy->retentionDaysFor($category),
+                fn (): string => (string) $this->privacyPolicy->retentionDaysFor($category),
             );
 
             if ($row->isKnown() && $row->value !== $globalRetention->value) {

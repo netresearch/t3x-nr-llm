@@ -28,7 +28,7 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * catalogue never offered cannot produce a run. Split across two services,
  * that second check is the one a future entry point forgets.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 interface EditorActionCatalogueInterface
 {

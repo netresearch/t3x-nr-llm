@@ -79,7 +79,7 @@ final class PurgeTelemetryCommandTest extends TestCase
     {
         $extensionConfiguration = $this->createMock(ExtensionConfiguration::class);
         $extensionConfiguration->method('get')->willReturn([
-            'privacy' => ['retention' => ['telemetry' => (string)$days]],
+            'privacy' => ['retention' => ['telemetry' => (string) $days]],
         ]);
 
         return new PrivacyPolicy($extensionConfiguration, new ContentRedactor());

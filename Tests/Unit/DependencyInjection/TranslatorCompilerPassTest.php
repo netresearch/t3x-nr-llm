@@ -32,7 +32,7 @@ class TranslatorCompilerPassTest extends AbstractUnitTestCase
     #[Test]
     public function tagsAttributeMarkedTranslator(): void
     {
-        $container = new ContainerBuilder();
+        $container  = new ContainerBuilder();
         $definition = new Definition(AttributeTaggedTranslator::class);
         $container->setDefinition('translator.attribute', $definition);
 
@@ -47,7 +47,7 @@ class TranslatorCompilerPassTest extends AbstractUnitTestCase
     #[Test]
     public function leavesAlreadyTaggedTranslatorAlone(): void
     {
-        $container = new ContainerBuilder();
+        $container  = new ContainerBuilder();
         $definition = new Definition(AttributeTaggedTranslator::class);
         $definition->addTag(AsTranslator::TAG_NAME);
 
@@ -67,7 +67,7 @@ class TranslatorCompilerPassTest extends AbstractUnitTestCase
     #[Test]
     public function ignoresServicesOutsideScanNamespace(): void
     {
-        $container = new ContainerBuilder();
+        $container  = new ContainerBuilder();
         $definition = new Definition(UntaggedService::class);
         $container->setDefinition('out.of.scope', $definition);
 
@@ -83,7 +83,7 @@ class TranslatorCompilerPassTest extends AbstractUnitTestCase
     #[Test]
     public function ignoresInScopeServicesWithoutTheAttribute(): void
     {
-        $container = new ContainerBuilder();
+        $container  = new ContainerBuilder();
         $definition = new Definition(UntaggedService::class);
         $container->setDefinition('translator.unmarked', $definition);
 
@@ -98,7 +98,7 @@ class TranslatorCompilerPassTest extends AbstractUnitTestCase
     #[Test]
     public function leavesServiceVisibilityUnchanged(): void
     {
-        $container = new ContainerBuilder();
+        $container  = new ContainerBuilder();
         $definition = new Definition(AttributeTaggedTranslator::class);
         $definition->setPublic(false);
 

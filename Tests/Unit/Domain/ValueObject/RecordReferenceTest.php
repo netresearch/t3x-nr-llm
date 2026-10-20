@@ -26,7 +26,7 @@ final class RecordReferenceTest extends TestCase
 
         self::assertSame('pages', $reference->table);
         self::assertSame(42, $reference->uid);
-        self::assertSame('pages:42', (string)$reference);
+        self::assertSame('pages:42', (string) $reference);
         self::assertSame(['table' => 'pages', 'uid' => 42], $reference->toArray());
     }
 
@@ -56,16 +56,16 @@ final class RecordReferenceTest extends TestCase
      */
     public static function unusableIdentities(): iterable
     {
-        yield 'empty table'        => ['', 1];
-        yield 'whitespace table'   => ['   ', 1];
-        yield 'padded table'       => [' pages ', 1];
-        yield 'quoted table'       => ['`pages`', 1];
-        yield 'qualified table'    => ['db.pages', 1];
-        yield 'sql fragment'       => ['pages WHERE 1=1', 1];
-        yield 'invalid utf-8'      => ["pages\xFF", 1];
-        yield 'newline'            => ["pages\n", 1];
-        yield 'longer than 64'     => [str_repeat('a', 65), 1];
-        yield 'zero uid'           => ['pages', 0];
-        yield 'negative uid'       => ['pages', -1];
+        yield 'empty table' => ['', 1];
+        yield 'whitespace table' => ['   ', 1];
+        yield 'padded table' => [' pages ', 1];
+        yield 'quoted table' => ['`pages`', 1];
+        yield 'qualified table' => ['db.pages', 1];
+        yield 'sql fragment' => ['pages WHERE 1=1', 1];
+        yield 'invalid utf-8' => ["pages\xFF", 1];
+        yield 'newline' => ["pages\n", 1];
+        yield 'longer than 64' => [str_repeat('a', 65), 1];
+        yield 'zero uid' => ['pages', 0];
+        yield 'negative uid' => ['pages', -1];
     }
 }
