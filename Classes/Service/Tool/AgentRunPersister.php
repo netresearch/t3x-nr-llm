@@ -823,7 +823,11 @@ final readonly class AgentRunPersister
 
             return true;
         } catch (Throwable $exception) {
-            $this->logger?->warning('AgentRun lineage could not be persisted', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning('AgentRun lineage could not be persisted', ['exception' => $exception]);
+                },
+            );
 
             return false;
         }
@@ -844,7 +848,11 @@ final readonly class AgentRunPersister
         try {
             $latest = $this->repository->findLatestEvent($run->uid, AgentEventKind::LINEAGE->value);
         } catch (Throwable $exception) {
-            $this->logger?->warning('AgentRun lineage could not be loaded', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning('AgentRun lineage could not be loaded', ['exception' => $exception]);
+                },
+            );
 
             throw RunLineageUnreadableException::forRun($run->uuid);
         }
@@ -901,7 +909,11 @@ final readonly class AgentRunPersister
         try {
             return $this->repository->findByUuid($lineage->originRunUuid);
         } catch (Throwable $exception) {
-            $this->logger?->warning('AgentRun origin could not be loaded', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning('AgentRun origin could not be loaded', ['exception' => $exception]);
+                },
+            );
 
             throw RunLineageUnreadableException::forRun($lineage->originRunUuid);
         }

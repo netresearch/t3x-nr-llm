@@ -18,10 +18,12 @@ use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\RunLineage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunLineageUnreadableException;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
@@ -176,6 +178,7 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
                 'AgentRun approval decision could not be persisted',
             ],
             ['findEvents', 'findEvents', [], 'AgentRun events could not be loaded'],
+            ['recordLineage', 'recordEvent', false, 'AgentRun lineage could not be persisted'],
             [
                 'findApprovalDeciders',
                 'findApprovalDeciders',
@@ -204,6 +207,49 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
                     ];
                 }
             }
+        }
+    }
+
+    /**
+     * A lineage read that fails throws RunLineageUnreadableException, which
+     * every caller handles, whatever the logger does (ADR-225, ADR-228).
+     */
+    #[Test]
+    #[DataProvider('loggerModes')]
+    public function anUnreadableLineageOrOriginThrowsItsOwnExceptionWhateverTheLogger(
+        string $mode,
+        string $storageKind,
+    ): void {
+        $storageError = $storageKind === 'error' ? new Error('storage unavailable') : new RuntimeException('storage unavailable');
+        $repository   = self::createStub(AgentRunRepositoryInterface::class);
+        $repository->method('findLatestEvent')->willThrowException($storageError);
+        $repository->method('findByUuid')->willThrowException($storageError);
+        $logger  = $this->loggerFor($mode);
+        $subject = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), $logger);
+
+        $reads = [
+            'lineageOf' => fn (): mixed => $subject->lineageOf($this->storedRun()),
+            'originRun' => fn (): mixed => $subject->originRun(new RunLineage(3, originRunUuid: 'origin-run')),
+        ];
+        $refused = [];
+        foreach ($reads as $name => $read) {
+            try {
+                $read();
+            } catch (RunLineageUnreadableException) {
+                $refused[] = $name;
+            }
+        }
+
+        self::assertSame(['lineageOf', 'originRun'], $refused);
+
+        if ($logger instanceof RecordingLogger) {
+            self::assertSame(
+                [
+                    ['level' => 'warning', 'message' => 'AgentRun lineage could not be loaded', 'context' => ['exception' => $storageError]],
+                    ['level' => 'warning', 'message' => 'AgentRun origin could not be loaded', 'context' => ['exception' => $storageError]],
+                ],
+                $logger->records,
+            );
         }
     }
 
@@ -403,6 +449,7 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
             'resumeHandle'            => $subject->resumeHandle($run),
             'recordApproval'          => $subject->recordApproval($handle, true, 9),
             'findEvents'              => $subject->findEvents(7, 3),
+            'recordLineage'           => $subject->recordLineage($handle, new RunLineage(3)),
             'findApprovalDeciders'    => $subject->findApprovalDeciders([7]),
             'findStaleRunning'        => $subject->findStaleRunning(100, 5),
             'requeueStale'            => $subject->requeueStale($run, 100),

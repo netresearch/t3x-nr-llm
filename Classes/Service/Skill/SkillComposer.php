@@ -221,7 +221,9 @@ final readonly class SkillComposer
         $includedIds    = [];
         $droppedIds     = [];
         foreach ($candidates as $skill) {
-            if (isset($includedKeySet[$this->skillKey($skill)])) {
+            // An invoked process record reached the run through its snapshot,
+            // composed under its own key above (ADR-228).
+            if (isset($invokedUids[(int) $skill->getUid()]) || isset($includedKeySet[$this->skillKey($skill)])) {
                 $includedIds[] = $skill->getIdentifier();
             } else {
                 $droppedIds[] = $skill->getIdentifier();

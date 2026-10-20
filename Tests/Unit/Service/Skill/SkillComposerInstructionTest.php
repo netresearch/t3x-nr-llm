@@ -259,6 +259,28 @@ final class SkillComposerInstructionTest extends TestCase
         self::assertStringContainsString('process skill', $result->warnings[0] ?? '');
     }
 
+    /**
+     * The attached record of a process the run invokes is skipped because its
+     * snapshot is composed instead; it reached the run, so it counts as
+     * included and not as dropped (ADR-228).
+     */
+    #[Test]
+    public function anInvokedProcessRecordCountsAsIncluded(): void
+    {
+        $process = $this->syncedSkill(11, 'Tour', 'Step one, then step two.', process: true);
+        $plain   = $this->syncedSkill(12, 'Plain', 'Plain guidance.');
+        $this->approve($process);
+        $version = $this->approvals->findLatestUnrevoked(11);
+        self::assertNotNull($version);
+
+        $result = $this->composer()->composeBlock([$process, $plain], [], [$version]);
+
+        self::assertStringContainsString('Step one', $result->instructions);
+        self::assertSame(['skill-11', 'skill-12'], $result->included);
+        self::assertSame([], $result->dropped);
+        self::assertSame([], $result->warnings);
+    }
+
     #[Test]
     public function instructionSectionsAreNeverDroppedFromTheTail(): void
     {
