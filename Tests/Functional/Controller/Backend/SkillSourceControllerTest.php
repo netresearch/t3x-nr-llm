@@ -320,7 +320,7 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
     public function syncResponseDoesNotExposeInternalLeaseMetadata(): void
     {
         $source = $this->persistedSource();
-        $uid = $source->getUid();
+        $uid    = $source->getUid();
         self::assertNotNull($uid);
         $owner = str_repeat('c', 64);
         $this
@@ -329,9 +329,9 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
             ->update(
                 'tx_nrllm_skill_source',
                 [
-                    'sync_status' => 'syncing',
-                    'last_synced' => time(),
-                    'sync_lock_token' => $owner,
+                    'sync_status'       => 'syncing',
+                    'last_synced'       => time(),
+                    'sync_lock_token'   => $owner,
                     'sync_lock_version' => 7,
                 ],
                 ['uid' => $uid],
@@ -339,12 +339,12 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
         $this->importFixture('BeUsers.csv');
         $this->setUpBackendUser(1);
         $this->setUpBackendRequest();
-        $vault = self::createStub(VaultServiceInterface::class);
+        $vault    = self::createStub(VaultServiceInterface::class);
         $response = $this
             ->controllerWithVault($vault)
             ->syncAction((new ServerRequest())->withParsedBody(['source' => $uid]));
         self::assertSame(200, $response->getStatusCode());
-        $body = (string)$response->getBody();
+        $body    = (string) $response->getBody();
         $payload = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($payload);
         self::assertSame('syncing', $payload['status']);
