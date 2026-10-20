@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Skill;
 
@@ -37,10 +38,10 @@ final class SkillInjectionBoundaryTest extends TestCase
             'Reasoned answer.',
             providerItems: [['type' => 'reasoning', 'id' => 'opaque-item']],
         );
-        $user = ['role' => 'user', 'content' => 'Next question.', 'name' => 'Editor'];
+        $user     = ['role' => 'user', 'content' => 'Next question.', 'name' => 'Editor'];
         $messages = [$system, $assistant, $user];
-        $failure = null;
-        $actual = null;
+        $failure  = null;
+        $actual   = null;
         try {
             $actual = SkillInjectionService::appendToLastSystemMessage(
                 $messages,
@@ -73,19 +74,19 @@ final class SkillInjectionBoundaryTest extends TestCase
         yield 'plain array' => [
             ['role' => 'system', 'content' => 'Base.', 'name' => 'Policy'],
             [
-                'role' => 'system',
+                'role'    => 'system',
                 'content' => "Base.\n\nInstruction.",
-                'name' => 'Policy',
+                'name'    => 'Policy',
             ],
         ];
         yield 'part array' => [
             [
-                'role' => 'system',
+                'role'    => 'system',
                 'content' => [['type' => 'text', 'text' => 'Base.']],
-                'name' => 'Policy',
+                'name'    => 'Policy',
             ],
             [
-                'role' => 'system',
+                'role'    => 'system',
                 'content' => [
                     ['type' => 'text', 'text' => 'Base.'],
                     ['type' => 'text', 'text' => 'Instruction.'],
@@ -106,10 +107,10 @@ final class SkillInjectionBoundaryTest extends TestCase
         ChatMessage|array $expected,
     ): void {
         $assistant = ChatMessage::assistant('Earlier answer.');
-        $user = ChatMessage::user('Question.');
-        $failure = null;
-        $head = null;
-        $late = null;
+        $user      = ChatMessage::user('Question.');
+        $failure   = null;
+        $head      = null;
+        $late      = null;
         try {
             $head = SkillInjectionService::appendToFirstSystemMessage(
                 [$assistant, $system, $user],
@@ -139,10 +140,10 @@ final class SkillInjectionBoundaryTest extends TestCase
     public function malformedUserContentIsSkippedForTheNextUsableUserTurn(
         array $invalid,
     ): void {
-        $system = ['role' => 'system', 'content' => 'Base.'];
-        $user = ['role' => 'user', 'content' => 'Question.', 'name' => 'Editor'];
+        $system  = ['role' => 'system', 'content' => 'Base.'];
+        $user    = ['role' => 'user', 'content' => 'Question.', 'name' => 'Editor'];
         $failure = null;
-        $actual = null;
+        $actual  = null;
         try {
             $actual = $this
                 ->subject()
@@ -176,7 +177,7 @@ final class SkillInjectionBoundaryTest extends TestCase
     {
         yield 'associative parts' => [
             [
-                'role' => 'user',
+                'role'    => 'user',
                 'content' => ['type' => 'text', 'text' => 'Not a part list.'],
             ],
         ];
@@ -189,7 +190,7 @@ final class SkillInjectionBoundaryTest extends TestCase
     {
         $messages = [
             [
-                'role' => 'system',
+                'role'    => 'system',
                 'content' => [['type' => 'text', 'text' => 'Base.']],
             ],
             ChatMessage::assistant('Earlier answer.'),
@@ -220,7 +221,7 @@ final class SkillInjectionBoundaryTest extends TestCase
     public function valueObjectUserReceivesTheBlockBeforeTheOriginalTextWithABlankLine(): void
     {
         $original = ChatMessage::user('Question.');
-        $actual = $this->subject()->composeIntoMessages([$original], [$this->skill()]);
+        $actual   = $this->subject()->composeIntoMessages([$original], [$this->skill()]);
 
         self::assertInstanceOf(ChatMessage::class, $actual['messages'][0]);
         self::assertTrue($actual['messages'][0]->isUser());
