@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool\Mcp;
 
@@ -53,23 +54,23 @@ final class McpImportDiagnosticsTest extends AbstractFunctionalTestCase
     ): void {
         $pool = $this->get(ConnectionPool::class);
         self::assertInstanceOf(ConnectionPool::class, $pool);
-        $servers = new McpServerRepository($pool);
-        $catalogue = new McpToolRepository($pool);
+        $servers    = new McpServerRepository($pool);
+        $catalogue  = new McpToolRepository($pool);
         $connection = $pool->getConnectionForTable('tx_nrllm_mcp_server');
         $connection->insert(
             'tx_nrllm_mcp_server',
             [
-                'pid' => 0,
-                'identifier' => 'diagnostic_server',
-                'name' => 'Import diagnostic fixture',
-                'url' => 'https://mcp.example.com/rpc',
-                'data_class' => 'publicContent',
-                'enabled' => 1,
+                'pid'           => 0,
+                'identifier'    => 'diagnostic_server',
+                'name'          => 'Import diagnostic fixture',
+                'url'           => 'https://mcp.example.com/rpc',
+                'data_class'    => 'publicContent',
+                'enabled'       => 1,
                 'import_status' => 'never_imported',
-                'tool_count' => 0,
+                'tool_count'    => 0,
             ],
         );
-        $uid = (int)$connection->lastInsertId();
+        $uid    = (int) $connection->lastInsertId();
         $server = $servers->findByUid($uid);
         self::assertInstanceOf(McpServerRecord::class, $server);
         $context = new Context();
@@ -83,10 +84,10 @@ final class McpImportDiagnosticsTest extends AbstractFunctionalTestCase
                 [
                     'tools' => [
                         [
-                            'name' => 'read',
+                            'name'        => 'read',
                             'description' => 'An existing imported tool',
                             'inputSchema' => [
-                                'type' => 'object',
+                                'type'       => 'object',
                                 'properties' => ['id' => ['type' => 'integer']],
                             ],
                         ],
@@ -103,15 +104,15 @@ final class McpImportDiagnosticsTest extends AbstractFunctionalTestCase
         self::assertSame(1, $server->toolCount);
         self::assertSame('ok', $server->importStatus);
         $toolConnection = $pool->getConnectionForTable('tx_nrllm_mcp_tool');
-        $before = $toolConnection
+        $before         = $toolConnection
             ->select(['*'], 'tx_nrllm_mcp_tool', ['server' => $uid])
             ->fetchAllAssociative();
         self::assertCount(1, $before);
 
         $diagnosticFailure = match ($mode) {
             'runtime' => new RuntimeException('Diagnostic unavailable', 9701113),
-            'error' => new Error('Diagnostic unavailable', 9701114),
-            default => null,
+            'error'   => new Error('Diagnostic unavailable', 9701114),
+            default   => null,
         };
         $logger = new class ($diagnosticFailure) extends AbstractLogger {
             /** @var list<array{level: mixed, message: string, context: array<mixed>}> */
@@ -128,8 +129,8 @@ final class McpImportDiagnosticsTest extends AbstractFunctionalTestCase
                 array $context = [],
             ): void {
                 $this->attempts[] = [
-                    'level' => $level,
-                    'message' => (string)$message,
+                    'level'   => $level,
+                    'message' => (string) $message,
                     'context' => $context,
                 ];
                 if ($this->failure instanceof Throwable) {
