@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
-use LogicException;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Exception\LogicException;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Throwable;

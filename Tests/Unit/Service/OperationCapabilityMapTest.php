@@ -38,31 +38,31 @@ final class OperationCapabilityMapTest extends TestCase
         // Enforced: every discoverer writes `chat`, and writes `vision` /
         // `tools` when the model has them, so a record without one of these
         // states an absence rather than leaving a gap.
-        yield 'chat requires chat'     => [ProviderOperation::Chat, ModelCapability::CHAT];
+        yield 'chat requires chat' => [ProviderOperation::Chat, ModelCapability::CHAT];
         yield 'vision requires vision' => [ProviderOperation::Vision, ModelCapability::VISION];
-        yield 'tools requires tools'   => [ProviderOperation::Tools, ModelCapability::TOOLS];
+        yield 'tools requires tools' => [ProviderOperation::Tools, ModelCapability::TOOLS];
 
         // Not enforced: no discoverer writes `completion` or `embeddings`, and
         // only four of seven write `streaming`. Requiring them would refuse
         // models that work, for a fact nobody stated.
         yield 'completion requires nothing' => [ProviderOperation::Completion, null];
-        yield 'embedding requires nothing'  => [ProviderOperation::Embedding, null];
-        yield 'stream requires nothing'     => [ProviderOperation::Stream, null];
+        yield 'embedding requires nothing' => [ProviderOperation::Embedding, null];
+        yield 'stream requires nothing' => [ProviderOperation::Stream, null];
 
         // Not enforced: specialized services never reach criteria-mode
         // selection, so a mapping would be inert (the ADR-138 boundary).
         yield 'image generation requires nothing' => [ProviderOperation::ImageGeneration, null];
-        yield 'image edit requires nothing'       => [ProviderOperation::ImageEdit, null];
-        yield 'image variation requires nothing'  => [ProviderOperation::ImageVariation, null];
-        yield 'transcription requires nothing'    => [ProviderOperation::Transcription, null];
+        yield 'image edit requires nothing' => [ProviderOperation::ImageEdit, null];
+        yield 'image variation requires nothing' => [ProviderOperation::ImageVariation, null];
+        yield 'transcription requires nothing' => [ProviderOperation::Transcription, null];
         yield 'speech synthesis requires nothing' => [ProviderOperation::SpeechSynthesis, null];
 
         // Not enforced: no ModelCapability describes translation, and metadata
         // is not an AI generation at all.
         yield 'translation requires nothing' => [ProviderOperation::Translation, null];
-        yield 'metadata requires nothing'    => [ProviderOperation::Metadata, null];
+        yield 'metadata requires nothing' => [ProviderOperation::Metadata, null];
         // A native decision needs a model that declares it (ADR-211).
-        yield 'decision requires decision'   => [ProviderOperation::Decision, ModelCapability::DECISION];
+        yield 'decision requires decision' => [ProviderOperation::Decision, ModelCapability::DECISION];
     }
 
     #[Test]

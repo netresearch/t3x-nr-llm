@@ -105,7 +105,7 @@ final readonly class GetEnvTool implements ToolInterface
         // strict_types a `string` parameter rejects that AT THE CALL, before any
         // cast in this body could run -- which is why the annotation the caller
         // used to carry silenced the analyser and left the TypeError standing.
-        $nameStr = (string)$name;
+        $nameStr = (string) $name;
         if (preg_match(self::SECRET_PATTERN, $nameStr) === 1) {
             return self::REDACTED;
         }

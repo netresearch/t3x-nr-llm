@@ -68,7 +68,7 @@ trait ResponseParserTrait
         }
 
         if (is_int($value) || is_float($value)) {
-            return (string)$value;
+            return (string) $value;
         }
 
         return $default;
@@ -88,7 +88,7 @@ trait ResponseParserTrait
         }
 
         if (is_numeric($value)) {
-            return (int)$value;
+            return (int) $value;
         }
 
         return $default;
@@ -108,7 +108,7 @@ trait ResponseParserTrait
         }
 
         if (is_numeric($value)) {
-            return (float)$value;
+            return (float) $value;
         }
 
         return $default;
@@ -183,7 +183,7 @@ trait ResponseParserTrait
         }
 
         if (is_int($value) || is_float($value)) {
-            return (string)$value;
+            return (string) $value;
         }
 
         return null;
@@ -203,7 +203,7 @@ trait ResponseParserTrait
         }
 
         if (is_numeric($value)) {
-            return (int)$value;
+            return (int) $value;
         }
 
         return null;
@@ -219,7 +219,7 @@ trait ResponseParserTrait
      */
     protected function getNestedArray(array $data, string $path, array $default = []): array
     {
-        $keys = explode('.', $path);
+        $keys    = explode('.', $path);
         $current = $data;
 
         foreach ($keys as $key) {
@@ -245,7 +245,7 @@ trait ResponseParserTrait
      */
     protected function getNestedString(array $data, string $path, string $default = ''): string
     {
-        $keys = explode('.', $path);
+        $keys    = explode('.', $path);
         $current = $data;
 
         foreach ($keys as $key) {
@@ -266,7 +266,7 @@ trait ResponseParserTrait
      */
     protected function getNestedInt(array $data, string $path, int $default = 0): int
     {
-        $keys = explode('.', $path);
+        $keys    = explode('.', $path);
         $current = $data;
 
         foreach ($keys as $key) {
@@ -326,7 +326,7 @@ trait ResponseParserTrait
         }
 
         if (is_int($value) || is_float($value)) {
-            return (string)$value;
+            return (string) $value;
         }
 
         return $default;
@@ -342,7 +342,7 @@ trait ResponseParserTrait
         }
 
         if (is_numeric($value)) {
-            return (int)$value;
+            return (int) $value;
         }
 
         return $default;
@@ -354,11 +354,11 @@ trait ResponseParserTrait
     protected function asFloat(mixed $value, float $default = 0.0): float
     {
         if (is_float($value) || is_int($value)) {
-            return (float)$value;
+            return (float) $value;
         }
 
         if (is_numeric($value)) {
-            return (float)$value;
+            return (float) $value;
         }
 
         return $default;
@@ -367,10 +367,10 @@ trait ResponseParserTrait
     /**
      * Safely decode JSON and return as array.
      *
+     * @return array<string, mixed>
+     *
      * @throws JsonException            If $json is not valid JSON (JSON_THROW_ON_ERROR)
      * @throws InvalidArgumentException If the decoded JSON is not an object
-     *
-     * @return array<string, mixed>
      */
     protected function decodeJsonResponse(string $json): array
     {

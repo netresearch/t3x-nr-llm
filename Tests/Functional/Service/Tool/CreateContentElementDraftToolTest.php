@@ -70,20 +70,20 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
 
         $pages = $this->connectionPool->getConnectionForTable('pages');
         $pages->insert('pages', [
-            'uid' => self::PAGE_CLOSED, 'pid' => 0, 'title' => 'Closed', 'doktype' => 1, 'slug' => '/',
-            'sorting' => 1,
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => self::PAGE_CLOSED, 'pid' => 0, 'title' => 'Closed', 'doktype' => 1, 'slug' => '/',
+            'sorting'       => 1,
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => 0,
         ]);
         $pages->insert('pages', [
-            'uid' => self::PAGE_OPEN, 'pid' => 0, 'title' => 'Open', 'doktype' => 1, 'slug' => '/open',
-            'sorting' => 2,
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => self::PAGE_OPEN, 'pid' => 0, 'title' => 'Open', 'doktype' => 1, 'slug' => '/open',
+            'sorting'       => 2,
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
         ]);
 
         $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
-            'uid' => self::EXISTING_ELEMENT, 'pid' => self::PAGE_OPEN, 'colPos' => 0, 'sorting' => 1,
+            'uid'   => self::EXISTING_ELEMENT, 'pid' => self::PAGE_OPEN, 'colPos' => 0, 'sorting' => 1,
             'CType' => 'text', 'header' => 'Already there', 'sys_language_uid' => 0,
         ]);
 
@@ -119,12 +119,12 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('not visible until a human unhides it', $result->content);
 
         $row = $this->createdElement();
-        self::assertSame(1, (int)($row['hidden'] ?? 0), 'a drafted element must never be visible');
-        self::assertSame(self::PAGE_OPEN, (int)($row['pid'] ?? 0));
+        self::assertSame(1, (int) ($row['hidden'] ?? 0), 'a drafted element must never be visible');
+        self::assertSame(self::PAGE_OPEN, (int) ($row['pid'] ?? 0));
         self::assertSame('text', $row['CType'] ?? null);
         self::assertSame('Drafted headline', $row['header'] ?? null);
-        self::assertSame(0, (int)($row['colPos'] ?? -1));
-        self::assertSame(0, (int)($row['sys_language_uid'] ?? -1));
+        self::assertSame(0, (int) ($row['colPos'] ?? -1));
+        self::assertSame(0, (int) ($row['sys_language_uid'] ?? -1));
     }
 
     #[Test]
@@ -141,7 +141,7 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
 
         $row = $this->createdElement();
         self::assertSame('header', $row['CType'] ?? null);
-        self::assertSame(2, (int)($row['colPos'] ?? -1));
+        self::assertSame(2, (int) ($row['colPos'] ?? -1));
 
         $body = $row['bodytext'] ?? '';
         self::assertIsString($body);
@@ -166,10 +166,10 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
         self::assertFalse($result->isError, $result->content);
 
         $created = $this->createdElement();
-        self::assertSame(self::PAGE_OPEN, (int)($created['pid'] ?? 0), 'a negative pid must resolve to the page');
+        self::assertSame(self::PAGE_OPEN, (int) ($created['pid'] ?? 0), 'a negative pid must resolve to the page');
         self::assertGreaterThan(
-            (int)$this->elementRow(self::EXISTING_ELEMENT)['sorting'],
-            (int)($created['sorting'] ?? 0),
+            (int) $this->elementRow(self::EXISTING_ELEMENT)['sorting'],
+            (int) ($created['sorting'] ?? 0),
             'the new element must sort after its anchor',
         );
     }
@@ -188,7 +188,7 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
         $created = $this->createdElement();
         self::assertSame(
             [1],
-            array_values(array_unique($this->sysLogUserIdsFor((int)($created['uid'] ?? 0)))),
+            array_values(array_unique($this->sysLogUserIdsFor((int) ($created['uid'] ?? 0)))),
         );
     }
 
@@ -231,7 +231,7 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertFalse($result->isError, $result->content);
-        self::assertSame(1, (int)($this->createdElement()['hidden'] ?? 0));
+        self::assertSame(1, (int) ($this->createdElement()['hidden'] ?? 0));
     }
 
     /**
@@ -246,8 +246,8 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function anEditorWithoutTheHiddenGrantIsRefusedBeforeTheWrite(): void
     {
-        $editor                             = $this->setUpBackendUser(2);
-        $editor->groupData['tables_modify'] = 'tt_content';
+        $editor                                  = $this->setUpBackendUser(2);
+        $editor->groupData['tables_modify']      = 'tt_content';
         $editor->groupData['explicit_allowdeny'] = 'tt_content:CType:text';
         // Deliberately WITHOUT `tt_content:hidden`.
         $editor->groupData['non_exclude_fields'] = 'tt_content:header';
@@ -284,8 +284,8 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
         // The DataHandler reads the compiled schema, so it is rebuilt.
         $this->getService(TcaSchemaFactory::class)->rebuild($tca);
 
-        $editor                             = $this->setUpBackendUser(2);
-        $editor->groupData['tables_modify'] = 'tt_content';
+        $editor                                  = $this->setUpBackendUser(2);
+        $editor->groupData['tables_modify']      = 'tt_content';
         $editor->groupData['explicit_allowdeny'] = 'tt_content:CType:text';
         // The grant IS held; the column is dropped regardless.
         $editor->groupData['non_exclude_fields'] = 'tt_content:hidden';
@@ -314,7 +314,7 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
     {
         $tca = $GLOBALS['TCA'];
         self::assertIsArray($tca);
-        $tca            = array_replace_recursive($tca, ['tt_content' => ['columns' => [
+        $tca = array_replace_recursive($tca, ['tt_content' => ['columns' => [
             'header'   => ['displayCond' => 'HIDE_FOR_NON_ADMINS'],
             'bodytext' => ['displayCond' => 'HIDE_FOR_NON_ADMINS'],
         ]]]);
@@ -408,7 +408,7 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertFalse($result->isError, $result->content);
-        $newUid = (int)($this->createdElement()['uid'] ?? 0);
+        $newUid = (int) ($this->createdElement()['uid'] ?? 0);
         self::assertGreaterThan(self::EXISTING_ELEMENT, $newUid);
         self::assertStringStartsWith(sprintf('New content element uid: %d.', $newUid), $result->content);
     }
@@ -601,8 +601,8 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
         self::assertFalse($result->isError, $result->content);
 
         $row = $this->createdElement();
-        self::assertSame(self::GERMAN, (int)($row['sys_language_uid'] ?? -1));
-        self::assertSame(0, (int)($row['l18n_parent'] ?? -1));
+        self::assertSame(self::GERMAN, (int) ($row['sys_language_uid'] ?? -1));
+        self::assertSame(0, (int) ($row['l18n_parent'] ?? -1));
     }
 
     /**
@@ -622,7 +622,7 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertFalse($result->isError, $result->content);
-        self::assertSame(self::GERMAN, (int)($this->createdElement(21)['sys_language_uid'] ?? -1));
+        self::assertSame(self::GERMAN, (int) ($this->createdElement(21)['sys_language_uid'] ?? -1));
     }
 
     /**
@@ -646,7 +646,7 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertFalse($result->isError, $result->content);
-        self::assertSame(self::GERMAN, (int)($this->createdElement(21)['sys_language_uid'] ?? -1));
+        self::assertSame(self::GERMAN, (int) ($this->createdElement(21)['sys_language_uid'] ?? -1));
     }
 
     /**
@@ -721,7 +721,7 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertFalse($result->isError, $result->content);
-        self::assertSame(0, (int)($this->createdElement(21, 22)['sys_language_uid'] ?? -1));
+        self::assertSame(0, (int) ($this->createdElement(21, 22)['sys_language_uid'] ?? -1));
     }
 
     #[Test]
@@ -737,7 +737,7 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertFalse($result->isError, $result->content);
-        self::assertSame(self::GERMAN, (int)($this->createdElement(21)['sys_language_uid'] ?? -1));
+        self::assertSame(self::GERMAN, (int) ($this->createdElement(21)['sys_language_uid'] ?? -1));
     }
 
     #[Test]
@@ -754,7 +754,7 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertFalse($result->isError, $result->content);
-        self::assertSame(self::PAGE_OPEN, (int)($this->createdElement(21, 22)['pid'] ?? 0));
+        self::assertSame(self::PAGE_OPEN, (int) ($this->createdElement(21, 22)['pid'] ?? 0));
     }
 
     /**
@@ -774,7 +774,7 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertFalse($result->isError, $result->content);
-        self::assertSame(self::GERMAN, (int)($this->createdElement(21)['sys_language_uid'] ?? -1));
+        self::assertSame(self::GERMAN, (int) ($this->createdElement(21)['sys_language_uid'] ?? -1));
     }
 
     /**
@@ -806,8 +806,8 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
     private function insertElement(int $uid, int $language, int $parent, array $fields = []): void
     {
         $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', $fields + [
-            'uid' => $uid, 'pid' => self::PAGE_OPEN, 'colPos' => 0, 'sorting' => $uid,
-            'CType' => 'text', 'header' => 'Fixture ' . $uid,
+            'uid'              => $uid, 'pid' => self::PAGE_OPEN, 'colPos' => 0, 'sorting' => $uid,
+            'CType'            => 'text', 'header' => 'Fixture ' . $uid,
             'sys_language_uid' => $language, 'l18n_parent' => $parent, 'l10n_source' => $parent,
         ]);
     }
@@ -864,7 +864,7 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tt_content');
         $queryBuilder->getRestrictions()->removeAll();
 
-        return (int)$queryBuilder
+        return (int) $queryBuilder
             ->count('uid')
             ->from('tt_content')
             ->executeQuery()
@@ -879,7 +879,7 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tt_content');
         $queryBuilder->getRestrictions()->removeAll();
 
-        return (int)$queryBuilder
+        return (int) $queryBuilder
             ->count('uid')
             ->from('tt_content')
             ->where($queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)))
@@ -905,7 +905,7 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
             ->executeQuery()
             ->fetchAllAssociative();
 
-        return array_map(static fn(array $row): int => (int)($row['userid'] ?? 0), $rows);
+        return array_map(static fn (array $row): int => (int) ($row['userid'] ?? 0), $rows);
     }
 
     /**

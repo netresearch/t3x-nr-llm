@@ -62,6 +62,9 @@ What is out of contract
   container, never via ``new``. Constructing option/value objects directly
   is fine — their constructors are part of the signature promise.
 - Anything reached by reflection or by reading private state.
+- Members of an ``@api`` class marked ``@internal`` in their docblock, such
+  as the process pin of ``RunAugmentation`` (ADR-228): the runtime sets
+  them, and the snapshot still lists them.
 
 The snapshot below records the constructor a caller reaches with ``new``,
 including the service ones that are out of contract here. That is
@@ -91,7 +94,8 @@ Two cases still carry no ``constructor(...)`` line, and both are intended:
   ``private __construct`` and static factories is reached through the
   factories, which the snapshot records as methods.
 
-Today that is 70 of the 97 ``@api`` classes with a constructor line.
+The snapshot records constructor lines for the classes that meet these rules;
+its current contents are the inventory of the public surface.
 
 Enforcement
 ===========

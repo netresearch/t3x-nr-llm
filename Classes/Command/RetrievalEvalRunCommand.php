@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Command;
 
@@ -38,7 +39,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * Explicitly invoked — nothing here runs in the request pipeline, and no
  * LLM is involved: the run costs one retrieval call per question.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsCommand(
     name: 'nrllm:eval:retrieval',
@@ -91,7 +92,7 @@ final class RetrievalEvalRunCommand extends Command
         InputInterface $input,
         OutputInterface $output,
     ): int {
-        $io = new SymfonyStyle($input, $output);
+        $io  = new SymfonyStyle($input, $output);
         $set = $this->findSet($input, $io);
         if (!$set instanceof GoldenQuestionSet) {
             return Command::FAILURE;
@@ -115,7 +116,7 @@ final class RetrievalEvalRunCommand extends Command
                 $evaluation->hardClass ?? '-',
                 $evaluation->top1Hit ? 'hit' : 'MISS',
                 $evaluation->top3Hit ? 'hit' : 'MISS',
-                (string)$evaluation->latencyMs,
+                (string) $evaluation->latencyMs,
             ];
         }
 
@@ -157,7 +158,7 @@ final class RetrievalEvalRunCommand extends Command
         foreach ($breakdown as $key => $rates) {
             $rows[] = [
                 $key,
-                (string)$rates['questions'],
+                (string) $rates['questions'],
                 sprintf('%.1f%%', $rates['top1HitRate'] * 100),
                 sprintf('%.1f%%', $rates['top3HitRate'] * 100),
             ];
@@ -169,14 +170,14 @@ final class RetrievalEvalRunCommand extends Command
     private function floatOption(InputInterface $input, string $name): float
     {
         $value = $input->getOption($name);
-        if (!is_numeric($value) || !is_finite((float)$value) || (float)$value < 0.0 || (float)$value > 1.0) {
+        if (!is_numeric($value) || !is_finite((float) $value) || (float) $value < 0.0 || (float) $value > 1.0) {
             throw new InvalidArgumentException(
                 sprintf('Option "--%s" must be a finite number in 0..1.', $name),
                 1794000041,
             );
         }
 
-        return (float)$value;
+        return (float) $value;
     }
 
     /**
@@ -184,9 +185,9 @@ final class RetrievalEvalRunCommand extends Command
      */
     private function findSet(InputInterface $input, SymfonyStyle $io): ?GoldenQuestionSet
     {
-        $argument = $input->getArgument('set');
+        $argument   = $input->getArgument('set');
         $identifier = is_string($argument) ? $argument : '';
-        $set = $this->setRegistry->findByIdentifier($identifier);
+        $set        = $this->setRegistry->findByIdentifier($identifier);
         if (!$set instanceof GoldenQuestionSet) {
             $io->error(sprintf('Unknown golden question set "%s".', $identifier));
             $available = $this->setRegistry->identifiers();
@@ -202,9 +203,9 @@ final class RetrievalEvalRunCommand extends Command
         InputInterface $input,
         SymfonyStyle $io,
     ): ?EvaluatableRetrieverInterface {
-        $argument = $input->getArgument('retriever');
+        $argument   = $input->getArgument('retriever');
         $identifier = is_string($argument) ? $argument : '';
-        $retriever = $this->retrieverRegistry->findByIdentifier($identifier);
+        $retriever  = $this->retrieverRegistry->findByIdentifier($identifier);
         if (!$retriever instanceof EvaluatableRetrieverInterface) {
             $io->error(sprintf('Unknown retriever "%s".', $identifier));
             $available = $this->retrieverRegistry->identifiers();
@@ -221,11 +222,11 @@ final class RetrievalEvalRunCommand extends Command
         ?EvaluationResultSummary $previous,
     ): string {
         return match (true) {
-            !$current->retrievalProvenance instanceof RetrievalProvenance || $current->benchmarkFingerprint === '' => 'unknown',
-            !$previous instanceof EvaluationResultSummary => 'baseline',
+            !$current->retrievalProvenance instanceof RetrievalProvenance || $current->benchmarkFingerprint === ''   => 'unknown',
+            !$previous instanceof EvaluationResultSummary                                                            => 'baseline',
             !$previous->retrievalProvenance instanceof RetrievalProvenance || $previous->benchmarkFingerprint === '' => 'unknown',
-            $previous->benchmarkFingerprint !== $current->benchmarkFingerprint => 'mismatch',
-            default => 'comparable',
+            $previous->benchmarkFingerprint !== $current->benchmarkFingerprint                                       => 'mismatch',
+            default                                                                                                  => 'comparable',
         };
     }
 
@@ -258,6 +259,7 @@ final class RetrievalEvalRunCommand extends Command
             $io->warning(
                 'Regression comparison skipped: benchmark provenance is ' . $baselineState . '. The measurement was recorded.',
             );
+
             return $failOnRegression ? Command::FAILURE : Command::SUCCESS;
         }
 
@@ -294,6 +296,7 @@ final class RetrievalEvalRunCommand extends Command
             );
         } catch (InvalidArgumentException $exception) {
             $io->error($exception->getMessage());
+
             return Command::FAILURE;
         }
 
@@ -308,7 +311,7 @@ final class RetrievalEvalRunCommand extends Command
         $this->renderEvaluations($io, $result);
 
         $persistable = $result->toSetEvaluationResult();
-        $previous = $this->repository->findLatest(
+        $previous    = $this->repository->findLatest(
             $persistable->setIdentifier,
             $persistable->model,
             $persistable->grader,

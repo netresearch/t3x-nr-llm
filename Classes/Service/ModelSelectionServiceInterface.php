@@ -50,7 +50,7 @@ interface ModelSelectionServiceInterface
      * (ADR-156).
      *
      * `resolveModel()` is this method with the reasoning dropped. A caller that
-     * needs both — {@see \Netresearch\NrLlm\Service\ConfigurationCallPlanner},
+     * needs both — {@see ConfigurationCallPlanner},
      * which resolves the model and records why into the telemetry scratchpad —
      * takes this one and pays for a single evaluation.
      *
@@ -60,7 +60,7 @@ interface ModelSelectionServiceInterface
      * is making, takes no override, and runs on every criteria-mode request —
      * so it must not cost a second discovery/eligibility/ranking pass.
      *
-     * {@see \Netresearch\NrLlm\Domain\ValueObject\ModelResolution::$routingSummary}
+     * {@see ModelResolution::$routingSummary}
      * is null where nothing was chosen: fixed mode names its own model.
      *
      * @throws UnsupportedFeatureException as {@see self::resolveModel()}
@@ -75,7 +75,7 @@ interface ModelSelectionServiceInterface
      * and not that one", so it returns the decision instead — the selected
      * model, every candidate that was ranked, and every candidate that was
      * refused with the reason. It resolves nothing a second time: the readout
-     * is the same {@see \Netresearch\NrLlm\Service\Routing\RoutingDecisionService}
+     * is the same {@see Routing\RoutingDecisionService}
      * call the runtime makes.
      *
      * On the interface because a backend controller has to reach it;

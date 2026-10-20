@@ -18,13 +18,13 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
  *
  * @extends Repository<PromptSnippet>
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 class PromptSnippetRepository extends Repository
 {
     protected $defaultOrderings = [
         'sorting' => QueryInterface::ORDER_ASCENDING,
-        'name' => QueryInterface::ORDER_ASCENDING,
+        'name'    => QueryInterface::ORDER_ASCENDING,
     ];
 
     /**
@@ -93,7 +93,7 @@ class PromptSnippetRepository extends Repository
         );
         $query->setOrderings([
             'sorting' => QueryInterface::ORDER_ASCENDING,
-            'name' => QueryInterface::ORDER_ASCENDING,
+            'name'    => QueryInterface::ORDER_ASCENDING,
         ]);
 
         $snippets = [];

@@ -12,17 +12,17 @@ namespace Netresearch\NrLlm\Domain\Enum;
 enum SyncStatus: string
 {
     case NEVER_SYNCED = 'never_synced';
-    case SYNCING = 'syncing';
-    case OK = 'ok';
-    case PARTIAL = 'partial';
-    case ERROR = 'error';
+    case SYNCING      = 'syncing';
+    case OK           = 'ok';
+    case PARTIAL      = 'partial';
+    case ERROR        = 'error';
 
     /**
      * @return list<string>
      */
     public static function values(): array
     {
-        return array_map(static fn(self $c): string => $c->value, self::cases());
+        return array_map(static fn (self $c): string => $c->value, self::cases());
     }
 
     public static function isValid(string $value): bool

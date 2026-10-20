@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Evaluation;
 
+use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
+
 /**
  * The rich result of running a golden set against one model (ADR-060):
  * every per-prompt evaluation plus the aggregate pass rate and mean score
@@ -29,14 +31,14 @@ final readonly class SetEvaluationResult
         public array $evaluations,
         public int $runTimestamp,
         public ?RetrievalSetEvaluationResult $retrieval = null,
+        public ?GeneratorProvenance $generatorProvenance = null,
     ) {}
 
     /**
-     * Whether every grading reports the grader the run is stored under. A
-     * run that does not — some decisions failed, or the model changed
-     * mid-run — has no single yardstick, so it is neither compared with a
-     * previous run nor, since no clean run is stored under the plain
-     * identifier it falls back to, anyone's baseline (ADR-211).
+     * Whether every grading reports the grader the run is stored under.
+     * A failed decision or changed grading model has no single yardstick (ADR-211).
+     * Generator identity is checked separately: different generating models can
+     * legitimately share this grading protocol (ADR-220).
      */
     public function sharesOneYardstick(): bool
     {
@@ -110,6 +112,26 @@ final readonly class SetEvaluationResult
             $this->retrieval->identity->benchmarkFingerprint ?? '',
             $this->retrieval->identity->variantFingerprint ?? '',
             $this->retrieval?->identity?->provenance,
+            $this->verifiedGeneratorProvenance(),
         );
+    }
+
+    /**
+     * Evidence for every prompt, checked again before persistence (ADR-220).
+     */
+    public function verifiedGeneratorProvenance(): ?GeneratorProvenance
+    {
+        $record = $this->generatorProvenance;
+        if (!$record instanceof GeneratorProvenance || $this->evaluations === [] || $this->model !== $record->modelId) {
+            return null;
+        }
+
+        foreach ($this->evaluations as $evaluation) {
+            if (!$evaluation->generatorProvenance instanceof GeneratorProvenance || !$record->sameGenerator($evaluation->generatorProvenance)) {
+                return null;
+            }
+        }
+
+        return $record;
     }
 }
