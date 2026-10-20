@@ -315,6 +315,16 @@ final readonly class AgentRunExecutor
                 // failure can never fabricate a cancellation.
                 $run = $this->persister->findRun($handle->uuid);
                 if ($run?->statusEnum() === AgentRunStatus::CANCELLED) {
+                    // A cancel clears the claim, so the lease guard below
+                    // cannot tell this segment from the one that took the run
+                    // over. The claim generation can: the reaper's reclaim
+                    // incremented it, so a segment of an older generation
+                    // stops as lease-lost without writing into the stream of
+                    // the segment that followed it.
+                    if ($handle->claimGeneration !== null && $run->requeueCount !== $handle->claimGeneration) {
+                        throw RunLeaseLostException::forRun($handle->uuid);
+                    }
+
                     // Persist the step that already happened, then stop: the
                     // audit stream stays complete up to the abort point. A
                     // writing tool whose audit cannot be stored fails the run

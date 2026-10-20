@@ -133,6 +133,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - **A repeated disable in the skills module keeps the sync's mark.** Sending a disable for a skill the sync had already disabled turned its `disabled_by` mark from `sync` into `admin`, which lifts the restriction a sync disable keeps on a run. The module's toggle now changes the mark only when `enabled` changes, as `SkillDisabledByHook` does for DataHandler writes.
+- **The old worker of a reclaimed run writes nothing at a cancel (ADR-103, ADR-104).** A cancel clears a run's claim, so a worker whose run the reaper had re-queued to another worker and that was then cancelled appended its step to the new owner's event stream. A segment now carries the run's claim generation (`requeue_count`) and stops as lease-lost when it no longer matches.
 - **Corrupt approved-skill tool declarations fail closed.** A stored approval
   snapshot accepts tool names only from a JSON array. JSON objects, including
   objects with numeric keys, are read as declared-empty lists. Missing

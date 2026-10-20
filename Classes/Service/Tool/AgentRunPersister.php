@@ -95,7 +95,7 @@ final readonly class AgentRunPersister
                 $leaseExpires,
             );
 
-            return new AgentRunHandle($runUid, $uuid);
+            return new AgentRunHandle($runUid, $uuid, 0);
         } catch (Throwable $exception) {
             $this->recordDiagnostic(
                 function () use ($exception): void {
@@ -732,7 +732,7 @@ final readonly class AgentRunPersister
     public function resumeHandle(AgentRun $run): ?AgentRunHandle
     {
         try {
-            $handle           = new AgentRunHandle($run->uid, $run->uuid);
+            $handle           = new AgentRunHandle($run->uid, $run->uuid, $run->requeueCount);
             $handle->sequence = $this->repository->maxEventSequence($run->uid) + 1;
 
             return $handle;

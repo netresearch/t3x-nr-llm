@@ -29,5 +29,11 @@ final class AgentRunHandle
     public function __construct(
         public readonly int $runUid,
         public readonly string $uuid,
+        // The run's requeue_count when this segment was claimed or begun: a
+        // reclaim increments it and nothing else does, so a segment whose
+        // generation no longer matches the row has lost the run, even after
+        // a cancel cleared the claim it would otherwise compare. Null where
+        // no segment executes (an enqueued run, a fallback for settling).
+        public readonly ?int $claimGeneration = null,
     ) {}
 }
