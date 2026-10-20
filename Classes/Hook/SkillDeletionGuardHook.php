@@ -79,12 +79,12 @@ final readonly class SkillDeletionGuardHook
 
             // Read as EXT:workspaces reads it, which casts to int.
             $placeholder = $version['swapWith'] ?? 0;
-            $placeholder = is_scalar($placeholder) ? (int)$placeholder : 0;
+            $placeholder = is_scalar($placeholder) ? (int) $placeholder : 0;
             if (!is_numeric($liveUid) || $placeholder <= 0 || !$this->isDeletePlaceholder($placeholder)) {
                 continue;
             }
 
-            $pages   = $this->subtree((int)$liveUid);
+            $pages   = $this->subtree((int) $liveUid);
             $holders = $this->holders($this->skillsOn($pages), $pages);
             if ($holders === []) {
                 continue;
@@ -93,13 +93,13 @@ final readonly class SkillDeletionGuardHook
             $this->dropVersionCommands($dataHandler);
             $dataHandler->log(
                 'pages',
-                (int)$liveUid,
+                (int) $liveUid,
                 SystemLogDatabaseAction::DELETE,
                 null,
                 SystemLogErrorClassification::USER_ERROR,
                 'Cannot publish the deletion of page {uid}: it or a page below it holds skills still attached to {holders}. Detach them first; nothing in this publish was applied.',
                 null,
-                ['uid' => (int)$liveUid, 'holders' => implode(', ', $holders)],
+                ['uid' => (int) $liveUid, 'holders' => implode(', ', $holders)],
             );
 
             return;
@@ -139,17 +139,17 @@ final readonly class SkillDeletionGuardHook
      */
     public function processCmdmap_deleteAction(string $table, string|int $id, ?array $record, bool &$recordWasDeleted, DataHandler $dataHandler): void
     {
-        if ($recordWasDeleted || !is_numeric($id) || (int)$id <= 0 || ($table !== self::TABLE && $table !== 'pages')) {
+        if ($recordWasDeleted || !is_numeric($id) || (int) $id <= 0 || ($table !== self::TABLE && $table !== 'pages')) {
             return;
         }
 
         // A skill already in the recycle bin (deleted for good there) is no
         // longer loaded through any attachment.
-        if ($table === self::TABLE && is_numeric($record['deleted'] ?? null) && (int)$record['deleted'] === 1) {
+        if ($table === self::TABLE && is_numeric($record['deleted'] ?? null) && (int) $record['deleted'] === 1) {
             return;
         }
 
-        $uid = (int)$id;
+        $uid = (int) $id;
         if ($table === self::TABLE) {
             $holders = $this->holders([$uid], []);
             if ($holders === []) {
@@ -205,7 +205,7 @@ final readonly class SkillDeletionGuardHook
             ->executeQuery()
             ->fetchOne();
 
-        return is_numeric($state) && (int)$state === VersionState::DELETE_PLACEHOLDER->value;
+        return is_numeric($state) && (int) $state === VersionState::DELETE_PLACEHOLDER->value;
     }
 
     /**
@@ -256,9 +256,9 @@ final readonly class SkillDeletionGuardHook
                 ->fetchFirstColumn();
             $frontier = [];
             foreach ($children as $child) {
-                if (is_numeric($child) && !isset($pages[(int)$child])) {
-                    $pages[(int)$child] = true;
-                    $frontier[]         = (int)$child;
+                if (is_numeric($child) && !isset($pages[(int) $child])) {
+                    $pages[(int) $child] = true;
+                    $frontier[]          = (int) $child;
                 }
             }
         }
@@ -290,7 +290,7 @@ final readonly class SkillDeletionGuardHook
         $uids = [];
         foreach ($skills as $uid) {
             if (is_numeric($uid)) {
-                $uids[] = (int)$uid;
+                $uids[] = (int) $uid;
             }
         }
 
@@ -332,7 +332,7 @@ final readonly class SkillDeletionGuardHook
 
             foreach ($queryBuilder->executeQuery()->fetchFirstColumn() as $uid) {
                 if (is_numeric($uid)) {
-                    $holders[$holderTable . ':' . (int)$uid] = true;
+                    $holders[$holderTable . ':' . (int) $uid] = true;
                 }
             }
         }

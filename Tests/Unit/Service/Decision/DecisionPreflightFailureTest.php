@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Decision;
 
@@ -53,7 +54,7 @@ final class DecisionPreflightFailureTest extends TestCase
         bool $availability,
         string $context,
     ): void {
-        $cause = new RuntimeException('dependency unavailable');
+        $cause   = new RuntimeException('dependency unavailable');
         $failure = $this->failure($this->service($stage, $cause), $availability, $stage);
 
         self::assertInstanceOf(DecisionException::class, $failure);
@@ -68,9 +69,9 @@ final class DecisionPreflightFailureTest extends TestCase
     public static function preflightFailures(): iterable
     {
         foreach ([
-            'setting' => 'decision.configuration',
-            'repository' => 'judge',
-            'routing' => 'judge',
+            'setting'         => 'decision.configuration',
+            'repository'      => 'judge',
+            'routing'         => 'judge',
             'routing-default' => 'judge',
         ] as $stage => $context) {
             foreach ([false, true] as $availability) {
@@ -110,7 +111,7 @@ final class DecisionPreflightFailureTest extends TestCase
                     1.0,
                 ),
             ),
-            'blocked' => new GuardrailViolationException('SecretGuardrail', 'secret found'),
+            'blocked'  => new GuardrailViolationException('SecretGuardrail', 'secret found'),
             'approval' => new GuardrailApprovalRequiredException(
                 'ReviewGuardrail',
                 'review required',

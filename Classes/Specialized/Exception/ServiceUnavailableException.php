@@ -32,7 +32,7 @@ final class ServiceUnavailableException extends SpecializedServiceException
             sprintf('%s service is not configured (missing API key or credentials)', ucfirst($provider)),
             $service,
             [
-                'reason' => 'not_configured',
+                'reason'   => 'not_configured',
                 'provider' => $provider,
             ],
         );
@@ -60,8 +60,8 @@ final class ServiceUnavailableException extends SpecializedServiceException
             $message,
             $service,
             [
-                'reason' => 'service_down',
-                'provider' => $provider,
+                'reason'      => 'service_down',
+                'provider'    => $provider,
                 'http_status' => $httpStatus,
             ],
         );
@@ -82,7 +82,7 @@ final class ServiceUnavailableException extends SpecializedServiceException
             ),
             'document',
             [
-                'reason' => 'rasterizer_unavailable',
+                'reason'   => 'rasterizer_unavailable',
                 'provider' => $provider,
             ],
             1784211009,
@@ -100,7 +100,7 @@ final class ServiceUnavailableException extends SpecializedServiceException
             sprintf('Translator "%s" not found in registry', $identifier),
             'translation',
             [
-                'reason' => 'not_found',
+                'reason'     => 'not_found',
                 'identifier' => $identifier,
             ],
         );

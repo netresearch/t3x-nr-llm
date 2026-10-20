@@ -79,7 +79,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * backend module route token the `<f:form action=...>` URL carries (validated by
  * the RouteDispatcher), NOT `__trustedProperties`.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class AgentRunController extends ActionController
@@ -233,7 +233,7 @@ final class AgentRunController extends ActionController
 
         // Reload the CURRENT schema and coerce the all-strings POST against it,
         // so the no-JS path validates. Never coerce against a broken schema.
-        $run = $this->persister->findRun($runUuid);
+        $run    = $this->persister->findRun($runUuid);
         $schema = $run instanceof AgentRun ? $this->viewFactory->inputSchemaForRun($run) : null;
         if ($schema === null) {
             $this->flash('runs.unreadable', ContextualFeedbackSeverity::ERROR);
@@ -300,8 +300,8 @@ final class AgentRunController extends ActionController
             ? null
             : $actor->backendUserUid;
 
-        $waitingRuns  = $this->persister->findAwaitingRuns(beUser: $restrictTo);
-        $terminalRuns = $this->persister->findRecentTerminalRuns(beUser: $restrictTo);
+        $waitingRuns   = $this->persister->findAwaitingRuns(beUser: $restrictTo);
+        $terminalRuns  = $this->persister->findRecentTerminalRuns(beUser: $restrictTo);
         $dataLoadError = $waitingRuns === null || $terminalRuns === null;
 
         // The preview a card carries is authorised a second time, per record,
@@ -347,7 +347,7 @@ final class AgentRunController extends ActionController
         }
 
         return $this->persister->findApprovalDeciders(
-            array_map(static fn(AgentRun $run): int => $run->uid, $runs),
+            array_map(static fn (AgentRun $run): int => $run->uid, $runs),
         );
     }
 
@@ -372,7 +372,7 @@ final class AgentRunController extends ActionController
                 ContextualFeedbackSeverity::WARNING,
             ],
             AgentRunOutcome::CANCELLED => ['runs.flash.error', ContextualFeedbackSeverity::INFO],
-            default => ['runs.flash.error', ContextualFeedbackSeverity::ERROR],
+            default                    => ['runs.flash.error', ContextualFeedbackSeverity::ERROR],
         };
 
         $this->flash($key, $severity);

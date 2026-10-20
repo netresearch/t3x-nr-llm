@@ -96,9 +96,9 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
             [self::SUBPAGE, self::PAGE_TO_COPY, 'Template child', Permission::ALL, 0],
         ] as [$uid, $pid, $title, $everybody, $siteRoot]) {
             $pages->insert('pages', [
-                'uid' => $uid, 'pid' => $pid, 'title' => $title, 'doktype' => 1, 'slug' => '/' . $uid,
-                'is_siteroot' => $siteRoot, 'sorting' => $uid * 256,
-                'perms_userid' => 1, 'perms_user' => Permission::ALL,
+                'uid'           => $uid, 'pid' => $pid, 'title' => $title, 'doktype' => 1, 'slug' => '/' . $uid,
+                'is_siteroot'   => $siteRoot, 'sorting' => $uid * 256,
+                'perms_userid'  => 1, 'perms_user' => Permission::ALL,
                 'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => $everybody,
             ]);
         }
@@ -113,7 +113,7 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
             [self::ELEMENT_ON_PAGE_TO_COPY, self::PAGE_TO_COPY, 0, 'On the template', 0, 0],
         ] as [$uid, $pid, $colPos, $header, $language, $parent]) {
             $content->insert('tt_content', [
-                'uid' => $uid, 'pid' => $pid, 'colPos' => $colPos, 'CType' => 'text', 'header' => $header,
+                'uid'              => $uid, 'pid' => $pid, 'colPos' => $colPos, 'CType' => 'text', 'header' => $header,
                 'sys_language_uid' => $language, 'l18n_parent' => $parent, 'sorting' => $uid * 256,
             ]);
         }
@@ -146,20 +146,20 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
         self::assertFalse($result->isError, $result->content);
         self::assertSame(WriteKind::CREATED, $result->writeKind);
         self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
-        $copyUid = (int)$result->writeTarget?->uid;
+        $copyUid = (int) $result->writeTarget?->uid;
         self::assertGreaterThan(self::ELEMENT_ON_PAGE_TO_COPY, $copyUid);
 
         $copy = $this->row('tt_content', $copyUid);
-        self::assertSame(self::TARGET_PAGE, (int)($copy['pid'] ?? 0));
-        self::assertSame(1, (int)($copy['colPos'] ?? -1));
-        self::assertSame(1, (int)($copy['hidden'] ?? 0));
+        self::assertSame(self::TARGET_PAGE, (int) ($copy['pid'] ?? 0));
+        self::assertSame(1, (int) ($copy['colPos'] ?? -1));
+        self::assertSame(1, (int) ($copy['hidden'] ?? 0));
         // Core copies a translation only into a site that carries its
         // language; this instance has no site, so none comes along — and the
         // answer does not claim one.
         self::assertSame(0, $this->rowCount('tt_content', ['l18n_parent' => $copyUid]));
         self::assertStringNotContainsString('translation', $result->content);
         // The source is untouched.
-        self::assertSame(0, (int)($this->row('tt_content', self::ELEMENT)['hidden'] ?? 1));
+        self::assertSame(0, (int) ($this->row('tt_content', self::ELEMENT)['hidden'] ?? 1));
     }
 
     /**
@@ -176,8 +176,8 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertFalse($result->isError, $result->content);
-        $copyUid = (int)$result->writeTarget?->uid;
-        self::assertSame(self::TARGET_PAGE, (int)($this->row('tt_content', $copyUid)['pid'] ?? 0));
+        $copyUid = (int) $result->writeTarget?->uid;
+        self::assertSame(self::TARGET_PAGE, (int) ($this->row('tt_content', $copyUid)['pid'] ?? 0));
         self::assertStringStartsWith(sprintf('New tt_content uid: %d.', $copyUid), $result->content);
     }
 
@@ -202,7 +202,7 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function theCopyIsHiddenEvenWhereTheUserSwitchedHidingOff(): void
     {
-        $admin                       = $this->setUpBackendUser(1);
+        $admin                        = $this->setUpBackendUser(1);
         $admin->uc['neverHideAtCopy'] = 1;
 
         $result = $this->tool->execute(
@@ -211,7 +211,7 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertFalse($result->isError, $result->content);
-        self::assertSame(1, (int)($this->row('tt_content', (int)$result->writeTarget?->uid)['hidden'] ?? 0));
+        self::assertSame(1, (int) ($this->row('tt_content', (int) $result->writeTarget?->uid)['hidden'] ?? 0));
     }
 
     #[Test]
@@ -219,7 +219,7 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
     {
         $this->registerInterferingHook();
         InterferesWithAnUpdateHook::$keepVisible = true;
-        $before = $this->rowCount('tt_content', ['pid' => self::TARGET_PAGE]);
+        $before                                  = $this->rowCount('tt_content', ['pid' => self::TARGET_PAGE]);
 
         $result = $this->tool->execute(
             ['table' => 'tt_content', 'uid' => self::ELEMENT, 'target_page' => self::TARGET_PAGE],
@@ -252,8 +252,8 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
 
         self::assertFalse($result->isError, $result->content);
         self::assertStringContainsString('with 1 hidden translation(s)', $result->content);
-        $copyUid = (int)$result->writeTarget?->uid;
-        self::assertSame(1, (int)($this->row('tt_content', $copyUid)['hidden'] ?? 0));
+        $copyUid = (int) $result->writeTarget?->uid;
+        self::assertSame(1, (int) ($this->row('tt_content', $copyUid)['hidden'] ?? 0));
         self::assertSame(1, $this->rowCount('tt_content', ['l18n_parent' => $copyUid, 'sys_language_uid' => 1, 'hidden' => 1]));
         self::assertSame(0, $this->rowCount('tt_content', ['l18n_parent' => $copyUid, 'hidden' => 0]));
     }
@@ -277,8 +277,8 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
             self::assertStringContainsString('The copy was deleted again.', $result->content);
             self::assertSame($before, $this->rowCount('tt_content', ['pid' => self::TARGET_PAGE]));
         } else {
-            $copyUid = (int)$result->writeTarget?->uid;
-            self::assertSame(1, (int)($this->row('tt_content', $copyUid)['hidden'] ?? 0));
+            $copyUid = (int) $result->writeTarget?->uid;
+            self::assertSame(1, (int) ($this->row('tt_content', $copyUid)['hidden'] ?? 0));
             self::assertSame(0, $this->rowCount('tt_content', ['l18n_parent' => $copyUid]));
         }
     }
@@ -306,7 +306,7 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertFalse($result->isError, $result->content);
-        self::assertSame(2, (int)($this->row('tt_content', (int)$result->writeTarget?->uid)['colPos'] ?? -1));
+        self::assertSame(2, (int) ($this->row('tt_content', (int) $result->writeTarget?->uid)['colPos'] ?? -1));
     }
 
     #[Test]
@@ -318,7 +318,7 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertFalse($result->isError, $result->content);
-        self::assertSame(1, (int)($this->row('tt_content', (int)$result->writeTarget?->uid)['hidden'] ?? 0));
+        self::assertSame(1, (int) ($this->row('tt_content', (int) $result->writeTarget?->uid)['hidden'] ?? 0));
     }
 
     #[Test]
@@ -405,7 +405,7 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function aPageIsCopiedHiddenWithItsContentButWithoutItsSubpages(): void
     {
-        $admin                  = $this->setUpBackendUser(1);
+        $admin                   = $this->setUpBackendUser(1);
         $admin->uc['copyLevels'] = 5;
 
         $result = $this->tool->execute(
@@ -414,10 +414,10 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertFalse($result->isError, $result->content);
-        $copyUid = (int)$result->writeTarget?->uid;
+        $copyUid = (int) $result->writeTarget?->uid;
         $copy    = $this->row('pages', $copyUid);
-        self::assertSame(self::TARGET_PAGE, (int)($copy['pid'] ?? 0));
-        self::assertSame(1, (int)($copy['hidden'] ?? 0));
+        self::assertSame(self::TARGET_PAGE, (int) ($copy['pid'] ?? 0));
+        self::assertSame(1, (int) ($copy['hidden'] ?? 0));
         self::assertSame(1, $this->rowCount('tt_content', ['pid' => $copyUid]));
         self::assertSame(0, $this->rowCount('pages', ['pid' => $copyUid]), 'the subpage must not be copied along');
         // The preference is the user's and is handed back as it was.
@@ -479,9 +479,9 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
     public function aWorkspaceDraftOfATranslationIsNotCounted(): void
     {
         $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
-            'uid' => 60, 'pid' => self::SOURCE_PAGE, 'colPos' => 0, 'CType' => 'text', 'header' => 'Entwurf',
+            'uid'              => 60, 'pid' => self::SOURCE_PAGE, 'colPos' => 0, 'CType' => 'text', 'header' => 'Entwurf',
             'sys_language_uid' => 2, 'l18n_parent' => self::ELEMENT,
-            't3ver_wsid' => 1, 't3ver_oid' => 0, 't3ver_state' => 1,
+            't3ver_wsid'       => 1, 't3ver_oid' => 0, 't3ver_state' => 1,
         ]);
 
         self::assertStringStartsWith(
@@ -545,9 +545,9 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
     private function translateTargetPage(): void
     {
         $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
-            'uid' => self::TARGET_PAGE_GERMAN, 'pid' => self::SITE_ROOT, 'title' => 'Ziel', 'doktype' => 1,
-            'slug' => '/ziel', 'sys_language_uid' => 1, 'l10n_parent' => self::TARGET_PAGE,
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => self::TARGET_PAGE_GERMAN, 'pid' => self::SITE_ROOT, 'title' => 'Ziel', 'doktype' => 1,
+            'slug'          => '/ziel', 'sys_language_uid' => 1, 'l10n_parent' => self::TARGET_PAGE,
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
         ]);
     }
@@ -597,7 +597,7 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
             $constraints[] = $queryBuilder->expr()->eq($column, $queryBuilder->createNamedParameter($value, Connection::PARAM_INT));
         }
 
-        return (int)$queryBuilder->count('uid')->from($table)->where(...$constraints)->executeQuery()->fetchOne();
+        return (int) $queryBuilder->count('uid')->from($table)->where(...$constraints)->executeQuery()->fetchOne();
     }
 
     /**

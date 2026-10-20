@@ -26,7 +26,7 @@ use Netresearch\NrLlm\Domain\Model\PromptSnippet;
  * that select it: re-tagging a marked snippet routes it to other
  * configurations, so it takes the snippet out until it is marked again.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class SnippetCallerMark
 {

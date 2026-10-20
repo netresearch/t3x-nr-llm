@@ -41,26 +41,26 @@ final class SkillDisabledByHookTest extends AbstractFunctionalTestCase
         $this->importFixture('BeUsers.csv');
         $pool = $this->getConnectionPool();
         $pool->getConnectionForTable('pages')->insert('pages', [
-            'uid' => 10, 'pid' => 0, 'title' => 'Skills', 'doktype' => 254,
+            'uid'          => 10, 'pid' => 0, 'title' => 'Skills', 'doktype' => 254,
             'perms_userid' => 1, 'perms_groupid' => 1, 'perms_user' => 31, 'perms_group' => 31, 'perms_everybody' => 31,
         ]);
         // An editor granted everything a skill author could be granted,
         // the enable flag and the mark included.
         $pool->getConnectionForTable('be_groups')->insert('be_groups', [
-            'uid' => 1, 'pid' => 0, 'title' => 'Skill authors',
-            'tables_select' => 'tx_nrllm_skill', 'tables_modify' => 'tx_nrllm_skill',
+            'uid'                => 1, 'pid' => 0, 'title' => 'Skill authors',
+            'tables_select'      => 'tx_nrllm_skill', 'tables_modify' => 'tx_nrllm_skill',
             'non_exclude_fields' => 'tx_nrllm_skill:enabled,tx_nrllm_skill:disabled_by,tx_nrllm_skill:hidden,tx_nrllm_skill:orphaned',
-            'db_mountpoints' => '10',
+            'db_mountpoints'     => '10',
         ]);
         $pool->getConnectionForTable('be_users')->insert('be_users', [
-            'uid' => self::EDITOR_UID, 'pid' => 0, 'username' => 'skillauthor', 'password' => 'x', 'admin' => 0,
+            'uid'       => self::EDITOR_UID, 'pid' => 0, 'username' => 'skillauthor', 'password' => 'x', 'admin' => 0,
             'usergroup' => '1', 'db_mountpoints' => '10', 'options' => 3,
         ]);
         $pool->getConnectionForTable('be_users')->insert('be_users', [
             'uid' => self::CLI_UID, 'pid' => 0, 'username' => '_cli_', 'password' => 'x', 'admin' => 1,
         ]);
         $pool->getConnectionForTable('tx_nrllm_skill')->insert('tx_nrllm_skill', [
-            'uid' => self::SKILL_UID, 'pid' => 10, 'identifier' => 'guide', 'description' => 'Original',
+            'uid'     => self::SKILL_UID, 'pid' => 10, 'identifier' => 'guide', 'description' => 'Original',
             'enabled' => 0, 'disabled_by' => 'sync',
         ]);
     }
@@ -313,7 +313,7 @@ final class SkillDisabledByHookTest extends AbstractFunctionalTestCase
             ->select(['enabled', 'disabled_by'], 'tx_nrllm_skill', ['identifier' => $identifier])->fetchAssociative();
         self::assertIsArray($row, 'the skill was created');
 
-        return [is_scalar($row['enabled']) ? (string)$row['enabled'] : '', is_scalar($row['disabled_by']) ? (string)$row['disabled_by'] : ''];
+        return [is_scalar($row['enabled']) ? (string) $row['enabled'] : '', is_scalar($row['disabled_by']) ? (string) $row['disabled_by'] : ''];
     }
 
     private function column(string $column): string
@@ -325,6 +325,6 @@ final class SkillDisabledByHookTest extends AbstractFunctionalTestCase
             ->where($queryBuilder->expr()->eq('uid', self::SKILL_UID))
             ->executeQuery()->fetchOne();
 
-        return is_scalar($value) ? (string)$value : '';
+        return is_scalar($value) ? (string) $value : '';
     }
 }

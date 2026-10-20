@@ -80,9 +80,9 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
             [self::NARROWED_PAGE, 'Narrowed', Permission::ALL, 'TCEFORM.tt_content.subheader.disabled = 1'],
         ] as [$uid, $title, $everybody, $tsConfig]) {
             $pages->insert('pages', [
-                'uid' => $uid, 'pid' => 0, 'title' => $title, 'doktype' => 1, 'slug' => '/' . $uid,
-                'TSconfig' => $tsConfig,
-                'perms_userid' => 1, 'perms_user' => Permission::ALL,
+                'uid'           => $uid, 'pid' => 0, 'title' => $title, 'doktype' => 1, 'slug' => '/' . $uid,
+                'TSconfig'      => $tsConfig,
+                'perms_userid'  => 1, 'perms_user' => Permission::ALL,
                 'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => $everybody,
             ]);
         }
@@ -96,7 +96,7 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
             [self::ON_NARROWED, self::NARROWED_PAGE, 'text', 'Narrowed', '', 0, 0],
         ] as [$uid, $pid, $type, $header, $body, $language, $parent]) {
             $content->insert('tt_content', [
-                'uid' => $uid, 'pid' => $pid, 'colPos' => 0, 'CType' => $type, 'header' => $header,
+                'uid'      => $uid, 'pid' => $pid, 'colPos' => 0, 'CType' => $type, 'header' => $header,
                 'bodytext' => $body, 'sys_language_uid' => $language, 'l18n_parent' => $parent,
             ]);
         }

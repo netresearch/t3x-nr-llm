@@ -30,7 +30,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 #[CoversClass(PurgePrivacyDataCommand::class)]
 final class PrivacyPurgeTest extends AbstractFunctionalTestCase
 {
-    private const EVAL_TABLE  = 'tx_nrllm_eval_result';
+    private const EVAL_TABLE = 'tx_nrllm_eval_result';
 
     private const AUDIT_TABLE = 'tx_nrllm_skill_audit';
 

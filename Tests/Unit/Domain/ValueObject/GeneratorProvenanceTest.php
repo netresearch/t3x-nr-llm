@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Domain\ValueObject;
 
@@ -23,17 +24,17 @@ final class GeneratorProvenanceTest extends TestCase
     private static function record(): array
     {
         return [
-            'version' => 1,
+            'version'            => 1,
             'providerIdentifier' => 'private-openai',
-            'modelId' => 'vendor/model:tag@deployment+revision',
-            'reportedModelId' => 'snapshot-2026.10',
+            'modelId'            => 'vendor/model:tag@deployment+revision',
+            'reportedModelId'    => 'snapshot-2026.10',
         ];
     }
 
     #[Test]
     public function exactVersionedIdentityRoundTripsAndIgnoresInputKeyOrder(): void
     {
-        $record = self::record();
+        $record   = self::record();
         $identity = GeneratorProvenance::fromArray(array_reverse($record, true));
         self::assertInstanceOf(GeneratorProvenance::class, $identity);
         self::assertSame($record, $identity->toArray());
@@ -49,10 +50,10 @@ final class GeneratorProvenanceTest extends TestCase
     public function maximumIdentifierLengthsRemainEligible(): void
     {
         $record = [
-            'version' => 1,
+            'version'            => 1,
             'providerIdentifier' => str_repeat('p', 100),
-            'modelId' => str_repeat('m', 150),
-            'reportedModelId' => str_repeat('r', 150),
+            'modelId'            => str_repeat('m', 150),
+            'reportedModelId'    => str_repeat('r', 150),
         ];
         $identity = GeneratorProvenance::fromArray($record);
         self::assertInstanceOf(GeneratorProvenance::class, $identity);

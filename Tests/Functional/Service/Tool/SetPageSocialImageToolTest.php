@@ -107,9 +107,9 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
 
         $storage = $this->connectionPool->getConnectionForTable('sys_file_storage');
         $storage->insert('sys_file_storage', [
-            'uid' => 1, 'pid' => 0, 'name' => 'Main storage', 'driver' => 'Local',
+            'uid'           => 1, 'pid' => 0, 'name' => 'Main storage', 'driver' => 'Local',
             'configuration' => self::STORAGE_CONFIGURATION,
-            'is_online' => 1, 'is_browsable' => 1, 'is_public' => 1, 'is_writable' => 1,
+            'is_online'     => 1, 'is_browsable' => 1, 'is_public' => 1, 'is_writable' => 1,
         ]);
         $storage->insert('sys_filemounts', [
             'uid' => 1, 'pid' => 0, 'title' => 'Docs mount', 'identifier' => '1:/docs/', 'read_only' => 0,
@@ -119,14 +119,14 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
         // sits inside the DB mount, the closed one too, so its denial comes
         // from the permission bits and not from an unreachable mount.
         $storage->insert('be_groups', [
-            'uid' => self::EDITOR_GROUP, 'pid' => 0, 'title' => 'Editors', 'file_mountpoints' => '1',
-            'file_permissions' => 'readFolder,readFile',
-            'tables_modify' => 'pages,sys_file_reference',
+            'uid'                => self::EDITOR_GROUP, 'pid' => 0, 'title' => 'Editors', 'file_mountpoints' => '1',
+            'file_permissions'   => 'readFolder,readFile',
+            'tables_modify'      => 'pages,sys_file_reference',
             'non_exclude_fields' => 'pages:og_image,pages:twitter_image',
-            'db_mountpoints' => '1,2',
+            'db_mountpoints'     => '1,2',
         ]);
         // options = 3: inherit DB and file mounts from the groups.
-        $storage->update('be_users', ['usergroup' => (string)self::EDITOR_GROUP, 'options' => 3], ['uid' => 2]);
+        $storage->update('be_users', ['usergroup' => (string) self::EDITOR_GROUP, 'options' => 3], ['uid' => 2]);
 
         $files = $this->connectionPool->getConnectionForTable('sys_file');
         foreach ([
@@ -136,9 +136,9 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
             [self::FILE_OUTSIDE_MOUNT, '/outside.jpg', 'outside.jpg', 'jpg', 'image/jpeg'],
         ] as [$uid, $identifier, $name, $extension, $mime]) {
             $files->insert('sys_file', [
-                'uid' => $uid, 'storage' => 1, 'identifier' => $identifier, 'name' => $name,
+                'uid'       => $uid, 'storage' => 1, 'identifier' => $identifier, 'name' => $name,
                 'extension' => $extension, 'mime_type' => $mime, 'size' => 8,
-                'sha1' => str_repeat((string)$uid, 40),
+                'sha1'      => str_repeat((string) $uid, 40),
             ]);
         }
 
@@ -151,22 +151,22 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
         // grant an editor of page properties does not necessarily hold.
         $pages = $this->connectionPool->getConnectionForTable('pages');
         $pages->insert('pages', [
-            'uid' => self::PAGE_OPEN, 'pid' => 0, 'title' => 'Open page', 'doktype' => 1, 'slug' => '/open',
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
-            'perms_groupid' => self::EDITOR_GROUP, 'perms_group' => Permission::PAGE_SHOW | Permission::PAGE_EDIT,
+            'uid'             => self::PAGE_OPEN, 'pid' => 0, 'title' => 'Open page', 'doktype' => 1, 'slug' => '/open',
+            'perms_userid'    => 1, 'perms_user' => Permission::ALL,
+            'perms_groupid'   => self::EDITOR_GROUP, 'perms_group' => Permission::PAGE_SHOW | Permission::PAGE_EDIT,
             'perms_everybody' => Permission::PAGE_SHOW,
         ]);
         $pages->insert('pages', [
-            'uid' => self::PAGE_CLOSED, 'pid' => 0, 'title' => 'Closed page', 'doktype' => 1, 'slug' => '/closed',
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => self::PAGE_CLOSED, 'pid' => 0, 'title' => 'Closed page', 'doktype' => 1, 'slug' => '/closed',
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::PAGE_SHOW,
         ]);
         $pages->insert('pages', [
-            'uid' => self::PAGE_TRANSLATED, 'pid' => 0, 'title' => 'Offene Seite', 'doktype' => 1, 'slug' => '/open',
+            'uid'              => self::PAGE_TRANSLATED, 'pid' => 0, 'title' => 'Offene Seite', 'doktype' => 1, 'slug' => '/open',
             'sys_language_uid' => 1, 'l10n_parent' => self::PAGE_OPEN,
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
-            'perms_groupid' => self::EDITOR_GROUP, 'perms_group' => Permission::ALL,
-            'perms_everybody' => Permission::ALL,
+            'perms_userid'     => 1, 'perms_user' => Permission::ALL,
+            'perms_groupid'    => self::EDITOR_GROUP, 'perms_group' => Permission::ALL,
+            'perms_everybody'  => Permission::ALL,
         ]);
 
         // The DataHandler declares $GLOBALS['LANG'] as a prerequisite, and the
@@ -277,7 +277,7 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
     {
         $this->storeDataHandlerHooks($list, array_filter(
             $this->dataHandlerHooks($list),
-            static fn(mixed $registeredClassName): bool => $registeredClassName !== $className,
+            static fn (mixed $registeredClassName): bool => $registeredClassName !== $className,
         ));
     }
 
@@ -331,8 +331,8 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
     private function seedReference(int $uid, int $fileUid, string $field, array $fields = []): void
     {
         $this->connectionPool->getConnectionForTable('sys_file_reference')->insert('sys_file_reference', $fields + [
-            'uid' => $uid, 'pid' => self::PAGE_OPEN, 'uid_local' => $fileUid, 'uid_foreign' => self::PAGE_OPEN,
-            'tablenames' => 'pages', 'fieldname' => $field, 'sorting_foreign' => $uid,
+            'uid'              => $uid, 'pid' => self::PAGE_OPEN, 'uid_local' => $fileUid, 'uid_foreign' => self::PAGE_OPEN,
+            'tablenames'       => 'pages', 'fieldname' => $field, 'sorting_foreign' => $uid,
             'sys_language_uid' => 0, 'l10n_parent' => 0, 'deleted' => 0,
         ]);
     }
@@ -362,8 +362,8 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
     private function liveFiles(string $field, int $pageUid = self::PAGE_OPEN): array
     {
         return array_values(array_map(
-            static fn(array $row): int => $row['uid_local'],
-            array_filter($this->references($field, $pageUid), static fn(array $row): bool => $row['deleted'] === 0),
+            static fn (array $row): int => $row['uid_local'],
+            array_filter($this->references($field, $pageUid), static fn (array $row): bool => $row['deleted'] === 0),
         ));
     }
 
@@ -427,10 +427,10 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
             ->fetchAllAssociative();
 
         return array_map(
-            static fn(array $row): array => [
-                'uid'       => (int)$row['uid'],
-                'uid_local' => (int)$row['uid_local'],
-                'deleted'   => (int)$row['deleted'],
+            static fn (array $row): array => [
+                'uid'       => (int) $row['uid'],
+                'uid_local' => (int) $row['uid_local'],
+                'deleted'   => (int) $row['deleted'],
             ],
             $rows,
         );
@@ -497,7 +497,7 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
             ->executeQuery()
             ->fetchAssociative();
 
-        return is_array($row) ? (int)$row[$field] : -1;
+        return is_array($row) ? (int) $row[$field] : -1;
     }
 
     #[Test]
@@ -514,10 +514,10 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
         $row = $this->referenceRow(1);
         self::assertSame('pages', $row['tablenames']);
         self::assertSame('og_image', $row['fieldname']);
-        self::assertSame(self::PAGE_OPEN, (int)$row['uid_foreign']);
-        self::assertSame(self::FILE_ONE, (int)$row['uid_local']);
-        self::assertSame(self::PAGE_OPEN, (int)$row['pid']);
-        self::assertSame(0, (int)$row['sys_language_uid']);
+        self::assertSame(self::PAGE_OPEN, (int) $row['uid_foreign']);
+        self::assertSame(self::FILE_ONE, (int) $row['uid_local']);
+        self::assertSame(self::PAGE_OPEN, (int) $row['pid']);
+        self::assertSame(0, (int) $row['sys_language_uid']);
 
         // The page has to count the reference, or EXT:seo renders nothing.
         self::assertSame(1, $this->counter('og_image'));
@@ -881,7 +881,7 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
 
         self::assertTrue($result->isError);
         self::assertStringContainsString('refused by TYPO3', $result->content);
-        self::assertSame([], array_filter($this->references('og_image'), static fn(array $row): bool => $row['deleted'] === 0));
+        self::assertSame([], array_filter($this->references('og_image'), static fn (array $row): bool => $row['deleted'] === 0));
         self::assertSame(0, $this->counter('og_image'));
     }
 
@@ -908,7 +908,7 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
         self::assertStringNotContainsString('previous reference', $result->content, 'there was none');
         self::assertSame(
             [],
-            array_filter($this->references('og_image'), static fn(array $row): bool => $row['deleted'] === 0),
+            array_filter($this->references('og_image'), static fn (array $row): bool => $row['deleted'] === 0),
             'no live reference in any language is left on the page',
         );
         self::assertSame(0, $this->counter('og_image'));
@@ -923,7 +923,7 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
         self::assertNotNull($retry->writeTarget);
         self::assertSame(
             [['uid' => $retry->writeTarget->uid, 'uid_local' => self::FILE_ONE, 'deleted' => 0]],
-            array_values(array_filter($this->references('og_image'), static fn(array $row): bool => $row['deleted'] === 0)),
+            array_values(array_filter($this->references('og_image'), static fn (array $row): bool => $row['deleted'] === 0)),
         );
         self::assertSame(1, $this->counter('og_image'));
     }
@@ -964,7 +964,7 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
                 ['uid' => 1, 'uid_local' => self::FILE_ONE, 'deleted' => 0],
                 ['uid' => 2, 'uid_local' => self::FILE_TWO, 'deleted' => 0],
             ],
-            array_values(array_filter($this->references('og_image'), static fn(array $row): bool => $row['deleted'] === 0)),
+            array_values(array_filter($this->references('og_image'), static fn (array $row): bool => $row['deleted'] === 0)),
             'the two previous references are the only live rows on the page, in any language',
         );
         self::assertCount(4, $this->references('og_image'), 'the new reference and the copy minted of it are still there, deleted');
@@ -1137,7 +1137,7 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('left as it was', $result->content);
         self::assertSame(
             [['uid' => 1, 'uid_local' => self::FILE_ONE, 'deleted' => 0]],
-            array_values(array_filter($this->references('og_image'), static fn(array $row): bool => $row['deleted'] === 0)),
+            array_values(array_filter($this->references('og_image'), static fn (array $row): bool => $row['deleted'] === 0)),
             'the previous reference is the only live row on the page, in any language',
         );
         self::assertSame(1, $this->counter('og_image'));
@@ -1165,7 +1165,7 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('taken back', $result->content);
         self::assertSame(
             [['uid' => 1, 'uid_local' => self::FILE_ONE, 'deleted' => 0]],
-            array_values(array_filter($this->references('og_image'), static fn(array $row): bool => $row['deleted'] === 0)),
+            array_values(array_filter($this->references('og_image'), static fn (array $row): bool => $row['deleted'] === 0)),
             'the replaced reference is the only live one; the new one was taken back',
         );
         self::assertSame(1, $this->counter('og_image'));

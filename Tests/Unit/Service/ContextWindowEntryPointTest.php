@@ -93,10 +93,10 @@ final class ContextWindowEntryPointTest extends AbstractUnitTestCase
         // Two public entry points, one payload, one effective budget: the point
         // of the epic is that the choice of API does not decide it.
         $viaChatFor = $this->captureThrough(
-            fn(LlmServiceManager $m, array $messages): mixed => $m->chatForConfiguration($messages, $this->configuration()),
+            fn (LlmServiceManager $m, array $messages): mixed => $m->chatForConfiguration($messages, $this->configuration()),
         );
         $viaChatWith = $this->captureThrough(
-            fn(LlmServiceManager $m, array $messages): mixed => $m->chatWithConfiguration($messages, $this->configuration()),
+            fn (LlmServiceManager $m, array $messages): mixed => $m->chatWithConfiguration($messages, $this->configuration()),
         );
 
         self::assertCount(count($viaChatFor), $viaChatWith);

@@ -150,7 +150,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     private function setPrivateProperty(object $object, string $property, mixed $value): void
     {
         $reflection = new ReflectionClass($object);
-        $prop = $reflection->getProperty($property);
+        $prop       = $reflection->getProperty($property);
         $prop->setValue($object, $value);
     }
 
@@ -169,7 +169,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame(self::TASK_NOT_FOUND, $body['error']);
@@ -187,7 +187,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame('Task is not active', $body['error']);
@@ -205,7 +205,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame(self::TASK_NOT_FOUND, $body['error']);
@@ -223,7 +223,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert - should still process as 404 (non-existent task)
         self::assertSame(404, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
     }
@@ -242,7 +242,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertArrayHasKey('tables', $body);
@@ -265,7 +265,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
 
@@ -289,7 +289,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
 
@@ -315,7 +315,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertArrayHasKey('records', $body);
@@ -336,7 +336,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
 
@@ -363,7 +363,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame('No table specified', $body['error']);
@@ -380,7 +380,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame('No table specified', $body['error']);
@@ -400,7 +400,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         // while MySQL/MariaDB raises a schema error mapped to 500. Both are
         // sane, non-crashing outcomes for an unknown table.
         self::assertContains($response->getStatusCode(), [200, 500]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         if ($response->getStatusCode() === 500) {
             self::assertFalse($body['success']);
@@ -424,7 +424,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         $records = $body['records'];
@@ -445,7 +445,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertSame('identifier', $body['labelField']);
@@ -508,7 +508,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame('Table and UIDs required', $body['error']);
@@ -525,7 +525,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame('Table and UIDs required', $body['error']);
@@ -542,7 +542,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertArrayHasKey('data', $body);
@@ -565,7 +565,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_LOAD_RECORD_DATA);
         $request = $request->withParsedBody([
             'table' => 'tx_nrllm_task',
-            'uids' => '9999,9998',
+            'uids'  => '9999,9998',
         ]);
 
         // Act
@@ -573,7 +573,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertSame(0, $body['recordCount']);
@@ -594,7 +594,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame(self::TASK_NOT_FOUND, $body['error']);
@@ -611,7 +611,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertArrayHasKey('inputData', $body);
@@ -633,7 +633,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame(self::TASK_NOT_FOUND, $body['error']);
@@ -658,7 +658,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertSame('syslog', $body['inputType']);
@@ -682,7 +682,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
 
@@ -708,8 +708,8 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         self::assertStringNotContainsString('Updated page', $inputData);
         self::assertStringNotContainsString('Deleted page', $inputData);
         $extension = strpos($inputData, 'Extension error:');
-        $attempts = strpos($inputData, 'Too many login attempts');
-        $login = strpos($inputData, 'Login failed for user:');
+        $attempts  = strpos($inputData, 'Too many login attempts');
+        $login     = strpos($inputData, 'Login failed for user:');
         self::assertIsInt($extension);
         self::assertIsInt($attempts);
         self::assertIsInt($login);
@@ -768,14 +768,14 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         $response = $controller->refreshInputAction($request);
 
         self::assertSame(200, $response->getStatusCode());
-        $json = (string)$response->getBody();
+        $json = (string) $response->getBody();
         self::assertJson($json);
         self::assertSame(
             [
-                'success' => true,
+                'success'   => true,
                 'inputData' => 'Actual deprecation input',
                 'inputType' => 'deprecation_log',
-                'isEmpty' => false,
+                'isEmpty'   => false,
             ],
             json_decode($json, true),
         );
@@ -801,7 +801,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
             $response = $this->recordsController->fetchRecordsAction($request);
 
             self::assertSame(200, $response->getStatusCode());
-            $body = json_decode((string)$response->getBody(), true);
+            $body = json_decode((string) $response->getBody(), true);
             self::assertIsArray($body);
             self::assertTrue($body['success']);
             self::assertSame([], $body['records']);
@@ -823,7 +823,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         // labelField should be detected from TCA or common fields
@@ -837,7 +837,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_LOAD_RECORD_DATA);
         $request = $request->withParsedBody([
             'table' => 'tx_nrllm_task',
-            'uids' => '1',
+            'uids'  => '1',
         ]);
 
         // Act
@@ -845,7 +845,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertSame(1, $body['recordCount']);
@@ -878,7 +878,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertSame(3, $body['recordCount']);
@@ -897,7 +897,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_LOAD_RECORD_DATA);
         $request = $request->withParsedBody([
             'table' => 'tx_nrllm_task',
-            'uids' => 'abc,def',
+            'uids'  => 'abc,def',
         ]);
 
         // Act
@@ -905,7 +905,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
         // Assert - should return 400 for invalid UIDs
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame('No valid UIDs provided', $body['error']);
@@ -921,7 +921,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
             ->method('execute')
             ->with(
                 self::callback(
-                    static fn(Task $task): bool => $task->getUid() === $taskUid,
+                    static fn (Task $task): bool => $task->getUid() === $taskUid,
                 ),
                 $input,
                 1,
@@ -948,18 +948,18 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         $response = $controller->executeAction($request);
 
         self::assertSame(200, $response->getStatusCode());
-        $json = (string)$response->getBody();
+        $json = (string) $response->getBody();
         self::assertJson($json);
         self::assertSame(
             [
-                'success' => true,
-                'content' => '<script>untrusted output</script>',
-                'model' => 'controller-oracle-model',
+                'success'      => true,
+                'content'      => '<script>untrusted output</script>',
+                'model'        => 'controller-oracle-model',
                 'outputFormat' => 'markdown',
-                'usage' => [
-                    'promptTokens' => 11,
+                'usage'        => [
+                    'promptTokens'     => 11,
                     'completionTokens' => 7,
-                    'totalTokens' => 18,
+                    'totalTokens'      => 18,
                 ],
                 'appliedSkills' => ['editor-skill'],
                 'correlationId' => 'task-controller-oracle-call',

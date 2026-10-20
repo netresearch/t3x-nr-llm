@@ -9,20 +9,20 @@ declare(strict_types=1);
 
 return [
     'ctrl' => [
-        'title' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet',
-        'label' => 'name',
-        'label_alt' => 'identifier',
-        'tstamp' => 'tstamp',
-        'crdate' => 'crdate',
-        'delete' => 'deleted',
-        'sortby' => 'sorting',
+        'title'          => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet',
+        'label'          => 'name',
+        'label_alt'      => 'identifier',
+        'tstamp'         => 'tstamp',
+        'crdate'         => 'crdate',
+        'delete'         => 'deleted',
+        'sortby'         => 'sorting',
         'default_sortby' => 'sorting ASC, name ASC',
-        'enablecolumns' => [
+        'enablecolumns'  => [
             'disabled' => 'hidden',
         ],
         'typeicon_classes' => ['default' => 'nrllm-record-snippet'],
-        'rootLevel' => -1,
-        'security' => [
+        'rootLevel'        => -1,
+        'security'         => [
             'ignorePageTypeRestriction' => true,
         ],
     ],
@@ -42,48 +42,48 @@ return [
     ],
     'palettes' => [
         'identity' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.identity',
+            'label'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.identity',
             'showitem' => 'identifier, --linebreak--, name, --linebreak--, description',
         ],
         'status' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.status',
+            'label'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.status',
             'showitem' => 'is_active, hidden',
         ],
     ],
     'columns' => [
         'hidden' => [
-            'label' => 'LLL:EXT:core/Resources/Private/Language/locallang_general.xlf:LGL.hidden',
+            'label'  => 'LLL:EXT:core/Resources/Private/Language/locallang_general.xlf:LGL.hidden',
             'config' => [
-                'type' => 'check',
+                'type'    => 'check',
                 'default' => 0,
             ],
         ],
         'identifier' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet.identifier',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet.identifier',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet.identifier.description',
-            'config' => [
-                'type' => 'input',
-                'size' => 30,
-                'max' => 100,
-                'trim' => true,
-                'eval' => 'alphanum_x,lower,unique',
-                'required' => true,
+            'config'      => [
+                'type'        => 'input',
+                'size'        => 30,
+                'max'         => 100,
+                'trim'        => true,
+                'eval'        => 'alphanum_x,lower,unique',
+                'required'    => true,
                 'placeholder' => 'persona-friendly-expert',
             ],
         ],
         'name' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet.name',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet.name',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet.name.description',
-            'config' => [
-                'type' => 'input',
-                'size' => 50,
-                'max' => 255,
-                'trim' => true,
+            'config'      => [
+                'type'     => 'input',
+                'size'     => 50,
+                'max'      => 255,
+                'trim'     => true,
                 'required' => true,
             ],
         ],
         'description' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet.description',
+            'label'  => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet.description',
             'config' => [
                 'type' => 'text',
                 'cols' => 40,
@@ -97,12 +97,12 @@ return [
         // reached before, and declaring is a per-record decision rather than a
         // value nobody set turning into a retroactive refusal.
         'data_class' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet.data_class',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet.data_class',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet.data_class.description',
-            'config' => [
-                'type' => 'select',
+            'config'      => [
+                'type'       => 'select',
                 'renderType' => 'selectSingle',
-                'items' => [
+                'items'      => [
                     ['label' => '', 'value' => ''],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.tool_data_class.publicContent', 'value' => 'publicContent'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.tool_data_class.editorContent', 'value' => 'editorContent'],
@@ -114,24 +114,24 @@ return [
             ],
         ],
         'tags' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet.tags',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet.tags',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet.tags.description',
-            'config' => [
-                'type' => 'input',
-                'size' => 50,
-                'max' => 255,
-                'trim' => true,
+            'config'      => [
+                'type'        => 'input',
+                'size'        => 50,
+                'max'         => 255,
+                'trim'        => true,
                 'placeholder' => 'audience, tone_of_voice',
             ],
         ],
         'snippet' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet.snippet',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet.snippet',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet.snippet.description',
-            'config' => [
-                'type' => 'text',
-                'cols' => 80,
-                'rows' => 8,
-                'required' => true,
+            'config'      => [
+                'type'        => 'text',
+                'cols'        => 80,
+                'rows'        => 8,
+                'required'    => true,
                 'placeholder' => 'Write for marketing professionals with limited technical background.',
             ],
         ],
@@ -145,26 +145,26 @@ return [
             // is granted: the DataHandler skips it for everyone else, and
             // the group form does not list it (ADR-214 item 8).
             'displayCond' => 'HIDE_FOR_NON_ADMINS',
-            'config' => [
+            'config'      => [
                 'type' => 'passthrough',
             ],
         ],
         'metadata' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet.metadata',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet.metadata',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet.metadata.description',
-            'config' => [
-                'type' => 'text',
-                'cols' => 40,
-                'rows' => 3,
+            'config'      => [
+                'type'        => 'text',
+                'cols'        => 40,
+                'rows'        => 3,
                 'placeholder' => '{"voice": "nova"}',
-                'searchable' => false,
+                'searchable'  => false,
             ],
         ],
         'is_active' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet.is_active',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet.is_active',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_promptsnippet.is_active.description',
-            'config' => [
-                'type' => 'check',
+            'config'      => [
+                'type'    => 'check',
                 'default' => 1,
             ],
         ],

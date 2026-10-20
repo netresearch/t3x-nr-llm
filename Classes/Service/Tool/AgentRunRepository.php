@@ -50,9 +50,9 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         $now        = time();
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE_RUN);
         $connection->insert(self::TABLE_RUN, [
-            'pid'                      => 0,
-            'uuid'                     => $uuid,
-            'status'                   => AgentRunStatus::RUNNING->value,
+            'pid'    => 0,
+            'uuid'   => $uuid,
+            'status' => AgentRunStatus::RUNNING->value,
             // Claimed at birth (ADR-141): a synchronous run owns its own lease,
             // so the write fence can arm on it. A remote tool declaring a write
             // without its operator setting the approval flag executes on THIS
@@ -77,7 +77,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             'crdate'                   => $now,
         ]);
 
-        return (int)$connection->lastInsertId();
+        return (int) $connection->lastInsertId();
     }
 
     public function enqueueRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $requestJson): int
@@ -85,8 +85,8 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         $now        = time();
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE_RUN);
         $connection->insert(self::TABLE_RUN, [
-            'pid'                      => 0,
-            'uuid'                     => $uuid,
+            'pid'  => 0,
+            'uuid' => $uuid,
             // QUEUED, not RUNNING: the run waits for a worker's atomic claim
             // (ADR-102). started_at stays 0 until the claim.
             'status'                   => AgentRunStatus::QUEUED->value,
@@ -106,10 +106,10 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             'finished_at'              => 0,
             'tstamp'                   => $now,
             'crdate'                   => $now,
-            'queued_at' => $now,
+            'queued_at'                => $now,
         ]);
 
-        return (int)$connection->lastInsertId();
+        return (int) $connection->lastInsertId();
     }
 
     /**
@@ -197,7 +197,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             ->set('total_prompt_tokens', $builder->createNamedParameter($promptTokens, Connection::PARAM_INT), false)
             ->set('total_completion_tokens', $builder->createNamedParameter($completionTokens, Connection::PARAM_INT), false)
             ->set('total_tokens', $builder->createNamedParameter($totalTokens, Connection::PARAM_INT), false)
-            ->set('estimated_cost', $builder->createNamedParameter((string)$estimatedCost, Connection::PARAM_STR), false)
+            ->set('estimated_cost', $builder->createNamedParameter((string) $estimatedCost, Connection::PARAM_STR), false)
             ->set('error_class', $errorClass)
             ->set('termination_reason', $terminationReason)
             // A terminal run is no longer suspended, queued or leased.
@@ -251,7 +251,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
                 $builder->expr()->in(
                     'status',
                     $builder->createNamedParameter(
-                        array_map(static fn(AgentRunStatus $status): string => $status->value, $from),
+                        array_map(static fn (AgentRunStatus $status): string => $status->value, $from),
                         Connection::PARAM_STR_ARRAY,
                     ),
                 ),
@@ -719,7 +719,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             ->fetchOne();
 
         // MAX() over zero rows is NULL — a run with no events yet.
-        return is_numeric($max) ? (int)$max : -1;
+        return is_numeric($max) ? (int) $max : -1;
     }
 
     public function countByStatus(int $since = 0): array
@@ -859,7 +859,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
                 ->executeQuery()
                 ->fetchAllAssociative();
 
-            $chunk = array_map(fn(array $row): int => self::toInt($row['uid'] ?? 0), $rows);
+            $chunk = array_map(fn (array $row): int => self::toInt($row['uid'] ?? 0), $rows);
             if ($chunk === []) {
                 break;
             }
@@ -990,5 +990,4 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             crdate: self::toInt($row['crdate'] ?? 0),
         );
     }
-
 }

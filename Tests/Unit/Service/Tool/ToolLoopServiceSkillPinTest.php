@@ -65,11 +65,11 @@ final class ToolLoopServiceSkillPinTest extends TestCase
 {
     use EnglishPreviewTranslatorTrait;
 
-    private const SKILL  = 3;
+    private const SKILL = 3;
 
     private const SOURCE = 1;
 
-    private const BODY   = 'Always answer in JSON.';
+    private const BODY = 'Always answer in JSON.';
 
     private InMemorySkillApprovalRepository $approvals;
 
@@ -110,7 +110,7 @@ final class ToolLoopServiceSkillPinTest extends TestCase
     #[Test]
     public function aRunWhoseInstructionStillHoldsResumesAndExecutes(): void
     {
-        $state = $this->suspend();
+        $state         = $this->suspend();
         $this->queue[] = $this->response('done');
 
         $result = $this->service()->resume($state, true, $this->configuration(), ToolExecutionContext::none());
@@ -336,7 +336,7 @@ final class ToolLoopServiceSkillPinTest extends TestCase
         $manager = self::createStub(LlmServiceManagerInterface::class);
         $manager->method('chatWithToolsForConfiguration')->willReturnCallback(
             function (): CompletionResponse {
-                $this->modelCalls++;
+                ++$this->modelCalls;
                 $next = array_shift($this->queue);
                 if (!$next instanceof CompletionResponse) {
                     throw new RuntimeException('Scripted response queue underflow.', 1791500190);

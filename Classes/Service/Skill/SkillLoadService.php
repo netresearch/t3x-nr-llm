@@ -33,7 +33,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
  * Admission against the context window (item 7) is the loop's step, because
  * it needs the transcript and the tool schemas of the next send.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class SkillLoadService
 {
@@ -67,7 +67,7 @@ final readonly class SkillLoadService
                 : SkillLoadOutcome::refused(sprintf('Skill "%s" is already loaded in another version; this run keeps that version.', $entry->name));
         }
 
-        if (!$this->lookup->isAttachedOnDemand((int)$configuration->getUid(), $skillUid)) {
+        if (!$this->lookup->isAttachedOnDemand((int) $configuration->getUid(), $skillUid)) {
             return SkillLoadOutcome::refused(sprintf('Skill "%s" is no longer offered by this configuration.', $entry->name));
         }
 

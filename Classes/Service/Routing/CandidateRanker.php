@@ -82,10 +82,10 @@ final readonly class CandidateRanker
 
         usort(
             $scored,
-            fn(array $a, array $b): int => $this->compare($a, $b, $preferLowestCost),
+            fn (array $a, array $b): int => $this->compare($a, $b, $preferLowestCost),
         );
 
-        return array_map(static fn(array $entry): RoutingCandidate => $entry['candidate'], $scored);
+        return array_map(static fn (array $entry): RoutingCandidate => $entry['candidate'], $scored);
     }
 
     /**
@@ -166,8 +166,8 @@ final readonly class CandidateRanker
             'cost'    => $preferLowestCost || $mode->alwaysWeighsCost() ? $mode->costWeight() : 0.0,
         ];
 
-        $weighted   = 0.0;
-        $weightSum  = 0.0;
+        $weighted  = 0.0;
+        $weightSum = 0.0;
         foreach ($weights as $signal => $weight) {
             $value = $signals[$signal] ?? null;
             if ($weight <= 0.0) {
@@ -178,7 +178,7 @@ final readonly class CandidateRanker
                 continue;
             }
 
-            $weighted  += $weight * $value;
+            $weighted += $weight * $value;
             $weightSum += $weight;
         }
 

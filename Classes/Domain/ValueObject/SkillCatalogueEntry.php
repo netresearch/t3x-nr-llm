@@ -13,7 +13,7 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  * One loadable skill of a {@see SkillCatalogue}: named by its uid (identifiers
  * are unique only per source), with the version digest the catalogue saw.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class SkillCatalogueEntry
 {

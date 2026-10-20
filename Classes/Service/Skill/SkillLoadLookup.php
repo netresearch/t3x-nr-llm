@@ -18,7 +18,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * reason {@see SkillRecordLookup} gives — the answer must be the stored value
  * now, not an object the run read when it started.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class SkillLoadLookup implements SkillLoadLookupInterface
 {
@@ -49,7 +49,7 @@ final readonly class SkillLoadLookup implements SkillLoadLookupInterface
             ->executeQuery()
             ->fetchOne();
 
-        return is_numeric($count) && (int)$count > 0;
+        return is_numeric($count) && (int) $count > 0;
     }
 
     public function loadableDigest(int $skillUid): ?string
@@ -82,7 +82,7 @@ final readonly class SkillLoadLookup implements SkillLoadLookupInterface
         // written in the backend is identified by its current fields, every
         // other one by what its sync stored (SkillComposer::isEditedInPlace()).
         $skill = new Skill();
-        $skill->setSource(is_numeric($row['source'] ?? null) ? (int)$row['source'] : 0);
+        $skill->setSource(is_numeric($row['source'] ?? null) ? (int) $row['source'] : 0);
         $skill->setVersionDigest(is_string($row['version_digest'] ?? null) ? $row['version_digest'] : '');
         $skill->setBodyChecksum(is_string($row['body_checksum'] ?? null) ? $row['body_checksum'] : '');
         if (!SkillComposer::isEditedInPlace($skill, $this->sources->find($skill->getSource()))) {
@@ -116,7 +116,7 @@ final readonly class SkillLoadLookup implements SkillLoadLookupInterface
             ->executeQuery()
             ->fetchOne();
 
-        return is_numeric($value) ? (int)$value : null;
+        return is_numeric($value) ? (int) $value : null;
     }
 
     public function trustLevel(int $skillUid): ?string

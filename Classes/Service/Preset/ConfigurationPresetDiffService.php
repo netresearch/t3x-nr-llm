@@ -85,7 +85,7 @@ final readonly class ConfigurationPresetDiffService
     private function addCriteriaChanges(array &$changes, ConfigurationPreset $preset, LlmConfiguration $record): void
     {
         $declared = $preset->criteria->toArray();
-        $current = $record->getModelSelectionCriteriaDTO()->toArray();
+        $current  = $record->getModelSelectionCriteriaDTO()->toArray();
 
         $this->addListChange($changes, 'criteria.capabilities', $current['capabilities'], $declared['capabilities']);
         $this->addListChange($changes, 'criteria.adapterTypes', $current['adapterTypes'], $declared['adapterTypes']);
@@ -110,7 +110,7 @@ final readonly class ConfigurationPresetDiffService
     private function addIntChange(array &$changes, string $field, int $current, int $declared): void
     {
         if ($current !== $declared) {
-            $changes[] = new PresetFieldDiff($field, (string)$current, (string)$declared);
+            $changes[] = new PresetFieldDiff($field, (string) $current, (string) $declared);
         }
     }
 
@@ -129,7 +129,7 @@ final readonly class ConfigurationPresetDiffService
      */
     private function addFloatChange(array &$changes, string $field, float $current, float $declared): void
     {
-        $currentScaled = round($current, self::FLOAT_SCALE);
+        $currentScaled  = round($current, self::FLOAT_SCALE);
         $declaredScaled = round($declared, self::FLOAT_SCALE);
         if (abs($currentScaled - $declaredScaled) >= 0.5 * 10 ** -self::FLOAT_SCALE) {
             $changes[] = new PresetFieldDiff(
@@ -163,7 +163,7 @@ final readonly class ConfigurationPresetDiffService
      */
     private function addToolGroupsChange(array &$changes, array $current, array $declared): void
     {
-        $currentSorted = $current;
+        $currentSorted  = $current;
         $declaredSorted = $declared;
         sort($currentSorted);
         sort($declaredSorted);

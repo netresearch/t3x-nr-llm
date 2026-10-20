@@ -44,8 +44,8 @@ final class StructuredPreviewRangesAreConfigurationTest extends AbstractFunction
     public function theRegisteredToolMeasuresAgainstTheConfiguredRange(): void
     {
         $this->getService(ConnectionPool::class)->getConnectionForTable('pages')->insert('pages', [
-            'uid' => 1, 'pid' => 0, 'title' => 'Home', 'doktype' => 1, 'slug' => '/', 'description' => 'Old',
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => 1, 'pid' => 0, 'title' => 'Home', 'doktype' => 1, 'slug' => '/', 'description' => 'Old',
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => 0,
         ]);
         $this->importFixture('BeUsers.csv');

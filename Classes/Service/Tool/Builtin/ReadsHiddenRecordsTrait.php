@@ -47,11 +47,11 @@ trait ReadsHiddenRecordsTrait
      */
     private function hiddenColumnOf(string $table): ?string
     {
-        $tca     = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
+        $tca        = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
         $definition = is_array($tca[$table] ?? null) ? $tca[$table] : [];
-        $ctrl    = is_array($definition['ctrl'] ?? null) ? $definition['ctrl'] : [];
-        $columns = is_array($ctrl['enablecolumns'] ?? null) ? $ctrl['enablecolumns'] : [];
-        $column  = $columns['disabled'] ?? null;
+        $ctrl       = is_array($definition['ctrl'] ?? null) ? $definition['ctrl'] : [];
+        $columns    = is_array($ctrl['enablecolumns'] ?? null) ? $ctrl['enablecolumns'] : [];
+        $column     = $columns['disabled'] ?? null;
 
         return is_string($column) && $column !== '' ? $column : null;
     }
@@ -91,7 +91,7 @@ trait ReadsHiddenRecordsTrait
             return false;
         }
 
-        $key         = $pageUid . ':' . $permission;
+        $key = $pageUid . ':' . $permission;
         $cache[$key] ??= is_array(BackendUtility::readPageAccess($pageUid, self::toStr($user->getPagePermsClause($permission))));
 
         return $cache[$key];

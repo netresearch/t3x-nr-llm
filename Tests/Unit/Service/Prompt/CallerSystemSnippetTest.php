@@ -195,7 +195,7 @@ final class CallerSystemSnippetTest extends TestCase
 
             public function log($level, string|Stringable $message, array $context = []): void
             {
-                $this->records[] = ['message' => (string)$message, 'context' => $context];
+                $this->records[] = ['message' => (string) $message, 'context' => $context];
             }
         };
         $snippet = $this->snippet();
@@ -257,7 +257,7 @@ final class CallerSystemSnippetTest extends TestCase
     {
         $repository = self::createStub(PromptSnippetRepository::class);
         $repository->method('findActiveByTag')->willReturnCallback(
-            static fn(string $tag): array => $tag === 'style' ? [$snippet] : [],
+            static fn (string $tag): array => $tag === 'style' ? [$snippet] : [],
         );
 
         return new ConfigurationSnippetResolver($repository, new PromptSnippetComposer());

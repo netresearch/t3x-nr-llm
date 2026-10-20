@@ -283,7 +283,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
                 $lines[] = $plan['subpages'] === []
                     ? $t(ApprovalPreviewLabel::DeleteSubpagesNone)
                     : $t(ApprovalPreviewLabel::DeleteSubpagesSome, count($plan['subpages']), count($plan['subpageTranslations']));
-                $counts  = [];
+                $counts = [];
                 foreach ($plan['recordCounts'] as $table => $count) {
                     $name     = $this->translator->tableLabel($user, $table);
                     $counts[] = $count < 0
@@ -313,8 +313,8 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
         }
 
         if ($plan['subpages'] !== []) {
-            $listed = implode(', ', array_slice(array_column($plan['subpages'], 1), 0, self::LISTED_UIDS));
-            $more   = count($plan['subpages']) - self::LISTED_UIDS;
+            $listed    = implode(', ', array_slice(array_column($plan['subpages'], 1), 0, self::LISTED_UIDS));
+            $more      = count($plan['subpages']) - self::LISTED_UIDS;
             $details[] = $t(
                 ApprovalPreviewLabel::TechnicalSubpages,
                 $more > 0 ? $listed . ' ' . $t(ApprovalPreviewLabel::TechnicalMore, $more) : $listed,
@@ -417,7 +417,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
             return self::NOT_PERMITTED;
         }
 
-        if ($table === self::PAGES_TABLE && (bool)($row['is_siteroot'] ?? false)) {
+        if ($table === self::PAGES_TABLE && (bool) ($row['is_siteroot'] ?? false)) {
             return sprintf(
                 "Refused: page [%d] is a site root. Deleting it takes a site offline, which is an administrator's "
                 . 'decision and not something this tool does.',
@@ -546,7 +546,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
                 $parent > 0                  => $this->contentCountOn([$parent], $language),
                 default                      => $this->contentCountOn($pageUids),
             },
-            'referencedBy' => $this->referencingRecordCount($table, $uid, [[$table, $uid], ...$translations, ...$subpages]),
+            'referencedBy'        => $this->referencingRecordCount($table, $uid, [[$table, $uid], ...$translations, ...$subpages]),
             'subpageTranslations' => $subpageTranslations,
             'translationOf'       => $table === self::PAGES_TABLE ? $parent : 0,
             'pageUids'            => $table === self::PAGES_TABLE && $parent === 0 ? $pageUids : [],
@@ -703,7 +703,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
             $table = self::toStr($table);
             $ctrl  = is_array($definition) && is_array($definition['ctrl'] ?? null) ? $definition['ctrl'] : [];
             if ($table === '' || $table === self::PAGES_TABLE
-                || ($user->check('tables_modify', $table) && !(bool)($ctrl['readOnly'] ?? false))
+                || ($user->check('tables_modify', $table) && !(bool) ($ctrl['readOnly'] ?? false))
             ) {
                 continue;
             }
@@ -858,7 +858,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
             return null;
         }
 
-        return array_sum(array_map(static fn(array $uids): int => count(array_unique($uids)), $drafts));
+        return array_sum(array_map(static fn (array $uids): int => count(array_unique($uids)), $drafts));
     }
 
     /**
@@ -933,13 +933,13 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
 
         return array_values(array_filter(
             array_map(self::toStr(...), array_keys($tca)),
-            fn(string $table): bool => $table !== '' && $this->isWorkspaceAware($table),
+            fn (string $table): bool => $table !== '' && $this->isWorkspaceAware($table),
         ));
     }
 
     private function isWorkspaceAware(string $table): bool
     {
-        return (bool)($this->ctrlOf($table)['versioningWS'] ?? false);
+        return (bool) ($this->ctrlOf($table)['versioningWS'] ?? false);
     }
 
     /**
@@ -1042,7 +1042,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
             ->executeQuery()
             ->fetchAllAssociative();
 
-        $excluded = array_map(static fn(array $record): string => $record[0] . ':' . $record[1], $goingAlong);
+        $excluded = array_map(static fn (array $record): string => $record[0] . ':' . $record[1], $goingAlong);
         $sources  = [];
         foreach ($rows as $row) {
             $source = self::toStr($row['tablename'] ?? '') . ':' . self::toInt($row['recuid'] ?? 0);

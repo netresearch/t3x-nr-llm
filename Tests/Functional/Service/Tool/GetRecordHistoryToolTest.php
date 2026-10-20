@@ -211,7 +211,7 @@ final class GetRecordHistoryToolTest extends AbstractFunctionalTestCase
         // inside a webmount, and group mounts are only inherited with the
         // options bits set.
         $groups->insert('be_groups', [
-            'uid' => 7, 'pid' => 0, 'title' => 'Readers',
+            'uid'           => 7, 'pid' => 0, 'title' => 'Readers',
             'tables_select' => 'tt_content,pages', 'db_mountpoints' => '9',
         ]);
         $groups->update('be_users', ['usergroup' => '7', 'options' => 3], ['uid' => 2]);
@@ -225,11 +225,11 @@ final class GetRecordHistoryToolTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(Connection::class, $connection);
 
         $connection->insert('pages', [
-            'uid' => $pageUid, 'pid' => 0, 'title' => 'Gated', 'doktype' => 1, 'sorting' => 1,
+            'uid'          => $pageUid, 'pid' => 0, 'title' => 'Gated', 'doktype' => 1, 'sorting' => 1,
             'perms_userid' => 1, 'perms_user' => 31, 'perms_everybody' => $permsEverybody,
         ]);
         $connection->insert('tt_content', [
-            'uid' => $contentUid, 'pid' => $pageUid, 'colPos' => 0, 'sorting' => 1,
+            'uid'   => $contentUid, 'pid' => $pageUid, 'colPos' => 0, 'sorting' => 1,
             'CType' => 'text', 'header' => 'B',
         ]);
         $connection->insert('sys_history', [

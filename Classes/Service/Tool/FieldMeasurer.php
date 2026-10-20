@@ -95,8 +95,8 @@ final readonly class FieldMeasurer
                 continue;
             }
 
-            $min = (int)$match[3];
-            $max = (int)$match[4];
+            $min = (int) $match[3];
+            $max = (int) $match[4];
             if ($min > $max) {
                 continue;
             }

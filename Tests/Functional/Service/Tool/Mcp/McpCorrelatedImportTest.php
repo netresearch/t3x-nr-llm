@@ -1,8 +1,11 @@
 <?php
 
-/* Copyright (c) 2025-2026 Netresearch DTT GmbH
- * SPDX-License-Identifier: GPL-2.0-or-later */
-declare (strict_types=1);
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool\Mcp;
 
@@ -49,9 +52,9 @@ final class McpCorrelatedImportTest extends AbstractFunctionalTestCase
         parent::setUp();
         $pool = $this->get(ConnectionPool::class);
         self::assertInstanceOf(ConnectionPool::class, $pool);
-        $this->pool = $pool;
+        $this->pool    = $pool;
         $this->servers = new McpServerRepository($pool);
-        $this->tools = new McpToolRepository($pool);
+        $this->tools   = new McpToolRepository($pool);
     }
 
     private function server(): McpServerRecord
@@ -60,16 +63,17 @@ final class McpCorrelatedImportTest extends AbstractFunctionalTestCase
         $db->insert(
             'tx_nrllm_mcp_server',
             [
-                'identifier' => 'srv',
-                'name' => 'Server',
-                'url' => 'https://mcp.example.com/rpc',
-                'data_class' => 'publicContent',
-                'enabled' => 1,
+                'identifier'    => 'srv',
+                'name'          => 'Server',
+                'url'           => 'https://mcp.example.com/rpc',
+                'data_class'    => 'publicContent',
+                'enabled'       => 1,
                 'import_status' => 'never_imported',
             ],
         );
-        $server = $this->servers->findByUid((int)$db->lastInsertId());
+        $server = $this->servers->findByUid((int) $db->lastInsertId());
         self::assertInstanceOf(McpServerRecord::class, $server);
+
         return $server;
     }
 
@@ -82,6 +86,7 @@ final class McpCorrelatedImportTest extends AbstractFunctionalTestCase
             new StreamFactory(),
         );
         $transport->setHttpClient($http);
+
         return new McpImportService(
             new McpClient(
                 $transport,
@@ -108,10 +113,10 @@ final class McpCorrelatedImportTest extends AbstractFunctionalTestCase
     private function tool(string $name): array
     {
         return [
-            'name' => $name,
+            'name'        => $name,
             'description' => 'Literal ' . $name,
             'inputSchema' => [
-                'type' => 'object',
+                'type'       => 'object',
                 'properties' => ['id' => ['type' => 'integer']],
             ],
         ];
@@ -137,7 +142,7 @@ final class McpCorrelatedImportTest extends AbstractFunctionalTestCase
     public function malformedFinalPageCannotUpdateHealthOrReconcileRealCatalogueRows(
         string $wire,
     ): void {
-        $server = $this->server();
+        $server  = $this->server();
         $initial = $this
             ->importer(
                 (new McpTestServer())->willHandshake()->willReturn(
@@ -154,7 +159,7 @@ final class McpCorrelatedImportTest extends AbstractFunctionalTestCase
             ['uid' => $server->uid],
         );
         $catalogue = $this->pool->getConnectionForTable('tx_nrllm_mcp_tool');
-        $states = new ToolStateRepository($this->pool);
+        $states    = new ToolStateRepository($this->pool);
         $states->setEnabled('mcp_srv_old_a', true);
         $states->setEnabled('mcp_srv_old_b', true);
 
@@ -184,6 +189,7 @@ final class McpCorrelatedImportTest extends AbstractFunctionalTestCase
                 $id = json_encode($request['id'], JSON_THROW_ON_ERROR);
                 if ($wire === 'SSE' || $wire === 'OVERSIZED') {
                     $reply = 'data: {"jsonrpc":"2.0","id":' . $id . ',"result":{"tools":[]}}' . "\n\n";
+
                     return $reply . ($wire === 'OVERSIZED' ? ':' . str_repeat(' ', 2 * 1024 * 1024) . "\n\n" : '') . $reply;
                 }
 
@@ -240,7 +246,7 @@ final class McpCorrelatedImportTest extends AbstractFunctionalTestCase
     public function aHealthyMatchedFinalPageReconcilesAndRecordsRealHealth(): void
     {
         $server = $this->server();
-        $http = (new McpTestServer())
+        $http   = (new McpTestServer())
             ->willHandshake('session-healthy')
             ->willReturn(['tools' => [$this->tool('first')], 'nextCursor' => 'last'])
             ->willReturn(['tools' => [$this->tool('second')]]);
@@ -250,7 +256,7 @@ final class McpCorrelatedImportTest extends AbstractFunctionalTestCase
         self::assertSame(
             ['mcp_srv_first', 'mcp_srv_second'],
             array_map(
-                static fn(McpToolRecord $tool): string => $tool->toolName,
+                static fn (McpToolRecord $tool): string => $tool->toolName,
                 $this->tools->findLiveByServer($server->uid),
             ),
         );

@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service;
 
@@ -62,6 +63,7 @@ final class ServingGeneratorCacheReplayTest extends AbstractFunctionalTestCase
         $configuration->setIdentifier('evaluation');
         $configuration->setIsActive(true);
         $configuration->setLlmModel($model);
+
         return $configuration;
     }
 
@@ -71,6 +73,7 @@ final class ServingGeneratorCacheReplayTest extends AbstractFunctionalTestCase
     ): LlmServiceManager {
         $extension = self::createStub(ExtensionConfiguration::class);
         $extension->method('get')->willReturn(['providers' => []]);
+
         return $this->createLlmServiceManager(
             $extension,
             new NullLogger(),
@@ -87,16 +90,16 @@ final class ServingGeneratorCacheReplayTest extends AbstractFunctionalTestCase
         foreach (['TYPO3_CONF_VARS', 'EXEC_TIME'] as $key) {
             $snapshot[$key] = [
                 'present' => array_key_exists($key, $GLOBALS),
-                'value' => $GLOBALS[$key] ?? null,
+                'value'   => $GLOBALS[$key] ?? null,
             ];
         }
 
         $directory = sys_get_temp_dir() . '/nrllm-generator-cache-' . bin2hex(random_bytes(8));
         try {
-            $config = is_array($snapshot['TYPO3_CONF_VARS']['value']) ? $snapshot['TYPO3_CONF_VARS']['value'] : [];
-            $sys = is_array($config['SYS'] ?? null) ? $config['SYS'] : [];
+            $config               = is_array($snapshot['TYPO3_CONF_VARS']['value']) ? $snapshot['TYPO3_CONF_VARS']['value'] : [];
+            $sys                  = is_array($config['SYS'] ?? null) ? $config['SYS'] : [];
             $sys['encryptionKey'] = 'generator-test-only';
-            $config['SYS'] = $sys;
+            $config['SYS']        = $sys;
             // FileBackend consumes these globals; install the fixture state as one map.
             foreach (['TYPO3_CONF_VARS' => $config, 'EXEC_TIME' => time()] as $key => $value) {
                 $GLOBALS[$key] = $value;
@@ -125,8 +128,8 @@ final class ServingGeneratorCacheReplayTest extends AbstractFunctionalTestCase
                 [
                     'nrllm_idempotency' => [
                         'frontend' => VariableFrontend::class,
-                        'backend' => FileBackend::class,
-                        'options' => ['cacheDirectory' => $directory],
+                        'backend'  => FileBackend::class,
+                        'options'  => ['cacheDirectory' => $directory],
                     ],
                 ],
             );
@@ -159,7 +162,7 @@ final class ServingGeneratorCacheReplayTest extends AbstractFunctionalTestCase
             );
             $messages = [['role' => 'user', 'content' => 'Question']];
             $metadata = [IdempotencyMiddleware::METADATA_IDEMPOTENCY_KEY => 'same-request'];
-            $first = $manager->chatWithConfiguration(
+            $first    = $manager->chatWithConfiguration(
                 $messages,
                 $this->configuration('original-instance', 'served-alias'),
                 $metadata,
@@ -174,10 +177,10 @@ final class ServingGeneratorCacheReplayTest extends AbstractFunctionalTestCase
             self::assertSame($first->metadata, $replayed->metadata);
             self::assertSame(
                 [
-                    'version' => 1,
+                    'version'            => 1,
                     'providerIdentifier' => 'original-instance',
-                    'modelId' => 'served-alias',
-                    'reportedModelId' => 'served-snapshot',
+                    'modelId'            => 'served-alias',
+                    'reportedModelId'    => 'served-snapshot',
                 ],
                 $replayed->metadata[self::KEY] ?? null,
             );

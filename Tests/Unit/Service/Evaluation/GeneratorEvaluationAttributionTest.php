@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Evaluation;
 
@@ -43,14 +44,14 @@ final class GeneratorEvaluationAttributionTest extends TestCase
         bool $eligible,
     ): void {
         $responses = [];
-        $prompts = [];
+        $prompts   = [];
         foreach ($identities as $index => [$provider, $alias, $reported, $responseModel]) {
             $metadata = $provider === null ? null : [
                 GeneratorProvenance::METADATA_KEY => [
-                    'version' => 1,
+                    'version'            => 1,
                     'providerIdentifier' => $provider,
-                    'modelId' => $alias,
-                    'reportedModelId' => $reported,
+                    'modelId'            => $alias,
+                    'reportedModelId'    => $reported,
                 ],
             ];
             $responses[] = new CompletionResponse(

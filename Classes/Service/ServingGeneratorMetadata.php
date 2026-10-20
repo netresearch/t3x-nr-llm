@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service;
 
@@ -27,10 +28,10 @@ final class ServingGeneratorMetadata
     ): CompletionResponse {
         $record = GeneratorProvenance::fromArray(
             [
-                'version' => 1,
+                'version'            => 1,
                 'providerIdentifier' => $model?->getProvider()?->getIdentifier(),
-                'modelId' => $callOptions['model'] ?? null,
-                'reportedModelId' => $response->model,
+                'modelId'            => $callOptions['model'] ?? null,
+                'reportedModelId'    => $response->model,
             ],
         );
         $metadata = $response->metadata;

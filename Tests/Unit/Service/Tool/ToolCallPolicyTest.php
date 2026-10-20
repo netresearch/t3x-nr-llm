@@ -446,7 +446,7 @@ final class ToolCallPolicyTest extends TestCase
 
         $decisions = $policy->explain($registry->names(), $this->configuration(TrustZone::LOCAL), $this->admin());
 
-        self::assertSame([true, true, false], array_map(static fn(ToolPolicyDecision $d): bool => $d->allowed, $decisions));
+        self::assertSame([true, true, false], array_map(static fn (ToolPolicyDecision $d): bool => $d->allowed, $decisions));
         self::assertSame(1, $availability->calls);
     }
 

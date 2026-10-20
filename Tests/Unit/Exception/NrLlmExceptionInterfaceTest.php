@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Exception;
 
@@ -45,7 +46,7 @@ final class NrLlmExceptionInterfaceTest extends TestCase
     public function everyExceptionClassImplementsTheMarkerInterface(): void
     {
         $checked = [];
-        $finder = new NodeFinder();
+        $finder  = new NodeFinder();
         foreach ($this->sourceAsts() as [$path, $ast]) {
             require_once $path;
             foreach ($finder->findInstanceOf($ast, Class_::class) as $declaration) {
@@ -54,7 +55,7 @@ final class NrLlmExceptionInterfaceTest extends TestCase
                 }
 
                 /** @var class-string $class */
-                $class = $declaration->namespacedName->toString();
+                $class      = $declaration->namespacedName->toString();
                 $reflection = new ReflectionClass($class);
                 if (!$reflection->isSubclassOf(Throwable::class)) {
                     continue;
@@ -145,8 +146,8 @@ final class NrLlmExceptionInterfaceTest extends TestCase
     #[Test]
     public function directlyConstructedExceptionTypesHaveTheMarker(): void
     {
-        $finder = new NodeFinder();
-        $violations = [];
+        $finder       = new NodeFinder();
+        $violations   = [];
         $checkedFiles = 0;
         foreach ($this->sourceAsts() as [$path, $ast]) {
             foreach ($finder->findInstanceOf($ast, New_::class) as $node) {
@@ -158,7 +159,7 @@ final class NrLlmExceptionInterfaceTest extends TestCase
                 if ($type instanceof Class_ && $type->extends instanceof Name && is_a($type->extends->toString(), Throwable::class, true) && !is_a($type->extends->toString(), NrLlmExceptionInterface::class, true) && !in_array(
                     NrLlmExceptionInterface::class,
                     array_map(
-                        static fn(Name $name): string => $name->toString(),
+                        static fn (Name $name): string => $name->toString(),
                         $type->implements,
                     ),
                     true,

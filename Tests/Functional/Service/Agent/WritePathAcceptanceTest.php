@@ -110,9 +110,9 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
  * What changed is which segment holds a lease, not what a lease does:
  *
  * 1. A resume CLAIMS the run under its own identity
- *    ({@see \Netresearch\NrLlm\Service\Tool\AgentRunRepository::claimForResume()}
+ *    ({@see AgentRunRepository::claimForResume()}
  *    writes `claimed_by`/`lease_expires` instead of clearing them), and
- *    {@see \Netresearch\NrLlm\Service\Agent\ResumeCoordinator} threads that
+ *    {@see ResumeCoordinator} threads that
  *    identity into `executeResume()`.
  * 2. A synchronous run claims at birth, so the first pass is fenced too — which
  *    matters for a remote tool that declares a write without its operator
@@ -165,9 +165,9 @@ final class WritePathAcceptanceTest extends AbstractFunctionalTestCase
         $this->importFixture('BeUsers.csv');
 
         $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
-            'uid' => self::PAGE, 'pid' => 0, 'title' => 'Home', 'doktype' => 1, 'slug' => '/',
-            'sorting' => 1, 'description' => self::OLD_DESCRIPTION,
-            'perms_userid' => self::OWNER, 'perms_user' => Permission::ALL,
+            'uid'           => self::PAGE, 'pid' => 0, 'title' => 'Home', 'doktype' => 1, 'slug' => '/',
+            'sorting'       => 1, 'description' => self::OLD_DESCRIPTION,
+            'perms_userid'  => self::OWNER, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => 0,
         ]);
 
@@ -262,7 +262,7 @@ final class WritePathAcceptanceTest extends AbstractFunctionalTestCase
         //    gate the execution passes — and the resume executes the turn.
         $approved = $runtime->approve($this->approver(), $uuid, new ApprovalDecision(true, self::APPROVER, $card->turnDigest));
 
-        self::assertSame(AgentRunOutcome::COMPLETED, $approved->outcome, (string)$approved->error?->getMessage());
+        self::assertSame(AgentRunOutcome::COMPLETED, $approved->outcome, (string) $approved->error?->getMessage());
         self::assertSame(AgentRunStatus::COMPLETED, $this->storedRun($uuid)->statusEnum());
 
         // 6. The record actually changed — read back from `pages`, not from the
@@ -278,7 +278,7 @@ final class WritePathAcceptanceTest extends AbstractFunctionalTestCase
 
         // 8. The run's own audit stream carries the decision and the executed
         //    write, in that order.
-        $events = $this->events($suspended);
+        $events   = $this->events($suspended);
         $approval = $this->firstEventOfKind($events, AgentEventKind::APPROVAL);
         self::assertTrue($approval->payload['approved'] ?? null);
         self::assertSame(self::APPROVER, $approval->payload['decidedBy'] ?? null);
@@ -309,7 +309,7 @@ final class WritePathAcceptanceTest extends AbstractFunctionalTestCase
         $card      = $this->cardFor($suspended, $this->viewer(self::OWNER));
 
         $approved = $runtime->approve($this->approver(), $uuid, new ApprovalDecision(true, self::APPROVER, $card->turnDigest));
-        self::assertSame(AgentRunOutcome::COMPLETED, $approved->outcome, (string)$approved->error?->getMessage());
+        self::assertSame(AgentRunOutcome::COMPLETED, $approved->outcome, (string) $approved->error?->getMessage());
 
         // The write happened — the fence must not have prevented it.
         self::assertSame(self::NEW_DESCRIPTION, $this->pageRow()['description'] ?? null);
@@ -346,7 +346,7 @@ final class WritePathAcceptanceTest extends AbstractFunctionalTestCase
 
         // The run itself completes: the model is told its call was refused and
         // answers. "Denied" is not "failed".
-        self::assertSame(AgentRunOutcome::COMPLETED, $denied->outcome, (string)$denied->error?->getMessage());
+        self::assertSame(AgentRunOutcome::COMPLETED, $denied->outcome, (string) $denied->error?->getMessage());
 
         // The point of the run: the database is exactly as it was.
         self::assertSame(self::OLD_DESCRIPTION, $this->pageRow()['description'] ?? null);
@@ -673,6 +673,6 @@ final class WritePathAcceptanceTest extends AbstractFunctionalTestCase
             ->executeQuery()
             ->fetchAllAssociative();
 
-        return array_values(array_unique(array_map(static fn(array $row): int => (int)($row['userid'] ?? 0), $rows)));
+        return array_values(array_unique(array_map(static fn (array $row): int => (int) ($row['userid'] ?? 0), $rows)));
     }
 }

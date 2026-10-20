@@ -122,8 +122,8 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
                         'description' => 'The tt_content uid of the single element to change.',
                     ],
                     'fields' => [
-                        'type'                 => 'object',
-                        'description'          => 'The columns to set, as {column: value}. A refusal names the columns '
+                        'type'        => 'object',
+                        'description' => 'The columns to set, as {column: value}. A refusal names the columns '
                             . "the element's type offers.",
                         // The boolean form the creating writer ships: a type
                         // ARRAY is a union type Gemini's dialect cannot express.
@@ -159,7 +159,7 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
         $notTaken = $stored === null
             ? array_keys($plan['fields'])
             : [...$this->fieldsThatDidNotTake($stored, $plan['fields'], $plan['type']), ...$this->unchangedThoughAsked($stored, $plan)];
-        $notTaken   = array_values(array_unique($notTaken));
+        $notTaken = array_values(array_unique($notTaken));
 
         $complaints = $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . rtrim($this->summariseErrors($dataHandler->errorLog), '.') . '.';
 
@@ -167,7 +167,7 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
         // not already hold the value.
         $changed = [];
         foreach ($plan['fields'] as $column => $value) {
-            if (!in_array($column, $notTaken, true) && (string)$value !== self::toStr($plan['before'][$column] ?? '')) {
+            if (!in_array($column, $notTaken, true) && (string) $value !== self::toStr($plan['before'][$column] ?? '')) {
                 $changed[] = $column;
             }
         }
@@ -257,8 +257,8 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
 
         $columns = $this->columnsOfType($plan['type']);
         foreach ($plan['fields'] as $column => $new) {
-            $config = $columns[$column] ?? [];
-            $old    = $plan['before'][$column] ?? '';
+            $config             = $columns[$column] ?? [];
+            $old                = $plan['before'][$column] ?? '';
             [$line, $technical] = $this->fieldChange(
                 $t,
                 $q,
@@ -308,7 +308,7 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
         foreach ($plan['fields'] as $column => $new) {
             $config    = $columns[$column] ?? [];
             $kind      = self::toStr($config['type'] ?? '');
-            $proposed  = (string)$new;
+            $proposed  = (string) $new;
             $entries[] = new FieldProposal(
                 $column,
                 $this->translator->columnLabel($reader, self::TABLE, $column, $plan['type']),
@@ -319,7 +319,7 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
                     $column,
                     $proposed,
                     $kind === 'input',
-                    $kind === 'text' && (bool)($config['enableRichtext'] ?? false),
+                    $kind === 'text' && (bool) ($config['enableRichtext'] ?? false),
                 ),
             );
         }
@@ -426,7 +426,7 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
             return sprintf(
                 'Refused: the acting backend user holds no field-level ("exclude field") grant for %s. Nothing was '
                 . 'written.',
-                implode(', ', array_map(static fn(string $column): string => self::TABLE . ':' . $column, $ungranted)),
+                implode(', ', array_map(static fn (string $column): string => self::TABLE . ':' . $column, $ungranted)),
             );
         }
 
@@ -465,8 +465,8 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
      */
     private function collectUpdateFields(array $raw, string $type, array $element, BackendUserAuthentication $user): array|string
     {
-        $columns  = $this->columnsOfType($type);
-        $editable = $this->editableColumnsOf($type);
+        $columns       = $this->columnsOfType($type);
+        $editable      = $this->editableColumnsOf($type);
         $isTranslation = $this->translationParentOf(self::TABLE, $element) > 0;
 
         $fields = [];
@@ -517,12 +517,12 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
             // The DataHandler asks `authMode` for every select declaring it and
             // drops a value the user is not allowed in silence.
             if (self::toStr($columns[$column]['type'] ?? '') === 'select'
-                && (bool)($columns[$column]['authMode'] ?? false)
-                && !$user->checkAuthMode(self::TABLE, $column, (string)$checked[0])
+                && (bool) ($columns[$column]['authMode'] ?? false)
+                && !$user->checkAuthMode(self::TABLE, $column, (string) $checked[0])
             ) {
                 return sprintf(
                     'Refused: the acting backend user is not allowed the value "%s" for "%s". Nothing was written.',
-                    (string)$checked[0],
+                    (string) $checked[0],
                     $column,
                 );
             }
@@ -560,7 +560,7 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
             }
 
             $before = self::toStr($plan['before'][$column] ?? '');
-            if ((string)$value !== $before && self::toStr($stored[$column] ?? '') === $before) {
+            if ((string) $value !== $before && self::toStr($stored[$column] ?? '') === $before) {
                 $notTaken[] = $column;
             }
         }
@@ -631,12 +631,12 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
                 continue;
             }
 
-            $rule = $this->tceFormRuleRemoving($rules, $column, $type, (string)$value);
+            $rule = $this->tceFormRuleRemoving($rules, $column, $type, (string) $value);
             if ($rule !== null) {
                 return sprintf(
                     'Refused: the value "%s" for "%s" is not offered on page [%d] by its page TSconfig (%s). Nothing was '
                     . 'written.',
-                    (string)$value,
+                    (string) $value,
                     $column,
                     $pageUid,
                     $rule,

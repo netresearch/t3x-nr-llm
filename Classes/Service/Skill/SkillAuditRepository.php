@@ -58,9 +58,9 @@ final readonly class SkillAuditRepository implements SkillAuditRepositoryInterfa
             // scan_result and detail are free-form content; gate them through
             // the central privacy policy before persisting (ADR-064). All other
             // columns are metadata and are always kept.
-            'scan_result'      => $this->privacyPolicy->filterContent($scanResult) ?? '',
-            'actor_uid'        => $actorUid,
-            'detail'           => $this->privacyPolicy->filterContent($detail) ?? '',
+            'scan_result' => $this->privacyPolicy->filterContent($scanResult) ?? '',
+            'actor_uid'   => $actorUid,
+            'detail'      => $this->privacyPolicy->filterContent($detail) ?? '',
         ]);
     }
 

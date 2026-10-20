@@ -65,7 +65,7 @@ final readonly class WaitingRunViewFactory
      */
     public function buildWaiting(array $runs, ?BackendUserAuthentication $viewer = null): array
     {
-        return array_map(fn(AgentRun $run): WaitingRunView => $this->buildWaitingOne($run, $viewer), $runs);
+        return array_map(fn (AgentRun $run): WaitingRunView => $this->buildWaitingOne($run, $viewer), $runs);
     }
 
     /**
@@ -86,7 +86,7 @@ final readonly class WaitingRunViewFactory
     public function buildTerminal(array $runs, ?AiActorContext $actor = null, array $decidersByRunUid = []): array
     {
         return array_map(
-            fn(AgentRun $run): TerminalRunView => new TerminalRunView(
+            fn (AgentRun $run): TerminalRunView => new TerminalRunView(
                 runUuid: $run->uuid,
                 status: $run->status,
                 createdAt: $run->crdate,
@@ -287,7 +287,7 @@ final readonly class WaitingRunViewFactory
             return [];
         }
 
-        return array_values(array_filter($entries, static fn(mixed $entry): bool => $entry instanceof FieldProposal));
+        return array_values(array_filter($entries, static fn (mixed $entry): bool => $entry instanceof FieldProposal));
     }
 
     /**
@@ -308,7 +308,7 @@ final readonly class WaitingRunViewFactory
 
         $uid = $viewer->user['uid'] ?? null;
 
-        return is_numeric($uid) && (int)$uid === $run->beUser;
+        return is_numeric($uid) && (int) $uid === $run->beUser;
     }
 
     /**
@@ -401,7 +401,7 @@ final readonly class WaitingRunViewFactory
             }
 
             /** @var array<string, mixed> $propSchema */
-            $name        = (string)$name;
+            $name        = (string) $name;
             $controlType = $this->classifier->classify($propSchema);
             $fields[]    = new InputFieldView(
                 name: $name,
@@ -453,7 +453,7 @@ final readonly class WaitingRunViewFactory
         }
 
         return array_values(array_map(
-            static fn(mixed $v): string => is_scalar($v) ? (string)$v : '',
+            static fn (mixed $v): string => is_scalar($v) ? (string) $v : '',
             $enum,
         ));
     }

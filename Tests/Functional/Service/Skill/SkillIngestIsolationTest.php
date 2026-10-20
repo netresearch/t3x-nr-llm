@@ -87,7 +87,7 @@ final class SkillIngestIsolationTest extends AbstractFunctionalTestCase
         $skill = $this->findSkill($source);
         self::assertInstanceOf(Skill::class, $skill);
         self::assertFalse($skill->isEnabled(), 'A high-confidence injection finding force-disables even single_file');
-        self::assertSame('sync', $this->disabledBy((int)$skill->getUid()), "the force-disable is the sync's");
+        self::assertSame('sync', $this->disabledBy((int) $skill->getUid()), "the force-disable is the sync's");
         self::assertTrue($skill->hasInjectionFindings());
 
         $events = $this->auditEvents($source);
@@ -109,14 +109,14 @@ final class SkillIngestIsolationTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(Skill::class, $skill);
 
         $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill')
-            ->update('tx_nrllm_skill', ['enabled' => 1, 'disabled_by' => ''], ['uid' => (int)$skill->getUid()]);
+            ->update('tx_nrllm_skill', ['enabled' => 1, 'disabled_by' => ''], ['uid' => (int) $skill->getUid()]);
         $this->persistenceManager()->clearState();
 
         $result = $this->service($this->github($body))->sync($source);
 
         self::assertSame(0, $result->disabledOnChange, 'the version did not change');
         self::assertSame(1, $result->injectionBlocked);
-        self::assertSame('sync', $this->disabledBy((int)$skill->getUid()));
+        self::assertSame('sync', $this->disabledBy((int) $skill->getUid()));
     }
 
     #[Test]
@@ -243,7 +243,7 @@ final class SkillIngestIsolationTest extends AbstractFunctionalTestCase
         $repository = $this->get(SkillRepository::class);
         self::assertInstanceOf(SkillRepository::class, $repository);
 
-        return $repository->findBySourceAndIdentifier((int)$source->getUid(), $source->getUid() . ':SKILL.md');
+        return $repository->findBySourceAndIdentifier((int) $source->getUid(), $source->getUid() . ':SKILL.md');
     }
 
     /**
@@ -251,13 +251,13 @@ final class SkillIngestIsolationTest extends AbstractFunctionalTestCase
      */
     private function auditEvents(SkillSource $source): array
     {
-        $rows = $this->auditRepository()->findBySourceUid((int)$source->getUid());
+        $rows = $this->auditRepository()->findBySourceUid((int) $source->getUid());
 
         return array_map(
             static function (array $row): string {
                 $event = $row['event'] ?? '';
 
-                return is_scalar($event) ? (string)$event : '';
+                return is_scalar($event) ? (string) $event : '';
             },
             $rows,
         );
@@ -268,7 +268,7 @@ final class SkillIngestIsolationTest extends AbstractFunctionalTestCase
      */
     private function auditRow(SkillSource $source, string $event): array
     {
-        foreach ($this->auditRepository()->findBySourceUid((int)$source->getUid()) as $row) {
+        foreach ($this->auditRepository()->findBySourceUid((int) $source->getUid()) as $row) {
             if (($row['event'] ?? '') === $event) {
                 return $row;
             }

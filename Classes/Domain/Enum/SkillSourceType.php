@@ -12,7 +12,7 @@ namespace Netresearch\NrLlm\Domain\Enum;
 enum SkillSourceType: string
 {
     case SINGLE_FILE = 'single_file';
-    case REPO = 'repo';
+    case REPO        = 'repo';
     case MARKETPLACE = 'marketplace';
 
     /**
@@ -27,7 +27,7 @@ enum SkillSourceType: string
      */
     public static function values(): array
     {
-        return array_map(static fn(self $c): string => $c->value, self::cases());
+        return array_map(static fn (self $c): string => $c->value, self::cases());
     }
 
     public static function isValid(string $value): bool

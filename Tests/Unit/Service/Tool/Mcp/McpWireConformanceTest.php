@@ -1,8 +1,11 @@
 <?php
 
-/* Copyright (c) 2025-2026 Netresearch DTT GmbH
- * SPDX-License-Identifier: GPL-2.0-or-later */
-declare (strict_types=1);
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Mcp;
 
@@ -47,6 +50,7 @@ final class McpWireConformanceTest extends AbstractUnitTestCase
             new StreamFactory(),
         );
         $transport->setHttpClient($http);
+
         return $transport;
     }
 
@@ -56,7 +60,7 @@ final class McpWireConformanceTest extends AbstractUnitTestCase
     private function exchange(McpTestServer $http): array
     {
         $response = null;
-        $error = null;
+        $error    = null;
         try {
             $response = $this
                 ->transport($http)
@@ -78,7 +82,7 @@ final class McpWireConformanceTest extends AbstractUnitTestCase
      */
     private function wire(string $template): Closure
     {
-        return static fn(array $request): string => str_replace(
+        return static fn (array $request): string => str_replace(
             '@ID@',
             json_encode($request['id'], JSON_THROW_ON_ERROR),
             $template,
@@ -148,7 +152,7 @@ final class McpWireConformanceTest extends AbstractUnitTestCase
     public function invalidReplyIsTypedSanitizedMalformed(
         string $template,
     ): void {
-        $http = (new McpTestServer())->willReturnRawForRequest($this->wire($template));
+        $http   = (new McpTestServer())->willReturnRawForRequest($this->wire($template));
         $actual = $this->exchange($http);
         self::assertInstanceOf(McpTransportException::class, $actual['error']);
         self::assertSame(1799990213, $actual['error']->getCode());
@@ -206,7 +210,7 @@ final class McpWireConformanceTest extends AbstractUnitTestCase
     public function literalMcpObjectAndEmptyObjectKeepTheArrayContract(): void
     {
         foreach ([
-            '{}' => [],
+            '{}'                                    => [],
             '{"tools":[],"nested":{"items":[1,2]}}' => ['tools' => [], 'nested' => ['items' => [1, 2]]],
         ] as $wire => $expected) {
             $actual = $this->exchange(
@@ -224,7 +228,7 @@ final class McpWireConformanceTest extends AbstractUnitTestCase
      */
     public static function invalidStreams(): iterable
     {
-        $ok = 'data: {"jsonrpc":"2.0","id":@ID@,"result":{"ok":true}}' . "\n\n";
+        $ok    = 'data: {"jsonrpc":"2.0","id":@ID@,"result":{"ok":true}}' . "\n\n";
         $wrong = 'data: {"jsonrpc":"2.0","id":"other","result":{"ok":false}}' . "\n\n";
         $error = 'data: {"jsonrpc":"2.0","id":@ID@,"error":{"code":-1,"message":"remote"}}' . "\n\n";
         yield 'unrelated then matched' => [$wrong . $ok];
@@ -259,7 +263,7 @@ final class McpWireConformanceTest extends AbstractUnitTestCase
     public function oneCompleteStreamIgnoresNotificationsAndPreservesMultilineData(): void
     {
         $template = ": comment\r\n\r\n" . 'data: {"jsonrpc":"2.0","method":"server/request","id":99,"params":{}}' . "\r\n\r\n" . 'event: message' . "\r\n" . 'data: {"jsonrpc":"2.0","id":@ID@,' . "\r\n" . 'data: "result":{"literal":"requested"}}' . "\r\n\r\n";
-        $actual = $this->exchange(
+        $actual   = $this->exchange(
             (new McpTestServer())->willReturnRawForRequest(
                 $this->wire($template),
                 'text/event-stream; charset=utf-8',
@@ -275,9 +279,9 @@ final class McpWireConformanceTest extends AbstractUnitTestCase
     #[Test]
     public function oversizedStreamNeverAcceptsThePrefix(): void
     {
-        $first = 'data: {"jsonrpc":"2.0","id":@ID@,"result":{"marker":"prefix"}}' . "\n\n";
+        $first    = 'data: {"jsonrpc":"2.0","id":@ID@,"result":{"marker":"prefix"}}' . "\n\n";
         $template = $first . ':' . str_repeat(' ', 2 * 1024 * 1024) . "\n\n" . $first;
-        $actual = $this->exchange(
+        $actual   = $this->exchange(
             (new McpTestServer())->willReturnRawForRequest(
                 $this->wire($template),
                 'text/event-stream',
@@ -296,11 +300,12 @@ final class McpWireConformanceTest extends AbstractUnitTestCase
                 $reply = json_encode(
                     [
                         'jsonrpc' => '2.0',
-                        'id' => $request['id'],
-                        'result' => ['marker' => 'limit'],
+                        'id'      => $request['id'],
+                        'result'  => ['marker' => 'limit'],
                     ],
                     JSON_THROW_ON_ERROR,
                 );
+
                 return $reply . str_repeat(' ', 2 * 1024 * 1024 - strlen($reply));
             },
         );
@@ -320,7 +325,7 @@ final class McpWireConformanceTest extends AbstractUnitTestCase
                 RequestInterface $request,
             ): ResponseInterface {
                 $decoded = json_decode(
-                    (string)$request->getBody(),
+                    (string) $request->getBody(),
                     true,
                     512,
                     JSON_THROW_ON_ERROR,
@@ -333,8 +338,8 @@ final class McpWireConformanceTest extends AbstractUnitTestCase
                         json_encode(
                             [
                                 'jsonrpc' => '2.0',
-                                'id' => $decoded['id'],
-                                'result' => ['marker' => 'prefix'],
+                                'id'      => $decoded['id'],
+                                'result'  => ['marker' => 'prefix'],
                             ],
                             JSON_THROW_ON_ERROR,
                         ),
@@ -364,7 +369,7 @@ final class McpWireConformanceTest extends AbstractUnitTestCase
             ->willHandshake('session-11')
             ->willReturn(['content' => [['type' => 'text', 'text' => 'called']]]);
         $transport = $this->transport($http);
-        $client = new McpClient(
+        $client    = new McpClient(
             $transport,
             new RecordedContacts(),
             new McpDeadlineFactory(
@@ -425,7 +430,7 @@ final class McpWireConformanceTest extends AbstractUnitTestCase
     #[Test]
     public function exhaustedCounterRefusesBeforeAnotherRequest(): void
     {
-        $http = (new McpTestServer())->willReturn([])->willReturn([]);
+        $http      = (new McpTestServer())->willReturn([])->willReturn([]);
         $transport = $this->transport($http);
         $transport->call(
             McpTestServer::server(),
@@ -458,7 +463,7 @@ final class McpWireConformanceTest extends AbstractUnitTestCase
     #[Test]
     public function aRealChildRotatesInheritedAllocatorStateBeforeSending(): void
     {
-        $http = (new McpTestServer())->willReturn([])->willReturn([]);
+        $http      = (new McpTestServer())->willReturn([])->willReturn([]);
         $transport = $this->transport($http);
         $transport->call(
             McpTestServer::server(),
@@ -515,8 +520,8 @@ final class McpWireConformanceTest extends AbstractUnitTestCase
         fclose($pipes[0]);
         stream_set_blocking($pipes[1], false);
         stream_set_blocking($pipes[2], false);
-        $stdout = '';
-        $stderr = '';
+        $stdout   = '';
+        $stderr   = '';
         $deadline = microtime(true) + 10;
         do {
             $stdout .= stream_get_contents($pipes[1]);
@@ -565,7 +570,7 @@ final class McpWireConformanceTest extends AbstractUnitTestCase
     public function nonResponseEventFramingRemainsIgnored(): void
     {
         $template = "data: not-json\n\ndata: []\n\n" . 'data: {"unrelated":"frame"}' . "\n\n" . 'data: {"jsonrpc":"2.0","id":@ID@,"result":{"marker":"matched"}}' . "\n\n";
-        $actual = $this->exchange(
+        $actual   = $this->exchange(
             (new McpTestServer())->willReturnRawForRequest(
                 $this->wire($template),
                 'text/event-stream',
@@ -590,7 +595,7 @@ final class McpWireConformanceTest extends AbstractUnitTestCase
                 ),
             );
         $contacts = new RecordedContacts();
-        $client = new McpClient(
+        $client   = new McpClient(
             $this->transport($http),
             $contacts,
             new McpDeadlineFactory(
@@ -615,17 +620,18 @@ final class McpWireConformanceTest extends AbstractUnitTestCase
     public function notificationDiscardsItsBodyWithoutAllocatingARequestId(): void
     {
         $requests = [];
-        $http = self::createStub(ClientInterface::class);
+        $http     = self::createStub(ClientInterface::class);
         $http
             ->method('sendRequest')
             ->willReturnCallback(
                 static function (
                     RequestInterface $request,
                 ) use (&$requests): ResponseInterface {
-                    $requests[] = (string)$request->getBody();
-                    $stream = new Stream('php://temp', 'rw');
+                    $requests[] = (string) $request->getBody();
+                    $stream     = new Stream('php://temp', 'rw');
                     $stream->write(str_repeat('x', 2 * 1024 * 1024 + 1));
                     $stream->rewind();
+
                     return (new Response())->withHeader(
                         'Content-Type',
                         'text/event-stream',
@@ -633,7 +639,7 @@ final class McpWireConformanceTest extends AbstractUnitTestCase
                 },
             );
         $transport = $this->transport($http);
-        $caught = null;
+        $caught    = null;
         try {
             $transport->notify(
                 McpTestServer::server(),

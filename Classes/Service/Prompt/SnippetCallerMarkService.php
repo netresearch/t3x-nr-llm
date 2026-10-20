@@ -32,7 +32,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * backend user, so who let a block into the caller's system channel can be
  * read back.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class SnippetCallerMarkService
 {
@@ -105,7 +105,7 @@ final readonly class SnippetCallerMarkService
 
     private function write(PromptSnippet $snippet, string $digest): void
     {
-        $uid = (int)$snippet->getUid();
+        $uid = (int) $snippet->getUid();
         if ($uid <= 0) {
             return;
         }
@@ -124,7 +124,7 @@ final readonly class SnippetCallerMarkService
             [
                 'snippet' => $uid,
                 'digest'  => $digest,
-                'beUser'  => $user instanceof BackendUserAuthentication && is_array($user->user) && is_numeric($user->user['uid'] ?? null) ? (int)$user->user['uid'] : 0,
+                'beUser'  => $user instanceof BackendUserAuthentication && is_array($user->user) && is_numeric($user->user['uid'] ?? null) ? (int) $user->user['uid'] : 0,
             ],
         );
     }

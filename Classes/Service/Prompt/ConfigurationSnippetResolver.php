@@ -27,7 +27,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
  * {@see \Netresearch\NrLlm\Service\MessageShaper::applySystemPrompt()}'s guard
  * and silently drop that prompt from the run.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class ConfigurationSnippetResolver
 {
@@ -84,7 +84,7 @@ final readonly class ConfigurationSnippetResolver
                 return $messages;
             }
 
-            $joined = $content === '' ? $block : $content . "\n\n" . $block;
+            $joined           = $content === '' ? $block : $content . "\n\n" . $block;
             $messages[$index] = $message instanceof ChatMessage ? ChatMessage::system($joined) : ['role' => 'system', 'content' => $joined] + $message;
 
             return $messages;

@@ -30,7 +30,7 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
  * Separate from {@see ContextWindowManagerInterface} so adding it breaks no
  * implementation of that interface.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 interface SectionAdmissionInterface
 {

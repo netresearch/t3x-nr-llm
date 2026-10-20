@@ -173,8 +173,8 @@ class LlmConfiguration extends AbstractEntity
 
     public function __construct()
     {
-        $this->beGroups = new ObjectStorage();
-        $this->skills = new ObjectStorage();
+        $this->beGroups       = new ObjectStorage();
+        $this->skills         = new ObjectStorage();
         $this->skillsOnDemand = new ObjectStorage();
     }
 
@@ -874,7 +874,7 @@ class LlmConfiguration extends AbstractEntity
     public function toChatOptions(): ChatOptions
     {
         $providerType = $this->getProviderType();
-        $modelId = $this->getModelId();
+        $modelId      = $this->getModelId();
 
         return new ChatOptions(
             temperature: $this->temperature,
@@ -898,10 +898,10 @@ class LlmConfiguration extends AbstractEntity
     public function toOptionsArray(): array
     {
         $options = [
-            'temperature' => $this->temperature,
-            'top_p' => $this->topP,
+            'temperature'       => $this->temperature,
+            'top_p'             => $this->topP,
             'frequency_penalty' => $this->frequencyPenalty,
-            'presence_penalty' => $this->presencePenalty,
+            'presence_penalty'  => $this->presencePenalty,
         ];
 
         // 0 = unset — omit the key so the resolved model's

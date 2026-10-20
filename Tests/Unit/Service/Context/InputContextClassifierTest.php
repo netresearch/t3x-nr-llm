@@ -51,7 +51,7 @@ final class InputContextClassifierTest extends TestCase
                 ['skill "house-style"', ToolDataClass::EDITOR_CONTENT],
             ],
             array_map(
-                static fn(InputContextClassification $c): array => [$c->source, $c->effective],
+                static fn (InputContextClassification $c): array => [$c->source, $c->effective],
                 $sources,
             ),
         );
@@ -85,7 +85,7 @@ final class InputContextClassifierTest extends TestCase
      */
     private function listed(array $sources): array
     {
-        return array_map(static fn(InputContextClassification $c): array => [$c->source, $c->effective], $sources);
+        return array_map(static fn (InputContextClassification $c): array => [$c->source, $c->effective], $sources);
     }
 
     #[Test]
@@ -109,7 +109,7 @@ final class InputContextClassifierTest extends TestCase
     #[Test]
     public function theEffectiveClassIsTheFoldOverTheListedSources(): void
     {
-        $classifier    = $this->classifier([
+        $classifier = $this->classifier([
             $this->snippet('tone-of-voice', ToolDataClass::PUBLIC_CONTENT->value),
             $this->snippet('legal-policy', ToolDataClass::SECRET_ADJACENT->value),
             $this->snippet('undeclared-fragment', ''),
@@ -151,7 +151,7 @@ final class InputContextClassifierTest extends TestCase
                 ['skill "forced-style"', ToolDataClass::EDITOR_CONTENT],
             ],
             array_map(
-                static fn(InputContextClassification $c): array => [$c->source, $c->effective],
+                static fn (InputContextClassification $c): array => [$c->source, $c->effective],
                 $sources,
             ),
         );
@@ -170,7 +170,7 @@ final class InputContextClassifierTest extends TestCase
 
         self::assertSame(
             ['snippet "legal-policy"', 'skill "house-style"'],
-            array_map(static fn(InputContextClassification $c): string => $c->source, $sources),
+            array_map(static fn (InputContextClassification $c): string => $c->source, $sources),
         );
     }
 

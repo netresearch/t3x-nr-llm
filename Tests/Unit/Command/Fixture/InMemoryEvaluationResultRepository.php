@@ -74,7 +74,8 @@ final class InMemoryEvaluationResultRepository implements GeneratorEvaluationRes
         string $grader,
     ): ?EvaluationResultSummary {
         $summary = $this->findLatest($setIdentifier, $modelId, $grader);
-        $record = $summary?->generatorProvenance;
+        $record  = $summary?->generatorProvenance;
+
         return $record?->providerIdentifier === $providerId && $record?->modelId === $modelId && $record?->reportedModelId === $reportedModelId ? $summary : null;
     }
 

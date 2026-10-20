@@ -104,9 +104,9 @@ class SegmentTest extends AbstractUnitTestCase
     public function fromWhisperResponseCreatesSegment(): void
     {
         $data = [
-            'text' => 'Hello World',
-            'start' => 0.0,
-            'end' => 2.5,
+            'text'        => 'Hello World',
+            'start'       => 0.0,
+            'end'         => 2.5,
             'avg_logprob' => -0.2,
         ];
 
@@ -135,9 +135,9 @@ class SegmentTest extends AbstractUnitTestCase
     public function fromWhisperResponseParsesWords(): void
     {
         $data = [
-            'text' => 'Hello World',
+            'text'  => 'Hello World',
             'start' => 0.0,
-            'end' => 2.0,
+            'end'   => 2.0,
             'words' => [
                 ['word' => 'Hello', 'start' => 0.0, 'end' => 1.0],
                 ['word' => 'World', 'start' => 1.0, 'end' => 2.0],

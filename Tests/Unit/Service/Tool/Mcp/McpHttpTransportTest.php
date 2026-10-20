@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Mcp;
 
@@ -155,7 +156,7 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
     public function unframesAnEventStreamThatCarriesTheResponse(): void
     {
         $fake = (new McpTestServer())->willReturnRawForRequest(
-            static fn(
+            static fn (
                 array $request,
             ): string => "event: message\r\nid: 7\r\ndata: {\"jsonrpc\":\"2.0\",\"id\":" . json_encode($request['id'], JSON_THROW_ON_ERROR) . ",\r\ndata:  \"result\":{\"tools\":[{\"name\":\"x\"}]}}\r\n\r\n",
             'text/event-stream; charset=utf-8',
@@ -171,9 +172,9 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
     public function passesOverAServerNotificationOnTheStreamAndTakesTheResponse(): void
     {
         $fake = (new McpTestServer())->willReturnRawForRequest(
-            static fn(
+            static fn (
                 array $request,
-            ): string => ": keep-alive\n\n" . "data: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/message\",\"params\":{\"level\":\"info\"}}\n\n" . 'data: {"jsonrpc":"2.0","id":' . json_encode($request['id'], JSON_THROW_ON_ERROR) . ",\"result\":{\"ok\":true}}\n\n",
+            ): string => ": keep-alive\n\ndata: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/message\",\"params\":{\"level\":\"info\"}}\n\n" . 'data: {"jsonrpc":"2.0","id":' . json_encode($request['id'], JSON_THROW_ON_ERROR) . ",\"result\":{\"ok\":true}}\n\n",
             'text/event-stream',
         );
         $answer = $this
@@ -322,11 +323,11 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
     #[Test]
     public function refusesToSendAnythingOnceTheBudgetIsSpent(): void
     {
-        $clock = new FakeMcpClock();
+        $clock    = new FakeMcpClock();
         $deadline = McpOperationDeadline::start($clock, 20);
         $clock->advanceSeconds(20.0);
 
-        $fake = (new McpTestServer())->willReturn(['tools' => []]);
+        $fake      = (new McpTestServer())->willReturn(['tools' => []]);
         $transport = $this->transportFor($fake);
 
         try {
@@ -456,7 +457,7 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
     public function refusesAValidReplyThatOverrunsTheReadCap(string $padding, string $contentType): void
     {
         $fake = (new McpTestServer())->willReturnRawForRequest(
-            static fn(array $request): string => self::reply($request, $contentType) . $padding,
+            static fn (array $request): string => self::reply($request, $contentType) . $padding,
             $contentType,
         );
         try {

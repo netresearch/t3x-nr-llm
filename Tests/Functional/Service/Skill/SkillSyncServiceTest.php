@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Skill;
 
@@ -101,7 +102,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         $value = $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill')
             ->select([$column], 'tx_nrllm_skill', ['uid' => $skillUid])->fetchOne();
 
-        return is_numeric($value) ? (int)$value : -1;
+        return is_numeric($value) ? (int) $value : -1;
     }
 
     private function repoSource(int $uid = 10): SkillSource
@@ -111,6 +112,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         $source->setType(SkillSourceType::REPO->value);
         $source->setUrl(self::REPO_URL);
         $source->setRef('main');
+
         return $source;
     }
 
@@ -121,6 +123,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         $source->setType(SkillSourceType::SINGLE_FILE->value);
         $source->setUrl(self::SINGLE_FILE_URL);
         $source->setRef('main');
+
         return $source;
     }
 
@@ -130,6 +133,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         $source->_setProperty('uid', $uid);
         $source->setType(SkillSourceType::MARKETPLACE->value);
         $source->setUrl(self::MARKET_URL);
+
         return $source;
     }
 
@@ -162,12 +166,12 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
      */
     private function marketGitHub(array $slugs, array $repoErrors = []): FakeGitHubClient
     {
-        $plugins = array_map(static fn(string $slug): array => ['source' => $slug], $slugs);
-        $repos = [];
+        $plugins = array_map(static fn (string $slug): array => ['source' => $slug], $slugs);
+        $repos   = [];
         foreach ($slugs as $i => $slug) {
             $repos[$slug] = [
-                'sha' => 'sha-' . $i,
-                'tree' => [self::SKILL_A_PATH],
+                'sha'    => 'sha-' . $i,
+                'tree'   => [self::SKILL_A_PATH],
                 'bodies' => [self::SKILL_A_PATH => $this->md('M' . $i, 'body ' . $i)],
             ];
         }
@@ -175,7 +179,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         return new FakeGitHubClient(
             repos: $repos,
             repoErrors: $repoErrors,
-            indexes: [self::MARKET_URL => (string)json_encode(['plugins' => $plugins])],
+            indexes: [self::MARKET_URL => (string) json_encode(['plugins' => $plugins])],
         );
     }
 
@@ -188,15 +192,15 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         $gitHub = new FakeGitHubClient(
             repos: [
                 'acme/market' => [
-                    'sha' => 'market-head',
-                    'tree' => [],
+                    'sha'    => 'market-head',
+                    'tree'   => [],
                     'bodies' => [
-                        '.claude-plugin/marketplace.json' => (string)json_encode(['plugins' => [['source' => 'acme/plugin1']]]),
+                        '.claude-plugin/marketplace.json' => (string) json_encode(['plugins' => [['source' => 'acme/plugin1']]]),
                     ],
                 ],
                 'acme/plugin1' => [
-                    'sha' => 'plugin-head',
-                    'tree' => [self::SKILL_A_PATH],
+                    'sha'    => 'plugin-head',
+                    'tree'   => [self::SKILL_A_PATH],
                     'bodies' => [self::SKILL_A_PATH => $this->md('Resolved', 'from repo url')],
                 ],
             ],
@@ -218,15 +222,15 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         // A github.com /blob/ view URL (copied from the browser) is converted to
         // its raw equivalent and fetched as the index — not treated as a repo.
         $rawIndex = 'https://raw.githubusercontent.com/acme/market/main/.claude-plugin/marketplace.json';
-        $gitHub = new FakeGitHubClient(
+        $gitHub   = new FakeGitHubClient(
             repos: [
                 'acme/plugin1' => [
-                    'sha' => 'plugin-head',
-                    'tree' => [self::SKILL_A_PATH],
+                    'sha'    => 'plugin-head',
+                    'tree'   => [self::SKILL_A_PATH],
                     'bodies' => [self::SKILL_A_PATH => $this->md('Blob', 'from blob url')],
                 ],
             ],
-            indexes: [$rawIndex => (string)json_encode(['plugins' => [['source' => 'acme/plugin1']]])],
+            indexes: [$rawIndex => (string) json_encode(['plugins' => [['source' => 'acme/plugin1']]])],
         );
 
         $source = $this->marketplaceSource();
@@ -267,7 +271,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         self::assertCount(2, $skills);
         foreach ($skills as $skill) {
             self::assertFalse($skill->isEnabled(), 'multi-skill discovery must default disabled');
-            self::assertSame('sync', $this->disabledBy((int)$skill->getUid()), 'a skill the sync left disabled is marked so');
+            self::assertSame('sync', $this->disabledBy((int) $skill->getUid()), 'a skill the sync left disabled is marked so');
         }
     }
 
@@ -280,8 +284,8 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
             'sha1',
             [self::SKILL_A_PATH, self::SKILL_B_PATH, 'skills/c/SKILL.md'],
             [
-                self::SKILL_A_PATH => $this->md('A', 'body a'),
-                self::SKILL_B_PATH => $this->mdWithTools('B', '[]', 'body b'),
+                self::SKILL_A_PATH  => $this->md('A', 'body a'),
+                self::SKILL_B_PATH  => $this->mdWithTools('B', '[]', 'body b'),
                 'skills/c/SKILL.md' => $this->mdWithTools('C', '[x]', 'body c'),
             ],
         );
@@ -328,11 +332,11 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
     public function resyncAutoDisablesEnabledSkillWhenBodyChanged(): void
     {
         $source = $this->repoSource();
-        $first = new FakeGitHubClient('sha1', [self::SKILL_A_PATH], [self::SKILL_A_PATH => $this->md('A', 'v1')]);
+        $first  = new FakeGitHubClient('sha1', [self::SKILL_A_PATH], [self::SKILL_A_PATH => $this->md('A', 'v1')]);
         $this->service($first)->sync($source);
 
         // Admin enables it.
-        $repo = $this->get(SkillRepository::class);
+        $repo  = $this->get(SkillRepository::class);
         $skill = $repo->findBySourceAndIdentifier(10, self::SKILL_A_ID);
         self::assertNotNull($skill);
         $skill->setEnabled(true);
@@ -347,8 +351,8 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         $reloaded = $repo->findBySourceAndIdentifier(10, self::SKILL_A_ID);
         self::assertNotNull($reloaded);
         self::assertFalse($reloaded->isEnabled(), 'changed enabled skill must auto-disable');
-        self::assertSame('sync', $this->disabledBy((int)$reloaded->getUid()), "a disable on change is the sync's");
-        self::assertSame('v2', trim((string)$reloaded->getBody()));
+        self::assertSame('sync', $this->disabledBy((int) $reloaded->getUid()), "a disable on change is the sync's");
+        self::assertSame('v2', trim((string) $reloaded->getBody()));
     }
 
     #[Test]
@@ -369,7 +373,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         $enabled = $this->get(SkillRepository::class)->findBySourceAndIdentifier(10, self::SKILL_B_ID);
         self::assertNotNull($enabled);
         $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill')
-            ->update('tx_nrllm_skill', ['enabled' => 1, 'disabled_by' => ''], ['uid' => (int)$enabled->getUid()]);
+            ->update('tx_nrllm_skill', ['enabled' => 1, 'disabled_by' => ''], ['uid' => (int) $enabled->getUid()]);
         $this->get(PersistenceManagerInterface::class)->clearState();
 
         $result = $this->service(new FakeGitHubClient('sha2', [self::SKILL_A_PATH], [
@@ -381,7 +385,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         self::assertNotNull($b);
         self::assertTrue($b->isOrphaned());
         self::assertFalse($b->isEnabled());
-        self::assertSame('sync', $this->disabledBy((int)$b->getUid()), 'an orphan is disabled by the sync');
+        self::assertSame('sync', $this->disabledBy((int) $b->getUid()), 'an orphan is disabled by the sync');
 
         // Re-added upstream: the record is no longer orphaned, stays disabled,
         // and keeps the sync's mark until an administrator enables it.
@@ -390,9 +394,9 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
             self::SKILL_B_PATH => $this->md('B', 'y'),
         ]))->sync($source);
 
-        self::assertSame(0, $this->column((int)$b->getUid(), 'orphaned'));
-        self::assertSame(0, $this->column((int)$b->getUid(), 'enabled'));
-        self::assertSame('sync', $this->disabledBy((int)$b->getUid()));
+        self::assertSame(0, $this->column((int) $b->getUid(), 'orphaned'));
+        self::assertSame(0, $this->column((int) $b->getUid(), 'enabled'));
+        self::assertSame('sync', $this->disabledBy((int) $b->getUid()));
     }
 
     /**
@@ -407,13 +411,13 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         $skill = $this->get(SkillRepository::class)->findBySourceAndIdentifier(10, self::SKILL_A_ID);
         self::assertNotNull($skill);
         $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill')
-            ->update('tx_nrllm_skill', ['orphaned' => 1, 'enabled' => 0, 'disabled_by' => ''], ['uid' => (int)$skill->getUid()]);
+            ->update('tx_nrllm_skill', ['orphaned' => 1, 'enabled' => 0, 'disabled_by' => ''], ['uid' => (int) $skill->getUid()]);
         $this->get(PersistenceManagerInterface::class)->clearState();
 
         $this->service(new FakeGitHubClient('sha2', [self::SKILL_A_PATH], [self::SKILL_A_PATH => $this->md('A', 'x')]))->sync($source);
 
-        self::assertSame(0, $this->column((int)$skill->getUid(), 'orphaned'));
-        self::assertSame('sync', $this->disabledBy((int)$skill->getUid()));
+        self::assertSame(0, $this->column((int) $skill->getUid(), 'orphaned'));
+        self::assertSame('sync', $this->disabledBy((int) $skill->getUid()));
     }
 
     #[Test]
@@ -576,14 +580,14 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
     public function singleFileLifecycleCreatesEnabledThenAutoDisablesThenOrphansOn404(): void
     {
         $source = $this->singleFileSource();
-        $repo = $this->get(SkillRepository::class);
+        $repo   = $this->get(SkillRepository::class);
 
         // Create: a single file is enabled by default.
         $this->service(new FakeGitHubClient('sha1', [], ['SKILL.md' => $this->md('S', 'v1')]))->sync($source);
         $created = $repo->findBySourceAndIdentifier(20, '20:SKILL.md');
         self::assertNotNull($created);
         self::assertTrue($created->isEnabled(), 'a single_file skill is enabled on first import');
-        self::assertSame('', $this->disabledBy((int)$created->getUid()), 'an enabled skill carries no mark');
+        self::assertSame('', $this->disabledBy((int) $created->getUid()), 'an enabled skill carries no mark');
 
         // Body change: the enabled skill auto-disables.
         $changed = $this->service(new FakeGitHubClient('sha2', [], ['SKILL.md' => $this->md('S', 'v2')]))->sync($source);
@@ -634,7 +638,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
 
         self::assertSame(SyncStatus::PARTIAL, $result->status);
         self::assertSame(0, $result->orphaned, 'a listed-but-unreachable plugin must not orphan its skills');
-        $repo = $this->get(SkillRepository::class);
+        $repo      = $this->get(SkillRepository::class);
         $protected = $repo->findBySourceAndIdentifier(30, self::MARKET_B_ID);
         self::assertNotNull($protected);
         self::assertFalse($protected->isOrphaned());
@@ -651,7 +655,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         $result = $this->service($this->marketGitHub([self::PLUGIN_A]))->sync($source);
 
         self::assertSame(1, $result->orphaned, 'a de-listed plugin must orphan its skills');
-        $repo = $this->get(SkillRepository::class);
+        $repo   = $this->get(SkillRepository::class);
         $orphan = $repo->findBySourceAndIdentifier(30, self::MARKET_B_ID);
         self::assertNotNull($orphan);
         self::assertTrue($orphan->isOrphaned());
@@ -705,8 +709,8 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
             'sha1',
             [self::SKILL_A_PATH, self::SKILL_B_PATH, 'skills/c/SKILL.md'],
             [
-                self::SKILL_A_PATH => $this->md('A', 'a'),
-                self::SKILL_B_PATH => $this->md('B', 'b'),
+                self::SKILL_A_PATH  => $this->md('A', 'a'),
+                self::SKILL_B_PATH  => $this->md('B', 'b'),
                 'skills/c/SKILL.md' => $this->md('C', 'c'),
             ],
         );
@@ -723,7 +727,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
     #[Test]
     public function fatalSyncErrorsRedactUrlCredentialsInThePublicResult(): void
     {
-        $source = $this->repoSource();
+        $source  = $this->repoSource();
         $failure = GitHubApiException::forStatus(
             'https://api.github.com/repos/acme/skills?token=audit-synthetic-secret&ref=main',
             500,
@@ -739,7 +743,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
     #[Test]
     public function partialSyncErrorsRedactUrlCredentialsWhileKeepingHealthySkills(): void
     {
-        $source = $this->marketplaceSource();
+        $source  = $this->marketplaceSource();
         $failure = GitHubApiException::forStatus(
             'https://api.github.com/repos/p2/repob?client_secret=audit-synthetic-secret&ref=main',
             500,
@@ -763,7 +767,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         $source->setUrl(self::REPO_URL . '?token=audit-synthetic-secret');
 
         $failure = GitHubApiException::forStatus('https://user:audit-synthetic-secret@api.github.com/repos/acme/skills', 500);
-        $logger = $this->createMock(LoggerInterface::class);
+        $logger  = $this->createMock(LoggerInterface::class);
         $logger
             ->expects(self::once())
             ->method('error')
@@ -782,7 +786,8 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
                             'user:***@api.github.com',
                             is_string($context['error'] ?? null) ? $context['error'] : '',
                         );
-                        self::assertStringNotContainsString('audit-synthetic-secret', (string)json_encode($context));
+                        self::assertStringNotContainsString('audit-synthetic-secret', (string) json_encode($context));
+
                         return true;
                     },
                 ),

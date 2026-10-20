@@ -42,7 +42,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
 
         $result = $this->middleware($store, enabled: false)->handle(
             $this->context()->withConfiguration($this->config(self::PROVIDER)),
-            static fn(): string => 'ok',
+            static fn (): string => 'ok',
         );
 
         self::assertSame('ok', $result);
@@ -76,7 +76,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
 
         $result = $this->middleware($store)->handle(
             $this->context()->withConfiguration($this->config(self::PROVIDER)),
-            static fn(): string => 'ok',
+            static fn (): string => 'ok',
         );
 
         self::assertSame('ok', $result);
@@ -87,14 +87,14 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
     #[Test]
     public function opensAfterThresholdConsecutiveFailures(): void
     {
-        $store = new InMemoryCircuitBreakerStore();
+        $store      = new InMemoryCircuitBreakerStore();
         $middleware = $this->middleware($store, threshold: 3, cooldown: 30);
 
-        for ($i = 0; $i < 3; $i++) {
+        for ($i = 0; $i < 3; ++$i) {
             try {
                 $middleware->handle(
                     $this->context()->withConfiguration($this->config(self::PROVIDER)),
-                    static fn(): never => throw new ProviderConnectionException('down', 0),
+                    static fn (): never => throw new ProviderConnectionException('down', 0),
                 );
                 self::fail('Expected the connection failure to propagate');
             } catch (ProviderConnectionException) {
@@ -119,7 +119,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
         try {
             $this->middleware($store, threshold: 3)->handle(
                 $this->context()->withConfiguration($this->config(self::PROVIDER)),
-                static fn(): never => throw new ProviderConnectionException('down', 0),
+                static fn (): never => throw new ProviderConnectionException('down', 0),
             );
         } catch (ProviderConnectionException) {
         }
@@ -140,7 +140,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
         try {
             $this->middleware($store, threshold: 3)->handle(
                 $this->context()->withConfiguration($this->config(self::PROVIDER)),
-                static fn(): never => throw new ProviderResponseException('boom', 500),
+                static fn (): never => throw new ProviderResponseException('boom', 500),
             );
         } catch (ProviderResponseException) {
         }
@@ -157,7 +157,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
         try {
             $this->middleware($store, threshold: 3)->handle(
                 $this->context()->withConfiguration($this->config(self::PROVIDER)),
-                static fn(): never => throw new ProviderResponseException('bad request', 400),
+                static fn (): never => throw new ProviderResponseException('bad request', 400),
             );
         } catch (ProviderResponseException) {
         }
@@ -226,7 +226,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
         try {
             $this->middleware($store, cooldown: 30)->handle(
                 $this->context()->withConfiguration($this->config(self::PROVIDER)),
-                static fn(): never => throw new ProviderConnectionException('still down', 0),
+                static fn (): never => throw new ProviderConnectionException('still down', 0),
             );
         } catch (ProviderConnectionException) {
         }
@@ -249,7 +249,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
             $this->middleware($store, cooldown: 30)->handle(
                 $this->context()->withConfiguration($this->config(self::PROVIDER)),
                 // 401: the provider responded, so it is not a health signal.
-                static fn(): never => throw new ProviderResponseException('unauthorized', 401),
+                static fn (): never => throw new ProviderResponseException('unauthorized', 401),
             );
             self::fail('Expected the response exception to propagate');
         } catch (ProviderResponseException) {
@@ -274,7 +274,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
 
         $this->middleware($store)->handle(
             $this->context()->withConfiguration($this->config(self::PROVIDER)),
-            static fn(): string => 'ok',
+            static fn (): string => 'ok',
         );
 
         $state = $store->load(self::PROVIDER);
@@ -293,7 +293,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
                 $this->context()->withConfiguration($this->config(self::PROVIDER)),
                 // 401 is a client error: the provider answered, so it is not a
                 // health signal — neither trip nor reset.
-                static fn(): never => throw new ProviderResponseException('unauthorized', 401),
+                static fn (): never => throw new ProviderResponseException('unauthorized', 401),
             );
             self::fail('Expected the response exception to propagate');
         } catch (ProviderResponseException $e) {
@@ -312,7 +312,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
         try {
             $this->middleware($store, threshold: 1)->handle(
                 $this->context()->withConfiguration($this->config(self::PROVIDER)),
-                static fn(): never => throw new ProviderResponseException('slow down', 429),
+                static fn (): never => throw new ProviderResponseException('slow down', 429),
             );
         } catch (ProviderResponseException) {
         }
@@ -330,7 +330,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
         try {
             $this->middleware($store, threshold: 1)->handle(
                 $this->context()->withConfiguration($this->config(self::PROVIDER)),
-                static fn(): never => throw new RuntimeException('bug', 1),
+                static fn (): never => throw new RuntimeException('bug', 1),
             );
         } catch (RuntimeException) {
         }
@@ -392,7 +392,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
         $answer = new stdClass();
         $actual = null;
         $caught = null;
-        $calls = 0;
+        $calls  = 0;
         try {
             $actual = $this
                 ->middleware($store, cooldown: PHP_INT_MAX)
@@ -401,7 +401,8 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
                         $this->config(self::PROVIDER),
                     ),
                     static function () use ($answer, &$calls): object {
-                        $calls++;
+                        ++$calls;
+
                         return $answer;
                     },
                 );
@@ -422,10 +423,10 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
     #[Test]
     public function aLargePositiveCooldownPreservesTheOriginalProviderFailure(): void
     {
-        $store = new InMemoryCircuitBreakerStore();
+        $store    = new InMemoryCircuitBreakerStore();
         $expected = new ProviderResponseException('gateway failed', 503);
-        $caught = null;
-        $calls = 0;
+        $caught   = null;
+        $calls    = 0;
         try {
             $this
                 ->middleware($store, threshold: 1, cooldown: PHP_INT_MAX)
@@ -434,7 +435,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
                         $this->config(self::PROVIDER),
                     ),
                     static function () use ($expected, &$calls): never {
-                        $calls++;
+                        ++$calls;
                         throw $expected;
                     },
                 );
@@ -469,7 +470,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
                         $this->context()->withConfiguration(
                             $this->config(self::PROVIDER),
                         ),
-                        static fn(): string => 'recovered',
+                        static fn (): string => 'recovered',
                     );
             } catch (Throwable $failure) {
                 $caught = $failure;
@@ -492,16 +493,16 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
                 ['consecutiveFailures' => PHP_INT_MAX, 'openedAt' => null],
             ),
         );
-        $expected = new ProviderResponseException('gateway failed', 503);
-        $caught = null;
-        $calls = 0;
+        $expected   = new ProviderResponseException('gateway failed', 503);
+        $caught     = null;
+        $calls      = 0;
         $middleware = $this->middleware($store);
-        $context = $this->context()->withConfiguration($this->config(self::PROVIDER));
+        $context    = $this->context()->withConfiguration($this->config(self::PROVIDER));
         try {
             $middleware->handle(
                 $context,
                 static function () use ($expected, &$calls): never {
-                    $calls++;
+                    ++$calls;
                     throw $expected;
                 },
             );
@@ -526,7 +527,8 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
             $middleware->handle(
                 $context,
                 static function () use (&$calls): string {
-                    $calls++;
+                    ++$calls;
+
                     return 'must not be called';
                 },
             );

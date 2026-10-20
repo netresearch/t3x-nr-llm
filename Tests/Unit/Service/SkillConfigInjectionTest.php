@@ -74,6 +74,7 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
         $adapter->method('complete')->willReturnCallback(
             function (string $prompt) use (&$capturedPrompt): CompletionResponse {
                 $capturedPrompt = $prompt;
+
                 return $this->completionResponse();
             },
         );
@@ -95,6 +96,7 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
         $adapter->method('chatCompletion')->willReturnCallback(
             function (array $messages) use (&$capturedMessages): CompletionResponse {
                 $capturedMessages = $messages;
+
                 return $this->completionResponse();
             },
         );
@@ -129,6 +131,7 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
             function (string $prompt, array $options) use (&$capturedPrompt, &$capturedOptions): CompletionResponse {
                 $capturedPrompt  = $prompt;
                 $capturedOptions = $options;
+
                 return $this->completionResponse();
             },
         );
@@ -152,6 +155,7 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
         $adapter->method('chatCompletion')->willReturnCallback(
             function (array $messages) use (&$capturedMessages): CompletionResponse {
                 $capturedMessages = $messages;
+
                 return $this->completionResponse();
             },
         );
@@ -179,6 +183,7 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
         $adapter->method('chatCompletion')->willReturnCallback(
             function (array $messages) use (&$capturedMessages): CompletionResponse {
                 $capturedMessages = $messages;
+
                 return $this->completionResponse();
             },
         );
@@ -209,6 +214,7 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
         $adapter->method('chatCompletion')->willReturnCallback(
             function (array $messages) use (&$capturedMessages): CompletionResponse {
                 $capturedMessages = $messages;
+
                 return $this->completionResponse();
             },
         );
@@ -217,7 +223,7 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
             {
                 $kept = array_values(array_filter(
                     $messages,
-                    static fn(mixed $message): bool => !($message instanceof ChatMessage ? $message->isSystem() : (is_array($message) && ($message['role'] ?? null) === 'system')),
+                    static fn (mixed $message): bool => !($message instanceof ChatMessage ? $message->isSystem() : (is_array($message) && ($message['role'] ?? null) === 'system')),
                 ));
 
                 return new ContextFitResult($kept, true, 1, 1, 10, 100, false, 1.0, ContextBudgetBreakdown::none());
@@ -256,6 +262,7 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
         $adapter->method('chatCompletion')->willReturnCallback(
             function (array $messages) use (&$capturedMessages): CompletionResponse {
                 $capturedMessages = $messages;
+
                 return $this->completionResponse();
             },
         );
@@ -287,6 +294,7 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
             $adapter->method('chatCompletion')->willReturnCallback(
                 function (array $messages) use (&$capturedMessages): CompletionResponse {
                     $capturedMessages = $messages;
+
                     return $this->completionResponse();
                 },
             );
@@ -342,6 +350,7 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
         $provider->method('embeddings')->willReturnCallback(
             function (string|array $input) use (&$capturedInput): EmbeddingResponse {
                 $capturedInput = $input;
+
                 return new EmbeddingResponse(
                     embeddings: [[0.1, 0.2]],
                     model: 'text-embedding-3-small',
@@ -380,6 +389,7 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
         $provider->method('analyzeImage')->willReturnCallback(
             function (array $content) use (&$capturedContent): VisionResponse {
                 $capturedContent = $content;
+
                 return new VisionResponse(
                     description: 'a cat',
                     model: 'gpt-4o',
@@ -553,7 +563,7 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
         self::assertIsArray($message);
         $typed = [];
         foreach ($message as $key => $value) {
-            $typed[(string)$key] = $value;
+            $typed[(string) $key] = $value;
         }
 
         return $typed;

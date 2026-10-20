@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Evaluation;
 
@@ -38,45 +39,45 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
 
     public function save(SetEvaluationResult $result): void
     {
-        $identity = $result->retrieval?->identity;
+        $identity  = $result->retrieval?->identity;
         $generator = $result->verifiedGeneratorProvenance();
-        $now = time();
+        $now       = time();
         $this->connectionPool
             ->getConnectionForTable(self::TABLE)
             ->insert(
                 self::TABLE,
                 [
-                    'pid' => 0,
-                    'set_identifier' => $result->setIdentifier,
-                    'model_id' => $result->model,
-                    'grader' => $result->grader,
+                    'pid'                  => 0,
+                    'set_identifier'       => $result->setIdentifier,
+                    'model_id'             => $result->model,
+                    'grader'               => $result->grader,
                     'generator_provenance' => $generator instanceof GeneratorProvenance ? json_encode($generator->toArray(), JSON_THROW_ON_ERROR) : '',
                     'retrieval_provenance' => $identity?->provenance instanceof RetrievalProvenance ? json_encode(
                         $identity->provenance->toArray() + [
                             'labelsFingerprint' => $identity->labelsFingerprint,
-                            'scoringVersion' => RetrievalRunIdentity::SCORING_VERSION,
+                            'scoringVersion'    => RetrievalRunIdentity::SCORING_VERSION,
                         ],
                         JSON_THROW_ON_ERROR,
                     ) : '',
                     'benchmark_fingerprint' => $identity->benchmarkFingerprint ?? '',
-                    'variant_fingerprint' => $identity->variantFingerprint ?? '',
-                    'prompt_count' => $result->promptCount(),
-                    'passed_count' => $result->passedCount(),
-                    'pass_rate' => $result->passRate(),
-                    'mean_score' => $result->meanScore(),
-                    'details' => $this->privacyPolicy->filterContent(
+                    'variant_fingerprint'   => $identity->variantFingerprint ?? '',
+                    'prompt_count'          => $result->promptCount(),
+                    'passed_count'          => $result->passedCount(),
+                    'pass_rate'             => $result->passRate(),
+                    'mean_score'            => $result->meanScore(),
+                    'details'               => $this->privacyPolicy->filterContent(
                         $this->encodeDetails($result),
                     ) ?? '',
                     'run_date' => $result->runTimestamp,
-                    'tstamp' => $now,
-                    'crdate' => $now,
+                    'tstamp'   => $now,
+                    'crdate'   => $now,
                 ],
             );
     }
 
     public function purgeOlderThan(int $timestamp): int
     {
-        $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $connection   = $this->connectionPool->getConnectionForTable(self::TABLE);
         $queryBuilder = $connection->createQueryBuilder();
 
         return $queryBuilder
@@ -106,7 +107,7 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
         }
 
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $rows = $this
+        $rows         = $this
             ->baseSelect($queryBuilder)
             ->where(
                 $queryBuilder->expr()->eq(
@@ -177,11 +178,11 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
     private function encodeDetails(SetEvaluationResult $result): string
     {
         if ($result->retrieval instanceof RetrievalSetEvaluationResult) {
-            $mapper = $this->privacyPolicy->level() === PrivacyLevel::FULL ? $this->losslessRetrievalDetails(...) : static fn(QuestionEvaluation $evaluation): array => $evaluation->toArray();
+            $mapper  = $this->privacyPolicy->level() === PrivacyLevel::FULL ? $this->losslessRetrievalDetails(...) : static fn (QuestionEvaluation $evaluation): array => $evaluation->toArray();
             $details = array_map($mapper, $result->retrieval->evaluations);
         } else {
             $details = array_map(
-                static fn(PromptEvaluation $evaluation): array => $evaluation->toArray(),
+                static fn (PromptEvaluation $evaluation): array => $evaluation->toArray(),
                 $result->evaluations,
             );
         }
@@ -191,17 +192,17 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
 
     private function toString(mixed $value): string
     {
-        return is_scalar($value) ? (string)$value : '';
+        return is_scalar($value) ? (string) $value : '';
     }
 
     private function toInt(mixed $value): int
     {
-        return is_numeric($value) ? (int)$value : 0;
+        return is_numeric($value) ? (int) $value : 0;
     }
 
     private function toFloat(mixed $value): float
     {
-        return is_numeric($value) ? (float)$value : 0.0;
+        return is_numeric($value) ? (float) $value : 0.0;
     }
 
     private function readFingerprint(mixed $value): string
@@ -217,6 +218,7 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
 
         try {
             $decoded = json_decode($value, true, 8, JSON_THROW_ON_ERROR);
+
             return is_array($decoded) ? $this->decodeProvenance($decoded) : null;
         } catch (JsonException|InvalidArgumentException) {
             return null;
@@ -260,8 +262,8 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
         return array_replace(
             $evaluation->toArray(),
             [
-                'questionId' => $this->losslessRetrievalString($evaluation->questionId),
-                'hardClass' => $evaluation->hardClass === null ? null : $this->losslessRetrievalString($evaluation->hardClass),
+                'questionId'           => $this->losslessRetrievalString($evaluation->questionId),
+                'hardClass'            => $evaluation->hardClass === null ? null : $this->losslessRetrievalString($evaluation->hardClass),
                 'retrievedDocumentIds' => array_map($this->losslessRetrievalString(...), $evaluation->retrievedDocumentIds),
             ],
         );
@@ -286,8 +288,8 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
 
         return [
             'encoding' => 'base64',
-            'version' => 'retrieval-bytes-v1',
-            'value' => base64_encode($permitted),
+            'version'  => 'retrieval-bytes-v1',
+            'value'    => base64_encode($permitted),
         ];
     }
 
@@ -307,7 +309,7 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
         string $grader,
     ): ?EvaluationResultSummary {
         $builder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $rows = $this
+        $rows    = $this
             ->baseSelect($builder)
             ->where(
                 $builder->expr()->eq(
@@ -347,7 +349,7 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
         ?string $providerIdentifier,
     ): ?float {
         $builder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $rows = $this
+        $rows    = $this
             ->baseSelect($builder)
             ->where(
                 $builder->expr()->eq(
@@ -364,7 +366,7 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
             ->executeQuery()
             ->iterateAssociative();
         $providers = [];
-        $scores = [];
+        $scores    = [];
         foreach ($rows as $row) {
             $record = $this->generatorForScope($row, $model, $grader);
             if (!$record instanceof GeneratorProvenance || $providerIdentifier !== null && $record->providerIdentifier !== $providerIdentifier) {
@@ -372,7 +374,7 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
             }
 
             $providers[$record->providerIdentifier] = true;
-            $set = $this->toString($row['set_identifier'] ?? '');
+            $set                                    = $this->toString($row['set_identifier'] ?? '');
             if (!array_key_exists($set, $scores)) {
                 $scores[$set] = $this->toFloat($row['mean_score'] ?? 0);
             }
@@ -417,6 +419,7 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
         string $grader,
     ): ?GeneratorProvenance {
         $record = $this->readGeneratorProvenance($row);
+
         return $record?->modelId === $modelId && ($row['grader'] ?? null) === $grader ? $record : null;
     }
 }

@@ -162,7 +162,7 @@ final readonly class SkillComposer
                     'key'     => $this->skillKey($skill),
                     'id'      => $skill->getIdentifier(),
                     'section' => $this->renderSection($skill),
-                    'pin'     => new SkillPin((int)$skill->getUid(), $skill->getSource(), $digest),
+                    'pin'     => new SkillPin((int) $skill->getUid(), $skill->getSource(), $digest),
                 ];
                 continue;
             }
@@ -184,7 +184,7 @@ final readonly class SkillComposer
         $totalBytes = strlen($this->assemble(array_column($rendered, 'section')));
         while ($rendered !== [] && $totalBytes > $this->maxBytes) {
             /** @var array{key: string, id: string, name: string, section: string} $popped */
-            $popped     = array_pop($rendered);
+            $popped = array_pop($rendered);
             $totalBytes -= strlen($popped['section']) + 1;
             $warnings[] = sprintf(self::WARN_BUDGET, $popped['name'], $popped['id'], $this->maxBytes);
         }
@@ -235,7 +235,7 @@ final readonly class SkillComposer
                 continue;
             }
 
-            $entries[] = new SkillCatalogueEntry((int)$skill->getUid(), $skill->getName(), $skill->getDescription(), $digest, $skill->getSource());
+            $entries[] = new SkillCatalogueEntry((int) $skill->getUid(), $skill->getName(), $skill->getDescription(), $digest, $skill->getSource());
         }
 
         return new SkillCatalogue($entries);
@@ -258,7 +258,7 @@ final readonly class SkillComposer
 
         return [
             'section' => $this->renderSection($skill),
-            'pin'     => new SkillPin((int)$skill->getUid(), $skill->getSource(), $versionDigest),
+            'pin'     => new SkillPin((int) $skill->getUid(), $skill->getSource(), $versionDigest),
         ];
     }
 
@@ -585,7 +585,7 @@ final readonly class SkillComposer
             return $body;
         }
 
-        $kept = array_filter($lines, fn(string $line): bool => !$this->referencesAsset($line));
+        $kept = array_filter($lines, fn (string $line): bool => !$this->referencesAsset($line));
 
         return rtrim(implode("\n", $kept));
     }

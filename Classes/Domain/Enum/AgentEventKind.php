@@ -35,9 +35,9 @@ use Netresearch\NrLlm\Domain\ValueObject\RunStep;
  */
 enum AgentEventKind: string
 {
-    case REQUEST = 'request';
-    case LLM = 'llm';
-    case TOOL = 'tool';
+    case REQUEST   = 'request';
+    case LLM       = 'llm';
+    case TOOL      = 'tool';
     case ASSEMBLED = 'assembled';
     // The round's context-window accounting (ADR-151), recorded by the tool
     // loop's fit ahead of the request step it explains. It IS a RunStep kind:
@@ -52,7 +52,7 @@ enum AgentEventKind: string
     // after the tool step it belongs to, and the row the observed outcome
     // joins sys_history against.
     case TOOL_WRITE = 'tool_write';
-    case APPROVAL = 'approval';
+    case APPROVAL   = 'approval';
     // Emitted by the AgentRuntime when an operator submits typed input for a run
     // suspended WAITING_FOR_INPUT (ADR-105), payload ``{submittedBy: int}`` — the
     // who/when, never the submitted values (ADR-064). Like APPROVAL it is NOT a
@@ -64,7 +64,7 @@ enum AgentEventKind: string
      */
     public static function values(): array
     {
-        return array_map(static fn(self $case): string => $case->value, self::cases());
+        return array_map(static fn (self $case): string => $case->value, self::cases());
     }
 
     public static function isValid(string $value): bool

@@ -518,10 +518,10 @@ final class ToolLoopServiceSectionAdmissionTest extends TestCase
             $approvals->add(3, 1, $skill->getVersionDigest(), SkillVersionDigest::fieldsOf($skill), 'verified', 1);
         }
 
-        $sources  = new FixedSkillSourceLookup([1 => SkillTrustLevel::VERIFIED]);
-        $policy   = new SkillInstructionPolicy($approvals, $sources, SkillTrustLevel::VERIFIED);
-        $composer = new SkillComposer(SkillComposer::DEFAULT_MAX_BYTES, SkillTrustLevel::UNTRUSTED, $policy);
-        $registry = new ToolRegistry([new FakeTool('noop')]);
+        $sources                = new FixedSkillSourceLookup([1 => SkillTrustLevel::VERIFIED]);
+        $policy                 = new SkillInstructionPolicy($approvals, $sources, SkillTrustLevel::VERIFIED);
+        $composer               = new SkillComposer(SkillComposer::DEFAULT_MAX_BYTES, SkillTrustLevel::UNTRUSTED, $policy);
+        $registry               = new ToolRegistry([new FakeTool('noop')]);
         $extensionConfiguration = self::createStub(ExtensionConfiguration::class);
         $extensionConfiguration->method('get')->willReturn(['skills' => []]);
 

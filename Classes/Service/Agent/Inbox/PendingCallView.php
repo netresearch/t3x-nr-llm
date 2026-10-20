@@ -79,6 +79,6 @@ final readonly class PendingCallView
      */
     public function structuredPreviewArray(): array
     {
-        return array_map(static fn(FieldProposal $entry): array => $entry->toArray(), $this->structuredPreview);
+        return array_map(static fn (FieldProposal $entry): array => $entry->toArray(), $this->structuredPreview);
     }
 }

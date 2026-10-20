@@ -57,7 +57,7 @@ final class VersionConsistencyTest extends AbstractUnitTestCase
     #[Test]
     public function composerJsonVersionMatchesExtEmconf(): void
     {
-        $composer = json_decode((string)file_get_contents($this->repoRoot() . '/composer.json'), true);
+        $composer = json_decode((string) file_get_contents($this->repoRoot() . '/composer.json'), true);
         self::assertIsArray($composer);
 
         $composerVersion = $composer['extra']['typo3/cms']['version'] ?? null;
@@ -74,7 +74,7 @@ final class VersionConsistencyTest extends AbstractUnitTestCase
     public function guidesXmlVersionMatchesExtEmconf(): void
     {
         $version = $this->extEmConfVersion();
-        $guides = (string)file_get_contents($this->repoRoot() . '/Documentation/guides.xml');
+        $guides  = (string) file_get_contents($this->repoRoot() . '/Documentation/guides.xml');
 
         self::assertStringContainsString(
             'version="' . $version . '"',
@@ -104,7 +104,7 @@ final class VersionConsistencyTest extends AbstractUnitTestCase
         );
         $line = $version[1] . '.' . $version[2];
 
-        $security = (string)file_get_contents($this->repoRoot() . '/SECURITY.md');
+        $security = (string) file_get_contents($this->repoRoot() . '/SECURITY.md');
         preg_match_all('/^\|\s*([^|]+?)\s*\|.*:white_check_mark:/m', $security, $supported);
 
         self::assertSame(
@@ -124,7 +124,7 @@ final class VersionConsistencyTest extends AbstractUnitTestCase
     #[Test]
     public function supportMatrixMatchesComposerRequirements(): void
     {
-        $composer = json_decode((string)file_get_contents($this->repoRoot() . '/composer.json'), true);
+        $composer = json_decode((string) file_get_contents($this->repoRoot() . '/composer.json'), true);
         self::assertIsArray($composer);
         self::assertIsArray($composer['require']);
 
@@ -161,7 +161,7 @@ final class VersionConsistencyTest extends AbstractUnitTestCase
     #[Test]
     public function supportMatrixMatchesExtEmconfDepends(): void
     {
-        $emconf = (string)file_get_contents($this->repoRoot() . '/ext_emconf.php');
+        $emconf = (string) file_get_contents($this->repoRoot() . '/ext_emconf.php');
 
         foreach (['typo3', 'php'] as $key) {
             self::assertSame(
@@ -193,7 +193,7 @@ final class VersionConsistencyTest extends AbstractUnitTestCase
     #[Test]
     public function supportMatrixMatchesTheCiMatrix(): void
     {
-        $workflow = (string)file_get_contents($this->repoRoot() . '/.github/workflows/ci.yml');
+        $workflow = (string) file_get_contents($this->repoRoot() . '/.github/workflows/ci.yml');
 
         self::assertSame(
             $this->ciMatrixUnion($workflow, 'php-versions', '/"(\d+\.\d+)"/'),
@@ -218,7 +218,7 @@ final class VersionConsistencyTest extends AbstractUnitTestCase
      */
     private function supportMatrixField(string $name): array
     {
-        $page = (string)file_get_contents($this->repoRoot() . '/Documentation/Api/SupportMatrix.rst');
+        $page = (string) file_get_contents($this->repoRoot() . '/Documentation/Api/SupportMatrix.rst');
 
         $start = strpos($page, '.. support-matrix-start');
         $end   = strpos($page, '.. support-matrix-end');

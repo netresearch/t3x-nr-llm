@@ -17,6 +17,21 @@ use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
 
+use function array_keys;
+use function array_slice;
+use function explode;
+use function file_get_contents;
+use function implode;
+use function in_array;
+use function ksort;
+use function preg_match;
+use function preg_match_all;
+use function preg_quote;
+use function sort;
+use function str_contains;
+use function strpos;
+use function substr;
+
 /**
  * Pins the inventory of surfaces from which a human decides an agent run.
  *
@@ -103,10 +118,10 @@ final class ApprovalSurfaceInventoryTest extends TestCase
     {
         parent::setUp();
 
-        $source = \file_get_contents(self::MODULES_FILE);
+        $source = file_get_contents(self::MODULES_FILE);
         self::assertIsString($source);
 
-        \preg_match_all("/^    '([a-z_]+)' => \[(.*?)^    \],/ms", $source, $matches, PREG_SET_ORDER);
+        preg_match_all("/^    '([a-z_]+)' => \[(.*?)^    \],/ms", $source, $matches, PREG_SET_ORDER);
         self::assertNotSame([], $matches, 'No module blocks found — has Modules.php been reformatted?');
 
         foreach ($matches as $match) {
@@ -164,13 +179,13 @@ final class ApprovalSurfaceInventoryTest extends TestCase
     {
         $constraint = $this->adr130ConstraintThree();
 
-        foreach (\array_keys($this->registeredApprovalSurfaces()) as $module) {
+        foreach (array_keys($this->registeredApprovalSurfaces()) as $module) {
             // Whole identifier, not substring: `nrllm_run` would otherwise be
             // satisfied by the `nrllm_runs` already in the text, and a fourth
             // surface whose name merely extends an existing one would pass the
             // one assertion whose job is to notice it.
             self::assertMatchesRegularExpression(
-                '/(?<![a-z_])' . \preg_quote($module, '/') . '(?![a-z_])/',
+                '/(?<![a-z_])' . preg_quote($module, '/') . '(?![a-z_])/',
                 $constraint,
                 'ADR-130 constraint 3 enumerates the approval surfaces but never mentions ' . $module
                     . ' as an identifier of its own. The record is the thing that goes stale; name it there.',
@@ -197,14 +212,14 @@ final class ApprovalSurfaceInventoryTest extends TestCase
 
             self::assertSame(
                 1,
-                \preg_match("/'access' => '(\w+)'/", $block, $matches),
+                preg_match("/'access'\s+=>\s+'(\w+)'/", $block, $matches),
                 'Module ' . $name . ' registers an approval action but declares no access.',
             );
 
             $surfaces[$name] = $matches[1];
         }
 
-        \ksort($surfaces);
+        ksort($surfaces);
 
         return $surfaces;
     }
@@ -225,7 +240,7 @@ final class ApprovalSurfaceInventoryTest extends TestCase
     private function registersAnApprovalAction(string $block): bool
     {
         foreach (self::APPROVAL_ACTIONS as $action) {
-            if (\str_contains($block, "'" . $action . "'")) {
+            if (str_contains($block, "'" . $action . "'")) {
                 return true;
             }
         }
@@ -248,15 +263,15 @@ final class ApprovalSurfaceInventoryTest extends TestCase
                 continue;
             }
 
-            $source = \file_get_contents($file->getPathname());
+            $source = file_get_contents($file->getPathname());
             self::assertIsString($source);
 
-            if (\preg_match('/->(?:approve|submitInput)\(/', $source) === 1) {
+            if (preg_match('/->(?:approve|submitInput)\(/', $source) === 1) {
                 $found[] = $file->getBasename('.php');
             }
         }
 
-        \sort($found);
+        sort($found);
 
         return $found;
     }
@@ -266,10 +281,10 @@ final class ApprovalSurfaceInventoryTest extends TestCase
      */
     private function ajaxApprovalTargets(): array
     {
-        $source = \file_get_contents(self::AJAX_ROUTES_FILE);
+        $source = file_get_contents(self::AJAX_ROUTES_FILE);
         self::assertIsString($source);
 
-        \preg_match_all(
+        preg_match_all(
             "/'([a-z0-9_]+)' => \[.*?'target' => (\w+)::class \. '::(\w+)'/s",
             $source,
             $matches,
@@ -279,7 +294,7 @@ final class ApprovalSurfaceInventoryTest extends TestCase
 
         $targets = [];
         foreach ($matches as $match) {
-            if (!\in_array($match[3], self::APPROVAL_AJAX_ACTIONS, true)) {
+            if (!in_array($match[3], self::APPROVAL_AJAX_ACTIONS, true)) {
                 continue;
             }
 
@@ -296,17 +311,17 @@ final class ApprovalSurfaceInventoryTest extends TestCase
      */
     private function opensWithDenyNonAdmin(string $class, string $method): bool
     {
-        $source = \file_get_contents($this->classFile($class));
+        $source = file_get_contents($this->classFile($class));
         self::assertIsString($source);
 
-        $offset = \strpos($source, 'public function ' . $method . '(');
+        $offset = strpos($source, 'public function ' . $method . '(');
         if ($offset === false) {
             self::fail($class . ' has no method ' . $method . '().');
         }
 
-        $head = \implode("\n", \array_slice(\explode("\n", \substr($source, $offset)), 0, 5));
+        $head = implode("\n", array_slice(explode("\n", substr($source, $offset)), 0, 5));
 
-        return \str_contains($head, 'denyNonAdmin');
+        return str_contains($head, 'denyNonAdmin');
     }
 
     private function classFile(string $shortName): string
@@ -328,12 +343,12 @@ final class ApprovalSurfaceInventoryTest extends TestCase
      */
     private function adr130ConstraintThree(): string
     {
-        $source = \file_get_contents(self::ADR_FILE);
+        $source = file_get_contents(self::ADR_FILE);
         self::assertIsString($source);
 
         self::assertSame(
             1,
-            \preg_match('/^3\. \*\*``agent_approve``.*?(?=^4\. \*\*)/ms', $source, $matches),
+            preg_match('/^3\. \*\*``agent_approve``.*?(?=^4\. \*\*)/ms', $source, $matches),
             'ADR-130 constraint 3 could not be located. It is what enumerates the approval surfaces; '
                 . 'if it was renumbered or renamed, update this test with it.',
         );

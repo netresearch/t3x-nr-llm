@@ -237,7 +237,7 @@ final class McpHealthTest extends AbstractFunctionalTestCase
             'hidden'           => 0,
         ]);
 
-        $server = $this->servers->findByUid((int)$connection->lastInsertId());
+        $server = $this->servers->findByUid((int) $connection->lastInsertId());
         self::assertInstanceOf(McpServerRecord::class, $server);
 
         return $server;

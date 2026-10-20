@@ -33,7 +33,7 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
 /**
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class SkillSourceController extends ActionController
@@ -73,7 +73,7 @@ final class SkillSourceController extends ActionController
 
         // "Add source" button in the docheader → FormEngine new-record form for
         // tx_nrllm_skill_source, returning to this module after save/close.
-        $buttonBar = $moduleTemplate->getDocHeaderComponent()->getButtonBar();
+        $buttonBar    = $moduleTemplate->getDocHeaderComponent()->getButtonBar();
         $createButton = $buttonBar->makeLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-plus', IconSize::SMALL))
             ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.skill.source.new', 'NrLlm') ?? 'Add source')
@@ -104,7 +104,7 @@ final class SkillSourceController extends ActionController
             // A backend source (ADR-214 item 3) holds skills written here:
             // it gets "new skill" instead of sync and token.
             if ($source->getTypeEnum() === SkillSourceType::BACKEND) {
-                $newSkillUrls[$uid] = $this->formEngineUrlBuilder->buildNewUrlWithDefaults('tx_nrllm_skill', ['source' => $uid], 'nrllm_skills');
+                $newSkillUrls[$uid]      = $this->formEngineUrlBuilder->buildNewUrlWithDefaults('tx_nrllm_skill', ['source' => $uid], 'nrllm_skills');
                 $backendSourceUids[$uid] = true;
             }
         }
@@ -122,12 +122,13 @@ final class SkillSourceController extends ActionController
         }
 
         $moduleTemplate->assignMultiple([
-            'sources' => $sources,
+            'sources'        => $sources,
             'sourceEditUrls' => $sourceEditUrls,
-            'newSkillUrls' => $newSkillUrls,
-            'skills' => $skills,
-            'skillEditUrls' => $skillEditUrls,
+            'newSkillUrls'   => $newSkillUrls,
+            'skills'         => $skills,
+            'skillEditUrls'  => $skillEditUrls,
         ]);
+
         return $moduleTemplate->renderResponse('Backend/Skill/List');
     }
 
@@ -137,22 +138,23 @@ final class SkillSourceController extends ActionController
             return $deny;
         }
 
-        $uid = $this->intFromBody($request->getParsedBody(), 'source');
+        $uid    = $this->intFromBody($request->getParsedBody(), 'source');
         $source = $this->sourceRepository->findByUid($uid);
         if ($source === null) {
             return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.skill.unknownSource', 'Unknown source')], 404);
         }
 
         $result = $this->syncService->sync($source);
+
         return new JsonResponse([
-            'success' => true,
-            'status' => $result->status->value,
-            'created' => $result->created,
-            'updated' => $result->updated,
+            'success'          => true,
+            'status'           => $result->status->value,
+            'created'          => $result->created,
+            'updated'          => $result->updated,
             'disabledOnChange' => $result->disabledOnChange,
             'injectionBlocked' => $result->injectionBlocked,
-            'orphaned' => $result->orphaned,
-            'errors' => $result->errors,
+            'orphaned'         => $result->orphaned,
+            'errors'           => $result->errors,
         ]);
     }
 
@@ -162,7 +164,7 @@ final class SkillSourceController extends ActionController
             return $deny;
         }
 
-        $body = $request->getParsedBody();
+        $body            = $request->getParsedBody();
         [$skill, $error] = $this->resolveToggleableSkill($body);
         if ($error instanceof ResponseInterface) {
             return $error;
@@ -191,14 +193,15 @@ final class SkillSourceController extends ActionController
             $skill->isEnabled() ? SkillAuditEvent::ENABLED : SkillAuditEvent::DISABLED,
             $skill,
         );
+
         return new JsonResponse(['success' => true, 'enabled' => $skill->isEnabled()]);
     }
 
     /**
      * Resolve and validate the skill targeted by a toggle request (early-return guard, like denyNonAdmin).
      *
-     * @return array{0:?Skill,1:?ResponseInterface} The skill on success (error null), or a JSON error
-     *                                              response (skill null) for an unknown or orphaned skill.
+     * @return array{0:?Skill,1:?ResponseInterface} the skill on success (error null), or a JSON error
+     *                                              response (skill null) for an unknown or orphaned skill
      */
     private function resolveToggleableSkill(mixed $body): array
     {
@@ -220,14 +223,14 @@ final class SkillSourceController extends ActionController
             return $deny;
         }
 
-        $body = $request->getParsedBody();
+        $body   = $request->getParsedBody();
         $source = $this->sourceRepository->findByUid($this->intFromBody($body, 'source'));
         if ($source === null) {
             return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.skill.unknownSource', 'Unknown source')], 404);
         }
 
         $token = $this->stringFromBody($body, 'token');
-        $uuid = $source->getGithubToken() !== '' ? $source->getGithubToken() : StringUtility::getUniqueId('ghtoken_');
+        $uuid  = $source->getGithubToken() !== '' ? $source->getGithubToken() : StringUtility::getUniqueId('ghtoken_');
         try {
             $this->vault->store($uuid, $token);
             $source->setGithubToken($uuid);
@@ -251,7 +254,8 @@ final class SkillSourceController extends ActionController
         }
 
         $value = $body[$key] ?? 0;
-        return is_numeric($value) ? (int)$value : 0;
+
+        return is_numeric($value) ? (int) $value : 0;
     }
 
     private function stringFromBody(mixed $body, string $key): string
@@ -261,7 +265,8 @@ final class SkillSourceController extends ActionController
         }
 
         $value = $body[$key] ?? '';
-        return is_scalar($value) ? (string)$value : '';
+
+        return is_scalar($value) ? (string) $value : '';
     }
 
     private function boolFromBody(mixed $body, string $key): bool

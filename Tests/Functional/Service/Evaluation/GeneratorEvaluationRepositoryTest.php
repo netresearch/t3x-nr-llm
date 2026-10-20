@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Evaluation;
 
@@ -54,7 +55,7 @@ final class GeneratorEvaluationRepositoryTest extends AbstractFunctionalTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->pool = $this->get(ConnectionPool::class);
+        $this->pool       = $this->get(ConnectionPool::class);
         $this->repository = $this->repositoryAt('metadata');
     }
 
@@ -62,6 +63,7 @@ final class GeneratorEvaluationRepositoryTest extends AbstractFunctionalTestCase
     {
         $config = self::createStub(ExtensionConfiguration::class);
         $config->method('get')->willReturn(['privacy' => ['level' => $level]]);
+
         return new EvaluationResultRepository(
             $this->pool,
             new PrivacyPolicy($config, new ContentRedactor()),
@@ -75,13 +77,14 @@ final class GeneratorEvaluationRepositoryTest extends AbstractFunctionalTestCase
     ): GeneratorProvenance {
         $record = GeneratorProvenance::fromArray(
             [
-                'version' => 1,
+                'version'            => 1,
                 'providerIdentifier' => $provider,
-                'modelId' => $alias,
-                'reportedModelId' => $snapshot,
+                'modelId'            => $alias,
+                'reportedModelId'    => $snapshot,
             ],
         );
         self::assertInstanceOf(GeneratorProvenance::class, $record);
+
         return $record;
     }
 
@@ -95,6 +98,7 @@ final class GeneratorEvaluationRepositoryTest extends AbstractFunctionalTestCase
         string $grader = 'deterministic',
     ): SetEvaluationResult {
         $record = $this->provenance($provider, $alias, $snapshot);
+
         return new SetEvaluationResult(
             $set,
             $alias,
@@ -245,8 +249,8 @@ final class GeneratorEvaluationRepositoryTest extends AbstractFunctionalTestCase
             ),
         );
         self::assertNull($scores->getQualityScore('shared-alias'));
-        $a = $this->model('instance-a');
-        $b = $this->model('instance-b');
+        $a      = $this->model('instance-a');
+        $b      = $this->model('instance-b');
         $ranked = (new CandidateRanker($scores))->rank(
             [$b, $a],
             RoutingPolicyMode::QUALITY,
@@ -277,6 +281,7 @@ final class GeneratorEvaluationRepositoryTest extends AbstractFunctionalTestCase
         $model = new Model();
         $model->setProvider($provider);
         $model->setModelId('shared-alias');
+
         return $model;
     }
 
@@ -407,7 +412,7 @@ final class GeneratorEvaluationRepositoryTest extends AbstractFunctionalTestCase
         $this->repository->save($run);
         $valid = $run->generatorProvenance?->toArray();
         self::assertIsArray($valid);
-        $extra = $valid + ['invented' => 'value'];
+        $extra   = $valid + ['invented' => 'value'];
         $missing = $valid;
         unset($missing['reportedModelId']);
         foreach ([
@@ -473,7 +478,7 @@ final class GeneratorEvaluationRepositoryTest extends AbstractFunctionalTestCase
     public function incompleteOrContradictoryPromptEvidenceIsNotPersistedAsServingProof(): void
     {
         $record = $this->provenance();
-        $other = $this->provenance('instance-b');
+        $other  = $this->provenance('instance-b');
         foreach ([
             [],
             [
@@ -532,7 +537,7 @@ final class GeneratorEvaluationRepositoryTest extends AbstractFunctionalTestCase
             ->select(['run_date', 'generator_provenance'], self::TABLE, [])
             ->fetchAllAssociative();
         self::assertCount(1, $rows);
-        self::assertSame(200, (int)$rows[0]['run_date']);
+        self::assertSame(200, (int) $rows[0]['run_date']);
         self::assertIsString($rows[0]['generator_provenance']);
         self::assertJson($rows[0]['generator_provenance']);
         self::assertSame(
@@ -549,7 +554,7 @@ final class GeneratorEvaluationRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function actualMixedRunCannotCreditEitherGeneratorThroughTheRepositoryAndRanker(): void
     {
-        $records = [$this->provenance('instance-a'), $this->provenance('instance-b')];
+        $records    = [$this->provenance('instance-a'), $this->provenance('instance-b')];
         $completion = $this->createMock(CompletionServiceInterface::class);
         $completion
             ->expects(self::exactly(2))
@@ -617,8 +622,8 @@ final class GeneratorEvaluationRepositoryTest extends AbstractFunctionalTestCase
                 'shared-alias',
             ),
         );
-        $a = $this->model('instance-a');
-        $b = $this->model('instance-b');
+        $a      = $this->model('instance-a');
+        $b      = $this->model('instance-b');
         $ranked = (new CandidateRanker($scores))->rank(
             [$a, $b],
             RoutingPolicyMode::QUALITY,

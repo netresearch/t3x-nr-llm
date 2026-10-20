@@ -52,7 +52,7 @@ final class EvaluationServiceTest extends TestCase
     {
         // Response contains "ACK" (first prompt passes) but not "Paris" (second fails).
         $completion = new StaticCompletionService('ACK', 'gpt-test');
-        $result = $this->evaluationService($completion)->run($this->set());
+        $result     = $this->evaluationService($completion)->run($this->set());
 
         self::assertSame('nr_llm.smoke', $result->setIdentifier);
         self::assertSame(
@@ -81,7 +81,7 @@ final class EvaluationServiceTest extends TestCase
     public function runRecordsNonNegativeLatencyPerPrompt(): void
     {
         $completion = new StaticCompletionService('ACK Paris');
-        $result = $this->evaluationService($completion)->run($this->set());
+        $result     = $this->evaluationService($completion)->run($this->set());
 
         foreach ($result->evaluations as $evaluation) {
             self::assertGreaterThanOrEqual(0, $evaluation->latencyMs);
@@ -92,7 +92,7 @@ final class EvaluationServiceTest extends TestCase
     public function allPassingSetHasFullPassRate(): void
     {
         $completion = new StaticCompletionService('ACK and Paris');
-        $result = $this->evaluationService($completion)->run($this->set());
+        $result     = $this->evaluationService($completion)->run($this->set());
 
         self::assertSame(1.0, $result->passRate());
         self::assertSame(1.0, $result->meanScore());
@@ -101,7 +101,7 @@ final class EvaluationServiceTest extends TestCase
     #[Test]
     public function aDecisionGradedRunIsStoredUnderItsProviderAndModel(): void
     {
-        $decisions = new FakeDecisionService();
+        $decisions          = new FakeDecisionService();
         $decisions->results = [$this->fulfilment(4.0), $this->fulfilment(2.0)];
 
         $result = $this->decisionGraded($decisions)->run($this->referenceSet(), 'decision');
@@ -113,7 +113,7 @@ final class EvaluationServiceTest extends TestCase
     #[Test]
     public function theGraderSeesTheSystemPromptTheCallRanWith(): void
     {
-        $decisions = new FakeDecisionService();
+        $decisions          = new FakeDecisionService();
         $decisions->results = [$this->fulfilment(4.0), $this->fulfilment(4.0)];
 
         $set = new GoldenPromptSet('nr_llm.reference', 'Reference', 'desc', [
@@ -123,9 +123,9 @@ final class EvaluationServiceTest extends TestCase
 
         $this->decisionGraded($decisions)->run($set, 'decision', (new ChatOptions())->withSystemPrompt('Answer in French.'));
 
-        self::assertStringContainsString('Answer in French.', (string)$decisions->requests[0]->subject->task, 'the base system prompt applied');
-        self::assertStringContainsString('Answer in German.', (string)$decisions->requests[1]->subject->task, 'the prompt overrides the base');
-        self::assertStringNotContainsString('French', (string)$decisions->requests[1]->subject->task);
+        self::assertStringContainsString('Answer in French.', (string) $decisions->requests[0]->subject->task, 'the base system prompt applied');
+        self::assertStringContainsString('Answer in German.', (string) $decisions->requests[1]->subject->task, 'the prompt overrides the base');
+        self::assertStringNotContainsString('French', (string) $decisions->requests[1]->subject->task);
     }
 
     #[Test]
@@ -133,9 +133,9 @@ final class EvaluationServiceTest extends TestCase
     {
         // The first decision fails, the second answers: one grading names no
         // yardstick, so the run is no clean TypeSafe series.
-        $decisions = new FakeDecisionService();
+        $decisions            = new FakeDecisionService();
         $decisions->throwable = DecisionException::failed('judge', new RuntimeException('overloaded', 1795211095));
-        $decisions->results = [$this->fulfilment(4.0)];
+        $decisions->results   = [$this->fulfilment(4.0)];
 
         $result = $this->decisionGraded($decisions)->run($this->referenceSet(), 'decision');
 

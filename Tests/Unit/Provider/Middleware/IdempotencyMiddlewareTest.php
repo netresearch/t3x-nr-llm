@@ -35,7 +35,7 @@ final class IdempotencyMiddlewareTest extends AbstractUnitTestCase
         $result = $middleware->handle(
             new ProviderCallContext(ProviderOperation::Chat, 'corr'),
             function () use (&$calls): string {
-                $calls++;
+                ++$calls;
 
                 return 'fresh';
             },
@@ -48,14 +48,14 @@ final class IdempotencyMiddlewareTest extends AbstractUnitTestCase
     #[Test]
     public function replaysStoredResultForARepeatedKeyWithoutCallingTheProvider(): void
     {
-        $middleware = $this->middleware();
-        $context    = $this->contextWithKey('order-42');
-        $response   = new stdClass();
+        $middleware       = $this->middleware();
+        $context          = $this->contextWithKey('order-42');
+        $response         = new stdClass();
         $response->answer = 'generated once';
 
         $calls = 0;
         $next  = function () use (&$calls, $response): stdClass {
-            $calls++;
+            ++$calls;
 
             return $response;
         };
@@ -75,7 +75,7 @@ final class IdempotencyMiddlewareTest extends AbstractUnitTestCase
 
         $calls = 0;
         $next  = function () use (&$calls): string {
-            $calls++;
+            ++$calls;
 
             return 'result-' . $calls;
         };
@@ -100,7 +100,7 @@ final class IdempotencyMiddlewareTest extends AbstractUnitTestCase
         };
         $calls = 0;
         $next  = function () use (&$calls, $makeGenerator): Generator {
-            $calls++;
+            ++$calls;
 
             return $makeGenerator();
         };
@@ -115,15 +115,15 @@ final class IdempotencyMiddlewareTest extends AbstractUnitTestCase
     #[Test]
     public function doesNotStoreFailedCalls(): void
     {
-        $middleware = $this->middleware();
-        $context = $this->contextWithKey('will-fail');
+        $middleware      = $this->middleware();
+        $context         = $this->contextWithKey('will-fail');
         $expectedFailure = new RuntimeException('boom', 1);
-        $calls = 0;
-        $next = static function () use (&$calls, $expectedFailure): never {
-            $calls++;
+        $calls           = 0;
+        $next            = static function () use (&$calls, $expectedFailure): never {
+            ++$calls;
             throw $expectedFailure;
         };
-        for ($i = 0; $i < 2; $i++) {
+        for ($i = 0; $i < 2; ++$i) {
             $actualFailure = null;
             try {
                 $middleware->handle($context, $next);
@@ -194,8 +194,8 @@ final class IdempotencyMiddlewareTest extends AbstractUnitTestCase
         string $secondKey,
     ): void {
         $middleware = $this->middleware();
-        $calls = 0;
-        $next = static function () use (&$calls): string {
+        $calls      = 0;
+        $next       = static function () use (&$calls): string {
             return 'answer-' . ++$calls;
         };
         self::assertSame(
@@ -234,17 +234,17 @@ final class IdempotencyMiddlewareTest extends AbstractUnitTestCase
         $frontend->expects(self::never())->method('get');
         $frontend->expects(self::never())->method('set');
         $response = new stdClass();
-        $context = new ProviderCallContext(
+        $context  = new ProviderCallContext(
             ProviderOperation::Chat,
             'corr',
             metadata: [IdempotencyMiddleware::METADATA_IDEMPOTENCY_KEY => $key],
         );
-        $result = null;
+        $result  = null;
         $failure = null;
         try {
             $result = $this
                 ->middlewareWithFrontend($frontend)
-                ->handle($context, static fn(): stdClass => $response);
+                ->handle($context, static fn (): stdClass => $response);
         } catch (Throwable $exception) {
             $failure = $exception;
         }
@@ -281,16 +281,17 @@ final class IdempotencyMiddlewareTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method('set')
             ->with(self::isString(), $response, [], 86400);
-        $result = null;
+        $result  = null;
         $failure = null;
-        $calls = 0;
+        $calls   = 0;
         try {
             $result = $this
                 ->middlewareWithFrontend($frontend)
                 ->handle(
                     $this->contextWithKey('read-failure'),
                     static function () use (&$calls, $response): stdClass {
-                        $calls++;
+                        ++$calls;
+
                         return $response;
                     },
                 );
@@ -314,10 +315,10 @@ final class IdempotencyMiddlewareTest extends AbstractUnitTestCase
             ->method('getCache')
             ->willThrowException(new RuntimeException('cache not available', 1));
         $middleware = new IdempotencyMiddleware($manager);
-        $results = [];
-        $failure = null;
-        $calls = 0;
-        $next = static function () use (&$calls): string {
+        $results    = [];
+        $failure    = null;
+        $calls      = 0;
+        $next       = static function () use (&$calls): string {
             return 'answer-' . ++$calls;
         };
         try {
@@ -348,10 +349,10 @@ final class IdempotencyMiddlewareTest extends AbstractUnitTestCase
             ->method('set')
             ->willThrowException(new RuntimeException('cache store failed', 1));
         $middleware = $this->middlewareWithFrontend($frontend);
-        $calls = 0;
-        $results = [];
-        $failure = null;
-        $next = static function () use (&$calls): string {
+        $calls      = 0;
+        $results    = [];
+        $failure    = null;
+        $next       = static function () use (&$calls): string {
             return 'answer-' . ++$calls;
         };
         try {
@@ -374,6 +375,7 @@ final class IdempotencyMiddlewareTest extends AbstractUnitTestCase
     ): IdempotencyMiddleware {
         $manager = self::createStub(Typo3CacheManager::class);
         $manager->method('getCache')->willReturn($frontend);
+
         return new IdempotencyMiddleware($manager);
     }
 }

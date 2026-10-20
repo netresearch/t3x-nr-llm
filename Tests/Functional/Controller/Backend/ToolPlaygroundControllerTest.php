@@ -108,7 +108,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
     {
         $this->importFixture('LlmConfigurations.csv');
         $this->importFixture('BeUsers.csv');
-        $backendUser = $this->setUpBackendUser(1); // uid 1 is an admin (admin=1)
+        $backendUser     = $this->setUpBackendUser(1); // uid 1 is an admin (admin=1)
         $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
 
         $moduleTemplateFactory = $this->get(ModuleTemplateFactory::class);
@@ -136,7 +136,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $response = $controller->listAction();
 
         self::assertSame(200, $response->getStatusCode());
-        $body = (string)$response->getBody();
+        $body = (string) $response->getBody();
 
         // Config picker over the persisted configurations.
         self::assertStringContainsString('id="nrllm-tool-config"', $body);
@@ -176,7 +176,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $response = $controller->runAction($request);
 
         self::assertSame(403, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
         self::assertIsString($payload['error']);
@@ -241,7 +241,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $response = $controller->runAction($request);
 
         self::assertSame(200, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
 
         // The loop ran the tool once and synthesised a final answer.
@@ -346,13 +346,13 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             ->fetchAllAssociative();
         self::assertCount(1, $runs);
         self::assertSame('completed', $runs[0]['status']);
-        self::assertSame(2, (int)$runs[0]['iterations']);
-        self::assertSame(19, (int)$runs[0]['total_tokens']);
+        self::assertSame(2, (int) $runs[0]['iterations']);
+        self::assertSame(19, (int) $runs[0]['total_tokens']);
 
         // The five-step interleaving (request, llm, tool, request, llm) is persisted.
         $eventCount = $this->toolConnectionPool()
             ->getConnectionForTable('tx_nrllm_agentrun_event')
-            ->count('*', 'tx_nrllm_agentrun_event', ['run' => (int)$runs[0]['uid']]);
+            ->count('*', 'tx_nrllm_agentrun_event', ['run' => (int) $runs[0]['uid']]);
         self::assertSame(5, $eventCount);
     }
 
@@ -413,7 +413,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         // The run must not 500 on the malformed byte, and the body must be
         // valid, decodable JSON with the bytes substituted (U+FFFD).
         self::assertSame(200, $response->getStatusCode());
-        $raw = (string)$response->getBody();
+        $raw = (string) $response->getBody();
         self::assertTrue(mb_check_encoding($raw, 'UTF-8'), 'response body must be valid UTF-8');
         $payload = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($payload);
@@ -445,7 +445,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $response = $controller->runAction($request);
 
         self::assertSame(200, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertTrue($payload['success']);
         self::assertTrue($payload['dryRun']);
@@ -537,7 +537,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $response = $controller->runAction($request);
 
         self::assertSame(200, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $payload = json_decode((string) $response->getBody(), true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($payload);
         self::assertTrue($payload['success']);
     }
@@ -572,10 +572,10 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             $this->noContextClassification(),
         );
 
-        $kinds = array_map(static fn(array $e): mixed => $e['event'] ?? null, $events);
+        $kinds = array_map(static fn (array $e): mixed => $e['event'] ?? null, $events);
         // One 'step' per recorded step, then a terminal 'done'.
         self::assertContains('step', $kinds);
-        self::assertGreaterThanOrEqual(5, count(array_filter($kinds, static fn(mixed $k): bool => $k === 'step')));
+        self::assertGreaterThanOrEqual(5, count(array_filter($kinds, static fn (mixed $k): bool => $k === 'step')));
         self::assertNotEmpty($events);
 
         // The very first event is the outbound request — emitted BEFORE the
@@ -612,7 +612,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
 
         $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
             ->withParsedBody(['configuration' => 1, 'prompt' => 'analyse the logs', 'tools' => ['fetch_logs']]);
-        $payload = json_decode((string)$controller->runAction($request)->getBody(), true);
+        $payload = json_decode((string) $controller->runAction($request)->getBody(), true);
 
         self::assertIsArray($payload);
         self::assertTrue($payload['success']);
@@ -642,7 +642,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
                 'tools'          => ['fetch_logs'],
                 'forcedSnippets' => ['1'],
             ]);
-        $payload = json_decode((string)$controller->runAction($request)->getBody(), true);
+        $payload = json_decode((string) $controller->runAction($request)->getBody(), true);
 
         self::assertIsArray($payload);
         $classification = $payload['contextClassification'];
@@ -675,7 +675,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
 
         // A guardrail denial is a policy outcome, not a server error.
         self::assertSame(200, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
         self::assertSame('guardrail_blocked', $payload['status']);
@@ -704,7 +704,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $response = $controller->runAction($request);
 
         self::assertSame(200, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
         self::assertSame('guardrail_approval_required', $payload['status']);
@@ -747,7 +747,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             $this->noContextClassification(),
         );
 
-        $kinds = array_map(static fn(array $e): mixed => $e['event'] ?? null, $events);
+        $kinds = array_map(static fn (array $e): mixed => $e['event'] ?? null, $events);
         // A guardrail verdict ends the stream with a distinct terminal event, not
         // the generic 'error' and not a 'done'.
         self::assertContains('guardrail_blocked', $kinds);
@@ -784,7 +784,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $repo->findResult    = $run;
         $repo->claimsGranted = 1;
         // the next claim loses
-        $persister           = new AgentRunPersister($repo, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
+        $persister = new AgentRunPersister($repo, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
 
         $config = new LlmConfiguration();
         $config->setIdentifier('cfg');
@@ -801,12 +801,12 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $toolLoopService = $this->loopFor($manager, $registry, new NullLogger());
         $controller      = $this->makeController($configurationRepository, $registry, $toolLoopService, $persister);
 
-        $request  = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/resume'))
+        $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/resume'))
             ->withParsedBody(['runUuid' => 'run-uuid-1', 'approve' => '1']);
         $response = $controller->resumeAction($request);
 
         self::assertSame(409, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
     }
@@ -829,7 +829,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $repo             = new RecordingAgentRunRepository();
         $repo->findResult = $run;
 
-        $persister        = new AgentRunPersister($repo, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
+        $persister = new AgentRunPersister($repo, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
 
         $config = new LlmConfiguration();
         $config->setIdentifier('cfg');
@@ -845,12 +845,12 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $toolLoopService = $this->loopFor($manager, $registry, new NullLogger());
         $controller      = $this->makeController($configurationRepository, $registry, $toolLoopService, $persister);
 
-        $request  = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/submit-input'))
+        $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/submit-input'))
             ->withParsedBody(['runUuid' => 'run-uuid-1', 'input' => []]);
         $response = $controller->submitInputAction($request);
 
         self::assertSame(422, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
         // Re-signals awaiting_input so the client keeps the form open.
@@ -878,7 +878,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $repo->findResult         = $run;
         $repo->inputClaimsGranted = 1;
         // the next input claim loses
-        $persister                = new AgentRunPersister($repo, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
+        $persister = new AgentRunPersister($repo, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
 
         $config = new LlmConfiguration();
         $config->setIdentifier('cfg');
@@ -894,12 +894,12 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $toolLoopService = $this->loopFor($manager, $registry, new NullLogger());
         $controller      = $this->makeController($configurationRepository, $registry, $toolLoopService, $persister);
 
-        $request  = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/submit-input'))
+        $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/submit-input'))
             ->withParsedBody(['runUuid' => 'run-uuid-1', 'input' => ['city' => 'Berlin']]);
         $response = $controller->submitInputAction($request);
 
         self::assertSame(409, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
     }
@@ -924,7 +924,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         );
 
         self::assertSame(200, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $payload = json_decode((string) $response->getBody(), true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($payload);
         self::assertSame('awaiting_input', $payload['status']);
         $uuid = $payload['runUuid'];
@@ -945,7 +945,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         );
 
         self::assertSame(200, $resumed->getStatusCode());
-        $continued = json_decode((string)$resumed->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $continued = json_decode((string) $resumed->getBody(), true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($continued);
         self::assertTrue($continued['success']);
         self::assertSame('Here are your recent logs.', $continued['finalContent']);
@@ -969,7 +969,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $run = $controller->runAction(
             (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))->withParsedBody(['configuration' => 1, 'prompt' => 'analyse the logs']),
         );
-        $payload = json_decode((string)$run->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $payload = json_decode((string) $run->getBody(), true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($payload);
         $uuid = $payload['runUuid'];
         self::assertIsString($uuid);
@@ -980,7 +980,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         );
 
         self::assertSame(409, $response->getStatusCode());
-        $refusal = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $refusal = json_decode((string) $response->getBody(), true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($refusal);
         self::assertFalse($refusal['success']);
         // Re-signals the pause so the client re-fetches the current form.
@@ -1011,7 +1011,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         );
 
         self::assertSame(409, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
         // Re-signals the pause so the client re-fetches and re-reviews.
@@ -1056,7 +1056,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         );
 
         self::assertSame(503, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
 
@@ -1089,7 +1089,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         );
 
         self::assertSame(500, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
 
@@ -1121,7 +1121,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         );
 
         self::assertSame(200, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $payload = json_decode((string) $response->getBody(), true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($payload);
         self::assertSame('awaiting_approval', $payload['status']);
         $call = $this->firstPendingTool($payload);
@@ -1247,7 +1247,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         );
 
         self::assertSame(200, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $payload = json_decode((string) $response->getBody(), true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($payload);
         self::assertTrue($payload['success']);
         self::assertSame('resumed and done', $payload['finalContent']);
@@ -1559,7 +1559,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)
             ->withAttribute('route', new Route('/module/nrllm/playground', ['packageName' => 'netresearch/nr-llm']))
             ->withAttribute('extbase', $extbaseParameters);
-        $serverRequest = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
+        $serverRequest            = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
         $GLOBALS['TYPO3_REQUEST'] = $serverRequest;
 
         return new ExtbaseRequest($serverRequest);

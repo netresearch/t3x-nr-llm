@@ -345,7 +345,7 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
             return [self::NOT_PERMITTED];
         }
 
-        [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
+        [$t, $q]  = $this->translator->boundTo($user, $this->excerpt(...));
         $language = self::toInt($page['sys_language_uid'] ?? 0);
 
         // ADR-213, in the order of the editorial guidelines: what, where, then
@@ -378,7 +378,7 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
                 [$old, $new] = [$oldLabel, $newLabel];
             }
 
-            $label = self::FIELD_LABELS[$field] ?? null;
+            $label              = self::FIELD_LABELS[$field] ?? null;
             [$line, $technical] = $this->fieldChange(
                 $t,
                 $q,
@@ -568,7 +568,7 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
 
         return array_values(array_filter(
             self::ALLOWED_FIELDS,
-            static fn(string $field): bool => isset($columns[$field]),
+            static fn (string $field): bool => isset($columns[$field]),
         ));
     }
 
@@ -670,7 +670,7 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
         $config  = is_array($column) ? ($column['config'] ?? null) : null;
 
         // The DataHandler's own truthiness test, mirrored.
-        return is_array($config) && (bool)($config['required'] ?? false);
+        return is_array($config) && (bool) ($config['required'] ?? false);
     }
 
     /**
@@ -718,7 +718,7 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
      */
     private function listed(array $values): string
     {
-        return implode(', ', array_map(static fn(string $value): string => '"' . $value . '"', $values));
+        return implode(', ', array_map(static fn (string $value): string => '"' . $value . '"', $values));
     }
 
     /**

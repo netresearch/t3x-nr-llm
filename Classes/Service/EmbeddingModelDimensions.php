@@ -49,12 +49,12 @@ final class EmbeddingModelDimensions
      * @var array<string, int>
      */
     private const DIMENSIONS = [
-        'text-embedding-3-small' => 1536,
-        'text-embedding-3-large' => 3072,
+        'text-embedding-3-small'        => 1536,
+        'text-embedding-3-large'        => 3072,
         'openai/text-embedding-3-small' => 1536,
-        'mistral-embed' => 1024,
-        'nomic-embed-text' => 768,
-        'gemini-embedding-2' => 3072,
+        'mistral-embed'                 => 1024,
+        'nomic-embed-text'              => 768,
+        'gemini-embedding-2'            => 3072,
     ];
 
     /**

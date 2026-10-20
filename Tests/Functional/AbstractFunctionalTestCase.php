@@ -60,7 +60,7 @@ abstract class AbstractFunctionalTestCase extends FunctionalTestCase
     {
         if (!$this->canRunFunctionalTests()) {
             self::markTestSkipped(
-                'Functional tests require database configuration. ' . 'Set typo3DatabaseDriver environment variable (e.g., pdo_sqlite) to enable.',
+                'Functional tests require database configuration. Set typo3DatabaseDriver environment variable (e.g., pdo_sqlite) to enable.',
             );
         }
 
@@ -93,6 +93,7 @@ abstract class AbstractFunctionalTestCase extends FunctionalTestCase
 
         // Check for LocalConfiguration
         $localConfigPath = dirname(__DIR__, 2) . '/typo3conf/LocalConfiguration.php';
+
         return file_exists($localConfigPath);
     }
 

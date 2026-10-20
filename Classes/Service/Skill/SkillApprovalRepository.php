@@ -23,7 +23,7 @@ use TYPO3\CMS\Core\Database\Query\QueryBuilder;
  * flags them, so the history of who approved which version, and who revoked it,
  * stays readable next to the append-only audit trail.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class SkillApprovalRepository implements SkillApprovalRepositoryInterface
 {
@@ -47,7 +47,7 @@ final readonly class SkillApprovalRepository implements SkillApprovalRepositoryI
         }
 
         $queryBuilder = $this->queryBuilder();
-        $row = $queryBuilder
+        $row          = $queryBuilder
             ->select('*')
             ->from(self::TABLE)
             ->where(
@@ -71,7 +71,7 @@ final readonly class SkillApprovalRepository implements SkillApprovalRepositoryI
         }
 
         $queryBuilder = $this->queryBuilder();
-        $row = $queryBuilder
+        $row          = $queryBuilder
             ->select('*')
             ->from(self::TABLE)
             ->where(
@@ -93,7 +93,7 @@ final readonly class SkillApprovalRepository implements SkillApprovalRepositoryI
         }
 
         $queryBuilder = $this->queryBuilder();
-        $row = $queryBuilder
+        $row          = $queryBuilder
             ->select('*')
             ->from(self::TABLE)
             ->where(
@@ -116,7 +116,7 @@ final readonly class SkillApprovalRepository implements SkillApprovalRepositoryI
         }
 
         $queryBuilder = $this->queryBuilder();
-        $rows = $queryBuilder
+        $rows         = $queryBuilder
             ->select('*')
             ->from(self::TABLE)
             ->where($queryBuilder->expr()->eq('skill_uid', $queryBuilder->createNamedParameter($skillUid, Connection::PARAM_INT)))
@@ -142,7 +142,7 @@ final readonly class SkillApprovalRepository implements SkillApprovalRepositoryI
             'description'    => $fields['description'],
             'body'           => $fields['body'],
             'support_status' => $fields['support_status'],
-            'allowed_tools'  => $tools === null ? '' : (string)json_encode($tools, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'allowed_tools'  => $tools === null ? '' : (string) json_encode($tools, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'process'        => $fields['process'] ? 1 : 0,
             'trust_level'    => $trustLevel,
             'approved_by'    => $approvedBy,

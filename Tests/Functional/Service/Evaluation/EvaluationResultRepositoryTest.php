@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Evaluation;
 
@@ -77,15 +78,15 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
     ): SetEvaluationResult {
         $generator = GeneratorProvenance::fromArray(
             [
-                'version' => 1,
+                'version'            => 1,
                 'providerIdentifier' => 'functional-fixture',
-                'modelId' => $model,
-                'reportedModelId' => $model,
+                'modelId'            => $model,
+                'reportedModelId'    => $model,
             ],
         );
         $evaluations = [];
         for ($i = 0; $i < $total; ++$i) {
-            $didPass = $i < $passed;
+            $didPass       = $i < $passed;
             $evaluations[] = new PromptEvaluation(
                 'p' . $i,
                 new GradingResult($didPass, $didPass ? 1.0 : 0.0, $grader),
@@ -110,7 +111,7 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
         $this->repository->save($this->buildResult(4, 3, 1700000000));
 
         $connection = $this->get(ConnectionPool::class)->getConnectionForTable(self::TABLE);
-        $row = $connection
+        $row        = $connection
             ->select(
                 [
                     'set_identifier',
@@ -130,12 +131,12 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
         self::assertIsArray($row);
         self::assertSame(self::MODEL, $row['model_id']);
         self::assertSame('deterministic', $row['grader']);
-        self::assertSame(4, (int)$row['prompt_count']);
-        self::assertSame(3, (int)$row['passed_count']);
+        self::assertSame(4, (int) $row['prompt_count']);
+        self::assertSame(3, (int) $row['passed_count']);
         self::assertIsNumeric($row['pass_rate']);
         self::assertIsNumeric($row['mean_score']);
-        self::assertEqualsWithDelta(0.75, (float)$row['pass_rate'], 0.0001);
-        self::assertEqualsWithDelta(0.75, (float)$row['mean_score'], 0.0001);
+        self::assertEqualsWithDelta(0.75, (float) $row['pass_rate'], 0.0001);
+        self::assertEqualsWithDelta(0.75, (float) $row['mean_score'], 0.0001);
 
         self::assertIsString($row['details']);
         $details = json_decode($row['details'], true);
@@ -230,7 +231,7 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
         $this->repository->save($this->buildResult(4, 3, 1700000200, self::MODEL, 'llm_judge'));
 
         $deterministic = $this->repository->findLatest(self::SET, self::MODEL, 'deterministic');
-        $decision = $this->repository->findLatest(self::SET, self::MODEL, 'decision');
+        $decision      = $this->repository->findLatest(self::SET, self::MODEL, 'decision');
 
         self::assertNotNull($deterministic);
         self::assertNotNull($decision);
@@ -256,8 +257,8 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
 
         self::assertIsArray($row);
         // Metadata columns are preserved...
-        self::assertSame(4, (int)$row['prompt_count']);
-        self::assertSame(3, (int)$row['passed_count']);
+        self::assertSame(4, (int) $row['prompt_count']);
+        self::assertSame(3, (int) $row['passed_count']);
         // ...but the content payload is dropped (ADR-064).
         self::assertSame('', $row['details']);
     }
@@ -288,6 +289,7 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
                 'commit-sha',
             ),
         );
+
         return (new RetrievalSetEvaluationResult(
             $set->identifier,
             'test.retriever',
@@ -335,13 +337,13 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
         self::assertSame(
             [
                 [
-                    'questionId' => 'q1',
-                    'form' => 'gap',
-                    'hardClass' => 'near-duplicate',
-                    'top1Hit' => true,
-                    'top3Hit' => true,
+                    'questionId'           => 'q1',
+                    'form'                 => 'gap',
+                    'hardClass'            => 'near-duplicate',
+                    'top1Hit'              => true,
+                    'top3Hit'              => true,
                     'retrievedDocumentIds' => ['internal-doc', 'second-doc'],
-                    'latencyMs' => 19,
+                    'latencyMs'            => 19,
                 ],
             ],
             $details,
@@ -416,9 +418,9 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
     {
         $this->repository->save($this->retrievalResult());
         $connection = $this->get(ConnectionPool::class)->getConnectionForTable(self::TABLE);
-        $valid = [
-            'corpusRevision' => 'corpus-v1',
-            'modelRevision' => 'model-v1',
+        $valid      = [
+            'corpusRevision'   => 'corpus-v1',
+            'modelRevision'    => 'model-v1',
             'chunkingIdentity' => 'chunk-v1',
             'pipelineIdentity' => 'pipeline-v1',
         ];
@@ -484,6 +486,7 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
             ->fetchAssociative();
         self::assertIsArray($row);
         self::assertIsString($row['details']);
+
         return $row['details'];
     }
 
@@ -496,8 +499,8 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
     {
         return [
             'encoding' => 'base64',
-            'version' => 'retrieval-bytes-v1',
-            'value' => base64_encode($value),
+            'version'  => 'retrieval-bytes-v1',
+            'value'    => base64_encode($value),
         ];
     }
 
@@ -510,13 +513,13 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
         self::assertSame(
             [
                 [
-                    'questionId' => $this->encodedBytes("question\xff"),
-                    'form' => 'match',
-                    'hardClass' => $this->encodedBytes("class\xfe"),
-                    'top1Hit' => true,
-                    'top3Hit' => true,
+                    'questionId'           => $this->encodedBytes("question\xff"),
+                    'form'                 => 'match',
+                    'hardClass'            => $this->encodedBytes("class\xfe"),
+                    'top1Hit'              => true,
+                    'top3Hit'              => true,
                     'retrievedDocumentIds' => [$this->encodedBytes("doc\xff"), $this->encodedBytes("doc\xfe"), 'doc-c'],
-                    'latencyMs' => 7,
+                    'latencyMs'            => 7,
                 ],
             ],
             $details,
@@ -548,7 +551,7 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
     public function customFullPolicyScrubsOriginalBytesBeforeTheirEncoding(): void
     {
         $secret = self::BYTE_EMAIL . "\xff";
-        $seen = [];
+        $seen   = [];
         $policy = self::createStub(PrivacyPolicyInterface::class);
         $policy->method('level')->willReturn(PrivacyLevel::FULL);
         $policy
@@ -556,6 +559,7 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
             ->willReturnCallback(
                 static function (?string $value) use (&$seen): ?string {
                     $seen[] = $value;
+
                     return $value === null ? null : str_replace(self::BYTE_EMAIL, '***', $value);
                 },
             );
@@ -582,7 +586,7 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
         $policy->method('level')->willReturn(PrivacyLevel::FULL);
         $policy
             ->method('filterContent')
-            ->willReturnCallback(static fn(?string $value): ?string => $value === $secret ? null : $value);
+            ->willReturnCallback(static fn (?string $value): ?string => $value === $secret ? null : $value);
         $repository = new EvaluationResultRepository($this->get(ConnectionPool::class), $policy);
         $repository->save($this->byteRetrievalResult($secret));
 
@@ -605,7 +609,7 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
         $policy
             ->method('filterContent')
             ->willReturnCallback(
-                static fn(
+                static fn (
                     ?string $value,
                 ): ?string => $value !== null && str_starts_with($value, '[') ? null : $value,
             );
@@ -629,11 +633,11 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
     public function customFullPolicyCanReplaceLegacyBytesWithOrdinaryUtf8(): void
     {
         $original = self::BYTE_EMAIL . "\xff";
-        $policy = self::createStub(PrivacyPolicyInterface::class);
+        $policy   = self::createStub(PrivacyPolicyInterface::class);
         $policy->method('level')->willReturn(PrivacyLevel::FULL);
         $policy
             ->method('filterContent')
-            ->willReturnCallback(static fn(?string $value): ?string => $value === $original ? 'filtered-id' : $value);
+            ->willReturnCallback(static fn (?string $value): ?string => $value === $original ? 'filtered-id' : $value);
         $repository = new EvaluationResultRepository($this->get(ConnectionPool::class), $policy);
         $repository->save($this->byteRetrievalResult($original));
 

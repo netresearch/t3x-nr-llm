@@ -346,8 +346,8 @@ final readonly class GetPageContentTool implements ToolInterface
     {
         // Space before each non-inline tag so adjacent text nodes stay
         // separated after strip_tags; the collapse removes the extra spaces.
-        $spaced = (string)preg_replace(self::NON_INLINE_TAG_PATTERN, ' <', $bodytext);
-        $plain  = trim((string)preg_replace('/\s+/', ' ', strip_tags($spaced)));
+        $spaced = (string) preg_replace(self::NON_INLINE_TAG_PATTERN, ' <', $bodytext);
+        $plain  = trim((string) preg_replace('/\s+/', ' ', strip_tags($spaced)));
         if ($plain === '') {
             return '';
         }

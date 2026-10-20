@@ -26,7 +26,7 @@ final class RunStepTest extends TestCase
     #[Test]
     public function toArrayAlwaysCarriesKindRoundAndRoundedDuration(): void
     {
-        $step = new RunStep(kind: RunStep::KIND_LLM, round: 2, durationMs: 12.3456);
+        $step  = new RunStep(kind: RunStep::KIND_LLM, round: 2, durationMs: 12.3456);
         $array = $step->toArray();
 
         self::assertSame('llm', $array['kind']);
@@ -37,7 +37,7 @@ final class RunStepTest extends TestCase
     #[Test]
     public function toArrayDropsNullFieldsSoEachKindOnlyEmitsItsOwnKeys(): void
     {
-        $step = new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 5.0, toolName: 'fetch', toolResult: 'ok', toolIsError: false);
+        $step  = new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 5.0, toolName: 'fetch', toolResult: 'ok', toolIsError: false);
         $array = $step->toArray();
 
         self::assertSame('fetch', $array['toolName']);
@@ -123,8 +123,8 @@ final class RunStepTest extends TestCase
     public static function inconsistentPairs(): iterable
     {
         yield 'no error, yet cancelled' => [false, ToolOutcome::CANCELLED];
-        yield 'no error, yet failed'    => [false, ToolOutcome::FAILED];
-        yield 'an error, yet ok'        => [true, ToolOutcome::OK];
+        yield 'no error, yet failed' => [false, ToolOutcome::FAILED];
+        yield 'an error, yet ok' => [true, ToolOutcome::OK];
         yield 'an outcome without the flag every tool step carries' => [null, ToolOutcome::CANCELLED];
     }
 
@@ -170,8 +170,8 @@ final class RunStepTest extends TestCase
      */
     public static function consistentPairs(): iterable
     {
-        yield 'ok'        => [false, ToolOutcome::OK];
-        yield 'failed'    => [true, ToolOutcome::FAILED];
+        yield 'ok' => [false, ToolOutcome::OK];
+        yield 'failed' => [true, ToolOutcome::FAILED];
         yield 'cancelled' => [true, ToolOutcome::CANCELLED];
     }
 
@@ -204,8 +204,8 @@ final class RunStepTest extends TestCase
         self::assertFalse($write->toArray()['hookFailedAfterWrite']);
 
         $refusals = [
-            'writeCompleteness'    => static fn(): RunStep => new RunStep(RunStep::KIND_TOOL, 1, 0.0, writeCompleteness: WriteCompleteness::COMPLETE),
-            'hookFailedAfterWrite' => static fn(): RunStep => new RunStep(RunStep::KIND_TOOL, 1, 0.0, hookFailedAfterWrite: false),
+            'writeCompleteness'    => static fn (): RunStep => new RunStep(RunStep::KIND_TOOL, 1, 0.0, writeCompleteness: WriteCompleteness::COMPLETE),
+            'hookFailedAfterWrite' => static fn (): RunStep => new RunStep(RunStep::KIND_TOOL, 1, 0.0, hookFailedAfterWrite: false),
         ];
         foreach ($refusals as $field => $construct) {
             try {

@@ -173,7 +173,7 @@ final class PromptSnippetMarkControllerTest extends AbstractFunctionalTestCase
         $parameters->setControllerName('Backend\\PromptSnippetMark');
         $parameters->setControllerActionName($action);
         $parameters->setControllerExtensionName('NrLlm');
-        $parameters->setArgument('snippet', (string)self::SNIPPET);
+        $parameters->setArgument('snippet', (string) self::SNIPPET);
         if ($action === 'mark') {
             $parameters->setArgument('digest', $digest);
         }

@@ -1,9 +1,11 @@
 <?php
 
-/* Copyright (c) 2026 Netresearch DTT GmbH
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
@@ -52,7 +54,7 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
         string $storageKind,
     ): void {
         $storageError = $storageKind === 'error' ? new Error('storage unavailable') : new RuntimeException('storage unavailable');
-        $repository = self::createMock(AgentRunRepositoryInterface::class);
+        $repository   = self::createMock(AgentRunRepositoryInterface::class);
         $repository
             ->expects(self::once())
             ->method($repositoryMethod)
@@ -66,17 +68,17 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
                 ->willReturn($run);
         }
 
-        $logger = $this->loggerFor($loggerMode);
+        $logger  = $this->loggerFor($loggerMode);
         $subject = new AgentRunPersister(
             $repository,
             FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL),
             $logger,
         );
-        $handle = new AgentRunHandle(7, 'stored-run');
+        $handle           = new AgentRunHandle(7, 'stored-run');
         $handle->sequence = 4;
 
         $failure = null;
-        $actual = 'not returned';
+        $actual  = 'not returned';
         try {
             $actual = $this->invoke($subject, $operation, $run, $handle);
         } catch (Throwable $caught) {
@@ -94,7 +96,7 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
             self::assertSame(
                 [
                     [
-                        'level' => 'warning',
+                        'level'   => 'warning',
                         'message' => $message,
                         'context' => ['exception' => $storageError],
                     ],
@@ -211,20 +213,20 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
         string $mode,
         string $storageKind,
     ): void {
-        $original = $storageKind === 'error' ? new Error('input audit unavailable') : new RuntimeException('input audit unavailable');
+        $original   = $storageKind === 'error' ? new Error('input audit unavailable') : new RuntimeException('input audit unavailable');
         $repository = self::createMock(AgentRunRepositoryInterface::class);
         $repository
             ->expects(self::once())
             ->method('recordEvent')
             ->with(7, 4, 'input', 0, 0.0, '{"submittedBy":9}')
             ->willThrowException($original);
-        $logger = $this->loggerFor($mode);
+        $logger  = $this->loggerFor($mode);
         $subject = new AgentRunPersister(
             $repository,
             FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL),
             $logger,
         );
-        $handle = new AgentRunHandle(7, 'stored-run');
+        $handle           = new AgentRunHandle(7, 'stored-run');
         $handle->sequence = 4;
 
         $caught = null;
@@ -240,7 +242,7 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
             self::assertSame(
                 [
                     [
-                        'level' => 'warning',
+                        'level'   => 'warning',
                         'message' => 'AgentRun input submission could not be persisted',
                         'context' => ['exception' => $original],
                     ],
@@ -253,10 +255,10 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
     #[Test]
     public function invalidWaitingTransitionRemainsAnExplicitCallerError(): void
     {
-        $original = new InvalidArgumentException('invalid waiting transition');
+        $original   = new InvalidArgumentException('invalid waiting transition');
         $repository = self::createMock(AgentRunRepositoryInterface::class);
         $repository->expects(self::once())->method('settleIfWaiting')->willThrowException($original);
-        $logger = new RecordingLogger();
+        $logger  = new RecordingLogger();
         $subject = new AgentRunPersister(
             $repository,
             FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL),
@@ -290,14 +292,14 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
             ->method($input ? 'suspendRunForInput' : 'suspendRun')
             ->willReturn(false);
         $attempts = [];
-        $logger = $this->refusalLogger($mode, $attempts);
-        $subject = new AgentRunPersister(
+        $logger   = $this->refusalLogger($mode, $attempts);
+        $subject  = new AgentRunPersister(
             $repository,
             FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL),
             $logger,
         );
         $handle = new AgentRunHandle(7, 'stored-run');
-        $state = new SuspendedRunState([], [], 1, 2, 3);
+        $state  = new SuspendedRunState([], [], 1, 2, 3);
         $caught = null;
         $result = null;
         try {
@@ -311,9 +313,9 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
         self::assertSame(
             match ($mode) {
                 'absent' => [],
-                default => [
+                default  => [
                     [
-                        'level' => 'notice',
+                        'level'   => 'notice',
                         'message' => $input ? 'AgentRun was no longer running when its input suspension arrived; it was discarded' : 'AgentRun was no longer running when its suspension arrived; the suspension was discarded',
                         'context' => ['run' => 'stored-run'],
                     ],
@@ -331,7 +333,7 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
     {
         foreach ([false, true] as $input) {
             foreach (['recording', 'runtime', 'error', 'absent'] as $mode) {
-                yield (int)$input . '/' . $mode => [$input, $mode];
+                yield (int) $input . '/' . $mode => [$input, $mode];
             }
         }
     }
@@ -354,22 +356,23 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
         AgentRun $run,
         AgentRunHandle $handle,
     ): mixed {
-        $state = new SuspendedRunState([], [], 1, 2, 3);
+        $state    = new SuspendedRunState([], [], 1, 2, 3);
         $original = new RuntimeException('original run failure');
+
         return match ($operation) {
-            'begin' => $subject->begin(new LlmConfiguration(), 9),
-            'enqueue' => $subject->enqueue(new LlmConfiguration(), 9, '{}'),
-            'claimQueued' => $subject->claimQueued($run, 'owner', 100),
-            'renewLease' => $subject->renewLease($handle, 'owner', 100),
+            'begin'             => $subject->begin(new LlmConfiguration(), 9),
+            'enqueue'           => $subject->enqueue(new LlmConfiguration(), 9, '{}'),
+            'claimQueued'       => $subject->claimQueued($run, 'owner', 100),
+            'renewLease'        => $subject->renewLease($handle, 'owner', 100),
             'markPendingEffect' => $subject->markPendingEffect($handle, 'owner', 'non_idempotent_write', 100),
-            'requeue' => $subject->requeue($handle, 'owner'),
-            'recordStep' => $subject->recordStep($handle, new RunStep(RunStep::KIND_LLM, 1, 0.0, content: 'answer')),
-            'settleCompleted' => $subject->settleCompleted(
+            'requeue'           => $subject->requeue($handle, 'owner'),
+            'recordStep'        => $subject->recordStep($handle, new RunStep(RunStep::KIND_LLM, 1, 0.0, content: 'answer')),
+            'settleCompleted'   => $subject->settleCompleted(
                 $handle,
                 new ToolLoopResult('answer', [], 1, false, new UsageStatistics(0, 0, 0)),
                 'owner',
             ),
-            'settleFailed' => $subject->settleFailed($handle, $original, 'owner'),
+            'settleFailed'        => $subject->settleFailed($handle, $original, 'owner'),
             'settlePolicyStopped' => $subject->settlePolicyStopped(
                 $handle,
                 $original,
@@ -383,28 +386,28 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
                 'owner',
             ),
             'settleCancelled' => $subject->settleCancelled($handle, 'owner'),
-            'cancel' => $subject->cancel('stored-run'),
+            'cancel'          => $subject->cancel('stored-run'),
             'settleIfWaiting' => $subject->settleIfWaiting(
                 $run,
                 [AgentRunStatus::WAITING_FOR_APPROVAL],
                 AgentRunStatus::CANCELLED,
                 AgentRunTerminationReason::CANCELLED,
             ),
-            'suspend' => $subject->suspend($handle, $state),
-            'suspendForInput' => $subject->suspendForInput($handle, $state),
-            'findRun' => $subject->findRun('stored-run'),
-            'findAwaitingRuns' => $subject->findAwaitingRuns(5, 9),
-            'findRecentTerminalRuns' => $subject->findRecentTerminalRuns(5, 9),
-            'claimResume' => $subject->claimResume($run, 'owner', 100),
-            'claimResumeFromInput' => $subject->claimResumeFromInput($run, 'owner', 100),
-            'resumeHandle' => $subject->resumeHandle($run),
-            'recordApproval' => $subject->recordApproval($handle, true, 9),
-            'findEvents' => $subject->findEvents(7, 3),
-            'findApprovalDeciders' => $subject->findApprovalDeciders([7]),
-            'findStaleRunning' => $subject->findStaleRunning(100, 5),
-            'requeueStale' => $subject->requeueStale($run, 100),
+            'suspend'                 => $subject->suspend($handle, $state),
+            'suspendForInput'         => $subject->suspendForInput($handle, $state),
+            'findRun'                 => $subject->findRun('stored-run'),
+            'findAwaitingRuns'        => $subject->findAwaitingRuns(5, 9),
+            'findRecentTerminalRuns'  => $subject->findRecentTerminalRuns(5, 9),
+            'claimResume'             => $subject->claimResume($run, 'owner', 100),
+            'claimResumeFromInput'    => $subject->claimResumeFromInput($run, 'owner', 100),
+            'resumeHandle'            => $subject->resumeHandle($run),
+            'recordApproval'          => $subject->recordApproval($handle, true, 9),
+            'findEvents'              => $subject->findEvents(7, 3),
+            'findApprovalDeciders'    => $subject->findApprovalDeciders([7]),
+            'findStaleRunning'        => $subject->findStaleRunning(100, 5),
+            'requeueStale'            => $subject->requeueStale($run, 100),
             'settleDeadLetteredStale' => $subject->settleDeadLetteredStale($run, 100, AgentRunTerminationReason::NOT_RETRYABLE),
-            default => throw new LogicException('Unknown diagnostic fixture operation: ' . $operation, 15505100),
+            default                   => throw new LogicException('Unknown diagnostic fixture operation: ' . $operation, 15505100),
         };
     }
 
@@ -442,6 +445,7 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
         }
 
         $error = $mode === 'error' ? new Error('optional diagnostic Error') : new RuntimeException('optional diagnostic exception');
+
         return new class ($error) extends AbstractLogger {
             public function __construct(private readonly Throwable $error) {}
 
@@ -463,13 +467,14 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
 
         $failure = match ($mode) {
             'recording' => null,
-            'runtime' => new RuntimeException('notice logger unavailable'),
-            'error' => new Error('notice logger error'),
-            default => throw new LogicException('Unknown logger fixture mode', 15505101),
+            'runtime'   => new RuntimeException('notice logger unavailable'),
+            'error'     => new Error('notice logger error'),
+            default     => throw new LogicException('Unknown logger fixture mode', 15505101),
         };
         $record = static function (mixed $level, string $message, array $context) use (&$attempts): void {
             $attempts[] = ['level' => $level, 'message' => $message, 'context' => $context];
         };
+
         return new class ($record, $failure) extends AbstractLogger {
             /**
              * @param Closure(mixed,string,array<array-key,mixed>):void $record
@@ -481,7 +486,7 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
 
             public function log($level, string|Stringable $message, array $context = []): void
             {
-                ($this->record)($level, (string)$message, $context);
+                ($this->record)($level, (string) $message, $context);
                 if ($this->failure instanceof Throwable) {
                     throw $this->failure;
                 }
@@ -500,13 +505,13 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
         $repository = self::createMock(AgentRunRepositoryInterface::class);
         $repository->expects(self::once())->method('finishRun')->willReturn(false);
         $attempts = [];
-        $subject = new AgentRunPersister(
+        $subject  = new AgentRunPersister(
             $repository,
             FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL),
             $this->refusalLogger($loggerMode, $attempts),
         );
         $failure = null;
-        $actual = null;
+        $actual  = null;
         try {
             $actual = $this->invoke(
                 $subject,
@@ -523,7 +528,7 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
         self::assertSame(
             $loggerMode === 'absent' ? [] : [
                 [
-                    'level' => 'notice',
+                    'level'   => 'notice',
                     'message' => 'AgentRun was not settled by this call (already terminal or ownership lost)',
                     'context' => ['run' => 'stored-run', 'status' => $status, 'reason' => $reason],
                 ],
@@ -559,13 +564,13 @@ final class AgentPersisterDiagnosticTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method('recordEvent')
             ->with(7, 4, 'input', 0, 0.0, '{"submittedBy":9}');
-        $logger = new RecordingLogger();
+        $logger  = new RecordingLogger();
         $subject = new AgentRunPersister(
             $repository,
             FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL),
             $logger,
         );
-        $handle = new AgentRunHandle(7, 'stored-run');
+        $handle           = new AgentRunHandle(7, 'stored-run');
         $handle->sequence = 4;
 
         $subject->recordInput($handle, 9);

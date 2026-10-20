@@ -200,7 +200,7 @@ class Skill extends AbstractEntity
 
         $out = [];
         foreach ($decoded as $k => $v) {
-            $out[(string)$k] = $v;
+            $out[(string) $k] = $v;
         }
 
         return $out;
@@ -262,6 +262,7 @@ class Skill extends AbstractEntity
         }
 
         $decoded = json_decode($this->allowedTools, true);
+
         return is_array($decoded) ? array_values(array_filter($decoded, is_string(...))) : null;
     }
 
@@ -340,7 +341,7 @@ class Skill extends AbstractEntity
 
             $row = [];
             foreach ($entry as $key => $value) {
-                $row[(string)$key] = $value;
+                $row[(string) $key] = $value;
             }
 
             $out[] = $row;

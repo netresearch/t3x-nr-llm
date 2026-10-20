@@ -1,10 +1,11 @@
 <?php
 
 /*
- * Copyright (c) 2026 Netresearch DTT GmbH
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Skill;
 
@@ -47,16 +48,16 @@ final class SkillApprovalToolsHydrationTest extends AbstractFunctionalTestCase
         $pool = $this->get(ConnectionPool::class);
         self::assertInstanceOf(ConnectionPool::class, $pool);
         $repository = new SkillApprovalRepository($pool);
-        $fields = [
-            'name' => 'Guide',
-            'description' => 'Review tools.',
-            'body' => 'Use the reviewed tools.',
+        $fields     = [
+            'name'           => 'Guide',
+            'description'    => 'Review tools.',
+            'body'           => 'Use the reviewed tools.',
             'support_status' => 'full',
-            'allowed_tools' => ['Alpha'],
-            'process' => false,
+            'allowed_tools'  => ['Alpha'],
+            'process'        => false,
         ];
         $digest = '1:' . str_repeat('a', 64);
-        $uid = $repository->add(5, 10, $digest, $fields, 'verified', 19);
+        $uid    = $repository->add(5, 10, $digest, $fields, 'verified', 19);
         self::assertGreaterThan(0, $uid);
         $connection = $pool->getConnectionForTable('tx_nrllm_skill_approval');
         self::assertSame(
@@ -67,8 +68,8 @@ final class SkillApprovalToolsHydrationTest extends AbstractFunctionalTestCase
                 ['uid' => $uid],
             ),
         );
-        $exact = $repository->findUnrevoked(5, 10, $digest);
-        $latest = $repository->findLatestUnrevoked(5);
+        $exact   = $repository->findUnrevoked(5, 10, $digest);
+        $latest  = $repository->findLatestUnrevoked(5);
         $history = $repository->findBySkill(5);
         self::assertNotNull($exact);
         self::assertNotNull($latest);

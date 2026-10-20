@@ -105,21 +105,21 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
 
         $pages = $this->connectionPool->getConnectionForTable('pages');
         $pages->insert('pages', [
-            'uid' => self::ROOT_PAGE, 'pid' => 0, 'title' => 'Root', 'doktype' => 1, 'slug' => '/',
-            'sorting' => 1, 'is_siteroot' => 1, 'sys_language_uid' => 0, 'l10n_parent' => 0,
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => self::ROOT_PAGE, 'pid' => 0, 'title' => 'Root', 'doktype' => 1, 'slug' => '/',
+            'sorting'       => 1, 'is_siteroot' => 1, 'sys_language_uid' => 0, 'l10n_parent' => 0,
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
         ]);
         $pages->insert('pages', [
-            'uid' => self::CHILD_PAGE, 'pid' => self::ROOT_PAGE, 'title' => 'Child', 'doktype' => 1,
-            'slug' => '/child', 'sorting' => 1, 'sys_language_uid' => 0, 'l10n_parent' => 0,
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => self::CHILD_PAGE, 'pid' => self::ROOT_PAGE, 'title' => 'Child', 'doktype' => 1,
+            'slug'          => '/child', 'sorting' => 1, 'sys_language_uid' => 0, 'l10n_parent' => 0,
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
         ]);
 
         $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
-            'uid' => self::ELEMENT, 'pid' => self::CHILD_PAGE, 'colPos' => 0, 'sorting' => 1,
-            'CType' => 'text', 'header' => 'Original', 'bodytext' => 'Original body',
+            'uid'              => self::ELEMENT, 'pid' => self::CHILD_PAGE, 'colPos' => 0, 'sorting' => 1,
+            'CType'            => 'text', 'header' => 'Original', 'bodytext' => 'Original body',
             'sys_language_uid' => 0, 'l18n_parent' => 0,
         ]);
 
@@ -183,11 +183,11 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('not visible until a human unhides it', $result->content);
 
         $translation = $this->translationOf('pages', self::CHILD_PAGE, 'l10n_parent');
-        self::assertSame(self::GERMAN, (int)($translation['sys_language_uid'] ?? -1));
-        self::assertSame(self::CHILD_PAGE, (int)($translation['l10n_parent'] ?? 0));
-        self::assertSame(1, (int)($translation['hidden'] ?? 0), 'a drafted translation must never be visible');
+        self::assertSame(self::GERMAN, (int) ($translation['sys_language_uid'] ?? -1));
+        self::assertSame(self::CHILD_PAGE, (int) ($translation['l10n_parent'] ?? 0));
+        self::assertSame(1, (int) ($translation['hidden'] ?? 0), 'a drafted translation must never be visible');
         // The source is untouched, in particular still visible.
-        self::assertSame(0, (int)($this->row('pages', self::CHILD_PAGE)['hidden'] ?? 1));
+        self::assertSame(0, (int) ($this->row('pages', self::CHILD_PAGE)['hidden'] ?? 1));
     }
 
     /**
@@ -205,7 +205,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertFalse($result->isError, $result->content);
-        $newUid = (int)($this->translationOf('tt_content', self::ELEMENT, 'l18n_parent')['uid'] ?? 0);
+        $newUid = (int) ($this->translationOf('tt_content', self::ELEMENT, 'l18n_parent')['uid'] ?? 0);
         self::assertGreaterThan(self::ELEMENT, $newUid);
         self::assertStringStartsWith(sprintf('New translation uid: %d.', $newUid), $result->content);
     }
@@ -250,9 +250,9 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         self::assertFalse($result->isError, $result->content);
 
         $translation = $this->translationOf('tt_content', self::ELEMENT, 'l18n_parent');
-        self::assertSame(self::GERMAN, (int)($translation['sys_language_uid'] ?? -1));
-        self::assertSame(self::ELEMENT, (int)($translation['l18n_parent'] ?? 0));
-        self::assertSame(1, (int)($translation['hidden'] ?? 0));
+        self::assertSame(self::GERMAN, (int) ($translation['sys_language_uid'] ?? -1));
+        self::assertSame(self::ELEMENT, (int) ($translation['l18n_parent'] ?? 0));
+        self::assertSame(1, (int) ($translation['hidden'] ?? 0));
         // The text is machine-translated from the SOURCE row (ADR-209), not
         // from the copy core prefixed with "[Translate to German:]": the
         // prefix must not reach the translator, and it is gone from the draft.
@@ -362,7 +362,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
 
         $translation = $this->translationOf('tt_content', self::ELEMENT, 'l18n_parent');
-        self::assertSame(1, (int)($translation['hidden'] ?? 0));
+        self::assertSame(1, (int) ($translation['hidden'] ?? 0));
         self::assertCount(2, $this->llm->calls, 'the first field was translated before the second failed');
         self::assertStringContainsString('[Translate to German:]', $this->stringOf($translation['header'] ?? null));
         self::assertStringNotContainsString('[de]', $this->stringOf($translation['header'] ?? null));
@@ -450,7 +450,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
             ToolExecutionContext::fromBackendUser($admin),
         );
         self::assertFalse($first->isError, $first->content);
-        $firstUid = (int)$this->translationOf('pages', self::CHILD_PAGE, 'l10n_parent')['uid'];
+        $firstUid = (int) $this->translationOf('pages', self::CHILD_PAGE, 'l10n_parent')['uid'];
 
         $second = $this->tool->execute(
             ['table' => 'pages', 'uid' => self::CHILD_PAGE, 'language' => self::GERMAN],
@@ -462,7 +462,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('uid ' . $firstUid, $second->content);
         self::assertStringContainsString('"overwrite": true', $second->content);
         // Still exactly one.
-        self::assertSame($firstUid, (int)$this->translationOf('pages', self::CHILD_PAGE, 'l10n_parent')['uid']);
+        self::assertSame($firstUid, (int) $this->translationOf('pages', self::CHILD_PAGE, 'l10n_parent')['uid']);
     }
 
     #[Test]
@@ -475,7 +475,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
             ToolExecutionContext::fromBackendUser($admin),
         );
         self::assertFalse($first->isError, $first->content);
-        $oldUid = (int)$this->translationOf('pages', self::CHILD_PAGE, 'l10n_parent')['uid'];
+        $oldUid = (int) $this->translationOf('pages', self::CHILD_PAGE, 'l10n_parent')['uid'];
 
         $second = $this->tool->execute(
             ['table' => 'pages', 'uid' => self::CHILD_PAGE, 'language' => self::GERMAN, 'overwrite' => true],
@@ -486,11 +486,11 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('replacing translation [' . $oldUid . ']', $second->content);
 
         // The old one is deleted rather than gone: recoverable, and in the log.
-        self::assertSame(1, (int)($this->row('pages', $oldUid)['deleted'] ?? 0));
+        self::assertSame(1, (int) ($this->row('pages', $oldUid)['deleted'] ?? 0));
 
         $fresh = $this->translationOf('pages', self::CHILD_PAGE, 'l10n_parent');
-        self::assertNotSame($oldUid, (int)$fresh['uid']);
-        self::assertSame(1, (int)($fresh['hidden'] ?? 0));
+        self::assertNotSame($oldUid, (int) $fresh['uid']);
+        self::assertSame(1, (int) ($fresh['hidden'] ?? 0));
     }
 
     /**
@@ -528,7 +528,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
             ToolExecutionContext::fromBackendUser($admin),
         );
         self::assertFalse($first->isError, $first->content);
-        $translationUid = (int)$this->translationOf('pages', self::CHILD_PAGE, 'l10n_parent')['uid'];
+        $translationUid = (int) $this->translationOf('pages', self::CHILD_PAGE, 'l10n_parent')['uid'];
 
         $result = $this->tool->execute(
             ['table' => 'pages', 'uid' => $translationUid, 'language' => self::GERMAN],
@@ -544,9 +544,9 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
     {
         $closed = $this->connectionPool->getConnectionForTable('pages');
         $closed->insert('pages', [
-            'uid' => 5, 'pid' => self::ROOT_PAGE, 'title' => 'Closed', 'doktype' => 1, 'slug' => '/closed',
-            'sorting' => 5, 'sys_language_uid' => 0, 'l10n_parent' => 0,
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => 5, 'pid' => self::ROOT_PAGE, 'title' => 'Closed', 'doktype' => 1, 'slug' => '/closed',
+            'sorting'       => 5, 'sys_language_uid' => 0, 'l10n_parent' => 0,
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::PAGE_SHOW,
         ]);
 
@@ -573,7 +573,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
             ToolExecutionContext::fromBackendUser($admin),
         );
         self::assertFalse($first->isError, $first->content);
-        $oldUid = (int)$this->translationOf('pages', self::CHILD_PAGE, 'l10n_parent')['uid'];
+        $oldUid = (int) $this->translationOf('pages', self::CHILD_PAGE, 'l10n_parent')['uid'];
 
         $german   = $this->previewIn('de', ['table' => 'pages', 'uid' => self::CHILD_PAGE, 'language' => self::GERMAN, 'overwrite' => true]);
         $oldTitle = $this->row('pages', $oldUid)['title'] ?? null;
@@ -590,7 +590,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
 
         // A preview is a read: the translation it says it would discard is
         // still there afterwards.
-        self::assertSame(0, (int)($this->row('pages', $oldUid)['deleted'] ?? 1));
+        self::assertSame(0, (int) ($this->row('pages', $oldUid)['deleted'] ?? 1));
     }
 
     #[Test]
@@ -696,7 +696,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function aTruncatedTranslationIsNotWritten(): void
     {
-        $admin = $this->setUpBackendUser(1);
+        $admin               = $this->setUpBackendUser(1);
         $this->llm->truncate = true;
 
         $result = $this->tool->execute(
@@ -735,7 +735,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
         self::assertStringContainsString('The text was NOT machine-translated: the write failed', $result->content);
         $translation = $this->translationOf('tt_content', self::ELEMENT, 'l18n_parent');
-        self::assertSame(1, (int)($translation['hidden'] ?? 0));
+        self::assertSame(1, (int) ($translation['hidden'] ?? 0));
         self::assertStringContainsString('[Translate to German:]', $this->stringOf($translation['header'] ?? null));
     }
 
@@ -747,9 +747,9 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
     public function aPageInNoSiteIsRefusedForThatReason(): void
     {
         $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
-            'uid' => 9, 'pid' => 0, 'title' => 'Orphan', 'doktype' => 1, 'slug' => '/orphan',
-            'sorting' => 9, 'sys_language_uid' => 0, 'l10n_parent' => 0,
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => 9, 'pid' => 0, 'title' => 'Orphan', 'doktype' => 1, 'slug' => '/orphan',
+            'sorting'       => 9, 'sys_language_uid' => 0, 'l10n_parent' => 0,
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
         ]);
         $admin = $this->setUpBackendUser(1);
@@ -925,7 +925,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
 
         try {
             $GLOBALS['TCA'] = array_replace_recursive($tca, ['tt_content' => ['columns' => ['subheader' => $columnChange]]]);
-            $lines = $this->tool->previewCall(
+            $lines          = $this->tool->previewCall(
                 ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN],
                 ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
             );
@@ -979,7 +979,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
     private function insertGlossary(string $entries): void
     {
         $this->connectionPool->getConnectionForTable('tx_nrllm_glossary')->insert('tx_nrllm_glossary', [
-            'uid' => 1, 'pid' => 0, 'name' => 'Terms', 'site_identifier' => 'testing',
+            'uid'             => 1, 'pid' => 0, 'name' => 'Terms', 'site_identifier' => 'testing',
             'source_language' => 'en', 'target_language' => 'de', 'entries' => $entries,
         ]);
     }
@@ -997,16 +997,16 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         self::assertIsArray($columns);
         $granted = [];
         foreach ($columns as $name => $column) {
-            if ($name !== 'subheader' && is_array($column) && (bool)($column['exclude'] ?? false)) {
+            if ($name !== 'subheader' && is_array($column) && (bool) ($column['exclude'] ?? false)) {
                 $granted[] = 'tt_content:' . $name;
             }
         }
 
         $this->connectionPool->getConnectionForTable('be_groups')->update('be_groups', [
-            'tables_select' => 'pages,tt_content',
-            'tables_modify' => 'tt_content',
+            'tables_select'      => 'pages,tt_content',
+            'tables_modify'      => 'tt_content',
             'non_exclude_fields' => implode(',', $granted),
-            'allowed_languages' => '0,1',
+            'allowed_languages'  => '0,1',
             'explicit_allowdeny' => 'tt_content:CType:text',
         ], ['uid' => 7]);
 
@@ -1018,10 +1018,10 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         $translators = ['llm' => $llm, 'deepl' => $deepl];
         $registry    = self::createStub(TranslatorRegistryInterface::class);
         $registry->method('get')->willReturnCallback(
-            static fn(string $identifier): TranslatorInterface => $translators[$identifier]
+            static fn (string $identifier): TranslatorInterface => $translators[$identifier]
                 ?? throw new ServiceUnavailableException('No translator ' . $identifier, 'translation'),
         );
-        $registry->method('has')->willReturnCallback(static fn(string $identifier): bool => isset($translators[$identifier]));
+        $registry->method('has')->willReturnCallback(static fn (string $identifier): bool => isset($translators[$identifier]));
 
         // A private in-memory cache, configured rather than constructed: the
         // backend's constructor differs between TYPO3 13.4 and 14.3.

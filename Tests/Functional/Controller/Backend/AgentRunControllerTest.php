@@ -101,7 +101,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
 
         $response = $controller->listAction();
         self::assertSame(200, $response->getStatusCode());
-        $body = (string)$response->getBody();
+        $body = (string) $response->getBody();
 
         // Landmarks + headings (a11y).
         self::assertStringContainsString('id="waiting-heading"', $body);
@@ -140,7 +140,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         );
         $this->setRequest($controller, 'list');
 
-        $body = (string)$controller->listAction()->getBody();
+        $body = (string) $controller->listAction()->getBody();
 
         self::assertStringContainsString('What this call would do', $body);
         self::assertStringContainsString('description: &quot;Old text&quot; → &quot;New text&quot;', $body);
@@ -174,7 +174,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         );
         $this->setRequest($controller, 'list');
 
-        $body = (string)$controller->listAction()->getBody();
+        $body = (string) $controller->listAction()->getBody();
 
         self::assertStringContainsString('Refused: the record already has what this call would write.', $body);
         self::assertStringNotContainsString('you hold no permission on the record it describes', $body);
@@ -195,7 +195,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         );
         $this->setRequest($controller, 'list');
 
-        $body = (string)$controller->listAction()->getBody();
+        $body = (string) $controller->listAction()->getBody();
 
         self::assertStringNotContainsString('Old text', $body);
         self::assertStringContainsString('you hold no permission on the record it describes', $body);
@@ -219,7 +219,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         $response = $controller->submitInputAction($uuid, ['reason' => '']);
 
         self::assertSame(422, $response->getStatusCode());
-        $body = (string)$response->getBody();
+        $body = (string) $response->getBody();
         // The error summary is present and focusable, and the run's card is still shown.
         self::assertStringContainsString('input-errors-' . $uuid, $body);
         self::assertStringContainsString('tabindex="-1"', $body);
@@ -401,7 +401,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
     private function localizedFlashMessages(): array
     {
         return array_values(array_map(
-            static fn(FlashMessage $message): string => $message->getMessage(),
+            static fn (FlashMessage $message): string => $message->getMessage(),
             $this->queuedFlashMessages(),
         ));
     }
@@ -456,7 +456,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         $controller = $this->makeController(new ToolRegistry([]), self::createStub(AgentRuntimeInterface::class));
         $this->setRequest($controller, 'list');
 
-        $body = (string)$controller->listAction()->getBody();
+        $body = (string) $controller->listAction()->getBody();
 
         self::assertStringContainsString('Timeline', $body);
         self::assertStringContainsString($handle->uuid, $body, 'The row names the run its link leads to.');
@@ -497,7 +497,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
 
         $response = $controller->showAction($runUuid);
         self::assertSame(200, $response->getStatusCode());
-        $body = (string)$response->getBody();
+        $body = (string) $response->getBody();
 
         self::assertStringContainsString($runUuid, $body, 'The run is identified by the correlation its calls carry.');
         self::assertStringContainsString('finishReason=stop', $body);
@@ -594,7 +594,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         $controller = $this->makeController(new ToolRegistry([]), self::createStub(AgentRuntimeInterface::class));
         $this->setRequest($controller, 'list');
 
-        $body = (string)$controller->listAction()->getBody();
+        $body = (string) $controller->listAction()->getBody();
 
         self::assertStringContainsString('Approved by the person who started the run', $body);
     }
@@ -613,7 +613,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         $controller = $this->makeController(new ToolRegistry([]), self::createStub(AgentRuntimeInterface::class));
         $this->setRequest($controller, 'list');
 
-        $body = (string)$controller->listAction()->getBody();
+        $body = (string) $controller->listAction()->getBody();
 
         self::assertStringContainsString('Approved by someone other than the person who started the run', $body);
         self::assertStringNotContainsString('Approved by the person who started the run</span>', $body);
@@ -649,7 +649,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         $response = $controller->showAction($runUuid);
         self::assertSame(200, $response->getStatusCode());
 
-        return (string)$response->getBody();
+        return (string) $response->getBody();
     }
 
     #[Test]
@@ -808,10 +808,10 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
             ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)
             ->withAttribute('route', new Route('/module/nrllm/runs', ['packageName' => 'netresearch/nr-llm']))
             ->withAttribute('extbase', $extbaseParameters);
-        $serverRequest           = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
+        $serverRequest            = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
         $GLOBALS['TYPO3_REQUEST'] = $serverRequest;
 
-        $reflection    = new ReflectionClass($controller);
+        $reflection     = new ReflectionClass($controller);
         $extbaseRequest = new ExtbaseRequest($serverRequest);
         $reflection->getProperty('request')->setValue($controller, $extbaseRequest);
 

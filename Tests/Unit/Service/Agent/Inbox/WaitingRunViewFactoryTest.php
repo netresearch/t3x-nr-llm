@@ -236,7 +236,7 @@ final class WaitingRunViewFactoryTest extends TestCase
                 // No title -> the label falls back to the humanised property name.
                 'max_temperature' => ['type' => 'number'],
                 // An enum becomes selectable options, every value string-coerced.
-                'severity'        => ['type' => 'string', 'enum' => ['low', 'high', 3]],
+                'severity' => ['type' => 'string', 'enum' => ['low', 'high', 3]],
             ],
         ];
         $view = $this->factory()->buildWaiting([$this->makeRun('a', $this->inputState('ask', $schema))])[0];
@@ -632,8 +632,8 @@ final class WaitingRunViewFactoryTest extends TestCase
     #[Test]
     public function aStateWithoutThePreviewFieldStillRendersTheCard(): void
     {
-        $call    = ToolCall::function('c1', 'write_thing', [])->toArray();
-        $legacy  = (new SuspendedRunState([], [$call], 1, 0, 0))->toArray();
+        $call   = ToolCall::function('c1', 'write_thing', [])->toArray();
+        $legacy = (new SuspendedRunState([], [$call], 1, 0, 0))->toArray();
         unset($legacy['callPreviews']);
         $encoded = json_encode($legacy, JSON_THROW_ON_ERROR);
 
@@ -751,7 +751,7 @@ final class WaitingRunViewFactoryTest extends TestCase
             }
 
             ++$checked;
-            self::assertStringNotContainsString('structuredPreview', (string)file_get_contents($file->getPathname()), $file->getPathname());
+            self::assertStringNotContainsString('structuredPreview', (string) file_get_contents($file->getPathname()), $file->getPathname());
         }
 
         self::assertGreaterThan(0, $checked);

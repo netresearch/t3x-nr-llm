@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Command;
 
@@ -43,13 +44,14 @@ final class EvalRunGeneratorAttributionTest extends TestCase
     ): GeneratorProvenance {
         $record = GeneratorProvenance::fromArray(
             [
-                'version' => 1,
+                'version'            => 1,
                 'providerIdentifier' => $provider,
-                'modelId' => 'served-alias',
-                'reportedModelId' => 'reported-snapshot',
+                'modelId'            => 'served-alias',
+                'reportedModelId'    => 'reported-snapshot',
             ],
         );
         self::assertInstanceOf(GeneratorProvenance::class, $record);
+
         return $record;
     }
 
@@ -61,8 +63,8 @@ final class EvalRunGeneratorAttributionTest extends TestCase
         EvaluationResultRepositoryInterface $repository,
     ): CommandTester {
         $completion = $this->createMock(CompletionServiceInterface::class);
-        $responses = array_map(
-            static fn(
+        $responses  = array_map(
+            static fn (
                 ?GeneratorProvenance $record,
             ): CompletionResponse => new CompletionResponse(
                 'ACK',
@@ -78,7 +80,7 @@ final class EvalRunGeneratorAttributionTest extends TestCase
             ->method('complete')
             ->willReturnOnConsecutiveCalls(...$responses);
         $prompts = array_map(
-            static fn(int $i): GoldenPrompt => new GoldenPrompt(
+            static fn (int $i): GoldenPrompt => new GoldenPrompt(
                 'p' . $i,
                 'Reply ACK',
                 [Assertion::contains('ACK')],
@@ -89,6 +91,7 @@ final class EvalRunGeneratorAttributionTest extends TestCase
         $setProvider
             ->method('getGoldenPromptSets')
             ->willReturn([new GoldenPromptSet('fixture', 'Fixture', 'description', $prompts)]);
+
         return new CommandTester(
             new EvalRunCommand(
                 new GoldenPromptSetRegistry([$setProvider]),
@@ -123,11 +126,11 @@ final class EvalRunGeneratorAttributionTest extends TestCase
         bool $strict,
         int $expectedExit,
     ): void {
-        $one = $this->record();
+        $one     = $this->record();
         $records = match ($identity) {
             'unknown-first' => [null, $one],
-            'unknown-last' => [$one, null],
-            default => [$one, $this->record('other-instance')],
+            'unknown-last'  => [$one, null],
+            default         => [$one, $this->record('other-instance')],
         };
         $repository = $this->createMock(GeneratorEvaluationResultRepositoryInterface::class);
         $repository->expects(self::never())->method('findLatest');
@@ -148,8 +151,8 @@ final class EvalRunGeneratorAttributionTest extends TestCase
             $expectedExit,
             $tester->execute(
                 [
-                    'set' => 'fixture',
-                    '--model' => 'requested-model',
+                    'set'                  => 'fixture',
+                    '--model'              => 'requested-model',
                     '--fail-on-regression' => $strict,
                 ],
             ),
@@ -168,7 +171,7 @@ final class EvalRunGeneratorAttributionTest extends TestCase
     #[Test]
     public function verifiedRunUsesAllFiveBaselineDimensionsAndStoresAfterReading(): void
     {
-        $record = $this->record();
+        $record     = $this->record();
         $repository = $this->createMock(GeneratorEvaluationResultRepositoryInterface::class);
         $repository->expects(self::never())->method('findLatest');
         $order = [];
@@ -185,6 +188,7 @@ final class EvalRunGeneratorAttributionTest extends TestCase
             ->willReturnCallback(
                 static function () use (&$order, $record): EvaluationResultSummary {
                     $order[] = 'read';
+
                     return new EvaluationResultSummary(
                         'fixture',
                         'served-alias',
@@ -226,7 +230,7 @@ final class EvalRunGeneratorAttributionTest extends TestCase
     #[Test]
     public function firstVerifiedRunCreatesItsOwnBaseline(): void
     {
-        $record = $this->record();
+        $record     = $this->record();
         $repository = $this->createMock(GeneratorEvaluationResultRepositoryInterface::class);
         $repository
             ->expects(self::once())

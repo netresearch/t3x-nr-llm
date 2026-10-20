@@ -1,10 +1,11 @@
 <?php
 
 /*
- * Copyright (c) 2026 Netresearch DTT GmbH
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Command;
 
@@ -45,9 +46,9 @@ final class DeriveObservedOutcomesCommandTest extends TestCase
     #[DataProvider('windows')]
     public function daysSelectsTheObservationWindowAndAnEmptyPassSucceeds(array $input, int $days): void
     {
-        $writes = $this->createMock(WrittenRecordRepositoryInterface::class);
+        $writes   = $this->createMock(WrittenRecordRepositoryInterface::class);
         $outcomes = $this->createMock(CallOutcomeRepositoryInterface::class);
-        $before = time();
+        $before   = time();
 
         $writes
             ->expects(self::once())
@@ -57,6 +58,7 @@ final class DeriveObservedOutcomesCommandTest extends TestCase
                     static function (int $timestamp) use ($before, $days): bool {
                         self::assertGreaterThanOrEqual($before - $days * 86400, $timestamp);
                         self::assertLessThanOrEqual(time() - $days * 86400, $timestamp);
+
                         return true;
                     },
                 ),
@@ -74,14 +76,14 @@ final class DeriveObservedOutcomesCommandTest extends TestCase
     #[Test]
     public function nonemptyPassPrintsPerOutcomeCountsAndPersistsTheDerivedAnswers(): void
     {
-        $writes = $this->createMock(WrittenRecordRepositoryInterface::class);
+        $writes   = $this->createMock(WrittenRecordRepositoryInterface::class);
         $outcomes = $this->createMock(CallOutcomeRepositoryInterface::class);
         $writes->method('findUnansweredCorrelations')->willReturn(['run-one', 'run-two']);
         $writes
             ->method('findWritesForCorrelation')
-            ->willReturnCallback(static fn(string $correlation): array => [new ObservedWrite($correlation, new RecordReference('pages', $correlation === 'run-one' ? 1 : 2), 100)]);
+            ->willReturnCallback(static fn (string $correlation): array => [new ObservedWrite($correlation, new RecordReference('pages', $correlation === 'run-one' ? 1 : 2), 100)]);
         $writes->method('historyAfter')->willReturn(['later' => [], 'oldestRetained' => 50]);
-        $writes->method('recordExists')->willReturnCallback(static fn(RecordReference $record): bool => $record->uid === 1);
+        $writes->method('recordExists')->willReturnCallback(static fn (RecordReference $record): bool => $record->uid === 1);
 
         $recorded = [];
         $outcomes

@@ -1,10 +1,11 @@
 <?php
 
 /*
- * Copyright (c) 2026 Netresearch DTT GmbH
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Specialized\Document;
 
@@ -49,7 +50,7 @@ final class PopplerPdfRendererTest extends TestCase
             putenv($value === false ? $name : $name . '=' . $value);
         }
 
-        $argv = $this->arguments('argv.log');
+        $argv   = $this->arguments('argv.log');
         $prefix = $argv === [] ? null : $argv[array_key_last($argv)];
         if (is_string($prefix) && str_starts_with($prefix, sys_get_temp_dir() . '/nrllm_pdf_')) {
             foreach (glob($prefix . '*') ?: [] as $file) {
@@ -98,7 +99,7 @@ final class PopplerPdfRendererTest extends TestCase
     public function wholeDocumentUsesLiteralArgumentsAndReturnsOrderedBytesWithNoTemporaryFiles(): void
     {
         $unexpected = $this->directory . '/unexpected';
-        $path = $this->directory . '/source with spaces;$(touch ' . $unexpected . ').pdf';
+        $path       = $this->directory . '/source with spaces;$(touch ' . $unexpected . ').pdf';
 
         self::assertSame([1 => 'page-one', 2 => 'page-two'], (new PopplerPdfRenderer())->renderDocument($path));
         $arguments = $this->arguments('argv.log');
@@ -209,6 +210,7 @@ final class PopplerPdfRendererTest extends TestCase
         }
 
         $lines = file($path, FILE_IGNORE_NEW_LINES);
+
         return $lines === false ? [] : $lines;
     }
 

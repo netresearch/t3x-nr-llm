@@ -156,9 +156,9 @@ final class SkillLoadServiceTest extends TestCase
     #[Test]
     public function aSkillDetachedSinceTheCatalogueWasBuiltIsRefused(): void
     {
-        $skill         = $this->approvedOnDemand(7);
-        $configuration = $this->configuration($skill);
-        $catalogue     = $this->service()->catalogue($configuration);
+        $skill                  = $this->approvedOnDemand(7);
+        $configuration          = $this->configuration($skill);
+        $catalogue              = $this->service()->catalogue($configuration);
         $this->lookup->onDemand = [];
 
         $outcome = $this->service()->load(7, $catalogue, [], $configuration);
@@ -326,7 +326,7 @@ final class SkillLoadServiceTest extends TestCase
 
     private function approve(Skill $skill): void
     {
-        $uid = (int)$skill->getUid();
+        $uid = (int) $skill->getUid();
         $this->approvals->add($uid, 1, $skill->getVersionDigest(), SkillVersionDigest::fieldsOf($skill), 'verified', 1);
         $this->lookup->onDemand[self::CONFIGURATION_UID][] = $uid;
         $this->lookup->digests[$uid]                       = $skill->getVersionDigest();
