@@ -38,7 +38,7 @@ namespace Netresearch\NrLlm\Service\Schema;
  * why its primitive type matcher byte-mirrors the lenient one (`5.0` is not
  * an integer here, unlike in the spec).
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class JsonSchemaValidator
 {
@@ -257,7 +257,7 @@ final readonly class JsonSchemaValidator
 
         $multiple = $schema['multipleOf'] ?? null;
         if (is_int($multiple) && $multiple > 0) {
-            $isMultiple = is_int($data) ? $data % $multiple === 0 : fmod($data, (float)$multiple) === 0.0;
+            $isMultiple = is_int($data) ? $data % $multiple === 0 : fmod($data, (float) $multiple) === 0.0;
             if (!$isMultiple) {
                 return false;
             }
@@ -298,7 +298,7 @@ final readonly class JsonSchemaValidator
             }
         }
 
-        $prefix = $schema['prefixItems'] ?? null;
+        $prefix      = $schema['prefixItems'] ?? null;
         $prefixCount = 0;
         if (is_array($prefix)) {
             $prefixCount = count($prefix);
@@ -348,7 +348,7 @@ final readonly class JsonSchemaValidator
         }
 
         $properties = $schema['properties'] ?? null;
-        $declared = [];
+        $declared   = [];
         if (is_array($properties)) {
             foreach ($properties as $key => $propSchema) {
                 $declared[$key] = true;
@@ -425,6 +425,7 @@ final readonly class JsonSchemaValidator
         }
 
         $not = $schema['not'] ?? null;
+
         return !is_array($not) || !$this->strictNode($data, $not);
     }
 
@@ -458,14 +459,14 @@ final readonly class JsonSchemaValidator
     private function strictMatchesType(mixed $data, string $type): bool
     {
         return match ($type) {
-            'object' => is_array($data) && (!array_is_list($data) || $data === []),
-            'array' => is_array($data) && array_is_list($data),
-            'string' => is_string($data),
-            'number' => is_int($data) || is_float($data),
+            'object'  => is_array($data) && (!array_is_list($data) || $data === []),
+            'array'   => is_array($data) && array_is_list($data),
+            'string'  => is_string($data),
+            'number'  => is_int($data) || is_float($data),
             'integer' => is_int($data),
             'boolean' => is_bool($data),
-            'null' => $data === null,
-            default => false,
+            'null'    => $data === null,
+            default   => false,
         };
     }
 
@@ -521,14 +522,14 @@ final readonly class JsonSchemaValidator
         return match ($type) {
             // An empty JSON object and array both decode to []; ambiguity is
             // accepted for this lightweight matcher.
-            'object' => is_array($data) && (!array_is_list($data) || $data === []),
-            'array' => is_array($data) && array_is_list($data),
-            'string' => is_string($data),
-            'number' => is_int($data) || is_float($data),
+            'object'  => is_array($data) && (!array_is_list($data) || $data === []),
+            'array'   => is_array($data) && array_is_list($data),
+            'string'  => is_string($data),
+            'number'  => is_int($data) || is_float($data),
             'integer' => is_int($data),
             'boolean' => is_bool($data),
-            'null' => $data === null,
-            default => true,
+            'null'    => $data === null,
+            default   => true,
         };
     }
 }

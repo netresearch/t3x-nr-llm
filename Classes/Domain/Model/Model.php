@@ -583,7 +583,7 @@ class Model extends AbstractEntity
     {
         $caps = array_filter(
             $this->getCapabilitiesArray(),
-            static fn(string $cap): bool => $cap !== $capability,
+            static fn (string $cap): bool => $cap !== $capability,
         );
         $this->setCapabilitiesArray($caps);
     }
@@ -648,15 +648,15 @@ class Model extends AbstractEntity
     public static function getAllCapabilities(): array
     {
         return [
-            ModelCapability::CHAT->value => 'Chat',
+            ModelCapability::CHAT->value       => 'Chat',
             ModelCapability::COMPLETION->value => 'Completion',
             ModelCapability::EMBEDDINGS->value => 'Embeddings',
-            ModelCapability::VISION->value => 'Vision',
-            ModelCapability::STREAMING->value => 'Streaming',
-            ModelCapability::TOOLS->value => 'Tool Use',
-            ModelCapability::JSON_MODE->value => 'JSON Mode',
-            ModelCapability::AUDIO->value => 'Audio',
-            ModelCapability::DECISION->value => 'Decisions',
+            ModelCapability::VISION->value     => 'Vision',
+            ModelCapability::STREAMING->value  => 'Streaming',
+            ModelCapability::TOOLS->value      => 'Tool Use',
+            ModelCapability::JSON_MODE->value  => 'JSON Mode',
+            ModelCapability::AUDIO->value      => 'Audio',
+            ModelCapability::DECISION->value   => 'Decisions',
         ];
     }
 
@@ -678,10 +678,10 @@ class Model extends AbstractEntity
     public function getFormattedContextLength(): string
     {
         return match (true) {
-            $this->contextLength === 0 => 'Unknown',
+            $this->contextLength === 0      => 'Unknown',
             $this->contextLength >= 1000000 => sprintf('%.1fM', $this->contextLength / 1000000),
-            $this->contextLength >= 1000 => sprintf('%dK', (int)($this->contextLength / 1000)),
-            default => (string)$this->contextLength,
+            $this->contextLength >= 1000    => sprintf('%dK', (int) ($this->contextLength / 1000)),
+            default                         => (string) $this->contextLength,
         };
     }
 
@@ -692,8 +692,9 @@ class Model extends AbstractEntity
      */
     public function estimateCost(int $inputTokens, int $outputTokens): float
     {
-        $inputCost = ($inputTokens / 1000000) * $this->getCostInputDollars();
+        $inputCost  = ($inputTokens / 1000000) * $this->getCostInputDollars();
         $outputCost = ($outputTokens / 1000000) * $this->getCostOutputDollars();
+
         return $inputCost + $outputCost;
     }
 

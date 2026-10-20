@@ -78,13 +78,13 @@ class SuggestedConfigurationTest extends AbstractUnitTestCase
         $array = $config->toArray();
 
         self::assertEquals([
-            'identifier' => 'translator',
-            'name' => 'Language Translator',
-            'description' => 'Translates text between languages',
-            'systemPrompt' => 'You are a translator.',
+            'identifier'         => 'translator',
+            'name'               => 'Language Translator',
+            'description'        => 'Translates text between languages',
+            'systemPrompt'       => 'You are a translator.',
             'recommendedModelId' => 'claude-3-opus',
-            'temperature' => 0.1,
-            'maxTokens' => 8192,
+            'temperature'        => 0.1,
+            'maxTokens'          => 8192,
             'additionalSettings' => $additionalSettings,
         ], $array);
     }

@@ -217,7 +217,7 @@ final class ResumeForcedSnippetReGateTest extends AbstractFunctionalTestCase
     private function identifiersOf(InjectedContext $context): array
     {
         return array_map(
-            static fn(PromptSnippet $snippet): string => $snippet->getIdentifier(),
+            static fn (PromptSnippet $snippet): string => $snippet->getIdentifier(),
             $context->snippets,
         );
     }

@@ -17,7 +17,7 @@ use Throwable;
  * published per-token prices into the catalog. A failure yields an empty
  * list — the router's catalog is too large and volatile to can.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class OpenRouterModelDiscoverer extends AbstractModelDiscoverer
 {
@@ -64,19 +64,19 @@ final class OpenRouterModelDiscoverer extends AbstractModelDiscoverer
             return null;
         }
 
-        $pricing = isset($model['pricing']) && is_array($model['pricing']) ? $model['pricing'] : [];
-        $modelName = isset($model['name']) && is_string($model['name']) ? $model['name'] : $modelId;
+        $pricing          = isset($model['pricing']) && is_array($model['pricing']) ? $model['pricing'] : [];
+        $modelName        = isset($model['name']) && is_string($model['name']) ? $model['name'] : $modelId;
         $modelDescription = isset($model['description']) && is_string($model['description'])
             ? $model['description']
             : 'OpenRouter model';
         $contextLength = isset($model['context_length']) && is_numeric($model['context_length'])
-            ? (int)$model['context_length']
+            ? (int) $model['context_length']
             : 0;
         $promptCost = isset($pricing['prompt']) && is_numeric($pricing['prompt'])
-            ? (float)$pricing['prompt']
+            ? (float) $pricing['prompt']
             : 0.0;
         $completionCost = isset($pricing['completion']) && is_numeric($pricing['completion'])
-            ? (float)$pricing['completion']
+            ? (float) $pricing['completion']
             : 0.0;
 
         return new DiscoveredModel(

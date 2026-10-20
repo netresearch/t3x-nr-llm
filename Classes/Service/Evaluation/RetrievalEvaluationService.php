@@ -62,8 +62,8 @@ final readonly class RetrievalEvaluationService
 
         foreach ($set->questions as $question) {
             $startedAt = microtime(true);
-            $ranked = $retriever->retrieve($question->question, self::TOP_K * self::OVERFETCH_MULTIPLIER);
-            $latencyMs = (int)round((microtime(true) - $startedAt) * 1000);
+            $ranked    = $retriever->retrieve($question->question, self::TOP_K * self::OVERFETCH_MULTIPLIER);
+            $latencyMs = (int) round((microtime(true) - $startedAt) * 1000);
 
             $documents = $this->distinctTopDocuments($ranked);
 

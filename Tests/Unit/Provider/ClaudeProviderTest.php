@@ -57,9 +57,9 @@ class ClaudeProviderTest extends AbstractUnitTestCase
 
         $this->subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'claude-sonnet-4-20250514',
-            'baseUrl' => '',
-            'timeout' => 30,
+            'defaultModel'     => 'claude-sonnet-4-20250514',
+            'baseUrl'          => '',
+            'timeout'          => 30,
         ]);
 
         // setHttpClient must be called AFTER configure() since configure() resets the client
@@ -85,9 +85,9 @@ class ClaudeProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'claude-sonnet-4-20250514',
-            'baseUrl' => '',
-            'timeout' => 30,
+            'defaultModel'     => 'claude-sonnet-4-20250514',
+            'baseUrl'          => '',
+            'timeout'          => 30,
         ]);
 
         // setHttpClient must be called AFTER configure() since configure() resets the client
@@ -124,19 +124,19 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'id' => 'msg_' . $this->faker->uuid(),
-            'type' => 'message',
-            'role' => 'assistant',
+            'id'      => 'msg_' . $this->faker->uuid(),
+            'type'    => 'message',
+            'role'    => 'assistant',
             'content' => [
                 [
                     'type' => 'text',
                     'text' => 'Claude response content',
                 ],
             ],
-            'model' => 'claude-sonnet-4-20250514',
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'end_turn',
-            'usage' => [
-                'input_tokens' => 10,
+            'usage'       => [
+                'input_tokens'  => 10,
                 'output_tokens' => 20,
             ],
         ];
@@ -158,7 +158,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function sendRequestKeepsProviderHeadersAlongsideCustomHeaders(): void
     {
         $capturedRequest = null;
-        $httpFactory = new HttpFactory();
+        $httpFactory     = new HttpFactory();
 
         $httpClient = self::createStub(ClientInterface::class);
         $httpClient
@@ -167,13 +167,13 @@ class ClaudeProviderTest extends AbstractUnitTestCase
                 $capturedRequest = $request;
 
                 return $this->createJsonResponseMock([
-                    'id' => 'msg_test',
-                    'type' => 'message',
-                    'role' => 'assistant',
-                    'content' => [['type' => 'text', 'text' => 'ok']],
-                    'model' => 'claude-sonnet-4-20250514',
+                    'id'          => 'msg_test',
+                    'type'        => 'message',
+                    'role'        => 'assistant',
+                    'content'     => [['type' => 'text', 'text' => 'ok']],
+                    'model'       => 'claude-sonnet-4-20250514',
                     'stop_reason' => 'end_turn',
-                    'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+                    'usage'       => ['input_tokens' => 1, 'output_tokens' => 1],
                 ]);
             });
 
@@ -186,7 +186,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         );
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'customHeaders' => ['X-Custom-Header' => 'custom-value'],
+            'customHeaders'    => ['X-Custom-Header' => 'custom-value'],
         ]);
         $subject->setHttpClient($httpClient);
 
@@ -208,13 +208,13 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
-            'content' => [['type' => 'text', 'text' => 'Hi there']],
-            'model' => 'claude-sonnet-4-20250514',
+            'id'          => 'msg_test',
+            'type'        => 'message',
+            'role'        => 'assistant',
+            'content'     => [['type' => 'text', 'text' => 'Hi there']],
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 5, 'output_tokens' => 2],
+            'usage'       => ['input_tokens' => 5, 'output_tokens' => 2],
         ];
 
         $this->httpClientStub
@@ -262,17 +262,17 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function chatCompletionReturnsTheForcedToolInputAsJsonContent(): void
     {
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
+            'id'      => 'msg_test',
+            'type'    => 'message',
+            'role'    => 'assistant',
             'content' => [
                 // Preamble prose must NOT survive into the structured answer.
                 ['type' => 'text', 'text' => 'Here is the result:'],
                 ['type' => 'tool_use', 'id' => 'tu_1', 'name' => 'emit_structured_output', 'input' => ['name' => 'Ada']],
             ],
-            'model' => 'claude-sonnet-4-20250514',
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'tool_use',
-            'usage' => ['input_tokens' => 5, 'output_tokens' => 2],
+            'usage'       => ['input_tokens' => 5, 'output_tokens' => 2],
         ];
 
         $this->httpClientStub
@@ -295,9 +295,9 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function chatCompletionThrowsProviderResponseExceptionOn401(): void
     {
         $errorResponse = [
-            'type' => 'error',
+            'type'  => 'error',
             'error' => [
-                'type' => 'authentication_error',
+                'type'    => 'authentication_error',
                 'message' => 'Invalid API key',
             ],
         ];
@@ -315,9 +315,9 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function chatCompletionThrowsProviderResponseExceptionOn429(): void
     {
         $errorResponse = [
-            'type' => 'error',
+            'type'  => 'error',
             'error' => [
-                'type' => 'rate_limit_error',
+                'type'    => 'rate_limit_error',
                 'message' => 'Rate limit exceeded',
             ],
         ];
@@ -363,16 +363,16 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function chatCompletionHandlesMultipleContentBlocks(): void
     {
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
+            'id'      => 'msg_test',
+            'type'    => 'message',
+            'role'    => 'assistant',
             'content' => [
                 ['type' => 'text', 'text' => 'First part. '],
                 ['type' => 'text', 'text' => 'Second part.'],
             ],
-            'model' => 'claude-sonnet-4-20250514',
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 5, 'output_tokens' => 10],
+            'usage'       => ['input_tokens' => 5, 'output_tokens' => 10],
         ];
 
         $this->httpClientStub
@@ -388,13 +388,13 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function chatCompletionMapsEndTurnToStop(): void
     {
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
-            'content' => [['type' => 'text', 'text' => 'Test']],
-            'model' => 'claude-sonnet-4-20250514',
+            'id'          => 'msg_test',
+            'type'        => 'message',
+            'role'        => 'assistant',
+            'content'     => [['type' => 'text', 'text' => 'Test']],
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+            'usage'       => ['input_tokens' => 1, 'output_tokens' => 1],
         ];
 
         $this->httpClientStub
@@ -431,14 +431,14 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithToolsReturnsToolCalls(): void
     {
         $messages = [['role' => 'user', 'content' => 'What is the weather?']];
-        $tools = [
+        $tools    = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => [
-                    'name' => 'get_weather',
+                    'name'        => 'get_weather',
                     'description' => 'Get weather for a location',
-                    'parameters' => [
-                        'type' => 'object',
+                    'parameters'  => [
+                        'type'       => 'object',
                         'properties' => ['location' => ['type' => 'string']],
                     ],
                 ],
@@ -446,20 +446,20 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
+            'id'      => 'msg_test',
+            'type'    => 'message',
+            'role'    => 'assistant',
             'content' => [
                 [
-                    'type' => 'tool_use',
-                    'id' => 'toolu_123',
-                    'name' => 'get_weather',
+                    'type'  => 'tool_use',
+                    'id'    => 'toolu_123',
+                    'name'  => 'get_weather',
                     'input' => ['location' => 'San Francisco'],
                 ],
             ],
-            'model' => 'claude-sonnet-4-20250514',
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'tool_use',
-            'usage' => ['input_tokens' => 50, 'output_tokens' => 20],
+            'usage'       => ['input_tokens' => 50, 'output_tokens' => 20],
         ];
 
         $this->httpClientStub
@@ -480,17 +480,17 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithToolsHandlesToolChoice(): void
     {
         $messages = [['role' => 'user', 'content' => 'test']];
-        $tools = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]])];
-        $options = ['tool_choice' => 'auto'];
+        $tools    = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]])];
+        $options  = ['tool_choice' => 'auto'];
 
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
-            'content' => [['type' => 'text', 'text' => 'Response']],
-            'model' => 'claude-sonnet-4-20250514',
+            'id'          => 'msg_test',
+            'type'        => 'message',
+            'role'        => 'assistant',
+            'content'     => [['type' => 'text', 'text' => 'Response']],
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
+            'usage'       => ['input_tokens' => 10, 'output_tokens' => 5],
         ];
 
         $this->httpClientStub
@@ -512,13 +512,13 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         $tools = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]])];
 
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
-            'content' => [['type' => 'text', 'text' => 'Response']],
-            'model' => 'claude-sonnet-4-20250514',
+            'id'          => 'msg_test',
+            'type'        => 'message',
+            'role'        => 'assistant',
+            'content'     => [['type' => 'text', 'text' => 'Response']],
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
+            'usage'       => ['input_tokens' => 10, 'output_tokens' => 5],
         ];
 
         $this->httpClientStub
@@ -534,24 +534,24 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithToolsMixedContentBlocks(): void
     {
         $messages = [['role' => 'user', 'content' => 'test']];
-        $tools = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]])];
+        $tools    = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]])];
 
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
+            'id'      => 'msg_test',
+            'type'    => 'message',
+            'role'    => 'assistant',
             'content' => [
                 ['type' => 'text', 'text' => 'Let me help. '],
                 [
-                    'type' => 'tool_use',
-                    'id' => 'toolu_123',
-                    'name' => 'test',
+                    'type'  => 'tool_use',
+                    'id'    => 'toolu_123',
+                    'name'  => 'test',
                     'input' => [],
                 ],
             ],
-            'model' => 'claude-sonnet-4-20250514',
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'tool_use',
-            'usage' => ['input_tokens' => 10, 'output_tokens' => 15],
+            'usage'       => ['input_tokens' => 10, 'output_tokens' => 15],
         ];
 
         $this->httpClientStub
@@ -569,17 +569,17 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithToolsMapsDifferentToolChoices(mixed $toolChoice): void
     {
         $messages = [['role' => 'user', 'content' => 'test']];
-        $tools = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]])];
-        $options = ['tool_choice' => $toolChoice];
+        $tools    = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]])];
+        $options  = ['tool_choice' => $toolChoice];
 
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
-            'content' => [['type' => 'text', 'text' => 'Response']],
-            'model' => 'claude-sonnet-4-20250514',
+            'id'          => 'msg_test',
+            'type'        => 'message',
+            'role'        => 'assistant',
+            'content'     => [['type' => 'text', 'text' => 'Response']],
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
+            'usage'       => ['input_tokens' => 10, 'output_tokens' => 5],
         ];
 
         $this->httpClientStub
@@ -597,11 +597,11 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public static function toolChoiceProvider(): array
     {
         return [
-            'auto string' => ['auto'],
-            'none string' => ['none'],
-            'required string' => ['required'],
+            'auto string'        => ['auto'],
+            'none string'        => ['none'],
+            'required string'    => ['required'],
             'specific tool name' => ['get_weather'],
-            'array format' => [['type' => 'tool', 'name' => 'test']],
+            'array format'       => [['type' => 'tool', 'name' => 'test']],
         ];
     }
 
@@ -623,13 +623,13 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
-            'content' => [['type' => 'text', 'text' => 'This is a cat']],
-            'model' => 'claude-sonnet-4-5-20250929',
+            'id'          => 'msg_test',
+            'type'        => 'message',
+            'role'        => 'assistant',
+            'content'     => [['type' => 'text', 'text' => 'This is a cat']],
+            'model'       => 'claude-sonnet-4-5-20250929',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 100, 'output_tokens' => 20],
+            'usage'       => ['input_tokens' => 100, 'output_tokens' => 20],
         ];
 
         $this->httpClientStub
@@ -651,13 +651,13 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
-            'content' => [['type' => 'text', 'text' => 'Image analysis']],
-            'model' => 'claude-sonnet-4-5-20250929',
+            'id'          => 'msg_test',
+            'type'        => 'message',
+            'role'        => 'assistant',
+            'content'     => [['type' => 'text', 'text' => 'Image analysis']],
+            'model'       => 'claude-sonnet-4-5-20250929',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 100, 'output_tokens' => 10],
+            'usage'       => ['input_tokens' => 100, 'output_tokens' => 10],
         ];
 
         $this->httpClientStub
@@ -676,13 +676,13 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         $options = ['system_prompt' => 'Be concise'];
 
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
-            'content' => [['type' => 'text', 'text' => 'Short description']],
-            'model' => 'claude-sonnet-4-5-20250929',
+            'id'          => 'msg_test',
+            'type'        => 'message',
+            'role'        => 'assistant',
+            'content'     => [['type' => 'text', 'text' => 'Short description']],
+            'model'       => 'claude-sonnet-4-5-20250929',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 50, 'output_tokens' => 5],
+            'usage'       => ['input_tokens' => 50, 'output_tokens' => 5],
         ];
 
         $this->httpClientStub
@@ -734,7 +734,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
             . "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\" World\"}}\n\n"
             . "data: {\"type\":\"message_stop\"}\n\n";
 
-        $stream = self::createStub(StreamInterface::class);
+        $stream       = self::createStub(StreamInterface::class);
         $eofCallCount = 0;
         $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
             return ++$eofCallCount > 1;
@@ -768,7 +768,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         $streamData = "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"Hi\"}}\n\n"
             . "data: {\"type\":\"message_stop\"}\n\n";
 
-        $stream = self::createStub(StreamInterface::class);
+        $stream       = self::createStub(StreamInterface::class);
         $eofCallCount = 0;
         $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
             return ++$eofCallCount > 1;
@@ -795,7 +795,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
             . "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"valid\"}}\n\n"
             . "data: {\"type\":\"message_stop\"}\n\n";
 
-        $stream = self::createStub(StreamInterface::class);
+        $stream       = self::createStub(StreamInterface::class);
         $eofCallCount = 0;
         $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
             return ++$eofCallCount > 1;
@@ -820,13 +820,13 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function chatCompletionMapsStopReasons(string $stopReason, string $expectedFinishReason): void
     {
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
-            'content' => [['type' => 'text', 'text' => 'Test']],
-            'model' => 'claude-sonnet-4-20250514',
+            'id'          => 'msg_test',
+            'type'        => 'message',
+            'role'        => 'assistant',
+            'content'     => [['type' => 'text', 'text' => 'Test']],
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => $stopReason,
-            'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+            'usage'       => ['input_tokens' => 1, 'output_tokens' => 1],
         ];
 
         $this->httpClientStub
@@ -844,10 +844,10 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public static function stopReasonProvider(): array
     {
         return [
-            'end_turn maps to stop' => ['end_turn', 'stop'],
-            'max_tokens maps to length' => ['max_tokens', 'length'],
-            'stop_sequence maps to stop' => ['stop_sequence', 'stop'],
-            'tool_use maps to tool_calls' => ['tool_use', 'tool_calls'],
+            'end_turn maps to stop'         => ['end_turn', 'stop'],
+            'max_tokens maps to length'     => ['max_tokens', 'length'],
+            'stop_sequence maps to stop'    => ['stop_sequence', 'stop'],
+            'tool_use maps to tool_calls'   => ['tool_use', 'tool_calls'],
             'unknown reason passes through' => ['unknown', 'unknown'],
         ];
     }
@@ -856,20 +856,20 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithOptionalParameters(): void
     {
         $messages = [['role' => 'user', 'content' => 'test']];
-        $options = [
-            'temperature' => 0.5,
-            'top_p' => 0.9,
+        $options  = [
+            'temperature'    => 0.5,
+            'top_p'          => 0.9,
             'stop_sequences' => ['END'],
         ];
 
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
-            'content' => [['type' => 'text', 'text' => 'Response']],
-            'model' => 'claude-sonnet-4-20250514',
+            'id'          => 'msg_test',
+            'type'        => 'message',
+            'role'        => 'assistant',
+            'content'     => [['type' => 'text', 'text' => 'Response']],
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
+            'usage'       => ['input_tokens' => 10, 'output_tokens' => 5],
         ];
 
         $this->httpClientStub
@@ -931,7 +931,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         self::assertArrayHasKey('temperature', $payload);
         $temperature = $payload['temperature'];
         self::assertIsNumeric($temperature);
-        self::assertEqualsWithDelta($expected, (float)$temperature, 1e-9);
+        self::assertEqualsWithDelta($expected, (float) $temperature, 1e-9);
     }
 
     /**
@@ -946,14 +946,15 @@ class ClaudeProviderTest extends AbstractUnitTestCase
      */
     private function captureChatPayload(array $options, array $tools = []): array
     {
-        $capturedBody = null;
+        $capturedBody  = null;
         $streamFactory = self::createStub(StreamFactoryInterface::class);
         $streamFactory->method('createStream')->willReturnCallback(
             function (string $content) use (&$capturedBody): StreamInterface {
                 $capturedBody = $content;
-                $stream = self::createStub(StreamInterface::class);
+                $stream       = self::createStub(StreamInterface::class);
                 $stream->method('__toString')->willReturn($content);
                 $stream->method('getContents')->willReturn($content);
+
                 return $stream;
             },
         );
@@ -967,20 +968,20 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         );
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'claude-sonnet-4-20250514',
-            'baseUrl' => '',
-            'timeout' => 30,
+            'defaultModel'     => 'claude-sonnet-4-20250514',
+            'baseUrl'          => '',
+            'timeout'          => 30,
         ]);
         $subject->setHttpClient($this->httpClientStub);
 
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
-            'content' => [['type' => 'text', 'text' => 'Response']],
-            'model' => 'claude-sonnet-4-20250514',
+            'id'          => 'msg_test',
+            'type'        => 'message',
+            'role'        => 'assistant',
+            'content'     => [['type' => 'text', 'text' => 'Response']],
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
+            'usage'       => ['input_tokens' => 10, 'output_tokens' => 5],
         ];
         $this->httpClientStub
             ->method('sendRequest')
@@ -1006,16 +1007,16 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         $content = [VisionContent::fromArray(['type' => 'text', 'text' => 'Describe'])];
 
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
+            'id'      => 'msg_test',
+            'type'    => 'message',
+            'role'    => 'assistant',
             'content' => [
                 ['type' => 'text', 'text' => 'First part. '],
                 ['type' => 'text', 'text' => 'Second part.'],
             ],
-            'model' => 'claude-sonnet-4-5-20250929',
+            'model'       => 'claude-sonnet-4-5-20250929',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 50, 'output_tokens' => 10],
+            'usage'       => ['input_tokens' => 50, 'output_tokens' => 10],
         ];
 
         $this->httpClientStub
@@ -1034,13 +1035,13 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         $options = ['model' => 'claude-opus-4-5-20251124'];
 
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
-            'content' => [['type' => 'text', 'text' => 'Analysis']],
-            'model' => 'claude-opus-4-5-20251124',
+            'id'          => 'msg_test',
+            'type'        => 'message',
+            'role'        => 'assistant',
+            'content'     => [['type' => 'text', 'text' => 'Analysis']],
+            'model'       => 'claude-opus-4-5-20251124',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 50, 'output_tokens' => 5],
+            'usage'       => ['input_tokens' => 50, 'output_tokens' => 5],
         ];
 
         $this->httpClientStub
@@ -1058,16 +1059,16 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function chatCompletionExtractsNativeThinkingBlocks(): void
     {
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
+            'id'      => 'msg_test',
+            'type'    => 'message',
+            'role'    => 'assistant',
             'content' => [
                 ['type' => 'thinking', 'thinking' => 'Let me reason about this'],
                 ['type' => 'text', 'text' => 'The answer is 42'],
             ],
-            'model' => 'claude-sonnet-4-20250514',
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 10, 'output_tokens' => 20],
+            'usage'       => ['input_tokens' => 10, 'output_tokens' => 20],
         ];
 
         $this->httpClientStub
@@ -1087,15 +1088,15 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function chatCompletionExtractsInlineThinkTags(): void
     {
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
+            'id'      => 'msg_test',
+            'type'    => 'message',
+            'role'    => 'assistant',
             'content' => [
                 ['type' => 'text', 'text' => '<think>Inline reasoning</think>Clean answer'],
             ],
-            'model' => 'claude-sonnet-4-20250514',
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 10, 'output_tokens' => 20],
+            'usage'       => ['input_tokens' => 10, 'output_tokens' => 20],
         ];
 
         $this->httpClientStub
@@ -1115,15 +1116,15 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function chatCompletionReturnsNullThinkingWhenNoThinkingPresent(): void
     {
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
+            'id'      => 'msg_test',
+            'type'    => 'message',
+            'role'    => 'assistant',
             'content' => [
                 ['type' => 'text', 'text' => 'Plain response'],
             ],
-            'model' => 'claude-sonnet-4-20250514',
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 10, 'output_tokens' => 20],
+            'usage'       => ['input_tokens' => 10, 'output_tokens' => 20],
         ];
 
         $this->httpClientStub
@@ -1143,20 +1144,20 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithToolsExtractsThinking(): void
     {
         $messages = [['role' => 'user', 'content' => 'test']];
-        $tools = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]])];
+        $tools    = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]])];
 
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
+            'id'      => 'msg_test',
+            'type'    => 'message',
+            'role'    => 'assistant',
             'content' => [
                 ['type' => 'thinking', 'thinking' => 'Tool reasoning'],
                 ['type' => 'text', 'text' => 'Tool result'],
                 ['type' => 'tool_use', 'id' => 'call_1', 'name' => 'test', 'input' => []],
             ],
-            'model' => 'claude-sonnet-4-20250514',
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'tool_use',
-            'usage' => ['input_tokens' => 10, 'output_tokens' => 20],
+            'usage'       => ['input_tokens' => 10, 'output_tokens' => 20],
         ];
 
         $this->httpClientStub
@@ -1178,7 +1179,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     {
         $messages = [
             [
-                'role' => 'user',
+                'role'    => 'user',
                 'content' => [
                     ['type' => 'text', 'text' => 'Describe this image'],
                     ['type' => 'image_url', 'image_url' => ['url' => 'data:image/png;base64,iVBORw0KGgo=']],
@@ -1187,13 +1188,13 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
-            'content' => [['type' => 'text', 'text' => 'This is an image of a diagram.']],
-            'model' => 'claude-sonnet-4-20250514',
+            'id'          => 'msg_test',
+            'type'        => 'message',
+            'role'        => 'assistant',
+            'content'     => [['type' => 'text', 'text' => 'This is an image of a diagram.']],
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 100, 'output_tokens' => 10],
+            'usage'       => ['input_tokens' => 100, 'output_tokens' => 10],
         ];
 
         $this->httpClientStub
@@ -1211,7 +1212,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     {
         $messages = [
             [
-                'role' => 'user',
+                'role'    => 'user',
                 'content' => [
                     ['type' => 'text', 'text' => 'What is in this image?'],
                     ['type' => 'image_url', 'image_url' => ['url' => 'data:image/jpeg;base64,/9j/4AAQ']],
@@ -1220,23 +1221,23 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         ];
         $tools = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => [
-                    'name' => 'describe_image',
+                    'name'        => 'describe_image',
                     'description' => 'Describe an image',
-                    'parameters' => ['type' => 'object'],
+                    'parameters'  => ['type' => 'object'],
                 ],
             ]),
         ];
 
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
-            'content' => [['type' => 'text', 'text' => 'Image description']],
-            'model' => 'claude-sonnet-4-20250514',
+            'id'          => 'msg_test',
+            'type'        => 'message',
+            'role'        => 'assistant',
+            'content'     => [['type' => 'text', 'text' => 'Image description']],
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 100, 'output_tokens' => 10],
+            'usage'       => ['input_tokens' => 100, 'output_tokens' => 10],
         ];
 
         $this->httpClientStub
@@ -1258,13 +1259,13 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
-            'content' => [['type' => 'text', 'text' => 'Hi!']],
-            'model' => 'claude-sonnet-4-20250514',
+            'id'          => 'msg_test',
+            'type'        => 'message',
+            'role'        => 'assistant',
+            'content'     => [['type' => 'text', 'text' => 'Hi!']],
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 5, 'output_tokens' => 2],
+            'usage'       => ['input_tokens' => 5, 'output_tokens' => 2],
         ];
 
         $this->httpClientStub
@@ -1282,15 +1283,15 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     {
         $messages = [
             [
-                'role' => 'user',
+                'role'    => 'user',
                 'content' => [
                     ['type' => 'text', 'text' => 'Summarize this document'],
                     [
-                        'type' => 'document',
+                        'type'   => 'document',
                         'source' => [
-                            'type' => 'base64',
+                            'type'       => 'base64',
                             'media_type' => 'application/pdf',
-                            'data' => 'JVBERi0xLjQ=',
+                            'data'       => 'JVBERi0xLjQ=',
                         ],
                     ],
                 ],
@@ -1298,13 +1299,13 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
-            'content' => [['type' => 'text', 'text' => 'Document summary']],
-            'model' => 'claude-sonnet-4-20250514',
+            'id'          => 'msg_test',
+            'type'        => 'message',
+            'role'        => 'assistant',
+            'content'     => [['type' => 'text', 'text' => 'Document summary']],
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 200, 'output_tokens' => 10],
+            'usage'       => ['input_tokens' => 200, 'output_tokens' => 10],
         ];
 
         $this->httpClientStub
@@ -1323,34 +1324,34 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         $messages = [
             ['role' => 'user', 'content' => 'What is the weather?'],
             [
-                'role' => 'assistant',
-                'content' => 'Let me check.',
+                'role'       => 'assistant',
+                'content'    => 'Let me check.',
                 'tool_calls' => [
                     [
-                        'id' => 'call_123',
-                        'type' => 'function',
+                        'id'       => 'call_123',
+                        'type'     => 'function',
                         'function' => [
-                            'name' => 'get_weather',
+                            'name'      => 'get_weather',
                             'arguments' => '{"location":"Berlin"}',
                         ],
                     ],
                 ],
             ],
             [
-                'role' => 'tool',
+                'role'         => 'tool',
                 'tool_call_id' => 'call_123',
-                'content' => '{"temp": 20, "condition": "sunny"}',
+                'content'      => '{"temp": 20, "condition": "sunny"}',
             ],
         ];
 
         $tools = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => [
-                    'name' => 'get_weather',
+                    'name'        => 'get_weather',
                     'description' => 'Get weather for a location',
-                    'parameters' => [
-                        'type' => 'object',
+                    'parameters'  => [
+                        'type'       => 'object',
                         'properties' => ['location' => ['type' => 'string']],
                     ],
                 ],
@@ -1358,13 +1359,13 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
-            'content' => [['type' => 'text', 'text' => 'The weather in Berlin is 20C and sunny.']],
-            'model' => 'claude-sonnet-4-20250514',
+            'id'          => 'msg_test',
+            'type'        => 'message',
+            'role'        => 'assistant',
+            'content'     => [['type' => 'text', 'text' => 'The weather in Berlin is 20C and sunny.']],
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 50, 'output_tokens' => 15],
+            'usage'       => ['input_tokens' => 50, 'output_tokens' => 15],
         ];
 
         $this->httpClientStub
@@ -1383,45 +1384,45 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         $messages = [
             ['role' => 'user', 'content' => 'Check the weather'],
             [
-                'role' => 'assistant',
-                'content' => 'I will check.',
+                'role'       => 'assistant',
+                'content'    => 'I will check.',
                 'tool_calls' => [
                     [
-                        'id' => 'call_456',
-                        'type' => 'function',
+                        'id'       => 'call_456',
+                        'type'     => 'function',
                         'function' => [
-                            'name' => 'get_weather',
+                            'name'      => 'get_weather',
                             'arguments' => '{"location":"Munich"}',
                         ],
                     ],
                 ],
             ],
             [
-                'role' => 'tool',
+                'role'         => 'tool',
                 'tool_call_id' => 'call_456',
-                'content' => '{"temp": 15}',
+                'content'      => '{"temp": 15}',
             ],
         ];
 
         $tools = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => [
-                    'name' => 'get_weather',
+                    'name'        => 'get_weather',
                     'description' => 'Get weather',
-                    'parameters' => ['type' => 'object'],
+                    'parameters'  => ['type' => 'object'],
                 ],
             ]),
         ];
 
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
-            'content' => [['type' => 'text', 'text' => 'It is 15C in Munich.']],
-            'model' => 'claude-sonnet-4-20250514',
+            'id'          => 'msg_test',
+            'type'        => 'message',
+            'role'        => 'assistant',
+            'content'     => [['type' => 'text', 'text' => 'It is 15C in Munich.']],
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 40, 'output_tokens' => 10],
+            'usage'       => ['input_tokens' => 40, 'output_tokens' => 10],
         ];
 
         $this->httpClientStub
@@ -1440,17 +1441,17 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         $messages = [
             ['role' => 'user', 'content' => 'Check weather in two cities'],
             [
-                'role' => 'assistant',
-                'content' => '',
+                'role'       => 'assistant',
+                'content'    => '',
                 'tool_calls' => [
                     [
-                        'id' => 'call_a',
-                        'type' => 'function',
+                        'id'       => 'call_a',
+                        'type'     => 'function',
                         'function' => ['name' => 'get_weather', 'arguments' => '{"location":"Berlin"}'],
                     ],
                     [
-                        'id' => 'call_b',
-                        'type' => 'function',
+                        'id'       => 'call_b',
+                        'type'     => 'function',
                         'function' => ['name' => 'get_weather', 'arguments' => '{"location":"Munich"}'],
                     ],
                 ],
@@ -1461,19 +1462,19 @@ class ClaudeProviderTest extends AbstractUnitTestCase
 
         $tools = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => ['name' => 'get_weather', 'description' => 'Get weather', 'parameters' => ['type' => 'object']],
             ]),
         ];
 
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
-            'content' => [['type' => 'text', 'text' => 'Berlin 20C, Munich 15C.']],
-            'model' => 'claude-sonnet-4-20250514',
+            'id'          => 'msg_test',
+            'type'        => 'message',
+            'role'        => 'assistant',
+            'content'     => [['type' => 'text', 'text' => 'Berlin 20C, Munich 15C.']],
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 60, 'output_tokens' => 10],
+            'usage'       => ['input_tokens' => 60, 'output_tokens' => 10],
         ];
 
         $this->httpClientStub
@@ -1495,13 +1496,13 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
-            'content' => [['type' => 'text', 'text' => 'Response']],
-            'model' => 'claude-sonnet-4-20250514',
+            'id'          => 'msg_test',
+            'type'        => 'message',
+            'role'        => 'assistant',
+            'content'     => [['type' => 'text', 'text' => 'Response']],
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 5, 'output_tokens' => 2],
+            'usage'       => ['input_tokens' => 5, 'output_tokens' => 2],
         ];
 
         $this->httpClientStub
@@ -1567,14 +1568,15 @@ class ClaudeProviderTest extends AbstractUnitTestCase
      */
     private function captureRequestPayload(callable $invoke): array
     {
-        $capturedBody = null;
+        $capturedBody  = null;
         $streamFactory = self::createStub(StreamFactoryInterface::class);
         $streamFactory->method('createStream')->willReturnCallback(
             function (string $content) use (&$capturedBody): StreamInterface {
                 $capturedBody = $content;
-                $stream = self::createStub(StreamInterface::class);
+                $stream       = self::createStub(StreamInterface::class);
                 $stream->method('__toString')->willReturn($content);
                 $stream->method('getContents')->willReturn($content);
+
                 return $stream;
             },
         );
@@ -1588,20 +1590,20 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         );
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'claude-sonnet-4-20250514',
-            'baseUrl' => '',
-            'timeout' => 30,
+            'defaultModel'     => 'claude-sonnet-4-20250514',
+            'baseUrl'          => '',
+            'timeout'          => 30,
         ]);
         $subject->setHttpClient($this->httpClientStub);
 
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
-            'content' => [['type' => 'text', 'text' => 'Response']],
-            'model' => 'claude-sonnet-4-20250514',
+            'id'          => 'msg_test',
+            'type'        => 'message',
+            'role'        => 'assistant',
+            'content'     => [['type' => 'text', 'text' => 'Response']],
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
+            'usage'       => ['input_tokens' => 10, 'output_tokens' => 5],
         ];
         $this->httpClientStub
             ->method('sendRequest')
@@ -1642,7 +1644,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         self::assertSame([['role' => 'user', 'content' => 'Hello']], $payload['messages']);
         self::assertArrayHasKey('temperature', $payload);
         self::assertIsNumeric($payload['temperature']);
-        self::assertEqualsWithDelta(0.4, (float)$payload['temperature'], 1e-9);
+        self::assertEqualsWithDelta(0.4, (float) $payload['temperature'], 1e-9);
         self::assertSame(['END'], $payload['stop_sequences']);
     }
 
@@ -1689,16 +1691,16 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function chatCompletionCombinesNativeAndInlineThinking(): void
     {
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
+            'id'      => 'msg_test',
+            'type'    => 'message',
+            'role'    => 'assistant',
             'content' => [
                 ['type' => 'thinking', 'thinking' => 'native reason'],
                 ['type' => 'text', 'text' => '<think>inline reason</think>Answer'],
             ],
-            'model' => 'claude-sonnet-4-20250514',
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 10, 'output_tokens' => 20],
+            'usage'       => ['input_tokens' => 10, 'output_tokens' => 20],
         ];
 
         $this->httpClientStub
@@ -1721,12 +1723,12 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     {
         $tools = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => [
-                    'name' => 'get_weather',
+                    'name'        => 'get_weather',
                     'description' => 'Get weather',
-                    'parameters' => [
-                        'type' => 'object',
+                    'parameters'  => [
+                        'type'       => 'object',
                         'properties' => ['location' => ['type' => 'string']],
                     ],
                 ],
@@ -1762,7 +1764,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         ], $payload['tools']);
         self::assertArrayHasKey('temperature', $payload);
         self::assertIsNumeric($payload['temperature']);
-        self::assertEqualsWithDelta(0.4, (float)$payload['temperature'], 1e-9);
+        self::assertEqualsWithDelta(0.4, (float) $payload['temperature'], 1e-9);
         self::assertSame(['STOP'], $payload['stop_sequences']);
     }
 
@@ -1784,19 +1786,19 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithToolsConcatenatesTextBlocks(): void
     {
         $messages = [['role' => 'user', 'content' => 'test']];
-        $tools = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]])];
+        $tools    = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]])];
 
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
+            'id'      => 'msg_test',
+            'type'    => 'message',
+            'role'    => 'assistant',
             'content' => [
                 ['type' => 'text', 'text' => 'First part. '],
                 ['type' => 'text', 'text' => 'Second part.'],
             ],
-            'model' => 'claude-sonnet-4-20250514',
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 10, 'output_tokens' => 15],
+            'usage'       => ['input_tokens' => 10, 'output_tokens' => 15],
         ];
 
         $this->httpClientStub
@@ -1812,20 +1814,20 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithToolsCombinesNativeAndInlineThinking(): void
     {
         $messages = [['role' => 'user', 'content' => 'test']];
-        $tools = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]])];
+        $tools    = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]])];
 
         $apiResponse = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
+            'id'      => 'msg_test',
+            'type'    => 'message',
+            'role'    => 'assistant',
             'content' => [
                 ['type' => 'thinking', 'thinking' => 'native reason'],
                 ['type' => 'text', 'text' => '<think>inline reason</think>Answer'],
                 ['type' => 'tool_use', 'id' => 'call_1', 'name' => 'test', 'input' => []],
             ],
-            'model' => 'claude-sonnet-4-20250514',
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'tool_use',
-            'usage' => ['input_tokens' => 10, 'output_tokens' => 20],
+            'usage'       => ['input_tokens' => 10, 'output_tokens' => 20],
         ];
 
         $this->httpClientStub
@@ -1871,11 +1873,11 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         self::assertSame('Be brief', $payload['system']);
         self::assertSame([
             [
-                'role' => 'user',
+                'role'    => 'user',
                 'content' => [
                     ['type' => 'text', 'text' => 'Describe this'],
                     [
-                        'type' => 'image',
+                        'type'   => 'image',
                         'source' => ['type' => 'url', 'url' => 'https://example.com/x.png'],
                     ],
                 ],
@@ -1912,10 +1914,10 @@ class ClaudeProviderTest extends AbstractUnitTestCase
 
         self::assertSame([
             [
-                'role' => 'user',
+                'role'    => 'user',
                 'content' => [
                     [
-                        'type' => 'image',
+                        'type'   => 'image',
                         'source' => [
                             'type'       => 'base64',
                             'media_type' => 'image/png',
@@ -1943,7 +1945,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
 
         self::assertSame([
             [
-                'role' => 'user',
+                'role'    => 'user',
                 'content' => [
                     ['type' => 'text', 'text' => 'What is this?'],
                 ],
@@ -1971,7 +1973,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         string $baseUrl = '',
         int $statusCode = 200,
     ): array {
-        $capturedUrl = null;
+        $capturedUrl    = null;
         $requestFactory = self::createStub(RequestFactoryInterface::class);
         $requestFactory->method('createRequest')->willReturnCallback(
             function (string $method, string $uri) use (&$capturedUrl): RequestInterface {
@@ -1981,14 +1983,15 @@ class ClaudeProviderTest extends AbstractUnitTestCase
             },
         );
 
-        $capturedBody = null;
+        $capturedBody  = null;
         $streamFactory = self::createStub(StreamFactoryInterface::class);
         $streamFactory->method('createStream')->willReturnCallback(
             function (string $content) use (&$capturedBody): StreamInterface {
                 $capturedBody = $content;
-                $stream = self::createStub(StreamInterface::class);
+                $stream       = self::createStub(StreamInterface::class);
                 $stream->method('__toString')->willReturn($content);
                 $stream->method('getContents')->willReturn($content);
+
                 return $stream;
             },
         );
@@ -2002,14 +2005,14 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         );
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'claude-sonnet-4-20250514',
-            'baseUrl' => $baseUrl,
-            'timeout' => 30,
+            'defaultModel'     => 'claude-sonnet-4-20250514',
+            'baseUrl'          => $baseUrl,
+            'timeout'          => 30,
         ]);
 
         $remainingChunks = $sseChunks;
         /** @var list<int> $readLengths */
-        $readLengths = [];
+        $readLengths    = [];
         $responseStream = self::createStub(StreamInterface::class);
         $responseStream->method('eof')->willReturnCallback(
             static function () use (&$remainingChunks): bool {
@@ -2126,9 +2129,9 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         );
         $subject->configure([
             'apiKeyIdentifier' => '',
-            'defaultModel' => 'claude-sonnet-4-20250514',
-            'baseUrl' => '',
-            'timeout' => 30,
+            'defaultModel'     => 'claude-sonnet-4-20250514',
+            'baseUrl'          => '',
+            'timeout'          => 30,
         ]);
         $subject->setHttpClient($this->createHttpClientMock());
 
@@ -2225,12 +2228,12 @@ class ClaudeProviderTest extends AbstractUnitTestCase
                     [
                         ['role' => 'user', 'content' => 'What is the weather?'],
                         [
-                            'role' => 'assistant',
-                            'content' => 'Let me check.',
+                            'role'       => 'assistant',
+                            'content'    => 'Let me check.',
                             'tool_calls' => [
                                 [
-                                    'id' => 'call_123',
-                                    'type' => 'function',
+                                    'id'       => 'call_123',
+                                    'type'     => 'function',
                                     'function' => ['name' => 'get_weather', 'arguments' => '{"location":"Berlin"}'],
                                 ],
                             ],
@@ -2247,21 +2250,21 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         self::assertSame([
             ['role' => 'user', 'content' => 'What is the weather?'],
             [
-                'role' => 'assistant',
+                'role'    => 'assistant',
                 'content' => [
                     ['type' => 'text', 'text' => 'Let me check.'],
                     ['type' => 'tool_use', 'id' => 'call_123', 'name' => 'get_weather', 'input' => ['location' => 'Berlin']],
                 ],
             ],
             [
-                'role' => 'user',
+                'role'    => 'user',
                 'content' => [
                     ['type' => 'tool_result', 'tool_use_id' => 'call_123', 'content' => '{"temp":20}'],
                 ],
             ],
             ['role' => 'user', 'content' => 'And tomorrow?'],
             [
-                'role' => 'user',
+                'role'    => 'user',
                 'content' => [
                     ['type' => 'tool_result', 'tool_use_id' => 'call_999', 'content' => 'late result'],
                 ],
@@ -2306,7 +2309,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
             static function (ClaudeProvider $s): void {
                 $s->chatCompletion([
                     [
-                        'role' => 'user',
+                        'role'    => 'user',
                         'content' => [
                             ['type' => 'text', 'text' => 'Look at these'],
                             ['type' => 'image_url', 'image_url' => ['url' => 'data:image/png;base64,iVBORw0KGgo=']],
@@ -2320,15 +2323,15 @@ class ClaudeProviderTest extends AbstractUnitTestCase
 
         self::assertSame([
             [
-                'role' => 'user',
+                'role'    => 'user',
                 'content' => [
                     ['type' => 'text', 'text' => 'Look at these'],
                     [
-                        'type' => 'image',
+                        'type'   => 'image',
                         'source' => ['type' => 'base64', 'media_type' => 'image/png', 'data' => 'iVBORw0KGgo='],
                     ],
                     [
-                        'type' => 'image',
+                        'type'   => 'image',
                         'source' => ['type' => 'url', 'url' => 'https://example.com/pic.jpg'],
                     ],
                     ['type' => 'document', 'source' => ['type' => 'base64', 'media_type' => 'application/pdf', 'data' => 'JVBERi0=']],
@@ -2349,7 +2352,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
             static function (ClaudeProvider $s): void {
                 $s->chatCompletion([
                     [
-                        'role' => 'user',
+                        'role'    => 'user',
                         'content' => [
                             ['type' => 'text', 'text' => 'Broken image'],
                             ['type' => 'image_url', 'image_url' => ['url' => "data:image/png;base64,iVBOR\nw0KGgo="]],
@@ -2361,7 +2364,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
 
         self::assertSame([
             [
-                'role' => 'user',
+                'role'    => 'user',
                 'content' => [
                     ['type' => 'text', 'text' => 'Broken image'],
                 ],
@@ -2389,7 +2392,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
 
         self::assertSame([
             [
-                'role' => 'user',
+                'role'    => 'user',
                 'content' => [
                     ['type' => 'text', 'text' => 'What is this?'],
                 ],
@@ -2428,10 +2431,10 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public static function toolChoicePayloadProvider(): array
     {
         return [
-            'auto maps to type auto' => ['auto', ['type' => 'auto']],
-            'none maps to type none' => ['none', ['type' => 'none']],
-            'required maps to type any' => ['required', ['type' => 'any']],
-            'tool name maps to named tool' => ['get_weather', ['type' => 'tool', 'name' => 'get_weather']],
+            'auto maps to type auto'         => ['auto', ['type' => 'auto']],
+            'none maps to type none'         => ['none', ['type' => 'none']],
+            'required maps to type any'      => ['required', ['type' => 'any']],
+            'tool name maps to named tool'   => ['get_weather', ['type' => 'tool', 'name' => 'get_weather']],
             'array passes through unchanged' => [['type' => 'tool', 'name' => 'lookup'], ['type' => 'tool', 'name' => 'lookup']],
         ];
     }

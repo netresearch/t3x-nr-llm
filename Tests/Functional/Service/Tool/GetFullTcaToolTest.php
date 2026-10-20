@@ -84,8 +84,8 @@ final class GetFullTcaToolTest extends AbstractFunctionalTestCase
         $lines = explode("\n", $output);
         array_shift($lines);
         $names = array_map(
-            static fn(string $line): string => explode(' — ', $line)[0],
-            array_filter($lines, static fn(string $line): bool => $line !== ''),
+            static fn (string $line): string => explode(' — ', $line)[0],
+            array_filter($lines, static fn (string $line): bool => $line !== ''),
         );
 
         $sorted = $names;

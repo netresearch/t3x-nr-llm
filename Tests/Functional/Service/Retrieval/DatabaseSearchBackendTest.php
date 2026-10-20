@@ -60,95 +60,95 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
         $pages = $connectionPool->getConnectionForTable('pages');
         self::assertInstanceOf(Connection::class, $pages);
         $pages->insert('pages', [
-            'uid' => 1, 'pid' => 0, 'title' => 'Home', 'doktype' => 1,
+            'uid'     => 1, 'pid' => 0, 'title' => 'Home', 'doktype' => 1,
             'sorting' => 1, 'is_siteroot' => 1, 'slug' => '/',
         ]);
         $pages->insert('pages', [
-            'uid' => 2, 'pid' => 1, 'title' => 'Aikido Migration Services', 'doktype' => 1,
+            'uid'     => 2, 'pid' => 1, 'title' => 'Aikido Migration Services', 'doktype' => 1,
             'sorting' => 2, 'slug' => '/migration', 'abstract' => 'We migrate aikido dojos.',
         ]);
         $pages->insert('pages', [
-            'uid' => 3, 'pid' => 1, 'title' => 'Aikido secret draft', 'doktype' => 1,
+            'uid'     => 3, 'pid' => 1, 'title' => 'Aikido secret draft', 'doktype' => 1,
             'sorting' => 3, 'slug' => '/draft', 'hidden' => 1,
         ]);
         $pages->insert('pages', [
-            'uid' => 4, 'pid' => 1, 'title' => 'Aikido members area', 'doktype' => 1,
+            'uid'     => 4, 'pid' => 1, 'title' => 'Aikido members area', 'doktype' => 1,
             'sorting' => 4, 'slug' => '/members', 'fe_group' => '1',
         ]);
         $pages->insert('pages', [
-            'uid' => 5, 'pid' => 1, 'title' => 'Aikido unlisted page', 'doktype' => 1,
+            'uid'     => 5, 'pid' => 1, 'title' => 'Aikido unlisted page', 'doktype' => 1,
             'sorting' => 5, 'slug' => '/unlisted', 'no_search' => 1,
         ]);
         // Classic members-only section: restriction sits on the section
         // ROOT with extendToSubpages, the child row itself is public.
         $pages->insert('pages', [
-            'uid' => 6, 'pid' => 1, 'title' => 'Members section', 'doktype' => 1,
+            'uid'     => 6, 'pid' => 1, 'title' => 'Members section', 'doktype' => 1,
             'sorting' => 6, 'slug' => '/members', 'fe_group' => '1', 'extendToSubpages' => 1,
         ]);
         $pages->insert('pages', [
-            'uid' => 7, 'pid' => 6, 'title' => 'Aikido internal price list', 'doktype' => 1,
+            'uid'     => 7, 'pid' => 6, 'title' => 'Aikido internal price list', 'doktype' => 1,
             'sorting' => 1, 'slug' => '/members/prices',
         ]);
         // German translation of the migration page.
         $pages->insert('pages', [
-            'uid' => 20, 'pid' => 1, 'title' => 'Aikido Migrationsdienste', 'doktype' => 1,
+            'uid'     => 20, 'pid' => 1, 'title' => 'Aikido Migrationsdienste', 'doktype' => 1,
             'sorting' => 2, 'slug' => '/migration', 'sys_language_uid' => 1, 'l10n_parent' => 2,
         ]);
         // Narrow match: covers only ONE word of a multi-word query.
         $pages->insert('pages', [
-            'uid' => 30, 'pid' => 1, 'title' => 'Aikido overview', 'doktype' => 1,
+            'uid'     => 30, 'pid' => 1, 'title' => 'Aikido overview', 'doktype' => 1,
             'sorting' => 8, 'slug' => '/overview',
         ]);
         // Phrase sits in a LATER content element than the first word match.
         $pages->insert('pages', [
-            'uid' => 31, 'pid' => 1, 'title' => 'Summer programme', 'doktype' => 1,
+            'uid'     => 31, 'pid' => 1, 'title' => 'Summer programme', 'doktype' => 1,
             'sorting' => 9, 'slug' => '/summer',
         ]);
         // Hidden section root with extendToSubpages, public child row.
         $pages->insert('pages', [
-            'uid' => 8, 'pid' => 1, 'title' => 'Staging section', 'doktype' => 1,
+            'uid'     => 8, 'pid' => 1, 'title' => 'Staging section', 'doktype' => 1,
             'sorting' => 7, 'slug' => '/staging', 'hidden' => 1, 'extendToSubpages' => 1,
         ]);
         $pages->insert('pages', [
-            'uid' => 9, 'pid' => 8, 'title' => 'Aikido unpublished relaunch page', 'doktype' => 1,
+            'uid'     => 9, 'pid' => 8, 'title' => 'Aikido unpublished relaunch page', 'doktype' => 1,
             'sorting' => 1, 'slug' => '/staging/relaunch',
         ]);
 
         $content = $connectionPool->getConnectionForTable('tt_content');
         self::assertInstanceOf(Connection::class, $content);
         $content->insert('tt_content', [
-            'uid' => 10, 'pid' => 2, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
+            'uid'    => 10, 'pid' => 2, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
             'header' => 'Our aikido offering', 'bodytext' => '<p>Aikido migrations done right.</p>',
         ]);
         $content->insert('tt_content', [
-            'uid' => 11, 'pid' => 3, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
+            'uid'    => 11, 'pid' => 3, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
             'header' => 'Draft content', 'bodytext' => 'Aikido secrets nobody should read.',
         ]);
         $content->insert('tt_content', [
-            'uid' => 12, 'pid' => 2, 'colPos' => 0, 'sorting' => 2, 'CType' => 'text',
+            'uid'    => 12, 'pid' => 2, 'colPos' => 0, 'sorting' => 2, 'CType' => 'text',
             'header' => 'Protected element', 'bodytext' => 'Aikido insider pricing.', 'fe_group' => '1',
         ]);
         $content->insert('tt_content', [
-            'uid' => 13, 'pid' => 7, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
+            'uid'    => 13, 'pid' => 7, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
             'header' => 'Member prices', 'bodytext' => 'Aikido member price table.',
         ]);
         $content->insert('tt_content', [
-            'uid' => 15, 'pid' => 2, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
-            'header' => 'Unser Aikido-Angebot', 'bodytext' => 'Aikido Migrationen richtig gemacht.',
+            'uid'              => 15, 'pid' => 2, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
+            'header'           => 'Unser Aikido-Angebot', 'bodytext' => 'Aikido Migrationen richtig gemacht.',
             'sys_language_uid' => 1, 'l18n_parent' => 10,
         ]);
         $content->insert('tt_content', [
-            'uid' => 16, 'pid' => 31, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
+            'uid'    => 16, 'pid' => 31, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
             'header' => 'Basics', 'bodytext' => 'Aikido basics for beginners.',
         ]);
         $content->insert('tt_content', [
-            'uid' => 17, 'pid' => 31, 'colPos' => 0, 'sorting' => 2, 'CType' => 'text',
+            'uid'    => 17, 'pid' => 31, 'colPos' => 0, 'sorting' => 2, 'CType' => 'text',
             'header' => 'Summer special', 'bodytext' => 'We bundle aikido migration services every summer.',
         ]);
         // Unpublished workspace draft of element 10 (t3ver_wsid > 0).
         $content->insert('tt_content', [
-            'uid' => 14, 'pid' => 2, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
-            'header' => 'Draft press release', 'bodytext' => 'Aikido draft codename xyzzy.',
+            'uid'        => 14, 'pid' => 2, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
+            'header'     => 'Draft press release', 'bodytext' => 'Aikido draft codename xyzzy.',
             't3ver_wsid' => 1, 't3ver_oid' => 10, 't3ver_state' => 0,
         ]);
 
@@ -175,7 +175,7 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn (EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertContains('database:2:0', $ids);
 
         $migration = null;
@@ -200,7 +200,7 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn (EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertNotContains('database:3:0', $ids, 'hidden page leaked');
         self::assertNotContains('database:4:0', $ids, 'fe_group-protected page leaked');
         self::assertNotContains('database:5:0', $ids, 'no_search page leaked');
@@ -214,7 +214,7 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn (EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertContains('database:2:1', $ids);
 
         foreach ($result->sources as $source) {
@@ -240,7 +240,7 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn (EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertSame(['database:2:1'], $ids, 'untranslated page cited under a language-routed URL');
     }
 
@@ -252,7 +252,7 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn (EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertNotContains('database:7:0', $ids, 'child of fe_group-restricted section leaked');
         self::assertNotContains('database:9:0', $ids, 'child of hidden section leaked');
 
@@ -302,7 +302,7 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn (EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertContains('database:2:0', $ids);
     }
 
@@ -314,7 +314,7 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn (EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertSame('database:2:0', $ids[0] ?? null, 'page covering all three words must rank first');
         self::assertContains('database:30:0', $ids, 'single-word match missing entirely');
     }
