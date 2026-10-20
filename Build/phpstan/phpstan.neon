@@ -4,11 +4,12 @@
 # PHPStan Configuration - TYPO3 LLM Extension
 # Based on TYPO3 Best Practices: https://github.com/TYPO3BestPractices/tea
 #
-# This configuration enforces:
-# - Level 10 maximum analysis (strictest type checking)
-# - PHP 8.2+ compatibility
+# The shared config of typo3-ci-workflows sets level 10,
+# treatPhpDocTypesAsCertain and the strictness flags;
+# phpstan/extension-installer registers phpstan-typo3, phpat and the other
+# PHPStan extensions. This file adds PHP 8.2+ compatibility, the paths, the
+# extension's own ignores and turns reportUnmatchedIgnoredErrors off again.
 #
-# Level 10 enforces complete type safety for all mixed types.
 # Baseline used for new test files pending type improvements.
 
 includes:
@@ -23,12 +24,13 @@ parameters:
   parallel:
     maximumNumberOfProcesses: 5
 
-  # Analysis level (0-10, higher is stricter)
-  # Level 10 is maximum strictness - full type safety enforcement
-  level: 10
-
-  # Required because parent config (typo3-ci-workflows) defines ignore rules
-  # with reportUnmatched: true that may not match in this extension's context
+  # The shared config reports unmatched ignores; this file does not. PHPStan
+  # finds the namespaced functions of giorgiosironi/eris (Generator\choose()
+  # and the like) in some runs and not in others, so the `function.notFound`
+  # ignores in Tests/Fuzzy/ match in one run and not in the next. Measured on
+  # PHP 8.5, TYPO3 14.3, PHPUnit 12, with this override removed: two of five complete runs
+  # reported UsageStatisticsFuzzyTest:29/30 (once also ChatOptionsFuzzyTest:150)
+  # as unmatched, the other three did not.
   reportUnmatchedIgnoredErrors: false
 
   ignoreErrors:

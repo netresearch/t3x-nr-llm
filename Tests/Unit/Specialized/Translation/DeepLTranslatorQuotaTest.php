@@ -59,9 +59,9 @@ final class DeepLTranslatorQuotaTest extends AbstractUnitTestCase
         parent::setUp();
 
         $this->previousBeUser = $GLOBALS['BE_USER'] ?? null;
-        $admin = new BackendUserAuthentication();
-        $admin->user = ['uid' => 1, 'admin' => 1];
-        $GLOBALS['BE_USER'] = $admin;
+        $admin                = new BackendUserAuthentication();
+        $admin->user          = ['uid' => 1, 'admin' => 1];
+        $GLOBALS['BE_USER']   = $admin;
     }
 
     protected function tearDown(): void
@@ -78,7 +78,7 @@ final class DeepLTranslatorQuotaTest extends AbstractUnitTestCase
     #[Test]
     public function aFreeKeyIsAskedAtTheFreeEndpointAndReportedAsFree(): void
     {
-        $requests = [];
+        $requests   = [];
         $translator = $this->translator(self::FREE_SECRET, $this->usage(12345, 500000), $requests);
 
         $quota = $translator->getCharacterQuota();
@@ -93,7 +93,7 @@ final class DeepLTranslatorQuotaTest extends AbstractUnitTestCase
     #[Test]
     public function aProKeyIsAskedAtTheProEndpointAndReportedAsPro(): void
     {
-        $requests = [];
+        $requests   = [];
         $translator = $this->translator(self::PRO_SECRET, $this->usage(7, 1000000), $requests);
 
         $quota = $translator->getCharacterQuota();
@@ -105,7 +105,7 @@ final class DeepLTranslatorQuotaTest extends AbstractUnitTestCase
     #[Test]
     public function aConfiguredBaseUrlIsReportedAsCustom(): void
     {
-        $requests = [];
+        $requests   = [];
         $translator = $this->translator(
             self::FREE_SECRET,
             $this->usage(1, 2),
@@ -123,7 +123,7 @@ final class DeepLTranslatorQuotaTest extends AbstractUnitTestCase
     public function aMissingLimitIsNotTurnedIntoAPercentage(): void
     {
         $requests = [];
-        $quota = $this->translator(self::PRO_SECRET, $this->usage(99, 0), $requests)->getCharacterQuota();
+        $quota    = $this->translator(self::PRO_SECRET, $this->usage(99, 0), $requests)->getCharacterQuota();
 
         self::assertSame(0, $quota->limit);
         self::assertNull($quota->usedPercent());
@@ -140,7 +140,7 @@ final class DeepLTranslatorQuotaTest extends AbstractUnitTestCase
         self::assertSame(200, $response->getStatusCode());
         self::assertSame(
             ['success' => true, 'used' => 12345, 'limit' => 500000, 'usedPercent' => 2.5, 'plan' => 'free'],
-            json_decode((string)$response->getBody(), true),
+            json_decode((string) $response->getBody(), true),
         );
     }
 
@@ -167,7 +167,7 @@ final class DeepLTranslatorQuotaTest extends AbstractUnitTestCase
             $this->translator(self::FREE_SECRET, $this->createJsonResponseMock(['message' => $message], $status), $requests),
         )->deeplQuotaAction();
 
-        $body = (string)$response->getBody();
+        $body = (string) $response->getBody();
         self::assertSame($expectedStatus, $response->getStatusCode());
         self::assertStringNotContainsString(self::FREE_SECRET, $body);
         self::assertStringNotContainsString('deepl-key-free', $body);
@@ -182,7 +182,7 @@ final class DeepLTranslatorQuotaTest extends AbstractUnitTestCase
     public function aSuccessfulAnswerCarriesNeitherTheKeyNorItsIdentifier(): void
     {
         $requests = [];
-        $body = (string)$this->controllerFor(
+        $body     = (string) $this->controllerFor(
             $this->translator(self::FREE_SECRET, $this->usage(1, 2), $requests),
         )->deeplQuotaAction()->getBody();
 

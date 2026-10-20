@@ -301,7 +301,7 @@ class FallbackChainTest extends AbstractUnitTestCase
                 42,
                 true,
                 'valid',
-                (object)['x' => 1],
+                (object) ['x' => 1],
             ],
         ]);
 

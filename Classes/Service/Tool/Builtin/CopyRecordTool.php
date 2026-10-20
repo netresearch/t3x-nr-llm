@@ -503,7 +503,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             );
         }
 
-        if ($table === self::PAGES_TABLE && (bool)($row['is_siteroot'] ?? false)) {
+        if ($table === self::PAGES_TABLE && (bool) ($row['is_siteroot'] ?? false)) {
             return sprintf(
                 'Refused: page [%d] is a site root. A copy would be a second root without a site, which is an '
                 . "administrator's decision and not something this tool does.",
@@ -557,14 +557,14 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             $afterColumn = $table === self::CONTENT_TABLE ? self::toInt($anchor['colPos'] ?? 0) : null;
         }
 
-        $column  = $requestedColumn ?? ($afterColumn ?? self::toInt($row['colPos'] ?? 0));
-        $setsOwn = $table === self::CONTENT_TABLE ? [$hiddenColumn, 'colPos'] : [$hiddenColumn];
+        $column    = $requestedColumn ?? ($afterColumn ?? self::toInt($row['colPos'] ?? 0));
+        $setsOwn   = $table === self::CONTENT_TABLE ? [$hiddenColumn, 'colPos'] : [$hiddenColumn];
         $ungranted = $this->columnsTheUserMayNotSet($user, $table, $setsOwn);
         if ($ungranted !== []) {
             return sprintf(
                 'Refused: the acting backend user holds no field-level ("exclude field") grant for %s, which the tool '
                 . 'sets on the copy. Nothing was written.',
-                implode(', ', array_map(static fn(string $column): string => $table . ':' . $column, $ungranted)),
+                implode(', ', array_map(static fn (string $column): string => $table . ':' . $column, $ungranted)),
             );
         }
 
@@ -719,6 +719,6 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         $mod       = is_array($tsConfig['mod.'] ?? null) ? $tsConfig['mod.'] : [];
         $webLayout = is_array($mod['web_layout.'] ?? null) ? $mod['web_layout.'] : [];
 
-        return (bool)($webLayout['allowInconsistentLanguageHandling'] ?? false);
+        return (bool) ($webLayout['allowInconsistentLanguageHandling'] ?? false);
     }
 }

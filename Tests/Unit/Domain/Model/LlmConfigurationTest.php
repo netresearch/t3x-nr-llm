@@ -766,11 +766,11 @@ final class LlmConfigurationTest extends AbstractUnitTestCase
     public static function temperatureClampingProvider(): array
     {
         return [
-            'zero stays zero' => [0.0, 0.0],
-            'two stays two' => [2.0, 2.0],
-            'one stays one' => [1.0, 1.0],
+            'zero stays zero'          => [0.0, 0.0],
+            'two stays two'            => [2.0, 2.0],
+            'one stays one'            => [1.0, 1.0],
             'negative clamped to zero' => [-1.0, 0.0],
-            'over two clamped to two' => [2.5, 2.0],
+            'over two clamped to two'  => [2.5, 2.0],
         ];
     }
 
@@ -803,14 +803,14 @@ final class LlmConfigurationTest extends AbstractUnitTestCase
     public static function snippetTagNormalizationProvider(): array
     {
         return [
-            'empty stays empty' => ['', []],
-            'whitespace only stays empty' => ['   ', []],
-            'single tag' => ['persona', ['persona']],
-            'trims surrounding whitespace' => [' persona , layout ', ['persona', 'layout']],
-            'lowercases' => ['Persona,TONE_OF_VOICE', ['persona', 'tone_of_voice']],
-            'drops empty entries' => ['persona,,layout,', ['persona', 'layout']],
+            'empty stays empty'                    => ['', []],
+            'whitespace only stays empty'          => ['   ', []],
+            'single tag'                           => ['persona', ['persona']],
+            'trims surrounding whitespace'         => [' persona , layout ', ['persona', 'layout']],
+            'lowercases'                           => ['Persona,TONE_OF_VOICE', ['persona', 'tone_of_voice']],
+            'drops empty entries'                  => ['persona,,layout,', ['persona', 'layout']],
             'drops duplicates after normalization' => ['persona,Persona, persona ', ['persona']],
-            'preserves selection order' => ['layout,audience,persona', ['layout', 'audience', 'persona']],
+            'preserves selection order'            => ['layout,audience,persona', ['layout', 'audience', 'persona']],
         ];
     }
 

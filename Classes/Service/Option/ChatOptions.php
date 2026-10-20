@@ -139,49 +139,55 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
 
     public function withTemperature(float $temperature): static
     {
-        $clone = clone $this;
+        $clone              = clone $this;
         $clone->temperature = $temperature;
         $clone->validate();
+
         return $clone;
     }
 
     public function withMaxTokens(int $maxTokens): static
     {
-        $clone = clone $this;
+        $clone            = clone $this;
         $clone->maxTokens = $maxTokens;
         $clone->validate();
+
         return $clone;
     }
 
     public function withTopP(float $topP): static
     {
-        $clone = clone $this;
+        $clone       = clone $this;
         $clone->topP = $topP;
         $clone->validate();
+
         return $clone;
     }
 
     public function withFrequencyPenalty(float $frequencyPenalty): static
     {
-        $clone = clone $this;
+        $clone                   = clone $this;
         $clone->frequencyPenalty = $frequencyPenalty;
         $clone->validate();
+
         return $clone;
     }
 
     public function withPresencePenalty(float $presencePenalty): static
     {
-        $clone = clone $this;
+        $clone                  = clone $this;
         $clone->presencePenalty = $presencePenalty;
         $clone->validate();
+
         return $clone;
     }
 
     public function withResponseFormat(string $responseFormat): static
     {
-        $clone = clone $this;
+        $clone                 = clone $this;
         $clone->responseFormat = $responseFormat;
         $clone->validate();
+
         return $clone;
     }
 
@@ -197,15 +203,17 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
      */
     public function withResponseSchema(array $responseSchema): static
     {
-        $clone = clone $this;
+        $clone                 = clone $this;
         $clone->responseSchema = $responseSchema;
+
         return $clone;
     }
 
     public function withSystemPrompt(string $systemPrompt): static
     {
-        $clone = clone $this;
+        $clone               = clone $this;
         $clone->systemPrompt = $systemPrompt;
+
         return $clone;
     }
 
@@ -214,22 +222,25 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
      */
     public function withStopSequences(array $stopSequences): static
     {
-        $clone = clone $this;
+        $clone                = clone $this;
         $clone->stopSequences = $stopSequences;
+
         return $clone;
     }
 
     public function withProvider(string $provider): static
     {
-        $clone = clone $this;
+        $clone           = clone $this;
         $clone->provider = $provider;
+
         return $clone;
     }
 
     public function withModel(string $model): static
     {
-        $clone = clone $this;
+        $clone        = clone $this;
         $clone->model = $model;
+
         return $clone;
     }
 
@@ -248,6 +259,7 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
     {
         $clone                  = clone $this;
         $clone->reasoningEffort = $reasoningEffort;
+
         return $clone;
     }
 
@@ -258,8 +270,9 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
      */
     public function withSuppressRequestCount(bool $suppressRequestCount): static
     {
-        $clone = clone $this;
+        $clone                       = clone $this;
         $clone->suppressRequestCount = $suppressRequestCount;
+
         return $clone;
     }
 
@@ -381,17 +394,17 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
     public function toArray(): array
     {
         $options = $this->filterNull([
-            'temperature' => $this->temperature,
-            'max_tokens' => $this->maxTokens,
-            'top_p' => $this->topP,
+            'temperature'       => $this->temperature,
+            'max_tokens'        => $this->maxTokens,
+            'top_p'             => $this->topP,
             'frequency_penalty' => $this->frequencyPenalty,
-            'presence_penalty' => $this->presencePenalty,
-            'response_format' => $this->responseFormat,
-            'response_schema' => $this->responseSchema,
-            'system_prompt' => $this->systemPrompt,
-            'stop_sequences' => $this->stopSequences,
-            'provider' => $this->provider,
-            'model' => $this->model,
+            'presence_penalty'  => $this->presencePenalty,
+            'response_format'   => $this->responseFormat,
+            'response_schema'   => $this->responseSchema,
+            'system_prompt'     => $this->systemPrompt,
+            'stop_sequences'    => $this->stopSequences,
+            'provider'          => $this->provider,
+            'model'             => $this->model,
         ]);
 
         // Tri-state: `false` (thinking explicitly OFF) must survive, so this

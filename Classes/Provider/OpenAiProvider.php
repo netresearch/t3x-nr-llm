@@ -117,25 +117,25 @@ final class OpenAiProvider extends AbstractProvider implements
             // GPT-6 Series — reasoning models; their tool calls go through the
             // Responses API (ADR-203).
             'gpt-6-astra' => 'GPT-6 Astra (Most capable)',
-            'gpt-6-sol' => 'GPT-6 Sol (Coding & agents)',
-            'gpt-6-luna' => 'GPT-6 Luna (Efficient)',
+            'gpt-6-sol'   => 'GPT-6 Sol (Coding & agents)',
+            'gpt-6-luna'  => 'GPT-6 Luna (Efficient)',
             // GPT-5 Series
-            'gpt-5.2' => 'GPT-5.2 (Flagship)',
-            'gpt-5.2-pro' => 'GPT-5.2 Pro (Extended)',
+            'gpt-5.2'         => 'GPT-5.2 (Flagship)',
+            'gpt-5.2-pro'     => 'GPT-5.2 Pro (Extended)',
             'gpt-5.2-instant' => 'GPT-5.2 Instant (Fast)',
             // GPT-4o Series
-            'gpt-4o' => 'GPT-4o',
-            'gpt-4o-mini' => 'GPT-4o Mini (Fast & Efficient)',
+            'gpt-4o'            => 'GPT-4o',
+            'gpt-4o-mini'       => 'GPT-4o Mini (Fast & Efficient)',
             'chatgpt-4o-latest' => 'ChatGPT-4o Latest',
             // Reasoning Models (o-series)
-            'o1' => 'O1 (Advanced Reasoning)',
-            'o1-mini' => 'O1 Mini (Reasoning)',
+            'o1'         => 'O1 (Advanced Reasoning)',
+            'o1-mini'    => 'O1 Mini (Reasoning)',
             'o1-preview' => 'O1 Preview',
-            'o3' => 'O3 (Advanced Reasoning)',
-            'o3-mini' => 'O3 Mini (Reasoning)',
+            'o3'         => 'O3 (Advanced Reasoning)',
+            'o3-mini'    => 'O3 Mini (Reasoning)',
             // Legacy Models
-            'gpt-4-turbo' => 'GPT-4 Turbo (Legacy)',
-            'gpt-4' => 'GPT-4 (Legacy)',
+            'gpt-4-turbo'   => 'GPT-4 Turbo (Legacy)',
+            'gpt-4'         => 'GPT-4 (Legacy)',
             'gpt-3.5-turbo' => 'GPT-3.5 Turbo (Legacy)',
         ];
     }
@@ -147,16 +147,15 @@ final class OpenAiProvider extends AbstractProvider implements
     public function chatCompletion(array $messages, array $options = []): CompletionResponse
     {
         $messages = array_map(
-            static fn(ChatMessage|array $m): array
-                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            static fn (ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m,
             $messages,
         );
 
         $model = $this->getString($options, 'model', $this->getDefaultModel());
 
         $payload = [
-            'model' => $model,
-            'messages' => $messages,
+            'model'                 => $model,
+            'messages'              => $messages,
             'max_completion_tokens' => $this->getInt($options, 'max_tokens', 4096),
             ...$this->buildSamplingParams($model, $options),
         ];
@@ -188,9 +187,9 @@ final class OpenAiProvider extends AbstractProvider implements
         $response = $this->sendRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload, timeout: $this->resolveRequestTimeout($options));
 
         $choices = $this->getList($response, 'choices');
-        $choice = $this->asArray($choices[0] ?? []);
+        $choice  = $this->asArray($choices[0] ?? []);
         $message = $this->getArray($choice, 'message');
-        $usage = $this->getArray($response, 'usage');
+        $usage   = $this->getArray($response, 'usage');
 
         [$content, $thinking] = $this->extractThinkingBlocks($this->getString($message, 'content'));
 
@@ -333,7 +332,7 @@ final class OpenAiProvider extends AbstractProvider implements
         // array: ChatMessage models string content only, and the builder maps
         // those parts to the Responses vocabulary itself.
         $typed = array_map(
-            static fn(ChatMessage|array $m): ChatMessage|array => $m instanceof ChatMessage || is_array($m['content'] ?? null)
+            static fn (ChatMessage|array $m): ChatMessage|array => $m instanceof ChatMessage || is_array($m['content'] ?? null)
                 ? $m
                 : ChatMessage::fromArray($m),
             $messages,
@@ -346,7 +345,7 @@ final class OpenAiProvider extends AbstractProvider implements
         // and there it keeps the temperature and top_p it would have had on
         // Chat Completions — the Responses API defines those two and no
         // frequency or presence penalty, so the penalties are not sent.
-        $extra      = array_intersect_key(
+        $extra = array_intersect_key(
             $this->buildSamplingParams($model, $options),
             ['temperature' => true, 'top_p' => true],
         );
@@ -377,7 +376,7 @@ final class OpenAiProvider extends AbstractProvider implements
         $result = (new ResponsesResultParser())->parse($response, $model);
 
         $metadata = [
-            OpenAiCallMetadata::KEY_TRANSPORT => OpenAiCallMetadata::TRANSPORT_RESPONSES,
+            OpenAiCallMetadata::KEY_TRANSPORT      => OpenAiCallMetadata::TRANSPORT_RESPONSES,
             OpenAiCallMetadata::KEY_PROVIDER_ITEMS => $result->providerItems,
         ];
 
@@ -421,15 +420,14 @@ final class OpenAiProvider extends AbstractProvider implements
         ?ReasoningEffort $effort,
     ): CompletionResponse {
         $messages = array_map(
-            static fn(ChatMessage|array $m): array
-                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            static fn (ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m,
             $messages,
         );
 
         $payload = [
-            'model' => $model,
-            'messages' => $messages,
-            'tools' => array_map(static fn(ToolSpec $spec): array => $spec->toArray(), $tools),
+            'model'                 => $model,
+            'messages'              => $messages,
+            'tools'                 => array_map(static fn (ToolSpec $spec): array => $spec->toArray(), $tools),
             'max_completion_tokens' => $this->getInt($options, 'max_tokens', 4096),
             ...$this->buildSamplingParams($model, $options),
         ];
@@ -450,9 +448,9 @@ final class OpenAiProvider extends AbstractProvider implements
         $response = $this->sendRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload, timeout: $this->resolveRequestTimeout($options));
 
         $choices = $this->getList($response, 'choices');
-        $choice = $this->asArray($choices[0] ?? []);
+        $choice  = $this->asArray($choices[0] ?? []);
         $message = $this->getArray($choice, 'message');
-        $usage = $this->getArray($response, 'usage');
+        $usage   = $this->getArray($response, 'usage');
 
         $toolCalls    = null;
         $rawToolCalls = $this->getArray($message, 'tool_calls');
@@ -506,7 +504,7 @@ final class OpenAiProvider extends AbstractProvider implements
     public function embeddings(string|array $input, array $options = []): EmbeddingResponse
     {
         $inputs = is_array($input) ? $input : [$input];
-        $model = $this->getString($options, 'model', self::DEFAULT_EMBEDDING_MODEL);
+        $model  = $this->getString($options, 'model', self::DEFAULT_EMBEDDING_MODEL);
 
         $payload = [
             'model' => $model,
@@ -519,14 +517,14 @@ final class OpenAiProvider extends AbstractProvider implements
 
         $response = $this->sendRequest('embeddings', $payload, timeout: $this->resolveRequestTimeout($options));
 
-        $data = $this->getList($response, 'data');
+        $data       = $this->getList($response, 'data');
         $embeddings = [];
         foreach ($data as $item) {
             $itemArray = $this->asArray($item);
             $embedding = $this->getArray($itemArray, 'embedding');
             /** @var list<float> $floatEmbedding */
-            $floatEmbedding = array_values(array_map(fn($v): float => $this->asFloat($v), $embedding));
-            $embeddings[] = $floatEmbedding;
+            $floatEmbedding = array_values(array_map(fn ($v): float => $this->asFloat($v), $embedding));
+            $embeddings[]   = $floatEmbedding;
         }
 
         $usage = $this->getArray($response, 'usage');
@@ -549,15 +547,15 @@ final class OpenAiProvider extends AbstractProvider implements
     {
         $messages = [
             [
-                'role' => 'user',
-                'content' => array_values(array_map(static fn(VisionContent $vc): array => $vc->toArray(), $content)),
+                'role'    => 'user',
+                'content' => array_values(array_map(static fn (VisionContent $vc): array => $vc->toArray(), $content)),
             ],
         ];
 
         $systemPrompt = $this->getNullableString($options, 'system_prompt');
         if ($systemPrompt !== null) {
             array_unshift($messages, [
-                'role' => 'system',
+                'role'    => 'system',
                 'content' => $systemPrompt,
             ]);
         }
@@ -565,17 +563,17 @@ final class OpenAiProvider extends AbstractProvider implements
         $model = $this->getString($options, 'model', 'gpt-5.2');
 
         $payload = [
-            'model' => $model,
-            'messages' => $messages,
+            'model'                 => $model,
+            'messages'              => $messages,
             'max_completion_tokens' => $this->getInt($options, 'max_tokens', 4096),
         ];
 
         $response = $this->sendRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload, timeout: $this->resolveRequestTimeout($options));
 
         $choices = $this->getList($response, 'choices');
-        $choice = $this->asArray($choices[0] ?? []);
+        $choice  = $this->asArray($choices[0] ?? []);
         $message = $this->getArray($choice, 'message');
-        $usage = $this->getArray($response, 'usage');
+        $usage   = $this->getArray($response, 'usage');
 
         return new VisionResponse(
             description: $this->getString($message, 'content'),
@@ -619,18 +617,17 @@ final class OpenAiProvider extends AbstractProvider implements
         $this->validateConfiguration();
 
         $messages = array_map(
-            static fn(ChatMessage|array $m): array
-                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            static fn (ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m,
             $messages,
         );
 
         $model = $this->getString($options, 'model', $this->getDefaultModel());
 
         $payload = [
-            'model' => $model,
-            'messages' => $messages,
+            'model'                 => $model,
+            'messages'              => $messages,
             'max_completion_tokens' => $this->getInt($options, 'max_tokens', 4096),
-            'stream' => true,
+            'stream'                => true,
             ...$this->buildSamplingParams($model, $options),
         ];
 
@@ -644,7 +641,7 @@ final class OpenAiProvider extends AbstractProvider implements
         // and operator-configured custom headers must be applied here.
         $request = $this->applyCustomHeaders($this->addProviderSpecificHeaders($request));
 
-        $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
+        $body    = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         $request = $request->withBody($body);
 
         $response = $this->getHttpClient($this->resolveRequestTimeout($options))->sendRequest($request);
@@ -657,7 +654,7 @@ final class OpenAiProvider extends AbstractProvider implements
             $buffer .= $chunk;
 
             while (($pos = strpos($buffer, "\n")) !== false) {
-                $line = substr($buffer, 0, $pos);
+                $line   = substr($buffer, 0, $pos);
                 $buffer = substr($buffer, $pos + 1);
 
                 if (str_starts_with($line, 'data: ')) {
@@ -697,11 +694,11 @@ final class OpenAiProvider extends AbstractProvider implements
             return null;
         }
 
-        $json = $this->asArray($decoded);
-        $choices = $this->getList($json, 'choices');
+        $json        = $this->asArray($decoded);
+        $choices     = $this->getList($json, 'choices');
         $firstChoice = $this->asArray($choices[0] ?? []);
-        $delta = $this->getArray($firstChoice, 'delta');
-        $content = $this->getString($delta, 'content');
+        $delta       = $this->getArray($firstChoice, 'delta');
+        $content     = $this->getString($delta, 'content');
 
         return $content !== '' ? $content : null;
     }
@@ -768,21 +765,20 @@ final class OpenAiProvider extends AbstractProvider implements
      * Unlike getAvailableModels() which returns a static list, this method
      * makes an actual HTTP request to verify connectivity.
      *
+     * @return array{success: bool, message: string, models?: array<string, string>}
      *
      * @throws ProviderConnectionException on connection failure
-     *
-     * @return array{success: bool, message: string, models?: array<string, string>}
      */
     public function testConnection(): array
     {
         // Make actual HTTP request to /models endpoint - do NOT catch exceptions
         $response = $this->sendRequest('models', [], 'GET');
-        $data = $this->getList($response, 'data');
+        $data     = $this->getList($response, 'data');
 
         $models = [];
         foreach ($data as $model) {
             $modelArray = $this->asArray($model);
-            $id = $this->getString($modelArray, 'id');
+            $id         = $this->getString($modelArray, 'id');
             if ($id !== '') {
                 $models[$id] = $id;
             }
@@ -791,7 +787,7 @@ final class OpenAiProvider extends AbstractProvider implements
         return [
             'success' => true,
             'message' => sprintf('Connection successful. Found %d models.', count($models)),
-            'models' => $models,
+            'models'  => $models,
         ];
     }
 }

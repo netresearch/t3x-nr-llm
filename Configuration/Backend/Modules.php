@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Controller\Backend\McpServerController;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
 use Netresearch\NrLlm\Controller\Backend\PromptSnippetController;
+use Netresearch\NrLlm\Controller\Backend\PromptSnippetMarkController;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
 use Netresearch\NrLlm\Controller\Backend\SetupWizardController;
 use Netresearch\NrLlm\Controller\Backend\SkillApprovalController;
@@ -83,45 +84,45 @@ return [
     // Positioned after 'media' rather than at the end with the admin sections,
     // because the audience that makes the section necessary is editors.
     'netresearch_ai' => [
-        'position' => ['after' => 'media'],
+        'position'       => ['after' => 'media'],
         'iconIdentifier' => 'module-nrllm',
-        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_section.xlf',
+        'labels'         => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_section.xlf',
     ],
     // Setup: what has to exist before anything can run.
     'nrllm_setup' => [
-        'parent' => 'netresearch_ai',
-        'access' => 'admin',
+        'parent'         => 'netresearch_ai',
+        'access'         => 'admin',
         'iconIdentifier' => 'module-nrllm-provider',
-        'path' => '/module/nrllm/setup',
-        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_setup.xlf',
-        'extensionName' => 'NrLlm',
-        'appearance' => [
+        'path'           => '/module/nrllm/setup',
+        'labels'         => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_setup.xlf',
+        'extensionName'  => 'NrLlm',
+        'appearance'     => [
             'dependsOnSubmodules' => true,
         ],
         'showSubmoduleOverview' => true,
     ],
     // Authoring: what the models are asked to do.
     'nrllm_authoring' => [
-        'parent' => 'netresearch_ai',
-        'access' => 'admin',
+        'parent'         => 'netresearch_ai',
+        'access'         => 'admin',
         'iconIdentifier' => 'module-nrllm-snippet',
-        'path' => '/module/nrllm/authoring',
-        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_authoring.xlf',
-        'extensionName' => 'NrLlm',
-        'appearance' => [
+        'path'           => '/module/nrllm/authoring',
+        'labels'         => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_authoring.xlf',
+        'extensionName'  => 'NrLlm',
+        'appearance'     => [
             'dependsOnSubmodules' => true,
         ],
         'showSubmoduleOverview' => true,
     ],
     // Operation: what is running, and what it cost.
     'nrllm_operation' => [
-        'parent' => 'netresearch_ai',
-        'access' => 'admin',
+        'parent'         => 'netresearch_ai',
+        'access'         => 'admin',
         'iconIdentifier' => 'module-nrllm-runs',
-        'path' => '/module/nrllm/operation',
-        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_operation.xlf',
-        'extensionName' => 'NrLlm',
-        'appearance' => [
+        'path'           => '/module/nrllm/operation',
+        'labels'         => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_operation.xlf',
+        'extensionName'  => 'NrLlm',
+        'appearance'     => [
             'dependsOnSubmodules' => true,
         ],
         'showSubmoduleOverview' => true,
@@ -132,14 +133,14 @@ return [
     // only work because 'nrllm' is no longer registered as a real module, which
     // would shadow the alias.
     'nrllm_overview' => [
-        'parent' => 'netresearch_ai',
-        'position' => ['before' => '*'],
-        'aliases' => ['nrllm'],
-        'access' => 'admin',
+        'parent'         => 'netresearch_ai',
+        'position'       => ['before' => '*'],
+        'aliases'        => ['nrllm'],
+        'access'         => 'admin',
         'iconIdentifier' => 'module-nrllm',
-        'path' => '/module/nrllm/overview',
-        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_overview.xlf',
-        'extensionName' => 'NrLlm',
+        'path'           => '/module/nrllm/overview',
+        'labels'         => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_overview.xlf',
+        'extensionName'  => 'NrLlm',
         // `governance` is the read-only effective-policy readout (ADR-140). It
         // is an action of this module rather than a fourteenth flat submodule:
         // ADR-119 already calls twelve entries a dumping ground, and the
@@ -157,12 +158,12 @@ return [
     // Provider management - child of main module
     // Note: AJAX actions (toggleActive, testConnection) are registered via AjaxRoutes.php
     'nrllm_providers' => [
-        'parent' => 'nrllm_setup',
-        'access' => 'admin',
-        'iconIdentifier' => 'module-nrllm-provider',
-        'path' => '/module/nrllm/providers',
-        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_provider.xlf',
-        'extensionName' => 'NrLlm',
+        'parent'            => 'nrllm_setup',
+        'access'            => 'admin',
+        'iconIdentifier'    => 'module-nrllm-provider',
+        'path'              => '/module/nrllm/providers',
+        'labels'            => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_provider.xlf',
+        'extensionName'     => 'NrLlm',
         'controllerActions' => [
             ProviderController::class => [
                 'list',
@@ -172,12 +173,12 @@ return [
     // Model management - child of main module
     // Note: AJAX actions (toggleActive, setDefault, etc.) are registered via AjaxRoutes.php
     'nrllm_models' => [
-        'parent' => 'nrllm_setup',
-        'access' => 'admin',
-        'iconIdentifier' => 'module-nrllm-model',
-        'path' => '/module/nrllm/models',
-        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_model.xlf',
-        'extensionName' => 'NrLlm',
+        'parent'            => 'nrllm_setup',
+        'access'            => 'admin',
+        'iconIdentifier'    => 'module-nrllm-model',
+        'path'              => '/module/nrllm/models',
+        'labels'            => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_model.xlf',
+        'extensionName'     => 'NrLlm',
         'controllerActions' => [
             ModelController::class => [
                 'list',
@@ -187,12 +188,12 @@ return [
     // Configuration management - child of main module
     // Note: AJAX actions (toggleActive, setDefault, testConfiguration) are registered via AjaxRoutes.php
     'nrllm_configurations' => [
-        'parent' => 'nrllm_setup',
-        'access' => 'admin',
-        'iconIdentifier' => 'module-nrllm',
-        'path' => '/module/nrllm/configurations',
-        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_config.xlf',
-        'extensionName' => 'NrLlm',
+        'parent'            => 'nrllm_setup',
+        'access'            => 'admin',
+        'iconIdentifier'    => 'module-nrllm',
+        'path'              => '/module/nrllm/configurations',
+        'labels'            => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_config.xlf',
+        'extensionName'     => 'NrLlm',
         'controllerActions' => [
             ConfigurationController::class => [
                 'list',
@@ -204,12 +205,12 @@ return [
     // Task management - child of main module
     // Note: new/edit/save/delete use FormEngine (record_edit route), AJAX actions via AjaxRoutes.php
     'nrllm_tasks' => [
-        'parent' => 'nrllm_authoring',
-        'access' => 'admin',
+        'parent'         => 'nrllm_authoring',
+        'access'         => 'admin',
         'iconIdentifier' => 'module-nrllm-task',
-        'path' => '/module/nrllm/tasks',
-        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_task.xlf',
-        'extensionName' => 'NrLlm',
+        'path'           => '/module/nrllm/tasks',
+        'labels'         => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_task.xlf',
+        'extensionName'  => 'NrLlm',
         // Slice 13e split (ADR-027): list / execute / wizard each
         // own a focused controller. Module identifier stays
         // `nrllm_tasks` and the action names are unchanged so any
@@ -228,15 +229,21 @@ return [
     // Prompt snippet library - child of main module
     // Note: new/edit/save/delete use FormEngine (record_edit route)
     'nrllm_snippets' => [
-        'parent' => 'nrllm_authoring',
-        'access' => 'admin',
-        'iconIdentifier' => 'module-nrllm-snippet',
-        'path' => '/module/nrllm/snippets',
-        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_snippet.xlf',
-        'extensionName' => 'NrLlm',
+        'parent'            => 'nrllm_authoring',
+        'access'            => 'admin',
+        'iconIdentifier'    => 'module-nrllm-snippet',
+        'path'              => '/module/nrllm/snippets',
+        'labels'            => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_snippet.xlf',
+        'extensionName'     => 'NrLlm',
         'controllerActions' => [
             PromptSnippetController::class => [
                 'list',
+            ],
+            // Mark a snippet for a caller's system message (ADR-214 item 8).
+            PromptSnippetMarkController::class => [
+                'review',
+                'mark',
+                'unmark',
             ],
         ],
     ],
@@ -244,12 +251,12 @@ return [
     // main module. Same shape as the snippet library: a list, and FormEngine
     // (record_edit route) for new/edit/delete.
     'nrllm_glossaries' => [
-        'parent' => 'nrllm_authoring',
-        'access' => 'admin',
-        'iconIdentifier' => 'module-nrllm-snippet',
-        'path' => '/module/nrllm/glossaries',
-        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_glossary.xlf',
-        'extensionName' => 'NrLlm',
+        'parent'            => 'nrllm_authoring',
+        'access'            => 'admin',
+        'iconIdentifier'    => 'module-nrllm-snippet',
+        'path'              => '/module/nrllm/glossaries',
+        'labels'            => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_glossary.xlf',
+        'extensionName'     => 'NrLlm',
         'controllerActions' => [
             GlossaryController::class => [
                 'list',
@@ -264,12 +271,12 @@ return [
     // Shares the wizard's icon deliberately: the two are one entry path, and a
     // second wizard-family glyph would suggest a second kind of thing.
     'nrllm_usecase' => [
-        'parent' => 'nrllm_setup',
-        'access' => 'admin',
-        'iconIdentifier' => 'module-nrllm-wizard',
-        'path' => '/module/nrllm/use-case',
-        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf',
-        'extensionName' => 'NrLlm',
+        'parent'            => 'nrllm_setup',
+        'access'            => 'admin',
+        'iconIdentifier'    => 'module-nrllm-wizard',
+        'path'              => '/module/nrllm/use-case',
+        'labels'            => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf',
+        'extensionName'     => 'NrLlm',
         'controllerActions' => [
             UseCasePackController::class => [
                 'index',
@@ -281,12 +288,12 @@ return [
     // Setup wizard - child of main module
     // Note: AJAX actions (detect, test, discover, generate, save) are registered via AjaxRoutes.php
     'nrllm_wizard' => [
-        'parent' => 'nrllm_setup',
-        'access' => 'admin',
-        'iconIdentifier' => 'module-nrllm-wizard',
-        'path' => '/module/nrllm/wizard',
-        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_wizard.xlf',
-        'extensionName' => 'NrLlm',
+        'parent'            => 'nrllm_setup',
+        'access'            => 'admin',
+        'iconIdentifier'    => 'module-nrllm-wizard',
+        'path'              => '/module/nrllm/wizard',
+        'labels'            => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_wizard.xlf',
+        'extensionName'     => 'NrLlm',
         'controllerActions' => [
             SetupWizardController::class => [
                 'index',
@@ -296,12 +303,12 @@ return [
     // Skills management - child of main module
     // Note: AJAX actions (sync, toggleSkill, setToken) are registered via AjaxRoutes.php
     'nrllm_skills' => [
-        'parent' => 'nrllm_authoring',
-        'access' => 'admin',
-        'iconIdentifier' => 'module-nrllm-skill',
-        'path' => '/module/nrllm/skills',
-        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_skill.xlf',
-        'extensionName' => 'NrLlm',
+        'parent'            => 'nrllm_authoring',
+        'access'            => 'admin',
+        'iconIdentifier'    => 'module-nrllm-skill',
+        'path'              => '/module/nrllm/skills',
+        'labels'            => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_skill.xlf',
+        'extensionName'     => 'NrLlm',
         'controllerActions' => [
             SkillSourceController::class => [
                 'list',
@@ -323,12 +330,12 @@ return [
     // (nrllm_tool_toggle) and additionally guards itself with
     // RequiresBackendAdminTrait (ADR-037).
     'nrllm_tools' => [
-        'parent' => 'nrllm_operation',
-        'access' => 'admin',
-        'iconIdentifier' => 'module-nrllm-tool',
-        'path' => '/module/nrllm/tools',
-        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf',
-        'extensionName' => 'NrLlm',
+        'parent'            => 'nrllm_operation',
+        'access'            => 'admin',
+        'iconIdentifier'    => 'module-nrllm-tool',
+        'path'              => '/module/nrllm/tools',
+        'labels'            => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf',
+        'extensionName'     => 'NrLlm',
         'controllerActions' => [
             ToolController::class => [
                 'list',
@@ -343,12 +350,12 @@ return [
     // RequiresBackendAdminTrait because a backend route bypasses this
     // module's access setting (ADR-037).
     'nrllm_mcp' => [
-        'parent' => 'nrllm_operation',
-        'access' => 'admin',
-        'iconIdentifier' => 'module-nrllm-tool',
-        'path' => '/module/nrllm/mcp',
-        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf',
-        'extensionName' => 'NrLlm',
+        'parent'            => 'nrllm_operation',
+        'access'            => 'admin',
+        'iconIdentifier'    => 'module-nrllm-tool',
+        'path'              => '/module/nrllm/mcp',
+        'labels'            => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf',
+        'extensionName'     => 'NrLlm',
         'controllerActions' => [
             McpServerController::class => [
                 'list',
@@ -361,12 +368,12 @@ return [
     // Note: the AJAX runAction is registered via AjaxRoutes.php (nrllm_tool_run)
     // and additionally guards itself with RequiresBackendAdminTrait.
     'nrllm_playground' => [
-        'parent' => 'nrllm_operation',
-        'access' => 'admin',
-        'iconIdentifier' => 'module-nrllm-tool',
-        'path' => '/module/nrllm/playground',
-        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_playground.xlf',
-        'extensionName' => 'NrLlm',
+        'parent'            => 'nrllm_operation',
+        'access'            => 'admin',
+        'iconIdentifier'    => 'module-nrllm-tool',
+        'path'              => '/module/nrllm/playground',
+        'labels'            => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_playground.xlf',
+        'extensionName'     => 'NrLlm',
         'controllerActions' => [
             ToolPlaygroundController::class => [
                 'list',
@@ -380,12 +387,12 @@ return [
     // gates the three list/write actions, and `show` is additionally authorised
     // per run by the runtime (AGENT_READ).
     'nrllm_runs' => [
-        'parent' => 'nrllm_operation',
-        'access' => 'admin',
-        'iconIdentifier' => 'module-nrllm-runs',
-        'path' => '/module/nrllm/runs',
-        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_runs.xlf',
-        'extensionName' => 'NrLlm',
+        'parent'            => 'nrllm_operation',
+        'access'            => 'admin',
+        'iconIdentifier'    => 'module-nrllm-runs',
+        'path'              => '/module/nrllm/runs',
+        'labels'            => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_runs.xlf',
+        'extensionName'     => 'NrLlm',
         'controllerActions' => [
             AgentRunController::class => [
                 'list',
@@ -400,22 +407,21 @@ return [
     ],
     // Usage analytics dashboard - child of main module
     'nrllm_analytics' => [
-        'parent' => 'nrllm_operation',
-        'access' => 'admin',
-        'iconIdentifier' => 'module-nrllm-analytics',
-        'path' => '/module/nrllm/analytics',
-        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_analytics.xlf',
-        'extensionName' => 'NrLlm',
+        'parent'            => 'nrllm_operation',
+        'access'            => 'admin',
+        'iconIdentifier'    => 'module-nrllm-analytics',
+        'path'              => '/module/nrllm/analytics',
+        'labels'            => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_analytics.xlf',
+        'extensionName'     => 'NrLlm',
         'controllerActions' => [
             AnalyticsController::class => [
                 'index',
             ],
         ],
     ],
-    // Editor-facing task/approvals module (ADR-131). Deliberately OUTSIDE the
-    // admin-only 'nrllm' tree: the menu filters out every top-level module
-    // whose own access check fails, so a child of 'nrllm' would be invisible
-    // to non-admins. Lives in the 'web' group where editors work.
+    // Editor-facing task/approvals module (ADR-131). It shares the AI section
+    // with the admin surfaces (ADR-183), outside their admin-only containers.
+    // The section has no access check of its own; this module checks its user.
     //
     // access => 'user' (NOT 'user,group': v14 resolves access strings through
     // a gate registry that only knows user/admin/systemMaintainer — anything
@@ -423,17 +429,14 @@ return [
     // ticked in be_groups; the tasks_use/agent_approve grants are checked per
     // action on top — the module switch alone never grants execution.
     'nrllm_aitasks' => [
-        'parent' => 'netresearch_ai',
-        'access' => 'user',
-        'iconIdentifier' => 'module-nrllm-task',
-        'path' => '/module/web/nrllm-aitasks',
-        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_aitasks.xlf',
-        'extensionName' => 'NrLlm',
+        'parent'            => 'netresearch_ai',
+        'access'            => 'user',
+        'iconIdentifier'    => 'module-nrllm-task',
+        'path'              => '/module/web/nrllm-aitasks',
+        'labels'            => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_aitasks.xlf',
+        'extensionName'     => 'NrLlm',
         'controllerActions' => [
-            AiTaskController::class => [
-                'list',
-                'executeForm',
-            ],
+            AiTaskController::class => ['list', 'executeForm'],
             // The Editor Action Center (ADR-158). Here rather than in a module
             // of its own: it is the same audience, the same grant and the same
             // inbox as the two entries below, and ADR-119 already calls the

@@ -76,20 +76,20 @@ final class ConfigurationControllerTest extends TestCase
         // The AJAX actions are guarded by RequiresBackendAdminTrait (ADR-037);
         // provide an admin backend user so these tests reach the action body.
         $this->previousBeUser = $GLOBALS['BE_USER'] ?? null;
-        $backendUser = new BackendUserAuthentication();
-        $backendUser->user = ['uid' => 1, 'admin' => 1];
-        $GLOBALS['BE_USER'] = $backendUser;
+        $backendUser          = new BackendUserAuthentication();
+        $backendUser->user    = ['uid' => 1, 'admin' => 1];
+        $GLOBALS['BE_USER']   = $backendUser;
 
         $this->configurationRepository = $this->createMock(LlmConfigurationRepository::class);
-        $this->configurationService = $this->createMock(LlmConfigurationServiceInterface::class);
-        $this->llmServiceManager = $this->createMock(LlmServiceManagerInterface::class);
+        $this->configurationService    = $this->createMock(LlmConfigurationServiceInterface::class);
+        $this->llmServiceManager       = $this->createMock(LlmServiceManagerInterface::class);
         $this->providerAdapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
-        $this->modelRepository = $this->createMock(ModelRepository::class);
-        $this->modelSelectionService = $this->createMock(ModelSelectionServiceInterface::class);
+        $this->modelRepository         = $this->createMock(ModelRepository::class);
+        $this->modelSelectionService   = $this->createMock(ModelSelectionServiceInterface::class);
         // The runtime resolves a configuration's model through this service so
         // criteria-mode records work; fixed-mode records come back unchanged.
         $this->modelSelectionService->method('resolveModel')->willReturnCallback(
-            static fn(LlmConfiguration $configuration): ?Model => $configuration->getLlmModel(),
+            static fn (LlmConfiguration $configuration): ?Model => $configuration->getLlmModel(),
         );
         $this->testPromptResolver = $this->createMock(TestPromptResolverInterface::class);
         $this->testPromptResolver->method('resolve')->willReturn('Hello, test prompt');
@@ -138,7 +138,7 @@ final class ConfigurationControllerTest extends TestCase
     private function setPrivateProperty(object $object, string $property, mixed $value): void
     {
         $reflection = new ReflectionClass($object);
-        $prop = $reflection->getProperty($property);
+        $prop       = $reflection->getProperty($property);
         $prop->setValue($object, $value);
     }
 
@@ -159,7 +159,7 @@ final class ConfigurationControllerTest extends TestCase
      */
     private function decodeJsonResponse(ResponseInterface $response): array
     {
-        $data = json_decode((string)$response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), true);
         self::assertIsArray($data);
 
         /** @var array<string, mixed> $data */
@@ -169,12 +169,13 @@ final class ConfigurationControllerTest extends TestCase
     private function createConfiguration(int $uid, bool $isActive, bool $isDefault = false): LlmConfiguration
     {
         $configuration = new LlmConfiguration();
-        $reflection = new ReflectionClass($configuration);
-        $uidProperty = $reflection->getProperty('uid');
+        $reflection    = new ReflectionClass($configuration);
+        $uidProperty   = $reflection->getProperty('uid');
         $uidProperty->setValue($configuration, $uid);
 
         $configuration->setIsActive($isActive);
         $configuration->setIsDefault($isDefault);
+
         return $configuration;
     }
 
@@ -182,13 +183,13 @@ final class ConfigurationControllerTest extends TestCase
     {
         $configuration = $this->createConfiguration($uid, $isActive);
 
-        $provider = new Provider();
+        $provider           = new Provider();
         $providerReflection = new ReflectionClass($provider);
         $providerReflection->getProperty('uid')->setValue($provider, 1);
         $provider->setAdapterType('openai');
         $provider->setName('OpenAI');
 
-        $model = new Model();
+        $model           = new Model();
         $modelReflection = new ReflectionClass($model);
         $modelReflection->getProperty('uid')->setValue($model, 1);
         $model->setModelId($modelId);
@@ -220,7 +221,7 @@ final class ConfigurationControllerTest extends TestCase
                 $config->setIsActive(!$config->isActive());
             });
 
-        $request = $this->createRequest(['uid' => 1]);
+        $request  = $this->createRequest(['uid' => 1]);
         $response = $this->subject->toggleActiveAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -251,7 +252,7 @@ final class ConfigurationControllerTest extends TestCase
                 $config->setIsActive(!$config->isActive());
             });
 
-        $request = $this->createRequest(['uid' => 1]);
+        $request  = $this->createRequest(['uid' => 1]);
         $response = $this->subject->toggleActiveAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -270,7 +271,7 @@ final class ConfigurationControllerTest extends TestCase
             ->expects(self::never())
             ->method('findByUid');
 
-        $request = $this->createRequest([]);
+        $request  = $this->createRequest([]);
         $response = $this->subject->toggleActiveAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -290,7 +291,7 @@ final class ConfigurationControllerTest extends TestCase
             ->with(99999)
             ->willReturn(null);
 
-        $request = $this->createRequest(['uid' => 99999]);
+        $request  = $this->createRequest(['uid' => 99999]);
         $response = $this->subject->toggleActiveAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -314,7 +315,7 @@ final class ConfigurationControllerTest extends TestCase
             ->method('toggleActive')
             ->willThrowException(new RuntimeException('Database error'));
 
-        $request = $this->createRequest(['uid' => 1]);
+        $request  = $this->createRequest(['uid' => 1]);
         $response = $this->subject->toggleActiveAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -343,7 +344,7 @@ final class ConfigurationControllerTest extends TestCase
             ->method('setAsDefault')
             ->with($configuration);
 
-        $request = $this->createRequest(['uid' => 1]);
+        $request  = $this->createRequest(['uid' => 1]);
         $response = $this->subject->setDefaultAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -360,7 +361,7 @@ final class ConfigurationControllerTest extends TestCase
             ->expects(self::never())
             ->method('findByUid');
 
-        $request = $this->createRequest([]);
+        $request  = $this->createRequest([]);
         $response = $this->subject->setDefaultAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -380,7 +381,7 @@ final class ConfigurationControllerTest extends TestCase
             ->with(99999)
             ->willReturn(null);
 
-        $request = $this->createRequest(['uid' => 99999]);
+        $request  = $this->createRequest(['uid' => 99999]);
         $response = $this->subject->setDefaultAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -404,7 +405,7 @@ final class ConfigurationControllerTest extends TestCase
             ->method('setAsDefault')
             ->willThrowException(new RuntimeException('Database error'));
 
-        $request = $this->createRequest(['uid' => 1]);
+        $request  = $this->createRequest(['uid' => 1]);
         $response = $this->subject->setDefaultAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -431,7 +432,7 @@ final class ConfigurationControllerTest extends TestCase
             ->method('getAvailableProviders')
             ->willReturn(['openai' => $provider]);
 
-        $request = $this->createRequest(['provider' => 'openai']);
+        $request  = $this->createRequest(['provider' => 'openai']);
         $response = $this->subject->getModelsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -451,7 +452,7 @@ final class ConfigurationControllerTest extends TestCase
             ->expects(self::never())
             ->method('getAvailableProviders');
 
-        $request = $this->createRequest([]);
+        $request  = $this->createRequest([]);
         $response = $this->subject->getModelsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -470,7 +471,7 @@ final class ConfigurationControllerTest extends TestCase
             ->method('getAvailableProviders')
             ->willReturn([]);
 
-        $request = $this->createRequest(['provider' => 'nonexistent']);
+        $request  = $this->createRequest(['provider' => 'nonexistent']);
         $response = $this->subject->getModelsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -488,7 +489,7 @@ final class ConfigurationControllerTest extends TestCase
             ->method('getAvailableProviders')
             ->willThrowException(new RuntimeException('Provider error'));
 
-        $request = $this->createRequest(['provider' => 'openai']);
+        $request  = $this->createRequest(['provider' => 'openai']);
         $response = $this->subject->getModelsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -506,7 +507,7 @@ final class ConfigurationControllerTest extends TestCase
     {
         $configuration = $this->createConfigurationWithModel(1, true, 'gpt-4');
 
-        $usage = new UsageStatistics(10, 20, 30);
+        $usage              = new UsageStatistics(10, 20, 30);
         $completionResponse = new CompletionResponse(
             content: 'Hello! How can I help you?',
             model: 'gpt-4',
@@ -530,7 +531,7 @@ final class ConfigurationControllerTest extends TestCase
             ->method('createAdapterFromModel')
             ->willReturn($adapter);
 
-        $request = $this->createRequest(['uid' => 1]);
+        $request     = $this->createRequest(['uid' => 1]);
         $responseObj = $this->subject->testConfigurationAction($request);
 
         $data = $this->decodeJsonResponse($responseObj);
@@ -552,7 +553,7 @@ final class ConfigurationControllerTest extends TestCase
             ->expects(self::never())
             ->method('findByUid');
 
-        $request = $this->createRequest([]);
+        $request  = $this->createRequest([]);
         $response = $this->subject->testConfigurationAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -572,7 +573,7 @@ final class ConfigurationControllerTest extends TestCase
             ->with(99999)
             ->willReturn(null);
 
-        $request = $this->createRequest(['uid' => 99999]);
+        $request  = $this->createRequest(['uid' => 99999]);
         $response = $this->subject->testConfigurationAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -601,7 +602,7 @@ final class ConfigurationControllerTest extends TestCase
             ->method('createAdapterFromModel')
             ->willReturn($adapter);
 
-        $request = $this->createRequest(['uid' => 1]);
+        $request  = $this->createRequest(['uid' => 1]);
         $response = $this->subject->testConfigurationAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -626,7 +627,7 @@ final class ConfigurationControllerTest extends TestCase
             ->with(1)
             ->willReturn($configuration);
 
-        $request = $this->createRequest(['uid' => 1]);
+        $request  = $this->createRequest(['uid' => 1]);
         $response = $this->subject->testConfigurationAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -725,7 +726,7 @@ final class ConfigurationControllerTest extends TestCase
             ->willReturn(['123' => $provider]);
 
         // Provider key sent as numeric value (from form)
-        $request = $this->createRequest(['provider' => 123]);
+        $request  = $this->createRequest(['provider' => 123]);
         $response = $this->subject->getModelsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -744,8 +745,8 @@ final class ConfigurationControllerTest extends TestCase
     private function invokeConstraintMethod(string $methodName): array
     {
         $reflection = new ReflectionClass(ConfigurationController::class);
-        $method = $reflection->getMethod($methodName);
-        $result = $method->invoke($this->subject);
+        $method     = $reflection->getMethod($methodName);
+        $result     = $method->invoke($this->subject);
         self::assertIsArray($result);
 
         /** @var array<string, array<string, mixed>> $result */
@@ -873,6 +874,7 @@ final class ConfigurationControllerTest extends TestCase
         self::assertIsArray($data['constraints']);
         /** @var array<string, array<string, mixed>> $constraints */
         $constraints = $data['constraints'];
+
         return $constraints;
     }
 
@@ -881,13 +883,13 @@ final class ConfigurationControllerTest extends TestCase
      */
     private function createModelWithProvider(string $adapterType, string $modelId, int $uid = 1): Model
     {
-        $provider = new Provider();
+        $provider           = new Provider();
         $providerReflection = new ReflectionClass($provider);
         $providerReflection->getProperty('uid')->setValue($provider, 1);
         $provider->setAdapterType($adapterType);
         $provider->setName('Test Provider');
 
-        $model = new Model();
+        $model           = new Model();
         $modelReflection = new ReflectionClass($model);
         $modelReflection->getProperty('uid')->setValue($model, $uid);
         $model->setModelId($modelId);
@@ -903,7 +905,7 @@ final class ConfigurationControllerTest extends TestCase
             ->expects(self::never())
             ->method('findByUid');
 
-        $request = $this->createRequest(['modelUid' => 0]);
+        $request  = $this->createRequest(['modelUid' => 0]);
         $response = $this->subject->getModelConstraintsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -925,7 +927,7 @@ final class ConfigurationControllerTest extends TestCase
             ->expects(self::never())
             ->method('findByUid');
 
-        $request = $this->createRequest([]);
+        $request  = $this->createRequest([]);
         $response = $this->subject->getModelConstraintsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -944,7 +946,7 @@ final class ConfigurationControllerTest extends TestCase
             ->with(999)
             ->willReturn(null);
 
-        $request = $this->createRequest(['modelUid' => 999]);
+        $request  = $this->createRequest(['modelUid' => 999]);
         $response = $this->subject->getModelConstraintsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -968,7 +970,7 @@ final class ConfigurationControllerTest extends TestCase
             ->with(1)
             ->willReturn($model);
 
-        $request = $this->createRequest(['modelUid' => 1]);
+        $request  = $this->createRequest(['modelUid' => 1]);
         $response = $this->subject->getModelConstraintsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -993,7 +995,7 @@ final class ConfigurationControllerTest extends TestCase
             ->with(2)
             ->willReturn($model);
 
-        $request = $this->createRequest(['modelUid' => 2]);
+        $request  = $this->createRequest(['modelUid' => 2]);
         $response = $this->subject->getModelConstraintsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -1018,7 +1020,7 @@ final class ConfigurationControllerTest extends TestCase
             ->with(3)
             ->willReturn($model);
 
-        $request = $this->createRequest(['modelUid' => 3]);
+        $request  = $this->createRequest(['modelUid' => 3]);
         $response = $this->subject->getModelConstraintsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -1042,7 +1044,7 @@ final class ConfigurationControllerTest extends TestCase
             ->with(4)
             ->willReturn($model);
 
-        $request = $this->createRequest(['modelUid' => 4]);
+        $request  = $this->createRequest(['modelUid' => 4]);
         $response = $this->subject->getModelConstraintsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -1070,7 +1072,7 @@ final class ConfigurationControllerTest extends TestCase
             ->with(5)
             ->willReturn($model);
 
-        $request = $this->createRequest(['modelUid' => 5]);
+        $request  = $this->createRequest(['modelUid' => 5]);
         $response = $this->subject->getModelConstraintsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -1097,7 +1099,7 @@ final class ConfigurationControllerTest extends TestCase
             ->with(6)
             ->willReturn($model);
 
-        $request = $this->createRequest(['modelUid' => 6]);
+        $request  = $this->createRequest(['modelUid' => 6]);
         $response = $this->subject->getModelConstraintsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -1122,7 +1124,7 @@ final class ConfigurationControllerTest extends TestCase
             ->with(7)
             ->willReturn($model);
 
-        $request = $this->createRequest(['modelUid' => 7]);
+        $request  = $this->createRequest(['modelUid' => 7]);
         $response = $this->subject->getModelConstraintsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -1146,7 +1148,7 @@ final class ConfigurationControllerTest extends TestCase
             ->with(8)
             ->willReturn($model);
 
-        $request = $this->createRequest(['modelUid' => 8]);
+        $request  = $this->createRequest(['modelUid' => 8]);
         $response = $this->subject->getModelConstraintsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -1172,7 +1174,7 @@ final class ConfigurationControllerTest extends TestCase
             ->with(9)
             ->willReturn($model);
 
-        $request = $this->createRequest(['modelUid' => 9]);
+        $request  = $this->createRequest(['modelUid' => 9]);
         $response = $this->subject->getModelConstraintsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -1190,7 +1192,7 @@ final class ConfigurationControllerTest extends TestCase
     public function getModelConstraintsActionReturnsDefaultConstraintsForModelWithoutProvider(): void
     {
         // Model with no provider: adapterType defaults to empty string
-        $model = new Model();
+        $model           = new Model();
         $modelReflection = new ReflectionClass($model);
         $modelReflection->getProperty('uid')->setValue($model, 10);
         $model->setModelId('orphan-model');
@@ -1202,7 +1204,7 @@ final class ConfigurationControllerTest extends TestCase
             ->with(10)
             ->willReturn($model);
 
-        $request = $this->createRequest(['modelUid' => 10]);
+        $request  = $this->createRequest(['modelUid' => 10]);
         $response = $this->subject->getModelConstraintsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -1235,7 +1237,7 @@ final class ConfigurationControllerTest extends TestCase
         // build a fresh controller rather than patching the shared one.
         // Asked for a decision model first (ADR-211); a chat model resolved
         // there is no decision model, so the completion resolution decides.
-        $operations = [];
+        $operations                  = [];
         $this->modelSelectionService = $this->createMock(ModelSelectionServiceInterface::class);
         $this->modelSelectionService->expects(self::exactly(2))->method('resolveModel')->willReturnCallback(
             static function (LlmConfiguration $configuration, ProviderOperation $operation) use (&$operations, $resolved): Model {
@@ -1303,7 +1305,7 @@ final class ConfigurationControllerTest extends TestCase
         $this->providerAdapterRegistry->method('createAdapterFromModel')->willReturn($adapter);
 
         $response = $subject->testConfigurationAction($this->createRequest(['uid' => 1]));
-        $data = $this->decodeJsonResponse($response);
+        $data     = $this->decodeJsonResponse($response);
 
         self::assertSame(200, $response->getStatusCode());
         self::assertTrue($data['success']);
@@ -1357,7 +1359,7 @@ final class ConfigurationControllerTest extends TestCase
 
         $this->modelSelectionService = $this->createMock(ModelSelectionServiceInterface::class);
         $this->modelSelectionService->method('resolveModel')->willReturnCallback(
-            static fn(LlmConfiguration $configuration, ProviderOperation $operation): Model => $operation === ProviderOperation::Decision
+            static fn (LlmConfiguration $configuration, ProviderOperation $operation): Model => $operation === ProviderOperation::Decision
                 ? throw new UnsupportedFeatureException('no decision model matches the criteria', 8244372205)
                 : $resolved,
         );

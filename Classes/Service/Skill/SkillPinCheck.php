@@ -35,7 +35,7 @@ use Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException;
  * at the next turn without stopping the run, which is the continuation's rule,
  * not the resume's.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class SkillPinCheck
 {

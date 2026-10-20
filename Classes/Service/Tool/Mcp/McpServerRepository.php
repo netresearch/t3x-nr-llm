@@ -68,7 +68,7 @@ final readonly class McpServerRepository
     {
         return array_values(array_filter(
             $this->findEnabled(),
-            static fn(McpServerRecord $server): bool => $server->dataClassEnum() instanceof ToolDataClass,
+            static fn (McpServerRecord $server): bool => $server->dataClassEnum() instanceof ToolDataClass,
         ));
     }
 

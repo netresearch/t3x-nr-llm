@@ -44,7 +44,7 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
     description: 'Store a provider API key read from STDIN and link it to the provider record.',
 )]
 /**
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class SetProviderApiKeyCommand extends Command
 {
@@ -97,7 +97,7 @@ final class SetProviderApiKeyCommand extends Command
 
                 Running it again for the same provider replaces the stored key while keeping
                 the identifier, so anything already referencing that identifier keeps working.
-                HELP
+                HELP,
         );
     }
 

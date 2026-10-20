@@ -59,7 +59,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistryInterface::class);
-        $serviceManager = $this->createLlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class));
+        $serviceManager  = $this->createLlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class));
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($httpClient);
@@ -90,7 +90,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         // CacheMiddleware persists) and is reconstructed via fromArray().
         $cachedResponse = (new EmbeddingResponse(
             embeddings: [
-                array_map(fn(): float => $this->faker->randomFloat(8, -1, 1), range(1, 1536)),
+                array_map(fn (): float => $this->faker->randomFloat(8, -1, 1), range(1, 1536)),
             ],
             model: 'text-embedding-3-small',
             usage: new UsageStatistics(10, 0, 10),
@@ -109,7 +109,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistryInterface::class);
-        $serviceManager = $this->createLlmServiceManager(
+        $serviceManager  = $this->createLlmServiceManager(
             $extensionConfig,
             new NullLogger(),
             $adapterRegistry,
@@ -134,28 +134,28 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         // Arrange
         $responseData = [
             'object' => 'list',
-            'data' => [
+            'data'   => [
                 [
-                    'object' => 'embedding',
-                    'index' => 0,
+                    'object'    => 'embedding',
+                    'index'     => 0,
                     'embedding' => array_map(
-                        fn(): float => $this->faker->randomFloat(8, -1, 1),
+                        fn (): float => $this->faker->randomFloat(8, -1, 1),
                         range(1, 1536),
                     ),
                 ],
                 [
-                    'object' => 'embedding',
-                    'index' => 1,
+                    'object'    => 'embedding',
+                    'index'     => 1,
                     'embedding' => array_map(
-                        fn(): float => $this->faker->randomFloat(8, -1, 1),
+                        fn (): float => $this->faker->randomFloat(8, -1, 1),
                         range(1, 1536),
                     ),
                 ],
                 [
-                    'object' => 'embedding',
-                    'index' => 2,
+                    'object'    => 'embedding',
+                    'index'     => 2,
                     'embedding' => array_map(
-                        fn(): float => $this->faker->randomFloat(8, -1, 1),
+                        fn (): float => $this->faker->randomFloat(8, -1, 1),
                         range(1, 1536),
                     ),
                 ],
@@ -182,7 +182,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistryInterface::class);
-        $serviceManager = $this->createLlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class));
+        $serviceManager  = $this->createLlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class));
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($httpClient);
@@ -210,21 +210,21 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
     public function semanticSimilarityWorkflow(): void
     {
         // Arrange: Create two embeddings that would be similar
-        $embedding1 = array_map(fn(): float => $this->faker->randomFloat(8, 0, 1), range(1, 1536));
-        $embedding2 = array_map(fn($i): float => $embedding1[$i - 1] + $this->faker->randomFloat(8, -0.1, 0.1), range(1, 1536));
+        $embedding1 = array_map(fn (): float => $this->faker->randomFloat(8, 0, 1), range(1, 1536));
+        $embedding2 = array_map(fn ($i): float => $embedding1[$i - 1] + $this->faker->randomFloat(8, -0.1, 0.1), range(1, 1536));
 
         $response1 = [
             'object' => 'list',
-            'data' => [['object' => 'embedding', 'index' => 0, 'embedding' => $embedding1]],
-            'model' => 'text-embedding-3-small',
-            'usage' => ['prompt_tokens' => 10, 'total_tokens' => 10],
+            'data'   => [['object' => 'embedding', 'index' => 0, 'embedding' => $embedding1]],
+            'model'  => 'text-embedding-3-small',
+            'usage'  => ['prompt_tokens' => 10, 'total_tokens' => 10],
         ];
 
         $response2 = [
             'object' => 'list',
-            'data' => [['object' => 'embedding', 'index' => 0, 'embedding' => $embedding2]],
-            'model' => 'text-embedding-3-small',
-            'usage' => ['prompt_tokens' => 10, 'total_tokens' => 10],
+            'data'   => [['object' => 'embedding', 'index' => 0, 'embedding' => $embedding2]],
+            'model'  => 'text-embedding-3-small',
+            'usage'  => ['prompt_tokens' => 10, 'total_tokens' => 10],
         ];
 
         $httpClient = $this->createMockHttpClient([
@@ -246,7 +246,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistryInterface::class);
-        $serviceManager = $this->createLlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class));
+        $serviceManager  = $this->createLlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class));
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($httpClient);

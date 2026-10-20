@@ -38,7 +38,7 @@ final class PageTsConfigReaderTest extends AbstractFunctionalTestCase
         $connectionPool = $this->get(ConnectionPool::class);
         self::assertInstanceOf(ConnectionPool::class, $connectionPool);
         $connectionPool->getConnectionForTable('pages')->insert('pages', [
-            'uid' => self::PAGE, 'pid' => 0, 'title' => 'Home', 'doktype' => 1,
+            'uid'      => self::PAGE, 'pid' => 0, 'title' => 'Home', 'doktype' => 1,
             'TSconfig' => "demo.base = 1\n[backend.user.isAdmin]\ndemo.admin = 1\n[END]",
         ]);
     }

@@ -63,7 +63,7 @@ final class SnippetTagItemsTest extends AbstractFunctionalTestCase
     {
         $values = $this->values(['items' => [], 'row' => ['snippet_tags' => 'persona']]);
 
-        self::assertCount(1, array_filter($values, static fn(string $v): bool => $v === 'persona'));
+        self::assertCount(1, array_filter($values, static fn (string $v): bool => $v === 'persona'));
     }
 
     /**
@@ -76,7 +76,7 @@ final class SnippetTagItemsTest extends AbstractFunctionalTestCase
         (new SnippetTagItems())->addItems($params);
 
         return array_values(array_map(
-            static fn(array $item): string => $item['value'],
+            static fn (array $item): string => $item['value'],
             $params['items'],
         ));
     }

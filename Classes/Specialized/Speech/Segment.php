@@ -58,17 +58,17 @@ final readonly class Segment
             ? self::parseWords($data['words'])
             : null;
 
-        $text = isset($data['text']) && is_string($data['text']) ? $data['text'] : '';
+        $text  = isset($data['text']) && is_string($data['text']) ? $data['text'] : '';
         $start = isset($data['start']) && (is_float($data['start']) || is_int($data['start']))
-            ? (float)$data['start']
+            ? (float) $data['start']
             : 0.0;
         $end = isset($data['end']) && (is_float($data['end']) || is_int($data['end']))
-            ? (float)$data['end']
+            ? (float) $data['end']
             : 0.0;
 
         $confidence = null;
         if (isset($data['avg_logprob']) && (is_float($data['avg_logprob']) || is_int($data['avg_logprob']))) {
-            $confidence = exp((float)$data['avg_logprob']);
+            $confidence = exp((float) $data['avg_logprob']);
         }
 
         return new self(

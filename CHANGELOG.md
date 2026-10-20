@@ -8,22 +8,42 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-10-20
+
 ### Upgrading from 0.40
 
+- **Composer constraints** of `^0.40` do not admit 0.41.0: a consumer needs `^0.41` added to its `netresearch/nr-llm` requirement. Callers of the PHP API are unaffected; every changed signature adds an optional parameter.
+- **A class outside nr-llm that implements one of three interfaces has to follow them:** `AgentRuntimeInterface` gains `cancelIfWaiting()` and `endProcess()`, `ToolCallPolicyInterface` gains `skillAllowListForRun()` and an optional last parameter on `decide()`, `explain()` and `filterOfferable()`, and `ToolLoopServiceInterface` an optional last parameter on `runLoop()` and `resume()` (see Added and Changed).
+- **Update the database schema.** The release adds tables, columns and an index (see Added).
+- **Evaluation regression tolerances are validated before a run.** All four CLI drop options and `RegressionThresholds` require finite values in the inclusive `0..1` interval. Invalid strings, infinity, NAN and out-of-range values fail without starting evaluation or storing a measurement; zero and negative zero remain valid.
 - **Run the upgrade wizard "Write the version digest onto existing skills" (`nrllmAdr214SkillVersionDigest`).** It writes the new version digest onto every synced skill. A row whose stored name, description, support status, allowed tools or body no longer match what the sync wrote is disabled, recorded in the skill audit trail as `version_digest_unverified` and left without a digest until its next sync. Rows without a digest keep the body-only integrity check and cannot be approved.
 - **After the upgrade a frontmatter-only change upstream disables an enabled skill** on the next sync, as a body change already did. Expect more re-reviews for sources that change their frontmatter.
 - **The name, description and body of a synced skill are read-only in FormEngine.** An edit of any of them fails the integrity check, as a body edit already did.
 - **No skill version is approved after the upgrade**, so every skill keeps today's fenced frame until an administrator approves a version.
-- **Ten skill fields and nine skill source fields are now `exclude` fields (ADR-214 item 3):** on `tx_nrllm_skill` the source, trust level, body checksum, version digest, enabled and hidden flags, allowed tools, support status, orphan flag and stored frontmatter; on `tx_nrllm_skill_source` the type, trust level, hidden and enabled flags, URL, ref, pinned SHA, expected fingerprint and access token. A backend group that edited any of them needs the field granted explicitly under "Allowed excludefields"; the name, description and body stay outside the list.
+- **Eleven skill fields and nine skill source fields are now `exclude` fields (ADR-214 item 3):** on `tx_nrllm_skill` the source, trust level, body checksum, version digest, enabled and hidden flags, allowed tools, support status, orphan flag, stored frontmatter and data class; on `tx_nrllm_skill_source` the type, trust level, hidden and enabled flags, URL, ref, pinned SHA, expected fingerprint and access token. A backend group that edited any of them needs the field granted explicitly under "Allowed excludefields"; the name, description and body stay outside the list.
 - **A hidden or disabled skill source no longer vouches for its skills' provenance.** Their approved versions fall back to the fenced frame until the source is active again.
 
+- **Handle tool-loop suspensions before the common exception catch.**
+  `ToolApprovalRequiredException` and `ToolInputRequiredException` now also
+  implement the common marker. Direct tool-loop consumers must catch these
+  specific signals first to preserve their resumable state.
+
+- **Update the database schema and re-evaluate quality-routing golden sets (ADR-220).** The new content-free `tx_nrllm_eval_result.generator_provenance` column identifies the actual serving provider instance, outbound alias and reported model. Legacy aggregates remain readable, but unverified scores no longer contribute to core quality routing or generator regression baselines. Mixed/unknown runs are stored and fail `--fail-on-regression` as an unverified comparison.
+
 ### Added
+
+- Behavioral tests cover reciprocal rank fusion's weighting, CLI outcome derivation windows and Poppler subprocess arguments, pipe drainage, page ordering, failures and cleanup. The stderr flood regression has a bounded assertion failure.
 
 - **Worker operations (ADR-219).** `nrllm:agent:status` reports queue wait,
   unknown timings, expired run leases and transport-scoped consumer heartbeats,
   with JSON output and explicit health thresholds. Queue-entry time is recorded
   on enqueue and requeue; legacy rows remain unknown. Idle consumers renew
   process heartbeats independently of run leases, with bounded retention.
+
+- **Compatible common-marker runtime and logic exceptions (ADR-053).**
+  `Exception\RuntimeException` and `Exception\LogicException` retain their
+  native parent hierarchy and provide marker types for internally generated
+  failures. The public API snapshot gains these two types.
 
 - **Retrieval experiment provenance (ADR-215).** Registered retrievers can add the optional `RetrievalProvenanceProviderInterface` and readonly `RetrievalProvenance` (`@api`) to declare corpus, model, chunking, pipeline and execution revisions. The existing result row preserves benchmark/variant fingerprints and privacy-filtered measured rankings, form, hard class and latency. The API inventory is additive.
 
@@ -45,7 +65,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   configuration, a resolver's target and prior invocation outcomes immediately
   before execution, including approval and input resumes. Rules compose with
   AND; a failed rule or unavailable required history refuses execution with
-  stable reason codes. `ToolCallPolicyInterface` stays compatible. New `@api`
+  stable reason codes. The rules add no member to `ToolCallPolicyInterface`; its new run allow-list member comes from ADR-038 item 5 (see Changed). New `@api`
   invocation types and a trailing optional `SuspendedRunState::$invocationHistory`
   preserve observations outside the model transcript; legacy states are marked
   incomplete. A trailing optional `ToolExecutionContext::$initialInvocationHistory`
@@ -56,7 +76,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Architecture and acceptance specifications for retrieval provenance,
   per-invocation tool rules, optional delegated MCP authentication, companion
   document-source synchronisation and worker operations (ADR-215 to ADR-219).**
-  Implementation is tracked in separate changes; this entry records decisions.
+  ADR-215, ADR-216, ADR-217 and ADR-219 are implemented in this release (see
+  their entries); companion document-source synchronisation (ADR-218) is not.
 
 - **Approved skill versions instruct (ADR-214 items 1 and 2).** An administrator approves one version of a skill in the Skills module (new "Review and approve versions" action). The approval binds to a digest over the body and the frontmatter fields the model reads, and to the skill's source; the form posts the digest it showed and a changed version is refused. A version whose approval is unrevoked and whose source is classified at or above the new setting `skills.instructionTrustLevel` (default `verified`) is composed into the system message as an instruction, behind the configuration's prompt and snippets or appended to a caller's own system message. Every other skill keeps the fenced frame in the first user message. Revocation is per version digest. Approvals, revocations and refused approvals are recorded in the skill audit trail. A version containing characters a browser does not show but a model reads (tag characters, zero-width and direction marks, no-break spaces) cannot be approved; the review page lists each one.
 - **`Skill::getVersionDigest()`, `setVersionDigest()`, `isProcess()`, `getIsProcess()` and `setProcess()`** (`@api`). The API surface snapshot gains them.
@@ -64,39 +85,188 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **A suspended run re-checks the approved skill versions it holds before it resumes (ADR-214 item 6).** The run stores each instruction as a pin (skill, source, version digest). On a resume after an approval decision or a typed input, a pin whose approval was revoked, whose snapshot no longer matches its digest, whose skill was deleted, disabled, hidden or orphaned, or whose source is no longer active or fell below `skills.instructionTrustLevel` stops the run with `SkillInstructionWithdrawnException` before any pending call executes; the run fails with a message naming the skill and the reason. A damaged stored pin never holds.
 - **`SkillPin`, `SkillInstructionWithdrawnException`, `SuspendedRunState::$skillPins` (trailing optional constructor argument) and `SuspendedRunState::withSkillPins()`** (`@api`, additive). A state stored before this release rehydrates without pins.
 - **A run's skill allow-list as a value (ADR-038 item 5).** `Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList` (`@api`) holds the union of the `allowed-tools` declarations a run resolved at its start; `null` names no restriction. `toStored()` and `fromStored()` give its persisted form, which keeps `[]` and `null` apart. `SuspendedRunState` and `AgentRunRequest` gain an optional `skillAllowList`. The API surface snapshot gains these lines.
+- **Skills written in the backend (ADR-214 item 3).** A skill source of the new type "Written in the backend" holds skills authored through FormEngine, with `sys_history` and the DataHandler's field rights. Such a skill is admitted by its source's trust level, its version digest is computed from its current fields, and an edit takes an approved version out of the system message until the new version is approved. The Skills module offers "New skill" on a backend source and an edit link on its skills. A backend source cannot be synced.
+- **A skill's tool declaration counts only where something vouches for it (ADR-214 item 3).** The run allow-list reads the declaration of a backend-authored skill's most recent approved version from its own source, and the declared empty list while none is approved, whatever its live field says. A skill whose source is missing, hidden, disabled or of an unknown type, and a synced skill whose stored fields fail the integrity check declare the empty list: they restrict the run instead of widening it. A process skill contributes to the allow-list only in a run that invokes it; attached or forced without an invocation it adds neither tools nor a restriction.
+- **Skills load on demand (ADR-214 item 4).** A configuration has a second skill field, "Skills loaded on demand". An agent run lists the approved instruction skills attached there by uid, name and description in the description of the new builtin `load_skill`, and the model loads one when the task matches: the section joins the run's system message before the next call, the tool result confirms the load without the body, and a second load of the same version appends nothing. The load re-checks the attachment, the record and the approval at that moment, and a section that would leave less than 10 % of the context budget is refused (item 7). `load_skill` is offered only when the list is not empty; a skill's `allowed-tools` and the configuration's allowed tool groups do not restrict it, the global tool state and the trust zone do. Attachment grants a skill's declared tools in both modes; a load grants none (item 5).
+- **`LlmConfiguration::getSkillsOnDemand()`, `setSkillsOnDemand()`, `addSkillOnDemand()`, `removeSkillOnDemand()` and `getAttachedSkills()`** (`@api`, additive).
+- **New column** `tx_nrllm_configuration_skill_mm.load_mode` (default `always`) and the field `tx_nrllm_configuration.skills_on_demand`.
+- **`SkillToolAllowList::$processBound`** (`@api`, additive: an optional constructor argument and a property). It marks the list of a run that invokes a process skill; there `load_skill` is offered only when the process skill's vouched declaration lists it, so an invoked process skill without a vouched declaration leaves the run no tool (ADR-214 item 5). The stored form carries it only when set.
 
 - **The approval card names a write's record and fields as structured values (ADR-214, amending ADR-136).** `Netresearch\NrLlm\Service\Tool\PendingTargetInterface` (`@api` extension point) has a write tool return a `Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget` (`@api`: a `RecordReference` and a sorted list of field names) for a pending call, read from its arguments only. All 17 built-in writers implement it; the ones that create their record return none. `PendingCallView` carries it as `pendingTarget`, and `declaresWrite` says whether the pending call is a write at all.
 
+- **The approval card gives a write proposal its fields as structured values (ADR-214 item 9).** `Netresearch\NrLlm\Service\Tool\StructuredPreviewInterface` (`@api` extension point) has a write tool return one `Netresearch\NrLlm\Domain\ValueObject\FieldProposal` (`@api`) per field it would change: the column, its TCA label, the value stored now, the value the call would write, and an optional `FieldMeasure` (`@api`: the plain-text length and a configured range). `update_page_metadata`, `update_content_element` and `set_page_social_image` implement it. `PendingCallView` carries the list as `structuredPreview`, read with the rights of the user the card is shown to; the preview lines are unchanged. The new setting `tools.structuredPreview.ranges` (`table.field:min-max`) holds the ranges, shipped as `pages.description:140-160`. Values are raw: a rich-text body is its stored HTML, and the consumer escapes it. The API surface snapshot gains the three types.
+
 - **A guarded cancel for a run that waits for a human (ADR-214).** `AgentRuntimeInterface::cancelIfWaiting()` cancels a run only while it is `waiting_for_approval` or `waiting_for_input`, in one conditional update, and returns a `GuardedCancelResult` (`@api`) with whether it won and the run's status after the attempt. Only the run's initiator or an administrator may call it; anyone else, and an unknown run, get "not cancelled" with no status. `cancel()` is unchanged.
 
-- **A denied approval can carry a reason (ADR-214, amending ADR-200).** `ApprovalDecision` takes an optional `Netresearch\NrLlm\Domain\Enum\ApprovalDenialReason` (`@api`: `variant`, `skip`) and refuses one together with an approval. `ToolLoopServiceInterface` declares the tokens as `DENIAL_REASON_VARIANT` and `DENIAL_REASON_SKIP`. The loop does not render the reason yet.
+- **A denied approval can carry a reason (ADR-214, amending ADR-200).** `ApprovalDecision` takes an optional `Netresearch\NrLlm\Domain\Enum\ApprovalDenialReason` (`@api`: `variant`, `skip`) and refuses one together with an approval. `ToolLoopServiceInterface` declares the tokens as `DENIAL_REASON_VARIANT` and `DENIAL_REASON_SKIP`. The loop renders it on a pending write as `reason: variant` or `reason: skip` beside `decided_by`, in place of the advice to ask again; a pending call that is no write keeps the plain denial.
+- **Snippets in a caller's system message (ADR-214 item 8).** A caller such as the chat that sends its own system message suppresses a configuration's system prompt and snippets. An administrator can now mark a snippet in the snippet library ("Mark for a caller's system message"): the mark is a digest of the snippet's composed block, name and text, and its tags, and any later edit of these takes the snippet out until it is marked again. A configuration that ticks the new option "Marked snippets in the caller's system message" appends its selected, marked snippets to the caller's first system message, also on a run with forced items (playground, queued runs), where then neither the configuration's prompt nor an unmarked snippet, forced or tag-selected, is added; a marked forced snippet joins the caller's message when the configuration opts in. Only administrators write the mark, the option and the configuration's snippet tags; marks and unmarks are logged with the acting administrator.
+- **An agent run whose approved skill sections do not fit the model's context window with 10 % headroom does not start (ADR-214 item 7).** It fails before the first provider call with `SkillSectionNotAdmittedException` (`@api`), naming the skills. The window is the resolved model's for a criteria-mode configuration; a run with sections and no known window does not start.
+- **New columns** `tx_nrllm_promptsnippet.caller_system_digest` and `tx_nrllm_configuration.snippets_in_caller_system_message`; `LlmConfiguration::isSnippetsInCallerSystemMessage()`/`setSnippetsInCallerSystemMessage()` (`@api`, additive) and `PromptSnippet::getCallerSystemDigest()`/`setCallerSystemDigest()`.
 
-- **A write states whether it did everything it planned (ADR-214).** `ToolResult::withWriteTarget()` takes an optional third argument, the new `@api` enum `Netresearch\NrLlm\Domain\Enum\WriteCompleteness` (`COMPLETE`, `PARTIAL`), and the `tool_write` step of a run carries it as `writeCompleteness`. Every built-in writer states it on every return, by what it reads back: `update_content_element` when some fields did not take, `delete_record` when records that should have gone with it are still there, `move_page` when translations stayed behind, `replace_file_reference` when the translations are not settled or a text it was asked to set did not take, and `create_translation_draft` when a text field still holds the source text or its text write failed are `PARTIAL`. A complaint of TYPO3 beside a write that the read-back shows complete leaves it `COMPLETE`; the answer still names it. A third-party tool that does not pass it leaves the value null, which means "not stated" — read it as "check the record", never as complete. `ToolResult` also gains `hookFailedAfterWrite` and `withHookFailedAfterWrite()` (an error result carries neither), and the write step carries `hookFailedAfterWrite`; the tool loop sets it in a later change. The API surface snapshot records the enum, the optional parameter and the two members. `replace_file_reference`, `attach_file_to_content_element` and `attach_file_to_record` now refuse a text longer than its column takes (a `title` over 255 characters), which core would cut without a word, and an asked empty text that reads back as NULL counts as not taken: NULL falls back to the file's metadata, where `''` is an explicit empty override.
+- **A write states whether it did everything it planned (ADR-214).** `ToolResult::withWriteTarget()` takes an optional third argument, the new `@api` enum `Netresearch\NrLlm\Domain\Enum\WriteCompleteness` (`COMPLETE`, `PARTIAL`), and the `tool_write` step of a run carries it as `writeCompleteness`. Every built-in writer states it on every return, by what it reads back: `update_content_element` when some fields did not take, `delete_record` when records that should have gone with it are still there, `move_page` when translations stayed behind, `replace_file_reference` when the translations are not settled or a text it was asked to set did not take, and `create_translation_draft` when a text field still holds the source text or its text write failed are `PARTIAL`. A complaint of TYPO3 beside a write that the read-back shows complete leaves it `COMPLETE`; the answer still names it. A third-party tool that does not pass it leaves the value null, which means "not stated" — read it as "check the record", never as complete. `ToolResult` also gains `hookFailedAfterWrite` and `withHookFailedAfterWrite()` (an error result carries neither), and the write step carries `hookFailedAfterWrite`, which the tool loop sets from the same DataHandler failures its hook-failure note names. The tool's completeness is left as stated. The API surface snapshot records the enum, the optional parameter and the two members. `replace_file_reference`, `attach_file_to_content_element` and `attach_file_to_record` now refuse a text longer than its column takes (a `title` over 255 characters), which core would cut without a word, and an asked empty text that reads back as NULL counts as not taken: NULL falls back to the file's metadata, where `''` is an explicit empty override.
+
+- **A guided process is decided in the chat, one proposal per turn (ADR-214 items 6 and 9).** In a run that holds a process pin, a turn with an approval-bound call suspends on exactly one: the first that declares a write, else the first approval-bound call. Reads that need no approval and are not remote run before the suspend; every other call of the turn gets an error result. Only the run's initiator decides such a run: `ResumeCoordinator` refuses anyone else with `ProcessRunDecidedInChatException`, and on a configuration with `require_second_approver` it stops the run (`failed`, `approval_denied`) with `ProcessRunNeedsSecondApproverException` before the four-eyes gate, on an approval, a denial and an answer alike. The Agent Runs inbox and the Tool Playground refuse such a run server-side, and the inbox shows it read-only. A run holds a process pin when the approval snapshot of one of its pinned skill versions marks it a process; a pin whose approval cannot be found counts as one, so the guards apply. When an approval cannot be read, the runtime refuses a decision that would end the run or turn its decider away as retryable with `ProcessVerdictUnavailableException`, the inbox and the Tool Playground refuse every decision on such a run the same way, and the run keeps waiting. A process skill reaches a run only through an invocation (ADR-228, below), so nothing changes for existing runs.
+
+- **`ask_choice`, a choice builtin (ADR-214 item 9).** It asks the person one question with 2 to 10 answers given in the call and suspends the run for input; it reads and writes nothing, is offered to non-admins and ships disabled: enable it only where the client can answer a run that waits for input. `Netresearch\NrLlm\Service\Tool\ArgumentInputSchemaInterface` (`@api` extension point) lets an input tool build its schema per call. The API surface snapshot gains it.
+
+- **Start, continue and end a guided process (ADR-214 item 10, ADR-228).** `AgentRunRequest` takes two trailing optional arguments: `invocation`, a `Netresearch\NrLlm\Domain\ValueObject\SkillInvocation` (`@api`: a skill uid and an optional `SubjectRecord` (`@api`) of table, uid and language), and `predecessorRunUuid`. Neither carries a pin: the runtime checks the invocation at start and again at worker pickup, and derives a continuation's process and subject record from the predecessor run. The start checks read the acting backend user as it is now, so a queued request is held to the user's current admin flag and groups. A refused start settles the run `failed` with `ProcessInvocationRefusedException`, whose `reason` is a `Netresearch\NrLlm\Domain\Enum\ProcessInvocationRefusal` (`@api`), and the termination reason `policy_denied`; a queued run is refused the same way at pickup, without a retry or a dead letter. A process a run starts passes the same window admission as the other start sections (ADR-214 item 7), measured against the model the send runs on; a process it continues is not admitted again. A process runs from its approval snapshot: its text and its declared tools stay those of the approved version after the record is edited. A run records what it started with as a `lineage` event (`AgentEventKind::LINEAGE`), uids and a digest only; a refused continuation records the process it would have carried on, or the run it continued, so a refusal never drops the process for the next turn. A continuation whose predecessor is gone — purged by retention, never there, or another user's run — goes on without a process and reports a `predecessor_gone` dropped source instead of being refused. A turn that names a refused run still queued for a retry is refused until that run ends, and a conversation with more than 32 refusals in a row that could not read the process lets it go with a `refused_too_often` notice. `AgentRuntimeInterface::endProcess()` lets the initiator or an administrator end a process: a waiting run is cancelled, applied writes stay, and no turn of the conversation hands the process on again; a turn that waits for a decision at that moment does not resume, and one that is running stops at its next step. `AgentRun` (the result of `status()`) gains the trailing optional `holdsProcess` and `processSkill`, so a chat can restore a tour after a reload. `RunAugmentation` gains `processPin`, `bakesSystemPrompt`, `admitsProcess`, `forProcess()` and `withProcess()`, marked `@internal`: the runtime sets them and replaces any pin a caller sets. `ToolExecutionContext` gains a trailing optional `subjectRecord`, and `SkillToolAllowList` gains `withDeclaration()`. The API surface snapshot gains these lines; every change is additive. A process approval that cannot be read is retried rather than taken for a withdrawn one: a queued run goes back to the queue. The new index `run_kind_sequence` on `tx_nrllm_agentrun_event` serves the lineage read; run the database analyzer after the update.
+- **The process skills an actor may start (ADR-228).** `Netresearch\NrLlm\Service\Agent\Process\ProcessSkillCatalogue::forActor()` (`@api`) returns `InvocableProcessSkill` values (`@api`) for the skills attached to a configuration whose current version is an approved instruction marked a process, for an actor who may use the configuration. It returns none for a service account or a configuration with `require_second_approver`. The backend AJAX route `nrllm_process_skills` serves the list for the current user as JSON.
+- **`highlight_record`, a highlight builtin (ADR-214 item 9, ADR-228).** It names the record the current point of a process is about: the run's subject record or, for a page, a content element on it in the subject's language or in all languages. The run records a `highlight` step (`RunStep::KIND_HIGHLIGHT`, `AgentEventKind::HIGHLIGHT`) with the table and uid. `ToolResult` gains `highlightTarget` and `withHighlightTarget()`, refused on an error result. The builtin reads nothing beyond that check, is offered to non-admins and ships disabled.
+
+- **Verified evaluation generator identity (ADR-220).** Configuration-driven completion/chat terminals add reserved serving provenance from the actual successful model resolution, including fallback and call overrides. Optional provider/model quality and verified-generator repository capabilities retain the existing interfaces and response API. Per-prompt details gain additive serving metadata; default metadata privacy keeps content-free aggregate eligibility.
 
 ### Changed
 
+- **Cache regression oracles now distinguish raw keys that share a sanitized or truncated prefix.** Idempotency tests verify separate answers and correct replay, bypass for unusable keys, and successful provider answers despite cache failures. Failed provider calls must propagate their original exception on every retry; the assertion is outside the expected-exception catch. Functional circuit-store tests verify independent state for colliding readable prefixes; selected faults must fail behavioral assertions.
+
+- Strengthen the use-case pack controller regression tests for read-only plans,
+  POST confirmation, real installation, repeat installs and operator feedback.
+
 - **Retrieval regression checks require comparable benchmark provenance (ADR-215).** Corpus or scoring-label changes and unknown legacy provenance skip numeric comparison; `--fail-on-regression` now fails in those states. A changed model, chunker or pipeline on the same benchmark remains comparable and is reported as a treatment change. The first known run establishes a baseline. Existing retrievers still run without the optional capability.
+
+- **Existing skill attachments are "loaded always"** by the new column's default; nothing changes for them. The field formerly labelled "Attached Skills" is now "Skills loaded always" and no longer offers process skills.
+- **A configuration's snippet tags are an administrator's field** (`exclude`, `HIDE_FOR_NON_ADMINS`): they route marked snippets into a caller's system message (ADR-214 item 8). Editors no longer see or change them.
+- **The agent loop measures the context window against the model a criteria-mode configuration resolves to** (ADR-143), not the unknown-model fallback of 8192 tokens: the fit before each send, and the admission of a loaded skill section. A section is not admitted when no model resolves, or when the model's context length is unknown.
+- **An `enum` in an input schema is enforced when the input is submitted (ADR-105, ADR-214 item 9)**, at submission and again at resume; before, the validator ignored it. The Agent Runs inbox renders such a field as a select of its members.
 - **The sync's change test and the compose-time integrity check compare the version digest (ADR-214 item 1)** instead of the body checksum. `body_checksum` keeps its body-only meaning for the signed manifest and for rows without a digest.
-- **A skill whose frontmatter sets `process: true` is not composed from an attachment or a forced skill**; it is skipped with a warning. Process skills reach a run only through an explicit invocation, which a later change adds (ADR-214 item 6).
-- **BREAKING for implementations of `ToolCallPolicyInterface` and `ToolLoopServiceInterface` (ADR-038 item 5).** `ToolCallPolicyInterface::decide()`, `explain()` and `filterOfferable()` take an optional `?SkillToolAllowList $runAllowList` last, and the interface gains `skillAllowListForRun()`, which resolves the list over the configuration's skills and the run's forced skills; without the argument the policy keeps the configuration-only resolution. `ToolLoopServiceInterface::runLoop()` takes an optional `?SkillToolAllowList $skillAllowList` last, the list a queued run was enqueued under. Callers are unaffected; a class outside nr-llm that implements either interface has to add the parameters and the method.
+- **A skill whose frontmatter sets `process: true` is not composed from an attachment or a forced skill**; it is skipped with a warning. Process skills reach a run only through an explicit invocation (ADR-214 item 6, ADR-228; see Added).
+
+- **Provider registration documentation matches container behavior (ADR-022).**
+  Attribute discovery keeps providers private, scans only the NrLlm namespace
+  and orders registrations without resolving duplicate identifiers. The API
+  reference describes typed messages, vision content, tools and the optional
+  document/decision capability interfaces. Priority regressions assert the
+  actual registration order.
+- **BREAKING for implementations of `ToolCallPolicyInterface` and `ToolLoopServiceInterface` (ADR-038 item 5).** `ToolCallPolicyInterface::decide()`, `explain()` and `filterOfferable()` take an optional `?SkillToolAllowList $runAllowList` last, and the interface gains `skillAllowListForRun()`, which resolves the list over the configuration's skills and the run's forced skills; without the argument the policy keeps the configuration-only resolution. `ToolLoopServiceInterface::runLoop()` takes an optional `?SkillToolAllowList $skillAllowList` last, the list a queued run was enqueued under, and `ToolLoopServiceInterface::resume()` an optional `?ApprovalDenialReason $denialReason` last (ADR-214 item 9). Callers are unaffected; a class outside nr-llm that implements either interface has to add the parameters and the method.
+- **The decision sidecar installs transformers 5.20.1 and the reranker sentence-transformers 6.1.0.** `requirements.txt` and `requirements.lock` move together, so `check-lock-matches-requirements.sh` keeps passing. Only the bumped entry changes in each lock; every other pinned wheel resolves unchanged.
+
+- Exception and streaming guides distinguish nr_llm-defined failures from
+  dependency exceptions. Seven adapter contract cases verify unchanged PSR-18
+  network-failure propagation and the absence of an adapter retry loop.
+
+- **Changelog entries are written as fragments in `changelog.d/`.** A pull request adds `changelog.d/<branch-slug>.<section>.md` instead of editing `## [Unreleased]`; the release commit folds them into `CHANGELOG.md` with `composer changelog:collect`. `composer ci:test:changelog` refuses a malformed fragment and a release commit that leaves fragments behind. See `changelog.d/README.md`.
 
 ### Fixed
 
-- **Skill ingest tests verify diagnostic excerpts and declared fingerprints.**
-  Exact matched excerpts, bounded encoded-payload prefixes and low severity have
-  behavioral oracles. An independently hashed manifest and the empty-manifest
-  refusal protect externally declared fingerprints from serialization drift.
+- **A repeated disable in the skills module keeps the sync's mark.** Sending a disable for a skill the sync had already disabled turned its `disabled_by` mark from `sync` into `admin`, which lifts the restriction a sync disable keeps on a run. The module's toggle now changes the mark only when `enabled` changes, as `SkillDisabledByHook` does for DataHandler writes.
+- **Corrupt approved-skill tool declarations fail closed.** A stored approval
+  snapshot accepts tool names only from a JSON array. JSON objects, including
+  objects with numeric keys, are read as declared-empty lists. Missing
+  declarations, valid lists and their existing normalization remain compatible.
+
+- **MCP replies must belong to their actual request (ADR-227).** Requests use distinct opaque string IDs; version, matching ID, exclusive response branch, object results and exact integral remote error codes are checked. Complete bounded event streams require one matching response, and oversized or incomplete prefixes are refused before health recording or catalogue reconciliation.
+
+- **An MCP tool-operation failure survives credential cleanup.** The client
+  still closes its credential session once, while retaining an already-raised
+  cancellation, budget, protocol or caller serialization failure if cleanup
+  also throws. Successful RPC results and explicit session close retain their
+  existing cleanup-failure behavior.
+
+- **Rejected MCP credentials retain the original failure when cleanup fails.** A failing rejection-cleanup attempt no longer changes cancellation or an exhausted deadline into an exchange failure, or a metadata failure into cancellation. Normal Vault deletion is still attempted once; unsuccessful cleanup can leave the temporary credential until expiry. Explicit session-close failures still report `cleanup_failed`.
+
+- **Discard partially persisted delegated MCP credentials.** If Vault storage throws after creating a temporary token, the exchange checks the locally allocated reference's actor and purpose metadata before attempting normal ACL- and audit-controlled deletion. Cleanup failures retain the original sanitized authentication failure; configured references are preserved. Native SQL and recorded-boundary tests cover post-persist RuntimeException/Error, unavailable or mismatched metadata and failing cleanup.
+
+- MCP liveness observations preserve completed connection, catalogue and tool-call results when both storage and optional diagnostic logging fail; the existing warning is attempted once.
+
+- **Keyword search availability tolerates broken backend discovery.** A backend
+  whose priority lookup throws no longer hides a usable index sibling. A failed
+  backend iterator makes the availability check return `false` instead of
+  throwing.
 
 - **Invalid retrieval provenance follows the public exception contract (ADR-053).** Constructor validation implements `NrLlmExceptionInterface` while preserving native `InvalidArgumentException` catch compatibility, reason codes and messages.
+
+- **The common exception marker covers all extension failure families
+  (ADR-053).** Agent, specialized, skill and tool errors, delegated credential
+  validation, editor-action validation and internally generated runtime or
+  configuration failures are catchable through `NrLlmExceptionInterface`.
+  Existing native parent catches, messages, codes and exception chaining stay
+  compatible. Full-source discovery and consumer-boundary tests prevent the
+  former two-directory check from overlooking new families.
 
 - **Retrieval details preserve legacy byte ids at full privacy (ADR-215).** Invalid UTF-8 question ids, hard classes and measured document ids use a versioned lossless field representation after filtering their original bytes. Ordinary UTF-8 and prompt snapshots remain compatible; redacted and metadata policies cannot be bypassed through encoding.
 
 - **Worker telemetry failures do not stop healthy consumers (ADR-219).** Heartbeat writes, pruning and stop cleanup isolate storage and logging failures. Retries retain one process identity and wait at least 30 seconds, including after partial writes; diagnostic warnings exclude connection details. Status read failures remain errors.
+
+- **A failed usage warning no longer loses an already-generated answer.** Usage accounting contains failures from both its tracker and its warning logger for typed, array and specialized responses, without repeating the provider call. A failed aggregate write can still leave daily usage and budget accounting incomplete.
+
+- **Agent runs settle when the acting backend user cannot be resolved.**
+  Context construction now runs inside the executor's lifecycle error boundary.
+  Synchronous, queued and resumed runs return the existing failed outcome and
+  settle the claimed row under its ownership guard instead of escaping with a
+  run left running. Regression tests also exercise the retryable write fence
+  and observer-before-persistence ordering directly.
+
+- **Agent executor documentation describes the existing interactive lease.** The request and resume comments explain the shared failure result and distinguish approval-bound write continuations from remote writes that can execute in the initial leased segment.
+
 - **Public tool-loop continuations preserve uncertainty about prior calls (ADR-216).** Skipping prompt assembly or seeding any resumed counter without authoritative invocation history now marks that history incomplete, so a rule requiring complete history refuses execution. Explicitly supplied history keeps its completeness flag.
 - **Invocation-rule denials have their own governance decision (ADR-216).** The governance chart and run timeline show `invocation_denied` with the bounded rule reason; the original tool-denial reason counts remain limited to offering-gate decisions.
 - **Write tools read page TSconfig as the run's acting user (#1017).** `update_content_element`, `create_content_element_draft`, `create_record_draft` and `copy_record` built their approval preview and their permission checks from page TSconfig as core resolves it for the ambient backend user: that user's workspace overlaid the rootline, their user TSconfig `page.` overrides were merged in, and their identity fed the `[backend.user…]` conditions. A run approved by another user, or resumed in a worker without one, could therefore bounce its approval or be checked against the approver's TSconfig. They now read it for the acting user, like `get_tsconfig`, which shows the acting user's view as well.
 - **A forced skill's `allowed-tools` restricts the run (ADR-038 item 5).** The tool gate resolved the skill allow-list from the configuration's skills alone, so a skill forced on a run in the playground or through a queued run's augmentation offered and permitted every tool its declaration left out. The list is now resolved once at run start over the configuration's and the forced skills and enforced when tools are offered and when a call executes. A queued run resolves it when it is enqueued and carries it with the request; at execution it is intersected with the list as it is then.
 - **A resumed run never gains tools through the skill allow-list (ADR-165).** A resume re-derived the list from the live configuration, so a run whose only declaring skill was disabled while it waited resumed with every tool. The suspended state now stores the run's list; a resume, after an approval or an input, intersects it with the live list, so a change while the run waits can take tools away but not add any. The approver and submitter gate asks with the stored list. A run suspended or queued before this release has no stored list and uses the live one, as before.
+
+- Optional run-persister diagnostics preserve the existing storage-failure fallbacks even when the logger throws; refused writes, failed claims and explicit caller validation retain their contracts (ADR-225).
+
+- One-shot test fakes now assert the exact first-call exception outside their exception handlers, so swallowing a configured failure cannot pass unnoticed.
+
+- The custom-provider integration example now uses the actual constructor, vault credentials and required adapter methods. Executed PHP/YAML examples cover registration, chat, completion, model discovery and unsupported embeddings.
+
+- **The feature, agent and testing guides match the current contracts.**
+  Examples use typed options, response content and mockable interfaces. The
+  guides describe sequential vision batches, opt-in translation caching,
+  streaming fallback before the first delivered chunk, deletion events and
+  budget ceilings. Agent approval/input, lease/reaper, MCP cancellation/read
+  caps and skill instruction/audit retention descriptions match their current
+  implementation. Provider tables and testing commands name existing features
+  and suites.
+
+- **Editor module guides use the current AI section (ADR-183).** The task,
+  approval and editor action guides name `AI > AI Tasks`. ADR-131 marks its
+  original Web placement as historical and retains the unchanged bookmark route.
+  Task prompt examples use the implemented `{{input}}` placeholder syntax.
+
+- **The old worker of a reclaimed run writes nothing at a cancel (ADR-103, ADR-104).** A cancel clears a run's claim, so a worker whose run the reaper had re-queued to another worker and that was then cancelled appended its step to the new owner's event stream. A segment now carries the run's claim generation (`requeue_count`) and stops as lease-lost when it no longer matches.
+
+- **Backend error messages survive a failed request with a JSON `null` body.** The shared AJAX error reader read `.error` from the body without checking that it is an object, so such an answer threw inside the error handler: the DeepL quota line stayed on its loading text and the translation test showed an empty error box. It now reports "Unknown error"; all ten backend modules that use the reader are covered.
+
+- Optional executor diagnostics retain cancellation, lease-loss, guardrail and suspension outcomes when logging throws; original exceptions and guarded settlement remain authoritative (ADR-225).
+
+- Circuit-breaker counters, lifetimes and retry hints stay within the native integer range for accepted cached state and positive cooldown settings, preserving successful answers and original provider failures.
+
+- **Decision preflight failures follow the public contract (ADR-211).** Both
+  `evaluate()` and `assertAvailable()` wrap infrastructure failures during
+  configuration lookup and routing in `DecisionException`, retaining their
+  cause and configuration context. Budget-subject lookup is covered during
+  evaluation; policy denials keep their identity and engine errors propagate.
+
+- **Evaluation quality is attributed to its actual generator (ADR-220).** Mixed or unverified runs retain their grades without crediting the last response model. Core quality reads and ranking distinguish configured provider instances sharing one adapter/model alias; baselines additionally filter the reported snapshot before selecting the latest eligible row.
+
+- **Unreadable MCP response streams return a typed failure.** Exceptions while
+  obtaining or reading a response body now become a sanitized
+  `McpTransportException`, so a failed remote stream follows the tool failure
+  path. Complete replies within the bounded read prefix remain accepted.
+
+- **Reranker POST framing is explicit.** Requests with any `Transfer-Encoding` header are rejected with HTTP 400 and a closed connection before reading or inference. Supported `Content-Length` bodies retain their byte limit and validation behavior; real-socket tests cover unsupported framing and connection closure.
+
+- **Reranker sidecar validates its HTTP boundary (ADR-075).** Non-object JSON and
+  documents without string IDs or text return HTTP 400. Non-finite model scores
+  return HTTP 500 with valid JSON. Tests exercise the real HTTP handler, connection
+  reuse and environment settings; the sidecar has its own CI check.
+
+- **Skill sync diagnostics redact URL credentials.** Fatal and partial sync results now apply the same credential masking as the stored error. Fatal logging records the exception class and sanitized message/source URL instead of retaining a credential-bearing exception object.
+
+- Functional test initialization and teardown failures now fail the suite instead of becoming skips or being swallowed. Bounded child-PHPUnit checks cover broken bootstrap, teardown integrity, success and deliberate absent-database skipping.
+
+### Security
+
+- **The read tools check web mounts against the run's acting user (#1022).**
+  `get_page_content`, `get_record_history`, `read_records`, `search_records`
+  and `resolve_url`, and the `include_hidden` edit check of the two record
+  readers, asked TYPO3's `BackendUtility::readPageAccess()`, which takes the
+  acting user's page permissions but checks the web mount of the backend user
+  in `$GLOBALS['BE_USER']`. In a queued or resumed agent run that is whoever
+  runs the request: with an admin there, a non-admin's run read pages outside
+  its mounts; with nobody there (worker, CLI), every page check of a
+  non-admin's run failed with an error. The check now asks the acting user.
 
 ## [0.40.0] - 2026-10-08
 
@@ -4352,7 +4522,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.40.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.0...HEAD
+[0.41.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.40.0...v0.41.0
 [0.40.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.39.0...v0.40.0
 [0.39.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.38.2...v0.39.0
 [0.38.2]: https://github.com/netresearch/t3x-nr-llm/compare/v0.38.1...v0.38.2
