@@ -238,7 +238,7 @@ final class TaskInputResolverTest extends AbstractUnitTestCase
     public function syslogReadFailureLogsWarningAndReturnsGenericMessage(): void
     {
         $sensitive = 'SQLSTATE[42S02]: Base table or view not found: 1146 Table sys_log_secret missing';
-        $failure = new RuntimeException($sensitive, 1770581068);
+        $failure   = new RuntimeException($sensitive, 1770581068);
         $this->systemLogReader
             ->expects(self::once())
             ->method('readRecent')
@@ -355,7 +355,7 @@ final class TaskInputResolverTest extends AbstractUnitTestCase
     public function tableReadFailureLogsWarningAndReturnsGenericMessage(): void
     {
         $sensitive = 'SQLSTATE[HY000]: General error: 145 Table./var/lib/mysql/secret_table./broken';
-        $failure = new RuntimeException($sensitive, 1770581069);
+        $failure   = new RuntimeException($sensitive, 1770581069);
         $this->recordTableReader
             ->expects(self::once())
             ->method('fetchAll')
@@ -461,7 +461,7 @@ final class TaskInputResolverTest extends AbstractUnitTestCase
                 },
             );
         $escaped = null;
-        $output = null;
+        $output  = null;
         try {
             $output = $this->subject->resolve($task);
         } catch (Throwable $caught) {

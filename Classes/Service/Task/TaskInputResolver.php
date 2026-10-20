@@ -70,8 +70,8 @@ final readonly class TaskInputResolver implements TaskInputResolverInterface
                 'Task syslog input: sys_log read failed',
                 [
                     'exception' => $e,
-                    'taskUid' => $task->getUid(),
-                    'limit' => $limit,
+                    'taskUid'   => $task->getUid(),
+                    'limit'     => $limit,
                     'errorOnly' => $errorOnly,
                 ],
             );
@@ -179,8 +179,8 @@ final readonly class TaskInputResolver implements TaskInputResolverInterface
                 'Task table input: table rejected by record-picker policy',
                 [
                     'exception' => $e,
-                    'taskUid' => $task->getUid(),
-                    'table' => $table,
+                    'taskUid'   => $task->getUid(),
+                    'table'     => $table,
                 ],
             );
 
@@ -191,9 +191,9 @@ final readonly class TaskInputResolver implements TaskInputResolverInterface
                 'Task table input: table read failed',
                 [
                     'exception' => $e,
-                    'taskUid' => $task->getUid(),
-                    'table' => $table,
-                    'limit' => $limit,
+                    'taskUid'   => $task->getUid(),
+                    'table'     => $table,
+                    'limit'     => $limit,
                 ],
             );
 
@@ -234,6 +234,7 @@ final readonly class TaskInputResolver implements TaskInputResolverInterface
                 'Task deprecation input: log read failed',
                 ['exception' => $e, 'taskUid' => $task->getUid()],
             );
+
             return $this->translate(
                 'task.deprecationLog.readError',
                 'Could not read deprecation log.',
