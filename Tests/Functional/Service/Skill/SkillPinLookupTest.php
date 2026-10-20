@@ -151,7 +151,7 @@ final class SkillPinLookupTest extends AbstractFunctionalTestCase
             ['uid' => 20],
         );
         $lookup = new SkillSourceLookup($this->pool());
-        $facts = $lookup->find(20);
+        $facts  = $lookup->find(20);
         self::assertInstanceOf(SkillSourceFacts::class, $facts);
         self::assertSame(20, $facts->uid);
         self::assertSame(SkillSourceType::MARKETPLACE, $facts->type);
@@ -214,7 +214,7 @@ final class SkillPinLookupTest extends AbstractFunctionalTestCase
             ->update(
                 'tx_nrllm_skill_source',
                 [
-                    'type' => 'unexpected-type',
+                    'type'        => 'unexpected-type',
                     'trust_level' => 'unexpected-level',
                 ],
                 ['uid' => 10],
