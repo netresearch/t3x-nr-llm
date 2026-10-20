@@ -1,10 +1,11 @@
 <?php
 
 /*
- * Copyright (c) 2026 Netresearch DTT GmbH
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Provider\Middleware;
 
@@ -52,11 +53,11 @@ final class UsageCostPrecedenceTest extends AbstractUnitTestCase
             ProviderOperation::Chat,
             $configuration,
         );
-        $usage = new UsageStatistics(1000, 500, 1500, 0.0);
+        $usage    = new UsageStatistics(1000, 500, 1500, 0.0);
         $response = $arrayPayload ? [
-            'model' => 'priced-model',
+            'model'    => 'priced-model',
             'provider' => 'example',
-            'usage' => $usage->toArray(),
+            'usage'    => $usage->toArray(),
         ] : new CompletionResponse(
             content: 'served',
             model: 'priced-model',
@@ -71,10 +72,10 @@ final class UsageCostPrecedenceTest extends AbstractUnitTestCase
                 'chat',
                 'example',
                 [
-                    'tokens' => 1500,
-                    'promptTokens' => 1000,
+                    'tokens'           => 1500,
+                    'promptTokens'     => 1000,
                     'completionTokens' => 500,
-                    'cost' => 0.0,
+                    'cost'             => 0.0,
                 ],
                 null,
                 0,
@@ -84,7 +85,7 @@ final class UsageCostPrecedenceTest extends AbstractUnitTestCase
         $pipeline = new MiddlewarePipeline(
             [new UsageMiddleware($tracker, $this->createLoggerMock())],
         );
-        $result = $pipeline->run($context, static fn(): mixed => $response);
+        $result = $pipeline->run($context, static fn (): mixed => $response);
         self::assertSame($response, $result);
         $recorded = $context->telemetrySignals->callUsage;
         self::assertInstanceOf(ProviderCallUsage::class, $recorded);
