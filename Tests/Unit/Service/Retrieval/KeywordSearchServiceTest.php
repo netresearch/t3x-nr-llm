@@ -1,10 +1,11 @@
 <?php
 
 /*
- * Copyright (c) 2026 Netresearch DTT GmbH
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Retrieval;
 
@@ -114,9 +115,9 @@ final class KeywordSearchServiceTest extends TestCase
     #[Test]
     public function fullCascadeIncludesDatabaseFallback(): void
     {
-        $solr = new FakeSearchBackend('solr', 30, available: false);
+        $solr     = new FakeSearchBackend('solr', 30, available: false);
         $database = new FakeSearchBackend('database', 0, sources: [FakeSearchBackend::source('database:1:0')]);
-        $service = new KeywordSearchService([$solr, $database]);
+        $service  = new KeywordSearchService([$solr, $database]);
 
         $hits = $service->search('term', 5);
 
@@ -128,9 +129,9 @@ final class KeywordSearchServiceTest extends TestCase
     #[Test]
     public function indexBackedOnlyModeExcludesPriorityZeroFallback(): void
     {
-        $solr = new FakeSearchBackend('solr', 30, available: false);
+        $solr     = new FakeSearchBackend('solr', 30, available: false);
         $database = new FakeSearchBackend('database', 0, sources: [FakeSearchBackend::source('database:1:0')]);
-        $service = new KeywordSearchService([$solr, $database], indexBackedOnly: true);
+        $service  = new KeywordSearchService([$solr, $database], indexBackedOnly: true);
 
         self::assertSame([], $service->search('term', 5));
         self::assertSame(0, $database->searchCalls);
@@ -140,9 +141,9 @@ final class KeywordSearchServiceTest extends TestCase
     #[Test]
     public function indexBackedOnlyModeStillAnswersFromIndexBackedBackend(): void
     {
-        $solr = new FakeSearchBackend('solr', 30, sources: [FakeSearchBackend::source('solr:1')]);
+        $solr     = new FakeSearchBackend('solr', 30, sources: [FakeSearchBackend::source('solr:1')]);
         $database = new FakeSearchBackend('database', 0, sources: [FakeSearchBackend::source('database:1:0')]);
-        $service = new KeywordSearchService([$solr, $database], indexBackedOnly: true);
+        $service  = new KeywordSearchService([$solr, $database], indexBackedOnly: true);
 
         $hits = $service->search('term', 5);
 
@@ -193,7 +194,7 @@ final class KeywordSearchServiceTest extends TestCase
         $hits = $service->search('term', 2);
 
         self::assertCount(2, $hits);
-        self::assertSame(['a:1', 'a:3'], array_map(static fn(KeywordHit $hit): string => $hit->sourceId, $hits));
+        self::assertSame(['a:1', 'a:3'], array_map(static fn (KeywordHit $hit): string => $hit->sourceId, $hits));
     }
 
     #[Test]
@@ -226,7 +227,7 @@ final class KeywordSearchServiceTest extends TestCase
             self::fail('A usable index sibling must stay available, but escaped ' . $e::class . ': ' . $e->getMessage());
         }
 
-        self::assertSame(['solr:1'], array_map(static fn(KeywordHit $hit): string => $hit->sourceId, $service->search('term', 5)));
+        self::assertSame(['solr:1'], array_map(static fn (KeywordHit $hit): string => $hit->sourceId, $service->search('term', 5)));
         self::assertSame(1, $healthy->searchCalls);
     }
 
@@ -267,7 +268,7 @@ final class KeywordSearchServiceTest extends TestCase
         self::assertSame(
             ['database:1:0'],
             array_map(
-                static fn(KeywordHit $hit): string => $hit->sourceId,
+                static fn (KeywordHit $hit): string => $hit->sourceId,
                 $service->search('term', 5),
             ),
         );

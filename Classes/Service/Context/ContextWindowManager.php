@@ -92,7 +92,7 @@ final class ContextWindowManager implements ContextWindowManagerInterface, Secti
         $this->recalibrate($lastUsage);
 
         $reserve = $this->reserve($options, $model, $ctx);
-        $safety  = (int)ceil($ctx * self::SAFETY_FRACTION);
+        $safety  = (int) ceil($ctx * self::SAFETY_FRACTION);
         $budget  = $ctx - $reserve - $safety;
         if ($budget <= 0) {
             // Misconfiguration (reserve larger than window): defer to the provider.
@@ -197,7 +197,7 @@ final class ContextWindowManager implements ContextWindowManagerInterface, Secti
             return false;
         }
 
-        $budget = $ctx - $this->reserve($options, $model, $ctx) - (int)ceil($ctx * self::SAFETY_FRACTION);
+        $budget = $ctx - $this->reserve($options, $model, $ctx) - (int) ceil($ctx * self::SAFETY_FRACTION);
         if ($budget <= 0) {
             // No budget to admit against: refuse rather than append text the
             // fit would then defer to the provider unbounded.
@@ -214,7 +214,7 @@ final class ContextWindowManager implements ContextWindowManagerInterface, Secti
             + $this->missingSystemPromptTokens($floor, $configuration, $effectiveSystemPrompt)
             + $this->injectedTokens($section);
 
-        return $estimated <= $budget - (int)ceil($budget * self::HEADROOM_FRACTION);
+        return $estimated <= $budget - (int) ceil($budget * self::HEADROOM_FRACTION);
     }
 
     private function recalibrate(?UsageStatistics $lastUsage): void
@@ -240,7 +240,7 @@ final class ContextWindowManager implements ContextWindowManagerInterface, Secti
             return $modelMax;
         }
 
-        return max(1000, (int)ceil($ctx * 0.02));
+        return max(1000, (int) ceil($ctx * 0.02));
     }
 
     /**
@@ -364,7 +364,7 @@ final class ContextWindowManager implements ContextWindowManagerInterface, Secti
             ++$dropped;
         }
 
-        $messages = $this->assemble($head, $kept);
+        $messages  = $this->assemble($head, $kept);
         $estimated = $estimate($messages);
         $overflow  = $estimated > $budget;
 

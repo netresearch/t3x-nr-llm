@@ -1,8 +1,11 @@
 <?php
 
-/* Copyright (c) 2026 Netresearch DTT GmbH
- * SPDX-License-Identifier: GPL-2.0-or-later */
-declare (strict_types=1);
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Mcp\Auth;
 
@@ -42,7 +45,7 @@ final class McpCredentialCompensationTest extends AbstractUnitTestCase
         bool $serviceActor,
         bool $expectedDelete,
     ): void {
-        $actor = $serviceActor ? AiActorContext::serviceAccount('worker') : AiActorContext::backendUser(7);
+        $actor  = $serviceActor ? AiActorContext::serviceAccount('worker') : AiActorContext::backendUser(7);
         $server = new McpServerRecord(
             uid: 1,
             pid: 0,
@@ -78,21 +81,21 @@ final class McpCredentialCompensationTest extends AbstractUnitTestCase
             ['read'],
         );
         $expectedMetadata = [
-            'server' => 'srv',
-            'profile' => 'office',
-            'audience' => 'urn:one',
-            'scopes' => ['read'],
-            'actorUid' => $actor->backendUserUid,
+            'server'         => 'srv',
+            'profile'        => 'office',
+            'audience'       => 'urn:one',
+            'scopes'         => ['read'],
+            'actorUid'       => $actor->backendUserUid,
             'serviceAccount' => $actor->serviceAccount,
         ];
         $primary = match ($storeFault) {
-            'error' => new Error('private failed store detail', 1799990233),
+            'error'     => new Error('private failed store detail', 1799990233),
             'cancelled' => new RequestCancelledException('fixed cancellation', 1799990239),
-            default => new RuntimeException('private failed store detail', 1799990234),
+            default     => new RuntimeException('private failed store detail', 1799990234),
         };
         $secondary = match ($deleteFault) {
-            'error' => new Error('private failed cleanup detail', 1799990235),
-            'runtime' => new RuntimeException('private failed cleanup detail', 1799990236),
+            'error'     => new Error('private failed cleanup detail', 1799990235),
+            'runtime'   => new RuntimeException('private failed cleanup detail', 1799990236),
             'cancelled' => new RequestCancelledException(
                 'fixed cleanup cancellation',
                 1799990240,
@@ -105,7 +108,7 @@ final class McpCredentialCompensationTest extends AbstractUnitTestCase
         $metadataReads = [];
         /** @var list<array{identifier:string,reason:string}> $deletions */
         $deletions = [];
-        $vault = $this->createMock(VaultServiceInterface::class);
+        $vault     = $this->createMock(VaultServiceInterface::class);
         $vault->expects(self::never())->method('retrieve');
         $vault
             ->method('store')
@@ -117,8 +120,8 @@ final class McpCredentialCompensationTest extends AbstractUnitTestCase
                 ) use (&$stored, $primary): never {
                     $stored[] = [
                         'identifier' => $identifier,
-                        'value' => $value,
-                        'options' => $options,
+                        'value'      => $value,
+                        'options'    => $options,
                     ];
                     throw $primary;
                 },
@@ -201,10 +204,10 @@ final class McpCredentialCompensationTest extends AbstractUnitTestCase
         $vault->method('http')->willReturn($http);
         $dns = self::createStub(DnsResolverInterface::class);
         $dns->method('resolve')->willReturn([['ip' => '93.184.216.34']]);
-        $clock = new FakeMcpClock();
+        $clock    = new FakeMcpClock();
         $exchange = new McpTokenExchange($vault, new SecureHttpClientFactory($dns), $clock);
-        $caught = null;
-        $issued = null;
+        $caught   = null;
+        $issued   = null;
         try {
             $issued = $exchange->exchange(
                 $server,
@@ -250,7 +253,7 @@ final class McpCredentialCompensationTest extends AbstractUnitTestCase
             $expectedDelete ? [
                 [
                     'identifier' => $stored[0]['identifier'],
-                    'reason' => 'Discard failed MCP delegated credential persistence',
+                    'reason'     => 'Discard failed MCP delegated credential persistence',
                 ],
             ] : [],
             $deletions,

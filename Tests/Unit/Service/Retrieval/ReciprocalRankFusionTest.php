@@ -1,10 +1,11 @@
 <?php
 
 /*
- * Copyright (c) 2026 Netresearch DTT GmbH
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Retrieval;
 
@@ -116,7 +117,7 @@ final class ReciprocalRankFusionTest extends TestCase
     #[Test]
     public function kChangesTheWinnerBetweenOneTopRankAndTwoLowerRanks(): void
     {
-        $lists = [['a', 'x', 'y', 'b'], ['c', 'u', 'v', 'b']];
+        $lists  = [['a', 'x', 'y', 'b'], ['c', 'u', 'v', 'b']];
         $fusion = new ReciprocalRankFusion();
 
         self::assertSame(['a', 'c', 'b', 'x', 'u', 'y', 'v'], $fusion->fuse($lists, 1));

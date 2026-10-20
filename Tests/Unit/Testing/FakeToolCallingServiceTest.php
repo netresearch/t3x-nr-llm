@@ -33,10 +33,10 @@ final class FakeToolCallingServiceTest extends TestCase
     #[Test]
     public function returnsQueuedResponsesInFifoOrderAcrossBothMethods(): void
     {
-        $first = $this->response('first');
+        $first  = $this->response('first');
         $second = $this->response('second');
 
-        $subject = new FakeToolCallingService();
+        $subject            = new FakeToolCallingService();
         $subject->responses = [$first, $second];
 
         self::assertSame($first, $subject->chatWithTools([], []));
@@ -50,7 +50,7 @@ final class FakeToolCallingServiceTest extends TestCase
         $tools    = [['name' => 'search']];
         $options  = new ToolOptions();
 
-        $subject = new FakeToolCallingService();
+        $subject            = new FakeToolCallingService();
         $subject->responses = [$this->response('ok')];
 
         $subject->chatWithTools($messages, $tools, $options);
@@ -67,7 +67,7 @@ final class FakeToolCallingServiceTest extends TestCase
     {
         $configuration = new LlmConfiguration();
 
-        $subject = new FakeToolCallingService();
+        $subject            = new FakeToolCallingService();
         $subject->responses = [$this->response('ok')];
 
         $subject->chatWithToolsForConfiguration([], [], $configuration);
@@ -79,7 +79,7 @@ final class FakeToolCallingServiceTest extends TestCase
     #[Test]
     public function throwsConfiguredThrowableInsteadOfReturning(): void
     {
-        $subject = new FakeToolCallingService();
+        $subject            = new FakeToolCallingService();
         $subject->responses = [$this->response('unused')];
         $subject->throwable = new RuntimeException('boom');
 
@@ -94,10 +94,10 @@ final class FakeToolCallingServiceTest extends TestCase
     {
         $queued = $this->response('after');
 
-        $subject = new FakeToolCallingService();
+        $subject            = new FakeToolCallingService();
         $subject->responses = [$queued];
 
-        $expected = new RuntimeException('boom');
+        $expected           = new RuntimeException('boom');
         $subject->throwable = $expected;
 
         $caught = null;

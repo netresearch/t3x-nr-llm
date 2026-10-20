@@ -36,20 +36,20 @@ final class SkillCopyKeepsRestrictionTest extends AbstractFunctionalTestCase
         $pool = $this->getConnectionPool();
         foreach ([[10, 0, 'Mount'], [11, 10, 'Assistant']] as [$uid, $pid, $title]) {
             $pool->getConnectionForTable('pages')->insert('pages', [
-                'uid' => $uid, 'pid' => $pid, 'title' => $title, 'doktype' => 254,
+                'uid'          => $uid, 'pid' => $pid, 'title' => $title, 'doktype' => 254,
                 'perms_userid' => 1, 'perms_groupid' => 1, 'perms_user' => 31, 'perms_group' => 31, 'perms_everybody' => 31,
             ]);
         }
 
         $pool->getConnectionForTable('be_groups')->insert('be_groups', [
-            'uid' => 1, 'pid' => 0, 'title' => 'Editors',
-            'tables_select' => 'pages,tx_nrllm_skill,tx_nrllm_configuration',
-            'tables_modify' => 'pages,tx_nrllm_skill,tx_nrllm_configuration',
+            'uid'              => 1, 'pid' => 0, 'title' => 'Editors',
+            'tables_select'    => 'pages,tx_nrllm_skill,tx_nrllm_configuration',
+            'tables_modify'    => 'pages,tx_nrllm_skill,tx_nrllm_configuration',
             'pagetypes_select' => '254',
-            'db_mountpoints' => '10',
+            'db_mountpoints'   => '10',
         ]);
         $pool->getConnectionForTable('be_users')->insert('be_users', [
-            'uid' => self::EDITOR_UID, 'pid' => 0, 'username' => 'editor2', 'password' => 'x', 'admin' => 0,
+            'uid'       => self::EDITOR_UID, 'pid' => 0, 'username' => 'editor2', 'password' => 'x', 'admin' => 0,
             'usergroup' => '1', 'db_mountpoints' => '10', 'options' => 3,
         ]);
         $pool->getConnectionForTable('tx_nrllm_skill')->insert('tx_nrllm_skill', [
@@ -81,8 +81,8 @@ final class SkillCopyKeepsRestrictionTest extends AbstractFunctionalTestCase
 
         $skills         = $dataHandler->copyMappingArray_merged['tx_nrllm_skill'] ?? [];
         $configurations = $dataHandler->copyMappingArray_merged['tx_nrllm_configuration'] ?? [];
-        $skillCopy      = is_array($skills) && is_numeric($skills[7] ?? null) ? (int)$skills[7] : 0;
-        $configCopy     = is_array($configurations) && is_numeric($configurations[3] ?? null) ? (int)$configurations[3] : 0;
+        $skillCopy      = is_array($skills) && is_numeric($skills[7] ?? null) ? (int) $skills[7] : 0;
+        $configCopy     = is_array($configurations) && is_numeric($configurations[3] ?? null) ? (int) $configurations[3] : 0;
         self::assertGreaterThan(0, $skillCopy, 'the skill was copied');
         self::assertGreaterThan(0, $configCopy, 'the configuration was copied');
 
@@ -93,7 +93,7 @@ final class SkillCopyKeepsRestrictionTest extends AbstractFunctionalTestCase
         $row = $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill')
             ->select(['enabled', 'disabled_by'], 'tx_nrllm_skill', ['uid' => $skillCopy])->fetchAssociative();
         self::assertIsArray($row);
-        self::assertSame(0, (int)$row['enabled'], 'an editor cannot store a skill enabled');
+        self::assertSame(0, (int) $row['enabled'], 'an editor cannot store a skill enabled');
         self::assertSame('sync', $row['disabled_by'], 'so it keeps restricting the copied configuration');
     }
 
@@ -114,7 +114,7 @@ final class SkillCopyKeepsRestrictionTest extends AbstractFunctionalTestCase
         $dataHandler->process_cmdmap();
 
         $skills    = $dataHandler->copyMappingArray_merged['tx_nrllm_skill'] ?? [];
-        $skillCopy = is_array($skills) && is_numeric($skills[7] ?? null) ? (int)$skills[7] : 0;
+        $skillCopy = is_array($skills) && is_numeric($skills[7] ?? null) ? (int) $skills[7] : 0;
         self::assertGreaterThan(0, $skillCopy);
         self::assertSame('admin', $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill')
             ->select(['disabled_by'], 'tx_nrllm_skill', ['uid' => $skillCopy])->fetchOne());
@@ -136,9 +136,9 @@ final class SkillCopyKeepsRestrictionTest extends AbstractFunctionalTestCase
         $dataHandler->process_cmdmap();
 
         $skills    = $dataHandler->copyMappingArray_merged['tx_nrllm_skill'] ?? [];
-        $skillCopy = is_array($skills) && is_numeric($skills[7] ?? null) ? (int)$skills[7] : 0;
+        $skillCopy = is_array($skills) && is_numeric($skills[7] ?? null) ? (int) $skills[7] : 0;
         self::assertGreaterThan(0, $skillCopy);
-        self::assertSame(1, (int)$this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill')
+        self::assertSame(1, (int) $this->getConnectionPool()->getConnectionForTable('tx_nrllm_skill')
             ->select(['orphaned'], 'tx_nrllm_skill', ['uid' => $skillCopy])->fetchOne());
     }
 }

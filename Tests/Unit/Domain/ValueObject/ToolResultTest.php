@@ -49,7 +49,7 @@ final class ToolResultTest extends TestCase
     }
 
     #[Test]
-    public function errorIsFailClosed_flagsErrorAndCarriesNoArtifacts(): void
+    public function errorIsFailClosedFlagsErrorAndCarriesNoArtifacts(): void
     {
         $result = ToolResult::error('Error: tool "x" failed.');
 
@@ -59,7 +59,7 @@ final class ToolResultTest extends TestCase
     }
 
     #[Test]
-    public function contentIsTheOnlyStringPath_noToStringOrWireAccessorExists(): void
+    public function contentIsTheOnlyStringPathNoToStringOrWireAccessorExists(): void
     {
         $reflection = new ReflectionClass(ToolResult::class);
 
@@ -132,7 +132,7 @@ final class ToolResultTest extends TestCase
         self::assertSame([], $bounded->artifacts);
         self::assertFalse($bounded->isError);
         self::assertInstanceOf(RecordReference::class, $bounded->writeTarget);
-        self::assertSame('sys_file_metadata:137', (string)$bounded->writeTarget);
+        self::assertSame('sys_file_metadata:137', (string) $bounded->writeTarget);
     }
 
     /**
@@ -256,7 +256,7 @@ final class ToolResultTest extends TestCase
     public function boundingIsExhaustiveOverThePropertiesOfTheResult(): void
     {
         $properties = array_map(
-            static fn(ReflectionProperty $p): string => $p->getName(),
+            static fn (ReflectionProperty $p): string => $p->getName(),
             (new ReflectionClass(ToolResult::class))->getProperties(),
         );
         sort($properties);

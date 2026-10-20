@@ -23,6 +23,10 @@ use stdClass;
 use Throwable;
 use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
+use function in_array;
+use function is_array;
+use function is_string;
+
 /**
  * The MCP conversation: handshake, catalogue listing, tool invocation (ADR-116).
  *
@@ -102,18 +106,18 @@ final readonly class McpClient
      * waiting for, and fifty pages with a timeout each is the stall this
      * deadline exists to end.
      *
-     * @throws McpTransportException
-     *
      * @return list<array<string, mixed>> the advertised tool objects, verbatim
+     *
+     * @throws McpTransportException
      */
     public function listTools(McpServerRecord $server): array
     {
-        $deadline = $this->deadlines->forOperation();
+        $deadline    = $this->deadlines->forOperation();
         $credentials = $this->authenticationForDiscovery($server, $deadline);
         try {
             $session = $this->openSession($server, $deadline, null, $credentials)['sessionId'];
 
-            $tools = [];
+            $tools  = [];
             $cursor = null;
 
             for ($page = 0; $page < self::MAX_PAGES; ++$page) {
@@ -190,7 +194,7 @@ final readonly class McpClient
         ?CancellationSignalInterface $cancellation = null,
         ?AiActorContext $actor = null,
     ): McpCallOutcome {
-        $deadline = $this->deadlines->forOperation();
+        $deadline    = $this->deadlines->forOperation();
         $credentials = $this->authenticationForExecution(
             $server,
             $actor,
@@ -208,7 +212,7 @@ final readonly class McpClient
                 $server,
                 'tools/call',
                 [
-                    'name' => $remoteName,
+                    'name'      => $remoteName,
                     'arguments' => $arguments === [] ? new stdClass() : $arguments,
                 ],
                 $deadline,
@@ -224,8 +228,8 @@ final readonly class McpClient
             $result = $answer['result'];
 
             $flattened = $this->flattenContent($result['content'] ?? null);
-            $text = $flattened['text'];
-            $note = $this->omissionNote($flattened['omitted']);
+            $text      = $flattened['text'];
+            $note      = $this->omissionNote($flattened['omitted']);
 
             // `isError` is the protocol's way of reporting a tool-level failure
             // inside a successful JSON-RPC response. It is a result, not a
@@ -285,8 +289,8 @@ final readonly class McpClient
         $this->health->recordContact($server, $handshake['durationMs']);
 
         $result = $handshake['result'];
-        $info = $result['serverInfo'] ?? null;
-        $info = \is_array($info) ? $info : [];
+        $info   = $result['serverInfo'] ?? null;
+        $info   = is_array($info) ? $info : [];
 
         return McpConnectionReport::reached(
             $handshake['durationMs'],
@@ -314,9 +318,9 @@ final readonly class McpClient
      * Both legs spend from the operation's budget, so what the handshake costs
      * is not available to the request it opens the way for (ADR-170).
      *
-     * @throws McpTransportException
-     *
      * @return array{result: array<string, mixed>, sessionId: string|null, durationMs: int}
+     *
+     * @throws McpTransportException
      */
     private function openSession(
         McpServerRecord $server,
@@ -334,7 +338,7 @@ final readonly class McpClient
                 // and does not subscribe to notifications. Declaring a capability
                 // we do not implement invites the server to use it.
                 'capabilities' => new stdClass(),
-                'clientInfo' => ['name' => 'nr_llm', 'version' => '1'],
+                'clientInfo'   => ['name' => 'nr_llm', 'version' => '1'],
             ],
             $deadline,
             null,
@@ -387,7 +391,7 @@ final readonly class McpClient
      */
     private function remoteLabel(mixed $value): string
     {
-        if (!\is_string($value)) {
+        if (!is_string($value)) {
             return '';
         }
 
@@ -406,7 +410,7 @@ final readonly class McpClient
     private function parseToolsPage(McpServerRecord $server, array $result): McpToolsPage
     {
         $tools = $result['tools'] ?? null;
-        if (!\is_array($tools)) {
+        if (!is_array($tools)) {
             throw McpTransportException::forMalformedResponse($server->identifier, 'the tool listing carries no "tools" array');
         }
 
@@ -416,7 +420,7 @@ final readonly class McpClient
             // malformed entry must not cost the operator the whole catalogue.
             // The import counts what it could not name, so nothing vanishes
             // silently.
-            if (\is_array($tool)) {
+            if (is_array($tool)) {
                 /** @var array<string, mixed> $tool */
                 $objects[] = $tool;
             }
@@ -426,7 +430,7 @@ final readonly class McpClient
 
         return new McpToolsPage(
             $objects,
-            \is_string($cursor) && $cursor !== '' ? $cursor : null,
+            is_string($cursor) && $cursor !== '' ? $cursor : null,
         );
     }
 
@@ -443,7 +447,7 @@ final readonly class McpClient
      */
     private function flattenContent(mixed $content): array
     {
-        if (!\is_array($content)) {
+        if (!is_array($content)) {
             return ['text' => '', 'omitted' => []];
         }
 
@@ -451,12 +455,12 @@ final readonly class McpClient
         $omitted = [];
 
         foreach ($content as $block) {
-            $type = \is_array($block) ? ($block['type'] ?? null) : null;
+            $type = is_array($block) ? ($block['type'] ?? null) : null;
 
             if ($type === 'text') {
                 /** @var array<string, mixed> $block */
                 $text = $block['text'] ?? null;
-                if (\is_string($text) && $text !== '') {
+                if (is_string($text) && $text !== '') {
                     $parts[] = $text;
                 }
 
@@ -514,7 +518,7 @@ final readonly class McpClient
      */
     private function blockTypeLabel(mixed $type): string
     {
-        return \is_string($type) && \in_array($type, self::KNOWN_BLOCK_TYPES, true) ? $type : 'other';
+        return is_string($type) && in_array($type, self::KNOWN_BLOCK_TYPES, true) ? $type : 'other';
     }
 
     /**
@@ -587,7 +591,7 @@ final readonly class McpClient
      */
     private function handshakeForDiscovery(McpServerRecord $server): array
     {
-        $deadline = $this->deadlines->forOperation();
+        $deadline    = $this->deadlines->forOperation();
         $credentials = $this->authenticationForDiscovery($server, $deadline);
         try {
             return $this->openSession($server, $deadline, null, $credentials);

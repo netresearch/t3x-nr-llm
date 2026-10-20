@@ -39,7 +39,7 @@ use TYPO3\CMS\Core\Utility\DiffUtility;
  * Callers authorise: only administrators may approve or revoke until the
  * permission is decided (ADR-214, open questions).
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class SkillApprovalService
 {
@@ -56,7 +56,7 @@ final readonly class SkillApprovalService
      */
     public function review(Skill $skill): SkillVersionReview
     {
-        $uid       = (int)$skill->getUid();
+        $uid       = (int) $skill->getUid();
         $digest    = $this->currentDigest($skill);
         $policy    = $this->composerFactory->instructionPolicy();
         $threshold = $policy?->threshold() ?? $this->composerFactory->instructionTrustLevel();
@@ -108,7 +108,7 @@ final readonly class SkillApprovalService
         }
 
         $this->approvals->add(
-            (int)$skill->getUid(),
+            (int) $skill->getUid(),
             $skill->getSource(),
             $seenDigest,
             SkillVersionDigest::fieldsOf($skill),
@@ -127,7 +127,7 @@ final readonly class SkillApprovalService
      */
     public function revokeVersion(Skill $skill, string $versionDigest, int $actorUid): int
     {
-        $revoked = $this->approvals->revoke((int)$skill->getUid(), $versionDigest, $actorUid);
+        $revoked = $this->approvals->revoke((int) $skill->getUid(), $versionDigest, $actorUid);
         $this->audit->recordVersionEvent(
             SkillAuditEvent::VERSION_REVOKED,
             $skill,
@@ -170,7 +170,7 @@ final readonly class SkillApprovalService
             return SkillApprovalOutcome::REFUSED_LEGACY;
         }
 
-        if ((int)$skill->getUid() <= 0 || !hash_equals($current, $seenDigest)) {
+        if ((int) $skill->getUid() <= 0 || !hash_equals($current, $seenDigest)) {
             return SkillApprovalOutcome::REFUSED_STALE;
         }
 

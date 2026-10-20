@@ -79,7 +79,7 @@ final readonly class SkillAuditService
     {
         $this->repository->record(
             $event->value,
-            (int)$source->getUid(),
+            (int) $source->getUid(),
             '',
             $source->getPinnedSha(),
             '',
@@ -104,7 +104,7 @@ final readonly class SkillAuditService
         if ($backendUser instanceof BackendUserAuthentication && is_array($backendUser->user)) {
             $uid = $backendUser->user['uid'] ?? 0;
 
-            return is_numeric($uid) ? (int)$uid : 0;
+            return is_numeric($uid) ? (int) $uid : 0;
         }
 
         return 0;

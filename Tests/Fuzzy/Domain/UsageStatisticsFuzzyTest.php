@@ -31,7 +31,7 @@ class UsageStatisticsFuzzyTest extends AbstractFuzzyTestCase
             )
             ->then(function (int $promptTokens, int $completionTokens): void {
                 $totalTokens = $promptTokens + $completionTokens;
-                $usage = new UsageStatistics(
+                $usage       = new UsageStatistics(
                     promptTokens: $promptTokens,
                     completionTokens: $completionTokens,
                     totalTokens: $totalTokens,

@@ -546,8 +546,8 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
         $this->writer = $this->useASessionlessAmbientUser(1);
 
         $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
-            'uid' => 3, 'pid' => 0, 'title' => 'Page', 'doktype' => 1, 'slug' => '/',
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => 3, 'pid' => 0, 'title' => 'Page', 'doktype' => 1, 'slug' => '/',
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
         ]);
         $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
@@ -611,7 +611,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
              */
             public function execute(array $arguments, ToolExecutionContext $context): ToolResult
             {
-                for ($write = 1; $write <= $this->writes; $write++) {
+                for ($write = 1; $write <= $this->writes; ++$write) {
                     $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
                     $dataHandler->start(['tt_content' => [$this->element => ['header' => 'Written ' . $write]]], [], $context->actingBackendUser());
                     $dataHandler->process_datamap();
@@ -760,7 +760,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
             'hidden'            => 0,
         ]);
 
-        $server = (new McpServerRepository($this->connectionPool))->findByUid((int)$connection->lastInsertId());
+        $server = (new McpServerRepository($this->connectionPool))->findByUid((int) $connection->lastInsertId());
         self::assertInstanceOf(McpServerRecord::class, $server);
         self::assertSame($requiresApproval, $server->approvalRequired());
 

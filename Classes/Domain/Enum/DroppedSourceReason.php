@@ -18,7 +18,7 @@ namespace Netresearch\NrLlm\Domain\Enum;
  * be switched back on, a removed one cannot. A reader who cannot tell them
  * apart has to go looking, which is the situation this record exists to end.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 enum DroppedSourceReason: string
 {

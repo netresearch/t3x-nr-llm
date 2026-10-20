@@ -108,7 +108,7 @@ final class AgentEventKindTest extends TestCase
             }
 
             if (!in_array($case->value, $stepKinds, true)) {
-                $unexplained[] = (string)$case->value;
+                $unexplained[] = (string) $case->value;
             }
         }
 

@@ -88,11 +88,11 @@ final class BackendSkillSourceTest extends AbstractFunctionalTestCase
         $source = $this->pool()->getConnectionForTable('tx_nrllm_skill_source')->select(['sync_status', 'last_synced'], 'tx_nrllm_skill_source', ['uid' => self::SOURCE])->fetchAssociative();
         self::assertIsArray($source);
         self::assertSame('never_synced', $source['sync_status'], 'refused before the lock: the source row is untouched');
-        self::assertSame(0, (int)$source['last_synced']);
+        self::assertSame(0, (int) $source['last_synced']);
         $row = $this->pool()->getConnectionForTable('tx_nrllm_skill')->select(['orphaned', 'enabled'], 'tx_nrllm_skill', ['uid' => 7])->fetchAssociative();
         self::assertIsArray($row);
-        self::assertSame(0, (int)$row['orphaned']);
-        self::assertSame(1, (int)$row['enabled']);
+        self::assertSame(0, (int) $row['orphaned']);
+        self::assertSame(1, (int) $row['enabled']);
     }
 
     #[Test]
@@ -109,7 +109,7 @@ final class BackendSkillSourceTest extends AbstractFunctionalTestCase
 
         $row = $this->pool()->getConnectionForTable('tx_nrllm_skill')->select(['enabled', 'version_digest'], 'tx_nrllm_skill', ['uid' => 7])->fetchAssociative();
         self::assertIsArray($row);
-        self::assertSame(1, (int)$row['enabled']);
+        self::assertSame(1, (int) $row['enabled']);
         self::assertSame('', $row['version_digest']);
     }
 

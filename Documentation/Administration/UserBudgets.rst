@@ -94,9 +94,10 @@ Before dispatching a request the consuming extension calls
     database roundtrip.
 3.  Evaluates the daily window first; the monthly window only if the
     daily window passes.
-4.  Adds ``+1`` request and ``+plannedCost`` to the usage figures
-    before comparing, so a user at exactly the limit is still
-    allowed one more call.
+4.  Adds ``+1`` request and ``+plannedCost`` to the usage figures before
+    comparing. A projected total exactly at the ceiling is allowed; a user
+    whose current request count is already at the ceiling is denied another
+    call.
 
 The returned :php:`BudgetCheckResult` names which bucket was tripped
 (``exceededLimit`` as a stable machine key, plus a human-friendly

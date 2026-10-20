@@ -113,6 +113,28 @@ ADR-214 is the decision. This specification states what each implementing change
 | Column default, per-field reads and writes through Extbase and DataHandler, load lookup | functional | `SkillLoadModeTest` |
 | Production wiring of the load service | functional | `ToolLoopGateWiringTest` |
 
-## (d)
+## (d) Admission at the start and snippets in a caller's system message — items 7 and 8
 
-Specified in the change that implements it, in this file.
+### What it must do
+
+1. **Charged text (item 7).** Every text appended to a system message is in the messages the fit measures, or passed to it as the effective system prompt: the agent loop bakes sections and snippets into the transcript; the manager paths append them to a caller's system message before the fit, or hand them to the planner's system prompt, which the fit charges as the missing prompt. Nothing is appended after the fit uncharged.
+2. **Admission at an agent-run start (item 7).** When the loop composed instruction sections at its start, head + newest turn (with the sections in the head) must stay at or below the budget minus 10 % of it before the first provider call; otherwise `SkillSectionNotAdmittedException` names the skills and the run does not start. The budget is the window of the model the send runs on (a criteria-mode configuration's resolved model); without a resolved model, with a context length of 0 or less, or with a caller `max_tokens` that leaves no budget, the run does not start. A resume composes nothing and admits nothing again; a load is admitted per section (change (c)).
+3. **Snippet mark (item 8).** `tx_nrllm_promptsnippet.caller_system_digest` (`exclude`, `passthrough`) holds `2:` + sha256 of the snippet's composed block (`PromptSnippetComposer::composeSections([name => snippet])`) together with its normalised, sorted tags, which route it to configurations. The mark action (admin-only, POST through its own route) recomputes the digest and refuses a posted digest that differs, an empty block, and a block with invisible characters. Unmark clears it.
+4. **Opt-in (item 8).** `tx_nrllm_configuration.snippets_in_caller_system_message` (`exclude`, default off). It and `tx_nrllm_configuration.snippet_tags` carry `HIDE_FOR_NON_ADMINS`.
+5. **Composition (item 8).** When a caller's messages carry a system message and the configuration opts in, the selected snippets whose current block matches their mark are appended to the caller's first system message, before the instruction sections — on the manager paths that compose skills and in the agent loop's assembly. A system message the loop bakes itself is never extended a second time. A run with forced items (`RunAugmentation`: the playground, queued runs) whose caller sent its own system message bakes neither the configuration's prompt nor its tag-selected snippets; only the marked snippets reach that system channel, each once: a forced snippet goes there only when it is marked and the configuration opts in, joins the caller's message itself, and is not appended again when that message already holds it. A snippet block in a suspended transcript is replayed as composed (no pin check, unlike skill sections; ADR-214 item 8).
+
+### What it must NOT do
+
+- Route a snippet into a caller's system message without both the current mark and the opt-in.
+- Let a mark survive an edit of the snippet's name, text or tags.
+- Start an agent run whose sections leave less than 10 % headroom.
+
+### Which suite proves what
+
+| Requirement | Suite | Test |
+|---|---|---|
+| Opt-in, mark, stale mark (name and text), no caller system message, selection, digest | unit | `CallerSystemSnippetTest` |
+| Manager path: block before the sections, nothing without the opt-in | unit | `SkillConfigInjectionTest` |
+| Loop: start admission refuses before any provider call, admits, skips a resume and a start without sections; snippets join the caller message once | unit | `ToolLoopServiceSectionAdmissionTest` |
+| Mark only by POST through its own route, stale digest, invisible characters, unmark, non-admin | functional | `PromptSnippetMarkControllerTest` |
+| Exclude and passthrough fields | unit | `SkillFieldExclusionTest` |

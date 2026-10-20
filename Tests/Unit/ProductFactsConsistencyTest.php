@@ -70,7 +70,7 @@ final class ProductFactsConsistencyTest extends AbstractUnitTestCase
         $classes = [];
         foreach ($files as $file) {
             /** @var class-string $class */
-            $class = 'Netresearch\\NrLlm\\Service\\Tool\\Builtin\\' . basename($file, '.php');
+            $class      = 'Netresearch\\NrLlm\\Service\\Tool\\Builtin\\' . basename($file, '.php');
             $reflection = new ReflectionClass($class);
             if (!$reflection->implementsInterface(ToolInterface::class)) {
                 continue;
@@ -136,7 +136,7 @@ final class ProductFactsConsistencyTest extends AbstractUnitTestCase
 
     private function extensionVersion(): string
     {
-        $contents = (string)file_get_contents($this->repoRoot() . '/ext_emconf.php');
+        $contents = (string) file_get_contents($this->repoRoot() . '/ext_emconf.php');
         self::assertSame(1, preg_match("/'version'\\s*=>\\s*'([^']+)'/", $contents, $matches));
 
         return $matches[1];
@@ -147,7 +147,7 @@ final class ProductFactsConsistencyTest extends AbstractUnitTestCase
         $path = $this->repoRoot() . '/' . $surface;
         self::assertFileExists($path);
 
-        return (string)file_get_contents($path);
+        return (string) file_get_contents($path);
     }
 
     /**
@@ -155,7 +155,7 @@ final class ProductFactsConsistencyTest extends AbstractUnitTestCase
      */
     public static function surfaceProvider(): array
     {
-        return array_map(static fn(string $s): array => [$s], self::SURFACES);
+        return array_map(static fn (string $s): array => [$s], self::SURFACES);
     }
 
     /**
@@ -163,7 +163,7 @@ final class ProductFactsConsistencyTest extends AbstractUnitTestCase
      */
     public static function versionedSurfaceProvider(): array
     {
-        return array_map(static fn(string $s): array => [$s], self::VERSIONED_SURFACES);
+        return array_map(static fn (string $s): array => [$s], self::VERSIONED_SURFACES);
     }
 
     #[Test]
@@ -181,7 +181,7 @@ final class ProductFactsConsistencyTest extends AbstractUnitTestCase
         foreach ($matches[1] as $stated) {
             self::assertSame(
                 $expected,
-                (int)$stated,
+                (int) $stated,
                 $surface . ' claims ' . $stated . ' tool groups; Classes/Service/Tool/Builtin declares '
                 . $expected . '. Update the surface, not this test.',
             );
@@ -209,7 +209,7 @@ final class ProductFactsConsistencyTest extends AbstractUnitTestCase
 
         foreach ($matches[1] as $stated) {
             self::assertContains(
-                (int)$stated,
+                (int) $stated,
                 [$total, $readOnly],
                 $surface . ' states a builtin tool count of ' . $stated . '; the shipped numbers are '
                 . $total . ' total and ' . $readOnly . ' read-only.',
@@ -264,8 +264,8 @@ final class ProductFactsConsistencyTest extends AbstractUnitTestCase
     {
         $names = [];
         foreach ($this->builtinToolClasses() as $class) {
-            $file     = (string)(new ReflectionClass($class))->getFileName();
-            $contents = (string)file_get_contents($file);
+            $file     = (string) (new ReflectionClass($class))->getFileName();
+            $contents = (string) file_get_contents($file);
 
             self::assertSame(
                 1,

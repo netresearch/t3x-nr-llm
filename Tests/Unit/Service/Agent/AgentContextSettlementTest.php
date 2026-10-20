@@ -1,10 +1,11 @@
 <?php
 
 /*
- * Copyright (c) 2026 Netresearch DTT GmbH
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Agent;
 
@@ -40,9 +41,9 @@ final class AgentContextSettlementTest extends AbstractUnitTestCase
     public function synchronousContextFailureSettlesTheClaimedRun(): void
     {
         $repository = new RecordingAgentRunRepository();
-        $error = new RuntimeException('Backend user database unavailable', 1800100010);
-        $runtime = $this->runtime($repository, $error);
-        $result = $runtime->run($this->request());
+        $error      = new RuntimeException('Backend user database unavailable', 1800100010);
+        $runtime    = $this->runtime($repository, $error);
+        $result     = $runtime->run($this->request());
 
         self::assertSame(AgentRunOutcome::FAILED, $result->outcome);
         self::assertSame($error, $result->error);
@@ -67,10 +68,10 @@ final class AgentContextSettlementTest extends AbstractUnitTestCase
     #[Test]
     public function anUnpersistedContextFailureStillReturnsTheFailedOutcome(): void
     {
-        $repository = new RecordingAgentRunRepository();
+        $repository               = new RecordingAgentRunRepository();
         $repository->throwOnStart = true;
 
-        $error = new RuntimeException('Backend user database unavailable', 1800100011);
+        $error  = new RuntimeException('Backend user database unavailable', 1800100011);
         $result = $this->runtime($repository, $error)->run($this->request());
 
         self::assertSame(AgentRunOutcome::FAILED, $result->outcome);
@@ -83,8 +84,8 @@ final class AgentContextSettlementTest extends AbstractUnitTestCase
     public function aClaimedResumeContextFailureSettlesWithoutCallingTheLoop(): void
     {
         $repository = new RecordingAgentRunRepository();
-        $error = new RuntimeException('Backend user database unavailable', 1800100012);
-        $executor = new AgentRunExecutor(
+        $error      = new RuntimeException('Backend user database unavailable', 1800100012);
+        $executor   = new AgentRunExecutor(
             $this->unusedLoop(),
             new AgentRunPersister(
                 $repository,
@@ -120,7 +121,7 @@ final class AgentContextSettlementTest extends AbstractUnitTestCase
     #[Test]
     public function queuedContextFailureReachesTheExistingFailureRecovery(): void
     {
-        $repository = new RecordingAgentRunRepository();
+        $repository             = new RecordingAgentRunRepository();
         $repository->findResult = new AgentRun(
             17,
             'queued-run',
@@ -141,7 +142,7 @@ final class AgentContextSettlementTest extends AbstractUnitTestCase
             0,
             queuedRequest: '{"messages":[]}',
         );
-        $error = new RuntimeException('Backend user database unavailable', 1800100014);
+        $error  = new RuntimeException('Backend user database unavailable', 1800100014);
         $result = $this->runtime($repository, $error)->runQueued('queued-run');
 
         self::assertNotNull($result);
@@ -188,6 +189,7 @@ final class AgentContextSettlementTest extends AbstractUnitTestCase
         $loop->expects(self::never())->method('runLoop');
         $loop->expects(self::never())->method('resume');
         $loop->expects(self::never())->method('resumeWithInput');
+
         return $loop;
     }
 
@@ -199,6 +201,7 @@ final class AgentContextSettlementTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method('resolve')
             ->willThrowException($error);
+
         return $resolver;
     }
 

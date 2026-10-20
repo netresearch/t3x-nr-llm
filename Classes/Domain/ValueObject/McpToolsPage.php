@@ -19,8 +19,8 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
 final readonly class McpToolsPage
 {
     /**
-     * @param list<array<string, mixed>> $tools      Advertised tools, verbatim from the response.
-     * @param string|null                $nextCursor Cursor for the following request; null on the last page.
+     * @param list<array<string, mixed>> $tools      advertised tools, verbatim from the response
+     * @param string|null                $nextCursor cursor for the following request; null on the last page
      */
     public function __construct(
         public array $tools,

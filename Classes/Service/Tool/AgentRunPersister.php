@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\Agent\OptionalAgentDiagnostics;
 use Netresearch\NrLlm\Service\Privacy\RunStepPrivacyFilter;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Uid\Uuid;
@@ -32,8 +33,10 @@ use Throwable;
  * uses to stream steps, so persistence is purely additive — the tool loop is
  * untouched and unaware of it.
  *
- * No method throws: a persistence error is logged and swallowed so a database
- * hiccup can never break an otherwise-successful run. Whether that is fail-SOFT
+ * Repository failures preserve each method's existing null, false or empty
+ * fallback. Optional diagnostic failures cannot replace that outcome (ADR-225).
+ * Explicit caller-validation exceptions, including the non-terminal target
+ * rejected by settleIfWaiting(), still propagate. Whether that is fail-SOFT
  * is the caller's decision, and two methods hand it the evidence to decide.
  * {@see self::begin()} returns null on failure, which the caller treats as "do
  * not record" — exactly as a null {@see RunTrace} callback would.
@@ -54,6 +57,8 @@ use Throwable;
  */
 final readonly class AgentRunPersister
 {
+    use OptionalAgentDiagnostics;
+
     public function __construct(
         private AgentRunRepositoryInterface $repository,
         private RunStepPrivacyFilter $privacyFilter,
@@ -71,8 +76,12 @@ final readonly class AgentRunPersister
      * gets an unleased run, on which the write fence refuses side-effecting
      * tools instead of running them unfenced.
      */
-    public function begin(?LlmConfiguration $configuration, int $beUser, string $claimedBy = '', int $leaseExpires = 0): ?AgentRunHandle
-    {
+    public function begin(
+        ?LlmConfiguration $configuration,
+        int $beUser,
+        string $claimedBy = '',
+        int $leaseExpires = 0,
+    ): ?AgentRunHandle {
         try {
             $uuid   = Uuid::v4()->toRfc4122();
             $runUid = $this->repository->startRun(
@@ -86,7 +95,14 @@ final readonly class AgentRunPersister
 
             return new AgentRunHandle($runUid, $uuid);
         } catch (Throwable $exception) {
-            $this->logger?->warning('AgentRun could not be started; the run will not be persisted', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'AgentRun could not be started; the run will not be persisted',
+                        ['exception' => $exception],
+                    );
+                },
+            );
 
             return null;
         }
@@ -104,7 +120,7 @@ final readonly class AgentRunPersister
         string $requestJson,
     ): ?AgentRunHandle {
         try {
-            $uuid = Uuid::v4()->toRfc4122();
+            $uuid   = Uuid::v4()->toRfc4122();
             $runUid = $this->repository->enqueueRun(
                 $uuid,
                 $configuration?->getUid() ?? 0,
@@ -115,9 +131,13 @@ final readonly class AgentRunPersister
 
             return new AgentRunHandle($runUid, $uuid);
         } catch (Throwable $exception) {
-            $this->logger?->warning(
-                'AgentRun could not be enqueued',
-                ['exception' => $exception],
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'AgentRun could not be enqueued',
+                        ['exception' => $exception],
+                    );
+                },
             );
 
             return null;
@@ -135,7 +155,14 @@ final readonly class AgentRunPersister
         try {
             return $this->repository->claimQueued($run->uid, $claimedBy, $leaseExpires);
         } catch (Throwable $exception) {
-            $this->logger?->warning('AgentRun could not be claimed for execution', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'AgentRun could not be claimed for execution',
+                        ['exception' => $exception],
+                    );
+                },
+            );
 
             return false;
         }
@@ -153,7 +180,14 @@ final readonly class AgentRunPersister
         try {
             return $this->repository->renewLease($handle->runUid, $claimedBy, $leaseExpires);
         } catch (Throwable $exception) {
-            $this->logger?->warning('AgentRun lease could not be renewed; the worker will treat it as lost', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'AgentRun lease could not be renewed; the worker will treat it as lost',
+                        ['exception' => $exception],
+                    );
+                },
+            );
 
             return false;
         }
@@ -166,12 +200,28 @@ final readonly class AgentRunPersister
      * worker treats the lease as lost and stops before executing the tool, rather
      * than running a write it could not first fence.
      */
-    public function markPendingEffect(AgentRunHandle $handle, string $claimedBy, string $effect, int $leaseExpires): bool
-    {
+    public function markPendingEffect(
+        AgentRunHandle $handle,
+        string $claimedBy,
+        string $effect,
+        int $leaseExpires,
+    ): bool {
         try {
-            return $this->repository->markPendingEffect($handle->runUid, $claimedBy, $effect, $leaseExpires);
+            return $this->repository->markPendingEffect(
+                $handle->runUid,
+                $claimedBy,
+                $effect,
+                $leaseExpires,
+            );
         } catch (Throwable $exception) {
-            $this->logger?->warning('AgentRun pending-effect fence could not be written; the worker will treat the lease as lost', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'AgentRun pending-effect fence could not be written; the worker will treat the lease as lost',
+                        ['exception' => $exception],
+                    );
+                },
+            );
 
             return false;
         }
@@ -188,7 +238,14 @@ final readonly class AgentRunPersister
         try {
             return $this->repository->requeue($handle->runUid, $claimedBy);
         } catch (Throwable $exception) {
-            $this->logger?->warning('AgentRun could not be requeued for retry', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'AgentRun could not be requeued for retry',
+                        ['exception' => $exception],
+                    );
+                },
+            );
 
             return false;
         }
@@ -197,9 +254,9 @@ final readonly class AgentRunPersister
     /**
      * Persist one recorded step as the next event in the run's stream.
      *
-     * Returns whether the step was durably persisted. The store hiccup is still
-     * logged and swallowed here (this method never throws), but the boolean lets
-     * the caller enforce a stricter policy for an audit-critical step: the
+     * Returns whether the step was durably persisted. Store failures are contained
+     * here (this method never throws); a configured logger is attempted once.
+     * The boolean lets the caller enforce a stricter policy for an audit-critical step: the
      * runtime fails a run whose WRITING tool executed but whose audit event
      * could not be stored (ADR-111), rather than continuing as if the write were
      * recorded. A read-only step's caller ignores the result, preserving the
@@ -226,7 +283,14 @@ final readonly class AgentRunPersister
 
             return true;
         } catch (Throwable $exception) {
-            $this->logger?->warning('AgentRun step could not be persisted', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'AgentRun step could not be persisted',
+                        ['exception' => $exception],
+                    );
+                },
+            );
 
             return false;
         }
@@ -238,8 +302,11 @@ final readonly class AgentRunPersister
      * an iteration cap and an exhausted budget both truncate and are otherwise
      * indistinguishable in the stored row.
      */
-    public function settleCompleted(AgentRunHandle $handle, ToolLoopResult $result, ?string $ownedBy = null): bool
-    {
+    public function settleCompleted(
+        AgentRunHandle $handle,
+        ToolLoopResult $result,
+        ?string $ownedBy = null,
+    ): bool {
         return $this->finish(
             $handle,
             AgentRunStatus::COMPLETED,
@@ -260,9 +327,24 @@ final readonly class AgentRunPersister
      * exhausted every fallback, or an unexpected error). The exception FQCN is
      * stored; the message is never persisted (it can carry payload fragments).
      */
-    public function settleFailed(AgentRunHandle $handle, Throwable $error, ?string $ownedBy = null): bool
-    {
-        return $this->finish($handle, AgentRunStatus::FAILED, 0, false, 0, 0, 0, 0.0, $error::class, AgentRunTerminationReason::PROVIDER_FAILED, $ownedBy);
+    public function settleFailed(
+        AgentRunHandle $handle,
+        Throwable $error,
+        ?string $ownedBy = null,
+    ): bool {
+        return $this->finish(
+            $handle,
+            AgentRunStatus::FAILED,
+            0,
+            false,
+            0,
+            0,
+            0,
+            0.0,
+            $error::class,
+            AgentRunTerminationReason::PROVIDER_FAILED,
+            $ownedBy,
+        );
     }
 
     /**
@@ -271,9 +353,25 @@ final readonly class AgentRunPersister
      * an outage — and an approval that was required but never obtained is not
      * read as a denial.
      */
-    public function settlePolicyStopped(AgentRunHandle $handle, Throwable $error, AgentRunTerminationReason $reason, ?string $ownedBy = null): bool
-    {
-        return $this->finish($handle, AgentRunStatus::FAILED, 0, false, 0, 0, 0, 0.0, $error::class, $reason, $ownedBy);
+    public function settlePolicyStopped(
+        AgentRunHandle $handle,
+        Throwable $error,
+        AgentRunTerminationReason $reason,
+        ?string $ownedBy = null,
+    ): bool {
+        return $this->finish(
+            $handle,
+            AgentRunStatus::FAILED,
+            0,
+            false,
+            0,
+            0,
+            0,
+            0.0,
+            $error::class,
+            $reason,
+            $ownedBy,
+        );
     }
 
     /**
@@ -283,9 +381,25 @@ final readonly class AgentRunPersister
      * retrying). Distinct from {@see self::settleFailed()}, whose PROVIDER_FAILED
      * reason is retryable; a dead-letter terminus must not read as retryable.
      */
-    public function settleDeadLettered(AgentRunHandle $handle, Throwable $error, AgentRunTerminationReason $reason, ?string $ownedBy = null): bool
-    {
-        return $this->finish($handle, AgentRunStatus::FAILED, 0, false, 0, 0, 0, 0.0, $error::class, $reason, $ownedBy);
+    public function settleDeadLettered(
+        AgentRunHandle $handle,
+        Throwable $error,
+        AgentRunTerminationReason $reason,
+        ?string $ownedBy = null,
+    ): bool {
+        return $this->finish(
+            $handle,
+            AgentRunStatus::FAILED,
+            0,
+            false,
+            0,
+            0,
+            0,
+            0.0,
+            $error::class,
+            $reason,
+            $ownedBy,
+        );
     }
 
     /**
@@ -294,7 +408,19 @@ final readonly class AgentRunPersister
      */
     public function settleCancelled(AgentRunHandle $handle, ?string $ownedBy = null): bool
     {
-        return $this->finish($handle, AgentRunStatus::CANCELLED, 0, false, 0, 0, 0, 0.0, '', AgentRunTerminationReason::CANCELLED, $ownedBy);
+        return $this->finish(
+            $handle,
+            AgentRunStatus::CANCELLED,
+            0,
+            false,
+            0,
+            0,
+            0,
+            0.0,
+            '',
+            AgentRunTerminationReason::CANCELLED,
+            $ownedBy,
+        );
     }
 
     /**
@@ -328,7 +454,14 @@ final readonly class AgentRunPersister
                 AgentRunTerminationReason::CANCELLED->value,
             );
         } catch (Throwable $exception) {
-            $this->logger?->warning('AgentRun could not be cancelled', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'AgentRun could not be cancelled',
+                        ['exception' => $exception],
+                    );
+                },
+            );
 
             return false;
         }
@@ -343,21 +476,32 @@ final readonly class AgentRunPersister
      * and stays the operator's tool, this moves the run only while it is in
      * one of $from, so it never stops a decision somebody else already
      * released. False when the run had left those states, or on a store
-     * failure, which is logged.
+     * failure; a configured logger is attempted once.
      *
      * @param list<AgentRunStatus> $from the waiting states to move from; empty moves nothing
      *
      * @throws InvalidArgumentException when $from names a state that is not a wait, or $to is neither CANCELLED nor FAILED
      */
-    public function settleIfWaiting(AgentRun $run, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason): bool
-    {
+    public function settleIfWaiting(
+        AgentRun $run,
+        array $from,
+        AgentRunStatus $to,
+        AgentRunTerminationReason $reason,
+    ): bool {
         try {
             return $this->repository->settleIfWaiting($run->uid, $from, $to, $reason);
         } catch (InvalidArgumentException $exception) {
             // A caller's mistake, not a store failure: never a quiet "lost".
             throw $exception;
         } catch (Throwable $exception) {
-            $this->logger?->warning('A waiting AgentRun could not be settled', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'A waiting AgentRun could not be settled',
+                        ['exception' => $exception],
+                    );
+                },
+            );
 
             return false;
         }
@@ -381,14 +525,28 @@ final readonly class AgentRunPersister
             // RUNNING — a concurrent cancel or settle won the row first, and the
             // suspension must not resurrect it.
             if (!$this->repository->suspendRun($handle->runUid, $stateJson)) {
-                $this->logger?->notice('AgentRun was no longer running when its suspension arrived; the suspension was discarded', ['run' => $handle->uuid]);
+                $this->recordDiagnostic(
+                    function () use ($handle): void {
+                        $this->logger?->notice(
+                            'AgentRun was no longer running when its suspension arrived; the suspension was discarded',
+                            ['run' => $handle->uuid],
+                        );
+                    },
+                );
 
                 return false;
             }
 
             return true;
         } catch (Throwable $exception) {
-            $this->logger?->warning('AgentRun could not be suspended', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'AgentRun could not be suspended',
+                        ['exception' => $exception],
+                    );
+                },
+            );
 
             return false;
         }
@@ -407,14 +565,28 @@ final readonly class AgentRunPersister
         try {
             $stateJson = json_encode($state->toArray(), JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
             if (!$this->repository->suspendRunForInput($handle->runUid, $stateJson)) {
-                $this->logger?->notice('AgentRun was no longer running when its input suspension arrived; it was discarded', ['run' => $handle->uuid]);
+                $this->recordDiagnostic(
+                    function () use ($handle): void {
+                        $this->logger?->notice(
+                            'AgentRun was no longer running when its input suspension arrived; it was discarded',
+                            ['run' => $handle->uuid],
+                        );
+                    },
+                );
 
                 return false;
             }
 
             return true;
         } catch (Throwable $exception) {
-            $this->logger?->warning('AgentRun could not be suspended for input', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'AgentRun could not be suspended for input',
+                        ['exception' => $exception],
+                    );
+                },
+            );
 
             return false;
         }
@@ -430,7 +602,14 @@ final readonly class AgentRunPersister
         try {
             return $this->repository->findByUuid($uuid);
         } catch (Throwable $exception) {
-            $this->logger?->warning('AgentRun could not be loaded', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'AgentRun could not be loaded',
+                        ['exception' => $exception],
+                    );
+                },
+            );
 
             return null;
         }
@@ -451,7 +630,14 @@ final readonly class AgentRunPersister
         try {
             return $this->repository->findAwaiting($limit, $beUser);
         } catch (Throwable $exception) {
-            $this->logger?->warning('Awaiting agent runs could not be loaded', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'Awaiting agent runs could not be loaded',
+                        ['exception' => $exception],
+                    );
+                },
+            );
 
             return null;
         }
@@ -468,7 +654,14 @@ final readonly class AgentRunPersister
         try {
             return $this->repository->findRecentTerminal($limit, $beUser);
         } catch (Throwable $exception) {
-            $this->logger?->warning('Recent terminal agent runs could not be loaded', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'Recent terminal agent runs could not be loaded',
+                        ['exception' => $exception],
+                    );
+                },
+            );
 
             return null;
         }
@@ -484,7 +677,14 @@ final readonly class AgentRunPersister
         try {
             return $this->repository->claimForResume($run->uid, $claimedBy, $leaseExpires);
         } catch (Throwable $exception) {
-            $this->logger?->warning('AgentRun could not be claimed for resume', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'AgentRun could not be claimed for resume',
+                        ['exception' => $exception],
+                    );
+                },
+            );
 
             return false;
         }
@@ -501,7 +701,14 @@ final readonly class AgentRunPersister
         try {
             return $this->repository->claimForResumeFromInput($run->uid, $claimedBy, $leaseExpires);
         } catch (Throwable $exception) {
-            $this->logger?->warning('AgentRun could not be claimed for input resume', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'AgentRun could not be claimed for input resume',
+                        ['exception' => $exception],
+                    );
+                },
+            );
 
             return false;
         }
@@ -527,7 +734,14 @@ final readonly class AgentRunPersister
 
             return $handle;
         } catch (Throwable $exception) {
-            $this->logger?->warning('AgentRun event position could not be determined; the resume is refused', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'AgentRun event position could not be determined; the resume is refused',
+                        ['exception' => $exception],
+                    );
+                },
+            );
 
             return null;
         }
@@ -538,16 +752,19 @@ final readonly class AgentRunPersister
      * stream (ADR-101): kind {@see AgentEventKind::APPROVAL}, payload
      * ``{approved, decidedBy}``.
      *
-     * Returns whether the decision was durably persisted. The store hiccup is
-     * still logged and swallowed here (this method never throws), same shape as
-     * {@see self::recordStep()}, but the boolean lets the caller fail closed on
+     * Returns whether the decision was durably persisted. A store failure is
+     * contained here (this method never throws); a configured logger is attempted
+     * once, like {@see self::recordStep()}. The boolean lets the caller fail closed on
      * the decision that AUTHORISES a write: {@see \Netresearch\NrLlm\Service\Agent\ResumeCoordinator::approve()}
      * refuses to execute a write-declaring turn whose approval could not be
      * recorded (ADR-132). A read-only turn's caller ignores the result,
      * preserving the fail-soft behaviour of the rest of this class.
      */
-    public function recordApproval(AgentRunHandle $handle, bool $approved, int $decidedByBeUser): bool
-    {
+    public function recordApproval(
+        AgentRunHandle $handle,
+        bool $approved,
+        int $decidedByBeUser,
+    ): bool {
         try {
             $payload = json_encode(
                 ['approved' => $approved, 'decidedBy' => $decidedByBeUser],
@@ -565,7 +782,14 @@ final readonly class AgentRunPersister
 
             return true;
         } catch (Throwable $exception) {
-            $this->logger?->warning('AgentRun approval decision could not be persisted', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'AgentRun approval decision could not be persisted',
+                        ['exception' => $exception],
+                    );
+                },
+            );
 
             return false;
         }
@@ -576,15 +800,13 @@ final readonly class AgentRunPersister
      * (ADR-105): kind {@see AgentEventKind::INPUT}, payload ``{submittedBy}``
      * ONLY — never the submitted values, which are privacy-filtered content
      * (ADR-064), mirroring {@see self::recordApproval()}'s who/when-not-what
-     * rule. Best-effort — a failure is logged, never blocks the continuation.
+     * rule. Best-effort — a failure cannot block the continuation; a configured
+     * logger is attempted once.
      */
     public function recordInput(AgentRunHandle $handle, int $submittedByBeUser): void
     {
         try {
-            $payload = json_encode(
-                ['submittedBy' => $submittedByBeUser],
-                JSON_THROW_ON_ERROR,
-            );
+            $payload = json_encode(['submittedBy' => $submittedByBeUser], JSON_THROW_ON_ERROR);
             $this->repository->recordEvent(
                 $handle->runUid,
                 $handle->sequence,
@@ -595,7 +817,14 @@ final readonly class AgentRunPersister
             );
             ++$handle->sequence;
         } catch (Throwable $exception) {
-            $this->logger?->warning('AgentRun input submission could not be persisted', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'AgentRun input submission could not be persisted',
+                        ['exception' => $exception],
+                    );
+                },
+            );
         }
     }
 
@@ -612,7 +841,14 @@ final readonly class AgentRunPersister
         try {
             return $this->repository->findEvents($runUid, $afterSequence);
         } catch (Throwable $exception) {
-            $this->logger?->warning('AgentRun events could not be loaded', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'AgentRun events could not be loaded',
+                        ['exception' => $exception],
+                    );
+                },
+            );
 
             return [];
         }
@@ -636,7 +872,14 @@ final readonly class AgentRunPersister
         try {
             return $this->repository->findApprovalDeciders($runUids);
         } catch (Throwable $exception) {
-            $this->logger?->warning('AgentRun approval deciders could not be loaded', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'AgentRun approval deciders could not be loaded',
+                        ['exception' => $exception],
+                    );
+                },
+            );
 
             return [];
         }
@@ -653,7 +896,14 @@ final readonly class AgentRunPersister
         try {
             return $this->repository->findStaleRunning($now, $limit);
         } catch (Throwable $exception) {
-            $this->logger?->warning('Stale agent runs could not be loaded', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'Stale agent runs could not be loaded',
+                        ['exception' => $exception],
+                    );
+                },
+            );
 
             return [];
         }
@@ -669,7 +919,14 @@ final readonly class AgentRunPersister
         try {
             return $this->repository->requeueStale($run->uid, $now);
         } catch (Throwable $exception) {
-            $this->logger?->warning('Stale agent run could not be requeued', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'Stale agent run could not be requeued',
+                        ['exception' => $exception],
+                    );
+                },
+            );
 
             return false;
         }
@@ -680,12 +937,22 @@ final readonly class AgentRunPersister
      * reaper): staleness-guarded in the repository so a heartbeat renewal wins.
      * Fail-soft: false on error or when the run was no longer stale.
      */
-    public function settleDeadLetteredStale(AgentRun $run, int $now, AgentRunTerminationReason $reason): bool
-    {
+    public function settleDeadLetteredStale(
+        AgentRun $run,
+        int $now,
+        AgentRunTerminationReason $reason,
+    ): bool {
         try {
             return $this->repository->deadLetterStale($run->uid, $now, $reason->value);
         } catch (Throwable $exception) {
-            $this->logger?->warning('Stale agent run could not be dead-lettered', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'Stale agent run could not be dead-lettered',
+                        ['exception' => $exception],
+                    );
+                },
+            );
 
             return false;
         }
@@ -718,23 +985,36 @@ final readonly class AgentRunPersister
                 $reason->value,
                 $ownedBy,
             );
-
             if (!$transitioned) {
-                // Not settled by this call: the run was already terminal (a
-                // duplicate/late settle — the first, correct outcome was kept),
-                // or, on the ownership-guarded queued path, this worker no longer
-                // owns it (the reaper reclaimed it to another worker). Either way
-                // the caller must not report a terminal outcome it did not write.
-                $this->logger?->notice('AgentRun was not settled by this call (already terminal or ownership lost)', [
-                    'run'    => $handle->uuid,
-                    'status' => $status->value,
-                    'reason' => $reason->value,
-                ]);
+                $this->recordDiagnostic(
+                    function () use ($handle, $status, $reason): void {
+                        // Not settled by this call: the run was already terminal (a
+                        // duplicate/late settle — the first, correct outcome was kept),
+                        // or, on the ownership-guarded queued path, this worker no longer
+                        // owns it (the reaper reclaimed it to another worker). Either way
+                        // the caller must not report a terminal outcome it did not write.
+                        $this->logger?->notice(
+                            'AgentRun was not settled by this call (already terminal or ownership lost)',
+                            [
+                                'run'    => $handle->uuid,
+                                'status' => $status->value,
+                                'reason' => $reason->value,
+                            ],
+                        );
+                    },
+                );
             }
 
             return $transitioned;
         } catch (Throwable $exception) {
-            $this->logger?->warning('AgentRun could not be settled', ['exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'AgentRun could not be settled',
+                        ['exception' => $exception],
+                    );
+                },
+            );
 
             return false;
         }
@@ -751,9 +1031,7 @@ final readonly class AgentRunPersister
         }
 
         $payload['initiatingRunUuid'] = $uuid;
-        return json_encode(
-            $payload,
-            JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE,
-        );
+
+        return json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
     }
 }

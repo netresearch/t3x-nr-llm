@@ -216,7 +216,7 @@ final readonly class SearchRecordsTool implements ToolInterface
         $result = [];
 
         foreach (array_keys($tca) as $table) {
-            $table = (string)$table;
+            $table = (string) $table;
             if ($restrictTable !== '' && $table !== $restrictTable) {
                 continue;
             }
@@ -227,7 +227,7 @@ final readonly class SearchRecordsTool implements ToolInterface
 
             $fields = array_values(array_filter(
                 $this->searchableFields->getFieldNames($table),
-                fn(string $field): bool => !$this->tableAccess->isSensitiveField($field),
+                fn (string $field): bool => !$this->tableAccess->isSensitiveField($field),
             ));
 
             if ($fields !== []) {
@@ -365,8 +365,8 @@ final readonly class SearchRecordsTool implements ToolInterface
 
             // Space before each non-inline tag so adjacent text nodes stay
             // separated after strip_tags; the collapse removes the extra spaces.
-            $spaced   = (string)preg_replace(self::NON_INLINE_TAG_PATTERN, ' <', $value);
-            $plain    = trim((string)preg_replace('/\s+/', ' ', strip_tags($spaced)));
+            $spaced   = (string) preg_replace(self::NON_INLINE_TAG_PATTERN, ' <', $value);
+            $plain    = trim((string) preg_replace('/\s+/', ' ', strip_tags($spaced)));
             $position = mb_stripos($plain, $query);
             if ($position === false) {
                 continue;
@@ -402,7 +402,7 @@ final readonly class SearchRecordsTool implements ToolInterface
             return null;
         }
 
-        $languages = array_map(static fn(string $id): int => (int)$id, GeneralUtility::trimExplode(',', $allowed, true));
+        $languages   = array_map(static fn (string $id): int => (int) $id, GeneralUtility::trimExplode(',', $allowed, true));
         $languages[] = -1;
 
         return [$languageField, array_values(array_unique($languages))];
@@ -433,10 +433,10 @@ final readonly class SearchRecordsTool implements ToolInterface
 
     private function labelField(string $table): string
     {
-        $tca = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
+        $tca        = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
         $definition = $tca[$table] ?? null;
-        $ctrl  = is_array($definition) ? ($definition['ctrl'] ?? null) : null;
-        $label = is_array($ctrl) ? self::toStr($ctrl['label'] ?? '') : '';
+        $ctrl       = is_array($definition) ? ($definition['ctrl'] ?? null) : null;
+        $label      = is_array($ctrl) ? self::toStr($ctrl['label'] ?? '') : '';
 
         // A customised ctrl.label could point at a credential-ish column —
         // the field denylist applies to the label too (drop, don't leak).

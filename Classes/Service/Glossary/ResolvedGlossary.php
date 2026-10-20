@@ -17,7 +17,7 @@ use Netresearch\NrLlm\Domain\ValueObject\GlossaryTerms;
  * Carries the record uid and the stored DeepL bookkeeping next to the terms,
  * because the DeepL handoff has to write back to exactly this record.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class ResolvedGlossary
 {

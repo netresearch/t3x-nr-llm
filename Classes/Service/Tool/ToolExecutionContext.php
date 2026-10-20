@@ -76,11 +76,11 @@ final readonly class ToolExecutionContext
     {
         $record = is_array($user->user) ? $user->user : [];
         $rawUid = $record['uid'] ?? null;
-        $uid    = is_numeric($rawUid) ? (int)$rawUid : 0;
+        $uid    = is_numeric($rawUid) ? (int) $rawUid : 0;
 
         $groupIds = array_values(array_filter(
-            array_map(static fn(mixed $g): int => is_numeric($g) ? (int)$g : 0, $user->userGroupsUID),
-            static fn(int $g): bool => $g > 0,
+            array_map(static fn (mixed $g): int => is_numeric($g) ? (int) $g : 0, $user->userGroupsUID),
+            static fn (int $g): bool => $g > 0,
         ));
 
         return new self(AiActorContext::backendUser($uid, $user->isAdmin(), $groupIds), $user);

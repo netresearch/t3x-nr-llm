@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdateContentElementTool;
+use Netresearch\NrLlm\Service\Tool\FieldMeasurer;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\InterferesWithAnUpdateHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheInterferingHookTrait;
@@ -21,6 +22,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
@@ -78,9 +80,9 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
             [self::NARROWED_PAGE, 'Narrowed', Permission::ALL, 'TCEFORM.tt_content.subheader.disabled = 1'],
         ] as [$uid, $title, $everybody, $tsConfig]) {
             $pages->insert('pages', [
-                'uid' => $uid, 'pid' => 0, 'title' => $title, 'doktype' => 1, 'slug' => '/' . $uid,
-                'TSconfig' => $tsConfig,
-                'perms_userid' => 1, 'perms_user' => Permission::ALL,
+                'uid'           => $uid, 'pid' => 0, 'title' => $title, 'doktype' => 1, 'slug' => '/' . $uid,
+                'TSconfig'      => $tsConfig,
+                'perms_userid'  => 1, 'perms_user' => Permission::ALL,
                 'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => $everybody,
             ]);
         }
@@ -94,7 +96,7 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
             [self::ON_NARROWED, self::NARROWED_PAGE, 'text', 'Narrowed', '', 0, 0],
         ] as [$uid, $pid, $type, $header, $body, $language, $parent]) {
             $content->insert('tt_content', [
-                'uid' => $uid, 'pid' => $pid, 'colPos' => 0, 'CType' => $type, 'header' => $header,
+                'uid'      => $uid, 'pid' => $pid, 'colPos' => 0, 'CType' => $type, 'header' => $header,
                 'bodytext' => $body, 'sys_language_uid' => $language, 'l18n_parent' => $parent,
             ]);
         }
@@ -473,6 +475,77 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
 
         self::assertTrue($this->tool->mayViewerReadPreview($arguments, $this->setUpBackendUser(1)));
         self::assertFalse($this->tool->mayViewerReadPreview($arguments, $this->editor('')));
+    }
+
+    /**
+     * ADR-214, item 9: each column as structured values. The header is a
+     * single-line field and carries its length; the rich-text body carries
+     * none without a configured range. The body is the raw HTML in both
+     * directions: a `<script>` in the proposal is data, passed through as it
+     * came, and nothing here strips, escapes or runs it.
+     */
+    #[Test]
+    public function theStructuredPreviewCarriesRawValuesAndMeasuresOnlyTheSingleLineField(): void
+    {
+        $this->connectionPool->getConnectionForTable('tt_content')
+            ->update('tt_content', ['bodytext' => '<p>Old <b>body</b></p>'], ['uid' => self::TEXT]);
+        $body = '<p>Hallo</p><script>alert(document.cookie)</script>';
+
+        $entries = $this->tool->structuredPreview(
+            ['uid' => self::TEXT, 'fields' => ['header' => 'Neue Überschrift', 'bodytext' => $body]],
+            $this->setUpBackendUser(1),
+        );
+
+        self::assertCount(2, $entries);
+        [$header, $bodytext] = $entries;
+
+        self::assertSame(['header', $this->headerLabelIn('en'), 'Old header', 'Neue Überschrift'], [$header->field, $header->label, $header->current, $header->proposed]);
+        self::assertSame(['count' => 16, 'min' => null, 'max' => null], $header->measure?->toArray());
+
+        self::assertSame(['bodytext', $this->bodytextLabelIn('en'), '<p>Old <b>body</b></p>', $body], [$bodytext->field, $bodytext->label, $bodytext->current, $bodytext->proposed]);
+        self::assertNull($bodytext->measure);
+
+        // Byte for byte through the array a consumer serialises.
+        self::assertSame($body, $bodytext->toArray()['proposed']);
+        self::assertSame('<p>Old <b>body</b></p>', $this->elementRow(self::TEXT)['bodytext'] ?? null);
+    }
+
+    /**
+     * A range configured for the body measures it, and counts the text a
+     * reader sees: tags out, entities decoded.
+     */
+    #[Test]
+    public function aConfiguredRangeOnTheRichTextBodyCountsItsPlainText(): void
+    {
+        $configuration = self::createStub(ExtensionConfiguration::class);
+        $configuration->method('get')->willReturn(['tools' => ['structuredPreview' => ['ranges' => 'tt_content.bodytext:10-20']]]);
+        $tool = new UpdateContentElementTool(
+            $this->connectionPool,
+            new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)),
+            measurer: new FieldMeasurer($configuration),
+        );
+
+        $entries = $tool->structuredPreview(
+            ['uid' => self::TEXT, 'fields' => ['bodytext' => '<p>Grüße &amp; mehr</p>']],
+            $this->setUpBackendUser(1),
+        );
+
+        // "Grüße & mehr" is 12 characters.
+        self::assertSame(['count' => 12, 'min' => 10, 'max' => 20], $entries[0]->measure?->toArray());
+    }
+
+    /**
+     * Never a value the reader may not see: an element on a page they may not
+     * edit gives no entry, and so does a column they hold no grant for.
+     */
+    #[Test]
+    public function theStructuredPreviewIsEmptyWhereTheReaderMayNotEdit(): void
+    {
+        self::assertSame([], $this->tool->structuredPreview(['uid' => self::ON_CLOSED, 'fields' => ['header' => 'x']], $this->editor('tt_content:header')));
+        // `subheader` is an exclude column.
+        self::assertSame([], $this->tool->structuredPreview(['uid' => self::TEXT, 'fields' => ['subheader' => 'x']], $this->editor('')));
+        // The other direction: the same reader with the grant, on a page they may edit.
+        self::assertCount(1, $this->tool->structuredPreview(['uid' => self::TEXT, 'fields' => ['subheader' => 'x']], $this->editor('tt_content:subheader')));
     }
 
     private function editor(string $nonExcludeFields): BackendUserAuthentication

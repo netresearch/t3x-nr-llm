@@ -1,8 +1,11 @@
 <?php
 
-/* Copyright (c) 2025-2026 Netresearch DTT GmbH
- * SPDX-License-Identifier: GPL-2.0-or-later */
-declare (strict_types=1);
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Mcp\Auth;
 
@@ -11,7 +14,7 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
- * @internal Explicit operator identity mappings; administrator status grants no identity.
+ * @internal explicit operator identity mappings; administrator status grants no identity
  */
 final readonly class ConfiguredMcpSubjectResolver implements McpSubjectResolverInterface
 {
@@ -32,7 +35,7 @@ final readonly class ConfiguredMcpSubjectResolver implements McpSubjectResolverI
         array $scopes,
     ): McpSubjectCredential {
         $definition = $this->configuration->definition($profile->identifier);
-        $entry = $this->permittedActorEntry($definition, $actor, $audience, $scopes);
+        $entry      = $this->permittedActorEntry($definition, $actor, $audience, $scopes);
         if (($entry['enabled'] ?? false) !== true) {
             throw new InvalidArgumentException('Delegation identity mapping is unavailable.', 4172477858);
         }
@@ -44,6 +47,7 @@ final readonly class ConfiguredMcpSubjectResolver implements McpSubjectResolverI
         );
         McpAuthValidation::grant($audience, $scopes, $profile->allowedAudiences, $profile->allowedScopes);
         McpAuthValidation::grant($audience, $scopes, $subject->allowedAudiences, $subject->allowedScopes);
+
         return $subject;
     }
 
@@ -59,8 +63,8 @@ final readonly class ConfiguredMcpSubjectResolver implements McpSubjectResolverI
         }
 
         $entries = $definition[$actor->isServiceAccount() ? 'serviceAccounts' : 'backendUsers'] ?? null;
-        $key = $actor->serviceAccount ?? $actor->backendUserUid;
-        $entry = is_array($entries) ? $entries[$key] ?? null : null;
+        $key     = $actor->serviceAccount ?? $actor->backendUserUid;
+        $entry   = is_array($entries) ? $entries[$key] ?? null : null;
         if (!is_array($entry)) {
             throw new InvalidArgumentException('Delegation identity mapping is unavailable.', 9984912023);
         }
@@ -86,6 +90,7 @@ final readonly class ConfiguredMcpSubjectResolver implements McpSubjectResolverI
             McpAuthValidation::audiences(McpDelegationConfiguration::stringList($definition, 'allowedAudiences')),
             McpAuthValidation::scopes(McpDelegationConfiguration::stringList($definition, 'allowedScopes')),
         );
+
         return $this->actorEntry($definition, $actor);
     }
 }

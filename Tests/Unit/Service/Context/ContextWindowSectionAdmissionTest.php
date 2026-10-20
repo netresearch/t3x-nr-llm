@@ -88,7 +88,7 @@ final class ContextWindowSectionAdmissionTest extends TestCase
         $fit     = $manager->fit([ChatMessage::system('Identity.' . "\n\n" . $section), ChatMessage::user('Write the note.')], $config, null, null);
 
         self::assertFalse($fit->overflowAtFloor, 'the refused section would still have fit without the headroom');
-        self::assertGreaterThan((int)floor($fit->budget * 0.9), $fit->estimatedTokens);
+        self::assertGreaterThan((int) floor($fit->budget * 0.9), $fit->estimatedTokens);
     }
 
     /**

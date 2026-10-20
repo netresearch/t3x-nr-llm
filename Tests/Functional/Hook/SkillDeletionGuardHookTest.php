@@ -205,6 +205,6 @@ final class SkillDeletionGuardHookTest extends AbstractFunctionalTestCase
             ->where($queryBuilder->expr()->eq('uid', $uid))
             ->executeQuery()->fetchOne();
 
-        return is_numeric($value) ? (int)$value : -1;
+        return is_numeric($value) ? (int) $value : -1;
     }
 }

@@ -28,7 +28,7 @@ use Netresearch\NrLlm\Service\UseCase\PackToolReadinessInterface;
  * tell a typo from a disabled tool from a missing default configuration. The
  * plan screen is an administrator's, and the three need to be distinguishable.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class PackToolReadiness implements PackToolReadinessInterface
 {

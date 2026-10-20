@@ -79,7 +79,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $result = $this->pipeline()->run(
             context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration(uid: 7)),
-            terminal: static fn(): CompletionResponse => $response,
+            terminal: static fn (): CompletionResponse => $response,
         );
 
         self::assertSame($response, $result);
@@ -105,7 +105,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline([$this->extractor(ProviderOperation::ImageGeneration, $record)])->run(
             context: ProviderCallContext::forService(ProviderOperation::ImageGeneration, 'fal', 'flux-schnell'),
-            terminal: static fn(): array => ['images' => [[], []]],
+            terminal: static fn (): array => ['images' => [[], []]],
         );
     }
 
@@ -118,7 +118,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline([$this->extractor(ProviderOperation::Translation, null)])->run(
             context: ProviderCallContext::forService(ProviderOperation::Translation, 'deepl', ''),
-            terminal: static fn(): array => ['translations' => [['text' => 'x']]],
+            terminal: static fn (): array => ['translations' => [['text' => 'x']]],
         );
     }
 
@@ -129,7 +129,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline([$this->extractor(ProviderOperation::SpeechSynthesis, null)])->run(
             context: ProviderCallContext::forService(ProviderOperation::Translation, 'deepl', ''),
-            terminal: static fn(): array => ['translations' => []],
+            terminal: static fn (): array => ['translations' => []],
         );
     }
 
@@ -167,7 +167,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
                 $this->configuration(uid: 7),
                 [UsageMiddleware::METADATA_SKIP_REQUEST_COUNT => true],
             ),
-            terminal: static fn(): CompletionResponse => $response,
+            terminal: static fn (): CompletionResponse => $response,
         );
     }
 
@@ -205,7 +205,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
                 $this->configuration(uid: 7),
                 [TelemetryMiddleware::METADATA_SOURCE_EXTENSION => 'ai_filemetadata'],
             ),
-            terminal: static fn(): CompletionResponse => $response,
+            terminal: static fn (): CompletionResponse => $response,
         );
     }
 
@@ -240,7 +240,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
                 ProviderOperation::Chat,
                 $this->configuration(uid: 7),
             ),
-            terminal: static fn(): CompletionResponse => $response,
+            terminal: static fn (): CompletionResponse => $response,
         );
     }
 
@@ -271,7 +271,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration(uid: 7)),
-            terminal: static fn(): CompletionResponse => $response,
+            terminal: static fn (): CompletionResponse => $response,
         );
     }
 
@@ -299,7 +299,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: ProviderCallContext::forConfiguration(ProviderOperation::Embedding, $this->configuration()), // uid = null (not persisted)
-            terminal: static fn(): EmbeddingResponse => $response,
+            terminal: static fn (): EmbeddingResponse => $response,
         );
     }
 
@@ -327,7 +327,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: ProviderCallContext::forConfiguration(ProviderOperation::Vision, $this->configuration(uid: 12)),
-            terminal: static fn(): VisionResponse => $response,
+            terminal: static fn (): VisionResponse => $response,
         );
     }
 
@@ -356,7 +356,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: ProviderCallContext::forConfiguration(ProviderOperation::Decision, $this->configuration(uid: 21)),
-            terminal: static fn(): DecisionResponse => $response,
+            terminal: static fn (): DecisionResponse => $response,
         );
     }
 
@@ -384,7 +384,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration()),
-            terminal: static fn(): CompletionResponse => $response,
+            terminal: static fn (): CompletionResponse => $response,
         );
     }
 
@@ -395,7 +395,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $result = $this->pipeline()->run(
             context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration()),
-            terminal: static fn(): string => 'raw-string-response',
+            terminal: static fn (): string => 'raw-string-response',
         );
 
         self::assertSame('raw-string-response', $result);
@@ -440,7 +440,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $config),
-            terminal: static fn(): CompletionResponse => new CompletionResponse(
+            terminal: static fn (): CompletionResponse => new CompletionResponse(
                 content: 'x',
                 model: 'm',
                 usage: new UsageStatistics(1, 1, 2),
@@ -484,7 +484,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $result = $this->pipeline()->run(
             context: ProviderCallContext::forConfiguration(ProviderOperation::Embedding, $this->configuration()),
-            terminal: static fn(): array => $payload,
+            terminal: static fn (): array => $payload,
         );
 
         self::assertSame($payload, $result);
@@ -507,7 +507,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: ProviderCallContext::forConfiguration(ProviderOperation::Embedding, $this->configuration()),
-            terminal: static fn(): array => [
+            terminal: static fn (): array => [
                 'provider' => '',
                 'usage'    => ['totalTokens' => 5],
             ],
@@ -521,7 +521,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: ProviderCallContext::forConfiguration(ProviderOperation::Embedding, $this->configuration()),
-            terminal: static fn(): array => [
+            terminal: static fn (): array => [
                 'embeddings' => [[0.1]],
                 'provider'   => 'openai',
                 // no 'usage' key — nothing reliable to record
@@ -536,7 +536,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: ProviderCallContext::forConfiguration(ProviderOperation::Embedding, $this->configuration()),
-            terminal: static fn(): array => [
+            terminal: static fn (): array => [
                 'provider' => ['not', 'a', 'string'],
                 'usage'    => ['totalTokens' => 5],
             ],
@@ -577,7 +577,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configurationWithModel($model, uid: 7)),
-            terminal: static fn(): CompletionResponse => $response,
+            terminal: static fn (): CompletionResponse => $response,
         );
     }
 
@@ -613,7 +613,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configurationWithModel($model, uid: 7)),
-            terminal: static fn(): CompletionResponse => $response,
+            terminal: static fn (): CompletionResponse => $response,
         );
     }
 
@@ -638,7 +638,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: $context,
-            terminal: static fn(): CompletionResponse => new CompletionResponse(
+            terminal: static fn (): CompletionResponse => new CompletionResponse(
                 content: 'hi',
                 // The provider answered on a dated snapshot of the alias the
                 // configuration named; the row must say which one answered.
@@ -682,7 +682,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: $context,
-            terminal: static fn(): CompletionResponse => new CompletionResponse(
+            terminal: static fn (): CompletionResponse => new CompletionResponse(
                 content: 'hi',
                 model: 'qwen3:4b',
                 usage: new UsageStatistics(1000, 500, 1500),
@@ -714,7 +714,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: $context,
-            terminal: static fn(): CompletionResponse => new CompletionResponse(
+            terminal: static fn (): CompletionResponse => new CompletionResponse(
                 content: 'hi',
                 model: 'some-model',
                 usage: new UsageStatistics(0, 0, 0),
@@ -744,7 +744,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: $context,
-            terminal: static fn(): CompletionResponse => new CompletionResponse(
+            terminal: static fn (): CompletionResponse => new CompletionResponse(
                 content: '',
                 model: 'some-model',
                 usage: new UsageStatistics(120, 0, 120),
@@ -776,7 +776,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration(), [UsageMiddleware::METADATA_TASK_UID => 42]),
-            terminal: static fn(): CompletionResponse => new CompletionResponse(
+            terminal: static fn (): CompletionResponse => new CompletionResponse(
                 content: 'x',
                 model: 'm',
                 usage: new UsageStatistics(5, 5, 10),
@@ -803,7 +803,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration(), [BudgetMiddleware::METADATA_BE_USER_UID => 99]),
-            terminal: static fn(): CompletionResponse => new CompletionResponse(
+            terminal: static fn (): CompletionResponse => new CompletionResponse(
                 content: 'x',
                 model: 'm',
                 usage: new UsageStatistics(5, 5, 10),
@@ -833,7 +833,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration()),
-            terminal: static fn(): CompletionResponse => new CompletionResponse(
+            terminal: static fn (): CompletionResponse => new CompletionResponse(
                 content: 'x',
                 model: 'm',
                 usage: new UsageStatistics(5, 5, 10),
@@ -866,7 +866,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $result = $this->pipeline()->run(
             context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration(uid: 7)),
-            terminal: static fn(): CompletionResponse => $response,
+            terminal: static fn (): CompletionResponse => $response,
         );
 
         self::assertSame($response, $result);
@@ -966,14 +966,14 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
                 provider: 'example-provider',
             ),
             'array' => [
-                'content' => 'already generated',
-                'model' => 'example-model',
+                'content'  => 'already generated',
+                'model'    => 'example-model',
                 'provider' => 'example-provider',
-                'usage' => [
-                    'promptTokens' => 2,
+                'usage'    => [
+                    'promptTokens'     => 2,
                     'completionTokens' => 3,
-                    'totalTokens' => 5,
-                    'estimatedCost' => 0.1,
+                    'totalTokens'      => 5,
+                    'estimatedCost'    => 0.1,
                 ],
             ],
             'specialized' => ['images' => [['url' => 'https://example.test/generated.png']]],
@@ -993,7 +993,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
             'example-provider',
             'example-model',
         );
-        $actualAnswer = null;
+        $actualAnswer  = null;
         $actualFailure = null;
         $providerCalls = 0;
         try {
@@ -1002,7 +1002,8 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
                 ->run(
                     $context,
                     static function () use ($response, &$providerCalls): mixed {
-                        $providerCalls++;
+                        ++$providerCalls;
+
                         return $response;
                     },
                 );

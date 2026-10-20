@@ -42,12 +42,43 @@ final class SkillFieldExclusionTest extends TestCase
             // What the source vouches for, and whether it vouches at all.
             'hidden', 'enabled', 'url', 'ref', 'pinned_sha', 'expected_fingerprint', 'github_token',
         ],
+        // ADR-214 item 8: the snippet mark and the configuration's opt-in
+        // decide what reaches a caller's system message.
+        'tx_nrllm_promptsnippet' => ['caller_system_digest'],
+        'tx_nrllm_configuration' => ['snippets_in_caller_system_message'],
     ];
 
     private const NOT_EXCLUDED = [
         'tx_nrllm_skill'        => ['name', 'identifier', 'description', 'body', 'process'],
         'tx_nrllm_skill_source' => ['title'],
+        // ADR-169: non-administrators manage snippets; the mark, not the
+        // fields, decides the caller-system path.
+        'tx_nrllm_promptsnippet' => ['name', 'snippet'],
     ];
+
+    /**
+     * The mark is written only by the mark action, which recomputes the
+     * digest: FormEngine never shows or writes it.
+     */
+    #[Test]
+    public function theSnippetMarkIsNotAFormField(): void
+    {
+        $columns = $this->columns('tx_nrllm_promptsnippet');
+
+        self::assertSame('passthrough', $columns['caller_system_digest']['config']['type'] ?? null);
+    }
+
+    /**
+     * The snippet mark and the configuration's opt-in are an administrator's
+     * whatever a group is granted (ADR-214 item 8): the DataHandler skips a
+     * HIDE_FOR_NON_ADMINS field for everyone else.
+     */
+    #[Test]
+    public function theCallerSystemFieldsAreForAdministratorsOnly(): void
+    {
+        self::assertSame('HIDE_FOR_NON_ADMINS', $this->columns('tx_nrllm_promptsnippet')['caller_system_digest']['displayCond'] ?? null);
+        self::assertSame('HIDE_FOR_NON_ADMINS', $this->columns('tx_nrllm_configuration')['snippets_in_caller_system_message']['displayCond'] ?? null);
+    }
 
     #[Test]
     public function theFieldsThatDecideTrustAreExcluded(): void

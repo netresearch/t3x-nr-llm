@@ -224,13 +224,13 @@ final class RunTraceTest extends TestCase
             ToolResult::text('Updated page [42]: title.')->withWriteTarget(new RecordReference('pages', 42), WriteKind::UPDATED),
         );
 
-        $kinds = array_map(static fn(RunStep $step): string => $step->kind, $trace->getSteps());
+        $kinds = array_map(static fn (RunStep $step): string => $step->kind, $trace->getSteps());
         self::assertSame([RunStep::KIND_TOOL, RunStep::KIND_WRITE], $kinds);
 
         $write = $trace->getSteps()[1];
         self::assertSame('update_page_metadata', $write->toolName);
         self::assertInstanceOf(RecordReference::class, $write->writeTarget);
-        self::assertSame('pages:42', (string)$write->writeTarget);
+        self::assertSame('pages:42', (string) $write->writeTarget);
         // Identity only — the write step carries nothing the record holds.
         self::assertNull($write->toolResult);
         self::assertNull($write->toolArguments);
@@ -243,7 +243,7 @@ final class RunTraceTest extends TestCase
 
         $trace->recordToolResult(1, 1.0, 'fetch_records', [], ToolResult::text('rows'));
 
-        $kinds = array_map(static fn(RunStep $step): string => $step->kind, $trace->getSteps());
+        $kinds = array_map(static fn (RunStep $step): string => $step->kind, $trace->getSteps());
         self::assertSame([RunStep::KIND_TOOL], $kinds);
     }
 

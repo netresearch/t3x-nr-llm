@@ -14,8 +14,8 @@ use Netresearch\NrLlm\Exception\RuntimeException;
 final class GitHubApiException extends RuntimeException
 {
     /**
-     * @param bool $isRateLimit True only for rate-limit failures, which must stay fatal even inside
-     *                          per-file / per-repo error isolation (re-thrown to abort the whole sync).
+     * @param bool $isRateLimit true only for rate-limit failures, which must stay fatal even inside
+     *                          per-file / per-repo error isolation (re-thrown to abort the whole sync)
      * @param int  $status      The HTTP status code that triggered the failure (0 when not transport-derived).
      *                          Callers inspect this to distinguish e.g. a 404 (file gone) from a transient error.
      */

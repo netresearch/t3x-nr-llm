@@ -16,7 +16,7 @@ use Netresearch\NrLlm\Hook\SkillDisabledByHook;
 use Netresearch\NrLlm\Hook\TranslationCacheFlushHook;
 use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
 
-defined('TYPO3') || die();
+defined('TYPO3') || exit;
 
 (static function (): void {
     // Cache configuration (also in Configuration/Caching.php for TYPO3 v14+)
@@ -25,7 +25,7 @@ defined('TYPO3') || die();
     // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
     $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['nrllm_responses'] ??= [
         'frontend' => VariableFrontend::class,
-        'options' => [
+        'options'  => [
             'defaultLifetime' => 3600,
         ],
         'groups' => ['nrllm'],
@@ -35,7 +35,7 @@ defined('TYPO3') || die();
     // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
     $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['nrllm_reachability'] ??= [
         'frontend' => VariableFrontend::class,
-        'options' => [
+        'options'  => [
             'defaultLifetime' => 60,
         ],
         'groups' => ['nrllm'],
@@ -46,7 +46,7 @@ defined('TYPO3') || die();
     // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
     $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['nrllm_circuit'] ??= [
         'frontend' => VariableFrontend::class,
-        'options' => [
+        'options'  => [
             'defaultLifetime' => 300,
         ],
         'groups' => ['nrllm'],
@@ -56,7 +56,7 @@ defined('TYPO3') || die();
     // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
     $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['nrllm_health'] ??= [
         'frontend' => VariableFrontend::class,
-        'options' => [
+        'options'  => [
             'defaultLifetime' => 60,
         ],
         'groups' => ['nrllm'],
@@ -67,7 +67,7 @@ defined('TYPO3') || die();
     // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
     $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['nrllm_idempotency'] ??= [
         'frontend' => VariableFrontend::class,
-        'options' => [
+        'options'  => [
             'defaultLifetime' => 86400,
         ],
         'groups' => ['nrllm'],
@@ -78,7 +78,7 @@ defined('TYPO3') || die();
     $GLOBALS['TYPO3_CONF_VARS']['SYS']['formEngine']['nodeRegistry'][1741427200] = [
         'nodeName' => 'modelIdWithFetch',
         'priority' => 40,
-        'class' => ModelIdElement::class,
+        'class'    => ModelIdElement::class,
     ];
 
     // Register field wizard for model constraint detection on configuration form
@@ -86,7 +86,7 @@ defined('TYPO3') || die();
     $GLOBALS['TYPO3_CONF_VARS']['SYS']['formEngine']['nodeRegistry'][1741427201] = [
         'nodeName' => 'modelConstraintsWizard',
         'priority' => 40,
-        'class' => ModelConstraintsWizard::class,
+        'class'    => ModelConstraintsWizard::class,
     ];
 
     // Normalize tx_nrllm_provider.endpoint_url to the adapter's canonical base URL

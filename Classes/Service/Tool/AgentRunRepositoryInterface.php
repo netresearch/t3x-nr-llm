@@ -84,9 +84,9 @@ interface AgentRunRepositoryInterface
      *
      * @param list<AgentRunStatus> $from the waiting states to move from; empty moves nothing
      *
-     * @throws InvalidArgumentException when $from names a state that is not a wait, or $to is neither CANCELLED nor FAILED
-     *
      * @return bool true when this call moved the run, false when it was no longer in $from (or gone)
+     *
+     * @throws InvalidArgumentException when $from names a state that is not a wait, or $to is neither CANCELLED nor FAILED
      */
     public function settleIfWaiting(int $runUid, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason): bool;
 
@@ -122,7 +122,7 @@ interface AgentRunRepositoryInterface
      * another process can claim, rehydrate and execute it (ADR-102).
      * started_at stays 0 until the claim.
      *
-     * @return int The new run's uid.
+     * @return int the new run's uid
      */
     public function enqueueRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $requestJson): int;
 
@@ -160,8 +160,11 @@ interface AgentRunRepositoryInterface
     public function requeue(int $runUid, string $claimedBy): bool;
 
     /**
-     * Running runs whose lease has expired at $now (ADR-104 reaper). Excludes
-     * interactive runs, which never take a lease.
+     * Running runs with a positive lease that expired before $now.
+     *
+     * The scan includes synchronous starts and resumed segments. The reaper
+     * dead-letters stale runs without a saved queued request; only retryable
+     * runs with a request can be requeued.
      *
      * @return list<AgentRun>
      */
@@ -234,7 +237,7 @@ interface AgentRunRepositoryInterface
      *                           in SQL so a poller does not re-hydrate the whole
      *                           history on every page (ADR-101).
      *
-     * @return list<AgentRunEvent> Events for a run, ordered by sequence ascending.
+     * @return list<AgentRunEvent> events for a run, ordered by sequence ascending
      */
     public function findEvents(int $runUid, int $afterSequence = -1): array;
 
@@ -272,7 +275,7 @@ interface AgentRunRepositoryInterface
      * needed to resume it; purging it by age alone would destroy work in flight.
      * Those are reaped separately by {@see purgeUnfinishedOlderThan()}.
      *
-     * @return int Number of run rows deleted.
+     * @return int number of run rows deleted
      */
     public function purgeOlderThan(int $timestamp): int;
 
@@ -282,7 +285,7 @@ interface AgentRunRepositoryInterface
      * ever decided. Governed by its own, deliberately longer retention window
      * ({@see \Netresearch\NrLlm\Domain\Enum\PrivacyDataCategory::APPROVAL}).
      *
-     * @return int Number of run rows deleted.
+     * @return int number of run rows deleted
      */
     public function purgeUnfinishedOlderThan(int $timestamp): int;
 }

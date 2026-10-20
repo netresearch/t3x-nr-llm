@@ -91,7 +91,8 @@ Two cases still carry no ``constructor(...)`` line, and both are intended:
   ``private __construct`` and static factories is reached through the
   factories, which the snapshot records as methods.
 
-Today that is 70 of the 97 ``@api`` classes with a constructor line.
+The snapshot records constructor lines for the classes that meet these rules;
+its current contents are the inventory of the public surface.
 
 Enforcement
 ===========

@@ -41,7 +41,7 @@ use TYPO3\CMS\Core\Http\JsonResponse;
  * Registered in AjaxRoutes.php, so the module's `access => admin` does not
  * apply — every action calls denyNonAdmin() first (ADR-037).
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final readonly class SpecializedTestController
@@ -71,11 +71,11 @@ final readonly class SpecializedTestController
             return $deny;
         }
 
-        $body = $this->bodyOf($request);
-        $text = $this->stringFromBody($body, 'text');
+        $body           = $this->bodyOf($request);
+        $text           = $this->stringFromBody($body, 'text');
         $targetLanguage = $this->stringFromBody($body, 'targetLanguage');
         $sourceLanguage = $this->stringFromBody($body, 'sourceLanguage');
-        $translator = $this->stringFromBody($body, 'translator');
+        $translator     = $this->stringFromBody($body, 'translator');
 
         if ($text === '' || $targetLanguage === '') {
             return $this->badRequest('Text and target language are required.');
@@ -94,13 +94,13 @@ final readonly class SpecializedTestController
                     ->translate($text, $targetLanguage, $source);
 
                 return new JsonResponse([
-                    'success'         => true,
-                    'translation'     => $result->translatedText,
-                    'sourceLanguage'  => $result->sourceLanguage,
-                    'targetLanguage'  => $result->targetLanguage,
-                    'translator'      => $result->translator,
-                    'confidence'      => $result->confidence,
-                    'charactersUsed'  => $result->charactersUsed,
+                    'success'        => true,
+                    'translation'    => $result->translatedText,
+                    'sourceLanguage' => $result->sourceLanguage,
+                    'targetLanguage' => $result->targetLanguage,
+                    'translator'     => $result->translator,
+                    'confidence'     => $result->confidence,
+                    'charactersUsed' => $result->charactersUsed,
                 ]);
             }
 
@@ -199,8 +199,8 @@ final readonly class SpecializedTestController
             return $deny;
         }
 
-        $body = $this->bodyOf($request);
-        $prompt = $this->stringFromBody($body, 'prompt');
+        $body    = $this->bodyOf($request);
+        $prompt  = $this->stringFromBody($body, 'prompt');
         $service = $this->stringFromBody($body, 'service');
 
         if ($prompt === '') {

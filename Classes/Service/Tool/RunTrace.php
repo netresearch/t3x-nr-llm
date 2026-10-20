@@ -168,7 +168,7 @@ final class RunTrace
         $requestedToolCalls = null;
         if ($response->toolCalls !== null) {
             $requestedToolCalls = array_map(
-                static fn(ToolCall $call): array => [
+                static fn (ToolCall $call): array => [
                     'id'        => $call->id,
                     'name'      => $call->name,
                     'arguments' => $call->arguments,

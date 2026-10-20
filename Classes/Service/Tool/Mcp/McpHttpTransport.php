@@ -24,6 +24,7 @@ use Netresearch\NrVault\Http\VaultHttpClientInterface;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
 use stdClass;
@@ -101,9 +102,9 @@ final class McpHttpTransport
      * @param McpOperationDeadline $deadline the operation's remaining budget,
      *                                       which this leg spends from
      *
-     * @throws McpTransportException on any outcome that is not a JSON-RPC result
-     *
      * @return array{result: array<string, mixed>, sessionId: string|null, durationMs: int}
+     *
+     * @throws McpTransportException on any outcome that is not a JSON-RPC result
      */
     public function call(
         McpServerRecord $server,
@@ -123,9 +124,9 @@ final class McpHttpTransport
                 $server,
                 [
                     'jsonrpc' => '2.0',
-                    'id' => $requestId,
-                    'method' => $method,
-                    'params' => $params === [] ? new stdClass() : $params,
+                    'id'      => $requestId,
+                    'method'  => $method,
+                    'params'  => $params === [] ? new stdClass() : $params,
                 ],
             ),
             $deadline,
@@ -134,7 +135,7 @@ final class McpHttpTransport
             $credentials,
         );
 
-        $durationMs = (int)round((hrtime(true) - $startedAt) / 1000000);
+        $durationMs = (int) round((hrtime(true) - $startedAt) / 1000000);
 
         return [
             'result' => $this->decodeResult(
@@ -144,7 +145,7 @@ final class McpHttpTransport
                 $response['contentType'],
                 $requestId,
             ),
-            'sessionId' => $response['sessionId'],
+            'sessionId'  => $response['sessionId'],
             'durationMs' => $durationMs,
         ];
     }
@@ -177,8 +178,8 @@ final class McpHttpTransport
                 $server,
                 [
                     'jsonrpc' => '2.0',
-                    'method' => $method,
-                    'params' => $params === [] ? new stdClass() : $params,
+                    'method'  => $method,
+                    'params'  => $params === [] ? new stdClass() : $params,
                 ],
             ),
             $deadline,
@@ -204,9 +205,9 @@ final class McpHttpTransport
     }
 
     /**
-     * @throws McpTransportException
-     *
      * @return array{status: int, body: string, contentType: string, sessionId: string|null}
+     *
+     * @throws McpTransportException
      */
     private function send(
         McpServerRecord $server,
@@ -288,10 +289,10 @@ final class McpHttpTransport
         $returnedSession = $response->getHeaderLine('Mcp-Session-Id');
 
         return [
-            'status' => $status,
-            'body' => $this->readBounded($server, $response->getBody(), $replyExpected),
+            'status'      => $status,
+            'body'        => $this->readResponseBody($server, $response, $replyExpected),
             'contentType' => $response->getHeaderLine('Content-Type'),
-            'sessionId' => $returnedSession === '' ? null : $returnedSession,
+            'sessionId'   => $returnedSession === '' ? null : $returnedSession,
         ];
     }
 
@@ -372,9 +373,9 @@ final class McpHttpTransport
     }
 
     /**
-     * @throws McpTransportException
-     *
      * @return array<string, mixed>
+     *
+     * @throws McpTransportException
      */
     private function decodeResult(
         McpServerRecord $server,
@@ -417,6 +418,7 @@ final class McpHttpTransport
 
         /** @var array{result: array<string, mixed>} $associative */
         $associative = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
+
         return $associative['result'];
     }
 
@@ -434,12 +436,12 @@ final class McpHttpTransport
         string $requestId,
     ): string {
         $messages = [];
-        $data = [];
+        $data     = [];
         foreach (preg_split('/\r\n|\r|\n/', $body) ?: [] as $line) {
             if ($line === '') {
                 if ($data !== []) {
                     $messages[] = implode("\n", $data);
-                    $data = [];
+                    $data       = [];
                 }
 
                 continue;
@@ -447,7 +449,7 @@ final class McpHttpTransport
 
             if (str_starts_with($line, 'data:')) {
                 $payload = substr($line, 5);
-                $data[] = str_starts_with($payload, ' ') ? substr($payload, 1) : $payload;
+                $data[]  = str_starts_with($payload, ' ') ? substr($payload, 1) : $payload;
             }
         }
 
@@ -552,7 +554,7 @@ final class McpHttpTransport
         }
 
         $placement = SecretPlacement::tryFrom($server->authPlacement) ?? SecretPlacement::Bearer;
-        $options = [];
+        $options   = [];
         if ($placement === SecretPlacement::Header) {
             if ($server->authHeaderName === '') {
                 throw McpTransportException::forMissingCredential($server->identifier);
@@ -608,7 +610,7 @@ final class McpHttpTransport
         }
 
         $hasResult = property_exists($decoded, 'result');
-        $hasError = property_exists($decoded, 'error');
+        $hasError  = property_exists($decoded, 'error');
         if ($hasResult === $hasError || property_exists($decoded, 'method')) {
             throw McpTransportException::forMalformedResponse(
                 $server->identifier,
@@ -635,8 +637,8 @@ final class McpHttpTransport
         }
 
         $rawError = $this->rawObjectMember($body, 'error');
-        $rawCode = $rawError === null ? null : $this->rawObjectMember($rawError, 'code');
-        $code = $rawCode === null ? null : $this->integralErrorCode($rawCode);
+        $rawCode  = $rawError === null ? null : $this->rawObjectMember($rawError, 'code');
+        $code     = $rawCode === null ? null : $this->integralErrorCode($rawCode);
         if ($code === null) {
             throw McpTransportException::forMalformedResponse(
                 $server->identifier,
@@ -645,6 +647,7 @@ final class McpHttpTransport
         }
 
         $decoded->error->code = $code;
+
         return $decoded;
     }
 
@@ -658,7 +661,7 @@ final class McpHttpTransport
     {
         $length = strlen($json);
         $offset = strspn($json, " \t\r\n") + 1;
-        $found = null;
+        $found  = null;
         while ($offset < $length) {
             $offset += strspn($json, " \t\r\n", $offset);
             if ($json[$offset] === '}') {
@@ -666,14 +669,14 @@ final class McpHttpTransport
             }
 
             $keyStart = $offset;
-            $offset = $this->jsonValueEnd($json, $offset);
-            $key = json_decode(substr($json, $keyStart, $offset - $keyStart), true);
+            $offset   = $this->jsonValueEnd($json, $offset);
+            $key      = json_decode(substr($json, $keyStart, $offset - $keyStart), true);
             $offset += strspn($json, " \t\r\n", $offset);
             ++$offset;
             // The colon is guaranteed by the preceding JSON validation.
             $offset += strspn($json, " \t\r\n", $offset);
             $valueStart = $offset;
-            $offset = $this->jsonValueEnd($json, $offset);
+            $offset     = $this->jsonValueEnd($json, $offset);
             if ($key === $wanted) {
                 $found = substr($json, $valueStart, $offset - $valueStart);
             }
@@ -694,12 +697,12 @@ final class McpHttpTransport
      */
     private function jsonValueEnd(string $json, int $offset): int
     {
-        $length = strlen($json);
-        $quoted = false;
-        $escaped = false;
-        $depth = 0;
+        $length     = strlen($json);
+        $quoted     = false;
+        $escaped    = false;
+        $depth      = 0;
         $structured = $json[$offset] === '{' || $json[$offset] === '[';
-        $string = $json[$offset] === '"';
+        $string     = $json[$offset] === '"';
         for ($index = $offset; $index < $length; ++$index) {
             $character = $json[$index];
             if ($quoted) {
@@ -751,20 +754,20 @@ final class McpHttpTransport
         }
 
         $fraction = $parts[3] ?? '';
-        $digits = ltrim($parts[2] . $fraction, '0');
+        $digits   = ltrim($parts[2] . $fraction, '0');
         if ($digits === '') {
             return 0;
         }
 
-        $exponentToken = $parts[4] ?? '0';
+        $exponentToken  = $parts[4] ?? '0';
         $exponentDigits = ltrim(ltrim($exponentToken, '+-'), '0');
-        $maximumShift = strlen($digits) + strlen($fraction) + strlen((string)PHP_INT_MAX);
-        $bound = (string)$maximumShift;
+        $maximumShift   = strlen($digits) + strlen($fraction) + strlen((string) PHP_INT_MAX);
+        $bound          = (string) $maximumShift;
         if (strlen($exponentDigits) > strlen($bound) || strlen($exponentDigits) === strlen($bound) && strcmp($exponentDigits, $bound) > 0) {
             return null;
         }
 
-        $exponent = (int)$exponentDigits;
+        $exponent = (int) $exponentDigits;
         if (str_starts_with($exponentToken, '-')) {
             $exponent = -$exponent;
         }
@@ -780,7 +783,7 @@ final class McpHttpTransport
         }
 
         $negative = $parts[1] === '-';
-        $limit = $negative ? substr((string)PHP_INT_MIN, 1) : (string)PHP_INT_MAX;
+        $limit    = $negative ? substr((string) PHP_INT_MIN, 1) : (string) PHP_INT_MAX;
         if ($shift > 0) {
             if (strlen($digits) + $shift > strlen($limit)) {
                 return null;
@@ -793,7 +796,7 @@ final class McpHttpTransport
             return null;
         }
 
-        return (int)(($negative ? '-' : '') . $digits);
+        return (int) (($negative ? '-' : '') . $digits);
     }
 
     /**
@@ -820,8 +823,8 @@ final class McpHttpTransport
             }
 
             $this->requestNamespace = $namespace;
-            $this->requestProcess = $process;
-            $this->requestSequence = 0;
+            $this->requestProcess   = $process;
+            $this->requestSequence  = 0;
         }
 
         if ($this->requestSequence === PHP_INT_MAX) {
@@ -832,6 +835,7 @@ final class McpHttpTransport
         }
 
         ++$this->requestSequence;
+
         return 'nrllm-' . $this->requestNamespace . '-' . $this->requestSequence;
     }
 
@@ -841,5 +845,23 @@ final class McpHttpTransport
     private function streamAtEnd(StreamInterface $stream): bool
     {
         return $stream->eof();
+    }
+
+    /**
+     * Keep failures obtaining or reading the remote body inside the typed MCP
+     * contract without repeating stream exception text or response contents.
+     */
+    private function readResponseBody(
+        McpServerRecord $server,
+        ResponseInterface $response,
+        bool $requireComplete,
+    ): string {
+        try {
+            return $this->readBounded($server, $response->getBody(), $requireComplete);
+        } catch (McpTransportException $e) {
+            throw $e;
+        } catch (Throwable) {
+            throw McpTransportException::forMalformedResponse($server->identifier, 'the response body could not be read');
+        }
     }
 }

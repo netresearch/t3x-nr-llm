@@ -30,7 +30,7 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
  *
  * Uses TYPO3 FormEngine for record editing (TCA-based forms).
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class PromptSnippetController extends ActionController
@@ -78,13 +78,13 @@ final class PromptSnippetController extends ActionController
         $newUrl = $this->formEngineUrlBuilder->buildNewUrl(self::TABLE_NAME, self::MODULE_ROUTE);
 
         $moduleTemplate->assignMultiple([
-            'snippets' => $snippets,
+            'snippets'   => $snippets,
             'totalCount' => $snippets->count(),
-            'editUrls' => $editUrls,
-            'newUrl' => $newUrl,
+            'editUrls'   => $editUrls,
+            'newUrl'     => $newUrl,
         ]);
 
-        $buttonBar = $moduleTemplate->getDocHeaderComponent()->getButtonBar();
+        $buttonBar    = $moduleTemplate->getDocHeaderComponent()->getButtonBar();
         $createButton = $buttonBar->makeLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-plus', IconSize::SMALL))
             ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.snippet.new', 'NrLlm') ?? 'New Snippet')

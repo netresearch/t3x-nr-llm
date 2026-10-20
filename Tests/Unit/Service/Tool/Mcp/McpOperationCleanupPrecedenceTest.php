@@ -1,8 +1,11 @@
 <?php
 
-/* Copyright (c) 2025-2026 Netresearch DTT GmbH
- * SPDX-License-Identifier: GPL-2.0-or-later */
-declare (strict_types=1);
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Mcp;
 
@@ -132,9 +135,9 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
     {
         $cases = [
             'cancelled' => [1799990218, 'The call to MCP server "close_probe" was cancelled.', true],
-            'deadline' => [
+            'deadline'  => [
                 1799990217,
-                'The 10-second operation budget for MCP server "close_probe" ran out before this request was sent, ' . 'so the server was not asked. This is the budget this installation sets, not a server that did not answer.',
+                'The 10-second operation budget for MCP server "close_probe" ran out before this request was sent, so the server was not asked. This is the budget this installation sets, not a server that did not answer.',
                 false,
             ],
             'rpc' => [
@@ -164,7 +167,7 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
         string $expectedMessage,
         bool $expectedCancellation,
     ): void {
-        $kernel = $this->kernel($primary, $cleanup);
+        $kernel  = $this->kernel($primary, $cleanup);
         $outcome = null;
         $failure = null;
         try {
@@ -206,7 +209,7 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
     #[DataProvider('cleanupCases')]
     public function aSuccessfulOperationStillReportsAStockCleanupFailure(string $cleanup): void
     {
-        $kernel = $this->kernel('healthy', $cleanup);
+        $kernel  = $this->kernel('healthy', $cleanup);
         $outcome = null;
         $failure = null;
         try {
@@ -229,7 +232,7 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
     #[DataProvider('cleanupCases')]
     public function aReturnedRemoteToolErrorStillReportsAStockCleanupFailure(string $cleanup): void
     {
-        $kernel = $this->kernel('remote_error', $cleanup);
+        $kernel  = $this->kernel('remote_error', $cleanup);
         $outcome = null;
         $failure = null;
         try {
@@ -273,12 +276,12 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
         string $primaryKind,
         string $cleanup,
     ): void {
-        $primary = $primaryKind === 'error' ? new Error('Caller argument could not be serialized.', 1800100008) : new RuntimeException('Caller argument could not be serialized.', 1800100009);
-        $kernel = $this->kernel('serialization', $cleanup);
+        $primary             = $primaryKind === 'error' ? new Error('Caller argument could not be serialized.', 1800100008) : new RuntimeException('Caller argument could not be serialized.', 1800100009);
+        $kernel              = $this->kernel('serialization', $cleanup);
         $serializationEvents = [];
-        $argument = $this->callerArgument($primary, $serializationEvents);
-        $outcome = null;
-        $failure = null;
+        $argument            = $this->callerArgument($primary, $serializationEvents);
+        $outcome             = null;
+        $failure             = null;
         try {
             $outcome = $kernel['client']->callTool(
                 $kernel['server'],
@@ -304,11 +307,11 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
     #[DataProvider('cleanupCases')]
     public function aHealthyCallerSerializationReachesTheWireAndRetainsStockCleanupOutcome(string $cleanup): void
     {
-        $kernel = $this->kernel('healthy', $cleanup);
+        $kernel              = $this->kernel('healthy', $cleanup);
         $serializationEvents = [];
-        $argument = $this->callerArgument(null, $serializationEvents);
-        $outcome = null;
-        $failure = null;
+        $argument            = $this->callerArgument(null, $serializationEvents);
+        $outcome             = null;
+        $failure             = null;
         try {
             $outcome = $kernel['client']->callTool(
                 $kernel['server'],
@@ -323,7 +326,7 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
 
         $this->assertActualOperationCapture($kernel, 'healthy', $cleanup);
         $this->assertSerializationAfterStockHandshake($argument, $serializationEvents);
-        $decoded = json_decode((string)$this->requests[3]->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $decoded = json_decode((string) $this->requests[3]->getBody(), true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($decoded);
         self::assertSame(
             ['name' => 'read_document', 'arguments' => ['caller' => ['document' => 'fixture-document']]],
@@ -339,14 +342,14 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
     #[Test]
     public function aCustomSessionRawCloseErrorIsSubordinateToTheSamePrimaryError(): void
     {
-        $closeFailure = new Error('Custom credential-session close failed.', 1800100010);
-        $primary = new Error('Caller argument could not be serialized.', 1800100011);
-        $kernel = $this->kernel('serialization', 'healthy', $closeFailure);
-        $actor = AiActorContext::backendUser(7, false, [91]);
+        $closeFailure        = new Error('Custom credential-session close failed.', 1800100010);
+        $primary             = new Error('Caller argument could not be serialized.', 1800100011);
+        $kernel              = $this->kernel('serialization', 'healthy', $closeFailure);
+        $actor               = AiActorContext::backendUser(7, false, [91]);
         $serializationEvents = [];
-        $argument = $this->callerArgument($primary, $serializationEvents);
-        $outcome = null;
-        $failure = null;
+        $argument            = $this->callerArgument($primary, $serializationEvents);
+        $outcome             = null;
+        $failure             = null;
         try {
             $outcome = $kernel['client']->callTool(
                 $kernel['server'],
@@ -376,10 +379,10 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
     public function aCustomSessionRawCloseErrorPropagatesUnchangedWithoutAPrimary(): void
     {
         $closeFailure = new Error('Custom credential-session close failed.', 1800100012);
-        $kernel = $this->kernel('healthy', 'healthy', $closeFailure);
-        $actor = AiActorContext::backendUser(7, false, [91]);
-        $outcome = null;
-        $failure = null;
+        $kernel       = $this->kernel('healthy', 'healthy', $closeFailure);
+        $actor        = AiActorContext::backendUser(7, false, [91]);
+        $outcome      = null;
+        $failure      = null;
         try {
             $outcome = $kernel['client']->callTool(
                 $kernel['server'],
@@ -407,7 +410,7 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
     #[DataProvider('cleanupCases')]
     public function anExplicitStockSessionCloseRetainsItsOwnPublicCleanupContract(string $cleanup): void
     {
-        $kernel = $this->kernel('healthy', $cleanup);
+        $kernel  = $this->kernel('healthy', $cleanup);
         $session = $kernel['factory']->openForExecution(
             $kernel['server'],
             AiActorContext::backendUser(7, false, [91]),
@@ -416,7 +419,7 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
         );
         self::assertInstanceOf(McpDelegatedCredentialSession::class, $session);
         $reference = $session->credentialIdentifier();
-        $failure = null;
+        $failure   = null;
         try {
             $session->close();
         } catch (Throwable $exception) {
@@ -452,7 +455,7 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
 
         // A failed explicit close may retry its normal deletion; it never reopens.
         $this->cleanup = 'healthy';
-        $retryFailure = null;
+        $retryFailure  = null;
         try {
             $session->close();
         } catch (Throwable $exception) {
@@ -472,21 +475,21 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
     private function kernel(string $primary, string $cleanup, ?Error $customCloseFailure = null): array
     {
         $this->cleanup = $cleanup;
-        $this->values = [self::SUBJECT => self::SUBJECT_VALUE];
-        $clock = new FakeMcpClock();
-        $signal = new McpOperationCleanupSignal();
-        $profiles = [
+        $this->values  = [self::SUBJECT => self::SUBJECT_VALUE];
+        $clock         = new FakeMcpClock();
+        $signal        = new McpOperationCleanupSignal();
+        $profiles      = [
             'office' => [
-                'tokenEndpoint' => 'https://idp.example.com/token',
-                'clientId' => 'public-client',
+                'tokenEndpoint'    => 'https://idp.example.com/token',
+                'clientId'         => 'public-client',
                 'allowedAudiences' => ['urn:one'],
-                'allowedScopes' => ['read'],
-                'backendUsers' => [
+                'allowedScopes'    => ['read'],
+                'backendUsers'     => [
                     7 => [
-                        'enabled' => true,
+                        'enabled'              => true,
                         'credentialIdentifier' => self::SUBJECT,
-                        'allowedAudiences' => ['urn:one'],
-                        'allowedScopes' => ['read'],
+                        'allowedAudiences'     => ['urn:one'],
+                        'allowedScopes'        => ['read'],
                     ],
                 ],
                 'serviceAccounts' => [],
@@ -496,22 +499,22 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
         $configuration
             ->method('get')
             ->willReturnCallback(
-                static fn(string $extension, string $path = ''): mixed => match ($path) {
+                static fn (string $extension, string $path = ''): mixed => match ($path) {
                     'mcpDelegationProfiles' => $profiles,
-                    'mcpOperationTimeout' => '10',
-                    default => null,
+                    'mcpOperationTimeout'   => '10',
+                    default                 => null,
                 },
             );
         $dns = self::createStub(DnsResolverInterface::class);
         $dns->method('resolve')->willReturn([['ip' => '93.184.215.14']]);
         $secureFactory = new SecureHttpClientFactory($dns);
-        $vault = self::createStub(VaultServiceInterface::class);
+        $vault         = self::createStub(VaultServiceInterface::class);
         $vault
             ->method('store')
             ->willReturnCallback(
                 function (string $identifier, string $value, array $options): void {
-                    $this->events[] = 'store';
-                    $this->stores[] = ['identifier' => $identifier, 'value' => $value, 'options' => $options];
+                    $this->events[]            = 'store';
+                    $this->stores[]            = ['identifier' => $identifier, 'value' => $value, 'options' => $options];
                     $this->values[$identifier] = $value;
                 },
             );
@@ -519,7 +522,7 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
             ->method('getMetadata')
             ->willReturnCallback(
                 function (string $identifier): SecretDetails {
-                    $this->events[] = 'metadata';
+                    $this->events[]   = 'metadata';
                     $this->metadata[] = $identifier;
                     foreach ($this->stores as $store) {
                         if ($store['identifier'] === $identifier) {
@@ -536,6 +539,7 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
                 function (string $identifier): bool {
                     $this->events[] = 'exists';
                     $this->exists[] = $identifier;
+
                     return array_key_exists($identifier, $this->values);
                 },
             );
@@ -544,7 +548,8 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
             ->willReturnCallback(
                 function (string $identifier): string {
                     $this->events[] = $identifier === self::SUBJECT ? 'retrieve_subject' : 'retrieve_issued';
-                    $this->reads[] = $identifier;
+                    $this->reads[]  = $identifier;
+
                     return $this->values[$identifier] ?? throw new RuntimeException('Fixture credential unavailable.', 1800100002);
                 },
             );
@@ -552,7 +557,7 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
             ->method('delete')
             ->willReturnCallback(
                 function (string $identifier, string $reason): void {
-                    $this->events[] = 'delete';
+                    $this->events[]  = 'delete';
                     $this->deletes[] = ['identifier' => $identifier, 'reason' => $reason];
                     if ($this->cleanup === 'runtime') {
                         throw new RuntimeException('private-cleanup issued-close-secret', 1800100003);
@@ -574,17 +579,18 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
                     $this->requests[] = $request;
                     if ($request->getUri()->getHost() === 'idp.example.com') {
                         $this->events[] = 'idp';
+
                         return $this->jsonResponse(
                             [
-                                'access_token' => self::ISSUED_VALUE,
-                                'token_type' => 'Bearer',
+                                'access_token'      => self::ISSUED_VALUE,
+                                'token_type'        => 'Bearer',
                                 'issued_token_type' => 'urn:ietf:params:oauth:token-type:access_token',
-                                'expires_in' => 60,
+                                'expires_in'        => 60,
                             ],
                         );
                     }
 
-                    $decoded = json_decode((string)$request->getBody(), true, 512, JSON_THROW_ON_ERROR);
+                    $decoded = json_decode((string) $request->getBody(), true, 512, JSON_THROW_ON_ERROR);
                     if (!is_array($decoded)) {
                         throw new RuntimeException('Fixture received an invalid JSON-RPC request.', 1800100014);
                     }
@@ -599,8 +605,8 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
                         return $this->jsonResponse(
                             [
                                 'jsonrpc' => '2.0',
-                                'id' => $decoded['id'],
-                                'result' => ['protocolVersion' => '2025-06-18', 'capabilities' => new stdClass()],
+                                'id'      => $decoded['id'],
+                                'result'  => ['protocolVersion' => '2025-06-18', 'capabilities' => new stdClass()],
                             ],
                         )->withHeader('Mcp-Session-Id', 'probe-session');
                     }
@@ -625,14 +631,14 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
                         match ($primary) {
                             'rpc' => [
                                 'jsonrpc' => '2.0',
-                                'id' => $decoded['id'],
-                                'error' => ['code' => -32602, 'message' => "Remote\nrequest refused."],
+                                'id'      => $decoded['id'],
+                                'error'   => ['code' => -32602, 'message' => "Remote\nrequest refused."],
                             ],
                             'malformed' => ['jsonrpc' => '2.0', 'id' => $decoded['id'], 'result' => 'wrong-type'],
-                            default => [
+                            default     => [
                                 'jsonrpc' => '2.0',
-                                'id' => $decoded['id'],
-                                'result' => [
+                                'id'      => $decoded['id'],
+                                'result'  => [
                                     'content' => [
                                         [
                                             'type' => 'text',
@@ -646,14 +652,15 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
                     );
                 },
             );
-        $audit = self::createStub(AuditLogServiceInterface::class);
-        $http = self::createStub(VaultHttpClientInterface::class);
+        $audit   = self::createStub(AuditLogServiceInterface::class);
+        $http    = self::createStub(VaultHttpClientInterface::class);
         $binding = null;
         $http
             ->method('withTimeout')
             ->willReturnCallback(
                 function (int $timeout) use ($http): VaultHttpClientInterface {
                     $this->timeouts[] = $timeout;
+
                     return $http;
                 },
             );
@@ -662,6 +669,7 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
             ->willReturnCallback(
                 function (string $reason) use ($http): VaultHttpClientInterface {
                     $this->reasons[] = $reason;
+
                     return $http;
                 },
             );
@@ -675,10 +683,11 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
                 ) use ($http, &$binding): VaultHttpClientInterface {
                     $binding = [
                         'identifier' => $identifier,
-                        'placement' => $placement,
-                        'options' => $this->boundAuthenticationOptions($options),
+                        'placement'  => $placement,
+                        'options'    => $this->boundAuthenticationOptions($options),
                     ];
                     $this->authentication[] = $binding;
+
                     return $http;
                 },
             );
@@ -722,9 +731,9 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
                         ?CancellationSignalInterface $cancellation = null,
                     ) use ($factory, $customCloseFailure): McpCredentialSessionInterface {
                         $this->customFactoryCalls[] = [
-                            'server' => $server,
-                            'actor' => $actor,
-                            'deadline' => $deadline,
+                            'server'       => $server,
+                            'actor'        => $actor,
+                            'deadline'     => $deadline,
                             'cancellation' => $cancellation,
                         ];
                         $stockSession = $factory->openForExecution($server, $actor, $deadline, $cancellation);
@@ -732,7 +741,7 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
                             throw new RuntimeException('Fixture custom factory has no stock delegated session.', 1800100013);
                         }
 
-                        $session = new McpOperationCleanupRawErrorSession($stockSession, $customCloseFailure);
+                        $session                = new McpOperationCleanupRawErrorSession($stockSession, $customCloseFailure);
                         $this->customSessions[] = $session;
 
                         return $session;
@@ -741,9 +750,9 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
         }
 
         $psrFactory = new HttpFactory();
-        $transport = new McpHttpTransport($vault, $secureFactory, $psrFactory, $psrFactory);
-        $contacts = new RecordedContacts();
-        $server = new McpServerRecord(
+        $transport  = new McpHttpTransport($vault, $secureFactory, $psrFactory, $psrFactory);
+        $contacts   = new RecordedContacts();
+        $server     = new McpServerRecord(
             uid: 1,
             pid: 0,
             identifier: 'close_probe',
@@ -770,14 +779,15 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
             delegationScopes: 'read',
             discoveryCredential: '',
         );
+
         return [
-            'client' => new McpClient($transport, $contacts, new McpDeadlineFactory($clock, $configuration), $executionFactory),
-            'factory' => $factory,
-            'server' => $server,
-            'clock' => $clock,
-            'signal' => $signal,
+            'client'   => new McpClient($transport, $contacts, new McpDeadlineFactory($clock, $configuration), $executionFactory),
+            'factory'  => $factory,
+            'server'   => $server,
+            'clock'    => $clock,
+            'signal'   => $signal,
             'contacts' => $contacts,
-            'before' => time(),
+            'before'   => time(),
         ];
     }
 
@@ -787,7 +797,7 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
     private function assertActualOperationCapture(array $kernel, string $primary, string $cleanup): void
     {
         self::assertCount(1, $this->stores);
-        $store = $this->stores[0];
+        $store     = $this->stores[0];
         $reference = $store['identifier'];
         self::assertInstanceOf(UuidV7::class, Uuid::fromString($reference));
         self::assertSame(self::ISSUED_VALUE, $store['value']);
@@ -796,11 +806,11 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
         self::assertSame('mcp_delegation', $store['options']['context']);
         self::assertSame(
             [
-                'server' => 'close_probe',
-                'profile' => 'office',
-                'audience' => 'urn:one',
-                'scopes' => ['read'],
-                'actorUid' => 7,
+                'server'         => 'close_probe',
+                'profile'        => 'office',
+                'audience'       => 'urn:one',
+                'scopes'         => ['read'],
+                'actorUid'       => 7,
                 'serviceAccount' => null,
             ],
             $store['options']['metadata'],
@@ -812,7 +822,7 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
         self::assertSame($cleanup !== 'healthy', array_key_exists($reference, $this->values));
 
         $sentCall = !in_array($primary, ['cancelled', 'deadline', 'serialization'], true);
-        $legs = $sentCall ? 3 : 2;
+        $legs     = $sentCall ? 3 : 2;
         self::assertCount($legs + 1, $this->requests);
         self::assertSame(array_fill(0, $legs, $reference), $this->exists);
         self::assertSame([self::SUBJECT, ...array_fill(0, $legs, $reference)], $this->reads);
@@ -825,8 +835,8 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
             [
                 [
                     'identifier' => self::SUBJECT,
-                    'placement' => SecretPlacement::BodyField,
-                    'options' => ['bodyField' => 'subject_token'],
+                    'placement'  => SecretPlacement::BodyField,
+                    'options'    => ['bodyField' => 'subject_token'],
                 ],
                 ...array_fill(
                     0,
@@ -853,28 +863,28 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
         self::assertSame($events, $this->events);
 
         $form = [];
-        parse_str((string)$this->requests[0]->getBody(), $form);
-        self::assertSame('https://idp.example.com/token', (string)$this->requests[0]->getUri());
+        parse_str((string) $this->requests[0]->getBody(), $form);
+        self::assertSame('https://idp.example.com/token', (string) $this->requests[0]->getUri());
         self::assertSame('', $this->requests[0]->getHeaderLine('Authorization'));
         self::assertSame(
             [
-                'grant_type' => 'urn:ietf:params:oauth:grant-type:token-exchange',
-                'subject_token_type' => 'urn:ietf:params:oauth:token-type:access_token',
+                'grant_type'           => 'urn:ietf:params:oauth:grant-type:token-exchange',
+                'subject_token_type'   => 'urn:ietf:params:oauth:token-type:access_token',
                 'requested_token_type' => 'urn:ietf:params:oauth:token-type:access_token',
-                'client_id' => 'public-client',
-                'audience' => 'urn:one',
-                'scope' => 'read',
-                'subject_token' => self::SUBJECT_VALUE,
+                'client_id'            => 'public-client',
+                'audience'             => 'urn:one',
+                'scope'                => 'read',
+                'subject_token'        => self::SUBJECT_VALUE,
             ],
             $form,
         );
         foreach (array_slice($this->requests, 1) as $position => $request) {
-            self::assertSame('https://mcp.example.com/rpc', (string)$request->getUri());
+            self::assertSame('https://mcp.example.com/rpc', (string) $request->getUri());
             self::assertSame('Bearer ' . self::ISSUED_VALUE, $request->getHeaderLine('Authorization'));
             self::assertSame($position === 0 ? '' : 'probe-session', $request->getHeaderLine('Mcp-Session-Id'));
-            self::assertStringNotContainsString(self::SUBJECT_VALUE, (string)$request->getBody());
-            self::assertStringNotContainsString('LegacyMustNotBeUsed', (string)$request->getBody());
-            $decoded = json_decode((string)$request->getBody(), true, 512, JSON_THROW_ON_ERROR);
+            self::assertStringNotContainsString(self::SUBJECT_VALUE, (string) $request->getBody());
+            self::assertStringNotContainsString('LegacyMustNotBeUsed', (string) $request->getBody());
+            $decoded = json_decode((string) $request->getBody(), true, 512, JSON_THROW_ON_ERROR);
             self::assertIsArray($decoded);
             self::assertSame('2.0', $decoded['jsonrpc']);
             self::assertSame(['initialize', 'notifications/initialized', 'tools/call'][$position], $decoded['method']);
@@ -998,11 +1008,11 @@ final class McpOperationCleanupPrecedenceTest extends TestCase
      */
     private function storedSecretDetails(string $identifier, array $options): SecretDetails
     {
-        $owner = $options['owner'] ?? null;
-        $context = $options['context'] ?? null;
+        $owner     = $options['owner'] ?? null;
+        $context   = $options['context'] ?? null;
         $expiresAt = $options['expiresAt'] ?? null;
-        $groups = $options['groups'] ?? null;
-        $metadata = $options['metadata'] ?? null;
+        $groups    = $options['groups'] ?? null;
+        $metadata  = $options['metadata'] ?? null;
         if (!is_int($owner) || !is_string($context) || !is_int($expiresAt) || !is_array($groups) || !array_is_list($groups) || !is_array($metadata)) {
             throw new RuntimeException('Fixture stored credential options have an unexpected shape.', 1800100015);
         }

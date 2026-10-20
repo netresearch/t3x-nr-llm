@@ -182,7 +182,7 @@ final readonly class ResolveUrlTool implements ToolInterface
     {
         $relativeBase = null;
         foreach ($this->siteFinder->getAllSites() as $site) {
-            $base = (string)$site->getBase();
+            $base = (string) $site->getBase();
             if ($base === '') {
                 continue;
             }
@@ -236,9 +236,9 @@ final readonly class ResolveUrlTool implements ToolInterface
         $language = $routeResult->getLanguage();
 
         $lines   = [];
-        $lines[] = sprintf('Site: %s (base %s)', $site->getIdentifier(), (string)$site->getBase());
+        $lines[] = sprintf('Site: %s (base %s)', $site->getIdentifier(), (string) $site->getBase());
         if ($language instanceof SiteLanguage) {
-            $lines[] = sprintf('Language: %d (%s)', $language->getLanguageId(), (string)$language->getLocale());
+            $lines[] = sprintf('Language: %d (%s)', $language->getLanguageId(), (string) $language->getLocale());
         }
 
         $lines[] = sprintf(

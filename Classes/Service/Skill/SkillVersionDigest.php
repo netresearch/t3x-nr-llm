@@ -35,7 +35,7 @@ use Netresearch\NrLlm\Domain\Model\Skill;
  * compose-time integrity check, the approval form and the upgrade wizard — so
  * the four can never disagree about what a version is.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class SkillVersionDigest
 {

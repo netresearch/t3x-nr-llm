@@ -18,7 +18,7 @@ iteration cap is reached. The v1 consumer is the interactive
 
 The :ref:`Tool Playground <administration-tools-playground>` — the only
 surface that runs the agent TOOL loop — is **admin-only** (editors run
-one-shot tasks and decide approvals in :guilabel:`Web > AI Tasks`, which
+one-shot tasks and decide approvals in :guilabel:`AI > AI Tasks`, which
 never executes tools directly). The runtime itself
 applies a two-tier gate: each tool declares ``requiresAdmin()``, and
 :php:`ToolLoopService` drops admin-only tools when the acting backend user is
@@ -356,6 +356,14 @@ What holds for all of them:
   of both values — so a change past the visible part, such as an appended
   link, still shows. A character a reader cannot see, such as a zero-width
   space or a direction mark, is written as its code point.
+- ``update_page_metadata``, ``update_content_element`` and
+  ``set_page_social_image`` also give the card each field as structured
+  values: its label, the value stored now and the value proposed, read with
+  the rights of the user the card is shown to (:ref:`ADR-214 <adr-214>`,
+  item 9). A text field carries its length. The recommended range comes from
+  the extension configuration ``tools.structuredPreview.ranges``, entries
+  ``table.field:min-max``, shipped as ``pages.description:140-160``. An empty
+  value removes every range.
 
 ``update_page_metadata``
    Sets a fixed set of descriptive fields on one page. Editable: ``title``,
@@ -964,7 +972,7 @@ What editors see
 
 The declaration is what the **Editor Action Center**
 (:ref:`ADR-158 <adr-158>`) renders. It lives in the editor module
-:guilabel:`Web > AI tasks` and appears in two places: as an :guilabel:`AI
+:guilabel:`AI > AI Tasks` and appears in two places: as an :guilabel:`AI
 actions` catalogue reachable from that module, and as an :guilabel:`AI actions`
 entry in the context menu of a record — a page or a content element — which
 opens the catalogue narrowed to the actions that address that record.

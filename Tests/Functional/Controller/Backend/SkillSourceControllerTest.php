@@ -62,6 +62,7 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
             $this->get(PersistenceManagerInterface::class),
             new NullLogger(),
         );
+
         return new SkillSourceController(
             $this->get(ModuleTemplateFactory::class),
             $this->get(SkillSourceRepository::class),
@@ -85,6 +86,7 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
         $repository = $this->get(SkillSourceRepository::class);
         $repository->add($source);
         $this->get(PersistenceManagerInterface::class)->persistAll();
+
         return $source;
     }
 
@@ -98,11 +100,11 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
         $controller = $this->get(SkillSourceController::class);
         self::assertInstanceOf(SkillSourceController::class, $controller);
 
-        $request = (new ServerRequest())->withParsedBody(['skill' => 1, 'enabled' => 0]);
+        $request  = (new ServerRequest())->withParsedBody(['skill' => 1, 'enabled' => 0]);
         $response = $controller->toggleSkillAction($request);
 
         self::assertSame(200, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertTrue($payload['success']);
 
@@ -174,11 +176,11 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
         $controller = $this->get(SkillSourceController::class);
         self::assertInstanceOf(SkillSourceController::class, $controller);
 
-        $request = (new ServerRequest())->withParsedBody(['skill' => 1, 'enabled' => 0]);
+        $request  = (new ServerRequest())->withParsedBody(['skill' => 1, 'enabled' => 0]);
         $response = $controller->toggleSkillAction($request);
 
         self::assertSame(403, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
 
@@ -199,11 +201,11 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
         $controller = $this->get(SkillSourceController::class);
         self::assertInstanceOf(SkillSourceController::class, $controller);
 
-        $request = (new ServerRequest())->withParsedBody(['source' => $source->getUid()]);
+        $request  = (new ServerRequest())->withParsedBody(['source' => $source->getUid()]);
         $response = $controller->syncAction($request);
 
         self::assertSame(403, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
 
@@ -228,11 +230,11 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
         $vault->expects(self::never())->method('store');
         $controller = $this->controllerWithVault($vault);
 
-        $request = (new ServerRequest())->withParsedBody(['source' => $source->getUid(), 'token' => 'ghp_secret']);
+        $request  = (new ServerRequest())->withParsedBody(['source' => $source->getUid(), 'token' => 'ghp_secret']);
         $response = $controller->setTokenAction($request);
 
         self::assertSame(403, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
 
@@ -253,23 +255,23 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
         $this->setUpBackendUser(1); // admin
         $this->setUpBackendRequest();
 
-        $capturedId = '';
+        $capturedId     = '';
         $capturedSecret = '';
-        $vault = $this->createMock(VaultServiceInterface::class);
+        $vault          = $this->createMock(VaultServiceInterface::class);
         $vault->expects(self::once())->method('store')
             ->willReturnCallback(function (string $id, string $secret) use (&$capturedId, &$capturedSecret): void {
-                $capturedId = $id;
+                $capturedId     = $id;
                 $capturedSecret = $secret;
             });
         $controller = $this->controllerWithVault($vault);
 
         $uid = $source->getUid();
         self::assertNotNull($uid);
-        $request = (new ServerRequest())->withParsedBody(['source' => $uid, 'token' => 'ghp_plaintext_secret']);
+        $request  = (new ServerRequest())->withParsedBody(['source' => $uid, 'token' => 'ghp_plaintext_secret']);
         $response = $controller->setTokenAction($request);
 
         self::assertSame(200, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertTrue($payload['success']);
 
@@ -300,11 +302,11 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
 
         $uid = $source->getUid();
         self::assertNotNull($uid);
-        $request = (new ServerRequest())->withParsedBody(['source' => $uid, 'token' => 'ghp_plaintext_secret']);
+        $request  = (new ServerRequest())->withParsedBody(['source' => $uid, 'token' => 'ghp_plaintext_secret']);
         $response = $controller->setTokenAction($request);
 
         self::assertSame(500, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
         self::assertArrayHasKey('error', $payload);

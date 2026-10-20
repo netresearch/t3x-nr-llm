@@ -113,7 +113,7 @@ final class PendingTargetCoverageTest extends AbstractFunctionalTestCase
                 self::assertNull($tool->pendingTarget($withoutField), $name . ' without a field');
             }
 
-            $broken = array_map(static fn(mixed $value): mixed => is_int($value) ? -1 : $value, $arguments);
+            $broken = array_map(static fn (mixed $value): mixed => is_int($value) ? -1 : $value, $arguments);
             if ($expected !== null) {
                 self::assertNotInstanceOf(PendingWriteTarget::class, $tool->pendingTarget($broken), $name . ' with a negative uid');
             }

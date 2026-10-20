@@ -1,8 +1,11 @@
 <?php
 
-/* Copyright (c) 2026 Netresearch DTT GmbH
- * SPDX-License-Identifier: GPL-2.0-or-later */
-declare (strict_types=1);
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool\Mcp\Auth;
 
@@ -64,9 +67,9 @@ final class McpCredentialCompensationTest extends AbstractFunctionalTestCase
     public static function modes(): array
     {
         return [
-            'healthy operation' => ['healthy'],
+            'healthy operation'         => ['healthy'],
             'listener RuntimeException' => ['runtime'],
-            'listener Error' => ['error'],
+            'listener Error'            => ['error'],
         ];
     }
 
@@ -77,7 +80,7 @@ final class McpCredentialCompensationTest extends AbstractFunctionalTestCase
     ): void {
         $this->importFixture('BeUsers.csv');
         $this->setUpBackendUser(1);
-        $pool = $this->getService(ConnectionPool::class);
+        $pool          = $this->getService(ConnectionPool::class);
         $configuration = self::createStub(ExtensionConfigurationInterface::class);
         $configuration
             ->method('getSecurityProfile')
@@ -85,8 +88,8 @@ final class McpCredentialCompensationTest extends AbstractFunctionalTestCase
         $configuration->method('isCliAccessAllowed')->willReturn(false);
         $dns = self::createStub(DnsResolverInterface::class);
         $dns->method('resolve')->willReturn([['ip' => '93.184.216.34']]);
-        $secure = new SecureHttpClientFactory($dns);
-        $audit = self::createStub(AuditLogServiceInterface::class);
+        $secure     = new SecureHttpClientFactory($dns);
+        $audit      = self::createStub(AuditLogServiceInterface::class);
         $encryption = self::createStub(EncryptionServiceInterface::class);
         $encryption
             ->method('encrypt')
@@ -102,7 +105,7 @@ final class McpCredentialCompensationTest extends AbstractFunctionalTestCase
         $encryption
             ->method('decrypt')
             ->willReturnCallback(
-                static fn(
+                static fn (
                     string $cipher,
                     string $dek,
                     string $dekNonce,
@@ -140,7 +143,7 @@ final class McpCredentialCompensationTest extends AbstractFunctionalTestCase
             }
         };
         /** @var list<RequestInterface> $requests */
-        $requests = [];
+        $requests    = [];
         $httpFactory = self::createStub(VaultHttpClientFactoryInterface::class);
         $httpFactory
             ->method('create')
@@ -158,6 +161,7 @@ final class McpCredentialCompensationTest extends AbstractFunctionalTestCase
                             RequestInterface $request,
                         ) use (&$requests): ResponseInterface {
                             $requests[] = $request;
+
                             return new Response(
                                 200,
                                 ['Content-Type' => 'application/json'],
@@ -166,7 +170,7 @@ final class McpCredentialCompensationTest extends AbstractFunctionalTestCase
                         },
                     );
                     $builder->method('sendRequest')->willReturnCallback(
-                        static fn(
+                        static fn (
                             RequestInterface $request,
                         ): ResponseInterface => (new VaultHttpClient(
                             $vault,
@@ -179,6 +183,7 @@ final class McpCredentialCompensationTest extends AbstractFunctionalTestCase
                             ['bodyField' => 'subject_token'],
                         )->sendRequest($request),
                     );
+
                     return $builder;
                 },
             );
@@ -200,7 +205,7 @@ final class McpCredentialCompensationTest extends AbstractFunctionalTestCase
             'mapped-subject',
             ['owner' => 1, 'groups' => []],
         );
-        $clock = new FakeMcpClock();
+        $clock  = new FakeMcpClock();
         $server = new McpServerRecord(
             1,
             0,
@@ -252,9 +257,9 @@ final class McpCredentialCompensationTest extends AbstractFunctionalTestCase
             $clock,
             $subject,
         );
-        $caught = null;
+        $caught     = null;
         $closeError = null;
-        $returned = null;
+        $returned   = null;
         try {
             $returned = $session->credentialIdentifier();
         } catch (Throwable $exception) {
@@ -271,9 +276,9 @@ final class McpCredentialCompensationTest extends AbstractFunctionalTestCase
         self::assertCount(1, $requests);
         self::assertSame(
             'https://idp.example/token',
-            (string)$requests[0]->getUri(),
+            (string) $requests[0]->getUri(),
         );
-        parse_str((string)$requests[0]->getBody(), $fields);
+        parse_str((string) $requests[0]->getBody(), $fields);
         self::assertSame('mapped-subject', $fields['subject_token']);
         self::assertIsString($dispatcher->issuedIdentifier);
         $rows = $pool
@@ -289,8 +294,8 @@ final class McpCredentialCompensationTest extends AbstractFunctionalTestCase
             'The real store event occurs after this SQL row was persisted.',
         );
         self::assertSame($dispatcher->issuedIdentifier, $rows[0]['identifier']);
-        self::assertSame(1, (int)$rows[0]['owner_uid']);
-        self::assertGreaterThan(time(), (int)$rows[0]['expires_at']);
+        self::assertSame(1, (int) $rows[0]['owner_uid']);
+        self::assertGreaterThan(time(), (int) $rows[0]['expires_at']);
         if ($mode === 'healthy') {
             self::assertNull($caught);
             self::assertSame($dispatcher->issuedIdentifier, $returned);
@@ -311,7 +316,7 @@ final class McpCredentialCompensationTest extends AbstractFunctionalTestCase
         $active = array_values(
             array_filter(
                 $rows,
-                static fn(array $row): bool => (int)$row['deleted'] === 0,
+                static fn (array $row): bool => (int) $row['deleted'] === 0,
             ),
         );
         self::assertCount(
@@ -321,7 +326,7 @@ final class McpCredentialCompensationTest extends AbstractFunctionalTestCase
         );
         self::assertSame(
             0,
-            (int)$pool
+            (int) $pool
                 ->getConnectionForTable('tx_nrvault_secret')
                 ->executeQuery(
                     'SELECT deleted FROM tx_nrvault_secret WHERE identifier = ?',

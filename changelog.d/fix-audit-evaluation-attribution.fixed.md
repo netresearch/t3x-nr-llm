@@ -1,0 +1,1 @@
+- **Evaluation quality is attributed to its actual generator (ADR-220).** Mixed or unverified runs retain their grades without crediting the last response model. Core quality reads and ranking distinguish configured provider instances sharing one adapter/model alias; baselines additionally filter the reported snapshot before selecting the latest eligible row.

@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
@@ -51,7 +52,7 @@ final readonly class ToolInvocationPolicy implements ToolInvocationPolicyInterfa
             $indexed[$id] = $rule;
         }
 
-        $this->rules = $indexed;
+        $this->rules     = $indexed;
         $this->resolvers = is_array($resolvers) ? array_values($resolvers) : iterator_to_array($resolvers, false);
     }
 

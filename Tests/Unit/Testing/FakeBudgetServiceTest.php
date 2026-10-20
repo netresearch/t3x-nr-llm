@@ -38,7 +38,7 @@ final class FakeBudgetServiceTest extends TestCase
     #[Test]
     public function returnsTheCannedResult(): void
     {
-        $subject = new FakeBudgetService();
+        $subject              = new FakeBudgetService();
         $subject->checkResult = BudgetCheckResult::denied('cost_per_day', 9.0, 9.0, 'exhausted');
 
         $result = $subject->check(1, 0.5);
@@ -63,7 +63,7 @@ final class FakeBudgetServiceTest extends TestCase
     #[Test]
     public function throwsConfiguredThrowableInsteadOfReturning(): void
     {
-        $subject = new FakeBudgetService();
+        $subject            = new FakeBudgetService();
         $subject->throwable = new RuntimeException('boom');
 
         $this->expectException(RuntimeException::class);
@@ -75,8 +75,8 @@ final class FakeBudgetServiceTest extends TestCase
     #[Test]
     public function throwableIsOneShotAndTheNextCallReturnsAgain(): void
     {
-        $subject = new FakeBudgetService();
-        $expected = new RuntimeException('boom');
+        $subject            = new FakeBudgetService();
+        $expected           = new RuntimeException('boom');
         $subject->throwable = $expected;
 
         $caught = null;

@@ -13,7 +13,7 @@ namespace Netresearch\NrLlm\Service\Skill;
  * The stored facts the load tool re-checks at the moment of a load (ADR-214
  * item 4), read now rather than from the objects the run started with.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 interface SkillLoadLookupInterface
 {

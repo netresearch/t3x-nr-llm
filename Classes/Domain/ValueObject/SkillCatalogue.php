@@ -17,7 +17,7 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  * Built once per loop segment. It is a list of candidates, not a grant: the
  * load re-checks every condition at the moment of the load.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class SkillCatalogue
 {

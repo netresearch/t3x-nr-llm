@@ -84,7 +84,7 @@ final readonly class LogExceptionReader
             }
         }
 
-        usort($entries, static fn(LogExceptionEntry $a, LogExceptionEntry $b): int => $b->timestamp <=> $a->timestamp);
+        usort($entries, static fn (LogExceptionEntry $a, LogExceptionEntry $b): int => $b->timestamp <=> $a->timestamp);
 
         return array_slice($entries, 0, max(1, $limit));
     }
@@ -100,7 +100,7 @@ final readonly class LogExceptionReader
             return [];
         }
 
-        usort($files, static fn(string $a, string $b): int => (int)filemtime($b) <=> (int)filemtime($a));
+        usort($files, static fn (string $a, string $b): int => (int) filemtime($b) <=> (int) filemtime($a));
 
         return $files;
     }
@@ -114,7 +114,7 @@ final readonly class LogExceptionReader
             return [];
         }
 
-        $size   = (int)filesize($file);
+        $size   = (int) filesize($file);
         $offset = max(0, $size - self::TAIL_BYTES);
         $raw    = file_get_contents($file, false, null, $offset);
         if ($raw === false || $raw === '') {
@@ -185,14 +185,14 @@ final readonly class LogExceptionReader
         // The throw site ("in /file.php:12") leads the frame list so the
         // most relevant source location comes first.
         if (preg_match('/ in (?<file>\/[^\s:]+):(?<line>\d+)/', $trace, $tm) === 1) {
-            $frames[] = ['file' => $tm['file'], 'line' => (int)$tm['line'], 'call' => '(throw site)'];
+            $frames[] = ['file' => $tm['file'], 'line' => (int) $tm['line'], 'call' => '(throw site)'];
         }
 
         if (preg_match_all(self::FRAME_PATTERN, $trace, $fm, PREG_SET_ORDER) > 0) {
             foreach ($fm as $frame) {
                 $frames[] = [
                     'file' => $frame['file'],
-                    'line' => (int)$frame['line'],
+                    'line' => (int) $frame['line'],
                     'call' => trim($frame['call']),
                 ];
             }

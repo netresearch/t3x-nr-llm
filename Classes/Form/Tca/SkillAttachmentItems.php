@@ -83,7 +83,7 @@ final class SkillAttachmentItems
                 continue;
             }
 
-            $label         = is_string($item['label'] ?? null) ? $item['label'] : (string)$value;
+            $label         = is_string($item['label'] ?? null) ? $item['label'] : (string) $value;
             $item['label'] = $label . ' (' . $this->translate(self::LABELS . 'tx_nrllm_skill.attachment.' . $suffix, self::FALLBACKS[$suffix]) . ')';
             $kept[]        = $item;
         }
@@ -95,7 +95,7 @@ final class SkillAttachmentItems
     {
         $value = is_array($item) ? ($item['value'] ?? null) : null;
 
-        return is_numeric($value) ? (int)$value : 0;
+        return is_numeric($value) ? (int) $value : 0;
     }
 
     /**
@@ -120,10 +120,10 @@ final class SkillAttachmentItems
                 continue;
             }
 
-            $states[(int)$row['uid']] = [
-                'enabled'  => is_numeric($row['enabled'] ?? null) && (int)$row['enabled'] === 1,
-                'orphaned' => is_numeric($row['orphaned'] ?? null) && (int)$row['orphaned'] === 1,
-                'process'  => is_numeric($row['process'] ?? null) && (int)$row['process'] === 1,
+            $states[(int) $row['uid']] = [
+                'enabled'  => is_numeric($row['enabled'] ?? null) && (int) $row['enabled'] === 1,
+                'orphaned' => is_numeric($row['orphaned'] ?? null) && (int) $row['orphaned'] === 1,
+                'process'  => is_numeric($row['process'] ?? null) && (int) $row['process'] === 1,
             ];
         }
 
@@ -142,7 +142,7 @@ final class SkillAttachmentItems
     {
         $uid     = $params['row']['uid'] ?? null;
         $mmTable = $params['config']['MM'] ?? null;
-        if (!is_numeric($uid) || (int)$uid <= 0 || !is_string($mmTable) || $mmTable === '') {
+        if (!is_numeric($uid) || (int) $uid <= 0 || !is_string($mmTable) || $mmTable === '') {
             return [];
         }
 
@@ -151,12 +151,12 @@ final class SkillAttachmentItems
         $queryBuilder
             ->select('uid_foreign')
             ->from($mmTable)
-            ->where($queryBuilder->expr()->eq('uid_local', $queryBuilder->createNamedParameter((int)$uid, Connection::PARAM_INT)));
+            ->where($queryBuilder->expr()->eq('uid_local', $queryBuilder->createNamedParameter((int) $uid, Connection::PARAM_INT)));
         $matchFields = $params['config']['MM_match_fields'] ?? [];
         if (is_array($matchFields)) {
             foreach ($matchFields as $field => $match) {
                 if (is_string($field) && is_scalar($match)) {
-                    $queryBuilder->andWhere($queryBuilder->expr()->eq($field, $queryBuilder->createNamedParameter((string)$match)));
+                    $queryBuilder->andWhere($queryBuilder->expr()->eq($field, $queryBuilder->createNamedParameter((string) $match)));
                 }
             }
         }
@@ -164,7 +164,7 @@ final class SkillAttachmentItems
         $attached = [];
         foreach ($queryBuilder->executeQuery()->fetchFirstColumn() as $skillUid) {
             if (is_numeric($skillUid)) {
-                $attached[] = (int)$skillUid;
+                $attached[] = (int) $skillUid;
             }
         }
 

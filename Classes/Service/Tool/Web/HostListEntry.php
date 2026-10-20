@@ -40,7 +40,7 @@ final readonly class HostListEntry
         }
 
         if (preg_match('/^\[([0-9a-f:.]+)\](?::(\d{1,5}))?$/', $entry, $m) === 1) {
-            return self::address($m[1], isset($m[2]) ? (int)$m[2] : null);
+            return self::address($m[1], isset($m[2]) ? (int) $m[2] : null);
         }
 
         if (substr_count($entry, ':') >= 2) {
@@ -50,7 +50,7 @@ final readonly class HostListEntry
         $port = null;
         if (preg_match('/^(.+):(\d{1,5})$/', $entry, $m) === 1) {
             $entry = $m[1];
-            $port  = (int)$m[2];
+            $port  = (int) $m[2];
         }
 
         if (filter_var($entry, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
@@ -93,7 +93,7 @@ final readonly class HostListEntry
             return false;
         }
 
-        return self::canonical((string)inet_pton($ip)) === $this->packed;
+        return self::canonical((string) inet_pton($ip)) === $this->packed;
     }
 
     private static function address(string $ip, ?int $port): ?self
@@ -102,7 +102,7 @@ final readonly class HostListEntry
             return null;
         }
 
-        return new self($ip, $port, self::canonical((string)inet_pton($ip)));
+        return new self($ip, $port, self::canonical((string) inet_pton($ip)));
     }
 
     /**

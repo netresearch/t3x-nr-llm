@@ -157,7 +157,7 @@ final readonly class QueuedRunFailureRecovery
 
         // 2 ** $n widens to int|float under static analysis; the cap keeps the
         // result well inside int range, so the cast is exact, not lossy.
-        $delayMs = (int)min(AgentRuntime::REQUEUE_BACKOFF_MS * (2 ** $priorRequeueCount), AgentRuntime::REQUEUE_BACKOFF_CAP_MS);
+        $delayMs = (int) min(AgentRuntime::REQUEUE_BACKOFF_MS * (2 ** $priorRequeueCount), AgentRuntime::REQUEUE_BACKOFF_CAP_MS);
         $this->messageBus->dispatch(new AgentRunQueuedMessage($uuid), [new DelayStamp($delayMs)]);
     }
 }
